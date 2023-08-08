@@ -1,0 +1,7 @@
+[workspace]
+members = ["contracts/interchain-interceptor"]
+
+[profile.release]
+rpath = false
+lto = true
+overflow-checks = true
