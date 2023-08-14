@@ -2,7 +2,7 @@ use cosmos_sdk_proto::{
     cosmos::tx::v1beta1::{TxBody, TxRaw},
     traits::Message,
 };
-use cosmwasm_std::{entry_point, StdError};
+use cosmwasm_std::{entry_point, to_binary, Deps, StdError};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use neutron_sdk::{
@@ -18,7 +18,7 @@ use neutron_sdk::{
 };
 
 use crate::{
-    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion},
+    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion, QueryMsg},
     state::{Config, State, CONFIG, STATE},
 };
 
@@ -45,6 +45,24 @@ pub fn instantiate(
     )?;
     STATE.save(deps.storage, &State::default())?;
     Ok(Response::default())
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    match msg {
+        QueryMsg::State {} => query_state(deps, env),
+        QueryMsg::Config {} => query_config(deps, env),
+    }
+}
+
+fn query_state(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
+    let state: State = STATE.load(deps.storage)?;
+    to_binary(&state)
+}
+
+fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
+    let config: Config = CONFIG.load(deps.storage)?;
+    to_binary(&config)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
