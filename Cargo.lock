@@ -554,9 +554,12 @@ dependencies = [
  "cw2",
  "cw20",
  "neutron-sdk",
+ "prost 0.11.9",
+ "prost-types",
  "schemars",
  "serde",
  "serde-json-wasm 1.0.0",
+ "tendermint-proto 0.32.2",
 ]
 
 [[package]]
