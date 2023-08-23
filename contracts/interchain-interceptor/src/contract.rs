@@ -2,7 +2,10 @@ use cosmos_sdk_proto::{
     cosmos::{
         bank::v1beta1::MsgSend,
         base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
-        staking::v1beta1::{MsgDelegate, MsgDelegateResponse},
+        staking::v1beta1::{
+            MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgDelegate, MsgDelegateResponse,
+            MsgUndelegate, MsgUndelegateResponse,
+        },
         tx::v1beta1::{TxBody, TxRaw},
     },
     traits::Message,
@@ -31,11 +34,16 @@ use neutron_sdk::{
 
 use crate::{
     msg::{
-        DelegateInfo, ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion, QueryMsg, SudoPayload,
+        ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion, QueryMsg, SudoPayload, Transaction,
+    },
+    proto::cosmos::base::v1beta1::Coin as ProtoCoin,
+    proto::liquidstaking::staking::v1beta1::{
+        MsgRedeemTokensforShares, MsgRedeemTokensforSharesResponse, MsgTokenizeShares,
+        MsgTokenizeSharesResponse,
     },
     state::{
-        Config, State, Transfer, CONFIG, DELEGATIONS, IBC_FEE, RECIPIENT_TXS, REPLY_ID_STORAGE,
-        STATE, SUDO_PAYLOAD,
+        Config, State, Transfer, CONFIG, IBC_FEE, RECIPIENT_TXS, REPLY_ID_STORAGE, STATE,
+        SUDO_PAYLOAD, TRANSACTIONS,
     },
 };
 
@@ -66,7 +74,7 @@ pub fn instantiate(
     )?;
     STATE.save(deps.storage, &State::default())?;
     RECIPIENT_TXS.save(deps.storage, &vec![])?;
-    DELEGATIONS.save(deps.storage, &vec![])?;
+    TRANSACTIONS.save(deps.storage, &vec![])?;
     Ok(Response::default())
 }
 
@@ -76,7 +84,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Bin
         QueryMsg::State {} => query_state(deps, env),
         QueryMsg::Config {} => query_config(deps, env),
         QueryMsg::Transactions {} => query_transactions(deps, env),
-        QueryMsg::Delegations {} => query_done_delegations(deps, env),
+        QueryMsg::InterchainTransactions {} => query_done_transactions(deps, env),
     }
 }
 
@@ -85,8 +93,8 @@ fn query_state(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
     to_binary(&state)
 }
 
-fn query_done_delegations(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
-    let state: Vec<DelegateInfo> = DELEGATIONS.load(deps.storage)?;
+fn query_done_transactions(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
+    let state: Vec<Transaction> = TRANSACTIONS.load(deps.storage)?;
     to_binary(&state)
 }
 
@@ -120,6 +128,36 @@ pub fn execute(
             amount,
             timeout,
         } => execute_delegate(deps, env, info, validator, amount, timeout),
+        ExecuteMsg::Undelegate {
+            validator,
+            amount,
+            timeout,
+        } => execute_undelegate(deps, env, info, validator, amount, timeout),
+        ExecuteMsg::Redelegate {
+            validator_from,
+            validator_to,
+            amount,
+            timeout,
+        } => execute_redelegate(
+            deps,
+            env,
+            info,
+            validator_from,
+            validator_to,
+            amount,
+            timeout,
+        ),
+        ExecuteMsg::TokenizeShare {
+            validator,
+            amount,
+            timeout,
+        } => execute_tokenize_share(deps, env, info, validator, amount, timeout),
+        ExecuteMsg::RedeemShare {
+            validator,
+            amount,
+            denom,
+            timeout,
+        } => execute_redeem_share(deps, env, info, validator, amount, denom, timeout),
     }
 }
 
@@ -221,7 +259,7 @@ fn execute_delegate(
 
     deps.api.debug(&format!(
         "WASMDEBUG: delegate: {:?}",
-        DelegateInfo {
+        Transaction::Delegate {
             interchain_account_id: ICA_ID.to_string(),
             validator: validator.clone(),
             denom: config.remote_denom.clone(),
@@ -235,10 +273,321 @@ fn execute_delegate(
         SudoPayload {
             port_id: get_port_id(env.contract.address.as_str(), ICA_ID),
             message: "message".to_string(),
-            info: Some(DelegateInfo {
+            info: Some(Transaction::Delegate {
                 interchain_account_id: ICA_ID.to_string(),
                 validator,
                 denom: config.remote_denom,
+                amount: amount.into(),
+            }),
+        },
+    )?;
+
+    Ok(Response::default().add_submessages(vec![submsg]))
+}
+
+fn execute_undelegate(
+    mut deps: DepsMut<NeutronQuery>,
+    env: Env,
+    _info: MessageInfo,
+    validator: String,
+    amount: Uint128,
+    timout: Option<u64>,
+) -> NeutronResult<Response<NeutronMsg>> {
+    let fee = IBC_FEE.load(deps.storage)?;
+    let config: Config = CONFIG.load(deps.storage)?;
+    let state: State = STATE.load(deps.storage)?;
+    let delegator = state.ica.ok_or_else(|| {
+        StdError::generic_err("Interchain account is not registered. Please register it first")
+    })?;
+    let connection_id = config.connection_id;
+    let delegate_msg = MsgUndelegate {
+        delegator_address: delegator,
+        validator_address: validator.to_string(),
+        amount: Some(Coin {
+            denom: config.remote_denom.to_string(),
+            amount: amount.to_string(),
+        }),
+    };
+    let mut buf = Vec::new();
+    buf.reserve(delegate_msg.encoded_len());
+    deps.api
+        .debug(&format!("WASMDEBUG: delegate: {:?}", delegate_msg.clone()));
+
+    if let Err(e) = delegate_msg.encode(&mut buf) {
+        return Err(NeutronError::Std(StdError::generic_err(format!(
+            "Encode error: {}",
+            e
+        ))));
+    }
+
+    let any_msg = ProtobufAny {
+        type_url: "/liquidstaking.staking.v1beta1.MsgUndelegate".to_string(),
+        value: Binary::from(buf),
+    };
+
+    let cosmos_msg = NeutronMsg::submit_tx(
+        connection_id,
+        ICA_ID.to_string(),
+        vec![any_msg],
+        "".to_string(),
+        timout.unwrap_or(DEFAULT_TIMEOUT_SECONDS),
+        fee,
+    );
+
+    deps.api.debug(&format!(
+        "WASMDEBUG: delegate: {:?}",
+        Transaction::Undelegate {
+            interchain_account_id: ICA_ID.to_string(),
+            validator: validator.clone(),
+            denom: config.remote_denom.clone(),
+            amount: amount.into(),
+        }
+    ));
+
+    let submsg = msg_with_sudo_callback(
+        deps.branch(),
+        cosmos_msg,
+        SudoPayload {
+            port_id: get_port_id(env.contract.address.as_str(), ICA_ID),
+            message: "message".to_string(),
+            info: Some(Transaction::Undelegate {
+                interchain_account_id: ICA_ID.to_string(),
+                validator,
+                denom: config.remote_denom,
+                amount: amount.into(),
+            }),
+        },
+    )?;
+    Ok(Response::default().add_submessages(vec![submsg]))
+}
+
+fn execute_redelegate(
+    mut deps: DepsMut<NeutronQuery>,
+    env: Env,
+    _info: MessageInfo,
+    validator_from: String,
+    validator_to: String,
+    amount: Uint128,
+    timout: Option<u64>,
+) -> NeutronResult<Response<NeutronMsg>> {
+    let fee = IBC_FEE.load(deps.storage)?;
+    let config: Config = CONFIG.load(deps.storage)?;
+    let state: State = STATE.load(deps.storage)?;
+    let delegator = state.ica.ok_or_else(|| {
+        StdError::generic_err("Interchain account is not registered. Please register it first")
+    })?;
+    let connection_id = config.connection_id;
+    let delegate_msg = MsgBeginRedelegate {
+        delegator_address: delegator,
+        validator_src_address: validator_from.to_string(),
+        validator_dst_address: validator_to.to_string(),
+        amount: Some(Coin {
+            denom: config.remote_denom.to_string(),
+            amount: amount.to_string(),
+        }),
+    };
+    let mut buf = Vec::new();
+    buf.reserve(delegate_msg.encoded_len());
+    deps.api
+        .debug(&format!("WASMDEBUG: delegate: {:?}", delegate_msg.clone()));
+
+    if let Err(e) = delegate_msg.encode(&mut buf) {
+        return Err(NeutronError::Std(StdError::generic_err(format!(
+            "Encode error: {}",
+            e
+        ))));
+    }
+
+    let any_msg = ProtobufAny {
+        type_url: "/liquidstaking.staking.v1beta1.MsgUndelegate".to_string(),
+        value: Binary::from(buf),
+    };
+
+    let cosmos_msg = NeutronMsg::submit_tx(
+        connection_id,
+        ICA_ID.to_string(),
+        vec![any_msg],
+        "".to_string(),
+        timout.unwrap_or(DEFAULT_TIMEOUT_SECONDS),
+        fee,
+    );
+
+    deps.api.debug(&format!(
+        "WASMDEBUG: delegate: {:?}",
+        Transaction::Redelegate {
+            interchain_account_id: ICA_ID.to_string(),
+            validator_from: validator_from.clone(),
+            validator_to: validator_to.clone(),
+            denom: config.remote_denom.clone(),
+            amount: amount.into(),
+        }
+    ));
+
+    let submsg = msg_with_sudo_callback(
+        deps.branch(),
+        cosmos_msg,
+        SudoPayload {
+            port_id: get_port_id(env.contract.address.as_str(), ICA_ID),
+            message: "message".to_string(),
+            info: Some(Transaction::Redelegate {
+                interchain_account_id: ICA_ID.to_string(),
+                validator_to,
+                validator_from,
+                denom: config.remote_denom,
+                amount: amount.into(),
+            }),
+        },
+    )?;
+    Ok(Response::default().add_submessages(vec![submsg]))
+}
+
+fn execute_tokenize_share(
+    mut deps: DepsMut<NeutronQuery>,
+    env: Env,
+    _info: MessageInfo,
+    validator: String,
+    amount: Uint128,
+    timout: Option<u64>,
+) -> NeutronResult<Response<NeutronMsg>> {
+    let fee = IBC_FEE.load(deps.storage)?;
+    let config: Config = CONFIG.load(deps.storage)?;
+    let state: State = STATE.load(deps.storage)?;
+    let delegator = state.ica.ok_or_else(|| {
+        StdError::generic_err("Interchain account is not registered. Please register it first")
+    })?;
+    let connection_id = config.connection_id;
+    let delegate_msg = MsgTokenizeShares {
+        delegator_address: delegator.clone(),
+        validator_address: validator.to_string(),
+        tokenized_share_owner: delegator,
+        amount: Some(ProtoCoin {
+            denom: config.remote_denom.to_string(),
+            amount: amount.to_string(),
+        }),
+    };
+    let mut buf = Vec::new();
+    buf.reserve(delegate_msg.encoded_len());
+    deps.api
+        .debug(&format!("WASMDEBUG: delegate: {:?}", delegate_msg.clone()));
+
+    if let Err(e) = delegate_msg.encode(&mut buf) {
+        return Err(NeutronError::Std(StdError::generic_err(format!(
+            "Encode error: {}",
+            e
+        ))));
+    }
+
+    let any_msg = ProtobufAny {
+        type_url: "/liquidstaking.staking.v1beta1.MsgDelegate".to_string(),
+        value: Binary::from(buf),
+    };
+
+    let cosmos_msg = NeutronMsg::submit_tx(
+        connection_id,
+        ICA_ID.to_string(),
+        vec![any_msg],
+        "".to_string(),
+        timout.unwrap_or(DEFAULT_TIMEOUT_SECONDS),
+        fee,
+    );
+
+    deps.api.debug(&format!(
+        "WASMDEBUG: delegate: {:?}",
+        Transaction::TokenizeShare {
+            interchain_account_id: ICA_ID.to_string(),
+            validator: validator.clone(),
+            denom: config.remote_denom.clone(),
+            amount: amount.into(),
+        }
+    ));
+
+    let submsg = msg_with_sudo_callback(
+        deps.branch(),
+        cosmos_msg,
+        SudoPayload {
+            port_id: get_port_id(env.contract.address.as_str(), ICA_ID),
+            message: "message".to_string(),
+            info: Some(Transaction::TokenizeShare {
+                interchain_account_id: ICA_ID.to_string(),
+                validator,
+                denom: config.remote_denom,
+                amount: amount.into(),
+            }),
+        },
+    )?;
+
+    Ok(Response::default().add_submessages(vec![submsg]))
+}
+
+fn execute_redeem_share(
+    mut deps: DepsMut<NeutronQuery>,
+    env: Env,
+    _info: MessageInfo,
+    validator: String,
+    amount: Uint128,
+    denom: String,
+    timout: Option<u64>,
+) -> NeutronResult<Response<NeutronMsg>> {
+    let fee = IBC_FEE.load(deps.storage)?;
+    let config: Config = CONFIG.load(deps.storage)?;
+    let state: State = STATE.load(deps.storage)?;
+    let delegator = state.ica.ok_or_else(|| {
+        StdError::generic_err("Interchain account is not registered. Please register it first")
+    })?;
+    let connection_id = config.connection_id;
+    let delegate_msg = MsgRedeemTokensforShares {
+        delegator_address: delegator,
+        amount: Some(ProtoCoin {
+            denom: denom.to_string(),
+            amount: amount.to_string(),
+        }),
+    };
+    let mut buf = Vec::new();
+    buf.reserve(delegate_msg.encoded_len());
+    deps.api
+        .debug(&format!("WASMDEBUG: delegate: {:?}", delegate_msg.clone()));
+
+    if let Err(e) = delegate_msg.encode(&mut buf) {
+        return Err(NeutronError::Std(StdError::generic_err(format!(
+            "Encode error: {}",
+            e
+        ))));
+    }
+
+    let any_msg = ProtobufAny {
+        type_url: "/liquidstaking.staking.v1beta1.MsgDelegate".to_string(),
+        value: Binary::from(buf),
+    };
+
+    let cosmos_msg = NeutronMsg::submit_tx(
+        connection_id,
+        ICA_ID.to_string(),
+        vec![any_msg],
+        "".to_string(),
+        timout.unwrap_or(DEFAULT_TIMEOUT_SECONDS),
+        fee,
+    );
+
+    deps.api.debug(&format!(
+        "WASMDEBUG: delegate: {:?}",
+        Transaction::RedeemShare {
+            interchain_account_id: ICA_ID.to_string(),
+            validator: validator.clone(),
+            denom: denom.clone(),
+            amount: amount.into(),
+        }
+    ));
+
+    let submsg = msg_with_sudo_callback(
+        deps.branch(),
+        cosmos_msg,
+        SudoPayload {
+            port_id: get_port_id(env.contract.address.as_str(), ICA_ID),
+            message: "message".to_string(),
+            info: Some(Transaction::RedeemShare {
+                interchain_account_id: ICA_ID.to_string(),
+                validator,
+                denom,
                 amount: amount.into(),
             }),
         },
@@ -390,11 +739,68 @@ fn sudo_response(
 
         match item.type_url.as_str() {
             "/liquidstaking.staking.v1beta1.MsgDelegateResponse" => {
-                deps.api.debug("WASMDEBUG: sudo_response: MsgDelegate");
-                let _out: MsgDelegateResponse = decode_message_response(&item.value)?;
-                let mut delegations = DELEGATIONS.load(deps.storage)?;
-                delegations.extend(payload.info.clone());
-                DELEGATIONS.save(deps.storage, &delegations)?;
+                deps.api
+                    .debug("WASMDEBUG: sudo_response: MsgDelegateResponse");
+                let out: MsgDelegateResponse = decode_message_response(&item.value)?;
+                deps.api.debug(&format!(
+                    "WASMDEBUG: sudo_response: MsgDelegateResponse: {:?}",
+                    out
+                ));
+                let mut txs = TRANSACTIONS.load(deps.storage)?;
+                txs.extend(payload.info.clone());
+                TRANSACTIONS.save(deps.storage, &txs)?;
+                SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
+            }
+            "/liquidstaking.staking.v1beta1.MsgUndelegateResponse" => {
+                deps.api
+                    .debug("WASMDEBUG: sudo_response: MsgUndelegateResponse");
+                let out: MsgUndelegateResponse = decode_message_response(&item.value)?;
+                deps.api.debug(&format!(
+                    "WASMDEBUG: sudo_response: MsgUndelegateResponse: {:?}",
+                    out
+                ));
+                let mut txs = TRANSACTIONS.load(deps.storage)?;
+                txs.extend(payload.info.clone());
+                TRANSACTIONS.save(deps.storage, &txs)?;
+                SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
+            }
+            "/liquidstaking.staking.v1beta1.MsgTokenizeSharesResponse" => {
+                deps.api
+                    .debug("WASMDEBUG: sudo_response: MsgTokenizeSharesResponse");
+                let out: MsgTokenizeSharesResponse = decode_message_response(&item.value)?;
+                deps.api.debug(&format!(
+                    "WASMDEBUG: sudo_response: MsgTokenizeSharesResponse: {:?}",
+                    out
+                ));
+                let mut txs = TRANSACTIONS.load(deps.storage)?;
+                txs.extend(payload.info.clone());
+                TRANSACTIONS.save(deps.storage, &txs)?;
+                SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
+            }
+            "/liquidstaking.staking.v1beta1.MsgBeginRedelegateResponse" => {
+                deps.api
+                    .debug("WASMDEBUG: sudo_response: MsgBeginRedelegateResponse");
+                let out: MsgBeginRedelegateResponse = decode_message_response(&item.value)?;
+                deps.api.debug(&format!(
+                    "WASMDEBUG: sudo_response: MsgBeginRedelegateResponse: {:?}",
+                    out
+                ));
+                let mut txs = TRANSACTIONS.load(deps.storage)?;
+                txs.extend(payload.info.clone());
+                TRANSACTIONS.save(deps.storage, &txs)?;
+                SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
+            }
+            "/liquidstaking.staking.v1beta1.MsgRedeemTokensforSharesResponse" => {
+                deps.api
+                    .debug("WASMDEBUG: sudo_response: MsgRedeemTokensforSharesResponse");
+                let out: MsgRedeemTokensforSharesResponse = decode_message_response(&item.value)?;
+                deps.api.debug(&format!(
+                    "WASMDEBUG: sudo_response: MsgRedeemTokensforSharesResponse: {:?}",
+                    out
+                ));
+                let mut txs = TRANSACTIONS.load(deps.storage)?;
+                txs.extend(payload.info.clone());
+                TRANSACTIONS.save(deps.storage, &txs)?;
                 SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
             }
             _ => {
@@ -408,47 +814,6 @@ fn sudo_response(
             }
         }
     }
-
-    // let mut item_types = vec![];
-    // for item in parsed_data {
-    //     let item_type = item.msg_type.as_str();
-    //     item_types.push(item_type.to_string());
-    //     deps.api.debug(&format!(
-    //         "WASMDEBUG: sudo_response: item_type: {:?}",
-    //         item_type
-    //     ));
-    //     match item_type {
-    //         // "/cosmos.staking.v1beta1.MsgUndelegate" => {
-    //         //     let out: MsgUndelegateResponse = decode_message_response(&item.data)?;
-    //         //     let completion_time = out.completion_time.or_else(|| {
-    //         //         let error_msg = "WASMDEBUG: sudo_response: Recoverable error. Failed to get completion time";
-    //         //         deps.api
-    //         //             .debug(error_msg);
-    //         //         add_error_to_queue(deps.storage, error_msg.to_string());
-    //         //         Some(prost_types::Timestamp::default())
-    //         //     });
-    //         //     deps.api
-    //         //         .debug(format!("Undelegation completion time: {:?}", completion_time).as_str());
-    //         // }
-    //         "/liquidstaking.staking.v1beta1.MsgDelegate" => {
-    //             deps.api.debug("WASMDEBUG: sudo_response: MsgDelegate");
-    //             let _out: MsgDelegateResponse = decode_message_response(&item.data)?;
-    //             let mut delegations = DELEGATIONS.load(deps.storage)?;
-    //             delegations.extend(payload.info.clone());
-    //             DELEGATIONS.save(deps.storage, &delegations)?;
-    //             SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
-    //         }
-    //         _ => {
-    //             deps.api.debug(
-    //                 format!(
-    //                     "This type of acknowledgement is not implemented: {:?}",
-    //                     payload
-    //                 )
-    //                 .as_str(),
-    //             );
-    //         }
-    //     }
-    // }
     Ok(Response::default())
 }
 

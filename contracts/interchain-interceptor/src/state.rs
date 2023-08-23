@@ -2,7 +2,7 @@ use cosmwasm_schema::cw_serde;
 use cw_storage_plus::{Item, Map};
 use neutron_sdk::bindings::msg::IbcFee;
 
-use crate::msg::{DelegateInfo, SudoPayload};
+use crate::msg::{SudoPayload, Transaction};
 
 #[cw_serde]
 pub struct Config {
@@ -35,4 +35,4 @@ pub const RECIPIENT_TXS: Item<Vec<Transfer>> = Item::new("txs");
 pub const IBC_FEE: Item<IbcFee> = Item::new("ibc_fee");
 pub const REPLY_ID_STORAGE: Item<Vec<u8>> = Item::new("reply_queue_id");
 pub const SUDO_PAYLOAD: Map<(String, u64), SudoPayload> = Map::new("sudo_payload");
-pub const DELEGATIONS: Item<Vec<DelegateInfo>> = Item::new("delegations");
+pub const TRANSACTIONS: Item<Vec<Transaction>> = Item::new("transactions");

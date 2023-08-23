@@ -556,6 +556,7 @@ dependencies = [
  "neutron-sdk",
  "prost 0.11.9",
  "prost-types",
+ "protobuf",
  "schemars",
  "serde",
  "serde-json-wasm 1.0.0",
