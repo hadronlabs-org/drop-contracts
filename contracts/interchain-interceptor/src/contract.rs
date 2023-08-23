@@ -3,8 +3,7 @@ use cosmos_sdk_proto::{
         bank::v1beta1::MsgSend,
         base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
         staking::v1beta1::{
-            MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgDelegate, MsgDelegateResponse,
-            MsgUndelegate, MsgUndelegateResponse,
+            MsgDelegate, MsgDelegateResponse, MsgUndelegate, MsgUndelegateResponse,
         },
         tx::v1beta1::{TxBody, TxRaw},
     },
@@ -38,8 +37,8 @@ use crate::{
     },
     proto::cosmos::base::v1beta1::Coin as ProtoCoin,
     proto::liquidstaking::staking::v1beta1::{
-        MsgRedeemTokensforShares, MsgRedeemTokensforSharesResponse, MsgTokenizeShares,
-        MsgTokenizeSharesResponse,
+        MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgRedeemTokensforShares,
+        MsgRedeemTokensforSharesResponse, MsgTokenizeShares, MsgTokenizeSharesResponse,
     },
     state::{
         Config, State, Transfer, CONFIG, IBC_FEE, RECIPIENT_TXS, REPLY_ID_STORAGE, STATE,
@@ -381,7 +380,7 @@ fn execute_redelegate(
         delegator_address: delegator,
         validator_src_address: validator_from.to_string(),
         validator_dst_address: validator_to.to_string(),
-        amount: Some(Coin {
+        amount: Some(ProtoCoin {
             denom: config.remote_denom.to_string(),
             amount: amount.to_string(),
         }),
@@ -399,7 +398,7 @@ fn execute_redelegate(
     }
 
     let any_msg = ProtobufAny {
-        type_url: "/liquidstaking.staking.v1beta1.MsgUndelegate".to_string(),
+        type_url: "/liquidstaking.staking.v1beta1.MsgBeginRedelegate".to_string(),
         value: Binary::from(buf),
     };
 
@@ -478,7 +477,7 @@ fn execute_tokenize_share(
     }
 
     let any_msg = ProtobufAny {
-        type_url: "/liquidstaking.staking.v1beta1.MsgDelegate".to_string(),
+        type_url: "/liquidstaking.staking.v1beta1.MsgTokenizeShares".to_string(),
         value: Binary::from(buf),
     };
 
@@ -555,7 +554,7 @@ fn execute_redeem_share(
     }
 
     let any_msg = ProtobufAny {
-        type_url: "/liquidstaking.staking.v1beta1.MsgDelegate".to_string(),
+        type_url: "/liquidstaking.staking.v1beta1.MsgRedeemTokensforShares".to_string(),
         value: Binary::from(buf),
     };
 
