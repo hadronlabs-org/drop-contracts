@@ -771,8 +771,26 @@ fn sudo_response(
                     "WASMDEBUG: sudo_response: MsgTokenizeSharesResponse: {:?}",
                     out
                 ));
+                let denom = out.amount.map(|coin| coin.denom).unwrap_or_default();
                 let mut txs = TRANSACTIONS.load(deps.storage)?;
-                txs.extend(payload.info.clone());
+                let info = match payload.info.clone() {
+                    Some(info) => match info {
+                        Transaction::TokenizeShare {
+                            interchain_account_id,
+                            validator,
+                            denom: _,
+                            amount,
+                        } => Some(Transaction::TokenizeShare {
+                            interchain_account_id,
+                            validator,
+                            denom,
+                            amount,
+                        }),
+                        _ => Some(info),
+                    },
+                    None => None,
+                };
+                txs.extend(info);
                 TRANSACTIONS.save(deps.storage, &txs)?;
                 SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
             }
@@ -797,8 +815,26 @@ fn sudo_response(
                     "WASMDEBUG: sudo_response: MsgRedeemTokensforSharesResponse: {:?}",
                     out
                 ));
+                let denom = out.amount.map(|coin| coin.denom).unwrap_or_default();
                 let mut txs = TRANSACTIONS.load(deps.storage)?;
-                txs.extend(payload.info.clone());
+                let info = match payload.info.clone() {
+                    Some(info) => match info {
+                        Transaction::TokenizeShare {
+                            interchain_account_id,
+                            validator,
+                            denom: _,
+                            amount,
+                        } => Some(Transaction::RedeemShare {
+                            interchain_account_id,
+                            validator,
+                            denom,
+                            amount,
+                        }),
+                        _ => Some(info),
+                    },
+                    None => None,
+                };
+                txs.extend(info);
                 TRANSACTIONS.save(deps.storage, &txs)?;
                 SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
             }
