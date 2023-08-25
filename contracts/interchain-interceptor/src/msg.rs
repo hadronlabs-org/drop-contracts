@@ -1,6 +1,6 @@
 use crate::state::{Config, State, Transfer};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Uint128;
+use cosmwasm_std::{Delegation, Uint128};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -14,6 +14,9 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     RegisterICA {},
     RegisterQuery {},
+    RegisterDelegatorDelegationsQuery {
+        validators: Vec<String>,
+    },
     SetFees {
         recv_fee: Uint128,
         ack_fee: Uint128,
@@ -103,6 +106,12 @@ pub struct OpenAckVersion {
 pub struct MigrateMsg {}
 
 #[cw_serde]
+pub struct DelegationsResponse {
+    pub delegations: Vec<Delegation>,
+    pub last_updated_height: u64,
+}
+
+#[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     #[returns(Config)]
@@ -113,4 +122,6 @@ pub enum QueryMsg {
     Transactions {},
     #[returns(Vec<Transaction>)]
     InterchainTransactions {},
+    #[returns(DelegationsResponse)]
+    Delegations {},
 }

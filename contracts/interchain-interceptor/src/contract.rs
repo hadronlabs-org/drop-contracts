@@ -22,9 +22,12 @@ use neutron_sdk::{
         types::{Height, ProtobufAny},
     },
     interchain_queries::{
-        get_registered_query,
+        get_registered_query, query_kv_result,
         types::QueryType,
-        v045::{new_register_transfers_query_msg, types::COSMOS_SDK_TRANSFER_MSG_URL},
+        v045::{
+            new_register_delegator_delegations_query_msg, new_register_transfers_query_msg,
+            types::{Delegations, COSMOS_SDK_TRANSFER_MSG_URL},
+        },
     },
     interchain_txs::helpers::{decode_message_response, get_port_id},
     sudo::msg::{RequestPacket, SudoMsg},
@@ -33,7 +36,8 @@ use neutron_sdk::{
 
 use crate::{
     msg::{
-        ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion, QueryMsg, SudoPayload, Transaction,
+        DelegationsResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion, QueryMsg,
+        SudoPayload, Transaction,
     },
     proto::cosmos::base::v1beta1::Coin as ProtoCoin,
     proto::liquidstaking::staking::v1beta1::{
@@ -41,8 +45,8 @@ use crate::{
         MsgRedeemTokensforSharesResponse, MsgTokenizeShares, MsgTokenizeSharesResponse,
     },
     state::{
-        Config, State, Transfer, CONFIG, IBC_FEE, RECIPIENT_TXS, REPLY_ID_STORAGE, STATE,
-        SUDO_PAYLOAD, TRANSACTIONS,
+        Config, State, Transfer, CONFIG, DELEGATIONS, IBC_FEE, RECIPIENT_TXS, REPLY_ID_STORAGE,
+        STATE, SUDO_PAYLOAD, TRANSACTIONS,
     },
 };
 
@@ -84,7 +88,17 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Bin
         QueryMsg::Config {} => query_config(deps, env),
         QueryMsg::Transactions {} => query_transactions(deps, env),
         QueryMsg::InterchainTransactions {} => query_done_transactions(deps, env),
+        QueryMsg::Delegations {} => query_delegations(deps, env),
     }
+}
+
+fn query_delegations(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
+    let (delegations, last_updated_height) = DELEGATIONS.load(deps.storage)?;
+    let response = DelegationsResponse {
+        delegations,
+        last_updated_height,
+    };
+    to_binary(&response)
 }
 
 fn query_state(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
@@ -117,6 +131,9 @@ pub fn execute(
     match msg {
         ExecuteMsg::RegisterICA {} => execute_register_ica(deps, env, info),
         ExecuteMsg::RegisterQuery {} => register_transfers_query(deps, env, info),
+        ExecuteMsg::RegisterDelegatorDelegationsQuery { validators } => {
+            register_delegations_query(deps, env, info, validators)
+        }
         ExecuteMsg::SetFees {
             recv_fee,
             ack_fee,
@@ -514,6 +531,26 @@ pub fn register_transfers_query(
     }
 }
 
+pub fn register_delegations_query(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _info: MessageInfo,
+    validators: Vec<String>,
+) -> NeutronResult<Response<NeutronMsg>> {
+    let config: Config = CONFIG.load(deps.storage)?;
+    let state: State = STATE.load(deps.storage)?;
+    let delegator = state.ica.ok_or_else(|| {
+        StdError::generic_err("Interchain account is not registered. Please register it first")
+    })?;
+    let msg = new_register_delegator_delegations_query_msg(
+        config.connection_id,
+        delegator,
+        validators,
+        config.update_period,
+    )?;
+    Ok(Response::new().add_message(msg))
+}
+
 #[entry_point]
 pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResult<Response> {
     deps.api.debug(&format!(
@@ -527,7 +564,7 @@ pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResul
             height,
             data,
         } => sudo_tx_query_result(deps, env, query_id, height, data),
-        // SudoMsg::KVQueryResult { query_id } => sudo_kv_query_result(deps, env, query_id),
+        SudoMsg::KVQueryResult { query_id } => sudo_kv_query_result(deps, env, query_id),
         SudoMsg::OpenAck {
             port_id,
             channel_id,
@@ -776,6 +813,26 @@ fn prepare_sudo_payload(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Respo
     let channel_id = resp.channel;
     SUDO_PAYLOAD.save(deps.storage, (channel_id, seq_id), &payload)?;
     Ok(Response::new())
+}
+
+pub fn sudo_kv_query_result(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    query_id: u64,
+) -> NeutronResult<Response> {
+    let data: Delegations = query_kv_result(deps.as_ref(), query_id)?;
+    deps.api.debug(
+        format!(
+            "WASMDEBUG: sudo_kv_query_result received; query_id: {:?} data: {:?}",
+            query_id, data
+        )
+        .as_str(),
+    );
+    let height = env.block.height;
+    let delegations = data.delegations;
+    DELEGATIONS.save(deps.storage, &(delegations, height))?;
+
+    Ok(Response::default())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
