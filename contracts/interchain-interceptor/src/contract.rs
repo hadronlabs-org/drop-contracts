@@ -215,13 +215,11 @@ fn execute_delegate(
     amount: Uint128,
     timout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let fee = IBC_FEE.load(deps.storage)?;
     let config: Config = CONFIG.load(deps.storage)?;
     let state: State = STATE.load(deps.storage)?;
     let delegator = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
     })?;
-    let connection_id = config.connection_id;
     let delegate_msg = MsgDelegate {
         delegator_address: delegator,
         validator_address: validator.to_string(),
@@ -230,55 +228,20 @@ fn execute_delegate(
             amount: amount.to_string(),
         }),
     };
-    let mut buf = Vec::new();
-    buf.reserve(delegate_msg.encoded_len());
-    deps.api
-        .debug(&format!("WASMDEBUG: delegate: {:?}", delegate_msg.clone()));
 
-    if let Err(e) = delegate_msg.encode(&mut buf) {
-        return Err(NeutronError::Std(StdError::generic_err(format!(
-            "Encode error: {}",
-            e
-        ))));
-    }
-
-    let any_msg = ProtobufAny {
-        type_url: "/liquidstaking.staking.v1beta1.MsgDelegate".to_string(),
-        value: Binary::from(buf),
-    };
-
-    let cosmos_msg = NeutronMsg::submit_tx(
-        connection_id,
-        ICA_ID.to_string(),
-        vec![any_msg],
-        "".to_string(),
-        timout.unwrap_or(DEFAULT_TIMEOUT_SECONDS),
-        fee,
-    );
-
-    deps.api.debug(&format!(
-        "WASMDEBUG: delegate: {:?}",
+    let submsg = compose_submsg(
+        deps.branch(),
+        env,
+        config.clone(),
+        delegate_msg,
+        "/liquidstaking.staking.v1beta1.MsgDelegate".to_string(),
         Transaction::Delegate {
             interchain_account_id: ICA_ID.to_string(),
-            validator: validator.clone(),
-            denom: config.remote_denom.clone(),
+            validator,
+            denom: config.remote_denom,
             amount: amount.into(),
-        }
-    ));
-
-    let submsg = msg_with_sudo_callback(
-        deps.branch(),
-        cosmos_msg,
-        SudoPayload {
-            port_id: get_port_id(env.contract.address.as_str(), ICA_ID),
-            message: "message".to_string(),
-            info: Some(Transaction::Delegate {
-                interchain_account_id: ICA_ID.to_string(),
-                validator,
-                denom: config.remote_denom,
-                amount: amount.into(),
-            }),
         },
+        timout,
     )?;
 
     Ok(Response::default().add_submessages(vec![submsg]))
@@ -292,14 +255,14 @@ fn execute_undelegate(
     amount: Uint128,
     timout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let fee = IBC_FEE.load(deps.storage)?;
     let config: Config = CONFIG.load(deps.storage)?;
     let state: State = STATE.load(deps.storage)?;
+
     let delegator = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
     })?;
-    let connection_id = config.connection_id;
-    let delegate_msg = MsgUndelegate {
+
+    let undelegate_msg = MsgUndelegate {
         delegator_address: delegator,
         validator_address: validator.to_string(),
         amount: Some(Coin {
@@ -307,56 +270,22 @@ fn execute_undelegate(
             amount: amount.to_string(),
         }),
     };
-    let mut buf = Vec::new();
-    buf.reserve(delegate_msg.encoded_len());
-    deps.api
-        .debug(&format!("WASMDEBUG: delegate: {:?}", delegate_msg.clone()));
 
-    if let Err(e) = delegate_msg.encode(&mut buf) {
-        return Err(NeutronError::Std(StdError::generic_err(format!(
-            "Encode error: {}",
-            e
-        ))));
-    }
-
-    let any_msg = ProtobufAny {
-        type_url: "/liquidstaking.staking.v1beta1.MsgUndelegate".to_string(),
-        value: Binary::from(buf),
-    };
-
-    let cosmos_msg = NeutronMsg::submit_tx(
-        connection_id,
-        ICA_ID.to_string(),
-        vec![any_msg],
-        "".to_string(),
-        timout.unwrap_or(DEFAULT_TIMEOUT_SECONDS),
-        fee,
-    );
-
-    deps.api.debug(&format!(
-        "WASMDEBUG: delegate: {:?}",
+    let submsg = compose_submsg(
+        deps.branch(),
+        env,
+        config.clone(),
+        undelegate_msg,
+        "/liquidstaking.staking.v1beta1.MsgUndelegate".to_string(),
         Transaction::Undelegate {
             interchain_account_id: ICA_ID.to_string(),
-            validator: validator.clone(),
-            denom: config.remote_denom.clone(),
+            validator,
+            denom: config.remote_denom,
             amount: amount.into(),
-        }
-    ));
-
-    let submsg = msg_with_sudo_callback(
-        deps.branch(),
-        cosmos_msg,
-        SudoPayload {
-            port_id: get_port_id(env.contract.address.as_str(), ICA_ID),
-            message: "message".to_string(),
-            info: Some(Transaction::Undelegate {
-                interchain_account_id: ICA_ID.to_string(),
-                validator,
-                denom: config.remote_denom,
-                amount: amount.into(),
-            }),
         },
+        timout,
     )?;
+
     Ok(Response::default().add_submessages(vec![submsg]))
 }
 
@@ -369,14 +298,12 @@ fn execute_redelegate(
     amount: Uint128,
     timout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let fee = IBC_FEE.load(deps.storage)?;
     let config: Config = CONFIG.load(deps.storage)?;
     let state: State = STATE.load(deps.storage)?;
     let delegator = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
     })?;
-    let connection_id = config.connection_id;
-    let delegate_msg = MsgBeginRedelegate {
+    let redelegate_msg = MsgBeginRedelegate {
         delegator_address: delegator,
         validator_src_address: validator_from.to_string(),
         validator_dst_address: validator_to.to_string(),
@@ -385,58 +312,23 @@ fn execute_redelegate(
             amount: amount.to_string(),
         }),
     };
-    let mut buf = Vec::new();
-    buf.reserve(delegate_msg.encoded_len());
-    deps.api
-        .debug(&format!("WASMDEBUG: delegate: {:?}", delegate_msg.clone()));
 
-    if let Err(e) = delegate_msg.encode(&mut buf) {
-        return Err(NeutronError::Std(StdError::generic_err(format!(
-            "Encode error: {}",
-            e
-        ))));
-    }
-
-    let any_msg = ProtobufAny {
-        type_url: "/liquidstaking.staking.v1beta1.MsgBeginRedelegate".to_string(),
-        value: Binary::from(buf),
-    };
-
-    let cosmos_msg = NeutronMsg::submit_tx(
-        connection_id,
-        ICA_ID.to_string(),
-        vec![any_msg],
-        "".to_string(),
-        timout.unwrap_or(DEFAULT_TIMEOUT_SECONDS),
-        fee,
-    );
-
-    deps.api.debug(&format!(
-        "WASMDEBUG: delegate: {:?}",
+    let submsg = compose_submsg(
+        deps.branch(),
+        env,
+        config.clone(),
+        redelegate_msg,
+        "/liquidstaking.staking.v1beta1.MsgBeginRedelegate".to_string(),
         Transaction::Redelegate {
             interchain_account_id: ICA_ID.to_string(),
-            validator_from: validator_from.clone(),
-            validator_to: validator_to.clone(),
-            denom: config.remote_denom.clone(),
+            validator_from,
+            validator_to,
+            denom: config.remote_denom,
             amount: amount.into(),
-        }
-    ));
-
-    let submsg = msg_with_sudo_callback(
-        deps.branch(),
-        cosmos_msg,
-        SudoPayload {
-            port_id: get_port_id(env.contract.address.as_str(), ICA_ID),
-            message: "message".to_string(),
-            info: Some(Transaction::Redelegate {
-                interchain_account_id: ICA_ID.to_string(),
-                validator_to,
-                validator_from,
-                denom: config.remote_denom,
-                amount: amount.into(),
-            }),
         },
+        timout,
     )?;
+
     Ok(Response::default().add_submessages(vec![submsg]))
 }
 
@@ -448,14 +340,12 @@ fn execute_tokenize_share(
     amount: Uint128,
     timout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let fee = IBC_FEE.load(deps.storage)?;
     let config: Config = CONFIG.load(deps.storage)?;
     let state: State = STATE.load(deps.storage)?;
     let delegator = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
     })?;
-    let connection_id = config.connection_id;
-    let delegate_msg = MsgTokenizeShares {
+    let tokenize_msg = MsgTokenizeShares {
         delegator_address: delegator.clone(),
         validator_address: validator.to_string(),
         tokenized_share_owner: delegator,
@@ -464,55 +354,20 @@ fn execute_tokenize_share(
             amount: amount.to_string(),
         }),
     };
-    let mut buf = Vec::new();
-    buf.reserve(delegate_msg.encoded_len());
-    deps.api
-        .debug(&format!("WASMDEBUG: delegate: {:?}", delegate_msg.clone()));
 
-    if let Err(e) = delegate_msg.encode(&mut buf) {
-        return Err(NeutronError::Std(StdError::generic_err(format!(
-            "Encode error: {}",
-            e
-        ))));
-    }
-
-    let any_msg = ProtobufAny {
-        type_url: "/liquidstaking.staking.v1beta1.MsgTokenizeShares".to_string(),
-        value: Binary::from(buf),
-    };
-
-    let cosmos_msg = NeutronMsg::submit_tx(
-        connection_id,
-        ICA_ID.to_string(),
-        vec![any_msg],
-        "".to_string(),
-        timout.unwrap_or(DEFAULT_TIMEOUT_SECONDS),
-        fee,
-    );
-
-    deps.api.debug(&format!(
-        "WASMDEBUG: delegate: {:?}",
+    let submsg = compose_submsg(
+        deps.branch(),
+        env,
+        config.clone(),
+        tokenize_msg,
+        "/liquidstaking.staking.v1beta1.MsgTokenizeShares".to_string(),
         Transaction::TokenizeShare {
             interchain_account_id: ICA_ID.to_string(),
-            validator: validator.clone(),
-            denom: config.remote_denom.clone(),
+            validator,
+            denom: config.remote_denom,
             amount: amount.into(),
-        }
-    ));
-
-    let submsg = msg_with_sudo_callback(
-        deps.branch(),
-        cosmos_msg,
-        SudoPayload {
-            port_id: get_port_id(env.contract.address.as_str(), ICA_ID),
-            message: "message".to_string(),
-            info: Some(Transaction::TokenizeShare {
-                interchain_account_id: ICA_ID.to_string(),
-                validator,
-                denom: config.remote_denom,
-                amount: amount.into(),
-            }),
         },
+        timout,
     )?;
 
     Ok(Response::default().add_submessages(vec![submsg]))
@@ -527,26 +382,52 @@ fn execute_redeem_share(
     denom: String,
     timout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let fee = IBC_FEE.load(deps.storage)?;
     let config: Config = CONFIG.load(deps.storage)?;
     let state: State = STATE.load(deps.storage)?;
     let delegator = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
     })?;
-    let connection_id = config.connection_id;
-    let delegate_msg = MsgRedeemTokensforShares {
+    let redeem_msg = MsgRedeemTokensforShares {
         delegator_address: delegator,
         amount: Some(ProtoCoin {
             denom: denom.to_string(),
             amount: amount.to_string(),
         }),
     };
-    let mut buf = Vec::new();
-    buf.reserve(delegate_msg.encoded_len());
-    deps.api
-        .debug(&format!("WASMDEBUG: delegate: {:?}", delegate_msg.clone()));
 
-    if let Err(e) = delegate_msg.encode(&mut buf) {
+    let submsg = compose_submsg(
+        deps.branch(),
+        env,
+        config,
+        redeem_msg,
+        "/liquidstaking.staking.v1beta1.MsgRedeemTokensforShares".to_string(),
+        Transaction::RedeemShare {
+            interchain_account_id: ICA_ID.to_string(),
+            validator,
+            denom,
+            amount: amount.into(),
+        },
+        timout,
+    )?;
+
+    Ok(Response::default().add_submessages(vec![submsg]))
+}
+
+fn compose_submsg<T: prost::Message>(
+    mut deps: DepsMut<NeutronQuery>,
+    env: Env,
+    config: Config,
+    in_msg: T,
+    type_url: String,
+    sudo_payload: Transaction,
+    timeout: Option<u64>,
+) -> NeutronResult<SubMsg<NeutronMsg>> {
+    let ibc_fee: IbcFee = IBC_FEE.load(deps.storage)?;
+    let connection_id = config.connection_id;
+    let mut buf = Vec::new();
+    buf.reserve(in_msg.encoded_len());
+
+    if let Err(e) = in_msg.encode(&mut buf) {
         return Err(NeutronError::Std(StdError::generic_err(format!(
             "Encode error: {}",
             e
@@ -554,7 +435,7 @@ fn execute_redeem_share(
     }
 
     let any_msg = ProtobufAny {
-        type_url: "/liquidstaking.staking.v1beta1.MsgRedeemTokensforShares".to_string(),
+        type_url,
         value: Binary::from(buf),
     };
 
@@ -563,19 +444,9 @@ fn execute_redeem_share(
         ICA_ID.to_string(),
         vec![any_msg],
         "".to_string(),
-        timout.unwrap_or(DEFAULT_TIMEOUT_SECONDS),
-        fee,
+        timeout.unwrap_or(DEFAULT_TIMEOUT_SECONDS),
+        ibc_fee,
     );
-
-    deps.api.debug(&format!(
-        "WASMDEBUG: delegate: {:?}",
-        Transaction::RedeemShare {
-            interchain_account_id: ICA_ID.to_string(),
-            validator: validator.clone(),
-            denom: denom.clone(),
-            amount: amount.into(),
-        }
-    ));
 
     let submsg = msg_with_sudo_callback(
         deps.branch(),
@@ -583,16 +454,10 @@ fn execute_redeem_share(
         SudoPayload {
             port_id: get_port_id(env.contract.address.as_str(), ICA_ID),
             message: "message".to_string(),
-            info: Some(Transaction::RedeemShare {
-                interchain_account_id: ICA_ID.to_string(),
-                validator,
-                denom,
-                amount: amount.into(),
-            }),
+            info: Some(sudo_payload),
         },
     )?;
-
-    Ok(Response::default().add_submessages(vec![submsg]))
+    Ok(submsg)
 }
 
 fn msg_with_sudo_callback<C: Into<CosmosMsg<T>>, T>(
