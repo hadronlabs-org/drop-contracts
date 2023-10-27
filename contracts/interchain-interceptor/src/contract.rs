@@ -446,8 +446,7 @@ fn compose_submsg<T: prost::Message>(
 
     if let Err(e) = in_msg.encode(&mut buf) {
         return Err(NeutronError::Std(StdError::generic_err(format!(
-            "Encode error: {}",
-            e
+            "Encode error: {e}"
         ))));
     }
 
@@ -631,12 +630,11 @@ fn sudo_response(
 
     let payload = SUDO_PAYLOAD.load(deps.storage, (channel_id.clone(), seq_id))?;
     deps.api
-        .debug(&format!("WASMDEBUG: sudo_response: data: {:?}", data));
+        .debug(&format!("WASMDEBUG: sudo_response: data: {data:?}"));
 
     let msg_data: TxMsgData = TxMsgData::decode(data.as_slice())?;
     for item in msg_data.msg_responses {
-        deps.api
-            .debug(&format!("WASMDEBUG: item: data: {:?}", item));
+        deps.api.debug(&format!("WASMDEBUG: item: data: {item:?}"));
 
         match item.type_url.as_str() {
             "/liquidstaking.staking.v1beta1.MsgDelegateResponse" => {
@@ -644,8 +642,7 @@ fn sudo_response(
                     .debug("WASMDEBUG: sudo_response: MsgDelegateResponse");
                 let out: MsgDelegateResponse = decode_message_response(&item.value)?;
                 deps.api.debug(&format!(
-                    "WASMDEBUG: sudo_response: MsgDelegateResponse: {:?}",
-                    out
+                    "WASMDEBUG: sudo_response: MsgDelegateResponse: {out:?}"
                 ));
                 let mut txs = TRANSACTIONS.load(deps.storage)?;
                 txs.extend(payload.info.clone());
@@ -657,8 +654,7 @@ fn sudo_response(
                     .debug("WASMDEBUG: sudo_response: MsgUndelegateResponse");
                 let out: MsgUndelegateResponse = decode_message_response(&item.value)?;
                 deps.api.debug(&format!(
-                    "WASMDEBUG: sudo_response: MsgUndelegateResponse: {:?}",
-                    out
+                    "WASMDEBUG: sudo_response: MsgUndelegateResponse: {out:?}"
                 ));
                 let mut txs = TRANSACTIONS.load(deps.storage)?;
                 txs.extend(payload.info.clone());
@@ -670,8 +666,7 @@ fn sudo_response(
                     .debug("WASMDEBUG: sudo_response: MsgTokenizeSharesResponse");
                 let out: MsgTokenizeSharesResponse = decode_message_response(&item.value)?;
                 deps.api.debug(&format!(
-                    "WASMDEBUG: sudo_response: MsgTokenizeSharesResponse: {:?}",
-                    out
+                    "WASMDEBUG: sudo_response: MsgTokenizeSharesResponse: {out:?}"
                 ));
                 let denom = out.amount.map(|coin| coin.denom).unwrap_or_default();
                 let mut txs = TRANSACTIONS.load(deps.storage)?;
@@ -701,8 +696,7 @@ fn sudo_response(
                     .debug("WASMDEBUG: sudo_response: MsgBeginRedelegateResponse");
                 let out: MsgBeginRedelegateResponse = decode_message_response(&item.value)?;
                 deps.api.debug(&format!(
-                    "WASMDEBUG: sudo_response: MsgBeginRedelegateResponse: {:?}",
-                    out
+                    "WASMDEBUG: sudo_response: MsgBeginRedelegateResponse: {out:?}"
                 ));
                 let mut txs = TRANSACTIONS.load(deps.storage)?;
                 txs.extend(payload.info.clone());
@@ -714,8 +708,7 @@ fn sudo_response(
                     .debug("WASMDEBUG: sudo_response: MsgRedeemTokensforSharesResponse");
                 let out: MsgRedeemTokensforSharesResponse = decode_message_response(&item.value)?;
                 deps.api.debug(&format!(
-                    "WASMDEBUG: sudo_response: MsgRedeemTokensforSharesResponse: {:?}",
-                    out
+                    "WASMDEBUG: sudo_response: MsgRedeemTokensforSharesResponse: {out:?}"
                 ));
                 let denom = out.amount.map(|coin| coin.denom).unwrap_or_default();
                 let mut txs = TRANSACTIONS.load(deps.storage)?;
@@ -742,11 +735,8 @@ fn sudo_response(
             }
             _ => {
                 deps.api.debug(
-                    format!(
-                        "This type of acknowledgement is not implemented: {:?}",
-                        payload
-                    )
-                    .as_str(),
+                    format!("This type of acknowledgement is not implemented: {payload:?}")
+                        .as_str(),
                 );
             }
         }
@@ -787,7 +777,7 @@ fn recipient_deposits_from_tx_body(
 #[entry_point]
 pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
     deps.api
-        .debug(format!("WASMDEBUG: reply msg: {:?}", msg).as_str());
+        .debug(format!("WASMDEBUG: reply msg: {msg:?}").as_str());
     match msg.id {
         SUDO_PAYLOAD_REPLY_ID => prepare_sudo_payload(deps, env, msg),
         _ => Err(StdError::generic_err(format!(
@@ -808,7 +798,7 @@ fn prepare_sudo_payload(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Respo
             .ok_or_else(|| StdError::generic_err("no result"))?
             .as_slice(),
     )
-    .map_err(|e| StdError::generic_err(format!("failed to parse response: {:?}", e)))?;
+    .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?;
     let seq_id = resp.sequence_id;
     let channel_id = resp.channel;
     SUDO_PAYLOAD.save(deps.storage, (channel_id, seq_id), &payload)?;
@@ -822,11 +812,8 @@ pub fn sudo_kv_query_result(
 ) -> NeutronResult<Response> {
     let data: Delegations = query_kv_result(deps.as_ref(), query_id)?;
     deps.api.debug(
-        format!(
-            "WASMDEBUG: sudo_kv_query_result received; query_id: {:?} data: {:?}",
-            query_id, data
-        )
-        .as_str(),
+        format!("WASMDEBUG: sudo_kv_query_result received; query_id: {query_id:?} data: {data:?}")
+            .as_str(),
     );
     let height = env.block.height;
     let delegations = data.delegations;
