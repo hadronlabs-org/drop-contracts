@@ -1,0 +1,143 @@
+---
+name: Build Contracts
+
+on:
+  schedule:
+    - cron: '0 5 * * 1-5'
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+    inputs:
+      toolchain:
+        description: 'Default Rust Toolchain'
+        default: "1.63.0"
+        required: true
+        type: string
+      target:
+        description: 'Default Rust Target'
+        default: "wasm32-unknown-unknown"
+        required: true
+        type: string
+      branch:
+        description: 'Default Branch or Commit hash to use'
+        default: "main"
+        required: true
+        type: string
+      id:
+        description: 'Workflow ID (Optional)'
+        default: "scheduled"
+        required: false
+        type: string
+
+env:
+  TOOLCHAIN: ${{ inputs.toolchain || '1.63.0' }}
+  TARGET: ${{ inputs.target || 'wasm32-unknown-unknown' }}
+  REF: ${{ github.event_name == 'push' && github.ref || inputs.branch || 'main' }}
+  ID: ${{ inputs.id || 'scheduled' }}
+
+jobs:
+  build:
+    name: Build & Upload contracts
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ env.REF }}
+          fetch-depth: 0
+      - name: Save SHA
+        run: echo "sha=$(/usr/bin/git log -1 --format='%H')" >> $GITHUB_ENV 
+      - name: Check input type
+        run: |
+          if git show-ref --quiet --heads $REF; then
+            echo "REF is a branch"
+            echo "The value is $REF"
+            echo "REF_TYPE=branch" >> $GITHUB_ENV
+            BRANCH_NAME="${REF#refs/heads/}"
+            echo "BRANCH=${BRANCH_NAME}" >> $GITHUB_ENV
+          else
+            echo "REF is a commit hash"
+            echo "The value is $REF"
+            echo "REF_TYPE=commit" >> $GITHUB_ENV
+          fi
+        env:
+          REF: ${{ env.REF }}
+      - name: Get branch name from commit
+        if: ${{ env.REF_TYPE == 'commit' }}
+        run: |
+          set -x
+          echo "REF = ${REF}"
+          git show -s --pretty=%d "${REF}"
+          BRANCH_NAME="$(git show -s --pretty=%d "${REF}" | sed -n 's/^.*[(,]\s*origin\/\([^),]*\).*$/\1/p')"
+          echo "BRANCH_NAME = ${BRANCH_NAME}"
+          echo "BRANCH=${BRANCH_NAME}" >> $GITHUB_ENV
+          echo "Commit ${REF} is on branch ${BRANCH_NAME}"
+        env:
+          REF: ${{ env.REF }}
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v1'
+        with:
+          credentials_json: '${{ secrets.GOOGLE_CREDENTIALS }}'
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v1'
+      - name: Evaluate Artifacts in GCP
+        run: |
+          if gsutil -q stat gs://neutron-contracts/${{ github.repository }}/${{ env.sha }}/*.wasm; then
+            if [ ${{ env.ID }} != 'scheduled' ]; then
+              echo "Force Contract Building requested, continuing workflow"
+              echo "ARTIFACTS_EXIST=false" >> $GITHUB_ENV
+            else
+              echo "Directory already exists, stopping workflow"
+              echo "ARTIFACTS_EXIST=true" >> $GITHUB_ENV
+            fi
+          else
+            echo "Directory does not exist, continuing workflow"
+            echo "ARTIFACTS_EXIST=false" >> $GITHUB_ENV
+          fi
+      - name: Skip Workflow if Artifacts exist
+        if: ${{ env.ARTIFACTS_EXIST == 'true' }}
+        run: echo "::notice::Artifacts already exist in GCP Bucket, skipping workflow."
+      - uses: dtolnay/rust-toolchain@master
+        if: ${{ env.ARTIFACTS_EXIST == 'false' }}
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+          target: ${{ env.TARGET}}
+          components: rustfmt, clippy
+      - run: make schema
+        if: ${{ env.ARTIFACTS_EXIST == 'false' }}
+      - run: cargo fetch --verbose
+        if: ${{ env.ARTIFACTS_EXIST == 'false' }}
+      - run: cargo clippy --all --all-targets -- -D warnings
+        if: ${{ env.ARTIFACTS_EXIST == 'false' }}
+      - run: cargo test --verbose --all
+        if: ${{ env.ARTIFACTS_EXIST == 'false' }}
+        env:
+          RUST_BACKTRACE: 1
+      - run: cargo fmt -- --check
+        if: ${{ env.ARTIFACTS_EXIST == 'false' }}
+      - run: make compile
+        if: ${{ env.ARTIFACTS_EXIST == 'false' }}
+      - run: make -j$(nproc) check_contracts
+        if: ${{ env.ARTIFACTS_EXIST == 'false' }}
+      - name: 'Upload Contracts to the Cloud (repo/branch/sha)'
+        if: ${{ env.ARTIFACTS_EXIST == 'false' }}
+        run: 'gsutil -h "Cache-Control:no-cache, no-store, must-revalidate" cp -r artifacts/* gs://neutron-contracts/${{ github.repository }}/${{ env.BRANCH }}/${{ env.sha }}/'
+      - name: 'Set Metadata (repo/branch/sha)'
+        if: ${{ env.ARTIFACTS_EXIST == 'false' }}
+        run: 'gsutil setmeta -r -h "x-goog-meta-Neutron-Repo: ${{ github.repository }}" -h "x-goog-meta-Neutron-Commit: ${{ env.sha }}" gs://neutron-contracts/${{ github.repository }}/${{ env.BRANCH }}/${{ env.sha }}/'
+      - name: 'Upload Contracts to the Cloud (repo/branch/WF/ID)'
+        if: ${{ env.ARTIFACTS_EXIST == 'false' }}
+        run: 'gsutil -h "Cache-Control:no-cache, no-store, must-revalidate" cp -r artifacts/* gs://neutron-contracts/${{ github.repository }}/${{ env.BRANCH }}/WF/${{ env.ID }}/'
+      - name: 'Set Metadata (repo/branch/WF/ID)'
+        if: ${{ env.ARTIFACTS_EXIST == 'false' }}
+        run: 'gsutil setmeta -r -h "x-goog-meta-Neutron-Repo: ${{ github.repository }}" -h "x-goog-meta-Neutron-Commit: ${{ env.sha }}" gs://neutron-contracts/${{ github.repository }}/${{ env.BRANCH }}/WF/${{ env.ID }}/'
+      - name: 'Upload Contracts to the Cloud (repo/sha)'
+        if: ${{ env.ARTIFACTS_EXIST == 'false' }}
+        run: 'gsutil -h "Cache-Control:no-cache, no-store, must-revalidate" cp -r artifacts/* gs://neutron-contracts/${{ github.repository }}/${{ env.sha }}/'
+      - name: 'Set Metadata (repo/sha)'
+        if: ${{ env.ARTIFACTS_EXIST == 'false' }}
+        run: 'gsutil setmeta -r -h "x-goog-meta-Neutron-Repo: ${{ github.repository }}" -h "x-goog-meta-Neutron-Commit: ${{ env.sha }}" gs://neutron-contracts/${{ github.repository }}/${{ env.sha }}/'
+      - name: 'Cleanup'
+        if: always()
+        uses: AutoModality/action-clean@v1.1.0
