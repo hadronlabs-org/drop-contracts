@@ -2,6 +2,7 @@ use cosmos_sdk_proto::{
     cosmos::{
         bank::v1beta1::MsgSend,
         base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
+        distribution::v1beta1::MsgWithdrawDelegatorReward,
         staking::v1beta1::{
             MsgDelegate, MsgDelegateResponse, MsgUndelegate, MsgUndelegateResponse,
         },
@@ -163,6 +164,9 @@ pub fn execute(
             amount,
             timeout,
         ),
+        ExecuteMsg::WithdrawReward { validator, timeout } => {
+            execute_withdraw_reward(deps, env, info, validator, timeout)
+        }
         ExecuteMsg::TokenizeShare {
             validator,
             amount,
@@ -230,7 +234,7 @@ fn execute_delegate(
     _info: MessageInfo,
     validator: String,
     amount: Uint128,
-    timout: Option<u64>,
+    timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
     let config: Config = CONFIG.load(deps.storage)?;
     let state: State = STATE.load(deps.storage)?;
@@ -251,14 +255,14 @@ fn execute_delegate(
         env,
         config.clone(),
         delegate_msg,
-        "/liquidstaking.staking.v1beta1.MsgDelegate".to_string(),
+        "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
         Transaction::Delegate {
             interchain_account_id: ICA_ID.to_string(),
             validator,
             denom: config.remote_denom,
             amount: amount.into(),
         },
-        timout,
+        timeout,
     )?;
 
     Ok(Response::default().add_submessages(vec![submsg]))
@@ -270,7 +274,7 @@ fn execute_undelegate(
     _info: MessageInfo,
     validator: String,
     amount: Uint128,
-    timout: Option<u64>,
+    timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
     let config: Config = CONFIG.load(deps.storage)?;
     let state: State = STATE.load(deps.storage)?;
@@ -293,14 +297,14 @@ fn execute_undelegate(
         env,
         config.clone(),
         undelegate_msg,
-        "/liquidstaking.staking.v1beta1.MsgUndelegate".to_string(),
+        "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
         Transaction::Undelegate {
             interchain_account_id: ICA_ID.to_string(),
             validator,
             denom: config.remote_denom,
             amount: amount.into(),
         },
-        timout,
+        timeout,
     )?;
 
     Ok(Response::default().add_submessages(vec![submsg]))
@@ -313,7 +317,7 @@ fn execute_redelegate(
     validator_from: String,
     validator_to: String,
     amount: Uint128,
-    timout: Option<u64>,
+    timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
     let config: Config = CONFIG.load(deps.storage)?;
     let state: State = STATE.load(deps.storage)?;
@@ -335,7 +339,7 @@ fn execute_redelegate(
         env,
         config.clone(),
         redelegate_msg,
-        "/liquidstaking.staking.v1beta1.MsgBeginRedelegate".to_string(),
+        "/cosmos.staking.v1beta1.MsgBeginRedelegate".to_string(),
         Transaction::Redelegate {
             interchain_account_id: ICA_ID.to_string(),
             validator_from,
@@ -343,7 +347,40 @@ fn execute_redelegate(
             denom: config.remote_denom,
             amount: amount.into(),
         },
-        timout,
+        timeout,
+    )?;
+
+    Ok(Response::default().add_submessages(vec![submsg]))
+}
+
+fn execute_withdraw_reward(
+    mut deps: DepsMut<NeutronQuery>,
+    env: Env,
+    _info: MessageInfo,
+    validator: String,
+    timeout: Option<u64>,
+) -> NeutronResult<Response<NeutronMsg>> {
+    let config: Config = CONFIG.load(deps.storage)?;
+    let state: State = STATE.load(deps.storage)?;
+    let delegator = state.ica.ok_or_else(|| {
+        StdError::generic_err("Interchain account is not registered. Please register it first")
+    })?;
+    let delegate_msg = MsgWithdrawDelegatorReward {
+        delegator_address: delegator,
+        validator_address: validator.to_string(),
+    };
+
+    let submsg = compose_submsg(
+        deps.branch(),
+        env,
+        config,
+        delegate_msg,
+        "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
+        Transaction::WithdrawReward {
+            interchain_account_id: ICA_ID.to_string(),
+            validator,
+        },
+        timeout,
     )?;
 
     Ok(Response::default().add_submessages(vec![submsg]))
@@ -355,7 +392,7 @@ fn execute_tokenize_share(
     _info: MessageInfo,
     validator: String,
     amount: Uint128,
-    timout: Option<u64>,
+    timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
     let config: Config = CONFIG.load(deps.storage)?;
     let state: State = STATE.load(deps.storage)?;
@@ -377,14 +414,14 @@ fn execute_tokenize_share(
         env,
         config.clone(),
         tokenize_msg,
-        "/liquidstaking.staking.v1beta1.MsgTokenizeShares".to_string(),
+        "/cosmos.staking.v1beta1.MsgTokenizeShares".to_string(),
         Transaction::TokenizeShare {
             interchain_account_id: ICA_ID.to_string(),
             validator,
             denom: config.remote_denom,
             amount: amount.into(),
         },
-        timout,
+        timeout,
     )?;
 
     Ok(Response::default().add_submessages(vec![submsg]))
@@ -397,7 +434,7 @@ fn execute_redeem_share(
     validator: String,
     amount: Uint128,
     denom: String,
-    timout: Option<u64>,
+    timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
     let config: Config = CONFIG.load(deps.storage)?;
     let state: State = STATE.load(deps.storage)?;
@@ -417,14 +454,14 @@ fn execute_redeem_share(
         env,
         config,
         redeem_msg,
-        "/liquidstaking.staking.v1beta1.MsgRedeemTokensforShares".to_string(),
+        "/cosmos.staking.v1beta1.MsgRedeemTokensforShares".to_string(),
         Transaction::RedeemShare {
             interchain_account_id: ICA_ID.to_string(),
             validator,
             denom,
             amount: amount.into(),
         },
-        timout,
+        timeout,
     )?;
 
     Ok(Response::default().add_submessages(vec![submsg]))
@@ -637,7 +674,7 @@ fn sudo_response(
         deps.api.debug(&format!("WASMDEBUG: item: data: {item:?}"));
 
         match item.type_url.as_str() {
-            "/liquidstaking.staking.v1beta1.MsgDelegateResponse" => {
+            "/cosmos.staking.v1beta1.MsgDelegateResponse" => {
                 deps.api
                     .debug("WASMDEBUG: sudo_response: MsgDelegateResponse");
                 let out: MsgDelegateResponse = decode_message_response(&item.value)?;
@@ -649,7 +686,7 @@ fn sudo_response(
                 TRANSACTIONS.save(deps.storage, &txs)?;
                 SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
             }
-            "/liquidstaking.staking.v1beta1.MsgUndelegateResponse" => {
+            "/cosmos.staking.v1beta1.MsgUndelegateResponse" => {
                 deps.api
                     .debug("WASMDEBUG: sudo_response: MsgUndelegateResponse");
                 let out: MsgUndelegateResponse = decode_message_response(&item.value)?;
@@ -661,7 +698,7 @@ fn sudo_response(
                 TRANSACTIONS.save(deps.storage, &txs)?;
                 SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
             }
-            "/liquidstaking.staking.v1beta1.MsgTokenizeSharesResponse" => {
+            "/cosmos.staking.v1beta1.MsgTokenizeSharesResponse" => {
                 deps.api
                     .debug("WASMDEBUG: sudo_response: MsgTokenizeSharesResponse");
                 let out: MsgTokenizeSharesResponse = decode_message_response(&item.value)?;
@@ -691,7 +728,7 @@ fn sudo_response(
                 TRANSACTIONS.save(deps.storage, &txs)?;
                 SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
             }
-            "/liquidstaking.staking.v1beta1.MsgBeginRedelegateResponse" => {
+            "/cosmos.staking.v1beta1.MsgBeginRedelegateResponse" => {
                 deps.api
                     .debug("WASMDEBUG: sudo_response: MsgBeginRedelegateResponse");
                 let out: MsgBeginRedelegateResponse = decode_message_response(&item.value)?;
@@ -703,7 +740,7 @@ fn sudo_response(
                 TRANSACTIONS.save(deps.storage, &txs)?;
                 SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
             }
-            "/liquidstaking.staking.v1beta1.MsgRedeemTokensforSharesResponse" => {
+            "/cosmos.staking.v1beta1.MsgRedeemTokensforSharesResponse" => {
                 deps.api
                     .debug("WASMDEBUG: sudo_response: MsgRedeemTokensforSharesResponse");
                 let out: MsgRedeemTokensforSharesResponse = decode_message_response(&item.value)?;

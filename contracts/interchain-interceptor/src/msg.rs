@@ -38,6 +38,10 @@ pub enum ExecuteMsg {
         amount: Uint128,
         timeout: Option<u64>,
     },
+    WithdrawReward {
+        validator: String,
+        timeout: Option<u64>,
+    },
     TokenizeShare {
         validator: String,
         amount: Uint128,
@@ -71,6 +75,10 @@ pub enum Transaction {
         validator_to: String,
         denom: String,
         amount: u128,
+    },
+    WithdrawReward {
+        interchain_account_id: String,
+        validator: String,
     },
     TokenizeShare {
         interchain_account_id: String,
