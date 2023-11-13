@@ -108,6 +108,7 @@ fn query_state(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
 }
 
 fn query_done_transactions(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
+    deps.api.debug("WASMDEBUG: query_done_transactions");
     let state: Vec<Transaction> = TRANSACTIONS.load(deps.storage)?;
     to_binary(&state)
 }
@@ -670,6 +671,8 @@ fn sudo_response(
         .debug(&format!("WASMDEBUG: sudo_response: data: {data:?}"));
 
     let msg_data: TxMsgData = TxMsgData::decode(data.as_slice())?;
+    deps.api
+        .debug(&format!("WASMDEBUG: msg_data: data: {msg_data:?}"));
     for item in msg_data.msg_responses {
         deps.api.debug(&format!("WASMDEBUG: item: data: {item:?}"));
 
@@ -836,6 +839,8 @@ fn prepare_sudo_payload(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Respo
             .as_slice(),
     )
     .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?;
+    deps.api
+        .debug(format!("WASMDEBUG: prepare_sudo_payload received; resp: {resp:?}").as_str());
     let seq_id = resp.sequence_id;
     let channel_id = resp.channel;
     SUDO_PAYLOAD.save(deps.storage, (channel_id, seq_id), &payload)?;
