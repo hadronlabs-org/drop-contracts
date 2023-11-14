@@ -673,14 +673,16 @@ fn sudo_response(
     let msg_data: TxMsgData = TxMsgData::decode(data.as_slice())?;
     deps.api
         .debug(&format!("WASMDEBUG: msg_data: data: {msg_data:?}"));
-    for item in msg_data.msg_responses {
+
+    #[allow(deprecated)]
+    for item in msg_data.data {
         deps.api.debug(&format!("WASMDEBUG: item: data: {item:?}"));
 
-        match item.type_url.as_str() {
-            "/cosmos.staking.v1beta1.MsgDelegateResponse" => {
+        match item.msg_type.as_str() {
+            "/cosmos.staking.v1beta1.MsgDelegate" => {
                 deps.api
                     .debug("WASMDEBUG: sudo_response: MsgDelegateResponse");
-                let out: MsgDelegateResponse = decode_message_response(&item.value)?;
+                let out: MsgDelegateResponse = decode_message_response(&item.data)?;
                 deps.api.debug(&format!(
                     "WASMDEBUG: sudo_response: MsgDelegateResponse: {out:?}"
                 ));
@@ -689,10 +691,10 @@ fn sudo_response(
                 TRANSACTIONS.save(deps.storage, &txs)?;
                 SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
             }
-            "/cosmos.staking.v1beta1.MsgUndelegateResponse" => {
+            "/cosmos.staking.v1beta1.MsgUndelegate" => {
                 deps.api
                     .debug("WASMDEBUG: sudo_response: MsgUndelegateResponse");
-                let out: MsgUndelegateResponse = decode_message_response(&item.value)?;
+                let out: MsgUndelegateResponse = decode_message_response(&item.data)?;
                 deps.api.debug(&format!(
                     "WASMDEBUG: sudo_response: MsgUndelegateResponse: {out:?}"
                 ));
@@ -701,10 +703,10 @@ fn sudo_response(
                 TRANSACTIONS.save(deps.storage, &txs)?;
                 SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
             }
-            "/cosmos.staking.v1beta1.MsgTokenizeSharesResponse" => {
+            "/cosmos.staking.v1beta1.MsgTokenizeShares" => {
                 deps.api
                     .debug("WASMDEBUG: sudo_response: MsgTokenizeSharesResponse");
-                let out: MsgTokenizeSharesResponse = decode_message_response(&item.value)?;
+                let out: MsgTokenizeSharesResponse = decode_message_response(&item.data)?;
                 deps.api.debug(&format!(
                     "WASMDEBUG: sudo_response: MsgTokenizeSharesResponse: {out:?}"
                 ));
@@ -731,10 +733,10 @@ fn sudo_response(
                 TRANSACTIONS.save(deps.storage, &txs)?;
                 SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
             }
-            "/cosmos.staking.v1beta1.MsgBeginRedelegateResponse" => {
+            "/cosmos.staking.v1beta1.MsgBeginRedelegate" => {
                 deps.api
                     .debug("WASMDEBUG: sudo_response: MsgBeginRedelegateResponse");
-                let out: MsgBeginRedelegateResponse = decode_message_response(&item.value)?;
+                let out: MsgBeginRedelegateResponse = decode_message_response(&item.data)?;
                 deps.api.debug(&format!(
                     "WASMDEBUG: sudo_response: MsgBeginRedelegateResponse: {out:?}"
                 ));
@@ -743,10 +745,10 @@ fn sudo_response(
                 TRANSACTIONS.save(deps.storage, &txs)?;
                 SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
             }
-            "/cosmos.staking.v1beta1.MsgRedeemTokensforSharesResponse" => {
+            "/cosmos.staking.v1beta1.MsgRedeemTokensforShares" => {
                 deps.api
                     .debug("WASMDEBUG: sudo_response: MsgRedeemTokensforSharesResponse");
-                let out: MsgRedeemTokensforSharesResponse = decode_message_response(&item.value)?;
+                let out: MsgRedeemTokensforSharesResponse = decode_message_response(&item.data)?;
                 deps.api.debug(&format!(
                     "WASMDEBUG: sudo_response: MsgRedeemTokensforSharesResponse: {out:?}"
                 ));
