@@ -42,8 +42,10 @@ use crate::{
     },
     proto::cosmos::base::v1beta1::Coin as ProtoCoin,
     proto::liquidstaking::staking::v1beta1::{
-        MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgRedeemTokensforShares,
-        MsgRedeemTokensforSharesResponse, MsgTokenizeShares, MsgTokenizeSharesResponse,
+        MsgBeginRedelegate, MsgBeginRedelegateResponse,
+        MsgRedeemTokensforShares as MsgRedeemTokensForShares,
+        MsgRedeemTokensforSharesResponse as MsgRedeemTokensForSharesResponse, MsgTokenizeShares,
+        MsgTokenizeSharesResponse,
     },
     state::{
         Config, State, Transfer, CONFIG, DELEGATIONS, IBC_FEE, RECIPIENT_TXS, REPLY_ID_STORAGE,
@@ -442,7 +444,7 @@ fn execute_redeem_share(
     let delegator = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
     })?;
-    let redeem_msg = MsgRedeemTokensforShares {
+    let redeem_msg = MsgRedeemTokensForShares {
         delegator_address: delegator,
         amount: Some(ProtoCoin {
             denom: denom.to_string(),
@@ -455,7 +457,7 @@ fn execute_redeem_share(
         env,
         config,
         redeem_msg,
-        "/cosmos.staking.v1beta1.MsgRedeemTokensforShares".to_string(),
+        "/cosmos.staking.v1beta1.MsgRedeemTokensForShares".to_string(),
         Transaction::RedeemShare {
             interchain_account_id: ICA_ID.to_string(),
             validator,
@@ -745,12 +747,12 @@ fn sudo_response(
                 TRANSACTIONS.save(deps.storage, &txs)?;
                 SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
             }
-            "/cosmos.staking.v1beta1.MsgRedeemTokensforShares" => {
+            "/cosmos.staking.v1beta1.MsgRedeemTokensForShares" => {
                 deps.api
-                    .debug("WASMDEBUG: sudo_response: MsgRedeemTokensforSharesResponse");
-                let out: MsgRedeemTokensforSharesResponse = decode_message_response(&item.data)?;
+                    .debug("WASMDEBUG: sudo_response: MsgRedeemTokensForSharesResponse");
+                let out: MsgRedeemTokensForSharesResponse = decode_message_response(&item.data)?;
                 deps.api.debug(&format!(
-                    "WASMDEBUG: sudo_response: MsgRedeemTokensforSharesResponse: {out:?}"
+                    "WASMDEBUG: sudo_response: MsgRedeemTokensForSharesResponse: {out:?}"
                 ));
                 let denom = out.amount.map(|coin| coin.denom).unwrap_or_default();
                 let mut txs = TRANSACTIONS.load(deps.storage)?;
