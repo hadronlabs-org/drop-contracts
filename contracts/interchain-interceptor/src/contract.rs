@@ -1,57 +1,47 @@
-use cosmos_sdk_proto::{
-    cosmos::{
-        bank::v1beta1::MsgSend,
-        base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
-        distribution::v1beta1::MsgWithdrawDelegatorReward,
-        staking::v1beta1::{
-            MsgDelegate, MsgDelegateResponse, MsgUndelegate, MsgUndelegateResponse,
-        },
-        tx::v1beta1::{TxBody, TxRaw},
+use cosmos_sdk_proto::cosmos::{
+    base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
+    distribution::v1beta1::MsgWithdrawDelegatorReward,
+    staking::v1beta1::{
+        MsgBeginRedelegateResponse, MsgDelegate, MsgDelegateResponse, MsgUndelegate,
+        MsgUndelegateResponse,
     },
-    traits::Message,
 };
 use cosmwasm_std::{
-    entry_point, from_binary, to_binary, to_vec, Coin as CosmosCoin, CosmosMsg, Deps, Reply,
-    StdError, SubMsg, Uint128,
+    entry_point, to_vec, Coin as CosmosCoin, CosmosMsg, Deps, Reply, StdError, SubMsg, Uint128,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use neutron_sdk::{
     bindings::{
-        msg::{IbcFee, MsgSubmitTxResponse, NeutronMsg},
-        query::{NeutronQuery, QueryRegisteredQueryResponse},
-        types::{Height, ProtobufAny},
+        msg::{IbcFee, NeutronMsg},
+        query::NeutronQuery,
+        types::ProtobufAny,
     },
-    interchain_queries::{
-        get_registered_query, query_kv_result,
-        types::QueryType,
-        v045::{
-            new_register_delegator_delegations_query_msg, new_register_transfers_query_msg,
-            types::{Delegations, COSMOS_SDK_TRANSFER_MSG_URL},
-        },
+    interchain_queries::v045::{
+        new_register_delegator_delegations_query_msg, new_register_transfers_query_msg,
     },
     interchain_txs::helpers::{decode_message_response, get_port_id},
     sudo::msg::{RequestPacket, SudoMsg},
     NeutronError, NeutronResult,
 };
 
+use lido_interchain_interceptor_base::{
+    msg::{InstantiateMsg, QueryMsg},
+    state::{InterchainIntercaptorBase, State, IBC_FEE},
+};
+use prost::Message;
+
 use crate::{
-    msg::{
-        DelegationsResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion, QueryMsg,
-        SudoPayload, Transaction,
-    },
+    msg::{ExecuteMsg, MigrateMsg, SudoPayload, Transaction},
     proto::cosmos::base::v1beta1::Coin as ProtoCoin,
     proto::liquidstaking::staking::v1beta1::{
-        MsgBeginRedelegate, MsgBeginRedelegateResponse,
-        MsgRedeemTokensforShares as MsgRedeemTokensForShares,
-        MsgRedeemTokensforSharesResponse as MsgRedeemTokensForSharesResponse, MsgTokenizeShares,
-        MsgTokenizeSharesResponse,
+        MsgBeginRedelegate, MsgRedeemTokensforShares as MsgRedeemTokensForShares,
+        MsgTokenizeShares, MsgTokenizeSharesResponse,
     },
-    state::{
-        Config, State, Transfer, CONFIG, DELEGATIONS, IBC_FEE, RECIPIENT_TXS, REPLY_ID_STORAGE,
-        STATE, SUDO_PAYLOAD, TRANSACTIONS,
-    },
+    state::Config,
 };
+
+pub type InterchainInterceptor<'a> = InterchainIntercaptorBase<'a, Config, Transaction>;
 
 const CONTRACT_NAME: &str = concat!("crates.io:lido-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -68,61 +58,23 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> NeutronResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    deps.api.debug("WASMDEBUG: instantiate");
-    CONFIG.save(
-        deps.storage,
-        &Config {
-            connection_id: msg.connection_id,
-            port_id: msg.port_id,
-            update_period: msg.update_period,
-            remote_denom: msg.remote_denom,
-        },
-    )?;
-    STATE.save(deps.storage, &State::default())?;
-    RECIPIENT_TXS.save(deps.storage, &vec![])?;
-    TRANSACTIONS.save(deps.storage, &vec![])?;
-    Ok(Response::default())
+
+    let owner = deps.api.addr_validate(&msg.owner)?;
+
+    let config = &Config {
+        connection_id: msg.connection_id,
+        port_id: msg.port_id,
+        update_period: msg.update_period,
+        remote_denom: msg.remote_denom,
+        owner,
+    };
+
+    InterchainInterceptor::default().instantiate(deps, config)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Binary> {
-    match msg {
-        QueryMsg::State {} => query_state(deps, env),
-        QueryMsg::Config {} => query_config(deps, env),
-        QueryMsg::Transactions {} => query_transactions(deps, env),
-        QueryMsg::InterchainTransactions {} => query_done_transactions(deps, env),
-        QueryMsg::Delegations {} => query_delegations(deps, env),
-    }
-}
-
-fn query_delegations(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
-    let (delegations, last_updated_height) = DELEGATIONS.load(deps.storage)?;
-    let response = DelegationsResponse {
-        delegations,
-        last_updated_height,
-    };
-    to_binary(&response)
-}
-
-fn query_state(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
-    let state: State = STATE.load(deps.storage)?;
-    to_binary(&state)
-}
-
-fn query_done_transactions(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
-    deps.api.debug("WASMDEBUG: query_done_transactions");
-    let state: Vec<Transaction> = TRANSACTIONS.load(deps.storage)?;
-    to_binary(&state)
-}
-
-fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
-    let config: Config = CONFIG.load(deps.storage)?;
-    to_binary(&config)
-}
-
-fn query_transactions(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
-    let transactions: Vec<Transfer> = RECIPIENT_TXS.load(deps.storage)?;
-    to_binary(&transactions)
+    InterchainInterceptor::default().query(deps, env, msg)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -189,8 +141,9 @@ fn execute_register_ica(
     env: Env,
     _info: MessageInfo,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let config: Config = CONFIG.load(deps.storage)?;
-    let state: State = STATE.load(deps.storage)?;
+    let interceptor_base = InterchainInterceptor::new();
+    let config: Config = interceptor_base.config.load(deps.storage)?;
+    let state: State = interceptor_base.state.load(deps.storage)?;
     match state.ica {
         None => {
             let register =
@@ -239,8 +192,9 @@ fn execute_delegate(
     amount: Uint128,
     timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let config: Config = CONFIG.load(deps.storage)?;
-    let state: State = STATE.load(deps.storage)?;
+    let interceptor_base = InterchainInterceptor::new();
+    let config: Config = interceptor_base.config.load(deps.storage)?;
+    let state: State = interceptor_base.state.load(deps.storage)?;
     let delegator = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
     })?;
@@ -279,8 +233,9 @@ fn execute_undelegate(
     amount: Uint128,
     timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let config: Config = CONFIG.load(deps.storage)?;
-    let state: State = STATE.load(deps.storage)?;
+    let interceptor_base = InterchainInterceptor::new();
+    let config: Config = interceptor_base.config.load(deps.storage)?;
+    let state: State = interceptor_base.state.load(deps.storage)?;
 
     let delegator = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
@@ -322,8 +277,10 @@ fn execute_redelegate(
     amount: Uint128,
     timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let config: Config = CONFIG.load(deps.storage)?;
-    let state: State = STATE.load(deps.storage)?;
+    let interceptor_base = InterchainInterceptor::new();
+    let config: Config = interceptor_base.config.load(deps.storage)?;
+    let state: State = interceptor_base.state.load(deps.storage)?;
+
     let delegator = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
     })?;
@@ -363,8 +320,10 @@ fn execute_withdraw_reward(
     validator: String,
     timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let config: Config = CONFIG.load(deps.storage)?;
-    let state: State = STATE.load(deps.storage)?;
+    let interceptor_base = InterchainInterceptor::new();
+    let config: Config = interceptor_base.config.load(deps.storage)?;
+    let state: State = interceptor_base.state.load(deps.storage)?;
+
     let delegator = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
     })?;
@@ -397,8 +356,10 @@ fn execute_tokenize_share(
     amount: Uint128,
     timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let config: Config = CONFIG.load(deps.storage)?;
-    let state: State = STATE.load(deps.storage)?;
+    let interceptor_base = InterchainInterceptor::new();
+    let config: Config = interceptor_base.config.load(deps.storage)?;
+    let state: State = interceptor_base.state.load(deps.storage)?;
+
     let delegator = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
     })?;
@@ -439,8 +400,10 @@ fn execute_redeem_share(
     denom: String,
     timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let config: Config = CONFIG.load(deps.storage)?;
-    let state: State = STATE.load(deps.storage)?;
+    let interceptor_base = InterchainInterceptor::new();
+    let config: Config = interceptor_base.config.load(deps.storage)?;
+    let state: State = interceptor_base.state.load(deps.storage)?;
+
     let delegator = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
     })?;
@@ -521,33 +484,12 @@ fn msg_with_sudo_callback<C: Into<CosmosMsg<T>>, T>(
     msg: C,
     payload: SudoPayload,
 ) -> StdResult<SubMsg<T>> {
-    REPLY_ID_STORAGE.save(deps.storage, &to_vec(&payload)?)?;
-    Ok(SubMsg::reply_on_success(msg, SUDO_PAYLOAD_REPLY_ID))
-}
+    let interceptor_base = InterchainInterceptor::new();
+    interceptor_base
+        .reply_id_storage
+        .save(deps.storage, &to_vec(&payload)?)?;
 
-fn sudo_open_ack(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    _port_id: String,
-    _channel_id: String,
-    _counterparty_channel_id: String,
-    counterparty_version: String,
-) -> NeutronResult<Response> {
-    let parsed_version: Result<OpenAckVersion, _> =
-        serde_json_wasm::from_str(counterparty_version.as_str());
-    if let Ok(parsed_version) = parsed_version {
-        STATE.save(
-            deps.storage,
-            &State {
-                last_processed_height: None,
-                ica: Some(parsed_version.address),
-            },
-        )?;
-        return Ok(Response::default());
-    }
-    Err(NeutronError::Std(StdError::GenericErr {
-        msg: "can't parse version".to_string(),
-    }))
+    Ok(SubMsg::reply_on_success(msg, SUDO_PAYLOAD_REPLY_ID))
 }
 
 pub fn register_transfers_query(
@@ -555,8 +497,10 @@ pub fn register_transfers_query(
     _env: Env,
     _info: MessageInfo,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let config: Config = CONFIG.load(deps.storage)?;
-    let state: State = STATE.load(deps.storage)?;
+    let interceptor_base = InterchainInterceptor::new();
+    let config: Config = interceptor_base.config.load(deps.storage)?;
+    let state: State = interceptor_base.state.load(deps.storage)?;
+
     if let Some(ica) = state.ica {
         let msg = new_register_transfers_query_msg(
             config.connection_id,
@@ -576,8 +520,10 @@ pub fn register_delegations_query(
     _info: MessageInfo,
     validators: Vec<String>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let config: Config = CONFIG.load(deps.storage)?;
-    let state: State = STATE.load(deps.storage)?;
+    let interceptor_base = InterchainInterceptor::new();
+    let config: Config = interceptor_base.config.load(deps.storage)?;
+    let state: State = interceptor_base.state.load(deps.storage)?;
+
     let delegator = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
     })?;
@@ -592,6 +538,8 @@ pub fn register_delegations_query(
 
 #[entry_point]
 pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResult<Response> {
+    let interceptor_base = InterchainInterceptor::new();
+
     deps.api.debug(&format!(
         "WASMDEBUG: sudo call: {:?} block: {:?}",
         msg, env.block
@@ -602,14 +550,16 @@ pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResul
             query_id,
             height,
             data,
-        } => sudo_tx_query_result(deps, env, query_id, height, data),
-        SudoMsg::KVQueryResult { query_id } => sudo_kv_query_result(deps, env, query_id),
+        } => interceptor_base.sudo_tx_query_result(deps, env, query_id, height, data),
+        SudoMsg::KVQueryResult { query_id } => {
+            interceptor_base.sudo_kv_query_result(deps, env, query_id)
+        }
         SudoMsg::OpenAck {
             port_id,
             channel_id,
             counterparty_channel_id,
             counterparty_version,
-        } => sudo_open_ack(
+        } => interceptor_base.sudo_open_ack(
             deps,
             env,
             port_id,
@@ -621,46 +571,14 @@ pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResul
     }
 }
 
-fn sudo_tx_query_result(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    query_id: u64,
-    _height: Height,
-    data: Binary,
-) -> NeutronResult<Response> {
-    let _config: Config = CONFIG.load(deps.storage)?;
-    let state: State = STATE.load(deps.storage)?;
-    let tx: TxRaw = TxRaw::decode(data.as_slice())?;
-    let body: TxBody = TxBody::decode(tx.body_bytes.as_slice())?;
-    let registered_query: QueryRegisteredQueryResponse =
-        get_registered_query(deps.as_ref(), query_id)?;
-    #[allow(clippy::single_match)]
-    match registered_query.registered_query.query_type {
-        QueryType::TX => {
-            let ica = state.ica.ok_or_else(|| {
-                StdError::generic_err("ICA not registered, can't process query result")
-            })?;
-            let deposits = recipient_deposits_from_tx_body(body, &ica)?;
-            if deposits.is_empty() {
-                return Err(NeutronError::Std(StdError::generic_err(
-                    "failed to find a matching transaction message",
-                )));
-            }
-            let mut txs = RECIPIENT_TXS.load(deps.storage)?;
-            txs.extend(deposits);
-            RECIPIENT_TXS.save(deps.storage, &txs)?;
-        }
-        _ => {}
-    }
-    Ok(Response::new())
-}
-
 fn sudo_response(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     request: RequestPacket,
     data: Binary,
 ) -> NeutronResult<Response> {
+    let interceptor_base = InterchainInterceptor::new();
+
     let seq_id = request
         .sequence
         .ok_or_else(|| StdError::generic_err("sequence not found"))?;
@@ -668,7 +586,9 @@ fn sudo_response(
         .source_channel
         .ok_or_else(|| StdError::generic_err("channel_id not found"))?;
 
-    let payload = SUDO_PAYLOAD.load(deps.storage, (channel_id.clone(), seq_id))?;
+    let payload = interceptor_base
+        .sudo_payload
+        .load(deps.storage, (channel_id.clone(), seq_id))?;
     deps.api
         .debug(&format!("WASMDEBUG: sudo_response: data: {data:?}"));
 
@@ -688,10 +608,12 @@ fn sudo_response(
                 deps.api.debug(&format!(
                     "WASMDEBUG: sudo_response: MsgDelegateResponse: {out:?}"
                 ));
-                let mut txs = TRANSACTIONS.load(deps.storage)?;
+                let mut txs = interceptor_base.transactions.load(deps.storage)?;
                 txs.extend(payload.info.clone());
-                TRANSACTIONS.save(deps.storage, &txs)?;
-                SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
+                interceptor_base.transactions.save(deps.storage, &txs)?;
+                interceptor_base
+                    .sudo_payload
+                    .remove(deps.storage, (channel_id.clone(), seq_id));
             }
             "/cosmos.staking.v1beta1.MsgUndelegate" => {
                 deps.api
@@ -700,10 +622,12 @@ fn sudo_response(
                 deps.api.debug(&format!(
                     "WASMDEBUG: sudo_response: MsgUndelegateResponse: {out:?}"
                 ));
-                let mut txs = TRANSACTIONS.load(deps.storage)?;
+                let mut txs = interceptor_base.transactions.load(deps.storage)?;
                 txs.extend(payload.info.clone());
-                TRANSACTIONS.save(deps.storage, &txs)?;
-                SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
+                interceptor_base.transactions.save(deps.storage, &txs)?;
+                interceptor_base
+                    .sudo_payload
+                    .remove(deps.storage, (channel_id.clone(), seq_id));
             }
             "/cosmos.staking.v1beta1.MsgTokenizeShares" => {
                 deps.api
@@ -713,7 +637,7 @@ fn sudo_response(
                     "WASMDEBUG: sudo_response: MsgTokenizeSharesResponse: {out:?}"
                 ));
                 let denom = out.amount.map(|coin| coin.denom).unwrap_or_default();
-                let mut txs = TRANSACTIONS.load(deps.storage)?;
+                let mut txs = interceptor_base.transactions.load(deps.storage)?;
                 let info = match payload.info.clone() {
                     Some(info) => match info {
                         Transaction::TokenizeShare {
@@ -732,8 +656,10 @@ fn sudo_response(
                     None => None,
                 };
                 txs.extend(info);
-                TRANSACTIONS.save(deps.storage, &txs)?;
-                SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
+                interceptor_base.transactions.save(deps.storage, &txs)?;
+                interceptor_base
+                    .sudo_payload
+                    .remove(deps.storage, (channel_id.clone(), seq_id));
             }
             "/cosmos.staking.v1beta1.MsgBeginRedelegate" => {
                 deps.api
@@ -742,21 +668,23 @@ fn sudo_response(
                 deps.api.debug(&format!(
                     "WASMDEBUG: sudo_response: MsgBeginRedelegateResponse: {out:?}"
                 ));
-                let mut txs = TRANSACTIONS.load(deps.storage)?;
+                let mut txs = interceptor_base.transactions.load(deps.storage)?;
                 txs.extend(payload.info.clone());
-                TRANSACTIONS.save(deps.storage, &txs)?;
-                SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
+                interceptor_base.transactions.save(deps.storage, &txs)?;
+                interceptor_base
+                    .sudo_payload
+                    .remove(deps.storage, (channel_id.clone(), seq_id));
             }
             "/cosmos.staking.v1beta1.MsgRedeemTokensForShares" => {
                 deps.api
                     .debug("WASMDEBUG: sudo_response: MsgRedeemTokensForSharesResponse");
-                let out: MsgRedeemTokensForSharesResponse = decode_message_response(&item.data)?;
+                let out: MsgRedeemTokensForShares = decode_message_response(&item.data)?;
                 deps.api.debug(&format!(
                     "WASMDEBUG: sudo_response: MsgRedeemTokensForSharesResponse: {out:?}"
                 ));
                 let denom = out.amount.map(|coin| coin.denom).unwrap_or_default();
-                let mut txs = TRANSACTIONS.load(deps.storage)?;
-                let info = match payload.info.clone() {
+                let mut txs = interceptor_base.transactions.load(deps.storage)?;
+                let info: Option<Transaction> = match payload.info.clone() {
                     Some(info) => match info {
                         Transaction::TokenizeShare {
                             interchain_account_id,
@@ -774,8 +702,10 @@ fn sudo_response(
                     None => None,
                 };
                 txs.extend(info);
-                TRANSACTIONS.save(deps.storage, &txs)?;
-                SUDO_PAYLOAD.remove(deps.storage, (channel_id.clone(), seq_id));
+                interceptor_base.transactions.save(deps.storage, &txs)?;
+                interceptor_base
+                    .sudo_payload
+                    .remove(deps.storage, (channel_id.clone(), seq_id));
             }
             _ => {
                 deps.api.debug(
@@ -788,84 +718,9 @@ fn sudo_response(
     Ok(Response::default())
 }
 
-/// parses tx body and retrieves transactions to the given recipient.
-fn recipient_deposits_from_tx_body(
-    tx_body: TxBody,
-    recipient: &str,
-) -> NeutronResult<Vec<Transfer>> {
-    let mut deposits: Vec<Transfer> = vec![];
-    // for msg in tx_body.messages.iter().take(MAX_ALLOWED_MESSAGES) {
-    for msg in tx_body.messages.iter() {
-        #[allow(clippy::single_match)]
-        match msg.type_url.as_str() {
-            COSMOS_SDK_TRANSFER_MSG_URL => {
-                // Parse a Send message and check that it has the required recipient.
-                let transfer_msg: MsgSend = MsgSend::decode(msg.value.as_slice())?;
-                if transfer_msg.to_address == recipient {
-                    for coin in transfer_msg.amount {
-                        deposits.push(Transfer {
-                            sender: transfer_msg.from_address.clone(),
-                            amount: coin.amount.clone(),
-                            denom: coin.denom,
-                            recipient: recipient.to_string(),
-                        });
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-    Ok(deposits)
-}
-
 #[entry_point]
 pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
-    deps.api
-        .debug(format!("WASMDEBUG: reply msg: {msg:?}").as_str());
-    match msg.id {
-        SUDO_PAYLOAD_REPLY_ID => prepare_sudo_payload(deps, env, msg),
-        _ => Err(StdError::generic_err(format!(
-            "unsupported reply message id {}",
-            msg.id
-        ))),
-    }
-}
-
-fn prepare_sudo_payload(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
-    let data = REPLY_ID_STORAGE.load(deps.storage)?;
-    let payload: SudoPayload = from_binary(&Binary(data))?;
-    let resp: MsgSubmitTxResponse = serde_json_wasm::from_slice(
-        msg.result
-            .into_result()
-            .map_err(StdError::generic_err)?
-            .data
-            .ok_or_else(|| StdError::generic_err("no result"))?
-            .as_slice(),
-    )
-    .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?;
-    deps.api
-        .debug(format!("WASMDEBUG: prepare_sudo_payload received; resp: {resp:?}").as_str());
-    let seq_id = resp.sequence_id;
-    let channel_id = resp.channel;
-    SUDO_PAYLOAD.save(deps.storage, (channel_id, seq_id), &payload)?;
-    Ok(Response::new())
-}
-
-pub fn sudo_kv_query_result(
-    deps: DepsMut<NeutronQuery>,
-    env: Env,
-    query_id: u64,
-) -> NeutronResult<Response> {
-    let data: Delegations = query_kv_result(deps.as_ref(), query_id)?;
-    deps.api.debug(
-        format!("WASMDEBUG: sudo_kv_query_result received; query_id: {query_id:?} data: {data:?}")
-            .as_str(),
-    );
-    let height = env.block.height;
-    let delegations = data.delegations;
-    DELEGATIONS.save(deps.storage, &(delegations, height))?;
-
-    Ok(Response::default())
+    InterchainInterceptor::default().reply(deps, env, msg)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

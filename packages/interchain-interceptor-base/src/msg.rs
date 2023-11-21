@@ -1,5 +1,14 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::Uint128;
+use cosmwasm_std::{Delegation, Uint128};
+
+#[cw_serde]
+pub struct InstantiateMsg {
+    pub connection_id: String,
+    pub port_id: String,
+    pub update_period: u64,
+    pub remote_denom: String,
+    pub owner: String,
+}
 
 #[cw_serde]
 pub enum ExecuteMsg {
@@ -85,10 +94,10 @@ pub enum Transaction {
     },
 }
 #[cw_serde]
-pub struct SudoPayload {
+pub struct SudoPayload<C> {
     pub message: String,
     pub port_id: String,
-    pub info: Option<Transaction>,
+    pub info: Option<C>,
 }
 
 #[cw_serde]
@@ -103,3 +112,18 @@ pub struct OpenAckVersion {
 
 #[cw_serde]
 pub struct MigrateMsg {}
+
+#[cw_serde]
+pub struct DelegationsResponse {
+    pub delegations: Vec<Delegation>,
+    pub last_updated_height: u64,
+}
+
+#[cw_serde]
+pub enum QueryMsg {
+    Config {},
+    State {},
+    Transactions {},
+    InterchainTransactions {},
+    Delegations {},
+}

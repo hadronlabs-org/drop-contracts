@@ -232,6 +232,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cw-address-like"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "451a4691083a88a3c0630a8a88799e9d4cd6679b7ce8ff22b8da2873ff31d380"
+dependencies = [
+ "cosmwasm-std",
+]
+
+[[package]]
 name = "cw-multi-test"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -242,12 +251,38 @@ dependencies = [
  "cw-storage-plus",
  "cw-utils",
  "derivative",
- "itertools 0.11.0",
+ "itertools",
  "prost",
  "schemars",
  "serde",
  "sha2 0.10.7",
  "thiserror",
+]
+
+[[package]]
+name = "cw-ownable"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "093dfb4520c48b5848274dd88ea99e280a04bc08729603341c7fb0d758c74321"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-address-like",
+ "cw-ownable-derive",
+ "cw-storage-plus",
+ "cw-utils",
+ "thiserror",
+]
+
+[[package]]
+name = "cw-ownable-derive"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1d3bf2e0f341bb6cc100d7d441d31cf713fbd3ce0c511f91e79f14b40a889af"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -495,15 +530,6 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.10.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
@@ -547,6 +573,31 @@ dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
  "cw-multi-test",
+ "cw-storage-plus",
+ "cw2",
+ "cw20",
+ "lido-interchain-interceptor-base",
+ "neutron-sdk",
+ "prost",
+ "prost-types",
+ "protobuf",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.0",
+ "tendermint-proto",
+]
+
+[[package]]
+name = "lido-interchain-interceptor-base"
+version = "1.0.0"
+dependencies = [
+ "base64",
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test",
+ "cw-ownable",
  "cw-storage-plus",
  "cw2",
  "cw20",
@@ -651,7 +702,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "265baba7fabd416cf5078179f7d2cbeca4ce7a9041111900675ea7c4cb8a4c32"
 dependencies = [
  "anyhow",
- "itertools 0.10.5",
+ "itertools",
  "proc-macro2",
  "quote",
  "syn 2.0.28",
