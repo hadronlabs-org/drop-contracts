@@ -1,6 +1,6 @@
 use cosmwasm_schema::write_api;
 
-use lido_interchain_interceptor::{
+use lido_interchain_interceptor_authz::{
     msg::{ExecuteMsg, InstantiateMsg, MigrateMsg},
     state::QueryMsg,
 };

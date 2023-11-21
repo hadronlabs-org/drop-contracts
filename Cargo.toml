@@ -1,5 +1,5 @@
 [workspace]
-members = ["contracts/interchain-interceptor", "packages/interchain-interceptor-base"]
+members = ["contracts/interchain-interceptor", "contracts/interchain-interceptor-authz", "packages/interchain-interceptor-base"]
 
 [workspace.dependencies]
 cw-ownable      = "0.5.1"

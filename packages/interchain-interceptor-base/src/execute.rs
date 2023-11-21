@@ -25,6 +25,7 @@ where
     pub fn instantiate(&self, deps: DepsMut, config: &T) -> NeutronResult<Response> {
         deps.api.debug("WASMDEBUG: instantiate");
         cw_ownable::initialize_owner(deps.storage, deps.api, Some(config.owner()))?;
+
         self.config.save(deps.storage, config)?;
         self.state.save(deps.storage, &State::default())?;
         self.recipient_txs.save(deps.storage, &vec![])?;

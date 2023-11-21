@@ -1,8 +1,9 @@
 use cosmos_sdk_proto::cosmos::{
     base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
+    distribution::v1beta1::MsgWithdrawDelegatorReward,
     staking::v1beta1::{
-        MsgBeginRedelegateResponse, MsgDelegate, MsgDelegateResponse, MsgUndelegate,
-        MsgUndelegateResponse,
+        MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgDelegate, MsgDelegateResponse,
+        MsgUndelegate, MsgUndelegateResponse,
     },
 };
 use cosmwasm_std::{entry_point, to_vec, CosmosMsg, Deps, Reply, StdError, SubMsg, Uint128};
@@ -27,11 +28,6 @@ use prost::Message;
 
 use crate::{
     msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, Transaction},
-    proto::cosmos::base::v1beta1::Coin as ProtoCoin,
-    proto::liquidstaking::staking::v1beta1::{
-        MsgBeginRedelegate, MsgRedeemTokensforShares as MsgRedeemTokensForShares,
-        MsgTokenizeShares, MsgTokenizeSharesResponse,
-    },
     state::Config,
 };
 
@@ -58,6 +54,7 @@ pub fn instantiate(
         update_period: msg.update_period,
         remote_denom: msg.remote_denom,
         owner,
+        proxy_address: msg.proxy_address,
     };
 
     InterchainInterceptor::default().instantiate(deps, config)
@@ -102,17 +99,9 @@ pub fn execute(
             amount,
             timeout,
         ),
-        ExecuteMsg::TokenizeShare {
-            validator,
-            amount,
-            timeout,
-        } => execute_tokenize_share(deps, env, info, validator, amount, timeout),
-        ExecuteMsg::RedeemShare {
-            validator,
-            amount,
-            denom,
-            timeout,
-        } => execute_redeem_share(deps, env, info, validator, amount, denom, timeout),
+        ExecuteMsg::WithdrawReward { validator, timeout } => {
+            execute_withdraw_reward(deps, env, info, validator, timeout)
+        }
         _ => interceptor_base.execute(deps, env, msg.to_base_enum()),
     }
 }
@@ -221,7 +210,7 @@ fn execute_redelegate(
         delegator_address: delegator,
         validator_src_address: validator_from.to_string(),
         validator_dst_address: validator_to.to_string(),
-        amount: Some(ProtoCoin {
+        amount: Some(Coin {
             denom: config.remote_denom.to_string(),
             amount: amount.to_string(),
         }),
@@ -246,12 +235,11 @@ fn execute_redelegate(
     Ok(Response::default().add_submessages(vec![submsg]))
 }
 
-fn execute_tokenize_share(
+fn execute_withdraw_reward(
     mut deps: DepsMut<NeutronQuery>,
     env: Env,
     _info: MessageInfo,
     validator: String,
-    amount: Uint128,
     timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
     let interceptor_base = InterchainInterceptor::default();
@@ -261,69 +249,20 @@ fn execute_tokenize_share(
     let delegator = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
     })?;
-    let tokenize_msg = MsgTokenizeShares {
-        delegator_address: delegator.clone(),
-        validator_address: validator.to_string(),
-        tokenized_share_owner: delegator,
-        amount: Some(ProtoCoin {
-            denom: config.remote_denom.to_string(),
-            amount: amount.to_string(),
-        }),
-    };
-
-    let submsg = compose_submsg(
-        deps.branch(),
-        env,
-        config.clone(),
-        tokenize_msg,
-        "/cosmos.staking.v1beta1.MsgTokenizeShares".to_string(),
-        Transaction::TokenizeShare {
-            interchain_account_id: ICA_ID.to_string(),
-            validator,
-            denom: config.remote_denom,
-            amount: amount.into(),
-        },
-        timeout,
-    )?;
-
-    Ok(Response::default().add_submessages(vec![submsg]))
-}
-
-fn execute_redeem_share(
-    mut deps: DepsMut<NeutronQuery>,
-    env: Env,
-    _info: MessageInfo,
-    validator: String,
-    amount: Uint128,
-    denom: String,
-    timeout: Option<u64>,
-) -> NeutronResult<Response<NeutronMsg>> {
-    let interceptor_base = InterchainInterceptor::default();
-    let config: Config = interceptor_base.config.load(deps.storage)?;
-    let state: State = interceptor_base.state.load(deps.storage)?;
-
-    let delegator = state.ica.ok_or_else(|| {
-        StdError::generic_err("Interchain account is not registered. Please register it first")
-    })?;
-    let redeem_msg = MsgRedeemTokensForShares {
+    let delegate_msg = MsgWithdrawDelegatorReward {
         delegator_address: delegator,
-        amount: Some(ProtoCoin {
-            denom: denom.to_string(),
-            amount: amount.to_string(),
-        }),
+        validator_address: validator.to_string(),
     };
 
     let submsg = compose_submsg(
         deps.branch(),
         env,
         config,
-        redeem_msg,
-        "/cosmos.staking.v1beta1.MsgRedeemTokensForShares".to_string(),
-        Transaction::RedeemShare {
+        delegate_msg,
+        "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
+        Transaction::WithdrawReward {
             interchain_account_id: ICA_ID.to_string(),
             validator,
-            denom,
-            amount: amount.into(),
         },
         timeout,
     )?;
@@ -484,38 +423,6 @@ fn sudo_response(
                     .sudo_payload
                     .remove(deps.storage, (channel_id.clone(), seq_id));
             }
-            "/cosmos.staking.v1beta1.MsgTokenizeShares" => {
-                deps.api
-                    .debug("WASMDEBUG: sudo_response: MsgTokenizeSharesResponse");
-                let out: MsgTokenizeSharesResponse = decode_message_response(&item.data)?;
-                deps.api.debug(&format!(
-                    "WASMDEBUG: sudo_response: MsgTokenizeSharesResponse: {out:?}"
-                ));
-                let denom = out.amount.map(|coin| coin.denom).unwrap_or_default();
-                let mut txs = interceptor_base.transactions.load(deps.storage)?;
-                let info = match payload.info.clone() {
-                    Some(info) => match info {
-                        Transaction::TokenizeShare {
-                            interchain_account_id,
-                            validator,
-                            denom: _,
-                            amount,
-                        } => Some(Transaction::TokenizeShare {
-                            interchain_account_id,
-                            validator,
-                            denom,
-                            amount,
-                        }),
-                        _ => Some(info),
-                    },
-                    None => None,
-                };
-                txs.extend(info);
-                interceptor_base.transactions.save(deps.storage, &txs)?;
-                interceptor_base
-                    .sudo_payload
-                    .remove(deps.storage, (channel_id.clone(), seq_id));
-            }
             "/cosmos.staking.v1beta1.MsgBeginRedelegate" => {
                 deps.api
                     .debug("WASMDEBUG: sudo_response: MsgBeginRedelegateResponse");
@@ -525,38 +432,6 @@ fn sudo_response(
                 ));
                 let mut txs = interceptor_base.transactions.load(deps.storage)?;
                 txs.extend(payload.info.clone());
-                interceptor_base.transactions.save(deps.storage, &txs)?;
-                interceptor_base
-                    .sudo_payload
-                    .remove(deps.storage, (channel_id.clone(), seq_id));
-            }
-            "/cosmos.staking.v1beta1.MsgRedeemTokensForShares" => {
-                deps.api
-                    .debug("WASMDEBUG: sudo_response: MsgRedeemTokensForSharesResponse");
-                let out: MsgRedeemTokensForShares = decode_message_response(&item.data)?;
-                deps.api.debug(&format!(
-                    "WASMDEBUG: sudo_response: MsgRedeemTokensForSharesResponse: {out:?}"
-                ));
-                let denom = out.amount.map(|coin| coin.denom).unwrap_or_default();
-                let mut txs = interceptor_base.transactions.load(deps.storage)?;
-                let info: Option<Transaction> = match payload.info.clone() {
-                    Some(info) => match info {
-                        Transaction::TokenizeShare {
-                            interchain_account_id,
-                            validator,
-                            denom: _,
-                            amount,
-                        } => Some(Transaction::RedeemShare {
-                            interchain_account_id,
-                            validator,
-                            denom,
-                            amount,
-                        }),
-                        _ => Some(info),
-                    },
-                    None => None,
-                };
-                txs.extend(info);
                 interceptor_base.transactions.save(deps.storage, &txs)?;
                 interceptor_base
                     .sudo_payload

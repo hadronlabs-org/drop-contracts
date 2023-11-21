@@ -1,0 +1,1 @@
+# LIDO Interchain interceptor with Authz support

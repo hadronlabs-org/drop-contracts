@@ -2,15 +2,6 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Delegation, Uint128};
 
 #[cw_serde]
-pub struct InstantiateMsg {
-    pub connection_id: String,
-    pub port_id: String,
-    pub update_period: u64,
-    pub remote_denom: String,
-    pub owner: String,
-}
-
-#[cw_serde]
 pub enum ExecuteMsg {
     RegisterICA {},
     RegisterQuery {},
