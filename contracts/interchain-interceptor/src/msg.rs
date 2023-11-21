@@ -1,6 +1,8 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Uint128;
 
+use lido_interchain_interceptor_base::msg::ExecuteMsg as BaseExecuteMsg;
+
 #[cw_serde]
 pub enum ExecuteMsg {
     RegisterICA {},
@@ -46,6 +48,30 @@ pub enum ExecuteMsg {
     },
 }
 
+impl ExecuteMsg {
+    pub fn to_base_enum(&self) -> BaseExecuteMsg {
+        match self {
+            ExecuteMsg::RegisterICA {} => BaseExecuteMsg::RegisterICA {},
+            ExecuteMsg::RegisterQuery {} => BaseExecuteMsg::RegisterQuery {},
+            ExecuteMsg::RegisterDelegatorDelegationsQuery { validators } => {
+                BaseExecuteMsg::RegisterDelegatorDelegationsQuery {
+                    validators: validators.to_vec(),
+                }
+            }
+            ExecuteMsg::SetFees {
+                recv_fee,
+                ack_fee,
+                timeout_fee,
+            } => BaseExecuteMsg::SetFees {
+                recv_fee: *recv_fee,
+                ack_fee: *ack_fee,
+                timeout_fee: *timeout_fee,
+            },
+            _ => panic!("Not implemented"),
+        }
+    }
+}
+
 #[cw_serde]
 pub enum Transaction {
     Delegate {
@@ -83,22 +109,6 @@ pub enum Transaction {
         denom: String,
         amount: u128,
     },
-}
-#[cw_serde]
-pub struct SudoPayload {
-    pub message: String,
-    pub port_id: String,
-    pub info: Option<Transaction>,
-}
-
-#[cw_serde]
-pub struct OpenAckVersion {
-    pub version: String,
-    pub controller_connection_id: String,
-    pub host_connection_id: String,
-    pub address: String,
-    pub encoding: String,
-    pub tx_type: String,
 }
 
 #[cw_serde]

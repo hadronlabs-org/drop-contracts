@@ -4,12 +4,12 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     msg::SudoPayload,
-    state::{HasOwner, InterchainIntercaptorBase, SUDO_PAYLOAD_REPLY_ID},
+    state::{BaseConfig, InterchainIntercaptorBase, SUDO_PAYLOAD_REPLY_ID},
 };
 
 impl<'a, T, C> InterchainIntercaptorBase<'a, T, C>
 where
-    T: HasOwner + Serialize + DeserializeOwned + Clone,
+    T: BaseConfig + Serialize + DeserializeOwned + Clone,
     C: std::fmt::Debug + Serialize + DeserializeOwned + Clone,
 {
     pub fn reply(&self, deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {

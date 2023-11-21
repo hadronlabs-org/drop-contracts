@@ -1,14 +1,10 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 
 use cosmwasm_std::Addr;
-use cw_storage_plus::{Item, Map};
 use lido_interchain_interceptor_base::{
     msg::{DelegationsResponse, Transaction},
-    state::{HasOwner, State, Transfer},
+    state::{BaseConfig, State, Transfer},
 };
-use neutron_sdk::bindings::msg::IbcFee;
-
-use crate::msg::SudoPayload;
 
 #[cw_serde]
 pub struct Config {
@@ -19,9 +15,17 @@ pub struct Config {
     pub owner: Addr,
 }
 
-impl HasOwner for Config {
+impl BaseConfig for Config {
     fn owner(&self) -> &str {
         self.owner.as_str()
+    }
+
+    fn connection_id(&self) -> String {
+        self.connection_id.clone()
+    }
+
+    fn update_period(&self) -> u64 {
+        self.update_period
     }
 }
 
@@ -39,9 +43,3 @@ pub enum QueryMsg {
     #[returns(DelegationsResponse)]
     Delegations {},
 }
-
-pub type Recipient = str;
-
-pub const IBC_FEE: Item<IbcFee> = Item::new("ibc_fee");
-pub const REPLY_ID_STORAGE: Item<Vec<u8>> = Item::new("reply_queue_id");
-pub const SUDO_PAYLOAD: Map<(String, u64), SudoPayload> = Map::new("sudo_payload");

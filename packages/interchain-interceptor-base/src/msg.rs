@@ -22,37 +22,6 @@ pub enum ExecuteMsg {
         ack_fee: Uint128,
         timeout_fee: Uint128,
     },
-    Delegate {
-        validator: String,
-        amount: Uint128,
-        timeout: Option<u64>,
-    },
-    Undelegate {
-        validator: String,
-        amount: Uint128,
-        timeout: Option<u64>,
-    },
-    Redelegate {
-        validator_from: String,
-        validator_to: String,
-        amount: Uint128,
-        timeout: Option<u64>,
-    },
-    WithdrawReward {
-        validator: String,
-        timeout: Option<u64>,
-    },
-    TokenizeShare {
-        validator: String,
-        amount: Uint128,
-        timeout: Option<u64>,
-    },
-    RedeemShare {
-        validator: String,
-        amount: Uint128,
-        denom: String,
-        timeout: Option<u64>,
-    },
 }
 
 #[cw_serde]

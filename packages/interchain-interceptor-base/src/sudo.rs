@@ -20,12 +20,12 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     msg::OpenAckVersion,
-    state::{HasOwner, InterchainIntercaptorBase, State, Transfer},
+    state::{BaseConfig, InterchainIntercaptorBase, State, Transfer},
 };
 
 impl<'a, T, C> InterchainIntercaptorBase<'a, T, C>
 where
-    T: HasOwner + Serialize + DeserializeOwned + Clone,
+    T: BaseConfig + Serialize + DeserializeOwned + Clone,
     C: std::fmt::Debug + Serialize + DeserializeOwned + Clone,
 {
     pub fn sudo_tx_query_result(

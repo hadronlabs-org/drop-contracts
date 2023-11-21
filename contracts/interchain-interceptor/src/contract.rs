@@ -6,9 +6,7 @@ use cosmos_sdk_proto::cosmos::{
         MsgUndelegateResponse,
     },
 };
-use cosmwasm_std::{
-    entry_point, to_vec, Coin as CosmosCoin, CosmosMsg, Deps, Reply, StdError, SubMsg, Uint128,
-};
+use cosmwasm_std::{entry_point, to_vec, CosmosMsg, Deps, Reply, StdError, SubMsg, Uint128};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use neutron_sdk::{
@@ -17,22 +15,19 @@ use neutron_sdk::{
         query::NeutronQuery,
         types::ProtobufAny,
     },
-    interchain_queries::v045::{
-        new_register_delegator_delegations_query_msg, new_register_transfers_query_msg,
-    },
     interchain_txs::helpers::{decode_message_response, get_port_id},
     sudo::msg::{RequestPacket, SudoMsg},
     NeutronError, NeutronResult,
 };
 
 use lido_interchain_interceptor_base::{
-    msg::{InstantiateMsg, QueryMsg},
-    state::{InterchainIntercaptorBase, State, IBC_FEE},
+    msg::{InstantiateMsg, QueryMsg, SudoPayload},
+    state::{InterchainIntercaptorBase, State, ICA_ID, SUDO_PAYLOAD_REPLY_ID},
 };
 use prost::Message;
 
 use crate::{
-    msg::{ExecuteMsg, MigrateMsg, SudoPayload, Transaction},
+    msg::{ExecuteMsg, MigrateMsg, Transaction},
     proto::cosmos::base::v1beta1::Coin as ProtoCoin,
     proto::liquidstaking::staking::v1beta1::{
         MsgBeginRedelegate, MsgRedeemTokensforShares as MsgRedeemTokensForShares,
@@ -45,10 +40,7 @@ pub type InterchainInterceptor<'a> = InterchainIntercaptorBase<'a, Config, Trans
 
 const CONTRACT_NAME: &str = concat!("crates.io:lido-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-const ICA_ID: &str = "LIDO";
 const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
-const LOCAL_DENOM: &str = "untrn";
-pub const SUDO_PAYLOAD_REPLY_ID: u64 = 1;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -84,17 +76,9 @@ pub fn execute(
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> NeutronResult<Response<NeutronMsg>> {
+    let interceptor_base = InterchainInterceptor::default();
+
     match msg {
-        ExecuteMsg::RegisterICA {} => execute_register_ica(deps, env, info),
-        ExecuteMsg::RegisterQuery {} => register_transfers_query(deps, env, info),
-        ExecuteMsg::RegisterDelegatorDelegationsQuery { validators } => {
-            register_delegations_query(deps, env, info, validators)
-        }
-        ExecuteMsg::SetFees {
-            recv_fee,
-            ack_fee,
-            timeout_fee,
-        } => execute_set_fees(deps, env, info, recv_fee, ack_fee, timeout_fee),
         ExecuteMsg::Delegate {
             validator,
             amount,
@@ -133,55 +117,8 @@ pub fn execute(
             denom,
             timeout,
         } => execute_redeem_share(deps, env, info, validator, amount, denom, timeout),
+        _ => interceptor_base.execute(deps, env, msg.to_base_enum()),
     }
-}
-
-fn execute_register_ica(
-    deps: DepsMut<NeutronQuery>,
-    env: Env,
-    _info: MessageInfo,
-) -> NeutronResult<Response<NeutronMsg>> {
-    let interceptor_base = InterchainInterceptor::new();
-    let config: Config = interceptor_base.config.load(deps.storage)?;
-    let state: State = interceptor_base.state.load(deps.storage)?;
-    match state.ica {
-        None => {
-            let register =
-                NeutronMsg::register_interchain_account(config.connection_id, ICA_ID.to_string());
-            let _key = get_port_id(env.contract.address.as_str(), ICA_ID);
-
-            Ok(Response::new().add_message(register))
-        }
-        Some(_) => Err(NeutronError::Std(cosmwasm_std::StdError::GenericErr {
-            msg: "ICA already registered".to_string(),
-        })),
-    }
-}
-
-fn execute_set_fees(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    _info: MessageInfo,
-    recv_fee: Uint128,
-    ack_fee: Uint128,
-    timeout_fee: Uint128,
-) -> NeutronResult<Response<NeutronMsg>> {
-    let fees = IbcFee {
-        recv_fee: vec![CosmosCoin {
-            denom: LOCAL_DENOM.to_string(),
-            amount: recv_fee,
-        }],
-        ack_fee: vec![CosmosCoin {
-            denom: LOCAL_DENOM.to_string(),
-            amount: ack_fee,
-        }],
-        timeout_fee: vec![CosmosCoin {
-            denom: LOCAL_DENOM.to_string(),
-            amount: timeout_fee,
-        }],
-    };
-    IBC_FEE.save(deps.storage, &fees)?;
-    Ok(Response::default())
 }
 
 fn execute_delegate(
@@ -192,7 +129,7 @@ fn execute_delegate(
     amount: Uint128,
     timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let interceptor_base = InterchainInterceptor::new();
+    let interceptor_base = InterchainInterceptor::default();
     let config: Config = interceptor_base.config.load(deps.storage)?;
     let state: State = interceptor_base.state.load(deps.storage)?;
     let delegator = state.ica.ok_or_else(|| {
@@ -233,7 +170,7 @@ fn execute_undelegate(
     amount: Uint128,
     timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let interceptor_base = InterchainInterceptor::new();
+    let interceptor_base = InterchainInterceptor::default();
     let config: Config = interceptor_base.config.load(deps.storage)?;
     let state: State = interceptor_base.state.load(deps.storage)?;
 
@@ -277,7 +214,7 @@ fn execute_redelegate(
     amount: Uint128,
     timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let interceptor_base = InterchainInterceptor::new();
+    let interceptor_base = InterchainInterceptor::default();
     let config: Config = interceptor_base.config.load(deps.storage)?;
     let state: State = interceptor_base.state.load(deps.storage)?;
 
@@ -320,7 +257,7 @@ fn execute_withdraw_reward(
     validator: String,
     timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let interceptor_base = InterchainInterceptor::new();
+    let interceptor_base = InterchainInterceptor::default();
     let config: Config = interceptor_base.config.load(deps.storage)?;
     let state: State = interceptor_base.state.load(deps.storage)?;
 
@@ -356,7 +293,7 @@ fn execute_tokenize_share(
     amount: Uint128,
     timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let interceptor_base = InterchainInterceptor::new();
+    let interceptor_base = InterchainInterceptor::default();
     let config: Config = interceptor_base.config.load(deps.storage)?;
     let state: State = interceptor_base.state.load(deps.storage)?;
 
@@ -400,7 +337,7 @@ fn execute_redeem_share(
     denom: String,
     timeout: Option<u64>,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let interceptor_base = InterchainInterceptor::new();
+    let interceptor_base = InterchainInterceptor::default();
     let config: Config = interceptor_base.config.load(deps.storage)?;
     let state: State = interceptor_base.state.load(deps.storage)?;
 
@@ -442,7 +379,8 @@ fn compose_submsg<T: prost::Message>(
     sudo_payload: Transaction,
     timeout: Option<u64>,
 ) -> NeutronResult<SubMsg<NeutronMsg>> {
-    let ibc_fee: IbcFee = IBC_FEE.load(deps.storage)?;
+    let interceptor_base = InterchainInterceptor::default();
+    let ibc_fee: IbcFee = interceptor_base.ibc_fee.load(deps.storage)?;
     let connection_id = config.connection_id;
     let mut buf = Vec::new();
     buf.reserve(in_msg.encoded_len());
@@ -482,9 +420,9 @@ fn compose_submsg<T: prost::Message>(
 fn msg_with_sudo_callback<C: Into<CosmosMsg<T>>, T>(
     deps: DepsMut<NeutronQuery>,
     msg: C,
-    payload: SudoPayload,
+    payload: SudoPayload<Transaction>,
 ) -> StdResult<SubMsg<T>> {
-    let interceptor_base = InterchainInterceptor::new();
+    let interceptor_base = InterchainInterceptor::default();
     interceptor_base
         .reply_id_storage
         .save(deps.storage, &to_vec(&payload)?)?;
@@ -492,53 +430,9 @@ fn msg_with_sudo_callback<C: Into<CosmosMsg<T>>, T>(
     Ok(SubMsg::reply_on_success(msg, SUDO_PAYLOAD_REPLY_ID))
 }
 
-pub fn register_transfers_query(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    _info: MessageInfo,
-) -> NeutronResult<Response<NeutronMsg>> {
-    let interceptor_base = InterchainInterceptor::new();
-    let config: Config = interceptor_base.config.load(deps.storage)?;
-    let state: State = interceptor_base.state.load(deps.storage)?;
-
-    if let Some(ica) = state.ica {
-        let msg = new_register_transfers_query_msg(
-            config.connection_id,
-            ica,
-            config.update_period,
-            None,
-        )?;
-        Ok(Response::new().add_message(msg))
-    } else {
-        Err(NeutronError::IntegrationTestsMock {})
-    }
-}
-
-pub fn register_delegations_query(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    _info: MessageInfo,
-    validators: Vec<String>,
-) -> NeutronResult<Response<NeutronMsg>> {
-    let interceptor_base = InterchainInterceptor::new();
-    let config: Config = interceptor_base.config.load(deps.storage)?;
-    let state: State = interceptor_base.state.load(deps.storage)?;
-
-    let delegator = state.ica.ok_or_else(|| {
-        StdError::generic_err("Interchain account is not registered. Please register it first")
-    })?;
-    let msg = new_register_delegator_delegations_query_msg(
-        config.connection_id,
-        delegator,
-        validators,
-        config.update_period,
-    )?;
-    Ok(Response::new().add_message(msg))
-}
-
 #[entry_point]
 pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResult<Response> {
-    let interceptor_base = InterchainInterceptor::new();
+    let interceptor_base = InterchainInterceptor::default();
 
     deps.api.debug(&format!(
         "WASMDEBUG: sudo call: {:?} block: {:?}",
@@ -577,7 +471,7 @@ fn sudo_response(
     request: RequestPacket,
     data: Binary,
 ) -> NeutronResult<Response> {
-    let interceptor_base = InterchainInterceptor::new();
+    let interceptor_base = InterchainInterceptor::default();
 
     let seq_id = request
         .sequence

@@ -8,7 +8,7 @@ use crate::msg::SudoPayload;
 
 pub struct InterchainIntercaptorBase<'a, T, C>
 where
-    T: HasOwner + Serialize + DeserializeOwned + Clone,
+    T: BaseConfig + Serialize + DeserializeOwned + Clone,
     C: std::fmt::Debug + Serialize + DeserializeOwned + Clone,
 {
     pub config: Item<'a, T>,
@@ -18,11 +18,12 @@ where
     pub delegations: Item<'a, (Vec<Delegation>, u64)>,
     pub sudo_payload: Map<'a, (String, u64), SudoPayload<C>>,
     pub reply_id_storage: Item<'a, Vec<u8>>,
+    pub ibc_fee: Item<'a, IbcFee>,
 }
 
 impl<T, C> Default for InterchainIntercaptorBase<'static, T, C>
 where
-    T: HasOwner + Serialize + DeserializeOwned + Clone,
+    T: BaseConfig + Serialize + DeserializeOwned + Clone,
     C: std::fmt::Debug + Serialize + DeserializeOwned + Clone,
 {
     fn default() -> Self {
@@ -32,7 +33,7 @@ where
 
 impl<'a, T, C> InterchainIntercaptorBase<'a, T, C>
 where
-    T: HasOwner + Serialize + DeserializeOwned + Clone,
+    T: BaseConfig + Serialize + DeserializeOwned + Clone,
     C: std::fmt::Debug + Serialize + DeserializeOwned + Clone,
 {
     pub fn new() -> Self {
@@ -44,12 +45,15 @@ where
             delegations: Item::new("delegations"),
             sudo_payload: Map::new("sudo_payload"),
             reply_id_storage: Item::new("reply_queue_id"),
+            ibc_fee: Item::new("ibc_fee"),
         }
     }
 }
 
-pub trait HasOwner {
+pub trait BaseConfig {
     fn owner(&self) -> &str;
+    fn connection_id(&self) -> String;
+    fn update_period(&self) -> u64;
 }
 
 #[cw_serde]
@@ -69,6 +73,6 @@ pub struct State {
 
 pub type Recipient = str;
 
-pub const IBC_FEE: Item<IbcFee> = Item::new("ibc_fee");
-
 pub const SUDO_PAYLOAD_REPLY_ID: u64 = 1;
+pub const LOCAL_DENOM: &str = "untrn";
+pub const ICA_ID: &str = "LIDO";
