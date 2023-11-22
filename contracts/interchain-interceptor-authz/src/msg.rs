@@ -52,11 +52,6 @@ impl ExecuteMsg {
         match self {
             ExecuteMsg::RegisterICA {} => BaseExecuteMsg::RegisterICA {},
             ExecuteMsg::RegisterQuery {} => BaseExecuteMsg::RegisterQuery {},
-            ExecuteMsg::RegisterDelegatorDelegationsQuery { validators } => {
-                BaseExecuteMsg::RegisterDelegatorDelegationsQuery {
-                    validators: validators.to_vec(),
-                }
-            }
             ExecuteMsg::SetFees {
                 recv_fee,
                 ack_fee,
@@ -95,18 +90,6 @@ pub enum Transaction {
     WithdrawReward {
         interchain_account_id: String,
         validator: String,
-    },
-    TokenizeShare {
-        interchain_account_id: String,
-        validator: String,
-        denom: String,
-        amount: u128,
-    },
-    RedeemShare {
-        interchain_account_id: String,
-        validator: String,
-        denom: String,
-        amount: u128,
     },
 }
 

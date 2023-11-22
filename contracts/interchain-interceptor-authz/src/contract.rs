@@ -1,10 +1,8 @@
 use cosmos_sdk_proto::cosmos::{
+    authz::v1beta1::MsgExec,
     base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
     distribution::v1beta1::MsgWithdrawDelegatorReward,
-    staking::v1beta1::{
-        MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgDelegate, MsgDelegateResponse,
-        MsgUndelegate, MsgUndelegateResponse,
-    },
+    staking::v1beta1::{MsgBeginRedelegate, MsgDelegate, MsgUndelegate},
 };
 use cosmwasm_std::{entry_point, to_vec, CosmosMsg, Deps, Reply, StdError, SubMsg, Uint128};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
@@ -15,7 +13,8 @@ use neutron_sdk::{
         query::NeutronQuery,
         types::ProtobufAny,
     },
-    interchain_txs::helpers::{decode_message_response, get_port_id},
+    interchain_queries::v045::new_register_delegator_delegations_query_msg,
+    interchain_txs::helpers::get_port_id,
     sudo::msg::{RequestPacket, SudoMsg},
     NeutronError, NeutronResult,
 };
@@ -25,6 +24,7 @@ use lido_interchain_interceptor_base::{
     state::{InterchainIntercaptorBase, State, ICA_ID, SUDO_PAYLOAD_REPLY_ID},
 };
 use prost::Message;
+use prost_types::Any;
 
 use crate::{
     msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, Transaction},
@@ -102,8 +102,28 @@ pub fn execute(
         ExecuteMsg::WithdrawReward { validator, timeout } => {
             execute_withdraw_reward(deps, env, info, validator, timeout)
         }
+        ExecuteMsg::RegisterDelegatorDelegationsQuery { validators } => {
+            register_delegations_query(deps, validators)
+        }
         _ => interceptor_base.execute(deps, env, msg.to_base_enum()),
     }
+}
+
+fn register_delegations_query(
+    deps: DepsMut<NeutronQuery>,
+    validators: Vec<String>,
+) -> NeutronResult<Response<NeutronMsg>> {
+    let interceptor_base = InterchainInterceptor::default();
+    let config = interceptor_base.config.load(deps.storage)?;
+    // let state: State = interceptor_base.state.load(deps.storage)?;
+
+    let msg = new_register_delegator_delegations_query_msg(
+        config.connection_id,
+        config.proxy_address.to_string(),
+        validators,
+        config.update_period,
+    )?;
+    Ok(Response::new().add_message(msg))
 }
 
 fn execute_delegate(
@@ -117,11 +137,12 @@ fn execute_delegate(
     let interceptor_base = InterchainInterceptor::default();
     let config: Config = interceptor_base.config.load(deps.storage)?;
     let state: State = interceptor_base.state.load(deps.storage)?;
-    let delegator = state.ica.ok_or_else(|| {
+    let grantee = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
     })?;
+
     let delegate_msg = MsgDelegate {
-        delegator_address: delegator,
+        delegator_address: config.proxy_address.to_string(),
         validator_address: validator.to_string(),
         amount: Some(Coin {
             denom: config.remote_denom.to_string(),
@@ -129,12 +150,22 @@ fn execute_delegate(
         }),
     };
 
+    let any_msg_delegate = Any {
+        type_url: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
+        value: delegate_msg.encode_to_vec(),
+    };
+
+    let authz_msg = MsgExec {
+        grantee,
+        msgs: vec![any_msg_delegate],
+    };
+
     let submsg = compose_submsg(
         deps.branch(),
         env,
         config.clone(),
-        delegate_msg,
-        "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
+        authz_msg,
+        "/cosmos.authz.v1beta1.MsgExec".to_string(),
         Transaction::Delegate {
             interchain_account_id: ICA_ID.to_string(),
             validator,
@@ -159,12 +190,12 @@ fn execute_undelegate(
     let config: Config = interceptor_base.config.load(deps.storage)?;
     let state: State = interceptor_base.state.load(deps.storage)?;
 
-    let delegator = state.ica.ok_or_else(|| {
+    let grantee = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
     })?;
 
     let undelegate_msg = MsgUndelegate {
-        delegator_address: delegator,
+        delegator_address: config.proxy_address.to_string(),
         validator_address: validator.to_string(),
         amount: Some(Coin {
             denom: config.remote_denom.to_string(),
@@ -172,12 +203,22 @@ fn execute_undelegate(
         }),
     };
 
+    let any_msg_undelegate = Any {
+        type_url: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
+        value: undelegate_msg.encode_to_vec(),
+    };
+
+    let authz_msg = MsgExec {
+        grantee,
+        msgs: vec![any_msg_undelegate],
+    };
+
     let submsg = compose_submsg(
         deps.branch(),
         env,
         config.clone(),
-        undelegate_msg,
-        "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
+        authz_msg,
+        "/cosmos.authz.v1beta1.MsgExec".to_string(),
         Transaction::Undelegate {
             interchain_account_id: ICA_ID.to_string(),
             validator,
@@ -203,11 +244,12 @@ fn execute_redelegate(
     let config: Config = interceptor_base.config.load(deps.storage)?;
     let state: State = interceptor_base.state.load(deps.storage)?;
 
-    let delegator = state.ica.ok_or_else(|| {
+    let grantee = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
     })?;
+
     let redelegate_msg = MsgBeginRedelegate {
-        delegator_address: delegator,
+        delegator_address: config.proxy_address.to_string(),
         validator_src_address: validator_from.to_string(),
         validator_dst_address: validator_to.to_string(),
         amount: Some(Coin {
@@ -216,12 +258,22 @@ fn execute_redelegate(
         }),
     };
 
+    let any_msg_redelegate = Any {
+        type_url: "/cosmos.staking.v1beta1.MsgBeginRedelegate".to_string(),
+        value: redelegate_msg.encode_to_vec(),
+    };
+
+    let authz_msg = MsgExec {
+        grantee,
+        msgs: vec![any_msg_redelegate],
+    };
+
     let submsg = compose_submsg(
         deps.branch(),
         env,
         config.clone(),
-        redelegate_msg,
-        "/cosmos.staking.v1beta1.MsgBeginRedelegate".to_string(),
+        authz_msg,
+        "/cosmos.authz.v1beta1.MsgExec".to_string(),
         Transaction::Redelegate {
             interchain_account_id: ICA_ID.to_string(),
             validator_from,
@@ -383,68 +435,147 @@ fn sudo_response(
     let payload = interceptor_base
         .sudo_payload
         .load(deps.storage, (channel_id.clone(), seq_id))?;
+
+    deps.api
+        .debug(&format!("WASMDEBUG: sudo_response: seq_id: {seq_id:?}"));
+
+    deps.api
+        .debug(&format!("WASMDEBUG: sudo_response: payload: {payload:?}"));
+
     deps.api
         .debug(&format!("WASMDEBUG: sudo_response: data: {data:?}"));
+
+    // match request.data {
+    //     Some(data) => {
+    //         let payload_data = Tx::decode(data.as_slice())?;
+    //         deps.api.debug(&format!(
+    //             "WASMDEBUG: sudo_response: payload_data: {payload_data:?}"
+    //         ));
+    //     }
+    //     None => deps
+    //         .api
+    //         .debug("WASMDEBUG: sudo_response: payload_data: None"),
+    // }
 
     let msg_data: TxMsgData = TxMsgData::decode(data.as_slice())?;
     deps.api
         .debug(&format!("WASMDEBUG: msg_data: data: {msg_data:?}"));
 
-    #[allow(deprecated)]
-    for item in msg_data.data {
-        deps.api.debug(&format!("WASMDEBUG: item: data: {item:?}"));
-
-        match item.msg_type.as_str() {
-            "/cosmos.staking.v1beta1.MsgDelegate" => {
+    match payload.clone().info {
+        Some(tx) => match tx.clone() {
+            Transaction::Delegate {
+                interchain_account_id: _,
+                validator: _,
+                denom: _,
+                amount: _,
+            } => {
                 deps.api
                     .debug("WASMDEBUG: sudo_response: MsgDelegateResponse");
-                let out: MsgDelegateResponse = decode_message_response(&item.data)?;
-                deps.api.debug(&format!(
-                    "WASMDEBUG: sudo_response: MsgDelegateResponse: {out:?}"
-                ));
                 let mut txs = interceptor_base.transactions.load(deps.storage)?;
-                txs.extend(payload.info.clone());
+                txs.extend(vec![tx]);
                 interceptor_base.transactions.save(deps.storage, &txs)?;
                 interceptor_base
                     .sudo_payload
-                    .remove(deps.storage, (channel_id.clone(), seq_id));
+                    .remove(deps.storage, (channel_id, seq_id));
             }
-            "/cosmos.staking.v1beta1.MsgUndelegate" => {
+            Transaction::Undelegate {
+                interchain_account_id: _,
+                validator: _,
+                denom: _,
+                amount: _,
+            } => {
                 deps.api
                     .debug("WASMDEBUG: sudo_response: MsgUndelegateResponse");
-                let out: MsgUndelegateResponse = decode_message_response(&item.data)?;
-                deps.api.debug(&format!(
-                    "WASMDEBUG: sudo_response: MsgUndelegateResponse: {out:?}"
-                ));
+
                 let mut txs = interceptor_base.transactions.load(deps.storage)?;
-                txs.extend(payload.info.clone());
+                txs.extend(vec![tx]);
                 interceptor_base.transactions.save(deps.storage, &txs)?;
                 interceptor_base
                     .sudo_payload
-                    .remove(deps.storage, (channel_id.clone(), seq_id));
+                    .remove(deps.storage, (channel_id, seq_id));
             }
-            "/cosmos.staking.v1beta1.MsgBeginRedelegate" => {
+            Transaction::Redelegate {
+                interchain_account_id: _,
+                validator_from: _,
+                validator_to: _,
+                denom: _,
+                amount: _,
+            } => {
                 deps.api
                     .debug("WASMDEBUG: sudo_response: MsgBeginRedelegateResponse");
-                let out: MsgBeginRedelegateResponse = decode_message_response(&item.data)?;
-                deps.api.debug(&format!(
-                    "WASMDEBUG: sudo_response: MsgBeginRedelegateResponse: {out:?}"
-                ));
+
                 let mut txs = interceptor_base.transactions.load(deps.storage)?;
-                txs.extend(payload.info.clone());
+                txs.extend(vec![tx]);
                 interceptor_base.transactions.save(deps.storage, &txs)?;
                 interceptor_base
                     .sudo_payload
-                    .remove(deps.storage, (channel_id.clone(), seq_id));
+                    .remove(deps.storage, (channel_id, seq_id));
             }
-            _ => {
-                deps.api.debug(
-                    format!("This type of acknowledgement is not implemented: {payload:?}")
-                        .as_str(),
-                );
-            }
-        }
+            Transaction::WithdrawReward {
+                interchain_account_id: _,
+                validator: _,
+            } => todo!(),
+        },
+        None => deps
+            .api
+            .debug(format!("Empty payload info: {payload:?}").as_str()),
     }
+
+    // #[allow(deprecated)]
+    // for item in msg_data.data {
+    //     deps.api.debug(&format!("WASMDEBUG: item: data: {item:?}"));
+
+    //     match item.msg_type.as_str() {
+    //         "/cosmos.staking.v1beta1.MsgDelegate" => {
+    //             deps.api
+    //                 .debug("WASMDEBUG: sudo_response: MsgDelegateResponse");
+    //             let out: MsgDelegateResponse = decode_message_response(&item.data)?;
+    //             deps.api.debug(&format!(
+    //                 "WASMDEBUG: sudo_response: MsgDelegateResponse: {out:?}"
+    //             ));
+    //             let mut txs = interceptor_base.transactions.load(deps.storage)?;
+    //             txs.extend(payload.info.clone());
+    //             interceptor_base.transactions.save(deps.storage, &txs)?;
+    //             interceptor_base
+    //                 .sudo_payload
+    //                 .remove(deps.storage, (channel_id.clone(), seq_id));
+    //         }
+    //         "/cosmos.staking.v1beta1.MsgUndelegate" => {
+    //             deps.api
+    //                 .debug("WASMDEBUG: sudo_response: MsgUndelegateResponse");
+    //             let out: MsgUndelegateResponse = decode_message_response(&item.data)?;
+    //             deps.api.debug(&format!(
+    //                 "WASMDEBUG: sudo_response: MsgUndelegateResponse: {out:?}"
+    //             ));
+    //             let mut txs = interceptor_base.transactions.load(deps.storage)?;
+    //             txs.extend(payload.info.clone());
+    //             interceptor_base.transactions.save(deps.storage, &txs)?;
+    //             interceptor_base
+    //                 .sudo_payload
+    //                 .remove(deps.storage, (channel_id.clone(), seq_id));
+    //         }
+    //         "/cosmos.staking.v1beta1.MsgBeginRedelegate" => {
+    //             deps.api
+    //                 .debug("WASMDEBUG: sudo_response: MsgBeginRedelegateResponse");
+    //             let out: MsgBeginRedelegateResponse = decode_message_response(&item.data)?;
+    //             deps.api.debug(&format!(
+    //                 "WASMDEBUG: sudo_response: MsgBeginRedelegateResponse: {out:?}"
+    //             ));
+    //             let mut txs = interceptor_base.transactions.load(deps.storage)?;
+    //             txs.extend(payload.info.clone());
+    //             interceptor_base.transactions.save(deps.storage, &txs)?;
+    //             interceptor_base
+    //                 .sudo_payload
+    //                 .remove(deps.storage, (channel_id.clone(), seq_id));
+    //         }
+    //         _ => {
+    //             deps.api.debug(
+    //                 format!("This type of acknowledgement is not implemented: {payload:?}")
+    //                     .as_str(),
+    //             );
+    //         }
+    //     }
+    // }
     Ok(Response::default())
 }
 

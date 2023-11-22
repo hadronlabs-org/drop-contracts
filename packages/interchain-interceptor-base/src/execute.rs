@@ -1,12 +1,10 @@
-use cosmwasm_std::{Coin as CosmosCoin, DepsMut, Env, Response, StdError, Uint128};
+use cosmwasm_std::{Coin as CosmosCoin, DepsMut, Env, Response, Uint128};
 use neutron_sdk::{
     bindings::{
         msg::{IbcFee, NeutronMsg},
         query::NeutronQuery,
     },
-    interchain_queries::v045::{
-        new_register_delegator_delegations_query_msg, new_register_transfers_query_msg,
-    },
+    interchain_queries::v045::new_register_transfers_query_msg,
     interchain_txs::helpers::get_port_id,
     NeutronError, NeutronResult,
 };
@@ -42,9 +40,6 @@ where
         match msg {
             ExecuteMsg::RegisterICA {} => self.execute_register_ica(deps, env),
             ExecuteMsg::RegisterQuery {} => self.register_transfers_query(deps),
-            ExecuteMsg::RegisterDelegatorDelegationsQuery { validators } => {
-                self.register_delegations_query(deps, validators)
-            }
             ExecuteMsg::SetFees {
                 recv_fee,
                 ack_fee,
@@ -119,25 +114,5 @@ where
         } else {
             Err(NeutronError::IntegrationTestsMock {})
         }
-    }
-
-    fn register_delegations_query(
-        &self,
-        deps: DepsMut<NeutronQuery>,
-        validators: Vec<String>,
-    ) -> NeutronResult<Response<NeutronMsg>> {
-        let config = self.config.load(deps.storage)?;
-        let state: State = self.state.load(deps.storage)?;
-
-        let delegator = state.ica.ok_or_else(|| {
-            StdError::generic_err("Interchain account is not registered. Please register it first")
-        })?;
-        let msg = new_register_delegator_delegations_query_msg(
-            config.connection_id(),
-            delegator,
-            validators,
-            config.update_period(),
-        )?;
-        Ok(Response::new().add_message(msg))
     }
 }

@@ -5,9 +5,6 @@ use cosmwasm_std::{Delegation, Uint128};
 pub enum ExecuteMsg {
     RegisterICA {},
     RegisterQuery {},
-    RegisterDelegatorDelegationsQuery {
-        validators: Vec<String>,
-    },
     SetFees {
         recv_fee: Uint128,
         ack_fee: Uint128,
@@ -15,44 +12,6 @@ pub enum ExecuteMsg {
     },
 }
 
-#[cw_serde]
-pub enum Transaction {
-    Delegate {
-        interchain_account_id: String,
-        validator: String,
-        denom: String,
-        amount: u128,
-    },
-    Undelegate {
-        interchain_account_id: String,
-        validator: String,
-        denom: String,
-        amount: u128,
-    },
-    Redelegate {
-        interchain_account_id: String,
-        validator_from: String,
-        validator_to: String,
-        denom: String,
-        amount: u128,
-    },
-    WithdrawReward {
-        interchain_account_id: String,
-        validator: String,
-    },
-    TokenizeShare {
-        interchain_account_id: String,
-        validator: String,
-        denom: String,
-        amount: u128,
-    },
-    RedeemShare {
-        interchain_account_id: String,
-        validator: String,
-        denom: String,
-        amount: u128,
-    },
-}
 #[cw_serde]
 pub struct SudoPayload<C> {
     pub message: String,

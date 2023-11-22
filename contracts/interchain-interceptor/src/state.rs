@@ -2,9 +2,11 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 
 use cosmwasm_std::Addr;
 use lido_interchain_interceptor_base::{
-    msg::{DelegationsResponse, Transaction},
+    msg::DelegationsResponse,
     state::{BaseConfig, State, Transfer},
 };
+
+use crate::msg::Transaction;
 
 #[cw_serde]
 pub struct Config {

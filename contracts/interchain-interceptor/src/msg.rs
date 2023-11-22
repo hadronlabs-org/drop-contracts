@@ -58,11 +58,6 @@ impl ExecuteMsg {
         match self {
             ExecuteMsg::RegisterICA {} => BaseExecuteMsg::RegisterICA {},
             ExecuteMsg::RegisterQuery {} => BaseExecuteMsg::RegisterQuery {},
-            ExecuteMsg::RegisterDelegatorDelegationsQuery { validators } => {
-                BaseExecuteMsg::RegisterDelegatorDelegationsQuery {
-                    validators: validators.to_vec(),
-                }
-            }
             ExecuteMsg::SetFees {
                 recv_fee,
                 ack_fee,

@@ -27,6 +27,8 @@ where
     fn prepare_sudo_payload(&self, deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
         let data = self.reply_id_storage.load(deps.storage)?;
         let payload: SudoPayload<C> = from_binary(&Binary(data))?;
+        deps.api
+            .debug(&format!("WASMDEBUG: prepare_sudo_payload: {payload:?}"));
         let resp: MsgSubmitTxResponse = serde_json_wasm::from_slice(
             msg.result
                 .into_result()

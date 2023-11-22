@@ -14,6 +14,7 @@ use neutron_sdk::{
         query::NeutronQuery,
         types::ProtobufAny,
     },
+    interchain_queries::v045::new_register_delegator_delegations_query_msg,
     interchain_txs::helpers::{decode_message_response, get_port_id},
     sudo::msg::{RequestPacket, SudoMsg},
     NeutronError, NeutronResult,
@@ -113,8 +114,31 @@ pub fn execute(
             denom,
             timeout,
         } => execute_redeem_share(deps, env, info, validator, amount, denom, timeout),
+        ExecuteMsg::RegisterDelegatorDelegationsQuery { validators } => {
+            register_delegations_query(deps, validators)
+        }
         _ => interceptor_base.execute(deps, env, msg.to_base_enum()),
     }
+}
+
+fn register_delegations_query(
+    deps: DepsMut<NeutronQuery>,
+    validators: Vec<String>,
+) -> NeutronResult<Response<NeutronMsg>> {
+    let interceptor_base = InterchainInterceptor::default();
+    let config = interceptor_base.config.load(deps.storage)?;
+    let state: State = interceptor_base.state.load(deps.storage)?;
+
+    let delegator = state.ica.ok_or_else(|| {
+        StdError::generic_err("Interchain account is not registered. Please register it first")
+    })?;
+    let msg = new_register_delegator_delegations_query_msg(
+        config.connection_id,
+        delegator,
+        validators,
+        config.update_period,
+    )?;
+    Ok(Response::new().add_message(msg))
 }
 
 fn execute_delegate(
