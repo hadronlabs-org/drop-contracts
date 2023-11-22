@@ -115,7 +115,6 @@ fn register_delegations_query(
 ) -> NeutronResult<Response<NeutronMsg>> {
     let interceptor_base = InterchainInterceptor::default();
     let config = interceptor_base.config.load(deps.storage)?;
-    // let state: State = interceptor_base.state.load(deps.storage)?;
 
     let msg = new_register_delegator_delegations_query_msg(
         config.connection_id,
@@ -298,20 +297,31 @@ fn execute_withdraw_reward(
     let config: Config = interceptor_base.config.load(deps.storage)?;
     let state: State = interceptor_base.state.load(deps.storage)?;
 
-    let delegator = state.ica.ok_or_else(|| {
+    let grantee = state.ica.ok_or_else(|| {
         StdError::generic_err("Interchain account is not registered. Please register it first")
     })?;
-    let delegate_msg = MsgWithdrawDelegatorReward {
-        delegator_address: delegator,
+
+    let withdraw_reward_msg = MsgWithdrawDelegatorReward {
+        delegator_address: config.proxy_address.to_string(),
         validator_address: validator.to_string(),
+    };
+
+    let any_msg_withdraw = Any {
+        type_url: "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
+        value: withdraw_reward_msg.encode_to_vec(),
+    };
+
+    let authz_msg = MsgExec {
+        grantee,
+        msgs: vec![any_msg_withdraw],
     };
 
     let submsg = compose_submsg(
         deps.branch(),
         env,
         config,
-        delegate_msg,
-        "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
+        authz_msg,
+        "/cosmos.authz.v1beta1.MsgExec".to_string(),
         Transaction::WithdrawReward {
             interchain_account_id: ICA_ID.to_string(),
             validator,
@@ -445,18 +455,6 @@ fn sudo_response(
     deps.api
         .debug(&format!("WASMDEBUG: sudo_response: data: {data:?}"));
 
-    // match request.data {
-    //     Some(data) => {
-    //         let payload_data = Tx::decode(data.as_slice())?;
-    //         deps.api.debug(&format!(
-    //             "WASMDEBUG: sudo_response: payload_data: {payload_data:?}"
-    //         ));
-    //     }
-    //     None => deps
-    //         .api
-    //         .debug("WASMDEBUG: sudo_response: payload_data: None"),
-    // }
-
     let msg_data: TxMsgData = TxMsgData::decode(data.as_slice())?;
     deps.api
         .debug(&format!("WASMDEBUG: msg_data: data: {msg_data:?}"));
@@ -514,68 +512,23 @@ fn sudo_response(
             Transaction::WithdrawReward {
                 interchain_account_id: _,
                 validator: _,
-            } => todo!(),
+            } => {
+                deps.api
+                    .debug("WASMDEBUG: sudo_response: MsgWithdrawDelegatorReward");
+
+                let mut txs = interceptor_base.transactions.load(deps.storage)?;
+                txs.extend(vec![tx]);
+                interceptor_base.transactions.save(deps.storage, &txs)?;
+                interceptor_base
+                    .sudo_payload
+                    .remove(deps.storage, (channel_id, seq_id));
+            }
         },
         None => deps
             .api
             .debug(format!("Empty payload info: {payload:?}").as_str()),
     }
 
-    // #[allow(deprecated)]
-    // for item in msg_data.data {
-    //     deps.api.debug(&format!("WASMDEBUG: item: data: {item:?}"));
-
-    //     match item.msg_type.as_str() {
-    //         "/cosmos.staking.v1beta1.MsgDelegate" => {
-    //             deps.api
-    //                 .debug("WASMDEBUG: sudo_response: MsgDelegateResponse");
-    //             let out: MsgDelegateResponse = decode_message_response(&item.data)?;
-    //             deps.api.debug(&format!(
-    //                 "WASMDEBUG: sudo_response: MsgDelegateResponse: {out:?}"
-    //             ));
-    //             let mut txs = interceptor_base.transactions.load(deps.storage)?;
-    //             txs.extend(payload.info.clone());
-    //             interceptor_base.transactions.save(deps.storage, &txs)?;
-    //             interceptor_base
-    //                 .sudo_payload
-    //                 .remove(deps.storage, (channel_id.clone(), seq_id));
-    //         }
-    //         "/cosmos.staking.v1beta1.MsgUndelegate" => {
-    //             deps.api
-    //                 .debug("WASMDEBUG: sudo_response: MsgUndelegateResponse");
-    //             let out: MsgUndelegateResponse = decode_message_response(&item.data)?;
-    //             deps.api.debug(&format!(
-    //                 "WASMDEBUG: sudo_response: MsgUndelegateResponse: {out:?}"
-    //             ));
-    //             let mut txs = interceptor_base.transactions.load(deps.storage)?;
-    //             txs.extend(payload.info.clone());
-    //             interceptor_base.transactions.save(deps.storage, &txs)?;
-    //             interceptor_base
-    //                 .sudo_payload
-    //                 .remove(deps.storage, (channel_id.clone(), seq_id));
-    //         }
-    //         "/cosmos.staking.v1beta1.MsgBeginRedelegate" => {
-    //             deps.api
-    //                 .debug("WASMDEBUG: sudo_response: MsgBeginRedelegateResponse");
-    //             let out: MsgBeginRedelegateResponse = decode_message_response(&item.data)?;
-    //             deps.api.debug(&format!(
-    //                 "WASMDEBUG: sudo_response: MsgBeginRedelegateResponse: {out:?}"
-    //             ));
-    //             let mut txs = interceptor_base.transactions.load(deps.storage)?;
-    //             txs.extend(payload.info.clone());
-    //             interceptor_base.transactions.save(deps.storage, &txs)?;
-    //             interceptor_base
-    //                 .sudo_payload
-    //                 .remove(deps.storage, (channel_id.clone(), seq_id));
-    //         }
-    //         _ => {
-    //             deps.api.debug(
-    //                 format!("This type of acknowledgement is not implemented: {payload:?}")
-    //                     .as_str(),
-    //             );
-    //         }
-    //     }
-    // }
     Ok(Response::default())
 }
 
