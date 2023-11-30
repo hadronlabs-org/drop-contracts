@@ -6,6 +6,7 @@ members = [
     "contracts/token",
     "packages/interchain-interceptor-base"
 ]
+
 resolver = "2"
 
 [workspace.dependencies]
