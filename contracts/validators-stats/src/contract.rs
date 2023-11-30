@@ -2,6 +2,8 @@ use cosmwasm_std::{entry_point, to_json_binary, Deps, Reply, StdError, SubMsg, S
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse;
+use neutron_sdk::interchain_queries::query_kv_result;
+use neutron_sdk::interchain_queries::v045::types::{SigningInfo, StakingValidator};
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     interchain_queries::v045::{
@@ -150,15 +152,9 @@ pub fn sudo_kv_query_result(
     let optional_query_id = Some(query_id);
 
     if optional_query_id == validator_profile_query_id {
-        deps.api.debug(&format!(
-            "WASMDEBUG: sudo_kv_query_result validator_profile_query_id: {:?}",
-            query_id
-        ));
+        validator_info_sudo(deps, _env, query_id)?;
     } else if optional_query_id == signing_info_query_id {
-        deps.api.debug(&format!(
-            "WASMDEBUG: sudo_kv_query_result signing_info_query_id: {:?}",
-            query_id
-        ));
+        signing_info_sudo(deps, _env, query_id)?;
     } else {
         deps.api.debug(&format!(
             "WASMDEBUG: sudo_kv_query_result query_id: {:?}",
@@ -179,6 +175,40 @@ pub fn sudo_kv_query_result(
     Ok(Response::default())
 }
 
+fn validator_info_sudo(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    query_id: u64,
+) -> NeutronResult<Response> {
+    deps.api.debug(&format!(
+        "WASMDEBUG: validator_info_sudo query_id: {query_id:?}",
+    ));
+
+    let data: StakingValidator = query_kv_result(deps.as_ref(), query_id)?;
+
+    deps.api
+        .debug(&format!("WASMDEBUG: validator_info_sudo data: {data:?}",));
+
+    Ok(Response::new())
+}
+
+fn signing_info_sudo(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    query_id: u64,
+) -> NeutronResult<Response> {
+    deps.api.debug(&format!(
+        "WASMDEBUG: signing_info_sudo query_id: {query_id:?}",
+    ));
+
+    let data: SigningInfo = query_kv_result(deps.as_ref(), query_id)?;
+
+    deps.api
+        .debug(&format!("WASMDEBUG: signing_info_sudo data: {data:?}",));
+
+    Ok(Response::new())
+}
+
 #[entry_point]
 pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
     deps.api
@@ -197,13 +227,13 @@ fn validator_info_reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Respo
     deps.api
         .debug(&format!("WASMDEBUG: validator_info_reply call: {msg:?}",));
 
-    // let query_id = get_query_id(msg.result)?;
+    let query_id = get_query_id(msg.result)?;
 
-    // deps.api.debug(&format!(
-    //     "WASMDEBUG: validator_info_reply query id: {query_id:?}"
-    // ));
+    deps.api.debug(&format!(
+        "WASMDEBUG: validator_info_reply query id: {query_id:?}"
+    ));
 
-    // VALIDATOR_PROFILE_QUERY_ID.save(deps.storage, &Some(query_id))?;
+    VALIDATOR_PROFILE_QUERY_ID.save(deps.storage, &Some(query_id))?;
 
     Ok(Response::new())
 }
