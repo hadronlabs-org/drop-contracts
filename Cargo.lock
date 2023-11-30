@@ -374,9 +374,9 @@ dependencies = [
 
 [[package]]
 name = "deranged"
-version = "0.3.10"
+version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8eb30d70a07a3b04884d2677f06bec33509dc67ca60d92949e5535352d3191dc"
+checksum = "0f32d04922c60427da6f9fef14d042d9edddef64cb9d4ce0d64d0685fbeb1fd3"
 dependencies = [
  "powerfmt",
 ]
@@ -673,22 +673,33 @@ dependencies = [
 ]
 
 [[package]]
-name = "lido-token"
+name = "lido-validators-stats"
 version = "1.0.0"
 dependencies = [
+ "base64",
+ "cosmos-sdk-proto",
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test",
+ "cw-ownable",
  "cw-storage-plus",
- "cw-utils",
  "cw2",
+ "cw20",
  "neutron-sdk",
- "thiserror",
+ "prost",
+ "prost-types",
+ "protobuf",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.0",
+ "tendermint-proto",
 ]
 
 [[package]]
 name = "neutron-sdk"
 version = "0.7.0"
-source = "git+https://github.com/neutron-org/neutron-sdk?branch=sdk/47#276fc51e62a973d60638dc25b50e91d1bad2e1a1"
+source = "git+https://github.com/neutron-org/neutron-sdk?rev=85a8f6445697e8e6d1880c7b3c9d564c9db03421#85a8f6445697e8e6d1880c7b3c9d564c9db03421"
 dependencies = [
  "bech32",
  "cosmos-sdk-proto",

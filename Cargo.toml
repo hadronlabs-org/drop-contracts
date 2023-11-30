@@ -1,11 +1,32 @@
 [workspace]
 members = [
-    "contracts/interchain-interceptor",
-    "contracts/interchain-interceptor-authz",
+    "contracts/interchain-interceptor", 
+    "contracts/interchain-interceptor-authz", 
+    "contracts/validators-stats",
     "contracts/token",
     "packages/interchain-interceptor-base"
 ]
 resolver = "2"
+
+[workspace.dependencies]
+base64                           = "0.21.2"
+cw-ownable                       = "0.5.1"
+neutron-sdk                      = { package = "neutron-sdk", git = "https://github.com/neutron-org/neutron-sdk", rev = "85a8f6445697e8e6d1880c7b3c9d564c9db03421" }
+cosmos-sdk-proto                 = { version = "0.20.0", default-features = false }
+prost                            = "0.12.1"
+prost-types                      = "0.12.1"
+protobuf                         = "3.2.0"
+tendermint-proto                 = "0.34.0"
+cosmwasm-schema                  = { version = "1.3.1" }
+cosmwasm-std                     = { version = "1.2.1" }
+cw-storage-plus                  = { version = "1.0.1" }
+cw2                              = { version = "1.0.1" }
+cw20                             = { version = "1.0.1" }
+schemars                         = "0.8"
+serde                            = { version = "1.0.127", default-features = false, features = ["derive"] }
+serde-json-wasm                  = { version = "1.0.0" }
+lido-interchain-interceptor-base = { path = "./packages/interchain-interceptor-base", default-features = false }
+thiserror                        = "1.0.50"
 
 [profile.release]
 opt-level = 3

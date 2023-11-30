@@ -1,1 +1,1 @@
-# LIDO Interchain interceptor base
+# LIDO Interchain interceptor base pakcage
