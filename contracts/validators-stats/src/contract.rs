@@ -192,7 +192,7 @@ fn validator_info_sudo(
                 last_processed_remote_height: None,
                 last_validated_height: None,
                 last_commission_in_range: None,
-                uptime: 100,
+                uptime: Decimal::zero(),
                 tombstone: false,
                 prev_jailed_state: false,
                 jailed_number: Some(0),
@@ -248,12 +248,11 @@ fn signing_info_sudo(
     interchain_query_result: QueryRegisteredQueryResultResponse,
 ) -> NeutronResult<Response<NeutronMsg>> {
     let data: SigningInfo = KVReconstruct::reconstruct(&interchain_query_result.result.kv_results)?;
+    deps.api
+        .debug(&format!("WASMDEBUG: signing_info_sudo data: {data:?}",));
 
     for info in data.signing_infos.iter() {
         let valoper_address = VALCONS_TO_VALOPER.may_load(deps.storage, info.address.clone())?;
-
-        deps.api
-            .debug(&format!("WASMDEBUG: signing_info_sudo data: {data:?}",));
 
         if valoper_address.is_none() {
             deps.api.debug(&format!(
@@ -264,6 +263,14 @@ fn signing_info_sudo(
         }
 
         let mut all_missed_blocks = MISSED_BLOCKS.may_load(deps.storage)?.unwrap_or_default();
+        if !all_missed_blocks.is_empty()
+            && all_missed_blocks[0].timestamp <= env.block.time.seconds() - 60 * 60 * 24 * 30
+        // TODO: move 30 days to config
+        {
+            all_missed_blocks.remove(0);
+        }
+
+        deps.api.debug("WASMDEBUG: signing_info_sudo: 1");
 
         let mut missed_blocks = MissedBlocks {
             remote_height: interchain_query_result.result.height,
@@ -271,7 +278,13 @@ fn signing_info_sudo(
             validators: Vec::new(),
         };
 
+        deps.api.debug("WASMDEBUG: signing_info_sudo: 2");
+
         if let Some(address) = valoper_address {
+            deps.api.debug(&format!(
+                "WASMDEBUG: signing_info_sudo: valoper address: {address:?}"
+            ));
+
             let mut validator_state = STATE_MAP
                 .may_load(deps.storage, address.clone())?
                 .unwrap_or_else(|| ValidatorState {
@@ -281,11 +294,13 @@ fn signing_info_sudo(
                     last_processed_remote_height: None,
                     last_validated_height: None,
                     last_commission_in_range: None,
-                    uptime: 100,
+                    uptime: Decimal::zero(),
                     tombstone: false,
                     prev_jailed_state: false,
                     jailed_number: Some(0),
                 });
+
+            deps.api.debug("WASMDEBUG: signing_info_sudo: 3");
 
             validator_state.tombstone = if info.tombstoned {
                 true
@@ -295,15 +310,51 @@ fn signing_info_sudo(
 
             let validator_missed_blocks = ValidatorMissedBlocksForPeriod {
                 address: address.clone(),
-                missed_blocks: info.missed_blocks_counter,
+                missed_blocks: info.missed_blocks_counter as u64,
             };
 
             missed_blocks.validators.push(validator_missed_blocks);
 
+            let total_blocks = missed_blocks.remote_height
+                - (if !all_missed_blocks.is_empty() {
+                    all_missed_blocks[0].remote_height
+                } else {
+                    missed_blocks.remote_height
+                });
+
+            deps.api.debug("WASMDEBUG: signing_info_sudo: 4");
+
+            let sum_missed_blocks: u64 = all_missed_blocks
+                .iter()
+                .flat_map(|x| &x.validators)
+                .filter(|x| x.address == address)
+                .map(|inner| inner.missed_blocks)
+                .sum();
+
+            deps.api.debug("WASMDEBUG: signing_info_sudo: 5");
+
+            let sum_missed_blocks = sum_missed_blocks + info.missed_blocks_counter as u64;
+            deps.api.debug("WASMDEBUG: signing_info_sudo: 5.1");
+            let missed_blocks_percent = if total_blocks == 0 {
+                Decimal::zero()
+            } else {
+                Decimal::from_ratio(sum_missed_blocks, total_blocks)
+            };
+            deps.api.debug("WASMDEBUG: signing_info_sudo: 5.2");
+            validator_state.uptime = Decimal::one() - missed_blocks_percent;
+
+            deps.api.debug("WASMDEBUG: signing_info_sudo: 6");
+
             STATE_MAP.save(deps.storage, address.clone(), &validator_state)?;
+
+            deps.api.debug("WASMDEBUG: signing_info_sudo: 7");
         }
 
         all_missed_blocks.push(missed_blocks);
+
+        deps.api.debug(&format!(
+            "WASMDEBUG: signing_info_sudo: all_missed_blocks: {all_missed_blocks:?}",
+        ));
 
         MISSED_BLOCKS.save(deps.storage, &all_missed_blocks)?;
     }

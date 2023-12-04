@@ -1,6 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 
-use cosmwasm_std::Addr;
+use cosmwasm_std::{Addr, Decimal};
 use cw_storage_plus::{Item, Map};
 
 #[cw_serde]
@@ -21,7 +21,7 @@ pub struct ValidatorState {
     pub last_processed_local_height: Option<u64>,
     pub last_validated_height: Option<u64>,
     pub last_commission_in_range: Option<u64>,
-    pub uptime: u64,
+    pub uptime: Decimal,
     pub tombstone: bool,
     pub prev_jailed_state: bool,
     pub jailed_number: Option<u64>,
@@ -44,7 +44,7 @@ pub enum QueryMsg {
 #[cw_serde]
 pub struct ValidatorMissedBlocksForPeriod {
     pub address: String,
-    pub missed_blocks: u32,
+    pub missed_blocks: u64,
 }
 
 #[cw_serde]
