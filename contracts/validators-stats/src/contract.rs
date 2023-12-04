@@ -1,9 +1,14 @@
-use cosmwasm_std::{entry_point, to_json_binary, Deps, Reply, StdError, SubMsg, SubMsgResult};
+use bech32::{encode, ToBase32};
+use cosmwasm_std::{
+    entry_point, to_json_binary, Decimal, Deps, Order, Reply, StdError, SubMsg, SubMsgResult,
+};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse;
-use neutron_sdk::interchain_queries::query_kv_result;
-use neutron_sdk::interchain_queries::v045::types::{SigningInfo, StakingValidator};
+use neutron_sdk::bindings::query::QueryRegisteredQueryResultResponse;
+use neutron_sdk::interchain_queries::queries::get_raw_interchain_query_result;
+use neutron_sdk::interchain_queries::types::KVReconstruct;
+use neutron_sdk::interchain_queries::v045::types::{SigningInfo, StakingValidator, Validator};
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     interchain_queries::v045::{
@@ -13,10 +18,14 @@ use neutron_sdk::{
     sudo::msg::SudoMsg,
     NeutronResult,
 };
+use sha2::{Digest, Sha256};
 
-use crate::state::{QueryMsg, CONFIG, SIGNING_INFO_QUERY_ID, STATE, VALIDATOR_PROFILE_QUERY_ID};
+use crate::state::{
+    MissedBlocks, QueryMsg, ValidatorMissedBlocksForPeriod, ValidatorState, CONFIG, MISSED_BLOCKS,
+    SIGNING_INFO_QUERY_ID, STATE_MAP, VALCONS_TO_VALOPER, VALIDATOR_PROFILE_QUERY_ID,
+};
 use crate::{
-    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, Validator},
+    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg},
     state::{Config, SIGNING_INFO_REPLY_ID, VALIDATOR_PROFILE_REPLY_ID},
 };
 
@@ -39,6 +48,7 @@ pub fn instantiate(
         port_id: msg.port_id,
         profile_update_period: msg.profile_update_period,
         info_update_period: msg.info_update_period,
+        avg_block_time: msg.avg_block_time,
         owner,
     };
 
@@ -63,8 +73,12 @@ fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
 }
 
 fn query_state(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
-    let state = STATE.load(deps.storage)?;
-    to_json_binary(&state)
+    let validators: StdResult<Vec<_>> = STATE_MAP
+        .range_raw(deps.storage, None, None, Order::Ascending)
+        .map(|item| item.map(|(_key, value)| value))
+        .collect();
+
+    to_json_binary(&validators?)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -74,6 +88,9 @@ pub fn execute(
     _info: MessageInfo,
     msg: ExecuteMsg,
 ) -> NeutronResult<Response<NeutronMsg>> {
+    // TODO: Add code to remove queries and withdraw funds from the contract
+    // TODO: Add update config support
+    // TODO: Add block time change support
     match msg {
         ExecuteMsg::RegisterStatsQueries { validators } => register_stats_queries(deps, validators),
     }
@@ -81,43 +98,27 @@ pub fn execute(
 
 fn register_stats_queries(
     deps: DepsMut<NeutronQuery>,
-    validators: Vec<Validator>,
+    validators: Vec<String>,
 ) -> NeutronResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
 
-    let valoper_address = validators
-        .iter()
-        .map(|validator| validator.valoper_address.clone())
-        .collect::<Vec<_>>();
-
     let msg = new_register_staking_validators_query_msg(
         config.connection_id.clone(),
-        valoper_address,
+        validators,
         config.profile_update_period,
     )?;
 
     let sub_msg = SubMsg::reply_on_success(msg, VALIDATOR_PROFILE_REPLY_ID);
 
-    let response = Response::new().add_submessage(sub_msg);
-
-    let valcons_address = validators
-        .iter()
-        .map(|validator| validator.valcons_address.clone())
-        .collect::<Vec<_>>();
-    let msg = new_register_validators_signing_infos_query_msg(
-        config.connection_id,
-        valcons_address,
-        config.info_update_period,
-    )?;
-
-    let sub_msg = SubMsg::reply_on_success(msg, SIGNING_INFO_REPLY_ID);
-    let response = response.add_submessage(sub_msg);
-
-    Ok(response)
+    Ok(Response::new().add_submessage(sub_msg))
 }
 
 #[entry_point]
-pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResult<Response> {
+pub fn sudo(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    msg: SudoMsg,
+) -> NeutronResult<Response<NeutronMsg>> {
     deps.api.debug(&format!(
         "WASMDEBUG: sudo call: {:?},  block: {:?}",
         msg, env.block
@@ -132,17 +133,14 @@ pub fn sudo_kv_query_result(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     query_id: u64,
-) -> NeutronResult<Response> {
+) -> NeutronResult<Response<NeutronMsg>> {
     deps.api.debug(&format!(
         "WASMDEBUG: sudo_kv_query_result call: {query_id:?}",
     ));
 
-    let validator_profile_query_id: Option<u64> = VALIDATOR_PROFILE_QUERY_ID
-        .load(deps.storage)
-        .unwrap_or(None);
+    let validator_profile_query_id = VALIDATOR_PROFILE_QUERY_ID.may_load(deps.storage)?;
 
-    let signing_info_query_id: Option<u64> =
-        SIGNING_INFO_QUERY_ID.load(deps.storage).unwrap_or(None);
+    let signing_info_query_id: Option<u64> = SIGNING_INFO_QUERY_ID.may_load(deps.storage)?;
 
     deps.api.debug(&format!(
         "WASMDEBUG: sudo_kv_query_result validator_profile_query_id: {:?}, signing_info_query_id: {:?}",
@@ -151,10 +149,12 @@ pub fn sudo_kv_query_result(
 
     let optional_query_id = Some(query_id);
 
+    let interchain_query_result = get_raw_interchain_query_result(deps.as_ref(), query_id)?;
+
     if optional_query_id == validator_profile_query_id {
-        validator_info_sudo(deps, _env, query_id)?;
+        return validator_info_sudo(deps, _env, interchain_query_result);
     } else if optional_query_id == signing_info_query_id {
-        signing_info_sudo(deps, _env, query_id)?;
+        return signing_info_sudo(deps, _env, interchain_query_result);
     } else {
         deps.api.debug(&format!(
             "WASMDEBUG: sudo_kv_query_result query_id: {:?}",
@@ -162,51 +162,203 @@ pub fn sudo_kv_query_result(
         ));
     }
 
-    // let data: Delegations = query_kv_result(deps.as_ref(), query_id)?;
-    // deps.api.debug(
-    //     format!("WASMDEBUG: sudo_kv_query_result received; query_id: {query_id:?} data: {data:?}")
-    //         .as_str(),
-    // );
-    // let height = env.block.height;
-    // let delegations = data.delegations;
-    // self.delegations
-    //     .save(deps.storage, &(delegations, height))?;
-
     Ok(Response::default())
 }
 
 fn validator_info_sudo(
     deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    query_id: u64,
-) -> NeutronResult<Response> {
-    deps.api.debug(&format!(
-        "WASMDEBUG: validator_info_sudo query_id: {query_id:?}",
-    ));
-
-    let data: StakingValidator = query_kv_result(deps.as_ref(), query_id)?;
+    env: Env,
+    interchain_query_result: QueryRegisteredQueryResultResponse,
+) -> NeutronResult<Response<NeutronMsg>> {
+    let data: StakingValidator =
+        KVReconstruct::reconstruct(&interchain_query_result.result.kv_results)?;
 
     deps.api
         .debug(&format!("WASMDEBUG: validator_info_sudo data: {data:?}",));
 
+    let signing_info_query_id = SIGNING_INFO_QUERY_ID.may_load(deps.storage)?;
+
+    if signing_info_query_id.is_none() {
+        return register_signing_infos_query(deps, data.validators);
+    }
+
+    for validator in data.validators.iter() {
+        let mut validator_state = STATE_MAP
+            .may_load(deps.storage, validator.operator_address.clone())?
+            .unwrap_or_else(|| ValidatorState {
+                valoper_address: validator.operator_address.clone(),
+                valcons_address: "".to_string(),
+                last_processed_local_height: None,
+                last_processed_remote_height: None,
+                last_validated_height: None,
+                last_commission_in_range: None,
+                uptime: 100,
+                tombstone: false,
+                prev_jailed_state: false,
+                jailed_number: Some(0),
+            });
+
+        validator_state.last_processed_local_height = Some(env.block.height);
+        validator_state.last_processed_remote_height = Some(interchain_query_result.result.height);
+
+        validator_state.last_validated_height = if validator.status == 3 {
+            Some(env.block.height)
+        } else {
+            validator_state.last_validated_height
+        };
+
+        validator_state.last_commission_in_range = if let Some(rate) = validator.rate {
+            if commission_in_range(rate, Decimal::percent(1), Decimal::percent(10)) {
+                Some(env.block.height)
+            } else {
+                validator_state.last_commission_in_range
+            }
+        } else {
+            validator_state.last_commission_in_range
+        };
+
+        validator_state.jailed_number = if !validator_state.prev_jailed_state && validator.jailed {
+            validator_state.prev_jailed_state = true;
+            Some(validator_state.jailed_number.unwrap_or(0) + 1)
+        } else if validator_state.prev_jailed_state && !validator.jailed {
+            validator_state.prev_jailed_state = false;
+            validator_state.jailed_number
+        } else {
+            validator_state.jailed_number
+        };
+
+        STATE_MAP.save(
+            deps.storage,
+            validator.operator_address.clone(),
+            &validator_state,
+        )?;
+    }
+
     Ok(Response::new())
+}
+
+// TODO: move min/max commission to config
+fn commission_in_range(rate: Decimal, min: Decimal, max: Decimal) -> bool {
+    rate >= min && rate <= max
 }
 
 fn signing_info_sudo(
     deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    query_id: u64,
-) -> NeutronResult<Response> {
-    deps.api.debug(&format!(
-        "WASMDEBUG: signing_info_sudo query_id: {query_id:?}",
-    ));
+    env: Env,
+    interchain_query_result: QueryRegisteredQueryResultResponse,
+) -> NeutronResult<Response<NeutronMsg>> {
+    let data: SigningInfo = KVReconstruct::reconstruct(&interchain_query_result.result.kv_results)?;
 
-    let data: SigningInfo = query_kv_result(deps.as_ref(), query_id)?;
+    for info in data.signing_infos.iter() {
+        let valoper_address = VALCONS_TO_VALOPER.may_load(deps.storage, info.address.clone())?;
 
-    deps.api
-        .debug(&format!("WASMDEBUG: signing_info_sudo data: {data:?}",));
+        deps.api
+            .debug(&format!("WASMDEBUG: signing_info_sudo data: {data:?}",));
+
+        if valoper_address.is_none() {
+            deps.api.debug(&format!(
+                "WASMDEBUG: signing_info_sudo: validator operator address was not found: {:?}",
+                info.address.clone()
+            ));
+            continue;
+        }
+
+        let mut all_missed_blocks = MISSED_BLOCKS.may_load(deps.storage)?.unwrap_or_default();
+
+        let mut missed_blocks = MissedBlocks {
+            remote_height: interchain_query_result.result.height,
+            timestamp: env.block.time.seconds(),
+            validators: Vec::new(),
+        };
+
+        if let Some(address) = valoper_address {
+            let mut validator_state = STATE_MAP
+                .may_load(deps.storage, address.clone())?
+                .unwrap_or_else(|| ValidatorState {
+                    valoper_address: address.clone(),
+                    valcons_address: info.address.clone(),
+                    last_processed_local_height: None,
+                    last_processed_remote_height: None,
+                    last_validated_height: None,
+                    last_commission_in_range: None,
+                    uptime: 100,
+                    tombstone: false,
+                    prev_jailed_state: false,
+                    jailed_number: Some(0),
+                });
+
+            validator_state.tombstone = if info.tombstoned {
+                true
+            } else {
+                validator_state.tombstone
+            };
+
+            let validator_missed_blocks = ValidatorMissedBlocksForPeriod {
+                address: address.clone(),
+                missed_blocks: info.missed_blocks_counter,
+            };
+
+            missed_blocks.validators.push(validator_missed_blocks);
+
+            STATE_MAP.save(deps.storage, address.clone(), &validator_state)?;
+        }
+
+        all_missed_blocks.push(missed_blocks);
+
+        MISSED_BLOCKS.save(deps.storage, &all_missed_blocks)?;
+    }
 
     Ok(Response::new())
+}
+
+fn register_signing_infos_query(
+    deps: DepsMut<NeutronQuery>,
+    validators: Vec<Validator>,
+) -> NeutronResult<Response<NeutronMsg>> {
+    let config = CONFIG.load(deps.storage)?;
+    let mut valcons_addresses = Vec::with_capacity(validators.len());
+
+    for validator in validators.iter() {
+        if let Some(pubkey) = validator.clone().consensus_pubkey {
+            let valcons_address = pubkey_to_address(pubkey, "cosmosvalcons")?;
+            deps.api.debug(&format!(
+                "WASMDEBUG: validator_info_sudo valcons address: {valcons_address:?}",
+            ));
+
+            VALCONS_TO_VALOPER.save(
+                deps.storage,
+                valcons_address.clone(),
+                &validator.operator_address,
+            )?;
+
+            valcons_addresses.push(valcons_address);
+        }
+    }
+
+    let msg = new_register_validators_signing_infos_query_msg(
+        config.connection_id,
+        valcons_addresses,
+        config.info_update_period,
+    )?;
+    let sub_msg = SubMsg::reply_on_success(msg, SIGNING_INFO_REPLY_ID);
+
+    Ok(Response::new().add_submessage(sub_msg))
+}
+
+fn pubkey_to_address(pubkey: Vec<u8>, prefix: &str) -> StdResult<String> {
+    if pubkey.len() < 34 {
+        return Err(StdError::generic_err("Invalid public key length"));
+    }
+
+    let pubkey_bytes = &pubkey[2..];
+
+    let hash = Sha256::digest(pubkey_bytes);
+    let addr_bytes = &hash[..20];
+
+    let bech32_addr = encode(prefix, addr_bytes.to_base32(), bech32::Variant::Bech32)
+        .map_err(|e| StdError::generic_err(format!("failed to encode to bech32: {e:?}")))?;
+
+    Ok(bech32_addr)
 }
 
 #[entry_point]
@@ -233,7 +385,7 @@ fn validator_info_reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Respo
         "WASMDEBUG: validator_info_reply query id: {query_id:?}"
     ));
 
-    VALIDATOR_PROFILE_QUERY_ID.save(deps.storage, &Some(query_id))?;
+    VALIDATOR_PROFILE_QUERY_ID.save(deps.storage, &query_id)?;
 
     Ok(Response::new())
 }
@@ -248,7 +400,7 @@ fn signing_info_reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Respons
         "WASMDEBUG: signing_info_reply query id: {query_id:?}"
     ));
 
-    SIGNING_INFO_QUERY_ID.save(deps.storage, &Some(query_id))?;
+    SIGNING_INFO_QUERY_ID.save(deps.storage, &query_id)?;
 
     Ok(Response::new())
 }

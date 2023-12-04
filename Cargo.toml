@@ -25,6 +25,9 @@ cw20                             = { version = "1.0.1" }
 schemars                         = "0.8"
 serde                            = { version = "1.0.127", default-features = false, features = ["derive"] }
 serde-json-wasm                  = { version = "1.0.0" }
+sha2                             = { version = "0.10.8" }
+bech32                           = { version = "0.9.1" }
+
 lido-interchain-interceptor-base = { path = "./packages/interchain-interceptor-base", default-features = false }
 thiserror                        = "1.0.50"
 

@@ -24,6 +24,7 @@ library = []
 
 [dependencies]
 base64            = { workspace = true }
+bech32            = { workspace = true }
 cosmos-sdk-proto  = { workspace = true }
 neutron-sdk       = { workspace = true }
 prost             = { workspace = true }
@@ -40,6 +41,7 @@ cw20              = { workspace = true }
 schemars          = { workspace = true }
 serde             = { workspace = true }
 serde-json-wasm   = { workspace = true }
+sha2              = { workspace = true }
 
 [dev-dependencies]
 cosmwasm-storage = { version = "1.0" }
