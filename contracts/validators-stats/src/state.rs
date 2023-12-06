@@ -37,7 +37,7 @@ pub struct State {
 pub enum QueryMsg {
     #[returns(Config)]
     Config {},
-    #[returns(State)]
+    #[returns(Vec<ValidatorState>)]
     State {},
 }
 

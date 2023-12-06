@@ -183,20 +183,7 @@ fn validator_info_sudo(
     }
 
     for validator in data.validators.iter() {
-        let mut validator_state = STATE_MAP
-            .may_load(deps.storage, validator.operator_address.clone())?
-            .unwrap_or_else(|| ValidatorState {
-                valoper_address: validator.operator_address.clone(),
-                valcons_address: "".to_string(),
-                last_processed_local_height: None,
-                last_processed_remote_height: None,
-                last_validated_height: None,
-                last_commission_in_range: None,
-                uptime: Decimal::zero(),
-                tombstone: false,
-                prev_jailed_state: false,
-                jailed_number: Some(0),
-            });
+        let mut validator_state = get_validator_state(&deps, validator.operator_address.clone())?;
 
         validator_state.last_processed_local_height = Some(env.block.height);
         validator_state.last_processed_remote_height = Some(interchain_query_result.result.height);
@@ -262,15 +249,14 @@ fn signing_info_sudo(
             continue;
         }
 
+        // all_missed_blocks contains all missed blocks for all validators for the specific period
         let mut all_missed_blocks = MISSED_BLOCKS.may_load(deps.storage)?.unwrap_or_default();
         if !all_missed_blocks.is_empty()
             && all_missed_blocks[0].timestamp <= env.block.time.seconds() - 60 * 60 * 24 * 30
-        // TODO: move 30 days to config
+        // TODO: move timeout to config
         {
             all_missed_blocks.remove(0);
         }
-
-        deps.api.debug("WASMDEBUG: signing_info_sudo: 1");
 
         let mut missed_blocks = MissedBlocks {
             remote_height: interchain_query_result.result.height,
@@ -278,88 +264,71 @@ fn signing_info_sudo(
             validators: Vec::new(),
         };
 
-        deps.api.debug("WASMDEBUG: signing_info_sudo: 2");
-
         if let Some(address) = valoper_address {
-            deps.api.debug(&format!(
-                "WASMDEBUG: signing_info_sudo: valoper address: {address:?}"
-            ));
+            let mut validator_state = get_validator_state(&deps, address.clone())?;
 
-            let mut validator_state = STATE_MAP
-                .may_load(deps.storage, address.clone())?
-                .unwrap_or_else(|| ValidatorState {
-                    valoper_address: address.clone(),
-                    valcons_address: info.address.clone(),
-                    last_processed_local_height: None,
-                    last_processed_remote_height: None,
-                    last_validated_height: None,
-                    last_commission_in_range: None,
-                    uptime: Decimal::zero(),
-                    tombstone: false,
-                    prev_jailed_state: false,
-                    jailed_number: Some(0),
-                });
-
-            deps.api.debug("WASMDEBUG: signing_info_sudo: 3");
-
+            validator_state.valcons_address = info.address.clone();
             validator_state.tombstone = if info.tombstoned {
                 true
             } else {
                 validator_state.tombstone
             };
 
-            let validator_missed_blocks = ValidatorMissedBlocksForPeriod {
-                address: address.clone(),
-                missed_blocks: info.missed_blocks_counter as u64,
-            };
+            let missed_blocks_percent = calucalate_missed_blocks_percent(
+                &all_missed_blocks,
+                &mut missed_blocks,
+                address.clone(),
+                info.missed_blocks_counter as u64,
+            );
 
-            missed_blocks.validators.push(validator_missed_blocks);
-
-            let total_blocks = missed_blocks.remote_height
-                - (if !all_missed_blocks.is_empty() {
-                    all_missed_blocks[0].remote_height
-                } else {
-                    missed_blocks.remote_height
-                });
-
-            deps.api.debug("WASMDEBUG: signing_info_sudo: 4");
-
-            let sum_missed_blocks: u64 = all_missed_blocks
-                .iter()
-                .flat_map(|x| &x.validators)
-                .filter(|x| x.address == address)
-                .map(|inner| inner.missed_blocks)
-                .sum();
-
-            deps.api.debug("WASMDEBUG: signing_info_sudo: 5");
-
-            let sum_missed_blocks = sum_missed_blocks + info.missed_blocks_counter as u64;
-            deps.api.debug("WASMDEBUG: signing_info_sudo: 5.1");
-            let missed_blocks_percent = if total_blocks == 0 {
-                Decimal::zero()
-            } else {
-                Decimal::from_ratio(sum_missed_blocks, total_blocks)
-            };
-            deps.api.debug("WASMDEBUG: signing_info_sudo: 5.2");
             validator_state.uptime = Decimal::one() - missed_blocks_percent;
 
-            deps.api.debug("WASMDEBUG: signing_info_sudo: 6");
-
             STATE_MAP.save(deps.storage, address.clone(), &validator_state)?;
-
-            deps.api.debug("WASMDEBUG: signing_info_sudo: 7");
         }
 
         all_missed_blocks.push(missed_blocks);
-
-        deps.api.debug(&format!(
-            "WASMDEBUG: signing_info_sudo: all_missed_blocks: {all_missed_blocks:?}",
-        ));
 
         MISSED_BLOCKS.save(deps.storage, &all_missed_blocks)?;
     }
 
     Ok(Response::new())
+}
+
+// TODO: Implement tests
+fn calucalate_missed_blocks_percent(
+    all_missed_blocks: &Vec<MissedBlocks>,
+    missed_blocks: &mut MissedBlocks,
+    address: String,
+    missed_blocks_counter: u64,
+) -> Decimal {
+    let validator_missed_blocks = ValidatorMissedBlocksForPeriod {
+        address: address.clone(),
+        missed_blocks: missed_blocks_counter,
+    };
+
+    missed_blocks.validators.push(validator_missed_blocks);
+
+    let total_blocks_diff = missed_blocks.remote_height
+        - (if !all_missed_blocks.is_empty() {
+            all_missed_blocks[0].remote_height
+        } else {
+            missed_blocks.remote_height
+        });
+
+    let sum_missed_blocks: u64 = all_missed_blocks
+        .iter()
+        .flat_map(|x| &x.validators)
+        .filter(|x| x.address == address)
+        .map(|inner| inner.missed_blocks)
+        .sum();
+
+    let sum_missed_blocks = sum_missed_blocks + missed_blocks_counter;
+
+    if total_blocks_diff == 0 {
+        Decimal::zero()
+    } else {
+        Decimal::from_ratio(sum_missed_blocks, total_blocks_diff)
+    }
 }
 
 fn register_signing_infos_query(
@@ -372,9 +341,6 @@ fn register_signing_infos_query(
     for validator in validators.iter() {
         if let Some(pubkey) = validator.clone().consensus_pubkey {
             let valcons_address = pubkey_to_address(pubkey, "cosmosvalcons")?;
-            deps.api.debug(&format!(
-                "WASMDEBUG: validator_info_sudo valcons address: {valcons_address:?}",
-            ));
 
             VALCONS_TO_VALOPER.save(
                 deps.storage,
@@ -396,7 +362,29 @@ fn register_signing_infos_query(
     Ok(Response::new().add_submessage(sub_msg))
 }
 
-fn pubkey_to_address(pubkey: Vec<u8>, prefix: &str) -> StdResult<String> {
+fn get_validator_state(
+    deps: &DepsMut<NeutronQuery>,
+    valoper_address: String,
+) -> StdResult<ValidatorState> {
+    let validator_state = STATE_MAP
+        .may_load(deps.storage, valoper_address.clone())?
+        .unwrap_or_else(|| ValidatorState {
+            valoper_address,
+            valcons_address: "".to_string(),
+            last_processed_local_height: None,
+            last_processed_remote_height: None,
+            last_validated_height: None,
+            last_commission_in_range: None,
+            uptime: Decimal::zero(),
+            tombstone: false,
+            prev_jailed_state: false,
+            jailed_number: Some(0),
+        });
+
+    Ok(validator_state)
+}
+
+pub fn pubkey_to_address(pubkey: Vec<u8>, prefix: &str) -> StdResult<String> {
     if pubkey.len() < 34 {
         return Err(StdError::generic_err("Invalid public key length"));
     }
@@ -416,6 +404,7 @@ fn pubkey_to_address(pubkey: Vec<u8>, prefix: &str) -> StdResult<String> {
 pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
     deps.api
         .debug(format!("WASMDEBUG: reply msg: {msg:?}").as_str());
+
     match msg.id {
         VALIDATOR_PROFILE_REPLY_ID => validator_info_reply(deps, env, msg),
         SIGNING_INFO_REPLY_ID => signing_info_reply(deps, env, msg),
@@ -432,10 +421,6 @@ fn validator_info_reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Respo
 
     let query_id = get_query_id(msg.result)?;
 
-    deps.api.debug(&format!(
-        "WASMDEBUG: validator_info_reply query id: {query_id:?}"
-    ));
-
     VALIDATOR_PROFILE_QUERY_ID.save(deps.storage, &query_id)?;
 
     Ok(Response::new())
@@ -446,10 +431,6 @@ fn signing_info_reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Respons
         .debug(&format!("WASMDEBUG: signing_info_reply call: {msg:?}",));
 
     let query_id = get_query_id(msg.result)?;
-
-    deps.api.debug(&format!(
-        "WASMDEBUG: signing_info_reply query id: {query_id:?}"
-    ));
 
     SIGNING_INFO_QUERY_ID.save(deps.storage, &query_id)?;
 
@@ -475,3 +456,5 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response
     deps.api.debug("WASMDEBUG: migrate");
     Ok(Response::default())
 }
+
+// TODO: add tests
