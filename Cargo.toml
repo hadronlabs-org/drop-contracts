@@ -11,7 +11,7 @@ resolver = "2"
 [workspace.dependencies]
 base64                           = "0.21.2"
 cw-ownable                       = "0.5.1"
-neutron-sdk                      = { package = "neutron-sdk", git = "https://github.com/neutron-org/neutron-sdk", rev = "85a8f6445697e8e6d1880c7b3c9d564c9db03421" }
+neutron-sdk                      = { package = "neutron-sdk", git = "https://github.com/neutron-org/neutron-sdk", rev = "0312d1edfcdca00818e85fc14504be9479efd5ee" }
 cosmos-sdk-proto                 = { version = "0.20.0", default-features = false }
 prost                            = "0.12.1"
 prost-types                      = "0.12.1"
