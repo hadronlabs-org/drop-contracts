@@ -132,6 +132,7 @@ where
                 &State {
                     last_processed_height: None,
                     ica: Some(parsed_version.address),
+                    under_execution: true,
                 },
             )?;
             return Ok(Response::default());

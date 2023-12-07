@@ -69,6 +69,7 @@ pub struct Transfer {
 pub struct State {
     pub last_processed_height: Option<u64>,
     pub ica: Option<String>,
+    pub under_execution: bool,
 }
 
 pub type Recipient = str;

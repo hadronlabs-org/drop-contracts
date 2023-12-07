@@ -61,7 +61,7 @@ impl ExecuteMsg {
                 ack_fee: *ack_fee,
                 timeout_fee: *timeout_fee,
             },
-            _ => panic!("Not implemented"),
+            _ => unimplemented!(),
         }
     }
 }

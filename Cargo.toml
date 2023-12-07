@@ -3,6 +3,7 @@ members = ["contracts/interchain-interceptor", "contracts/interchain-interceptor
 
 [workspace.dependencies]
 cw-ownable      = "0.5.1"
+thiserror       = "1.0.50"
 
 [profile.release]
 rpath = false

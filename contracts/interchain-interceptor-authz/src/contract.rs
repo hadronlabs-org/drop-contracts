@@ -4,7 +4,7 @@ use cosmos_sdk_proto::cosmos::{
     distribution::v1beta1::MsgWithdrawDelegatorReward,
     staking::v1beta1::{MsgBeginRedelegate, MsgDelegate, MsgUndelegate},
 };
-use cosmwasm_std::{entry_point, to_vec, CosmosMsg, Deps, Reply, StdError, SubMsg, Uint128};
+use cosmwasm_std::{entry_point, to_json_vec, CosmosMsg, Deps, Reply, StdError, SubMsg, Uint128};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use neutron_sdk::{
@@ -20,6 +20,7 @@ use neutron_sdk::{
 };
 
 use lido_interchain_interceptor_base::{
+    error::ContractResult,
     msg::{QueryMsg, SudoPayload},
     state::{InterchainIntercaptorBase, State, ICA_ID, SUDO_PAYLOAD_REPLY_ID},
 };
@@ -71,7 +72,7 @@ pub fn execute(
     env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
-) -> NeutronResult<Response<NeutronMsg>> {
+) -> ContractResult<Response<NeutronMsg>> {
     let interceptor_base = InterchainInterceptor::default();
 
     match msg {
@@ -112,7 +113,7 @@ pub fn execute(
 fn register_delegations_query(
     deps: DepsMut<NeutronQuery>,
     validators: Vec<String>,
-) -> NeutronResult<Response<NeutronMsg>> {
+) -> ContractResult<Response<NeutronMsg>> {
     let interceptor_base = InterchainInterceptor::default();
     let config = interceptor_base.config.load(deps.storage)?;
 
@@ -132,7 +133,7 @@ fn execute_delegate(
     validator: String,
     amount: Uint128,
     timeout: Option<u64>,
-) -> NeutronResult<Response<NeutronMsg>> {
+) -> ContractResult<Response<NeutronMsg>> {
     let interceptor_base = InterchainInterceptor::default();
     let config: Config = interceptor_base.config.load(deps.storage)?;
     let state: State = interceptor_base.state.load(deps.storage)?;
@@ -184,7 +185,7 @@ fn execute_undelegate(
     validator: String,
     amount: Uint128,
     timeout: Option<u64>,
-) -> NeutronResult<Response<NeutronMsg>> {
+) -> ContractResult<Response<NeutronMsg>> {
     let interceptor_base = InterchainInterceptor::default();
     let config: Config = interceptor_base.config.load(deps.storage)?;
     let state: State = interceptor_base.state.load(deps.storage)?;
@@ -238,7 +239,7 @@ fn execute_redelegate(
     validator_to: String,
     amount: Uint128,
     timeout: Option<u64>,
-) -> NeutronResult<Response<NeutronMsg>> {
+) -> ContractResult<Response<NeutronMsg>> {
     let interceptor_base = InterchainInterceptor::default();
     let config: Config = interceptor_base.config.load(deps.storage)?;
     let state: State = interceptor_base.state.load(deps.storage)?;
@@ -292,7 +293,7 @@ fn execute_withdraw_reward(
     _info: MessageInfo,
     validator: String,
     timeout: Option<u64>,
-) -> NeutronResult<Response<NeutronMsg>> {
+) -> ContractResult<Response<NeutronMsg>> {
     let interceptor_base = InterchainInterceptor::default();
     let config: Config = interceptor_base.config.load(deps.storage)?;
     let state: State = interceptor_base.state.load(deps.storage)?;
@@ -387,7 +388,7 @@ fn msg_with_sudo_callback<C: Into<CosmosMsg<T>>, T>(
     let interceptor_base = InterchainInterceptor::default();
     interceptor_base
         .reply_id_storage
-        .save(deps.storage, &to_vec(&payload)?)?;
+        .save(deps.storage, &to_json_vec(&payload)?)?;
 
     Ok(SubMsg::reply_on_success(msg, SUDO_PAYLOAD_REPLY_ID))
 }

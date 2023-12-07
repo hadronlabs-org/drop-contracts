@@ -1,4 +1,4 @@
-use cosmwasm_std::{from_binary, Binary, DepsMut, Env, Reply, Response, StdError, StdResult};
+use cosmwasm_std::{from_json, Binary, DepsMut, Env, Reply, Response, StdError, StdResult};
 use neutron_sdk::bindings::msg::MsgSubmitTxResponse;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -26,7 +26,7 @@ where
 
     fn prepare_sudo_payload(&self, deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
         let data = self.reply_id_storage.load(deps.storage)?;
-        let payload: SudoPayload<C> = from_binary(&Binary(data))?;
+        let payload: SudoPayload<C> = from_json(Binary(data))?;
         deps.api
             .debug(&format!("WASMDEBUG: prepare_sudo_payload: {payload:?}"));
         let resp: MsgSubmitTxResponse = serde_json_wasm::from_slice(

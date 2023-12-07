@@ -6,11 +6,12 @@ use neutron_sdk::{
     },
     interchain_queries::v045::new_register_transfers_query_msg,
     interchain_txs::helpers::get_port_id,
-    NeutronError, NeutronResult,
+    NeutronResult,
 };
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
+    error::{ContractError, ContractResult},
     msg::ExecuteMsg,
     state::{BaseConfig, InterchainIntercaptorBase, State, ICA_ID, LOCAL_DENOM},
 };
@@ -36,7 +37,7 @@ where
         deps: DepsMut<NeutronQuery>,
         env: Env,
         msg: ExecuteMsg,
-    ) -> NeutronResult<Response<NeutronMsg>> {
+    ) -> ContractResult<Response<NeutronMsg>> {
         match msg {
             ExecuteMsg::RegisterICA {} => self.execute_register_ica(deps, env),
             ExecuteMsg::RegisterQuery {} => self.register_transfers_query(deps),
@@ -52,22 +53,28 @@ where
         &self,
         deps: DepsMut<NeutronQuery>,
         env: Env,
-    ) -> NeutronResult<Response<NeutronMsg>> {
+    ) -> ContractResult<Response<NeutronMsg>> {
         let config = self.config.load(deps.storage)?;
         let state: State = self.state.load(deps.storage)?;
-        match state.ica {
-            None => {
-                let register = NeutronMsg::register_interchain_account(
-                    config.connection_id(),
-                    ICA_ID.to_string(),
-                );
-                let _key = get_port_id(env.contract.address.as_str(), ICA_ID);
+        if state.under_execution {
+            Err(ContractError::Std(cosmwasm_std::StdError::GenericErr {
+                msg: "ICA is already registered or under execution".to_string(),
+            }))
+        } else {
+            let register =
+                NeutronMsg::register_interchain_account(config.connection_id(), ICA_ID.to_string());
+            let _key = get_port_id(env.contract.address.as_str(), ICA_ID);
 
-                Ok(Response::new().add_message(register))
-            }
-            Some(_) => Err(NeutronError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "ICA already registered".to_string(),
-            })),
+            self.state.save(
+                deps.storage,
+                &State {
+                    last_processed_height: None,
+                    ica: None,
+                    under_execution: true,
+                },
+            )?;
+
+            Ok(Response::new().add_message(register))
         }
     }
 
@@ -77,7 +84,7 @@ where
         recv_fee: Uint128,
         ack_fee: Uint128,
         timeout_fee: Uint128,
-    ) -> NeutronResult<Response<NeutronMsg>> {
+    ) -> ContractResult<Response<NeutronMsg>> {
         let fees = IbcFee {
             recv_fee: vec![CosmosCoin {
                 denom: LOCAL_DENOM.to_string(),
@@ -99,7 +106,7 @@ where
     fn register_transfers_query(
         &self,
         deps: DepsMut<NeutronQuery>,
-    ) -> NeutronResult<Response<NeutronMsg>> {
+    ) -> ContractResult<Response<NeutronMsg>> {
         let config = self.config.load(deps.storage)?;
         let state: State = self.state.load(deps.storage)?;
 
@@ -112,7 +119,7 @@ where
             )?;
             Ok(Response::new().add_message(msg))
         } else {
-            Err(NeutronError::IntegrationTestsMock {})
+            Err(ContractError::IcaNotRegistered {})
         }
     }
 }

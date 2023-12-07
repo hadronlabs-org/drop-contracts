@@ -1,4 +1,4 @@
-use cosmwasm_std::{to_binary, Binary, Deps, Env, StdResult};
+use cosmwasm_std::{to_json_binary, Binary, Deps, Env, StdResult};
 use neutron_sdk::bindings::query::NeutronQuery;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -28,27 +28,27 @@ where
             delegations,
             last_updated_height,
         };
-        to_binary(&response)
+        to_json_binary(&response)
     }
 
     fn query_state(&self, deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
         let state: State = self.state.load(deps.storage)?;
-        to_binary(&state)
+        to_json_binary(&state)
     }
 
     fn query_done_transactions(&self, deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
         deps.api.debug("WASMDEBUG: query_done_transactions");
         let state: Vec<C> = self.transactions.load(deps.storage)?;
-        to_binary(&state)
+        to_json_binary(&state)
     }
 
     fn query_config(&self, deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
         let config: T = self.config.load(deps.storage)?;
-        to_binary(&config)
+        to_json_binary(&config)
     }
 
     fn query_transactions(&self, deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
         let transactions: Vec<Transfer> = self.recipient_txs.load(deps.storage)?;
-        to_binary(&transactions)
+        to_json_binary(&transactions)
     }
 }
