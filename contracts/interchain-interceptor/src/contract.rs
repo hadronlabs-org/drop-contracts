@@ -11,8 +11,8 @@ use cosmos_sdk_proto::{
     traits::Message,
 };
 use cosmwasm_std::{
-    entry_point, from_binary, to_binary, to_vec, Coin as CosmosCoin, CosmosMsg, Deps, Reply,
-    StdError, SubMsg, Uint128,
+    entry_point, from_json, to_json_binary, to_json_vec, Coin as CosmosCoin, CosmosMsg, Deps,
+    Reply, StdError, SubMsg, Uint128,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
@@ -48,8 +48,8 @@ use crate::{
         MsgTokenizeSharesResponse,
     },
     state::{
-        Config, State, Transfer, CONFIG, DELEGATIONS, IBC_FEE, RECIPIENT_TXS, REPLY_ID_STORAGE,
-        STATE, SUDO_PAYLOAD, TRANSACTIONS,
+        Config, State, Transfer, CONFIG, DELEGATIONS, IBC_FEE, RECIPIENT_TXS, REGISTER_FEE,
+        REPLY_ID_STORAGE, STATE, SUDO_PAYLOAD, TRANSACTIONS,
     },
 };
 
@@ -101,28 +101,28 @@ fn query_delegations(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
         delegations,
         last_updated_height,
     };
-    to_binary(&response)
+    to_json_binary(&response)
 }
 
 fn query_state(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
     let state: State = STATE.load(deps.storage)?;
-    to_binary(&state)
+    to_json_binary(&state)
 }
 
 fn query_done_transactions(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
     deps.api.debug("WASMDEBUG: query_done_transactions");
     let state: Vec<Transaction> = TRANSACTIONS.load(deps.storage)?;
-    to_binary(&state)
+    to_json_binary(&state)
 }
 
 fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
     let config: Config = CONFIG.load(deps.storage)?;
-    to_binary(&config)
+    to_json_binary(&config)
 }
 
 fn query_transactions(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
     let transactions: Vec<Transfer> = RECIPIENT_TXS.load(deps.storage)?;
-    to_binary(&transactions)
+    to_json_binary(&transactions)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -142,7 +142,16 @@ pub fn execute(
             recv_fee,
             ack_fee,
             timeout_fee,
-        } => execute_set_fees(deps, env, info, recv_fee, ack_fee, timeout_fee),
+            register_fee,
+        } => execute_set_fees(
+            deps,
+            env,
+            info,
+            recv_fee,
+            ack_fee,
+            timeout_fee,
+            register_fee,
+        ),
         ExecuteMsg::Delegate {
             validator,
             amount,
@@ -191,10 +200,14 @@ fn execute_register_ica(
 ) -> NeutronResult<Response<NeutronMsg>> {
     let config: Config = CONFIG.load(deps.storage)?;
     let state: State = STATE.load(deps.storage)?;
+    let register_fee: CosmosCoin = REGISTER_FEE.load(deps.storage)?;
     match state.ica {
         None => {
-            let register =
-                NeutronMsg::register_interchain_account(config.connection_id, ICA_ID.to_string());
+            let register = NeutronMsg::register_interchain_account(
+                config.connection_id,
+                ICA_ID.to_string(),
+                Some(vec![register_fee]),
+            );
             let _key = get_port_id(env.contract.address.as_str(), ICA_ID);
 
             Ok(Response::new().add_message(register))
@@ -212,6 +225,7 @@ fn execute_set_fees(
     recv_fee: Uint128,
     ack_fee: Uint128,
     timeout_fee: Uint128,
+    register_fee: Uint128,
 ) -> NeutronResult<Response<NeutronMsg>> {
     let fees = IbcFee {
         recv_fee: vec![CosmosCoin {
@@ -228,6 +242,13 @@ fn execute_set_fees(
         }],
     };
     IBC_FEE.save(deps.storage, &fees)?;
+    REGISTER_FEE.save(
+        deps.storage,
+        &CosmosCoin {
+            amount: register_fee,
+            denom: LOCAL_DENOM.to_string(),
+        },
+    )?;
     Ok(Response::default())
 }
 
@@ -521,7 +542,7 @@ fn msg_with_sudo_callback<C: Into<CosmosMsg<T>>, T>(
     msg: C,
     payload: SudoPayload,
 ) -> StdResult<SubMsg<T>> {
-    REPLY_ID_STORAGE.save(deps.storage, &to_vec(&payload)?)?;
+    REPLY_ID_STORAGE.save(deps.storage, &to_json_vec(&payload)?)?;
     Ok(SubMsg::reply_on_success(msg, SUDO_PAYLOAD_REPLY_ID))
 }
 
@@ -833,7 +854,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
 
 fn prepare_sudo_payload(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
     let data = REPLY_ID_STORAGE.load(deps.storage)?;
-    let payload: SudoPayload = from_binary(&Binary(data))?;
+    let payload: SudoPayload = from_json(Binary(data))?;
     let resp: MsgSubmitTxResponse = serde_json_wasm::from_slice(
         msg.result
             .into_result()

@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::Delegation;
+use cosmwasm_std::{Coin, Delegation};
 use cw_storage_plus::{Item, Map};
 use neutron_sdk::bindings::msg::IbcFee;
 
@@ -34,6 +34,7 @@ pub const CONFIG: Item<Config> = Item::new("config");
 pub const STATE: Item<State> = Item::new("state");
 pub const RECIPIENT_TXS: Item<Vec<Transfer>> = Item::new("txs");
 pub const IBC_FEE: Item<IbcFee> = Item::new("ibc_fee");
+pub const REGISTER_FEE: Item<Coin> = Item::new("register_fee");
 pub const REPLY_ID_STORAGE: Item<Vec<u8>> = Item::new("reply_queue_id");
 pub const SUDO_PAYLOAD: Map<(String, u64), SudoPayload> = Map::new("sudo_payload");
 pub const TRANSACTIONS: Item<Vec<Transaction>> = Item::new("transactions");

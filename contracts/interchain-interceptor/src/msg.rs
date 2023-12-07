@@ -21,6 +21,7 @@ pub enum ExecuteMsg {
         recv_fee: Uint128,
         ack_fee: Uint128,
         timeout_fee: Uint128,
+        register_fee: Uint128,
     },
     Delegate {
         validator: String,

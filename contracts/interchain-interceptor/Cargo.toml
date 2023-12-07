@@ -25,7 +25,7 @@ library = []
 [dependencies]
 base64 = "0.21.2"
 cosmos-sdk-proto = { version = "0.20.0", default-features = false }
-neutron-sdk = { package = "neutron-sdk", version = "0.7.0" }
+neutron-sdk = { git = "https://github.com/neutron-org/neutron-sdk", branch = "sdk/47" }
 prost = "0.12.1"
 prost-types = "0.12.1"
 protobuf = "3.2.0"
@@ -42,4 +42,4 @@ serde-json-wasm = { version = "1.0.0" }
 
 [dev-dependencies]
 cosmwasm-storage = { version = "1.0" }
-cw-multi-test = "0.17.0"
+cw-multi-test = "0.19.0"
