@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::Uint128;
+use cosmwasm_std::{Addr, Uint128};
 
 use lido_interchain_interceptor_base::msg::ExecuteMsg as BaseExecuteMsg;
 
@@ -10,6 +10,7 @@ pub struct InstantiateMsg {
     pub update_period: u64,
     pub remote_denom: String,
     pub owner: String,
+    pub proxy_address: Addr,
 }
 
 #[cw_serde]
@@ -40,15 +41,8 @@ pub enum ExecuteMsg {
         amount: Uint128,
         timeout: Option<u64>,
     },
-    TokenizeShare {
+    WithdrawReward {
         validator: String,
-        amount: Uint128,
-        timeout: Option<u64>,
-    },
-    RedeemShare {
-        validator: String,
-        amount: Uint128,
-        denom: String,
         timeout: Option<u64>,
     },
 }
@@ -96,18 +90,6 @@ pub enum Transaction {
     WithdrawReward {
         interchain_account_id: String,
         validator: String,
-    },
-    TokenizeShare {
-        interchain_account_id: String,
-        validator: String,
-        denom: String,
-        amount: u128,
-    },
-    RedeemShare {
-        interchain_account_id: String,
-        validator: String,
-        denom: String,
-        amount: u128,
     },
 }
 

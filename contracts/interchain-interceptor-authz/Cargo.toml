@@ -1,8 +1,8 @@
 [package]
-authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>"]
-description = "Contract to facilitate base interchain features"
+authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>", "Albert Andrejev <albert.andrejev@gmail.com>"]
+description = "Contract to facilitate base interchain features with authz module usage"
 edition = "2021"
-name = "lido-interchain-interceptor"
+name = "lido-interchain-interceptor-authz"
 version = "1.0.0"
 
 exclude = [

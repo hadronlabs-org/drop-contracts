@@ -15,6 +15,7 @@ pub struct Config {
     pub update_period: u64,
     pub remote_denom: String,
     pub owner: Addr,
+    pub proxy_address: Addr,
 }
 
 impl BaseConfig for Config {

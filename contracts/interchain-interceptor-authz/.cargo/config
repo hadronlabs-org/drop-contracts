@@ -1,0 +1,2 @@
+[alias]
+schema = "run --bin lido-interchain-interceptor-authz-schema"
