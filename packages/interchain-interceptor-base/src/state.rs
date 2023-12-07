@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::Delegation;
+use cosmwasm_std::{Coin, Delegation};
 use cw_storage_plus::{Item, Map};
 use neutron_sdk::bindings::msg::IbcFee;
 use serde::{de::DeserializeOwned, Serialize};
@@ -19,6 +19,7 @@ where
     pub sudo_payload: Map<'a, (String, u64), SudoPayload<C>>,
     pub reply_id_storage: Item<'a, Vec<u8>>,
     pub ibc_fee: Item<'a, IbcFee>,
+    pub register_fee: Item<'a, Coin>,
 }
 
 impl<T, C> Default for InterchainIntercaptorBase<'static, T, C>
@@ -46,6 +47,7 @@ where
             sudo_payload: Map::new("sudo_payload"),
             reply_id_storage: Item::new("reply_queue_id"),
             ibc_fee: Item::new("ibc_fee"),
+            register_fee: Item::new("register_fee"),
         }
     }
 }

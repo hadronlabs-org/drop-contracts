@@ -45,7 +45,8 @@ where
                 recv_fee,
                 ack_fee,
                 timeout_fee,
-            } => self.execute_set_fees(deps, recv_fee, ack_fee, timeout_fee),
+                register_fee,
+            } => self.execute_set_fees(deps, recv_fee, ack_fee, timeout_fee, register_fee),
         }
     }
 
@@ -61,8 +62,12 @@ where
         } else if state.ica_state == IcaState::Registered {
             Err(ContractError::IcaAlreadyRegistered {})
         } else {
-            let register =
-                NeutronMsg::register_interchain_account(config.connection_id(), ICA_ID.to_string());
+            let register_fee = self.register_fee.load(deps.storage)?;
+            let register = NeutronMsg::register_interchain_account(
+                config.connection_id(),
+                ICA_ID.to_string(),
+                Some(vec![register_fee]),
+            );
             let _key = get_port_id(env.contract.address.as_str(), ICA_ID);
 
             self.state.save(
@@ -84,6 +89,7 @@ where
         recv_fee: Uint128,
         ack_fee: Uint128,
         timeout_fee: Uint128,
+        register_fee: Uint128,
     ) -> ContractResult<Response<NeutronMsg>> {
         // TODO: Change LOCAL_DENOM to configurable value
         let fees = IbcFee {
@@ -101,6 +107,13 @@ where
             }],
         };
         self.ibc_fee.save(deps.storage, &fees)?;
+        self.register_fee.save(
+            deps.storage,
+            &CosmosCoin {
+                amount: register_fee,
+                denom: LOCAL_DENOM.to_string(),
+            },
+        )?;
         Ok(Response::default())
     }
 
