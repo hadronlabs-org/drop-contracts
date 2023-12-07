@@ -15,6 +15,12 @@ pub enum ContractError {
 
     #[error("ICA is not registered")]
     IcaNotRegistered {},
+
+    #[error("ICA registration is in progress right now")]
+    IcaInProgress {},
+
+    #[error("ICA is already registered")]
+    IcaAlreadyRegistered {},
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

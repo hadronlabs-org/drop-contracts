@@ -66,10 +66,19 @@ pub struct Transfer {
 
 #[cw_serde]
 #[derive(Default)]
+pub enum IcaState {
+    #[default]
+    None,
+    InProgress,
+    Registered,
+}
+
+#[cw_serde]
+#[derive(Default)]
 pub struct State {
     pub last_processed_height: Option<u64>,
     pub ica: Option<String>,
-    pub under_execution: bool,
+    pub ica_state: IcaState,
 }
 
 pub type Recipient = str;

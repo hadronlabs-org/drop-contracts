@@ -20,7 +20,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     msg::OpenAckVersion,
-    state::{BaseConfig, InterchainIntercaptorBase, State, Transfer},
+    state::{BaseConfig, IcaState, InterchainIntercaptorBase, State, Transfer},
 };
 
 impl<'a, T, C> InterchainIntercaptorBase<'a, T, C>
@@ -132,7 +132,7 @@ where
                 &State {
                     last_processed_height: None,
                     ica: Some(parsed_version.address),
-                    under_execution: true,
+                    ica_state: IcaState::Registered,
                 },
             )?;
             return Ok(Response::default());

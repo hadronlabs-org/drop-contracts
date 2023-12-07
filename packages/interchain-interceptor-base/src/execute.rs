@@ -13,7 +13,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use crate::{
     error::{ContractError, ContractResult},
     msg::ExecuteMsg,
-    state::{BaseConfig, InterchainIntercaptorBase, State, ICA_ID, LOCAL_DENOM},
+    state::{BaseConfig, IcaState, InterchainIntercaptorBase, State, ICA_ID, LOCAL_DENOM},
 };
 
 impl<'a, T, C> InterchainIntercaptorBase<'a, T, C>
@@ -56,10 +56,10 @@ where
     ) -> ContractResult<Response<NeutronMsg>> {
         let config = self.config.load(deps.storage)?;
         let state: State = self.state.load(deps.storage)?;
-        if state.under_execution {
-            Err(ContractError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "ICA is already registered or under execution".to_string(),
-            }))
+        if state.ica_state == IcaState::InProgress {
+            Err(ContractError::IcaInProgress {})
+        } else if state.ica_state == IcaState::Registered {
+            Err(ContractError::IcaAlreadyRegistered {})
         } else {
             let register =
                 NeutronMsg::register_interchain_account(config.connection_id(), ICA_ID.to_string());
@@ -70,7 +70,7 @@ where
                 &State {
                     last_processed_height: None,
                     ica: None,
-                    under_execution: true,
+                    ica_state: IcaState::InProgress,
                 },
             )?;
 
