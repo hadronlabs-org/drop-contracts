@@ -85,6 +85,7 @@ where
         ack_fee: Uint128,
         timeout_fee: Uint128,
     ) -> ContractResult<Response<NeutronMsg>> {
+        // TODO: Change LOCAL_DENOM to configurable value
         let fees = IbcFee {
             recv_fee: vec![CosmosCoin {
                 denom: LOCAL_DENOM.to_string(),
