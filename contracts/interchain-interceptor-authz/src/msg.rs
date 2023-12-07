@@ -24,6 +24,7 @@ pub enum ExecuteMsg {
         recv_fee: Uint128,
         ack_fee: Uint128,
         timeout_fee: Uint128,
+        register_fee: Uint128,
     },
     Delegate {
         validator: String,
@@ -56,10 +57,12 @@ impl ExecuteMsg {
                 recv_fee,
                 ack_fee,
                 timeout_fee,
+                register_fee,
             } => BaseExecuteMsg::SetFees {
                 recv_fee: *recv_fee,
                 ack_fee: *ack_fee,
                 timeout_fee: *timeout_fee,
+                register_fee: *register_fee,
             },
             _ => unimplemented!(),
         }

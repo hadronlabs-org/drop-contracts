@@ -1,5 +1,8 @@
 [package]
-authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>", "Albert Andrejev <albert.andrejev@gmail.com>"]
+authors = [
+  "Sergey Ratiashvili <serg.s.r@gmail.com>",
+  "Albert Andrejev <albert.andrejev@gmail.com>",
+]
 description = "Contract to facilitate base interchain features with authz module usage"
 edition = "2021"
 name = "lido-interchain-interceptor-authz"
@@ -25,7 +28,7 @@ library = []
 [dependencies]
 base64 = "0.21.2"
 cosmos-sdk-proto = { version = "0.20.0", default-features = false }
-neutron-sdk = { package = "neutron-sdk", version = "0.7.0" }
+neutron-sdk = { git = "https://github.com/neutron-org/neutron-sdk", branch = "sdk/47" }
 prost = "0.12.1"
 prost-types = "0.12.1"
 protobuf = "3.2.0"
