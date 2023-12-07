@@ -644,7 +644,6 @@ dependencies = [
  "schemars",
  "serde",
  "serde-json-wasm 1.0.0",
- "sha2 0.10.8",
  "tendermint-proto",
 ]
 
@@ -653,7 +652,6 @@ name = "lido-interchain-interceptor-base"
 version = "1.0.0"
 dependencies = [
  "base64",
- "bech32",
  "cosmos-sdk-proto",
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -679,6 +677,7 @@ name = "lido-validators-stats"
 version = "1.0.0"
 dependencies = [
  "base64",
+ "bech32",
  "cosmos-sdk-proto",
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -695,6 +694,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde-json-wasm 1.0.0",
+ "sha2 0.10.8",
  "tendermint-proto",
 ]
 
