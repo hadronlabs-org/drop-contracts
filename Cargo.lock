@@ -673,6 +673,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "lido-token"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus",
+ "cw-utils",
+ "cw2",
+ "neutron-sdk",
+ "thiserror",
+]
+
+[[package]]
 name = "neutron-sdk"
 version = "0.7.0"
 source = "git+https://github.com/neutron-org/neutron-sdk?branch=sdk/47#276fc51e62a973d60638dc25b50e91d1bad2e1a1"
