@@ -673,6 +673,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "lido-stargate-poc"
+version = "1.0.0"
+dependencies = [
+ "base64",
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test 0.19.0",
+ "cw-storage-plus",
+ "cw2",
+ "cw20",
+ "lido-interchain-interceptor-base",
+ "neutron-sdk",
+ "prost",
+ "prost-types",
+ "protobuf",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.0",
+ "tendermint-proto",
+]
+
+[[package]]
 name = "neutron-sdk"
 version = "0.7.0"
 source = "git+https://github.com/neutron-org/neutron-sdk?branch=sdk/47#276fc51e62a973d60638dc25b50e91d1bad2e1a1"
