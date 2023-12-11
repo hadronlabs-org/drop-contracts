@@ -1,5 +1,5 @@
 [package]
-authors = []
+authors = ["Albert Andrejev <albert.andrejev@gmail.com>"]
 description = "Contract to provide validators set"
 edition = "2021"
 name = "lido-validators-set"
