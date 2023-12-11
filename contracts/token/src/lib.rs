@@ -43,7 +43,7 @@ pub struct InstantiateMsg {
 #[cosmwasm_schema::cw_serde]
 pub enum ExecuteMsg {
     Mint { amount: Uint128, receiver: String },
-    Burn,
+    Burn {},
 }
 
 #[cosmwasm_schema::cw_serde]
@@ -122,7 +122,7 @@ pub fn execute(
 
     match msg {
         ExecuteMsg::Mint { amount, receiver } => mint(deps, amount, receiver),
-        ExecuteMsg::Burn => burn(deps, info),
+        ExecuteMsg::Burn {} => burn(deps, info),
     }
 }
 
