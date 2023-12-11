@@ -17,11 +17,12 @@ prost                            = "0.12.1"
 prost-types                      = "0.12.1"
 protobuf                         = "3.2.0"
 tendermint-proto                 = "0.34.0"
-cosmwasm-schema                  = { version = "1.3.1" }
-cosmwasm-std                     = { version = "1.2.1" }
-cw-storage-plus                  = { version = "1.0.1" }
-cw2                              = { version = "1.0.1" }
+cosmwasm-std                     = { version = "1.5.0", default-features = false }
+cosmwasm-schema                  = { version = "1.5.0", default-features = false }
+cw-storage-plus                  = { version = "1.2.0", default-features = false }
+cw2                              = { version = "1.1.2", default-features = false }
 cw20                             = { version = "1.0.1" }
+cw-utils                         = { version = "1.0.3", default-features = false }
 schemars                         = "0.8"
 serde                            = { version = "1.0.127", default-features = false, features = ["derive"] }
 serde-json-wasm                  = { version = "1.0.0" }
@@ -42,12 +43,3 @@ panic = 'abort'
 incremental = false
 overflow-checks = true
 
-[workspace.dependencies]
-cosmwasm-std    = { version = "1.5.0", default-features = false }
-cosmwasm-schema = { version = "1.5.0", default-features = false }
-cw-storage-plus = { version = "1.2.0", default-features = false }
-cw2             = { version = "1.1.2", default-features = false }
-cw-utils        = { version = "1.0.3", default-features = false }
-neutron-sdk     = { git = "https://github.com/neutron-org/neutron-sdk", branch = "sdk/47", default-features = false }
-cw-ownable      = "0.5.1"
-thiserror       = "1.0.50"

@@ -152,9 +152,9 @@ pub fn sudo_kv_query_result(
     let interchain_query_result = get_raw_interchain_query_result(deps.as_ref(), query_id)?;
 
     if optional_query_id == validator_profile_query_id {
-        return validator_info_sudo(deps, _env, interchain_query_result);
+        return sudo_validator_info(deps, _env, interchain_query_result);
     } else if optional_query_id == signing_info_query_id {
-        return signing_info_sudo(deps, _env, interchain_query_result);
+        return sudo_signing_info(deps, _env, interchain_query_result);
     } else {
         deps.api.debug(&format!(
             "WASMDEBUG: sudo_kv_query_result query_id: {:?}",
@@ -165,7 +165,7 @@ pub fn sudo_kv_query_result(
     Ok(Response::default())
 }
 
-fn validator_info_sudo(
+fn sudo_validator_info(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     interchain_query_result: QueryRegisteredQueryResultResponse,
@@ -229,7 +229,7 @@ fn commission_in_range(rate: Decimal, min: Decimal, max: Decimal) -> bool {
     rate >= min && rate <= max
 }
 
-fn signing_info_sudo(
+fn sudo_signing_info(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     interchain_query_result: QueryRegisteredQueryResultResponse,
