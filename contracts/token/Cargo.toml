@@ -1,0 +1,22 @@
+[package]
+authors = [ "Murad Karammaev <muradkarammaev@gmail.com>" ]
+description = "Contract module which mints and burns tokens"
+edition = "2021"
+name = "lido-token"
+version = "1.0.0"
+
+[lib]
+crate-type = [ "cdylib", "rlib" ]
+
+[features]
+backtraces = [ "cosmwasm-std/backtraces" ]
+library = []
+
+[dependencies]
+cosmwasm-std    = { workspace = true }
+cosmwasm-schema = { workspace = true }
+cw-storage-plus = { workspace = true }
+cw2             = { workspace = true }
+cw-utils        = { workspace = true }
+neutron-sdk     = { workspace = true }
+thiserror       = { workspace = true }
