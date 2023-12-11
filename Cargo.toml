@@ -1,11 +1,36 @@
 [workspace]
 members = [
-    "contracts/interchain-interceptor",
-    "contracts/interchain-interceptor-authz",
+    "contracts/interchain-interceptor", 
+    "contracts/interchain-interceptor-authz", 
+    "contracts/validators-stats",
     "contracts/token",
     "packages/interchain-interceptor-base"
 ]
 resolver = "2"
+
+[workspace.dependencies]
+base64                           = "0.21.2"
+cw-ownable                       = "0.5.1"
+neutron-sdk                      = { package = "neutron-sdk", git = "https://github.com/neutron-org/neutron-sdk", rev = "0312d1edfcdca00818e85fc14504be9479efd5ee" }
+cosmos-sdk-proto                 = { version = "0.20.0", default-features = false }
+prost                            = "0.12.1"
+prost-types                      = "0.12.1"
+protobuf                         = "3.2.0"
+tendermint-proto                 = "0.34.0"
+cosmwasm-std                     = { version = "1.5.0", default-features = false }
+cosmwasm-schema                  = { version = "1.5.0", default-features = false }
+cw-storage-plus                  = { version = "1.2.0", default-features = false }
+cw2                              = { version = "1.1.2", default-features = false }
+cw20                             = { version = "1.0.1" }
+cw-utils                         = { version = "1.0.3", default-features = false }
+schemars                         = "0.8"
+serde                            = { version = "1.0.127", default-features = false, features = ["derive"] }
+serde-json-wasm                  = { version = "1.0.0" }
+sha2                             = { version = "0.10.8" }
+bech32                           = { version = "0.9.1" }
+
+lido-interchain-interceptor-base = { path = "./packages/interchain-interceptor-base", default-features = false }
+thiserror                        = "1.0.50"
 
 [profile.release]
 opt-level = 3
@@ -18,12 +43,3 @@ panic = 'abort'
 incremental = false
 overflow-checks = true
 
-[workspace.dependencies]
-cosmwasm-std    = { version = "1.5.0", default-features = false }
-cosmwasm-schema = { version = "1.5.0", default-features = false }
-cw-storage-plus = { version = "1.2.0", default-features = false }
-cw2             = { version = "1.1.2", default-features = false }
-cw-utils        = { version = "1.0.3", default-features = false }
-neutron-sdk     = { git = "https://github.com/neutron-org/neutron-sdk", branch = "sdk/47", default-features = false }
-cw-ownable      = "0.5.1"
-thiserror       = "1.0.50"
