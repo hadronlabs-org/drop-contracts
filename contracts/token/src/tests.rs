@@ -234,7 +234,7 @@ fn burn_zero() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        crate::ExecuteMsg::Burn,
+        crate::ExecuteMsg::Burn {},
     )
     .unwrap_err();
     assert_eq!(
@@ -257,7 +257,7 @@ fn burn_multiple_coins() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[coin(20, "coin1"), coin(10, "denom")]),
-        crate::ExecuteMsg::Burn,
+        crate::ExecuteMsg::Burn {},
     )
     .unwrap_err();
     assert_eq!(
@@ -280,7 +280,7 @@ fn burn_invalid_coin() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[coin(20, "coin1")]),
-        crate::ExecuteMsg::Burn,
+        crate::ExecuteMsg::Burn {},
     )
     .unwrap_err();
     assert_eq!(
@@ -305,7 +305,7 @@ fn burn() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[coin(140, "denom")]),
-        crate::ExecuteMsg::Burn,
+        crate::ExecuteMsg::Burn {},
     )
     .unwrap();
 
@@ -339,7 +339,7 @@ fn burn_stranger() {
         deps.as_mut(),
         mock_env(),
         mock_info("stranger", &[coin(160, "denom")]),
-        crate::ExecuteMsg::Burn,
+        crate::ExecuteMsg::Burn {},
     )
     .unwrap_err();
 
