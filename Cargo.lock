@@ -283,6 +283,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "cw-multi-test"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67fff029689ae89127cf6d7655809a68d712f3edbdb9686c70b018ba438b26ca"
+dependencies = [
+ "anyhow",
+ "bech32",
+ "cosmwasm-std",
+ "cw-storage-plus",
+ "cw-utils",
+ "derivative",
+ "itertools 0.12.0",
+ "prost",
+ "schemars",
+ "serde",
+ "sha2 0.10.8",
+ "thiserror",
+]
+
+[[package]]
 name = "cw-ownable"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -607,7 +627,7 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cosmwasm-storage",
- "cw-multi-test 0.19.0",
+ "cw-multi-test 0.20.0",
  "cw-ownable",
  "cw-storage-plus",
  "cw2",
@@ -679,7 +699,7 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cosmwasm-storage",
- "cw-multi-test 0.17.0",
+ "cw-multi-test 0.20.0",
  "cw-ownable",
  "cw-storage-plus",
  "cw2",
@@ -696,6 +716,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "lido-stargate-poc"
+version = "1.0.0"
+dependencies = [
+ "base64",
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test 0.20.0",
+ "cw-storage-plus",
+ "cw2",
+ "cw20",
+ "lido-interchain-interceptor-base",
+ "neutron-sdk",
+ "prost",
+ "prost-types",
+ "protobuf",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.0",
+ "tendermint-proto",
+]
+
+[[package]]
 name = "lido-strategy"
 version = "1.0.0"
 dependencies = [
@@ -703,7 +747,7 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cosmwasm-storage",
- "cw-multi-test 0.19.0",
+ "cw-multi-test 0.20.0",
  "cw-ownable",
  "cw-storage-plus",
  "cw2",
@@ -739,7 +783,7 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cosmwasm-storage",
- "cw-multi-test 0.19.0",
+ "cw-multi-test 0.20.0",
  "cw-ownable",
  "cw-storage-plus",
  "cw2",

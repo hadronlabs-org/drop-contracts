@@ -1,8 +1,8 @@
 [package]
 authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>"]
-description = "Contract to facilitate base interchain features"
+description = "Contract to check stargate features"
 edition = "2021"
-name = "lido-interchain-interceptor-base"
+name = "lido-stargate-poc"
 version = "1.0.0"
 
 exclude = [
@@ -30,11 +30,8 @@ prost = { workspace = true }
 prost-types = { workspace = true }
 protobuf = { workspace = true }
 tendermint-proto = { workspace = true }
-thiserror = { workspace = true }
-
 cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
-cw-ownable = { workspace = true }
 cw-storage-plus = { workspace = true }
 cw2 = { workspace = true }
 cw20 = { workspace = true }
@@ -42,6 +39,7 @@ schemars = { workspace = true }
 serde = { workspace = true }
 serde-json-wasm = { workspace = true }
 
+lido-interchain-interceptor-base = { path = "../../packages/interchain-interceptor-base", default-features = false }
 
 [dev-dependencies]
 cosmwasm-storage = { workspace = true }
