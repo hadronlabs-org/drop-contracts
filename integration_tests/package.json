@@ -17,6 +17,7 @@
     "build-neutron-image": "./dockerfiles/neutron/build.sh",
     "build-neutron-query-relayer-image": "./dockerfiles/neutron-query-relayer/build.sh",
     "build-images": "yarn build-lsm-image && yarn build-gaia-image && yarn build-hermes-image && yarn build-neutron-image && yarn build-neutron-query-relayer-image",
+    "build-images-concurrently": "concurrently build-lsm-image build-gaia-image build-hermes-image build-neutron-image build-neutron-query-relayer-image",
     "lint": "eslint ./src -f compact"
   },
   "dependencies": {
@@ -34,6 +35,7 @@
     "@typescript-eslint/eslint-plugin": "^6.9.1",
     "@typescript-eslint/parser": "^6.9.1",
     "@vitest/ui": "^0.34.1",
+    "concurrently": "^8.2.2",
     "eslint": "^8.52.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-prettier": "^5.0.1",

@@ -82,7 +82,7 @@ jobs:
       - name: Build images
         uses: borales/actions-yarn@v4
         with:
-          cmd: build-images
+          cmd: build-images-concurrently
           dir: integration_tests
       - name: Run tests
         uses: borales/actions-yarn@v4
