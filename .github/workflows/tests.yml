@@ -69,10 +69,6 @@ jobs:
           toolchain: 1.73.0
           profile: minimal
           override: true
-      - name: List integration_tests directory
-        run: ls -lah ./
-      - name: List integration_tests directory
-        run: ls -lah ./integration_tests
       - name: Setup node
         uses: actions/setup-node@v3
         with:
