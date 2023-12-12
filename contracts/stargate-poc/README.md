@@ -1,1 +1,1 @@
-# LIDO Interchain interceptor
+# LIDO Stargate query POC
