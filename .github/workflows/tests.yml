@@ -80,9 +80,6 @@ jobs:
       - name: Lint
         run: cd integration_tests && yarn --ignore-engines && yarn lint
       - name: Build images
-        uses: borales/actions-yarn@v4
-        with:
-          cmd: build-images
-          dir: integration_tests
+        run: cd integration_tests && cat package.json | grep -e "build-[a-z]*-image\"" | cut -d ':' -f 2- | tr -d '", ' | xargs -I % -P 3 sh -c %
       - name: Run tests
         run: cd integration_tests && yarn test
