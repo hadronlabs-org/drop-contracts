@@ -85,7 +85,4 @@ jobs:
           cmd: build-images
           dir: integration_tests
       - name: Run tests
-        uses: borales/actions-yarn@v4
-        with:
-          cmd: test
-          dir: integration_tests
+        run: cd integration_tests && yarn test
