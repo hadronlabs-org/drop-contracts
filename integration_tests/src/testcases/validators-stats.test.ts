@@ -142,7 +142,7 @@ describe('Validators stats', () => {
     const res = await client.upload(
       account.address,
       fs.readFileSync(
-        join(__dirname, '../../../artifacts/lido_validators_stats.wasm'),
+        join(__dirname, '../../../../artifacts/lido_validators_stats.wasm'),
       ),
       1.5,
     );

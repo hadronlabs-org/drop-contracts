@@ -110,7 +110,7 @@ describe('Interchain interceptor with AuthZ support', () => {
       fs.readFileSync(
         join(
           __dirname,
-          '../../../artifacts/lido_interchain_interceptor_authz.wasm',
+          '../../../../artifacts/lido_interchain_interceptor_authz.wasm',
         ),
       ),
       1.5,
