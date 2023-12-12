@@ -1,11 +1,15 @@
 [workspace]
 members = [
+    "contracts/distribution",
     "contracts/interchain-interceptor", 
     "contracts/interchain-interceptor-authz", 
     "contracts/validators-stats",
     "contracts/token",
+    "contracts/validators-set",
+    "contracts/strategy",
     "packages/interchain-interceptor-base"
 ]
+
 resolver = "2"
 
 [workspace.dependencies]
@@ -22,6 +26,8 @@ cosmwasm-schema                  = { version = "1.5.0", default-features = false
 cw-storage-plus                  = { version = "1.2.0", default-features = false }
 cw2                              = { version = "1.1.2", default-features = false }
 cw20                             = { version = "1.0.1" }
+cosmwasm-storage                 = { version = "1.5.0" }
+cw-multi-test                    = "0.19.0"
 cw-utils                         = { version = "1.0.3", default-features = false }
 schemars                         = "0.8"
 serde                            = { version = "1.0.127", default-features = false, features = ["derive"] }
