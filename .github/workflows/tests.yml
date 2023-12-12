@@ -78,10 +78,14 @@ jobs:
           cache-dependency-path: integration_tests/yarn.lock
       - name: Lint
         run: cd integration_tests && yarn --ignore-engines && yarn lint
+      # - name: Build images
+      #   run: |
+      #     cd integration_tests
+      #     cat package.json | grep -e "build-[a-z]*-image\"" | awk -F: '{print $1}' | tr -d ' ",{}' | xargs -I % -P 3 yarn %
       - name: Build images
         run: |
           cd integration_tests
-          cat package.json | grep -e "build-[a-z]*-image\"" | awk -F: '{print $1}' | tr -d ' ",{}' | xargs -I % -P 3 yarn %
+          yarn build-images
       - run: make compile
       - name: Run tests
         run: cd integration_tests && yarn test
