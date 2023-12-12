@@ -75,10 +75,11 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v3
         with:
+          dir: integration_tests
           cache: 'yarn'
       - name: Lint
         run: cd integration_tests && yarn --ignore-engines && yarn lint
-      - name: Build image
+      - name: Build images
         uses: borales/actions-yarn@v4
         with:
           cmd: build-images
