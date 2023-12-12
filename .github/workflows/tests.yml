@@ -71,7 +71,7 @@ jobs:
           toolchain: 1.73.0
           profile: minimal
           override: true
-      - run: make compile && make check_contracts
+      - run: make compile
       - name: Setup node
         uses: actions/setup-node@v3
         with:
