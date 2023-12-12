@@ -97,10 +97,7 @@ describe('Interchain interceptor', () => {
     const res = await client.upload(
       account.address,
       fs.readFileSync(
-        join(
-          __dirname,
-          '../../../../artifacts/lido_interchain_interceptor.wasm',
-        ),
+        join(__dirname, '../../../artifacts/lido_interchain_interceptor.wasm'),
       ),
       1.5,
     );

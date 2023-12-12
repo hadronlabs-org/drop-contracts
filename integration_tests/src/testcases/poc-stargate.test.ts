@@ -97,7 +97,7 @@ describe('POC Stargate', () => {
     const res = await client.upload(
       account.address,
       fs.readFileSync(
-        join(__dirname, '../../../../artifacts/lido_stargate_poc.wasm'),
+        join(__dirname, '../../../artifacts/lido_stargate_poc.wasm'),
       ),
       1.5,
     );
