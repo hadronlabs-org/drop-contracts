@@ -1,4 +1,4 @@
 .idea/
 target/
-artifacts/
 **/schema/
+/artifacts/
