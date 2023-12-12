@@ -45,8 +45,6 @@ jobs:
         os: [ubuntu-latest]
     steps:
       - uses: actions/checkout@v1
-        with:
-          fetch-depth: 1
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: 1.73.0
@@ -56,3 +54,38 @@ jobs:
       - run: cargo test --verbose --all
         env:
           RUST_BACKTRACE: 1
+  integration-test:
+    name: Actions - integration test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    steps:
+      - name: Upgrade docker compose to use v2
+        run: sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x /usr/local/bin/docker-compose
+      - uses: actions/checkout@v1
+        with:
+          fetch-depth: 1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.73.0
+          profile: minimal
+          override: true
+      - name: Setup node
+        uses: actions/setup-node@v3
+        with:
+          cache: 'yarn'
+          cache-dependency-path: integration_tests/yarn.lock
+      - name: Lint
+        run: cd integration_tests && yarn --ignore-engines && yarn lint
+      # - name: Build images
+      #   run: |
+      #     cd integration_tests
+      #     cat package.json | grep -e "build-[a-z]*-image\"" | awk -F: '{print $1}' | tr -d ' ",{}' | xargs -I % -P 3 yarn %
+      - name: Build images
+        run: |
+          cd integration_tests
+          yarn build-images
+      - run: make compile
+      - name: Run tests
+        run: cd integration_tests && yarn test
