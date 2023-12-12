@@ -283,6 +283,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "cw-multi-test"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67fff029689ae89127cf6d7655809a68d712f3edbdb9686c70b018ba438b26ca"
+dependencies = [
+ "anyhow",
+ "bech32",
+ "cosmwasm-std",
+ "cw-storage-plus",
+ "cw-utils",
+ "derivative",
+ "itertools 0.12.0",
+ "prost",
+ "schemars",
+ "serde",
+ "sha2 0.10.8",
+ "thiserror",
+]
+
+[[package]]
 name = "cw-ownable"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -600,6 +620,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "302d7ab3130588088d277783b1e2d2e10c9e9e4a16dd9050e6ec93fb3e7048f4"
 
 [[package]]
+name = "lido-distribution"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test 0.20.0",
+ "cw-ownable",
+ "cw-storage-plus",
+ "cw2",
+ "cw20",
+ "neutron-sdk",
+ "prost",
+ "prost-types",
+ "protobuf",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.0",
+ "tendermint-proto",
+]
+
+[[package]]
 name = "lido-interchain-interceptor"
 version = "1.0.0"
 dependencies = [
@@ -613,7 +656,7 @@ dependencies = [
  "cw2",
  "cw20",
  "lido-interchain-interceptor-base",
- "neutron-sdk 0.7.0 (git+https://github.com/neutron-org/neutron-sdk?rev=0312d1edfcdca00818e85fc14504be9479efd5ee)",
+ "neutron-sdk",
  "prost",
  "prost-types",
  "protobuf",
@@ -637,7 +680,7 @@ dependencies = [
  "cw2",
  "cw20",
  "lido-interchain-interceptor-base",
- "neutron-sdk 0.7.0 (git+https://github.com/neutron-org/neutron-sdk?rev=0312d1edfcdca00818e85fc14504be9479efd5ee)",
+ "neutron-sdk",
  "prost",
  "prost-types",
  "protobuf",
@@ -656,12 +699,12 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cosmwasm-storage",
- "cw-multi-test 0.17.0",
+ "cw-multi-test 0.20.0",
  "cw-ownable",
  "cw-storage-plus",
  "cw2",
  "cw20",
- "neutron-sdk 0.7.0 (git+https://github.com/neutron-org/neutron-sdk?rev=0312d1edfcdca00818e85fc14504be9479efd5ee)",
+ "neutron-sdk",
  "prost",
  "prost-types",
  "protobuf",
@@ -681,12 +724,35 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cosmwasm-storage",
- "cw-multi-test 0.19.0",
+ "cw-multi-test 0.20.0",
  "cw-storage-plus",
  "cw2",
  "cw20",
  "lido-interchain-interceptor-base",
- "neutron-sdk 0.7.0 (git+https://github.com/neutron-org/neutron-sdk?branch=sdk/47)",
+ "neutron-sdk",
+ "prost",
+ "prost-types",
+ "protobuf",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.0",
+ "tendermint-proto",
+]
+
+[[package]]
+name = "lido-strategy"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test 0.20.0",
+ "cw-ownable",
+ "cw-storage-plus",
+ "cw2",
+ "cw20",
+ "neutron-sdk",
  "prost",
  "prost-types",
  "protobuf",
@@ -705,8 +771,31 @@ dependencies = [
  "cw-storage-plus",
  "cw-utils",
  "cw2",
- "neutron-sdk 0.7.0 (git+https://github.com/neutron-org/neutron-sdk?rev=0312d1edfcdca00818e85fc14504be9479efd5ee)",
+ "neutron-sdk",
  "thiserror",
+]
+
+[[package]]
+name = "lido-validators-set"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test 0.20.0",
+ "cw-ownable",
+ "cw-storage-plus",
+ "cw2",
+ "cw20",
+ "neutron-sdk",
+ "prost",
+ "prost-types",
+ "protobuf",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.0",
+ "tendermint-proto",
 ]
 
 [[package]]
@@ -724,7 +813,7 @@ dependencies = [
  "cw-storage-plus",
  "cw2",
  "cw20",
- "neutron-sdk 0.7.0 (git+https://github.com/neutron-org/neutron-sdk?rev=0312d1edfcdca00818e85fc14504be9479efd5ee)",
+ "neutron-sdk",
  "prost",
  "prost-types",
  "protobuf",
@@ -733,22 +822,6 @@ dependencies = [
  "serde-json-wasm 1.0.0",
  "sha2 0.10.8",
  "tendermint-proto",
-]
-
-[[package]]
-name = "neutron-sdk"
-version = "0.7.0"
-source = "git+https://github.com/neutron-org/neutron-sdk?branch=sdk/47#276fc51e62a973d60638dc25b50e91d1bad2e1a1"
-dependencies = [
- "bech32",
- "cosmos-sdk-proto",
- "cosmwasm-schema",
- "cosmwasm-std",
- "protobuf",
- "schemars",
- "serde",
- "serde-json-wasm 1.0.0",
- "thiserror",
 ]
 
 [[package]]
