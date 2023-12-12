@@ -74,7 +74,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v3
         with:
-          cache-dependency-path: integration_tests
+          cache-dependency-path: integration_tests/yarn.lock
           cache: 'yarn'
       - run: make compile
       - name: Lint
