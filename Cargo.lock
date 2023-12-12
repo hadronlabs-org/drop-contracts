@@ -738,6 +738,7 @@ dependencies = [
  "serde",
  "serde-json-wasm 1.0.0",
  "tendermint-proto",
+ "thiserror",
 ]
 
 [[package]]

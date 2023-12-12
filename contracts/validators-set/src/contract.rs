@@ -5,6 +5,8 @@ use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
 use neutron_sdk::NeutronResult;
 
+use crate::error::ContractResult;
+use crate::msg::ValidatorData;
 use crate::state::{QueryMsg, ValidatorInfo, CONFIG, VALIDATORS_SET};
 use crate::{
     msg::{ExecuteMsg, InstantiateMsg, MigrateMsg},
@@ -70,14 +72,21 @@ pub fn execute(
     _env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
-) -> NeutronResult<Response<NeutronMsg>> {
+) -> ContractResult<Response<NeutronMsg>> {
     match msg {
         ExecuteMsg::UpdateConfig {
             owner,
             stats_contract,
         } => execute_update_config(deps, info, owner, stats_contract),
-        ExecuteMsg::UpdateValidators { validators } => execute_update_validators(deps, validators),
-        ExecuteMsg::UpdateValidator { validator } => execute_update_validator(deps, validator),
+        ExecuteMsg::UpdateValidators { validators } => {
+            execute_update_validators(deps, info, validators)
+        }
+        ExecuteMsg::UpdateValidator { validator } => {
+            execute_update_validator(deps, info, validator)
+        }
+        ExecuteMsg::UpdateValidatorInfo { validator } => {
+            execute_update_validator_info(deps, info, validator)
+        }
     }
 }
 
@@ -86,8 +95,8 @@ fn execute_update_config(
     info: MessageInfo,
     owner: Option<Addr>,
     stats_contract: Option<Addr>,
-) -> NeutronResult<Response<NeutronMsg>> {
-    cw_ownable::is_owner(deps.storage, &info.sender)?;
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     let mut state = CONFIG.load(deps.storage)?;
 
@@ -107,28 +116,74 @@ fn execute_update_config(
 
 fn execute_update_validator(
     deps: DepsMut<NeutronQuery>,
-    validator: ValidatorInfo,
-) -> NeutronResult<Response<NeutronMsg>> {
+    info: MessageInfo,
+    validator: ValidatorData,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
     // TODO: implement notification of the validator stats contract about new validator
     let valoper_address = validator.valoper_address.clone();
 
-    VALIDATORS_SET.save(deps.storage, valoper_address, &validator)?;
+    VALIDATORS_SET.save(
+        deps.storage,
+        valoper_address,
+        &ValidatorInfo {
+            valoper_address: validator.valoper_address,
+            weight: validator.weight,
+            last_processed_remote_height: None,
+            last_processed_local_height: None,
+            last_validated_height: None,
+            last_commission_in_range: None,
+            uptime: Default::default(),
+            tombstone: false,
+            jailed_number: None,
+        },
+    )?;
 
     Ok(Response::default())
 }
 
 fn execute_update_validators(
     deps: DepsMut<NeutronQuery>,
-    validators: Vec<ValidatorInfo>,
-) -> NeutronResult<Response<NeutronMsg>> {
+    info: MessageInfo,
+    validators: Vec<ValidatorData>,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
     // TODO: implement notification of the validator stats contract about new validators set
     VALIDATORS_SET.clear(deps.storage);
 
     for validator in validators {
         let valoper_address = validator.valoper_address.clone();
 
-        VALIDATORS_SET.save(deps.storage, valoper_address, &validator)?;
+        VALIDATORS_SET.save(
+            deps.storage,
+            valoper_address,
+            &ValidatorInfo {
+                valoper_address: validator.valoper_address,
+                weight: validator.weight,
+                last_processed_remote_height: None,
+                last_processed_local_height: None,
+                last_validated_height: None,
+                last_commission_in_range: None,
+                uptime: Default::default(),
+                tombstone: false,
+                jailed_number: None,
+            },
+        )?;
     }
+
+    Ok(Response::default())
+}
+
+fn execute_update_validator_info(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    validator: ValidatorInfo,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    // TODO: Implement logic to modify validator set based in incoming validator info
+    VALIDATORS_SET.save(deps.storage, validator.valoper_address.clone(), &validator)?;
 
     Ok(Response::default())
 }
