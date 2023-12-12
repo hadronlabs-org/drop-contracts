@@ -6,6 +6,7 @@ import {
   setupAuthzExtension,
   setupStakingExtension,
 } from '@cosmjs/stargate';
+import { join } from 'path';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
@@ -106,7 +107,12 @@ describe('Interchain interceptor with AuthZ support', () => {
     const { client, account, gaiaAccount } = context;
     const res = await client.upload(
       account.address,
-      fs.readFileSync('../artifacts/lido_interchain_interceptor_authz.wasm'),
+      fs.readFileSync(
+        join(
+          __dirname,
+          '../../../artifacts/lido_interchain_interceptor_authz.wasm',
+        ),
+      ),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);

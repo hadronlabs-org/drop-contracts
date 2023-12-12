@@ -8,6 +8,7 @@ import {
   setupBankExtension,
   IndexedTx,
 } from '@cosmjs/stargate';
+import { join } from 'path';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
@@ -95,7 +96,9 @@ describe('POC Stargate', () => {
     const { client, account } = context;
     const res = await client.upload(
       account.address,
-      fs.readFileSync('../artifacts/lido_stargate_poc.wasm'),
+      fs.readFileSync(
+        join(__dirname, '../../../artifacts/lido_stargate_poc.wasm'),
+      ),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
