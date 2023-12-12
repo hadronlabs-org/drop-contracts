@@ -71,12 +71,12 @@ jobs:
           toolchain: 1.73.0
           profile: minimal
           override: true
-      - run: make compile
       - name: Setup node
         uses: actions/setup-node@v3
         with:
-          dir: integration_tests
+          cache-dependency-path: integration_tests
           cache: 'yarn'
+      - run: make compile
       - name: Lint
         run: cd integration_tests && yarn --ignore-engines && yarn lint
       - name: Build images
