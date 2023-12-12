@@ -61,6 +61,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
     steps:
+      - run: apt-get update && apt-get install docker-compose
       - uses: actions/checkout@v1
         with:
           fetch-depth: 1
