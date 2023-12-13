@@ -1,14 +1,14 @@
 use crate::{
-    msg::{ExecuteMsg, InstantiateMsg},
+    msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
     state::{Config, State, CONFIG, STATE},
 };
 use cosmwasm_std::{
     attr, entry_point, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg,
-    Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdError, WasmMsg,
+    Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdError, StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
 use lido_staking_base::msg::{CoreInstantiateMsg, TokenInstantiateMsg};
-use neutron_sdk::NeutronResult;
+use neutron_sdk::{bindings::query::NeutronQuery, NeutronResult};
 
 const CONTRACT_NAME: &str = concat!("crates.io:lido-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -36,6 +36,13 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    match msg {
+        QueryMsg::State {} => to_json_binary(&STATE.load(deps.storage)?),
+    }
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -53,7 +60,7 @@ fn execute_init(deps: DepsMut, env: Env, _info: MessageInfo) -> NeutronResult<Re
     let mut attrs = vec![attr("action", "init")];
 
     let token_contract_checksum = get_code_checksum(deps.as_ref(), config.token_code_id)?;
-    let core_contract_checksum = get_code_checksum(deps.as_ref(), config.token_code_id)?;
+    let core_contract_checksum = get_code_checksum(deps.as_ref(), config.core_code_id)?;
     let salt = config.salt.as_bytes();
 
     let token_address =
