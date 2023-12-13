@@ -3,6 +3,7 @@ use cosmwasm_std::{
     MessageInfo, Reply, Response, StdError, SubMsg, Uint128,
 };
 use cw_storage_plus::Item;
+use lido_staking_base::msg::TokenExecuteMsg;
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     query::token_factory::query_full_denom,
@@ -38,12 +39,6 @@ pub type ContractResult<T> = Result<T, ContractError>;
 pub struct InstantiateMsg {
     pub core: String,
     pub subdenom: String,
-}
-
-#[cosmwasm_schema::cw_serde]
-pub enum ExecuteMsg {
-    Mint { amount: Uint128, receiver: String },
-    Burn {},
 }
 
 #[cosmwasm_schema::cw_serde]
@@ -115,14 +110,14 @@ pub fn execute(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     info: MessageInfo,
-    msg: ExecuteMsg,
+    msg: TokenExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let core = CORE.load(deps.storage)?;
     ensure_eq!(info.sender, core, ContractError::Unauthorized);
 
     match msg {
-        ExecuteMsg::Mint { amount, receiver } => mint(deps, amount, receiver),
-        ExecuteMsg::Burn {} => burn(deps, info),
+        TokenExecuteMsg::Mint { amount, receiver } => mint(deps, amount, receiver),
+        TokenExecuteMsg::Burn {} => burn(deps, info),
     }
 }
 

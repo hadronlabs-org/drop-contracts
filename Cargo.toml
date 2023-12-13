@@ -9,7 +9,9 @@ members = [
     "contracts/token",
     "contracts/validators-set",
     "contracts/strategy",
+    "contracts/core",
     "packages/interchain-interceptor-base",
+    "packages/base",
 ]
 
 resolver = "2"
@@ -40,6 +42,7 @@ sha2 = { version = "0.10.8" }
 bech32 = { version = "0.9.1" }
 
 lido-interchain-interceptor-base = { path = "./packages/interchain-interceptor-base", default-features = false }
+lido-staking-base = { path = "./packages/base", default-features = false }
 thiserror = "1.0.50"
 
 [profile.release]

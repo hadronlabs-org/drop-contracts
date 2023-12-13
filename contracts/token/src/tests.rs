@@ -149,7 +149,7 @@ fn mint_zero() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        crate::ExecuteMsg::Mint {
+        crate::TokenExecuteMsg::Mint {
             amount: Uint128::zero(),
             receiver: "receiver".to_string(),
         },
@@ -172,7 +172,7 @@ fn mint() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        crate::ExecuteMsg::Mint {
+        crate::TokenExecuteMsg::Mint {
             amount: Uint128::new(220),
             receiver: "receiver".to_string(),
         },
@@ -210,7 +210,7 @@ fn mint_stranger() {
         deps.as_mut(),
         mock_env(),
         mock_info("stranger", &[]),
-        crate::ExecuteMsg::Mint {
+        crate::TokenExecuteMsg::Mint {
             amount: Uint128::new(220),
             receiver: "receiver".to_string(),
         },
@@ -234,7 +234,7 @@ fn burn_zero() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        crate::ExecuteMsg::Burn {},
+        crate::TokenExecuteMsg::Burn {},
     )
     .unwrap_err();
     assert_eq!(
@@ -257,7 +257,7 @@ fn burn_multiple_coins() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[coin(20, "coin1"), coin(10, "denom")]),
-        crate::ExecuteMsg::Burn {},
+        crate::TokenExecuteMsg::Burn {},
     )
     .unwrap_err();
     assert_eq!(
@@ -280,7 +280,7 @@ fn burn_invalid_coin() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[coin(20, "coin1")]),
-        crate::ExecuteMsg::Burn {},
+        crate::TokenExecuteMsg::Burn {},
     )
     .unwrap_err();
     assert_eq!(
@@ -305,7 +305,7 @@ fn burn() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[coin(140, "denom")]),
-        crate::ExecuteMsg::Burn {},
+        crate::TokenExecuteMsg::Burn {},
     )
     .unwrap();
 
@@ -339,7 +339,7 @@ fn burn_stranger() {
         deps.as_mut(),
         mock_env(),
         mock_info("stranger", &[coin(160, "denom")]),
-        crate::ExecuteMsg::Burn {},
+        crate::TokenExecuteMsg::Burn {},
     )
     .unwrap_err();
 
