@@ -28,7 +28,7 @@ pub enum ExecuteMsg {
         validator: ValidatorData,
     },
     UpdateValidatorInfo {
-        validator: ValidatorInfo,
+        validators: Vec<ValidatorInfo>,
     },
 }
 

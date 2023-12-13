@@ -116,4 +116,114 @@ describe('Validator set', () => {
       ]),
     );
   });
+
+  it('Add bunch of validators', async () => {
+    const { contractClient, account } = context;
+    const res = await contractClient.updateValidators(
+      account.address,
+      {
+        validators: [
+          {
+            valoper_address: 'valoper2',
+            weight: 2,
+          },
+          {
+            valoper_address: 'valoper3',
+            weight: 3,
+          },
+        ],
+      },
+      1.5,
+    );
+    expect(res.transactionHash).toBeTruthy();
+
+    const validators = await contractClient.queryValidators();
+
+    expect(validators).toEqual(
+      expect.arrayContaining([
+        {
+          valoper_address: 'valoper2',
+          weight: 2,
+          last_processed_remote_height: null,
+          last_processed_local_height: null,
+          last_validated_height: null,
+          last_commission_in_range: null,
+          uptime: '0',
+          tombstone: false,
+          jailed_number: null,
+        },
+        {
+          valoper_address: 'valoper3',
+          weight: 3,
+          last_processed_remote_height: null,
+          last_processed_local_height: null,
+          last_validated_height: null,
+          last_commission_in_range: null,
+          uptime: '0',
+          tombstone: false,
+          jailed_number: null,
+        },
+      ]),
+    );
+  });
+
+  it('Update validator info', async () => {
+    const { contractClient, account } = context;
+    const res = await contractClient.updateValidatorInfo(
+      account.address,
+      {
+        validators: [
+          {
+            valoper_address: 'valoper2',
+            weight: 2,
+            tombstone: true,
+            uptime: '0.5',
+            jailed_number: 1,
+            last_commission_in_range: 1234,
+            last_processed_local_height: 2345,
+            last_processed_remote_height: 3456,
+            last_validated_height: 4567,
+          },
+          {
+            valoper_address: 'valoper1',
+            weight: 1,
+            tombstone: false,
+            uptime: '0.96',
+            jailed_number: 3,
+          },
+        ],
+      },
+      1.5,
+    );
+    expect(res.transactionHash).toBeTruthy();
+
+    const validators = await contractClient.queryValidators();
+
+    expect(validators).toEqual(
+      expect.arrayContaining([
+        {
+          valoper_address: 'valoper2',
+          weight: 2,
+          last_processed_remote_height: 3456,
+          last_processed_local_height: 2345,
+          last_validated_height: 4567,
+          last_commission_in_range: 1234,
+          uptime: '0.5',
+          tombstone: true,
+          jailed_number: 1,
+        },
+        {
+          valoper_address: 'valoper1',
+          weight: 1,
+          last_processed_remote_height: null,
+          last_processed_local_height: null,
+          last_validated_height: null,
+          last_commission_in_range: null,
+          uptime: '0.96',
+          tombstone: false,
+          jailed_number: 3,
+        },
+      ]),
+    );
+  });
 });

@@ -13,6 +13,9 @@ pub enum ContractError {
 
     #[error("{0}")]
     OwnershipError(#[from] OwnershipError),
+
+    #[error("unauthorized")]
+    Unauthorized,
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

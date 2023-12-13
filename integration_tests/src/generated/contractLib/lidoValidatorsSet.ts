@@ -84,7 +84,7 @@ export interface UpdateValidatorArgs {
   validator: ValidatorData;
 }
 export interface UpdateValidatorInfoArgs {
-  validator: ValidatorInfo1;
+  validators: ValidatorInfo1[];
 }
 
 

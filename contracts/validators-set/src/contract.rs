@@ -5,7 +5,7 @@ use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
 use neutron_sdk::NeutronResult;
 
-use crate::error::ContractResult;
+use crate::error::{ContractError, ContractResult};
 use crate::msg::ValidatorData;
 use crate::state::{QueryMsg, ValidatorInfo, CONFIG, VALIDATORS_SET};
 use crate::{
@@ -84,8 +84,8 @@ pub fn execute(
         ExecuteMsg::UpdateValidator { validator } => {
             execute_update_validator(deps, info, validator)
         }
-        ExecuteMsg::UpdateValidatorInfo { validator } => {
-            execute_update_validator_info(deps, info, validator)
+        ExecuteMsg::UpdateValidatorInfo { validators } => {
+            execute_update_validator_info(deps, info, validators)
         }
     }
 }
@@ -178,12 +178,17 @@ fn execute_update_validators(
 fn execute_update_validator_info(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
-    validator: ValidatorInfo,
+    validators: Vec<ValidatorInfo>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+    let config = CONFIG.load(deps.storage)?;
+    if config.stats_contract != info.sender {
+        return Err(ContractError::Unauthorized {});
+    }
 
-    // TODO: Implement logic to modify validator set based in incoming validator info
-    VALIDATORS_SET.save(deps.storage, validator.valoper_address.clone(), &validator)?;
+    for validator in validators {
+        // TODO: Implement logic to modify validator set based in incoming validator info
+        VALIDATORS_SET.save(deps.storage, validator.valoper_address.clone(), &validator)?;
+    }
 
     Ok(Response::default())
 }
