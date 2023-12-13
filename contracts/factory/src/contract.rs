@@ -51,6 +51,7 @@ fn execute_init(deps: DepsMut, env: Env, _info: MessageInfo) -> NeutronResult<Re
     let config = CONFIG.load(deps.storage)?;
     let canonical_self_address = deps.api.addr_canonicalize(env.contract.address.as_str())?;
     let mut attrs = vec![attr("action", "init")];
+
     let token_contract_checksum = get_code_checksum(deps.as_ref(), config.token_code_id)?;
     let core_contract_checksum = get_code_checksum(deps.as_ref(), config.token_code_id)?;
     let salt = config.salt.as_bytes();
@@ -74,7 +75,7 @@ fn execute_init(deps: DepsMut, env: Env, _info: MessageInfo) -> NeutronResult<Re
     let msgs = vec![
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
-            code_id: config.core_code_id,
+            code_id: config.token_code_id,
             label: "token".to_string(),
             msg: to_json_binary(&TokenInstantiateMsg {
                 core_address: core_contract,
@@ -85,7 +86,7 @@ fn execute_init(deps: DepsMut, env: Env, _info: MessageInfo) -> NeutronResult<Re
         }),
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
-            code_id: config.token_code_id,
+            code_id: config.core_code_id,
             label: "core".to_string(),
             msg: to_json_binary(&CoreInstantiateMsg {
                 token_contract: token_contract.to_string(),
