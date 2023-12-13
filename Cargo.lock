@@ -668,6 +668,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "lido-factory"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test 0.20.0",
+ "cw-ownable",
+ "cw-storage-plus",
+ "cw2",
+ "cw20",
+ "lido-staking-base",
+ "neutron-sdk",
+ "prost",
+ "prost-types",
+ "protobuf",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.0",
+ "tendermint-proto",
+ "thiserror",
+]
+
+[[package]]
 name = "lido-interchain-interceptor"
 version = "1.0.0"
 dependencies = [

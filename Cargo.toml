@@ -3,6 +3,7 @@ members = [
 
     "contracts/stargate-poc",
     "contracts/distribution",
+    "contracts/factory",
     "contracts/interchain-interceptor",
     "contracts/interchain-interceptor-authz",
     "contracts/validators-stats",
@@ -27,6 +28,7 @@ protobuf = "3.2.0"
 tendermint-proto = "0.34.0"
 cosmwasm-std = { version = "1.5.0", default-features = false, features = [
     "stargate",
+    "cosmwasm_1_2",
 ] }
 cosmwasm-schema = { version = "1.5.0", default-features = false }
 cw-storage-plus = { version = "1.2.0", default-features = false }

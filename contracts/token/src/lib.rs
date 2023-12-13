@@ -3,7 +3,7 @@ use cosmwasm_std::{
     MessageInfo, Reply, Response, StdError, SubMsg, Uint128,
 };
 use cw_storage_plus::Item;
-use lido_staking_base::msg::TokenExecuteMsg;
+use lido_staking_base::msg::{TokenExecuteMsg, TokenInstantiateMsg};
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     query::token_factory::query_full_denom,
@@ -36,12 +36,6 @@ pub enum ContractError {
 pub type ContractResult<T> = Result<T, ContractError>;
 
 #[cosmwasm_schema::cw_serde]
-pub struct InstantiateMsg {
-    pub core: String,
-    pub subdenom: String,
-}
-
-#[cosmwasm_schema::cw_serde]
 #[derive(cosmwasm_schema::QueryResponses)]
 pub enum QueryMsg {
     #[returns(ConfigResponse)]
@@ -50,7 +44,7 @@ pub enum QueryMsg {
 
 #[cosmwasm_schema::cw_serde]
 pub struct ConfigResponse {
-    pub core: String,
+    pub core_address: String,
     pub denom: String,
 }
 
@@ -60,7 +54,7 @@ pub enum MigrateMsg {}
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-const CORE: Item<Addr> = Item::new("core");
+const CORE_ADDRESS: Item<Addr> = Item::new("core");
 const DENOM: Item<String> = Item::new("denom");
 
 const CREATE_DENOM_REPLY_ID: u64 = 1;
@@ -85,12 +79,12 @@ pub fn instantiate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     _info: MessageInfo,
-    msg: InstantiateMsg,
+    msg: TokenInstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    let core = deps.api.addr_validate(&msg.core)?;
-    CORE.save(deps.storage, &core)?;
+    let core = deps.api.addr_validate(&msg.core_address)?;
+    CORE_ADDRESS.save(deps.storage, &core)?;
 
     DENOM.save(deps.storage, &msg.subdenom)?;
     let create_denom_msg = SubMsg::reply_on_success(
@@ -100,7 +94,7 @@ pub fn instantiate(
 
     Ok(response(
         "instantiate",
-        [attr("core", core), attr("subdenom", msg.subdenom)],
+        [attr("core_address", core), attr("subdenom", msg.subdenom)],
     )
     .add_submessage(create_denom_msg))
 }
@@ -112,7 +106,7 @@ pub fn execute(
     info: MessageInfo,
     msg: TokenExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let core = CORE.load(deps.storage)?;
+    let core = CORE_ADDRESS.load(deps.storage)?;
     ensure_eq!(info.sender, core, ContractError::Unauthorized);
 
     match msg {
@@ -154,9 +148,12 @@ fn burn(deps: DepsMut<NeutronQuery>, info: MessageInfo) -> ContractResult<Respon
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     match msg {
         QueryMsg::Config {} => {
-            let core = CORE.load(deps.storage)?.into_string();
+            let core_address = CORE_ADDRESS.load(deps.storage)?.into_string();
             let denom = DENOM.load(deps.storage)?;
-            Ok(to_json_binary(&ConfigResponse { core, denom })?)
+            Ok(to_json_binary(&ConfigResponse {
+                core_address,
+                denom,
+            })?)
         }
     }
 }

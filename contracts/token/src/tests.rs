@@ -4,6 +4,7 @@ use cosmwasm_std::{
     to_json_binary, Addr, ContractResult, CosmosMsg, Event, OwnedDeps, Querier, QuerierResult,
     QueryRequest, Reply, ReplyOn, SubMsgResult, SystemError, Uint128,
 };
+use lido_staking_base::msg::TokenInstantiateMsg;
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     query::token_factory::FullDenomResponse,
@@ -26,14 +27,14 @@ fn instantiate() {
         deps.as_mut(),
         mock_env(),
         mock_info("admin", &[]),
-        crate::InstantiateMsg {
-            core: "core".to_string(),
+        TokenInstantiateMsg {
+            core_address: "core".to_string(),
             subdenom: "subdenom".to_string(),
         },
     )
     .unwrap();
 
-    let core = crate::CORE.load(deps.as_ref().storage).unwrap();
+    let core = crate::CORE_ADDRESS.load(deps.as_ref().storage).unwrap();
     assert_eq!(core, Addr::unchecked("core"));
 
     let denom = crate::DENOM.load(deps.as_ref().storage).unwrap();
@@ -51,7 +52,7 @@ fn instantiate() {
     assert_eq!(
         response.events,
         vec![Event::new("lido-token-instantiate")
-            .add_attributes([attr("core", core), attr("subdenom", "subdenom")])]
+            .add_attributes([attr("core_address", core), attr("subdenom", "subdenom")])]
     );
     assert!(response.attributes.is_empty());
 }
@@ -138,7 +139,7 @@ fn reply() {
 #[test]
 fn mint_zero() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    crate::CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
     crate::DENOM
@@ -161,7 +162,7 @@ fn mint_zero() {
 #[test]
 fn mint() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    crate::CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
     crate::DENOM
@@ -199,7 +200,7 @@ fn mint() {
 #[test]
 fn mint_stranger() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    crate::CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
     crate::DENOM
@@ -223,7 +224,7 @@ fn mint_stranger() {
 #[test]
 fn burn_zero() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    crate::CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
     crate::DENOM
@@ -246,7 +247,7 @@ fn burn_zero() {
 #[test]
 fn burn_multiple_coins() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    crate::CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
     crate::DENOM
@@ -269,7 +270,7 @@ fn burn_multiple_coins() {
 #[test]
 fn burn_invalid_coin() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    crate::CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
     crate::DENOM
@@ -294,7 +295,7 @@ fn burn_invalid_coin() {
 #[test]
 fn burn() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    crate::CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
     crate::DENOM
@@ -328,7 +329,7 @@ fn burn() {
 #[test]
 fn burn_stranger() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    crate::CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
     crate::DENOM
@@ -349,7 +350,7 @@ fn burn_stranger() {
 #[test]
 fn query_config() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    crate::CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
     crate::DENOM
@@ -360,7 +361,7 @@ fn query_config() {
     assert_eq!(
         response,
         to_json_binary(&crate::ConfigResponse {
-            core: "core".to_string(),
+            core_address: "core".to_string(),
             denom: "denom".to_string()
         })
         .unwrap()

@@ -1,18 +1,11 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Uint128;
+use lido_staking_base::msg::CoreInstantiateMsg;
 
 use crate::state::Config;
 
-#[cw_serde]
-pub struct InstantiateMsg {
-    pub token_contract: String,
-    pub puppeteer_contract: String,
-    pub strategy_contract: String,
-    pub owner: String,
-}
-
-impl From<InstantiateMsg> for Config {
-    fn from(val: InstantiateMsg) -> Self {
+impl From<CoreInstantiateMsg> for Config {
+    fn from(val: CoreInstantiateMsg) -> Self {
         Config {
             token_contract: val.token_contract,
             puppeteer_contract: val.puppeteer_contract,
@@ -36,3 +29,5 @@ pub enum ExecuteMsg {
         owner: Option<String>,
     },
 }
+#[cw_serde]
+pub enum MigrateMsg {}
