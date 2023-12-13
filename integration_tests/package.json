@@ -10,6 +10,7 @@
     "test:interceptor": "vitest --run interceptor.test --bail 1",
     "test:interceptor-authz": "vitest --run interceptor-authz.test --bail 1",
     "test:validators-stats": "vitest --run validators-stats.test --bail 1",
+    "test:validator-set": "vitest validator-set.test --bail 1",
     "watch": "vitest",
     "build-ts-client": "ts-node ./src/rebuild-client.ts",
     "build-lsm-image": "./dockerfiles/lsm/build.sh",

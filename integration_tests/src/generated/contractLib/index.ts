@@ -7,23 +7,14 @@ export const LidoDistribution = _1;
 import * as _2 from './lidoFactory';
 export const LidoFactory = _2;
 
-import * as _3 from './lidoInterchainInterceptorAuthz';
-export const LidoInterchainInterceptorAuthz = _3;
+import * as _3 from './lidoStrategy';
+export const LidoStrategy = _3;
 
-import * as _4 from './lidoInterchainInterceptor';
-export const LidoInterchainInterceptor = _4;
+import * as _4 from './lidoToken';
+export const LidoToken = _4;
 
-import * as _5 from './lidoStargatePoc';
-export const LidoStargatePoc = _5;
+import * as _5 from './lidoValidatorsSet';
+export const LidoValidatorsSet = _5;
 
-import * as _6 from './lidoStrategy';
-export const LidoStrategy = _6;
-
-import * as _7 from './lidoToken';
-export const LidoToken = _7;
-
-import * as _8 from './lidoValidatorsSet';
-export const LidoValidatorsSet = _8;
-
-import * as _9 from './lidoValidatorsStats';
-export const LidoValidatorsStats = _9;
+import * as _6 from './lidoValidatorsStats';
+export const LidoValidatorsStats = _6;
