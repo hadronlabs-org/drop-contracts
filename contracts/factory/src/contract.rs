@@ -1,15 +1,21 @@
 use crate::{
+    error::ContractResult,
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
     state::{Config, State, CONFIG, STATE},
 };
 use cosmwasm_std::{
     attr, entry_point, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg,
-    Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdError, StdResult, WasmMsg,
+    Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
-use lido_staking_base::msg::core::InstantiateMsg as CoreInstantiateMsg;
 use lido_staking_base::msg::token::InstantiateMsg as TokenInstantiateMsg;
-use neutron_sdk::{bindings::query::NeutronQuery, NeutronResult};
+use lido_staking_base::{
+    helpers::answer::response, msg::core::InstantiateMsg as CoreInstantiateMsg,
+};
+use neutron_sdk::{
+    bindings::{msg::NeutronMsg, query::NeutronQuery},
+    NeutronResult,
+};
 
 const CONTRACT_NAME: &str = concat!("crates.io:lido-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -20,20 +26,28 @@ pub fn instantiate(
     _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
-) -> NeutronResult<Response> {
+) -> ContractResult<Response<NeutronMsg>> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     CONFIG.save(
         deps.storage,
         &Config {
-            salt: msg.salt,
+            salt: msg.salt.to_string(),
             token_code_id: msg.token_code_id,
             core_code_id: msg.core_code_id,
             owner: info.sender.to_string(),
-            subdenom: msg.subdenom,
+            subdenom: msg.subdenom.to_string(),
         },
     )?;
-    Ok(Response::default())
+
+    let attrs = vec![
+        attr("salt", msg.salt),
+        attr("token_code_id", msg.token_code_id.to_string()),
+        attr("core_code_id", msg.core_code_id.to_string()),
+        attr("owner", info.sender),
+        attr("subdenom", msg.subdenom),
+    ];
+    Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -49,13 +63,17 @@ pub fn execute(
     env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
-) -> NeutronResult<Response> {
+) -> ContractResult<Response<NeutronMsg>> {
     match msg {
         ExecuteMsg::Init {} => execute_init(deps, env, info),
     }
 }
 
-fn execute_init(deps: DepsMut, env: Env, _info: MessageInfo) -> NeutronResult<Response> {
+fn execute_init(
+    deps: DepsMut,
+    env: Env,
+    _info: MessageInfo,
+) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let canonical_self_address = deps.api.addr_canonicalize(env.contract.address.as_str())?;
     let mut attrs = vec![attr("action", "init")];
@@ -65,11 +83,10 @@ fn execute_init(deps: DepsMut, env: Env, _info: MessageInfo) -> NeutronResult<Re
     let salt = config.salt.as_bytes();
 
     let token_address =
-        instantiate2_address(&token_contract_checksum, &canonical_self_address, salt)
-            .map_err(|e| StdError::generic_err(format!("failed to calc token address: {e:?}")))?;
+        instantiate2_address(&token_contract_checksum, &canonical_self_address, salt)?;
     attrs.push(attr("token_address", token_address.to_string()));
-    let core_address = instantiate2_address(&core_contract_checksum, &canonical_self_address, salt)
-        .map_err(|e| StdError::generic_err(format!("failed to calc core address: {e:?}")))?;
+    let core_address =
+        instantiate2_address(&core_contract_checksum, &canonical_self_address, salt)?;
     attrs.push(attr("core_address", core_address.to_string()));
 
     let core_contract = deps.api.addr_humanize(&core_address)?.to_string();
@@ -107,7 +124,7 @@ fn execute_init(deps: DepsMut, env: Env, _info: MessageInfo) -> NeutronResult<Re
         }),
     ];
 
-    Ok(Response::default().add_messages(msgs).add_attributes(attrs))
+    Ok(response("execute-init", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
 fn get_code_checksum(deps: Deps, code_id: u64) -> NeutronResult<HexBinary> {

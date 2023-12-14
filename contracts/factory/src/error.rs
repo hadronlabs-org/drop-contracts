@@ -1,11 +1,23 @@
-use cosmwasm_std::Instantiate2AddressError;
+use cosmwasm_std::{Instantiate2AddressError, StdError};
+use neutron_sdk::NeutronError;
 
+use thiserror::Error;
+
+#[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
-    Instantiate2Address {
-        err: Instantiate2AddressError,
-        code_id: u64,
-    },
+    #[error("{0}")]
+    Std(#[from] StdError),
+
+    #[error("{0}")]
+    NeutronError(#[from] NeutronError),
+    #[error("Could not calculcate instantiate2 address: {0}")]
+    Instantiate2AddressError(#[from] Instantiate2AddressError),
+    #[error("Unauthorized")]
     Unauthorized {},
+    #[error("Unimplemented")]
     Unimplemented {},
+    #[error("Unknown")]
     Unknown {},
 }
+
+pub type ContractResult<T> = Result<T, ContractError>;

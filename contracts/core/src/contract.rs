@@ -1,17 +1,16 @@
 use crate::error::{ContractError, ContractResult};
 use cosmwasm_std::{
-    attr, ensure_eq, ensure_ne, entry_point, to_json_binary, Binary, CosmosMsg, Decimal, Deps,
-    DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg,
+    attr, ensure_eq, ensure_ne, entry_point, to_json_binary, Attribute, Binary, CosmosMsg, Decimal,
+    Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
+use lido_staking_base::helpers::answer::response;
 use lido_staking_base::msg::core::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use lido_staking_base::msg::token::ExecuteMsg as TokenExecuteMsg;
 use lido_staking_base::state::core::CONFIG;
-use neutron_sdk::{
-    bindings::{msg::NeutronMsg, query::NeutronQuery},
-    NeutronResult,
-};
+use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 use std::str::FromStr;
+use std::vec;
 const CONTRACT_NAME: &str = concat!("crates.io:lido-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -21,11 +20,17 @@ pub fn instantiate(
     _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
-) -> NeutronResult<Response> {
+) -> ContractResult<Response<NeutronMsg>> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    CONFIG.save(deps.storage, &msg.into())?;
-    Ok(Response::default())
+    CONFIG.save(deps.storage, &msg.clone().into())?;
+    let attrs: Vec<Attribute> = vec![
+        attr("token_contract", msg.token_contract),
+        attr("puppeteer_contract", msg.puppeteer_contract),
+        attr("strategy_contract", msg.strategy_contract),
+        attr("owner", msg.owner),
+    ];
+    Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -116,8 +121,7 @@ fn execute_bond(
         })?,
         funds: vec![],
     })];
-
-    Ok(Response::default().add_messages(msgs).add_attributes(attrs))
+    Ok(response("execute-bond", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
 fn check_denom(_denom: String) -> ContractResult<()> {
@@ -155,7 +159,7 @@ fn execute_update_config(
         attrs.push(attr("owner", owner));
     }
     CONFIG.save(deps.storage, &config)?;
-    Ok(Response::default().add_attributes(attrs))
+    Ok(response("execute-update_config", CONTRACT_NAME, attrs))
 }
 
 fn execute_unbond(
