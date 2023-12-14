@@ -69,7 +69,7 @@ describe('Validator set', () => {
       account.address,
       res.codeId,
       {
-        owner: account.address,
+        core: account.address,
         stats_contract: account.address,
       },
       'label',
@@ -175,7 +175,6 @@ describe('Validator set', () => {
         validators: [
           {
             valoper_address: 'valoper2',
-            weight: 2,
             tombstone: true,
             uptime: '0.5',
             jailed_number: 1,
@@ -185,8 +184,7 @@ describe('Validator set', () => {
             last_validated_height: 4567,
           },
           {
-            valoper_address: 'valoper1',
-            weight: 1,
+            valoper_address: 'valoper3',
             tombstone: false,
             uptime: '0.96',
             jailed_number: 3,
@@ -213,8 +211,8 @@ describe('Validator set', () => {
           jailed_number: 1,
         },
         {
-          valoper_address: 'valoper1',
-          weight: 1,
+          valoper_address: 'valoper3',
+          weight: 3,
           last_processed_remote_height: null,
           last_processed_local_height: null,
           last_validated_height: null,

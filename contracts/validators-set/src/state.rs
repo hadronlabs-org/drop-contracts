@@ -1,11 +1,11 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_schema::cw_serde;
 
 use cosmwasm_std::{Addr, Decimal};
 use cw_storage_plus::{Item, Map};
 
 #[cw_serde]
 pub struct Config {
-    pub owner: Addr,
+    pub core: Addr,
     pub stats_contract: Addr,
 }
 
@@ -20,17 +20,6 @@ pub struct ValidatorInfo {
     pub uptime: Decimal,
     pub tombstone: bool,
     pub jailed_number: Option<u64>,
-}
-
-#[cw_serde]
-#[derive(QueryResponses)]
-pub enum QueryMsg {
-    #[returns(Config)]
-    Config {},
-    #[returns(ValidatorInfo)]
-    Validator { valoper: Addr },
-    #[returns(Vec<ValidatorInfo>)]
-    Validators {},
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
