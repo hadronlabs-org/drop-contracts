@@ -4,9 +4,9 @@ use cosmwasm_std::{
     DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
-use lido_staking_base::msg::core::{ExecuteMsg, InstantiateMsg};
+use lido_staking_base::msg::core::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use lido_staking_base::msg::token::ExecuteMsg as TokenExecuteMsg;
-use lido_staking_base::state::core::{QueryMsg, CONFIG};
+use lido_staking_base::state::core::CONFIG;
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     NeutronResult,

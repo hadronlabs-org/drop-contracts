@@ -4,8 +4,8 @@ use cosmwasm_std::{
 };
 
 use lido_staking_base::{
-    msg::token::{ExecuteMsg, InstantiateMsg, MigrateMsg},
-    state::token::{ConfigResponse, QueryMsg, CORE_ADDRESS, DENOM},
+    msg::token::{ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
+    state::token::{CORE_ADDRESS, DENOM},
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},

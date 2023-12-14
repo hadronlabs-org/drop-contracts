@@ -1,5 +1,5 @@
-use cosmwasm_schema::cw_serde;
-use cosmwasm_std::Uint128;
+use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::{Decimal256, Uint128};
 
 use crate::state::core::Config;
 
@@ -9,6 +9,15 @@ pub struct InstantiateMsg {
     pub puppeteer_contract: String,
     pub strategy_contract: String,
     pub owner: String,
+}
+
+#[cw_serde]
+#[derive(QueryResponses)]
+pub enum QueryMsg {
+    #[returns(Config)]
+    Config {},
+    #[returns(Decimal256)]
+    ExchangeRate {},
 }
 
 #[cw_serde]
