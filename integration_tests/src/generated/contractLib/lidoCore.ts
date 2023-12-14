@@ -30,7 +30,7 @@ export type Uint128 = string;
 
 export interface LidoCoreSchema {
   responses: Config | Decimal256;
-  execute: UnbondArgs | UpdateConfigArgs;
+  execute: BondArgs | UnbondArgs | UpdateConfigArgs;
   [k: string]: unknown;
 }
 export interface Config {
@@ -38,6 +38,9 @@ export interface Config {
   puppeteer_contract: string;
   strategy_contract: string;
   token_contract: string;
+}
+export interface BondArgs {
+  receiver?: string | null;
 }
 export interface UnbondArgs {
   amount: Uint128;
@@ -86,9 +89,9 @@ export class Client {
   queryExchangeRate = async(): Promise<Decimal256> => {
     return this.client.queryContractSmart(this.contractAddress, { exchange_rate: {} });
   }
-  bond = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  bond = async(sender:string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { bond: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { bond: args }, fee || "auto", memo, funds);
   }
   unbond = async(sender:string, args: UnbondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

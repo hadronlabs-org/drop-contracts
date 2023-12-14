@@ -22,7 +22,9 @@ pub enum QueryMsg {
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    Bond {},
+    Bond {
+        receiver: Option<String>,
+    },
     Unbond {
         amount: Uint128,
     },

@@ -48,7 +48,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::Bond {} => execute_bond(deps, env, info),
+        ExecuteMsg::Bond { receiver } => execute_bond(deps, env, info, receiver),
         ExecuteMsg::Unbond { amount } => execute_unbond(deps, env, info, amount),
         ExecuteMsg::UpdateConfig {
             token_contract,
@@ -71,6 +71,7 @@ fn execute_bond(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
+    receiver: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
 
@@ -101,11 +102,17 @@ fn execute_bond(
     let issue_amount = amount * exchange_rate;
     attrs.push(attr("issue_amount", issue_amount.to_string()));
 
+    let receiver = receiver.map_or(Ok::<String, ContractError>(info.sender.to_string()), |a| {
+        deps.api.addr_validate(&a)?;
+        Ok(a)
+    })?;
+    attrs.push(attr("receiver", receiver.clone()));
+
     let msgs = vec![CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.token_contract,
         msg: to_json_binary(&TokenExecuteMsg::Mint {
             amount: issue_amount,
-            receiver: info.sender.to_string(),
+            receiver,
         })?,
         funds: vec![],
     })];
