@@ -774,6 +774,7 @@ dependencies = [
  "cosmwasm-storage",
  "cw-multi-test 0.20.0",
  "cw-storage-plus",
+ "neutron-sdk",
 ]
 
 [[package]]
