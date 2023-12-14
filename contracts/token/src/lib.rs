@@ -1,9 +1,12 @@
 use cosmwasm_std::{
-    attr, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, Binary, Deps, DepsMut, Env, Event,
+    attr, ensure_eq, ensure_ne, to_json_binary, Attribute, Binary, Deps, DepsMut, Env, Event,
     MessageInfo, Reply, Response, StdError, SubMsg, Uint128,
 };
-use cw_storage_plus::Item;
-use lido_staking_base::msg::{TokenExecuteMsg, TokenInstantiateMsg};
+
+use lido_staking_base::{
+    msg::token::{ExecuteMsg, InstantiateMsg, MigrateMsg},
+    state::token::{ConfigResponse, QueryMsg, CORE_ADDRESS, DENOM},
+};
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     query::token_factory::query_full_denom,
@@ -35,27 +38,8 @@ pub enum ContractError {
 
 pub type ContractResult<T> = Result<T, ContractError>;
 
-#[cosmwasm_schema::cw_serde]
-#[derive(cosmwasm_schema::QueryResponses)]
-pub enum QueryMsg {
-    #[returns(ConfigResponse)]
-    Config {},
-}
-
-#[cosmwasm_schema::cw_serde]
-pub struct ConfigResponse {
-    pub core_address: String,
-    pub denom: String,
-}
-
-#[cosmwasm_schema::cw_serde]
-pub enum MigrateMsg {}
-
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-
-const CORE_ADDRESS: Item<Addr> = Item::new("core");
-const DENOM: Item<String> = Item::new("denom");
 
 const CREATE_DENOM_REPLY_ID: u64 = 1;
 
@@ -79,7 +63,7 @@ pub fn instantiate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     _info: MessageInfo,
-    msg: TokenInstantiateMsg,
+    msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
@@ -104,14 +88,14 @@ pub fn execute(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     info: MessageInfo,
-    msg: TokenExecuteMsg,
+    msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let core = CORE_ADDRESS.load(deps.storage)?;
     ensure_eq!(info.sender, core, ContractError::Unauthorized);
 
     match msg {
-        TokenExecuteMsg::Mint { amount, receiver } => mint(deps, amount, receiver),
-        TokenExecuteMsg::Burn {} => burn(deps, info),
+        ExecuteMsg::Mint { amount, receiver } => mint(deps, amount, receiver),
+        ExecuteMsg::Burn {} => burn(deps, info),
     }
 }
 

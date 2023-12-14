@@ -4,7 +4,7 @@ use cosmwasm_std::{
     to_json_binary, Addr, ContractResult, CosmosMsg, Event, OwnedDeps, Querier, QuerierResult,
     QueryRequest, Reply, ReplyOn, SubMsgResult, SystemError, Uint128,
 };
-use lido_staking_base::msg::TokenInstantiateMsg;
+use lido_staking_base::msg::token::InstantiateMsg;
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     query::token_factory::FullDenomResponse,
@@ -27,7 +27,7 @@ fn instantiate() {
         deps.as_mut(),
         mock_env(),
         mock_info("admin", &[]),
-        TokenInstantiateMsg {
+        InstantiateMsg {
             core_address: "core".to_string(),
             subdenom: "subdenom".to_string(),
         },
@@ -150,7 +150,7 @@ fn mint_zero() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        crate::TokenExecuteMsg::Mint {
+        crate::ExecuteMsg::Mint {
             amount: Uint128::zero(),
             receiver: "receiver".to_string(),
         },
@@ -173,7 +173,7 @@ fn mint() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        crate::TokenExecuteMsg::Mint {
+        crate::ExecuteMsg::Mint {
             amount: Uint128::new(220),
             receiver: "receiver".to_string(),
         },
@@ -211,7 +211,7 @@ fn mint_stranger() {
         deps.as_mut(),
         mock_env(),
         mock_info("stranger", &[]),
-        crate::TokenExecuteMsg::Mint {
+        crate::ExecuteMsg::Mint {
             amount: Uint128::new(220),
             receiver: "receiver".to_string(),
         },
@@ -235,7 +235,7 @@ fn burn_zero() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        crate::TokenExecuteMsg::Burn {},
+        crate::ExecuteMsg::Burn {},
     )
     .unwrap_err();
     assert_eq!(
@@ -258,7 +258,7 @@ fn burn_multiple_coins() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[coin(20, "coin1"), coin(10, "denom")]),
-        crate::TokenExecuteMsg::Burn {},
+        crate::ExecuteMsg::Burn {},
     )
     .unwrap_err();
     assert_eq!(
@@ -281,7 +281,7 @@ fn burn_invalid_coin() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[coin(20, "coin1")]),
-        crate::TokenExecuteMsg::Burn {},
+        crate::ExecuteMsg::Burn {},
     )
     .unwrap_err();
     assert_eq!(
@@ -306,7 +306,7 @@ fn burn() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[coin(140, "denom")]),
-        crate::TokenExecuteMsg::Burn {},
+        crate::ExecuteMsg::Burn {},
     )
     .unwrap();
 
@@ -340,7 +340,7 @@ fn burn_stranger() {
         deps.as_mut(),
         mock_env(),
         mock_info("stranger", &[coin(160, "denom")]),
-        crate::TokenExecuteMsg::Burn {},
+        crate::ExecuteMsg::Burn {},
     )
     .unwrap_err();
 

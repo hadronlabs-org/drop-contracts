@@ -7,7 +7,8 @@ use cosmwasm_std::{
     Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdError, StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
-use lido_staking_base::msg::{CoreInstantiateMsg, TokenInstantiateMsg};
+use lido_staking_base::msg::core::InstantiateMsg as CoreInstantiateMsg;
+use lido_staking_base::msg::token::InstantiateMsg as TokenInstantiateMsg;
 use neutron_sdk::{bindings::query::NeutronQuery, NeutronResult};
 
 const CONTRACT_NAME: &str = concat!("crates.io:lido-neutron-contracts__", env!("CARGO_PKG_NAME"));

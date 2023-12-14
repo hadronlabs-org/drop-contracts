@@ -773,6 +773,7 @@ dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
  "cw-multi-test 0.20.0",
+ "cw-storage-plus",
 ]
 
 [[package]]

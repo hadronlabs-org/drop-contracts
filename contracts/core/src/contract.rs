@@ -1,22 +1,17 @@
-use std::str::FromStr;
-
+use crate::error::{ContractError, ContractResult};
 use cosmwasm_std::{
     attr, ensure_eq, ensure_ne, entry_point, to_json_binary, Binary, CosmosMsg, Decimal, Deps,
     DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
-
 use cw2::set_contract_version;
-use lido_staking_base::msg::{CoreInstantiateMsg, TokenExecuteMsg};
+use lido_staking_base::msg::core::{ExecuteMsg, InstantiateMsg};
+use lido_staking_base::msg::token::ExecuteMsg as TokenExecuteMsg;
+use lido_staking_base::state::core::{QueryMsg, CONFIG};
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     NeutronResult,
 };
-
-use crate::{
-    error::{ContractError, ContractResult},
-    msg::ExecuteMsg,
-    state::{QueryMsg, CONFIG},
-};
+use std::str::FromStr;
 const CONTRACT_NAME: &str = concat!("crates.io:lido-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -25,7 +20,7 @@ pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    msg: CoreInstantiateMsg,
+    msg: InstantiateMsg,
 ) -> NeutronResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 

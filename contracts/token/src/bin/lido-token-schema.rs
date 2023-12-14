@@ -1,12 +1,15 @@
 use cosmwasm_schema::write_api;
-use lido_staking_base::msg::{TokenExecuteMsg, TokenInstantiateMsg};
-use lido_token::{MigrateMsg, QueryMsg};
+
+use lido_staking_base::{
+    msg::token::{ExecuteMsg, InstantiateMsg, MigrateMsg},
+    state::token::QueryMsg,
+};
 
 fn main() {
     write_api! {
-        instantiate: TokenInstantiateMsg,
+        instantiate: InstantiateMsg,
         query: QueryMsg,
-        execute: TokenExecuteMsg,
+        execute: ExecuteMsg,
         migrate: MigrateMsg
     }
 }
