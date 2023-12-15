@@ -1,6 +1,4 @@
-use cosmwasm_std::{
-    attr, ensure_eq, entry_point, to_json_binary, Addr, Attribute, Deps, Event, Order,
-};
+use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Addr, Deps, Order};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use lido_staking_base::helpers::answer::response;
@@ -41,7 +39,7 @@ pub fn instantiate(
 
     Ok(response(
         "instantiate",
-        "lido-validators-set",
+        CONTRACT_NAME,
         [attr("core", core), attr("stats_contract", stats_contract)],
     ))
 }
@@ -122,7 +120,7 @@ fn execute_update_config(
 
     Ok(response(
         "update_config",
-        "lido-validators-set",
+        CONTRACT_NAME,
         [
             attr("core", state.core),
             attr("stats_contract", state.stats_contract),
@@ -157,7 +155,7 @@ fn execute_update_validator(
 
     Ok(response(
         "update_validator",
-        "lido-validators-set",
+        CONTRACT_NAME,
         [
             attr("address", valoper_address),
             attr("weight", validator.weight.to_string()),
@@ -197,7 +195,7 @@ fn execute_update_validators(
 
     Ok(response(
         "update_validators",
-        "lido-validators-set",
+        CONTRACT_NAME,
         [attr("total_count", validators.len().to_string())],
     ))
 }
@@ -247,7 +245,7 @@ fn execute_update_validators_info(
 
     Ok(response(
         "update_validators_info",
-        "lido-validators-set",
+        CONTRACT_NAME,
         [attr("total_count", validators_update.len().to_string())],
     ))
 }
