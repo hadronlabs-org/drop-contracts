@@ -2,7 +2,7 @@ import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
 export interface InstantiateMsg {
-  core_address: string;
+  core: string;
   subdenom: string;
 }
 /**
@@ -26,7 +26,7 @@ export interface LidoTokenSchema {
   [k: string]: unknown;
 }
 export interface ConfigResponse {
-  core_address: string;
+  core: string;
   denom: string;
 }
 export interface MintArgs {

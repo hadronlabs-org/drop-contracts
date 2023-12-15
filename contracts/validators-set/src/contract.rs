@@ -3,6 +3,7 @@ use cosmwasm_std::{
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
+use lido_staking_base::helpers::answer::response;
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
 
@@ -40,6 +41,7 @@ pub fn instantiate(
 
     Ok(response(
         "instantiate",
+        "lido-validators-set",
         [attr("core", core), attr("stats_contract", stats_contract)],
     ))
 }
@@ -92,7 +94,7 @@ pub fn execute(
             execute_update_validator(deps, info, validator)
         }
         ExecuteMsg::UpdateValidatorInfo { validators } => {
-            execute_update_validator_info(deps, info, validators)
+            execute_update_validators_info(deps, info, validators)
         }
     }
 }
@@ -118,7 +120,14 @@ fn execute_update_config(
 
     CONFIG.save(deps.storage, &state)?;
 
-    Ok(Response::default())
+    Ok(response(
+        "update_config",
+        "lido-validators-set",
+        [
+            attr("core", state.core),
+            attr("stats_contract", state.stats_contract),
+        ],
+    ))
 }
 
 fn execute_update_validator(
@@ -132,7 +141,7 @@ fn execute_update_validator(
 
     VALIDATORS_SET.save(
         deps.storage,
-        valoper_address,
+        valoper_address.clone(),
         &ValidatorInfo {
             valoper_address: validator.valoper_address,
             weight: validator.weight,
@@ -146,7 +155,14 @@ fn execute_update_validator(
         },
     )?;
 
-    Ok(Response::default())
+    Ok(response(
+        "update_validator",
+        "lido-validators-set",
+        [
+            attr("address", valoper_address),
+            attr("weight", validator.weight.to_string()),
+        ],
+    ))
 }
 
 fn execute_update_validators(
@@ -159,7 +175,7 @@ fn execute_update_validators(
     // TODO: implement notification of the validator stats contract about new validators set
     VALIDATORS_SET.clear(deps.storage);
 
-    for validator in validators {
+    for validator in validators.clone() {
         let valoper_address = validator.valoper_address.clone();
 
         VALIDATORS_SET.save(
@@ -179,10 +195,14 @@ fn execute_update_validators(
         )?;
     }
 
-    Ok(Response::default())
+    Ok(response(
+        "update_validators",
+        "lido-validators-set",
+        [attr("total_count", validators.len().to_string())],
+    ))
 }
 
-fn execute_update_validator_info(
+fn execute_update_validators_info(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
     validators_update: Vec<ValidatorInfoUpdate>,
@@ -194,7 +214,7 @@ fn execute_update_validator_info(
         ContractError::Unauthorized {}
     );
 
-    for update in validators_update {
+    for update in validators_update.clone() {
         // TODO: Implement logic to modify validator set based in incoming validator info
         let validator =
             VALIDATORS_SET.may_load(deps.storage, update.valoper_address.to_string())?;
@@ -225,18 +245,15 @@ fn execute_update_validator_info(
         VALIDATORS_SET.save(deps.storage, validator.valoper_address.clone(), &validator)?;
     }
 
-    Ok(Response::default())
+    Ok(response(
+        "update_validators_info",
+        "lido-validators-set",
+        [attr("total_count", validators_update.len().to_string())],
+    ))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     deps.api.debug("WASMDEBUG: migrate");
     Ok(Response::default())
-}
-
-fn response<A: Into<Attribute>>(
-    ty: &str,
-    attrs: impl IntoIterator<Item = A>,
-) -> Response<NeutronMsg> {
-    Response::new().add_event(Event::new(format!("{}-{}", CONTRACT_NAME, ty)).add_attributes(attrs))
 }
