@@ -88,4 +88,7 @@ jobs:
           yarn build-images
       - run: make compile
       - name: Run tests
-        run: cd integration_tests && yarn test
+        run: |
+          cd integration_tests 
+          yarn vitest ./src --run --shard 1/2 --bail 1
+          yarn vitest ./src --run --shard 2/2 --bail 1

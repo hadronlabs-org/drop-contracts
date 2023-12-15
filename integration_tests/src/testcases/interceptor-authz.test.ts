@@ -49,7 +49,7 @@ describe('Interchain interceptor with AuthZ support', () => {
 
   beforeAll(async () => {
     context.park = await setupPark(
-      'interceptor-authz',
+      'interceptorauthz',
       ['neutron', 'gaia'],
       true,
     );

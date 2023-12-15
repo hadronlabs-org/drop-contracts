@@ -2,9 +2,17 @@ import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
 export interface InstantiateMsg {
-  core_address: string;
-  subdenom: string;
+  owner: string;
+  puppeteer_contract: string;
+  strategy_contract: string;
+  token_contract: string;
 }
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal256(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 115792089237316195423570985008687907853269984665640564039457.584007913129639935 (which is (2^256 - 1) / 10^18)
+ */
+export type Decimal256 = string;
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -20,18 +28,28 @@ export interface InstantiateMsg {
  */
 export type Uint128 = string;
 
-export interface LidoTokenSchema {
-  responses: ConfigResponse;
-  execute: MintArgs;
+export interface LidoCoreSchema {
+  responses: Config | Decimal256;
+  execute: BondArgs | UnbondArgs | UpdateConfigArgs;
   [k: string]: unknown;
 }
-export interface ConfigResponse {
-  core_address: string;
-  denom: string;
+export interface Config {
+  owner: string;
+  puppeteer_contract: string;
+  strategy_contract: string;
+  token_contract: string;
 }
-export interface MintArgs {
+export interface BondArgs {
+  receiver?: string | null;
+}
+export interface UnbondArgs {
   amount: Uint128;
-  receiver: string;
+}
+export interface UpdateConfigArgs {
+  owner?: string | null;
+  puppeteer_contract?: string | null;
+  strategy_contract?: string | null;
+  token_contract?: string | null;
 }
 
 
@@ -65,15 +83,22 @@ export class Client {
     });
     return res;
   }
-  queryConfig = async(): Promise<ConfigResponse> => {
+  queryConfig = async(): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
-  mint = async(sender:string, args: MintArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { mint: args }, fee || "auto", memo, funds);
+  queryExchangeRate = async(): Promise<Decimal256> => {
+    return this.client.queryContractSmart(this.contractAddress, { exchange_rate: {} });
   }
-  burn = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  bond = async(sender:string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { burn: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { bond: args }, fee || "auto", memo, funds);
+  }
+  unbond = async(sender:string, args: UnbondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { unbond: args }, fee || "auto", memo, funds);
+  }
+  updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
   }
 }

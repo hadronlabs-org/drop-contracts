@@ -4,11 +4,20 @@ use cosmwasm_std::{
     to_json_binary, Addr, ContractResult, CosmosMsg, Event, OwnedDeps, Querier, QuerierResult,
     QueryRequest, Reply, ReplyOn, SubMsgResult, SystemError, Uint128,
 };
+use lido_staking_base::{
+    msg::token::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg},
+    state::token::{CORE_ADDRESS, DENOM},
+};
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     query::token_factory::FullDenomResponse,
 };
 use std::marker::PhantomData;
+
+use crate::{
+    contract::{self, CREATE_DENOM_REPLY_ID},
+    error::ContractError,
+};
 
 fn mock_dependencies<Q: Querier + Default>() -> OwnedDeps<MockStorage, MockApi, Q, NeutronQuery> {
     OwnedDeps {
@@ -22,26 +31,26 @@ fn mock_dependencies<Q: Querier + Default>() -> OwnedDeps<MockStorage, MockApi, 
 #[test]
 fn instantiate() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    let response = crate::instantiate(
+    let response = contract::instantiate(
         deps.as_mut(),
         mock_env(),
         mock_info("admin", &[]),
-        crate::InstantiateMsg {
-            core: "core".to_string(),
+        InstantiateMsg {
+            core_address: "core".to_string(),
             subdenom: "subdenom".to_string(),
         },
     )
     .unwrap();
 
-    let core = crate::CORE.load(deps.as_ref().storage).unwrap();
+    let core = CORE_ADDRESS.load(deps.as_ref().storage).unwrap();
     assert_eq!(core, Addr::unchecked("core"));
 
-    let denom = crate::DENOM.load(deps.as_ref().storage).unwrap();
+    let denom = DENOM.load(deps.as_ref().storage).unwrap();
     assert_eq!(denom, "subdenom");
 
     assert_eq!(response.messages.len(), 1);
     assert_eq!(response.messages[0].reply_on, ReplyOn::Success);
-    assert_eq!(response.messages[0].id, crate::CREATE_DENOM_REPLY_ID);
+    assert_eq!(response.messages[0].id, CREATE_DENOM_REPLY_ID);
     assert_eq!(
         response.messages[0].msg,
         CosmosMsg::Custom(NeutronMsg::CreateDenom {
@@ -51,7 +60,7 @@ fn instantiate() {
     assert_eq!(
         response.events,
         vec![Event::new("lido-token-instantiate")
-            .add_attributes([attr("core", core), attr("subdenom", "subdenom")])]
+            .add_attributes([attr("core_address", core), attr("subdenom", "subdenom")])]
     );
     assert!(response.attributes.is_empty());
 }
@@ -59,7 +68,7 @@ fn instantiate() {
 #[test]
 fn reply_unknown_id() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    let error = crate::reply(
+    let error = crate::contract::reply(
         deps.as_mut(),
         mock_env(),
         Reply {
@@ -68,7 +77,7 @@ fn reply_unknown_id() {
         },
     )
     .unwrap_err();
-    assert_eq!(error, crate::ContractError::UnknownReplyId { id: 215 });
+    assert_eq!(error, ContractError::UnknownReplyId { id: 215 });
 }
 
 #[test]
@@ -110,20 +119,20 @@ fn reply() {
     }
 
     let mut deps = mock_dependencies::<CustomMockQuerier>();
-    crate::DENOM
+    DENOM
         .save(deps.as_mut().storage, &String::from("subdenom"))
         .unwrap();
-    let response = crate::reply(
+    let response = crate::contract::reply(
         deps.as_mut(),
         mock_env(),
         Reply {
-            id: crate::CREATE_DENOM_REPLY_ID,
+            id: CREATE_DENOM_REPLY_ID,
             result: SubMsgResult::Err("".to_string()),
         },
     )
     .unwrap();
 
-    let denom = crate::DENOM.load(deps.as_ref().storage).unwrap();
+    let denom = DENOM.load(deps.as_ref().storage).unwrap();
     assert_eq!(denom, "factory/subdenom");
 
     assert!(response.messages.is_empty());
@@ -138,41 +147,41 @@ fn reply() {
 #[test]
 fn mint_zero() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
-    crate::DENOM
+    DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let error = crate::execute(
+    let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        crate::ExecuteMsg::Mint {
+        ExecuteMsg::Mint {
             amount: Uint128::zero(),
             receiver: "receiver".to_string(),
         },
     )
     .unwrap_err();
-    assert_eq!(error, crate::ContractError::NothingToMint);
+    assert_eq!(error, ContractError::NothingToMint);
 }
 
 #[test]
 fn mint() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
-    crate::DENOM
+    DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let response = crate::execute(
+    let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        crate::ExecuteMsg::Mint {
+        ExecuteMsg::Mint {
             amount: Uint128::new(220),
             receiver: "receiver".to_string(),
         },
@@ -199,113 +208,111 @@ fn mint() {
 #[test]
 fn mint_stranger() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
-    crate::DENOM
+    DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let error = crate::execute(
+    let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("stranger", &[]),
-        crate::ExecuteMsg::Mint {
+        ExecuteMsg::Mint {
             amount: Uint128::new(220),
             receiver: "receiver".to_string(),
         },
     )
     .unwrap_err();
 
-    assert_eq!(error, crate::ContractError::Unauthorized);
+    assert_eq!(error, ContractError::Unauthorized);
 }
 
 #[test]
 fn burn_zero() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
-    crate::DENOM
+    DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let error = crate::execute(
+    let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        crate::ExecuteMsg::Burn {},
+        ExecuteMsg::Burn {},
     )
     .unwrap_err();
     assert_eq!(
         error,
-        crate::ContractError::PaymentError(cw_utils::PaymentError::NoFunds {})
+        ContractError::PaymentError(cw_utils::PaymentError::NoFunds {})
     );
 }
 
 #[test]
 fn burn_multiple_coins() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
-    crate::DENOM
+    DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let error = crate::execute(
+    let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[coin(20, "coin1"), coin(10, "denom")]),
-        crate::ExecuteMsg::Burn {},
+        ExecuteMsg::Burn {},
     )
     .unwrap_err();
     assert_eq!(
         error,
-        crate::ContractError::PaymentError(cw_utils::PaymentError::MultipleDenoms {})
+        ContractError::PaymentError(cw_utils::PaymentError::MultipleDenoms {})
     );
 }
 
 #[test]
 fn burn_invalid_coin() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
-    crate::DENOM
+    DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let error = crate::execute(
+    let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[coin(20, "coin1")]),
-        crate::ExecuteMsg::Burn {},
+        ExecuteMsg::Burn {},
     )
     .unwrap_err();
     assert_eq!(
         error,
-        crate::ContractError::PaymentError(cw_utils::PaymentError::MissingDenom(
-            "denom".to_string()
-        ))
+        ContractError::PaymentError(cw_utils::PaymentError::MissingDenom("denom".to_string()))
     );
 }
 
 #[test]
 fn burn() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
-    crate::DENOM
+    DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let response = crate::execute(
+    let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[coin(140, "denom")]),
-        crate::ExecuteMsg::Burn {},
+        ExecuteMsg::Burn {},
     )
     .unwrap();
 
@@ -328,39 +335,39 @@ fn burn() {
 #[test]
 fn burn_stranger() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
-    crate::DENOM
+    DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let error = crate::execute(
+    let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("stranger", &[coin(160, "denom")]),
-        crate::ExecuteMsg::Burn {},
+        ExecuteMsg::Burn {},
     )
     .unwrap_err();
 
-    assert_eq!(error, crate::ContractError::Unauthorized);
+    assert_eq!(error, ContractError::Unauthorized);
 }
 
 #[test]
 fn query_config() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::CORE
+    CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
-    crate::DENOM
+    DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let response = crate::query(deps.as_ref(), mock_env(), crate::QueryMsg::Config {}).unwrap();
+    let response = crate::contract::query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
     assert_eq!(
         response,
-        to_json_binary(&crate::ConfigResponse {
-            core: "core".to_string(),
+        to_json_binary(&ConfigResponse {
+            core_address: "core".to_string(),
             denom: "denom".to_string()
         })
         .unwrap()
