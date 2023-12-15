@@ -21,6 +21,13 @@ compile:
 		--platform linux/amd64 \
 		cosmwasm/workspace-optimizer:0.15.0
 
+compile64:
+	@docker run --rm -v "$(CURDIR)":/code \
+		--mount type=volume,source="$(notdir $(CURDIR))_cache",target=/target \
+		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+		--platform linux/arm64 \
+		cosmwasm/workspace-optimizer-arm64:0.15.0
+
 check_contracts:
 	@cargo install cosmwasm-check
 	@cosmwasm-check --available-capabilities iterator,staking,stargate,neutron,cosmwasm_1_1,cosmwasm_1_2 artifacts/*.wasm
