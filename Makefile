@@ -2,7 +2,6 @@
 
 schema:
 	@find contracts/* -maxdepth 2 -type f -name Cargo.toml -execdir cargo schema \;
-	@cd integration_tests && yarn build-ts-client
 test:
 	@cargo test
 
