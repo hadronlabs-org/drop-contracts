@@ -2,6 +2,7 @@
 
 schema:
 	@find contracts/* -maxdepth 2 -type f -name Cargo.toml -execdir cargo schema \;
+	@cd integration_tests && yarn build-ts-client
 test:
 	@cargo test
 
@@ -27,6 +28,7 @@ compile_arm64:
 		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
 		--platform linux/arm64 \
 		cosmwasm/workspace-optimizer-arm64:0.15.0
+	@cd artifacts && for file in *-aarch64.wasm; do cp -f "$$file" "${file%-aarch64.wasm}.wasm"; done
 
 check_contracts:
 	@cargo install cosmwasm-check

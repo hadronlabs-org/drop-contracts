@@ -6,6 +6,7 @@ export interface InstantiateMsg {
   salt: string;
   subdenom: string;
   token_code_id: number;
+  voucher_code_id: number;
 }
 export interface LidoFactorySchema {
   responses: State;
@@ -14,6 +15,7 @@ export interface LidoFactorySchema {
 export interface State {
   core_contract: string;
   token_contract: string;
+  voucher_contract: string;
 }
 
 

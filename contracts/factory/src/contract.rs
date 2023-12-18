@@ -8,9 +8,11 @@ use cosmwasm_std::{
     Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
-use lido_staking_base::msg::token::InstantiateMsg as TokenInstantiateMsg;
+
 use lido_staking_base::{
     helpers::answer::response, msg::core::InstantiateMsg as CoreInstantiateMsg,
+    msg::token::InstantiateMsg as TokenInstantiateMsg,
+    msg::voucher::InstantiateMsg as VoucherInstantiateMsg,
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -35,6 +37,7 @@ pub fn instantiate(
             salt: msg.salt.to_string(),
             token_code_id: msg.token_code_id,
             core_code_id: msg.core_code_id,
+            voucher_code_id: msg.voucher_code_id,
             owner: info.sender.to_string(),
             subdenom: msg.subdenom.to_string(),
         },
@@ -44,6 +47,7 @@ pub fn instantiate(
         attr("salt", msg.salt),
         attr("token_code_id", msg.token_code_id.to_string()),
         attr("core_code_id", msg.core_code_id.to_string()),
+        attr("voucher_code_id", msg.voucher_code_id.to_string()),
         attr("owner", info.sender),
         attr("subdenom", msg.subdenom),
     ];
@@ -80,6 +84,7 @@ fn execute_init(
 
     let token_contract_checksum = get_code_checksum(deps.as_ref(), config.token_code_id)?;
     let core_contract_checksum = get_code_checksum(deps.as_ref(), config.core_code_id)?;
+    let voucher_contract_checksum = get_code_checksum(deps.as_ref(), config.voucher_code_id)?;
     let salt = config.salt.as_bytes();
 
     let token_address =
@@ -88,12 +93,17 @@ fn execute_init(
     let core_address =
         instantiate2_address(&core_contract_checksum, &canonical_self_address, salt)?;
     attrs.push(attr("core_address", core_address.to_string()));
+    let voucher_address =
+        instantiate2_address(&voucher_contract_checksum, &canonical_self_address, salt)?;
+    attrs.push(attr("voucher_address", voucher_address.to_string()));
 
     let core_contract = deps.api.addr_humanize(&core_address)?.to_string();
     let token_contract = deps.api.addr_humanize(&token_address)?.to_string();
+    let voucher_contract = deps.api.addr_humanize(&voucher_address)?.to_string();
     let state = State {
         token_contract: token_contract.to_string(),
         core_contract: core_contract.to_string(),
+        voucher_contract: voucher_contract.to_string(),
     };
 
     STATE.save(deps.storage, &state)?;
@@ -101,7 +111,7 @@ fn execute_init(
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
             code_id: config.token_code_id,
-            label: "token".to_string(),
+            label: get_contract_label("token"),
             msg: to_json_binary(&TokenInstantiateMsg {
                 core_address: core_contract,
                 subdenom: config.subdenom,
@@ -112,12 +122,24 @@ fn execute_init(
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
             code_id: config.core_code_id,
-            label: "core".to_string(),
+            label: get_contract_label("core"),
             msg: to_json_binary(&CoreInstantiateMsg {
                 token_contract: token_contract.to_string(),
                 puppeteer_contract: "".to_string(),
                 strategy_contract: "".to_string(),
                 owner: env.contract.address.to_string(),
+            })?,
+            funds: vec![],
+            salt: Binary::from(salt),
+        }),
+        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
+            admin: Some(env.contract.address.to_string()),
+            code_id: config.voucher_code_id,
+            label: get_contract_label("voucher"),
+            msg: to_json_binary(&VoucherInstantiateMsg {
+                name: "Lido Voucher".to_string(),
+                symbol: "LDOV".to_string(),
+                minter: core_address.to_string(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),
@@ -130,4 +152,8 @@ fn execute_init(
 fn get_code_checksum(deps: Deps, code_id: u64) -> NeutronResult<HexBinary> {
     let CodeInfoResponse { checksum, .. } = deps.querier.query_wasm_code_info(code_id)?;
     Ok(checksum)
+}
+
+fn get_contract_label(base: &str) -> String {
+    format!("LIDO-staking-{}", base)
 }

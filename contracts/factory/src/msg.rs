@@ -6,6 +6,7 @@ use crate::state::State;
 pub struct InstantiateMsg {
     pub token_code_id: u64,
     pub core_code_id: u64,
+    pub voucher_code_id: u64,
     pub salt: String,
     pub subdenom: String,
 }
