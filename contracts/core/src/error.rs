@@ -18,6 +18,9 @@ pub enum ContractError {
 
     #[error("Unauthorized")]
     Unauthorized {},
+
+    #[error("LD denom is not set")]
+    LDDenomIsNotSet {},
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

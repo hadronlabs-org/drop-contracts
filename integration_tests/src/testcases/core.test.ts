@@ -55,6 +55,7 @@ describe('Core', () => {
     exchangeRate?: number;
     tokenContractAddress?: string;
     neutronIBCDenom?: string;
+    ldDenom?: string;
   } = {};
 
   beforeAll(async () => {
@@ -321,11 +322,28 @@ describe('Core', () => {
       await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
         neutronSecondUserAddress,
       );
-    expect(
-      balances.data.balances.find((one) => one.denom.startsWith('factory')),
-    ).toEqual({
+    const ldBalance = balances.data.balances.find((one) =>
+      one.denom.startsWith('factory'),
+    );
+    expect(ldBalance).toEqual({
       denom: `factory/${context.tokenContractAddress}/lido`,
       amount: String(500_000 * context.exchangeRate),
     });
+    context.ldDenom = ldBalance?.denom;
+  });
+  it('unbond', async () => {
+    const { coreContractClient, neutronUserAddress, ldDenom } = context;
+    const res = await coreContractClient.unbond(
+      neutronUserAddress,
+      1.6,
+      undefined,
+      [
+        {
+          amount: (500_000 * context.exchangeRate).toString(),
+          denom: ldDenom,
+        },
+      ],
+    );
+    expect(res.transactionHash).toHaveLength(64);
   });
 });

@@ -12,8 +12,14 @@ pub struct InstantiateMsg {
 }
 
 #[cw_serde]
+pub enum CallbackMsg {
+    PostInit {},
+}
+
+#[cw_serde]
 pub enum ExecuteMsg {
     Init {},
+    Callback(CallbackMsg),
 }
 #[cw_serde]
 pub enum MigrateMsg {}

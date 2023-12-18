@@ -1,17 +1,22 @@
 use crate::{
     error::ContractResult,
-    msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
+    msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, QueryMsg},
     state::{Config, State, CONFIG, STATE},
 };
 use cosmwasm_std::{
     attr, entry_point, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg,
-    Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, WasmMsg,
+    Deps, DepsMut, Env, HexBinary, MessageInfo, QueryRequest, Response, StdResult, WasmMsg,
+    WasmQuery,
 };
 use cw2::set_contract_version;
 
 use lido_staking_base::{
-    helpers::answer::response, msg::core::InstantiateMsg as CoreInstantiateMsg,
-    msg::token::InstantiateMsg as TokenInstantiateMsg,
+    helpers::answer::response,
+    msg::core::{ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg},
+    msg::token::{
+        ConfigResponse as TokenConfigResponse, InstantiateMsg as TokenInstantiateMsg,
+        QueryMsg as TokenQueryMsg,
+    },
     msg::voucher::InstantiateMsg as VoucherInstantiateMsg,
 };
 use neutron_sdk::{
@@ -70,6 +75,9 @@ pub fn execute(
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
         ExecuteMsg::Init {} => execute_init(deps, env, info),
+        ExecuteMsg::Callback(msg) => match msg {
+            CallbackMsg::PostInit {} => execute_post_init(deps, env, info),
+        },
     }
 }
 
@@ -127,6 +135,7 @@ fn execute_init(
                 token_contract: token_contract.to_string(),
                 puppeteer_contract: "".to_string(),
                 strategy_contract: "".to_string(),
+                voucher_contract: voucher_contract.to_string(),
                 owner: env.contract.address.to_string(),
             })?,
             funds: vec![],
@@ -144,9 +153,40 @@ fn execute_init(
             funds: vec![],
             salt: Binary::from(salt),
         }),
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: env.contract.address.to_string(),
+            msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::PostInit {}))?,
+            funds: vec![],
+        }),
     ];
 
     Ok(response("execute-init", CONTRACT_NAME, attrs).add_messages(msgs))
+}
+
+fn execute_post_init(
+    deps: DepsMut,
+    _env: Env,
+    _info: MessageInfo,
+) -> ContractResult<Response<NeutronMsg>> {
+    let attrs = vec![attr("action", "post_init")];
+    let state = STATE.load(deps.storage)?;
+    let token_config: TokenConfigResponse =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: state.token_contract,
+            msg: to_json_binary(&TokenQueryMsg::Config {})?,
+        }))?;
+    let core_update_msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: state.core_contract,
+        msg: to_json_binary(&CoreExecuteMsg::UpdateConfig {
+            token_contract: None,
+            puppeteer_contract: None,
+            strategy_contract: None,
+            owner: None,
+            ld_denom: Some(token_config.denom),
+        })?,
+        funds: vec![],
+    });
+    Ok(response("execute-post_init", CONTRACT_NAME, attrs).add_message(core_update_msg))
 }
 
 fn get_code_checksum(deps: Deps, code_id: u64) -> NeutronResult<HexBinary> {

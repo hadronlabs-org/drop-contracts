@@ -16,4 +16,5 @@ pub struct Metadata {
     pub attributes: Option<Vec<Trait>>,
     pub batch_id: String,
     pub amount: Uint128,
+    pub expected_amount: Uint128,
 }

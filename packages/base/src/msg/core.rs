@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Decimal256, Uint128};
+use cosmwasm_std::Decimal256;
 
 use crate::state::core::Config;
 
@@ -8,6 +8,7 @@ pub struct InstantiateMsg {
     pub token_contract: String,
     pub puppeteer_contract: String,
     pub strategy_contract: String,
+    pub voucher_contract: String,
     pub owner: String,
 }
 
@@ -25,15 +26,14 @@ pub enum ExecuteMsg {
     Bond {
         receiver: Option<String>,
     },
-    Unbond {
-        amount: Uint128,
-    },
+    Unbond {},
     //permissioned
     UpdateConfig {
         token_contract: Option<String>,
         puppeteer_contract: Option<String>,
         strategy_contract: Option<String>,
         owner: Option<String>,
+        ld_denom: Option<String>,
     },
 }
 #[cw_serde]
@@ -45,7 +45,9 @@ impl From<InstantiateMsg> for Config {
             token_contract: val.token_contract,
             puppeteer_contract: val.puppeteer_contract,
             strategy_contract: val.strategy_contract,
+            voucher_contract: val.voucher_contract,
             owner: val.owner,
+            ld_denom: None,
         }
     }
 }
