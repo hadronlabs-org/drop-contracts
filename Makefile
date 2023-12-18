@@ -21,7 +21,7 @@ compile:
 		--platform linux/amd64 \
 		cosmwasm/workspace-optimizer:0.15.0
 
-compile64:
+compile_arm64:
 	@docker run --rm -v "$(CURDIR)":/code \
 		--mount type=volume,source="$(notdir $(CURDIR))_cache",target=/target \
 		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
