@@ -1,1 +1,1 @@
-# LIDO Strategy
+# LIDO Staking distribution
