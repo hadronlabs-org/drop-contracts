@@ -1,5 +1,9 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { LidoCore, LidoFactory } from '../generated/contractLib';
+import {
+  LidoCore,
+  LidoFactory,
+  LidoWithdrawalVoucher,
+} from '../generated/contractLib';
 import {
   QueryClient,
   StakingExtension,
@@ -22,6 +26,7 @@ import { waitFor } from '../helpers/waitFor';
 
 const LidoFactoryClass = LidoFactory.Client;
 const LidoCoreClass = LidoCore.Client;
+const LidoVoucherClass = LidoWithdrawalVoucher.Client;
 
 describe('Core', () => {
   const context: {
@@ -31,6 +36,7 @@ describe('Core', () => {
     gaiaWallet?: DirectSecp256k1HdWallet;
     contractClient?: InstanceType<typeof LidoFactoryClass>;
     coreContractClient?: InstanceType<typeof LidoCoreClass>;
+    voucherContractClient?: InstanceType<typeof LidoVoucherClass>;
     account?: AccountData;
     icaAddress?: string;
     client?: SigningCosmWasmClient;
@@ -45,6 +51,7 @@ describe('Core', () => {
     tokenizedDenomOnNeutron?: string;
     coreCoreId?: number;
     tokenCodeId?: number;
+    voucherCodeId?: number;
     exchangeRate?: number;
     tokenContractAddress?: string;
     neutronIBCDenom?: string;
@@ -129,6 +136,17 @@ describe('Core', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.tokenCodeId = res.codeId;
     }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/lido_withdrawal_voucher.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.voucherCodeId = res.codeId;
+    }
     const res = await client.upload(
       account.address,
       fs.readFileSync(join(__dirname, '../../../artifacts/lido_factory.wasm')),
@@ -142,6 +160,7 @@ describe('Core', () => {
       {
         core_code_id: context.coreCoreId,
         token_code_id: context.tokenCodeId,
+        voucher_code_id: context.voucherCodeId,
         salt: 'salt',
         subdenom: 'lido',
       },
@@ -175,15 +194,28 @@ describe('Core', () => {
       await neutronClient.CosmwasmWasmV1.query.queryContractInfo(
         res.token_contract,
       );
-    expect(tokenContractInfo.data.contract_info.label).toBe('token');
+    expect(tokenContractInfo.data.contract_info.label).toBe(
+      'LIDO-staking-token',
+    );
     const coreContractInfo =
       await neutronClient.CosmwasmWasmV1.query.queryContractInfo(
         res.core_contract,
       );
-    expect(coreContractInfo.data.contract_info.label).toBe('core');
+    expect(coreContractInfo.data.contract_info.label).toBe('LIDO-staking-core');
+    const voucherContractInfo =
+      await neutronClient.CosmwasmWasmV1.query.queryContractInfo(
+        res.voucher_contract,
+      );
+    expect(voucherContractInfo.data.contract_info.label).toBe(
+      'LIDO-staking-voucher',
+    );
     context.coreContractClient = new LidoCore.Client(
       context.client,
       res.core_contract,
+    );
+    context.voucherContractClient = new LidoWithdrawalVoucher.Client(
+      context.client,
+      res.voucher_contract,
     );
     context.tokenContractAddress = res.token_contract;
   });
