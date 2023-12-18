@@ -346,4 +346,49 @@ describe('Core', () => {
     );
     expect(res.transactionHash).toHaveLength(64);
   });
+  it('validate NFT', async () => {
+    const { voucherContractClient, neutronUserAddress } = context;
+    const vouchers = await voucherContractClient.queryTokens({
+      owner: context.neutronUserAddress,
+    });
+    expect(vouchers.tokens.length).toBe(1);
+    expect(vouchers.tokens[0]).toBe(`0_${neutronUserAddress}_1`);
+    const tokenId = vouchers.tokens[0];
+    const voucher = await voucherContractClient.queryNftInfo({
+      token_id: tokenId,
+    });
+    expect(voucher).toBeTruthy();
+    expect(voucher).toMatchObject({
+      extension: {
+        amount: '505000',
+        attributes: [
+          {
+            display_type: null,
+            trait_type: 'unbond_batch_id',
+            value: '0',
+          },
+          {
+            display_type: null,
+            trait_type: 'received_amount',
+            value: '505000',
+          },
+          {
+            display_type: null,
+            trait_type: 'expected_amount',
+            value: '500000',
+          },
+          {
+            display_type: null,
+            trait_type: 'exchange_rate',
+            value: '1.01',
+          },
+        ],
+        batch_id: '0',
+        description: 'Withdrawal voucher',
+        expected_amount: '500000',
+        name: 'LDV voucher',
+      },
+      token_uri: null,
+    });
+  });
 });

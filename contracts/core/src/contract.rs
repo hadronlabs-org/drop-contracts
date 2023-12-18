@@ -210,7 +210,7 @@ fn execute_unbond(
     });
     let exchange_rate = query_exchange_rate(deps.as_ref(), env)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
-    let expected_amount = amount * exchange_rate;
+    let expected_amount = (Decimal::from_str(&amount.to_string())? / exchange_rate).to_uint_floor();
     attrs.push(attr("expected_amount", expected_amount.to_string()));
     UNBOND_BATCHES.save(deps.storage, unbond_batch_id, &unbond_batch)?;
     let extension = Some(Metadata {
