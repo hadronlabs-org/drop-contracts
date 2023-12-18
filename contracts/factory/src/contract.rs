@@ -113,7 +113,7 @@ fn execute_init(
             code_id: config.token_code_id,
             label: get_contract_label("token"),
             msg: to_json_binary(&TokenInstantiateMsg {
-                core_address: core_contract,
+                core_address: core_contract.to_string(),
                 subdenom: config.subdenom,
             })?,
             funds: vec![],
@@ -139,7 +139,7 @@ fn execute_init(
             msg: to_json_binary(&VoucherInstantiateMsg {
                 name: "Lido Voucher".to_string(),
                 symbol: "LDOV".to_string(),
-                minter: core_address.to_string(),
+                minter: core_contract,
             })?,
             funds: vec![],
             salt: Binary::from(salt),
