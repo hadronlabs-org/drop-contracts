@@ -33,10 +33,7 @@ pub enum QueryMsg {
 }
 
 #[cw_serde]
-pub struct InstantiateMsg {
-    pub strategy_address: String,
-    pub core_address: String,
-}
+pub struct InstantiateMsg {}
 
 #[cw_serde]
 pub enum MigrateMsg {}
