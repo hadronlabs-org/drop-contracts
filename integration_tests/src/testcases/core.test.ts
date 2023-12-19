@@ -442,7 +442,7 @@ describe('Core', () => {
     });
     expect(batch).toBeTruthy();
     expect(batch).toEqual<UnbondBatch>({
-      slashing_effect: null,
+      slashing_effect: '1',
       status: 'unbonded',
       total_amount: '495049',
       expected_amount: '499999',
@@ -484,7 +484,7 @@ describe('Core', () => {
     });
     expect(batch).toBeTruthy();
     expect(batch).toEqual<UnbondBatch>({
-      slashing_effect: null,
+      slashing_effect: '1',
       status: 'unbonded',
       total_amount: '495049',
       expected_amount: '499999',

@@ -118,8 +118,8 @@ fn execute_fake_process_batch(
     unbond_batch.unbonded_amount = Some(unbonded_amount);
     unbond_batch.status = UnbondBatchStatus::Unbonded;
     unbond_batch.slashing_effect = Some(
-        Decimal::from_str(&unbond_batch.expected_amount.to_string())?
-            / Decimal::from_str(&unbonded_amount.to_string())?,
+        Decimal::from_str(&unbonded_amount.to_string())?
+            / Decimal::from_str(&unbond_batch.expected_amount.to_string())?,
     );
     UNBOND_BATCHES.save(deps.storage, batch_id.into(), &unbond_batch)?;
     attrs.push(attr("batch_id", batch_id.to_string()));
