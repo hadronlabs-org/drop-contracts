@@ -10,12 +10,16 @@ export interface InstantiateMsg {
 }
 export interface LidoFactorySchema {
   responses: State;
+  execute: InitArgs;
   [k: string]: unknown;
 }
 export interface State {
   core_contract: string;
   token_contract: string;
   voucher_contract: string;
+}
+export interface InitArgs {
+  base_denom: string;
 }
 
 
@@ -52,9 +56,9 @@ export class Client {
   queryState = async(): Promise<State> => {
     return this.client.queryContractSmart(this.contractAddress, { state: {} });
   }
-  init = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  init = async(sender:string, args: InitArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { init: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { init: args }, fee || "auto", memo, funds);
   }
   callback = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

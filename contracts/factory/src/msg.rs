@@ -18,7 +18,7 @@ pub enum CallbackMsg {
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    Init {},
+    Init { base_denom: String },
     Callback(CallbackMsg),
 }
 #[cw_serde]

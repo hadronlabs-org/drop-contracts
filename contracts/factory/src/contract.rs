@@ -74,7 +74,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::Init {} => execute_init(deps, env, info),
+        ExecuteMsg::Init { base_denom } => execute_init(deps, env, info, base_denom),
         ExecuteMsg::Callback(msg) => match msg {
             CallbackMsg::PostInit {} => execute_post_init(deps, env, info),
         },
@@ -85,10 +85,15 @@ fn execute_init(
     deps: DepsMut,
     env: Env,
     _info: MessageInfo,
+    base_denom: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let canonical_self_address = deps.api.addr_canonicalize(env.contract.address.as_str())?;
-    let mut attrs = vec![attr("action", "init")];
+    let mut attrs = vec![
+        attr("action", "init"),
+        attr("owner", config.owner),
+        attr("base_denom", &base_denom),
+    ];
 
     let token_contract_checksum = get_code_checksum(deps.as_ref(), config.token_code_id)?;
     let core_contract_checksum = get_code_checksum(deps.as_ref(), config.core_code_id)?;
@@ -136,6 +141,7 @@ fn execute_init(
                 puppeteer_contract: "".to_string(),
                 strategy_contract: "".to_string(),
                 voucher_contract: voucher_contract.to_string(),
+                base_denom,
                 owner: env.contract.address.to_string(),
             })?,
             funds: vec![],

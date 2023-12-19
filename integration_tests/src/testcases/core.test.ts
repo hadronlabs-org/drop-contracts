@@ -23,6 +23,7 @@ import { awaitBlocks, setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
+import { UnbondBatch } from '../generated/contractLib/lidoCore';
 
 const LidoFactoryClass = LidoFactory.Client;
 const LidoCoreClass = LidoCore.Client;
@@ -182,9 +183,48 @@ describe('Core', () => {
       await context.wallet.getAccounts()
     )[0].address;
   });
+  it('transfer tokens to neutron', async () => {
+    const { gaiaClient, gaiaUserAddress, neutronUserAddress, neutronClient } =
+      context;
+    const res = await gaiaClient.signAndBroadcast(
+      gaiaUserAddress,
+      [
+        {
+          typeUrl: '/ibc.applications.transfer.v1.MsgTransfer',
+          value: MsgTransfer.fromPartial({
+            sender: gaiaUserAddress,
+            sourceChannel: 'channel-0',
+            sourcePort: 'transfer',
+            receiver: neutronUserAddress,
+            token: { denom: 'stake', amount: '1000000' },
+            timeoutTimestamp: BigInt((Date.now() + 10 * 60 * 1000) * 1e6),
+            timeoutHeight: {
+              revisionHeight: BigInt(0),
+              revisionNumber: BigInt(0),
+            },
+          }),
+        },
+      ],
+      1.5,
+    );
+    expect(res.transactionHash).toHaveLength(64);
+    await waitFor(async () => {
+      const balances =
+        await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+          neutronUserAddress,
+        );
+      context.neutronIBCDenom = balances.data.balances.find((b) =>
+        b.denom.startsWith('ibc/'),
+      )?.denom;
+      return balances.data.balances.length > 1;
+    });
+    expect(context.neutronIBCDenom).toBeTruthy();
+  });
   it('init', async () => {
     const { contractClient } = context;
-    const res = await contractClient.init(context.neutronUserAddress);
+    const res = await contractClient.init(context.neutronUserAddress, {
+      base_denom: context.neutronIBCDenom,
+    });
     expect(res.transactionHash).toHaveLength(64);
   });
   it('query factory state', async () => {
@@ -227,43 +267,7 @@ describe('Core', () => {
     );
     expect(context.exchangeRate).toBeGreaterThan(1);
   });
-  it('transfer tokens to neutron', async () => {
-    const { gaiaClient, gaiaUserAddress, neutronUserAddress, neutronClient } =
-      context;
-    const res = await gaiaClient.signAndBroadcast(
-      gaiaUserAddress,
-      [
-        {
-          typeUrl: '/ibc.applications.transfer.v1.MsgTransfer',
-          value: MsgTransfer.fromPartial({
-            sender: gaiaUserAddress,
-            sourceChannel: 'channel-0',
-            sourcePort: 'transfer',
-            receiver: neutronUserAddress,
-            token: { denom: 'stake', amount: '1000000' },
-            timeoutTimestamp: BigInt((Date.now() + 10 * 60 * 1000) * 1e6),
-            timeoutHeight: {
-              revisionHeight: BigInt(0),
-              revisionNumber: BigInt(0),
-            },
-          }),
-        },
-      ],
-      1.5,
-    );
-    expect(res.transactionHash).toHaveLength(64);
-    await waitFor(async () => {
-      const balances =
-        await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
-          neutronUserAddress,
-        );
-      context.neutronIBCDenom = balances.data.balances.find((b) =>
-        b.denom.startsWith('ibc/'),
-      )?.denom;
-      return balances.data.balances.length > 1;
-    });
-    expect(context.neutronIBCDenom).toBeTruthy();
-  });
+
   it('bond w/o receiver', async () => {
     const {
       coreContractClient,
@@ -293,7 +297,7 @@ describe('Core', () => {
       balances.data.balances.find((one) => one.denom.startsWith('factory')),
     ).toEqual({
       denom: `factory/${context.tokenContractAddress}/lido`,
-      amount: String(500_000 * context.exchangeRate),
+      amount: String(Math.floor(500_000 / context.exchangeRate)),
     });
   });
   it('bond with receiver', async () => {
@@ -327,7 +331,7 @@ describe('Core', () => {
     );
     expect(ldBalance).toEqual({
       denom: `factory/${context.tokenContractAddress}/lido`,
-      amount: String(500_000 * context.exchangeRate),
+      amount: String(Math.floor(500_000 / context.exchangeRate)),
     });
     context.ldDenom = ldBalance?.denom;
   });
@@ -339,12 +343,34 @@ describe('Core', () => {
       undefined,
       [
         {
-          amount: (500_000 * context.exchangeRate).toString(),
+          amount: Math.floor(500_000 / context.exchangeRate).toString(),
           denom: ldDenom,
         },
       ],
     );
     expect(res.transactionHash).toHaveLength(64);
+  });
+  it('validate unbonding batch', async () => {
+    const { coreContractClient, neutronUserAddress } = context;
+    const batch = await coreContractClient.queryUnbondBatch({
+      batch_id: '0',
+    });
+    expect(batch).toBeTruthy();
+    expect(batch).toEqual<UnbondBatch>({
+      slashing_effect: null,
+      status: 'new',
+      total_amount: '495049',
+      expected_amount: '499999',
+      unbond_items: [
+        {
+          amount: '495049',
+          expected_amount: '499999',
+          sender: neutronUserAddress,
+        },
+      ],
+      unbonded_amount: null,
+      withdrawed_amount: null,
+    });
   });
   it('validate NFT', async () => {
     const { voucherContractClient, neutronUserAddress } = context;
@@ -360,7 +386,7 @@ describe('Core', () => {
     expect(voucher).toBeTruthy();
     expect(voucher).toMatchObject({
       extension: {
-        amount: '505000',
+        amount: '495049',
         attributes: [
           {
             display_type: null,
@@ -370,12 +396,12 @@ describe('Core', () => {
           {
             display_type: null,
             trait_type: 'received_amount',
-            value: '505000',
+            value: '495049',
           },
           {
             display_type: null,
             trait_type: 'expected_amount',
-            value: '500000',
+            value: '499999',
           },
           {
             display_type: null,
@@ -385,10 +411,92 @@ describe('Core', () => {
         ],
         batch_id: '0',
         description: 'Withdrawal voucher',
-        expected_amount: '500000',
+        expected_amount: '499999',
         name: 'LDV voucher',
       },
       token_uri: null,
+    });
+  });
+  it('try to withdraw before unbonded', async () => {
+    const { voucherContractClient, neutronUserAddress } = context;
+    const tokenId = `0_${neutronUserAddress}_1`;
+    await expect(
+      voucherContractClient.sendNft(neutronUserAddress, {
+        token_id: tokenId,
+        contract: context.coreContractClient.contractAddress,
+        msg: Buffer.from('{}').toString('base64'),
+      }),
+    ).rejects.toThrowError(/is not unbonded yet/);
+  });
+  it('update batch status', async () => {
+    const { coreContractClient, neutronUserAddress } = context;
+    await coreContractClient.fakeProcessBatch(neutronUserAddress, {
+      batch_id: '0',
+      unbonded_amount: '499999',
+    });
+  });
+  it('validate unbonding batch', async () => {
+    const { coreContractClient, neutronUserAddress } = context;
+    const batch = await coreContractClient.queryUnbondBatch({
+      batch_id: '0',
+    });
+    expect(batch).toBeTruthy();
+    expect(batch).toEqual<UnbondBatch>({
+      slashing_effect: null,
+      status: 'unbonded',
+      total_amount: '495049',
+      expected_amount: '499999',
+      unbond_items: [
+        {
+          amount: '495049',
+          expected_amount: '499999',
+          sender: neutronUserAddress,
+        },
+      ],
+      unbonded_amount: '499999',
+      withdrawed_amount: null,
+    });
+  });
+  it('withdraw', async () => {
+    const {
+      voucherContractClient,
+      neutronUserAddress,
+      neutronClient,
+      neutronIBCDenom,
+    } = context;
+    const tokenId = `0_${neutronUserAddress}_1`;
+    const res = await voucherContractClient.sendNft(neutronUserAddress, {
+      token_id: tokenId,
+      contract: context.coreContractClient.contractAddress,
+      msg: Buffer.from('{}').toString('base64'),
+    });
+    expect(res.transactionHash).toHaveLength(64);
+    const balance = await neutronClient.CosmosBankV1Beta1.query.queryBalance(
+      neutronUserAddress,
+      { denom: neutronIBCDenom },
+    );
+    expect(balance.data.balance.amount).toBe('499999');
+  });
+  it('validate unbonding batch', async () => {
+    const { coreContractClient, neutronUserAddress } = context;
+    const batch = await coreContractClient.queryUnbondBatch({
+      batch_id: '0',
+    });
+    expect(batch).toBeTruthy();
+    expect(batch).toEqual<UnbondBatch>({
+      slashing_effect: null,
+      status: 'unbonded',
+      total_amount: '495049',
+      expected_amount: '499999',
+      unbond_items: [
+        {
+          amount: '495049',
+          expected_amount: '499999',
+          sender: neutronUserAddress,
+        },
+      ],
+      unbonded_amount: '499999',
+      withdrawed_amount: '499999',
     });
   });
 });
