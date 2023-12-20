@@ -107,13 +107,17 @@ fn execute_update_config(
 
     let mut state = CONFIG.load(deps.storage)?;
 
-    if owner.is_some() && owner != Some(state.clone().core) {
-        state.core = owner.unwrap_or(state.core);
-        cw_ownable::initialize_owner(deps.storage, deps.api, Some(state.core.as_ref()))?;
+    if let Some(owner) = owner {
+        if owner != state.core {
+            state.core = owner;
+            cw_ownable::initialize_owner(deps.storage, deps.api, Some(state.core.as_ref()))?;
+        }
     }
 
-    if stats_contract.is_some() && stats_contract != Some(state.clone().stats_contract) {
-        state.stats_contract = stats_contract.unwrap_or(state.stats_contract);
+    if let Some(stats_contract) = stats_contract {
+        if stats_contract != state.stats_contract {
+            state.stats_contract = stats_contract;
+        }
     }
 
     CONFIG.save(deps.storage, &state)?;
