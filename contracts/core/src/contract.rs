@@ -31,14 +31,14 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    CONFIG.save(deps.storage, &msg.clone().into())?;
     let attrs: Vec<Attribute> = vec![
-        attr("token_contract", msg.token_contract),
-        attr("puppeteer_contract", msg.puppeteer_contract),
-        attr("strategy_contract", msg.strategy_contract),
-        attr("base_denom", msg.base_denom),
-        attr("owner", msg.owner),
+        attr("token_contract", &msg.token_contract),
+        attr("puppeteer_contract", &msg.puppeteer_contract),
+        attr("strategy_contract", &msg.strategy_contract),
+        attr("base_denom", &msg.base_denom),
+        attr("owner", &msg.owner),
     ];
+    CONFIG.save(deps.storage, &msg.into())?;
     UNBOND_BATCH_ID.save(deps.storage, &0u128)?;
     UNBOND_BATCHES.save(
         deps.storage,
