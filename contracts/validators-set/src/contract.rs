@@ -170,10 +170,12 @@ fn execute_update_validators(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
+    let total_count = validators.len();
+
     // TODO: implement notification of the validator stats contract about new validators set
     VALIDATORS_SET.clear(deps.storage);
 
-    for validator in validators.clone() {
+    for validator in validators {
         let valoper_address = validator.valoper_address.clone();
 
         VALIDATORS_SET.save(
@@ -196,7 +198,7 @@ fn execute_update_validators(
     Ok(response(
         "update_validators",
         CONTRACT_NAME,
-        [attr("total_count", validators.len().to_string())],
+        [attr("total_count", total_count.to_string())],
     ))
 }
 
@@ -212,7 +214,9 @@ fn execute_update_validators_info(
         ContractError::Unauthorized {}
     );
 
-    for update in validators_update.clone() {
+    let total_count = validators_update.len();
+
+    for update in validators_update {
         // TODO: Implement logic to modify validator set based in incoming validator info
         let validator =
             VALIDATORS_SET.may_load(deps.storage, update.valoper_address.to_string())?;
@@ -246,7 +250,7 @@ fn execute_update_validators_info(
     Ok(response(
         "update_validators_info",
         CONTRACT_NAME,
-        [attr("total_count", validators_update.len().to_string())],
+        [attr("total_count", total_count.to_string())],
     ))
 }
 
