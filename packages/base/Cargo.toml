@@ -29,6 +29,10 @@ cw-storage-plus = { workspace = true }
 neutron-sdk = { workspace = true }
 cw721-base = { workspace = true }
 cw721 = { workspace = true }
+thiserror = { workspace = true }
+cw-ownable = { workspace = true }
+
+lido-interchain-interceptor-base = { workspace = true }
 
 [dev-dependencies]
 cosmwasm-storage = { workspace = true }

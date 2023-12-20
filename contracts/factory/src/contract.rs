@@ -12,10 +12,13 @@ use cw2::set_contract_version;
 use lido_staking_base::{
     helpers::answer::response,
     msg::core::{ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg},
+    msg::distribution::InstantiateMsg as DistributionInstantiateMsg,
+    msg::strategy::InstantiateMsg as StrategyInstantiateMsg,
     msg::token::{
         ConfigResponse as TokenConfigResponse, InstantiateMsg as TokenInstantiateMsg,
         QueryMsg as TokenQueryMsg,
     },
+    msg::validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
     msg::withdrawal_manager::InstantiateMsg as WithdrawalManagerInstantiateMsg,
     msg::withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
 };
@@ -44,6 +47,9 @@ pub fn instantiate(
             core_code_id: msg.core_code_id,
             withdrawal_voucher_code_id: msg.withdrawal_voucher_code_id,
             withdrawal_manager_code_id: msg.withdrawal_manager_code_id,
+            strategy_code_id: msg.strategy_code_id,
+            validators_set_code_id: msg.validators_set_code_id,
+            distribution_code_id: msg.distribution_code_id,
             owner: info.sender.to_string(),
             subdenom: msg.subdenom.to_string(),
         },
@@ -61,6 +67,12 @@ pub fn instantiate(
             "withdrawal_manager_code_id",
             msg.withdrawal_manager_code_id.to_string(),
         ),
+        attr("strategy_code_id", msg.strategy_code_id.to_string()),
+        attr(
+            "validators_set_code_id",
+            msg.validators_set_code_id.to_string(),
+        ),
+        attr("distribution_code_id", msg.distribution_code_id.to_string()),
         attr("owner", info.sender),
         attr("subdenom", msg.subdenom),
     ];
@@ -109,6 +121,12 @@ fn execute_init(
         get_code_checksum(deps.as_ref(), config.withdrawal_voucher_code_id)?;
     let withdrawal_manager_contract_checksum =
         get_code_checksum(deps.as_ref(), config.withdrawal_manager_code_id)?;
+    let strategy_contract_checksum = get_code_checksum(deps.as_ref(), config.strategy_code_id)?;
+    let validators_set_contract_checksum =
+        get_code_checksum(deps.as_ref(), config.validators_set_code_id)?;
+    let distribution_contract_checksum =
+        get_code_checksum(deps.as_ref(), config.distribution_code_id)?;
+
     let salt = config.salt.as_bytes();
 
     let token_address =
@@ -117,6 +135,7 @@ fn execute_init(
     let core_address =
         instantiate2_address(&core_contract_checksum, &canonical_self_address, salt)?;
     attrs.push(attr("core_address", core_address.to_string()));
+
     let withdrawal_voucher_address = instantiate2_address(
         &withdrawal_voucher_contract_checksum,
         &canonical_self_address,
@@ -126,6 +145,7 @@ fn execute_init(
         "withdrawal_voucher_address",
         withdrawal_voucher_address.to_string(),
     ));
+
     let withdrawal_manager_address = instantiate2_address(
         &withdrawal_manager_contract_checksum,
         &canonical_self_address,
@@ -134,6 +154,35 @@ fn execute_init(
     attrs.push(attr(
         "withdrawal_manager_address",
         withdrawal_manager_address.to_string(),
+    ));
+
+    let strategy_address =
+        instantiate2_address(&strategy_contract_checksum, &canonical_self_address, salt)?;
+    attrs.push(attr("strategy_address", strategy_address.to_string()));
+
+    let validators_set_address = instantiate2_address(
+        &validators_set_contract_checksum,
+        &canonical_self_address,
+        salt,
+    )?;
+    attrs.push(attr(
+        "validators_set_address",
+        validators_set_address.to_string(),
+    ));
+
+    attrs.push(attr(
+        "withdrawal_voucher_address",
+        withdrawal_voucher_address.to_string(),
+    ));
+
+    let distribution_address = instantiate2_address(
+        &distribution_contract_checksum,
+        &canonical_self_address,
+        salt,
+    )?;
+    attrs.push(attr(
+        "distribution_address",
+        distribution_address.to_string(),
     ));
 
     let core_contract = deps.api.addr_humanize(&core_address)?.to_string();
@@ -146,11 +195,18 @@ fn execute_init(
         .api
         .addr_humanize(&withdrawal_manager_address)?
         .to_string();
+    let strategy_contract = deps.api.addr_humanize(&strategy_address)?.to_string();
+    let validators_set_contract = deps.api.addr_humanize(&validators_set_address)?.to_string();
+    let distribution_contract = deps.api.addr_humanize(&distribution_address)?.to_string();
+
     let state = State {
         token_contract: token_contract.to_string(),
         core_contract: core_contract.to_string(),
         withdrawal_voucher_contract: withdrawal_voucher_contract.to_string(),
         withdrawal_manager_contract: withdrawal_manager_contract.to_string(),
+        strategy_contract: strategy_contract.to_string(),
+        validators_set_contract: validators_set_contract.to_string(),
+        distribution_contract: distribution_contract.to_string(),
     };
 
     STATE.save(deps.storage, &state)?;
@@ -168,12 +224,45 @@ fn execute_init(
         }),
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
+            code_id: config.validators_set_code_id,
+            label: "validators set".to_string(),
+            msg: to_json_binary(&ValidatorsSetInstantiateMsg {
+                stats_contract: "neutron1x69dz0c0emw8m2c6kp5v6c08kgjxmu30f4a8w5".to_string(), //FIXME: mock address, replace with real one
+                core: env.contract.address.to_string(),
+            })?,
+            funds: vec![],
+            salt: Binary::from(salt),
+        }),
+        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
+            admin: Some(env.contract.address.to_string()),
+            code_id: config.distribution_code_id,
+            label: "distribution".to_string(),
+            msg: to_json_binary(&DistributionInstantiateMsg {})?,
+            funds: vec![],
+            salt: Binary::from(salt),
+        }),
+        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
+            admin: Some(env.contract.address.to_string()),
+            code_id: config.strategy_code_id,
+            label: "strategy".to_string(),
+            msg: to_json_binary(&StrategyInstantiateMsg {
+                core_address: env.contract.address.to_string(),
+                puppeteer_address: "neutron1x69dz0c0emw8m2c6kp5v6c08kgjxmu30f4a8w5".to_string(), //FIXME: mock address, replace with real one
+                validator_set_address: validators_set_contract.to_string(),
+                distribution_address: distribution_contract.to_string(),
+                denom: "uatom".to_string(),
+            })?,
+            funds: vec![],
+            salt: Binary::from(salt),
+        }),
+        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
+            admin: Some(env.contract.address.to_string()),
             code_id: config.core_code_id,
             label: get_contract_label("core"),
             msg: to_json_binary(&CoreInstantiateMsg {
                 token_contract: token_contract.to_string(),
-                puppeteer_contract: "".to_string(),
-                strategy_contract: "".to_string(),
+                puppeteer_contract: "neutron1x69dz0c0emw8m2c6kp5v6c08kgjxmu30f4a8w5".to_string(), //FIXME: mock address, replace with real one
+                strategy_contract: strategy_contract.to_string(),
                 withdrawal_voucher_contract: withdrawal_voucher_contract.to_string(),
                 withdrawal_manager_contract: withdrawal_manager_contract.to_string(),
                 base_denom: base_denom.to_string(),

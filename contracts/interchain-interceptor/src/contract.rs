@@ -8,6 +8,10 @@ use cosmos_sdk_proto::cosmos::{
 use cosmwasm_std::{entry_point, to_json_vec, CosmosMsg, Deps, Reply, StdError, SubMsg, Uint128};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
+use lido_staking_base::{
+    msg::puppeteer::{ExecuteMsg, InstantiateMsg, MigrateMsg, Transaction},
+    state::puppeteer::Config,
+};
 use neutron_sdk::{
     bindings::{
         msg::{IbcFee, NeutronMsg},
@@ -28,13 +32,11 @@ use lido_interchain_interceptor_base::{
 use prost::Message;
 
 use crate::{
-    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, Transaction},
     proto::cosmos::base::v1beta1::Coin as ProtoCoin,
     proto::liquidstaking::staking::v1beta1::{
         MsgBeginRedelegate, MsgRedeemTokensforShares as MsgRedeemTokensForShares,
         MsgTokenizeShares, MsgTokenizeSharesResponse,
     },
-    state::Config,
 };
 
 pub type InterchainInterceptor<'a> = InterchainIntercaptorBase<'a, Config, Transaction>;
@@ -49,7 +51,7 @@ pub fn instantiate(
     _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
-) -> NeutronResult<Response> {
+) -> ContractResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     let owner = deps.api.addr_validate(&msg.owner)?;
@@ -66,7 +68,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     InterchainInterceptor::default().query(deps, env, msg)
 }
 

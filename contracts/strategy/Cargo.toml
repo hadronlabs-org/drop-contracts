@@ -40,6 +40,12 @@ serde             = { workspace = true }
 serde-json-wasm   = { workspace = true }
 
 neutron-sdk       = { workspace = true }
+lido-staking-base = { workspace = true }
+lido-interchain-interceptor-base = { workspace = true }
+
+lido-distribution = { path = "../distribution", default-features = false }
+lido-interchain-interceptor = { path = "../interchain-interceptor", default-features = false }
+lido-validators-set = { path = "../validators-set", default-features = false }
 
 [dev-dependencies]
 cosmwasm-storage  = { workspace = true }

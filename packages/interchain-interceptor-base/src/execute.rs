@@ -6,7 +6,6 @@ use neutron_sdk::{
     },
     interchain_queries::v045::new_register_transfers_query_msg,
     interchain_txs::helpers::get_port_id,
-    NeutronResult,
 };
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -21,7 +20,7 @@ where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
     C: std::fmt::Debug + Serialize + DeserializeOwned + Clone,
 {
-    pub fn instantiate(&self, deps: DepsMut, config: &T) -> NeutronResult<Response> {
+    pub fn instantiate(&self, deps: DepsMut, config: &T) -> ContractResult<Response> {
         deps.api.debug("WASMDEBUG: instantiate");
         cw_ownable::initialize_owner(deps.storage, deps.api, Some(config.owner()))?;
 

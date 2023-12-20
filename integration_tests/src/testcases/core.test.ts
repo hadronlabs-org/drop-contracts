@@ -61,6 +61,9 @@ describe('Core', () => {
     tokenCodeId?: number;
     withdrawalVoucherCodeId?: number;
     withdrawalManagerCodeId?: number;
+    strategyCodeId?: number;
+    validatorsSetCodeId?: number;
+    distributionCodeId?: number;
     exchangeRate?: number;
     tokenContractAddress?: string;
     neutronIBCDenom?: string;
@@ -168,6 +171,39 @@ describe('Core', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.withdrawalManagerCodeId = res.codeId;
     }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/lido_strategy.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.strategyCodeId = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/lido_distribution.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.distributionCodeId = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/lido_validators_set.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.validatorsSetCodeId = res.codeId;
+    }
     const res = await client.upload(
       account.address,
       fs.readFileSync(join(__dirname, '../../../artifacts/lido_factory.wasm')),
@@ -183,6 +219,9 @@ describe('Core', () => {
         token_code_id: context.tokenCodeId,
         withdrawal_voucher_code_id: context.withdrawalVoucherCodeId,
         withdrawal_manager_code_id: context.withdrawalManagerCodeId,
+        strategy_code_id: context.strategyCodeId,
+        distribution_code_id: context.distributionCodeId,
+        validators_set_code_id: context.validatorsSetCodeId,
         salt: 'salt',
         subdenom: 'lido',
       },
@@ -202,6 +241,13 @@ describe('Core', () => {
     context.neutronUserAddress = (
       await context.wallet.getAccounts()
     )[0].address;
+  });
+  it('query exchange rate', async () => {
+    const { coreContractClient } = context;
+    context.exchangeRate = parseFloat(
+      await coreContractClient.queryExchangeRate(),
+    );
+    expect(context.exchangeRate).toBeGreaterThan(1);
   });
   it('transfer tokens to neutron', async () => {
     const { gaiaClient, gaiaUserAddress, neutronUserAddress, neutronClient } =

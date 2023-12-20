@@ -1,8 +1,7 @@
 use cosmwasm_schema::write_api;
-
-use lido_interchain_interceptor::{
-    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg},
-    state::QueryMsg,
+use lido_staking_base::{
+    msg::puppeteer::{ExecuteMsg, InstantiateMsg, MigrateMsg},
+    state::puppeteer::QueryMsg,
 };
 
 fn main() {
