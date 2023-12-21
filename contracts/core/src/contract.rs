@@ -140,13 +140,12 @@ fn execute_receive_nft(
         info.sender,
         ContractError::Unauthorized {}
     );
-    let voucher: NftInfoResponse<Extension> =
-        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: config.voucher_contract,
-            msg: to_json_binary(&lido_staking_base::msg::voucher::QueryMsg::NftInfo {
-                token_id: msg.token_id.clone(),
-            })?,
-        }))?;
+    let voucher: NftInfoResponse<Extension> = deps.querier.query_wasm_smart(
+        config.voucher_contract,
+        &to_json_binary(&lido_staking_base::msg::voucher::QueryMsg::NftInfo {
+            token_id: msg.token_id.clone(),
+        })?,
+    )?;
     let voucher_extention = voucher.extension.ok_or_else(|| ContractError::InvalidNFT {
         reason: "extension is not set".to_string(),
     })?;
