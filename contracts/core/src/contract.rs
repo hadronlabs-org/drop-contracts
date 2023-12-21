@@ -1,8 +1,7 @@
 use crate::error::{ContractError, ContractResult};
 use cosmwasm_std::{
     attr, ensure_eq, ensure_ne, entry_point, to_json_binary, Attribute, BankMsg, Binary, Coin,
-    CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo, QueryRequest, Response, StdResult,
-    Uint128, WasmMsg, WasmQuery,
+    CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw721::NftInfoResponse;
