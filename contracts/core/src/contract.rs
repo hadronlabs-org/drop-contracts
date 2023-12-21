@@ -38,6 +38,7 @@ pub fn instantiate(
         attr("owner", &msg.owner),
     ];
     CONFIG.save(deps.storage, &msg.into())?;
+    //an empty unbonding batch added as it's ready to be used on unbond action
     UNBOND_BATCH_ID.save(deps.storage, &0u128)?;
     UNBOND_BATCHES.save(
         deps.storage,
