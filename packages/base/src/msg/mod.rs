@@ -1,3 +1,4 @@
 pub mod core;
 pub mod token;
-pub mod voucher;
+pub mod withdrawal_manager;
+pub mod withdrawal_voucher;

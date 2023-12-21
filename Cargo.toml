@@ -4,6 +4,7 @@ members = [
     "contracts/stargate-poc",
     "contracts/distribution",
     "contracts/withdrawal-voucher",
+    "contracts/withdrawal-manager",
     "contracts/factory",
     "contracts/interchain-interceptor",
     "contracts/interchain-interceptor-authz",

@@ -1,8 +1,8 @@
 use cosmwasm_std::Empty;
 pub use cw721_base::{ContractError, MinterResponse};
-use lido_staking_base::msg::voucher::Extension;
+use lido_staking_base::msg::withdrawal_voucher::Extension;
 
-const CONTRACT_NAME: &str = concat!("crates.io:lido-voucher__", env!("CARGO_PKG_NAME"));
+const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub type Cw721VoucherContract<'a> = cw721_base::Cw721Contract<'a, Extension, Empty, Empty, Empty>;
@@ -13,7 +13,7 @@ pub mod entry {
 
     use cosmwasm_std::entry_point;
     use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
-    use lido_staking_base::msg::voucher::{ExecuteMsg, InstantiateMsg, QueryMsg};
+    use lido_staking_base::msg::withdrawal_voucher::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
     // This makes a conscious choice on the various generics used by the contract
     #[entry_point]

@@ -1,14 +1,14 @@
 use crate::state::core::{Config, UnbondBatch};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Decimal, Uint128};
-use cw721::Cw721ReceiveMsg;
 
 #[cw_serde]
 pub struct InstantiateMsg {
     pub token_contract: String,
     pub puppeteer_contract: String,
     pub strategy_contract: String,
-    pub voucher_contract: String,
+    pub withdrawal_voucher_contract: String,
+    pub withdrawal_manager_contract: String,
     pub base_denom: String,
     pub owner: String,
 }
@@ -42,7 +42,6 @@ pub enum ExecuteMsg {
         batch_id: Uint128,
         unbonded_amount: Uint128,
     },
-    ReceiveNft(Cw721ReceiveMsg),
 }
 
 #[cw_serde]
@@ -54,7 +53,8 @@ impl From<InstantiateMsg> for Config {
             token_contract: val.token_contract,
             puppeteer_contract: val.puppeteer_contract,
             strategy_contract: val.strategy_contract,
-            voucher_contract: val.voucher_contract,
+            withdrawal_voucher_contract: val.withdrawal_voucher_contract,
+            withdrawal_manager_contract: val.withdrawal_manager_contract,
             base_denom: val.base_denom,
             owner: val.owner,
             ld_denom: None,

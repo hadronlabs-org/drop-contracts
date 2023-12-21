@@ -1,25 +1,24 @@
 use crate::error::{ContractError, ContractResult};
 use cosmwasm_std::{
-    attr, ensure_eq, ensure_ne, entry_point, to_json_binary, Attribute, BankMsg, Binary, Coin,
-    CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg,
+    attr, ensure_eq, ensure_ne, entry_point, to_json_binary, Attribute, Binary, CosmosMsg, Decimal,
+    Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
-use cw721::NftInfoResponse;
+
 use lido_staking_base::helpers::answer::response;
-use lido_staking_base::msg::voucher::Extension;
 use lido_staking_base::msg::{
     core::{ExecuteMsg, InstantiateMsg, QueryMsg},
     token::ExecuteMsg as TokenExecuteMsg,
-    voucher::ExecuteMsg as VoucherExecuteMsg,
+    withdrawal_voucher::ExecuteMsg as VoucherExecuteMsg,
 };
 use lido_staking_base::state::core::{
-    Cw721ReceiveMsg, UnbondBatchStatus, UnbondItem, CONFIG, UNBOND_BATCHES, UNBOND_BATCH_ID,
+    UnbondBatchStatus, UnbondItem, CONFIG, UNBOND_BATCHES, UNBOND_BATCH_ID,
 };
-use lido_staking_base::state::voucher::{Metadata, Trait};
+use lido_staking_base::state::withdrawal_voucher::{Metadata, Trait};
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 use std::str::FromStr;
 use std::vec;
-const CONTRACT_NAME: &str = concat!("crates.io:lido-neutron-contracts__", env!("CARGO_PKG_NAME"));
+const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -102,7 +101,6 @@ pub fn execute(
             batch_id,
             unbonded_amount,
         } => execute_fake_process_batch(deps, env, info, batch_id, unbonded_amount),
-        ExecuteMsg::ReceiveNft(msg) => execute_receive_nft(deps, env, info, msg),
     }
 }
 
@@ -125,63 +123,6 @@ fn execute_fake_process_batch(
     attrs.push(attr("batch_id", batch_id.to_string()));
     attrs.push(attr("unbonded_amount", unbonded_amount.to_string()));
     Ok(response("execute-fake_process_batch", CONTRACT_NAME, attrs))
-}
-
-fn execute_receive_nft(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    info: MessageInfo,
-    msg: Cw721ReceiveMsg,
-) -> ContractResult<Response<NeutronMsg>> {
-    let mut attrs = vec![attr("action", "receive_nft")];
-    let config = CONFIG.load(deps.storage)?;
-    ensure_eq!(
-        config.voucher_contract,
-        info.sender,
-        ContractError::Unauthorized {}
-    );
-    let voucher: NftInfoResponse<Extension> = deps.querier.query_wasm_smart(
-        config.voucher_contract,
-        &to_json_binary(&lido_staking_base::msg::voucher::QueryMsg::NftInfo {
-            token_id: msg.token_id.clone(),
-        })?,
-    )?;
-    let voucher_extention = voucher.extension.ok_or_else(|| ContractError::InvalidNFT {
-        reason: "extension is not set".to_string(),
-    })?;
-
-    let batch_id =
-        voucher_extention
-            .batch_id
-            .parse::<u128>()
-            .map_err(|_| ContractError::InvalidNFT {
-                reason: "invalid batch_id".to_string(),
-            })?;
-
-    let mut unbond_batch = UNBOND_BATCHES.load(deps.storage, batch_id)?;
-    ensure_eq!(
-        unbond_batch.status,
-        UnbondBatchStatus::Unbonded,
-        ContractError::BatchIsNotUnbonded {}
-    );
-    let payout_amount = unbond_batch
-        .slashing_effect
-        .ok_or(ContractError::BatchSlashingEffectIsEmpty {})?
-        * voucher_extention.expected_amount;
-
-    unbond_batch.withdrawed_amount =
-        Some(unbond_batch.withdrawed_amount.unwrap_or_else(Uint128::zero) + payout_amount);
-    let msg = CosmosMsg::Bank(BankMsg::Send {
-        to_address: msg.sender,
-        amount: vec![Coin {
-            denom: config.base_denom,
-            amount: payout_amount,
-        }],
-    });
-    UNBOND_BATCHES.save(deps.storage, batch_id, &unbond_batch)?;
-    attrs.push(attr("batch_id", batch_id.to_string()));
-    attrs.push(attr("payout_amount", payout_amount.to_string()));
-    Ok(response("execute-receive_nft", CONTRACT_NAME, attrs).add_message(msg))
 }
 
 fn execute_bond(
@@ -347,7 +288,7 @@ fn execute_unbond(
         ]),
     });
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.voucher_contract,
+        contract_addr: config.withdrawal_voucher_contract,
         msg: to_json_binary(&VoucherExecuteMsg::Mint {
             owner: info.sender.to_string(),
             token_id: unbond_batch_id.to_string()

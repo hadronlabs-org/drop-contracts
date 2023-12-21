@@ -7,7 +7,8 @@ pub struct Config {
     pub token_contract: String,
     pub puppeteer_contract: String,
     pub strategy_contract: String,
-    pub voucher_contract: String,
+    pub withdrawal_voucher_contract: String,
+    pub withdrawal_manager_contract: String,
     pub owner: String,
     pub base_denom: String,
     pub ld_denom: Option<String>,
@@ -41,4 +42,3 @@ pub struct UnbondBatch {
 
 pub const UNBOND_BATCHES: Map<u128, UnbondBatch> = Map::new("batches");
 pub const UNBOND_BATCH_ID: Item<u128> = Item::new("batches_ids");
-pub type Cw721ReceiveMsg = cw721::Cw721ReceiveMsg;

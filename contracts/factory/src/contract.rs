@@ -16,14 +16,15 @@ use lido_staking_base::{
         ConfigResponse as TokenConfigResponse, InstantiateMsg as TokenInstantiateMsg,
         QueryMsg as TokenQueryMsg,
     },
-    msg::voucher::InstantiateMsg as VoucherInstantiateMsg,
+    msg::withdrawal_manager::InstantiateMsg as WithdrawalManagerInstantiateMsg,
+    msg::withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     NeutronResult,
 };
 
-const CONTRACT_NAME: &str = concat!("crates.io:lido-neutron-contracts__", env!("CARGO_PKG_NAME"));
+const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -41,7 +42,8 @@ pub fn instantiate(
             salt: msg.salt.to_string(),
             token_code_id: msg.token_code_id,
             core_code_id: msg.core_code_id,
-            voucher_code_id: msg.voucher_code_id,
+            withdrawal_voucher_code_id: msg.withdrawal_voucher_code_id,
+            withdrawal_manager_code_id: msg.withdrawal_manager_code_id,
             owner: info.sender.to_string(),
             subdenom: msg.subdenom.to_string(),
         },
@@ -51,7 +53,14 @@ pub fn instantiate(
         attr("salt", msg.salt),
         attr("token_code_id", msg.token_code_id.to_string()),
         attr("core_code_id", msg.core_code_id.to_string()),
-        attr("voucher_code_id", msg.voucher_code_id.to_string()),
+        attr(
+            "withdrawal_voucher_code_id",
+            msg.withdrawal_voucher_code_id.to_string(),
+        ),
+        attr(
+            "withdrawal_manager_code_id",
+            msg.withdrawal_manager_code_id.to_string(),
+        ),
         attr("owner", info.sender),
         attr("subdenom", msg.subdenom),
     ];
@@ -96,7 +105,10 @@ fn execute_init(
 
     let token_contract_checksum = get_code_checksum(deps.as_ref(), config.token_code_id)?;
     let core_contract_checksum = get_code_checksum(deps.as_ref(), config.core_code_id)?;
-    let voucher_contract_checksum = get_code_checksum(deps.as_ref(), config.voucher_code_id)?;
+    let withdrawal_voucher_contract_checksum =
+        get_code_checksum(deps.as_ref(), config.withdrawal_voucher_code_id)?;
+    let withdrawal_manager_contract_checksum =
+        get_code_checksum(deps.as_ref(), config.withdrawal_manager_code_id)?;
     let salt = config.salt.as_bytes();
 
     let token_address =
@@ -105,17 +117,40 @@ fn execute_init(
     let core_address =
         instantiate2_address(&core_contract_checksum, &canonical_self_address, salt)?;
     attrs.push(attr("core_address", core_address.to_string()));
-    let voucher_address =
-        instantiate2_address(&voucher_contract_checksum, &canonical_self_address, salt)?;
-    attrs.push(attr("voucher_address", voucher_address.to_string()));
+    let withdrawal_voucher_address = instantiate2_address(
+        &withdrawal_voucher_contract_checksum,
+        &canonical_self_address,
+        salt,
+    )?;
+    attrs.push(attr(
+        "withdrawal_voucher_address",
+        withdrawal_voucher_address.to_string(),
+    ));
+    let withdrawal_manager_address = instantiate2_address(
+        &withdrawal_manager_contract_checksum,
+        &canonical_self_address,
+        salt,
+    )?;
+    attrs.push(attr(
+        "withdrawal_manager_address",
+        withdrawal_manager_address.to_string(),
+    ));
 
     let core_contract = deps.api.addr_humanize(&core_address)?.to_string();
     let token_contract = deps.api.addr_humanize(&token_address)?.to_string();
-    let voucher_contract = deps.api.addr_humanize(&voucher_address)?.to_string();
+    let withdrawal_voucher_contract = deps
+        .api
+        .addr_humanize(&withdrawal_voucher_address)?
+        .to_string();
+    let withdrawal_manager_contract = deps
+        .api
+        .addr_humanize(&withdrawal_manager_address)?
+        .to_string();
     let state = State {
         token_contract: token_contract.to_string(),
         core_contract: core_contract.to_string(),
-        voucher_contract: voucher_contract.to_string(),
+        withdrawal_voucher_contract: withdrawal_voucher_contract.to_string(),
+        withdrawal_manager_contract: withdrawal_manager_contract.to_string(),
     };
 
     STATE.save(deps.storage, &state)?;
@@ -139,8 +174,9 @@ fn execute_init(
                 token_contract: token_contract.to_string(),
                 puppeteer_contract: "".to_string(),
                 strategy_contract: "".to_string(),
-                voucher_contract: voucher_contract.to_string(),
-                base_denom,
+                withdrawal_voucher_contract: withdrawal_voucher_contract.to_string(),
+                withdrawal_manager_contract: withdrawal_manager_contract.to_string(),
+                base_denom: base_denom.to_string(),
                 owner: env.contract.address.to_string(),
             })?,
             funds: vec![],
@@ -148,12 +184,25 @@ fn execute_init(
         }),
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
-            code_id: config.voucher_code_id,
-            label: get_contract_label("voucher"),
-            msg: to_json_binary(&VoucherInstantiateMsg {
+            code_id: config.withdrawal_voucher_code_id,
+            label: get_contract_label("withdrawal-voucher"),
+            msg: to_json_binary(&WithdrawalVoucherInstantiateMsg {
                 name: "Lido Voucher".to_string(),
                 symbol: "LDOV".to_string(),
-                minter: core_contract,
+                minter: core_contract.to_string(),
+            })?,
+            funds: vec![],
+            salt: Binary::from(salt),
+        }),
+        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
+            admin: Some(env.contract.address.to_string()),
+            code_id: config.withdrawal_manager_code_id,
+            label: get_contract_label("withdrawal-manger"),
+            msg: to_json_binary(&WithdrawalManagerInstantiateMsg {
+                core_contract: core_contract.to_string(),
+                voucher_contract: withdrawal_voucher_contract.to_string(),
+                owner: env.contract.address.to_string(),
+                base_denom,
             })?,
             funds: vec![],
             salt: Binary::from(salt),
