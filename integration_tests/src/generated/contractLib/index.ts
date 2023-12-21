@@ -28,5 +28,8 @@ export const LidoValidatorsSet = _8;
 import * as _9 from './lidoValidatorsStats';
 export const LidoValidatorsStats = _9;
 
-import * as _10 from './lidoWithdrawalVoucher';
-export const LidoWithdrawalVoucher = _10;
+import * as _10 from './lidoWithdrawalManager';
+export const LidoWithdrawalManager = _10;
+
+import * as _11 from './lidoWithdrawalVoucher';
+export const LidoWithdrawalVoucher = _11;

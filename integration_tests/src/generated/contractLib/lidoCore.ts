@@ -7,7 +7,8 @@ export interface InstantiateMsg {
   puppeteer_contract: string;
   strategy_contract: string;
   token_contract: string;
-  voucher_contract: string;
+  withdrawal_manager_contract: string;
+  withdrawal_voucher_contract: string;
 }
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
@@ -50,7 +51,8 @@ export interface Config {
   puppeteer_contract: string;
   strategy_contract: string;
   token_contract: string;
-  voucher_contract: string;
+  withdrawal_manager_contract: string;
+  withdrawal_voucher_contract: string;
 }
 export interface UnbondBatch {
   expected_amount: Uint128;
@@ -139,9 +141,5 @@ export class Client {
   fakeProcessBatch = async(sender:string, args: FakeProcessBatchArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { fake_process_batch: args }, fee || "auto", memo, funds);
-  }
-  receiveNft = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { receive_nft: {} }, fee || "auto", memo, funds);
   }
 }
