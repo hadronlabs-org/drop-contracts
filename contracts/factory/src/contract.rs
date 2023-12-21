@@ -197,7 +197,7 @@ fn execute_init(
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
             code_id: config.withdrawal_manager_code_id,
-            label: get_contract_label("withdrawal-manger"),
+            label: get_contract_label("withdrawal-manager"),
             msg: to_json_binary(&WithdrawalManagerInstantiateMsg {
                 core_contract: core_contract.to_string(),
                 voucher_contract: withdrawal_voucher_contract.to_string(),
