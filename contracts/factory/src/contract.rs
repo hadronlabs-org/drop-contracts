@@ -5,8 +5,7 @@ use crate::{
 };
 use cosmwasm_std::{
     attr, entry_point, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg,
-    Deps, DepsMut, Env, HexBinary, MessageInfo, QueryRequest, Response, StdResult, WasmMsg,
-    WasmQuery,
+    Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
 
