@@ -273,37 +273,3 @@ export const setupPark = async (
   }
   return instance;
 };
-
-export const setupSingle = async (
-  context = 'lido',
-  network: string = 'neutron',
-): Promise<cosmopark> => {
-  const wallets = await generateWallets();
-  const config: CosmoparkConfig = {
-    context,
-    networks: {},
-    master_mnemonic: wallets.master,
-    loglevel: 'info',
-    wallets: {
-      demowallet1: {
-        mnemonic: wallets.demowallet1,
-        balance: '1000000000',
-      },
-      demo1: { mnemonic: wallets.demo1, balance: '1000000000' },
-      demo2: { mnemonic: wallets.demo2, balance: '1000000000' },
-      demo3: { mnemonic: wallets.demo3, balance: '1000000000' },
-    },
-  };
-  config.networks[network] = networkConfigs[network];
-  const instance = await cosmopark.create(config);
-  await Promise.all(
-    Object.entries(instance.ports).map(([network, ports]) =>
-      awaitFirstBlock(`127.0.0.1:${ports.rpc}`).catch((e) => {
-        console.log(`Failed to await first block for ${network}: ${e}`);
-        throw e;
-      }),
-    ),
-  );
-  console.log('Awaited first blocks');
-  return instance;
-};
