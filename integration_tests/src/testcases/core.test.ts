@@ -543,6 +543,6 @@ describe('Core', () => {
       neutronUserAddress,
       { denom: neutronIBCDenom },
     );
-    expect(balanceBefore - parseInt(balance.data.balance.amount)).toBe(499999);
+    expect(parseInt(balance.data.balance.amount) - balanceBefore).toBe(499999);
   });
 });
