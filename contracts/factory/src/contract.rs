@@ -224,10 +224,9 @@ fn execute_post_init(
 ) -> ContractResult<Response<NeutronMsg>> {
     let attrs = vec![attr("action", "post_init")];
     let state = STATE.load(deps.storage)?;
-    let token_config: TokenConfigResponse = deps.querier.query_wasm_smart(
-        state.token_contract,
-        &to_json_binary(&TokenQueryMsg::Config {})?,
-    )?;
+    let token_config: TokenConfigResponse = deps
+        .querier
+        .query_wasm_smart(state.token_contract, &TokenQueryMsg::Config {})?;
     let core_update_msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: state.core_contract,
         msg: to_json_binary(&CoreExecuteMsg::UpdateConfig {

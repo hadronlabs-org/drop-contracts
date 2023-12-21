@@ -115,11 +115,9 @@ fn execute_receive_nft(
     );
     let voucher: NftInfoResponse<Extension> = deps.querier.query_wasm_smart(
         config.withdrawal_voucher_contract,
-        &to_json_binary(
-            &lido_staking_base::msg::withdrawal_voucher::QueryMsg::NftInfo {
-                token_id: msg.token_id.clone(),
-            },
-        )?,
+        &lido_staking_base::msg::withdrawal_voucher::QueryMsg::NftInfo {
+            token_id: msg.token_id.clone(),
+        },
     )?;
     let voucher_extention = voucher.extension.ok_or_else(|| ContractError::InvalidNFT {
         reason: "extension is not set".to_string(),
@@ -135,9 +133,9 @@ fn execute_receive_nft(
 
     let unbond_batch: UnbondBatch = deps.querier.query_wasm_smart(
         &config.core_contract,
-        &to_json_binary(&lido_staking_base::msg::core::QueryMsg::UnbondBatch {
+        &lido_staking_base::msg::core::QueryMsg::UnbondBatch {
             batch_id: batch_id.into(),
-        })?,
+        },
     )?;
     ensure_eq!(
         unbond_batch.status,
