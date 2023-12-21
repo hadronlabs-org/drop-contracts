@@ -47,5 +47,5 @@ lido-staking-base = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-cosmwasm-storage = { version = "1.0" }
-cw-multi-test = "0.20.0"
+cosmwasm-storage = { workspace = true }
+cw-multi-test = { workspace = true }
