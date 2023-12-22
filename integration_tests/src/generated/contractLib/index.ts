@@ -7,11 +7,11 @@ export const LidoDistribution = _1;
 import * as _2 from './lidoFactory';
 export const LidoFactory = _2;
 
-import * as _3 from './lidoInterchainInterceptorAuthz';
-export const LidoInterchainInterceptorAuthz = _3;
+import * as _3 from './lidoPuppeteerAuthz';
+export const LidoPuppeteerAuthz = _3;
 
-import * as _4 from './lidoInterchainInterceptor';
-export const LidoInterchainInterceptor = _4;
+import * as _4 from './lidoPuppeteer';
+export const LidoPuppeteer = _4;
 
 import * as _5 from './lidoStargatePoc';
 export const LidoStargatePoc = _5;

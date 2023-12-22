@@ -693,7 +693,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "lido-interchain-interceptor"
+name = "lido-puppeteer"
 version = "1.0.0"
 dependencies = [
  "base64",
@@ -705,7 +705,7 @@ dependencies = [
  "cw-storage-plus",
  "cw2",
  "cw20",
- "lido-interchain-interceptor-base",
+ "lido-puppeteer-base",
  "neutron-sdk",
  "prost",
  "prost-types",
@@ -717,7 +717,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "lido-interchain-interceptor-authz"
+name = "lido-puppeteer-authz"
 version = "1.0.0"
 dependencies = [
  "base64",
@@ -729,7 +729,7 @@ dependencies = [
  "cw-storage-plus",
  "cw2",
  "cw20",
- "lido-interchain-interceptor-base",
+ "lido-puppeteer-base",
  "neutron-sdk",
  "prost",
  "prost-types",
@@ -741,7 +741,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "lido-interchain-interceptor-base"
+name = "lido-puppeteer-base"
 version = "1.0.0"
 dependencies = [
  "base64",
@@ -790,7 +790,7 @@ dependencies = [
  "cw-storage-plus",
  "cw2",
  "cw20",
- "lido-interchain-interceptor-base",
+ "lido-puppeteer-base",
  "neutron-sdk",
  "prost",
  "prost-types",
