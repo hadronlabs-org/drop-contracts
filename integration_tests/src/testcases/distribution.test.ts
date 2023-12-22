@@ -7,7 +7,7 @@ import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
-import { setupSingle } from '../testSuite';
+import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
@@ -27,7 +27,7 @@ describe('Distribution', () => {
   } = {};
 
   beforeAll(async () => {
-    context.park = await setupSingle('distribution', 'neutron');
+    context.park = await setupPark('distribution', ['neutron'], false);
 
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
