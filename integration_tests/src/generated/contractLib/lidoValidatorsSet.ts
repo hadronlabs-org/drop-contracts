@@ -2,7 +2,8 @@ import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
 export interface InstantiateMsg {
-  owner: string;
+  core: string;
+  stats_contract: string;
 }
 /**
  * A human readable address.
@@ -14,13 +15,75 @@ export interface InstantiateMsg {
  * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
  */
 export type Addr = string;
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal = string;
+export type ArrayOfValidatorInfo = ValidatorInfo1[];
 
 export interface LidoValidatorsSetSchema {
-  responses: Config;
+  responses: Config | ValidatorInfo | ArrayOfValidatorInfo;
+  query: ValidatorArgs;
+  execute: UpdateConfigArgs | UpdateValidatorsArgs | UpdateValidatorArgs | UpdateValidatorInfoArgs;
   [k: string]: unknown;
 }
 export interface Config {
-  owner: Addr;
+  core: Addr;
+  stats_contract: Addr;
+}
+export interface ValidatorInfo {
+  jailed_number?: number | null;
+  last_commission_in_range?: number | null;
+  last_processed_local_height?: number | null;
+  last_processed_remote_height?: number | null;
+  last_validated_height?: number | null;
+  tombstone: boolean;
+  uptime: Decimal;
+  valoper_address: string;
+  weight: number;
+}
+export interface ValidatorInfo1 {
+  jailed_number?: number | null;
+  last_commission_in_range?: number | null;
+  last_processed_local_height?: number | null;
+  last_processed_remote_height?: number | null;
+  last_validated_height?: number | null;
+  tombstone: boolean;
+  uptime: Decimal;
+  valoper_address: string;
+  weight: number;
+}
+export interface ValidatorArgs {
+  valoper: Addr;
+}
+export interface UpdateConfigArgs {
+  core?: Addr | null;
+  stats_contract?: Addr | null;
+}
+export interface UpdateValidatorsArgs {
+  validators: ValidatorData[];
+}
+export interface ValidatorData {
+  valoper_address: string;
+  weight: number;
+}
+export interface UpdateValidatorArgs {
+  validator: ValidatorData;
+}
+export interface UpdateValidatorInfoArgs {
+  validators: ValidatorInfoUpdate[];
+}
+export interface ValidatorInfoUpdate {
+  jailed_number?: number | null;
+  last_commission_in_range?: number | null;
+  last_processed_local_height?: number | null;
+  last_processed_remote_height?: number | null;
+  last_validated_height?: number | null;
+  tombstone: boolean;
+  uptime: Decimal;
+  valoper_address: string;
 }
 
 
@@ -56,5 +119,27 @@ export class Client {
   }
   queryConfig = async(): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
+  }
+  queryValidator = async(args: ValidatorArgs): Promise<ValidatorInfo> => {
+    return this.client.queryContractSmart(this.contractAddress, { validator: args });
+  }
+  queryValidators = async(): Promise<ArrayOfValidatorInfo> => {
+    return this.client.queryContractSmart(this.contractAddress, { validators: {} });
+  }
+  updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+  }
+  updateValidators = async(sender:string, args: UpdateValidatorsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { update_validators: args }, fee || "auto", memo, funds);
+  }
+  updateValidator = async(sender:string, args: UpdateValidatorArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { update_validator: args }, fee || "auto", memo, funds);
+  }
+  updateValidatorInfo = async(sender:string, args: UpdateValidatorInfoArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { update_validator_info: args }, fee || "auto", memo, funds);
   }
 }
