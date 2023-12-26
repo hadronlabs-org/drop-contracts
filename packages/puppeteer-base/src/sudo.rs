@@ -23,10 +23,9 @@ use crate::{
     state::{BaseConfig, IcaState, PuppeteerBase, State, Transfer},
 };
 
-impl<'a, T, C> PuppeteerBase<'a, T, C>
+impl<'a, T> PuppeteerBase<'a, T>
 where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
-    C: std::fmt::Debug + Serialize + DeserializeOwned + Clone,
 {
     pub fn sudo_tx_query_result(
         &self,

@@ -7,17 +7,15 @@ use crate::{
     state::{BaseConfig, PuppeteerBase, State, Transfer},
 };
 
-impl<'a, T, C> PuppeteerBase<'a, T, C>
+impl<'a, T> PuppeteerBase<'a, T>
 where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
-    C: std::fmt::Debug + Serialize + DeserializeOwned + Clone,
 {
     pub fn query(&self, deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         match msg {
             QueryMsg::State {} => self.query_state(deps, env),
             QueryMsg::Config {} => self.query_config(deps, env),
             QueryMsg::Transactions {} => self.query_transactions(deps, env),
-            QueryMsg::InterchainTransactions {} => self.query_done_transactions(deps, env),
             QueryMsg::Delegations {} => self.query_delegations(deps, env),
         }
     }
@@ -33,12 +31,6 @@ where
 
     fn query_state(&self, deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
         let state: State = self.state.load(deps.storage)?;
-        to_json_binary(&state)
-    }
-
-    fn query_done_transactions(&self, deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
-        deps.api.debug("WASMDEBUG: query_done_transactions");
-        let state: Vec<C> = self.transactions.load(deps.storage)?;
         to_json_binary(&state)
     }
 

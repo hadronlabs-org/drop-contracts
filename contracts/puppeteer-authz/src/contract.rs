@@ -1,12 +1,16 @@
 use cosmos_sdk_proto::cosmos::{
-    authz::v1beta1::MsgExec,
+    authz::v1beta1::{MsgExec, MsgExecResponse},
     base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
     distribution::v1beta1::MsgWithdrawDelegatorReward,
     staking::v1beta1::{MsgBeginRedelegate, MsgDelegate, MsgUndelegate},
 };
-use cosmwasm_std::{entry_point, to_json_vec, CosmosMsg, Deps, Reply, StdError, SubMsg, Uint128};
+use cosmwasm_std::{
+    attr, ensure_eq, entry_point, to_json_binary, CosmosMsg, Deps, Reply, StdError, SubMsg,
+    Uint128, WasmMsg,
+};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
+use lido_staking_base::helpers::answer::response;
 use neutron_sdk::{
     bindings::{
         msg::{IbcFee, NeutronMsg},
@@ -14,25 +18,25 @@ use neutron_sdk::{
         types::ProtobufAny,
     },
     interchain_queries::v045::new_register_delegator_delegations_query_msg,
-    interchain_txs::helpers::get_port_id,
+    interchain_txs::helpers::decode_message_response,
     sudo::msg::{RequestPacket, SudoMsg},
     NeutronError, NeutronResult,
 };
 
 use lido_puppeteer_base::{
     error::ContractResult,
-    msg::{QueryMsg, SudoPayload},
-    state::{PuppeteerBase, State, ICA_ID, SUDO_PAYLOAD_REPLY_ID},
+    msg::{QueryMsg, ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg, Transaction},
+    state::{IcaState, PuppeteerBase, State, TxState, TxStateStatus, ICA_ID},
 };
 use prost::Message;
 use prost_types::Any;
 
 use crate::{
-    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, Transaction},
+    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg},
     state::Config,
 };
 
-pub type Puppeteer<'a> = PuppeteerBase<'a, Config, Transaction>;
+pub type Puppeteer<'a> = PuppeteerBase<'a, Config>;
 
 const CONTRACT_NAME: &str = concat!("crates.io:lido-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -70,7 +74,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Bin
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     env: Env,
-    info: MessageInfo,
+    _info: MessageInfo,
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
@@ -80,29 +84,34 @@ pub fn execute(
             validator,
             amount,
             timeout,
-        } => execute_delegate(deps, env, info, validator, amount, timeout),
+            reply_to,
+        } => execute_delegate(deps, env, validator, amount, timeout, reply_to),
         ExecuteMsg::Undelegate {
             validator,
             amount,
             timeout,
-        } => execute_undelegate(deps, env, info, validator, amount, timeout),
+            reply_to,
+        } => execute_undelegate(deps, env, validator, amount, timeout, reply_to),
         ExecuteMsg::Redelegate {
             validator_from,
             validator_to,
             amount,
             timeout,
+            reply_to,
         } => execute_redelegate(
             deps,
             env,
-            info,
             validator_from,
             validator_to,
             amount,
             timeout,
+            reply_to,
         ),
-        ExecuteMsg::WithdrawReward { validator, timeout } => {
-            execute_withdraw_reward(deps, env, info, validator, timeout)
-        }
+        ExecuteMsg::WithdrawReward {
+            validator,
+            timeout,
+            reply_to,
+        } => execute_withdraw_reward(deps, env, validator, timeout, reply_to),
         ExecuteMsg::RegisterDelegatorDelegationsQuery { validators } => {
             register_delegations_query(deps, validators)
         }
@@ -128,13 +137,14 @@ fn register_delegations_query(
 
 fn execute_delegate(
     mut deps: DepsMut<NeutronQuery>,
-    env: Env,
-    _info: MessageInfo,
+    _env: Env,
     validator: String,
     amount: Uint128,
     timeout: Option<u64>,
+    reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
+    deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     let state: State = puppeteer_base.state.load(deps.storage)?;
     let grantee = state.ica.ok_or_else(|| {
@@ -162,7 +172,6 @@ fn execute_delegate(
 
     let submsg = compose_submsg(
         deps.branch(),
-        env,
         config.clone(),
         authz_msg,
         "/cosmos.authz.v1beta1.MsgExec".to_string(),
@@ -173,6 +182,7 @@ fn execute_delegate(
             amount: amount.into(),
         },
         timeout,
+        reply_to,
     )?;
 
     Ok(Response::default().add_submessages(vec![submsg]))
@@ -180,13 +190,14 @@ fn execute_delegate(
 
 fn execute_undelegate(
     mut deps: DepsMut<NeutronQuery>,
-    env: Env,
-    _info: MessageInfo,
+    _env: Env,
     validator: String,
     amount: Uint128,
     timeout: Option<u64>,
+    reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
+    deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     let state: State = puppeteer_base.state.load(deps.storage)?;
 
@@ -215,7 +226,6 @@ fn execute_undelegate(
 
     let submsg = compose_submsg(
         deps.branch(),
-        env,
         config.clone(),
         authz_msg,
         "/cosmos.authz.v1beta1.MsgExec".to_string(),
@@ -226,21 +236,22 @@ fn execute_undelegate(
             amount: amount.into(),
         },
         timeout,
+        reply_to,
     )?;
-
     Ok(Response::default().add_submessages(vec![submsg]))
 }
 
 fn execute_redelegate(
     mut deps: DepsMut<NeutronQuery>,
-    env: Env,
-    _info: MessageInfo,
+    _env: Env,
     validator_from: String,
     validator_to: String,
     amount: Uint128,
     timeout: Option<u64>,
+    reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
+    deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     let state: State = puppeteer_base.state.load(deps.storage)?;
 
@@ -270,7 +281,6 @@ fn execute_redelegate(
 
     let submsg = compose_submsg(
         deps.branch(),
-        env,
         config.clone(),
         authz_msg,
         "/cosmos.authz.v1beta1.MsgExec".to_string(),
@@ -282,19 +292,20 @@ fn execute_redelegate(
             amount: amount.into(),
         },
         timeout,
+        reply_to,
     )?;
-
     Ok(Response::default().add_submessages(vec![submsg]))
 }
 
 fn execute_withdraw_reward(
     mut deps: DepsMut<NeutronQuery>,
-    env: Env,
-    _info: MessageInfo,
+    _env: Env,
     validator: String,
     timeout: Option<u64>,
+    reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
+    deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     let state: State = puppeteer_base.state.load(deps.storage)?;
 
@@ -319,7 +330,6 @@ fn execute_withdraw_reward(
 
     let submsg = compose_submsg(
         deps.branch(),
-        env,
         config,
         authz_msg,
         "/cosmos.authz.v1beta1.MsgExec".to_string(),
@@ -328,6 +338,7 @@ fn execute_withdraw_reward(
             validator,
         },
         timeout,
+        reply_to,
     )?;
 
     Ok(Response::default().add_submessages(vec![submsg]))
@@ -335,12 +346,12 @@ fn execute_withdraw_reward(
 
 fn compose_submsg<T: prost::Message>(
     mut deps: DepsMut<NeutronQuery>,
-    env: Env,
     config: Config,
     in_msg: T,
     type_url: String,
-    sudo_payload: Transaction,
+    transaction: Transaction,
     timeout: Option<u64>,
+    reply_to: String,
 ) -> NeutronResult<SubMsg<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
     let ibc_fee: IbcFee = puppeteer_base.ibc_fee.load(deps.storage)?;
@@ -368,29 +379,9 @@ fn compose_submsg<T: prost::Message>(
         ibc_fee,
     );
 
-    let submsg = msg_with_sudo_callback(
-        deps.branch(),
-        cosmos_msg,
-        SudoPayload {
-            port_id: get_port_id(env.contract.address.as_str(), ICA_ID),
-            message: "message".to_string(),
-            info: Some(sudo_payload),
-        },
-    )?;
+    let submsg =
+        puppeteer_base.msg_with_sudo_callback(deps.branch(), cosmos_msg, transaction, reply_to)?;
     Ok(submsg)
-}
-
-fn msg_with_sudo_callback<C: Into<CosmosMsg<T>>, T>(
-    deps: DepsMut<NeutronQuery>,
-    msg: C,
-    payload: SudoPayload<Transaction>,
-) -> StdResult<SubMsg<T>> {
-    let puppeteer_base = Puppeteer::default();
-    puppeteer_base
-        .reply_id_storage
-        .save(deps.storage, &to_json_vec(&payload)?)?;
-
-    Ok(SubMsg::reply_on_success(msg, SUDO_PAYLOAD_REPLY_ID))
 }
 
 #[entry_point]
@@ -424,7 +415,8 @@ pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResul
             counterparty_channel_id,
             counterparty_version,
         ),
-        _ => Ok(Response::default()),
+        SudoMsg::Error { request, details } => sudo_error(deps, env, request, details),
+        SudoMsg::Timeout { request } => sudo_timeout(deps, env, request),
     }
 }
 
@@ -434,103 +426,154 @@ fn sudo_response(
     request: RequestPacket,
     data: Binary,
 ) -> NeutronResult<Response> {
+    let attrs = vec![
+        attr("action", "sudo_response"),
+        attr("request_id", request.sequence.unwrap_or(0).to_string()),
+    ];
     let puppeteer_base = Puppeteer::default();
-
     let seq_id = request
         .sequence
         .ok_or_else(|| StdError::generic_err("sequence not found"))?;
-    let channel_id = request
-        .source_channel
-        .ok_or_else(|| StdError::generic_err("channel_id not found"))?;
-
-    let payload = puppeteer_base
-        .sudo_payload
-        .load(deps.storage, (channel_id.clone(), seq_id))?;
-
-    deps.api
-        .debug(&format!("WASMDEBUG: sudo_response: seq_id: {seq_id:?}"));
-
-    deps.api
-        .debug(&format!("WASMDEBUG: sudo_response: payload: {payload:?}"));
-
-    deps.api
-        .debug(&format!("WASMDEBUG: sudo_response: data: {data:?}"));
-
+    let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
+    let reply_to = tx_state
+        .reply_to
+        .ok_or_else(|| StdError::generic_err("reply_to not found"))?;
+    let transaction = tx_state
+        .transaction
+        .ok_or_else(|| StdError::generic_err("transaction not found"))?;
+    if tx_state.status != TxStateStatus::InProgress {
+        return Err(NeutronError::Std(StdError::generic_err(
+            "Transaction state is not in progress",
+        )));
+    }
     let msg_data: TxMsgData = TxMsgData::decode(data.as_slice())?;
     deps.api
         .debug(&format!("WASMDEBUG: msg_data: data: {msg_data:?}"));
 
-    match payload.clone().info {
-        Some(tx) => match tx.clone() {
-            Transaction::Delegate {
-                interchain_account_id: _,
-                validator: _,
-                denom: _,
-                amount: _,
-            } => {
-                deps.api
-                    .debug("WASMDEBUG: sudo_response: MsgDelegateResponse");
-                let mut txs = puppeteer_base.transactions.load(deps.storage)?;
-                txs.extend(vec![tx]);
-                puppeteer_base.transactions.save(deps.storage, &txs)?;
-                puppeteer_base
-                    .sudo_payload
-                    .remove(deps.storage, (channel_id, seq_id));
+    let mut msgs = vec![];
+    #[allow(deprecated)]
+    for item in msg_data.data {
+        let answer = match item.msg_type.as_str() {
+            "/cosmos.authz.v1beta1.MsgExecResponse" => {
+                let out: MsgExecResponse = decode_message_response(&item.data)?;
+                lido_puppeteer_base::msg::ResponseAnswer::AuthzExecResponse(
+                    lido_puppeteer_base::proto::MsgExecResponse {
+                        results: out.results,
+                    },
+                )
             }
-            Transaction::Undelegate {
-                interchain_account_id: _,
-                validator: _,
-                denom: _,
-                amount: _,
-            } => {
-                deps.api
-                    .debug("WASMDEBUG: sudo_response: MsgUndelegateResponse");
-
-                let mut txs = puppeteer_base.transactions.load(deps.storage)?;
-                txs.extend(vec![tx]);
-                puppeteer_base.transactions.save(deps.storage, &txs)?;
-                puppeteer_base
-                    .sudo_payload
-                    .remove(deps.storage, (channel_id, seq_id));
+            _ => {
+                deps.api.debug(
+                    format!("This type of acknowledgement is not implemented: {item:?}").as_str(),
+                );
+                lido_puppeteer_base::msg::ResponseAnswer::UnknownResponse {}
             }
-            Transaction::Redelegate {
-                interchain_account_id: _,
-                validator_from: _,
-                validator_to: _,
-                denom: _,
-                amount: _,
-            } => {
-                deps.api
-                    .debug("WASMDEBUG: sudo_response: MsgBeginRedelegateResponse");
-
-                let mut txs = puppeteer_base.transactions.load(deps.storage)?;
-                txs.extend(vec![tx]);
-                puppeteer_base.transactions.save(deps.storage, &txs)?;
-                puppeteer_base
-                    .sudo_payload
-                    .remove(deps.storage, (channel_id, seq_id));
-            }
-            Transaction::WithdrawReward {
-                interchain_account_id: _,
-                validator: _,
-            } => {
-                deps.api
-                    .debug("WASMDEBUG: sudo_response: MsgWithdrawDelegatorReward");
-
-                let mut txs = puppeteer_base.transactions.load(deps.storage)?;
-                txs.extend(vec![tx]);
-                puppeteer_base.transactions.save(deps.storage, &txs)?;
-                puppeteer_base
-                    .sudo_payload
-                    .remove(deps.storage, (channel_id, seq_id));
-            }
-        },
-        None => deps
-            .api
-            .debug(format!("Empty payload info: {payload:?}").as_str()),
+        };
+        msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: reply_to.clone(),
+            msg: to_json_binary(&ResponseHookMsg::Success(ResponseHookSuccessMsg {
+                request_id: seq_id,
+                request: request.clone(),
+                transaction: transaction.clone(),
+                answer,
+            }))?,
+            funds: vec![],
+        }));
     }
+    puppeteer_base.tx_state.save(
+        deps.storage,
+        &TxState {
+            status: TxStateStatus::Idle,
+            ..Default::default()
+        },
+    )?;
+    Ok(response("sudo-response", "puppeteer", attrs).add_messages(msgs))
+}
 
-    Ok(Response::default())
+fn sudo_error(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    request: RequestPacket,
+    details: String,
+) -> NeutronResult<Response> {
+    let attrs = vec![
+        attr("action", "sudo_error"),
+        attr("request_id", request.sequence.unwrap_or(0).to_string()),
+        attr("details", details.clone()),
+    ];
+    let puppeteer_base: PuppeteerBase<'_, Config> = Puppeteer::default();
+    deps.api.debug(&format!(
+        "WASMDEBUG: sudo_error: request: {request:?} details: {details:?}",
+        request = request,
+        details = details
+    ));
+    let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
+    ensure_eq!(
+        tx_state.status,
+        TxStateStatus::InProgress,
+        NeutronError::Std(StdError::generic_err(
+            "Transaction state is not in progress",
+        ))
+    );
+    let seq_id = request
+        .sequence
+        .ok_or_else(|| StdError::generic_err("sequence not found"))?;
+
+    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: tx_state
+            .reply_to
+            .ok_or_else(|| StdError::generic_err("reply_to not found"))?,
+        msg: to_json_binary(&ResponseHookMsg::Error(ResponseHookErrorMsg {
+            request_id: seq_id,
+            request,
+            details,
+        }))?,
+        funds: vec![],
+    });
+    puppeteer_base.tx_state.save(
+        deps.storage,
+        &TxState {
+            status: TxStateStatus::Idle,
+            seq_id: None,
+            transaction: None,
+            reply_to: None,
+        },
+    )?;
+    Ok(response("sudo-error", "puppeteer", attrs).add_message(msg))
+}
+
+fn sudo_timeout(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    request: RequestPacket,
+) -> NeutronResult<Response> {
+    let attrs = vec![
+        attr("action", "sudo_timeout"),
+        attr("request_id", request.sequence.unwrap_or(0).to_string()),
+    ];
+    let puppeteer_base: PuppeteerBase<'_, Config> = Puppeteer::default();
+    puppeteer_base.state.save(
+        deps.storage,
+        &State {
+            ica: None,
+            last_processed_height: None,
+            ica_state: IcaState::Timeout,
+        },
+    )?;
+    puppeteer_base.tx_state.save(
+        deps.storage,
+        &TxState {
+            status: TxStateStatus::Idle,
+            seq_id: None,
+            transaction: None,
+            reply_to: None,
+        },
+    )?;
+    deps.api.debug(&format!(
+        "WASMDEBUG: sudo_timeout: request: {request:?}",
+        request = request
+    ));
+    Ok(response("sudo-timeout", "puppeteer", attrs))
 }
 
 #[entry_point]

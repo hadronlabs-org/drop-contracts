@@ -1,22 +1,19 @@
-use cosmwasm_std::{from_json, Binary, DepsMut, Env, Reply, Response, StdError, StdResult};
+use cosmwasm_std::{attr, DepsMut, Env, Reply, Response, StdError, StdResult};
+use lido_staking_base::helpers::answer::response;
 use neutron_sdk::bindings::msg::MsgSubmitTxResponse;
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::{
-    msg::SudoPayload,
-    state::{BaseConfig, PuppeteerBase, SUDO_PAYLOAD_REPLY_ID},
-};
+use crate::state::{BaseConfig, PuppeteerBase, TxState, TxStateStatus, SUDO_PAYLOAD_REPLY_ID};
 
-impl<'a, T, C> PuppeteerBase<'a, T, C>
+impl<'a, T> PuppeteerBase<'a, T>
 where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
-    C: std::fmt::Debug + Serialize + DeserializeOwned + Clone,
 {
     pub fn reply(&self, deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
         deps.api
             .debug(format!("WASMDEBUG: reply msg: {msg:?}").as_str());
         match msg.id {
-            SUDO_PAYLOAD_REPLY_ID => self.prepare_sudo_payload(deps, env, msg),
+            SUDO_PAYLOAD_REPLY_ID => self.update_tx_state(deps, env, msg),
             _ => Err(StdError::generic_err(format!(
                 "unsupported reply message id {}",
                 msg.id
@@ -24,11 +21,7 @@ where
         }
     }
 
-    fn prepare_sudo_payload(&self, deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
-        let data = self.reply_id_storage.load(deps.storage)?;
-        let payload: SudoPayload<C> = from_json(Binary(data))?;
-        deps.api
-            .debug(&format!("WASMDEBUG: prepare_sudo_payload: {payload:?}"));
+    fn update_tx_state(&self, deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
         let resp: MsgSubmitTxResponse = serde_json_wasm::from_slice(
             msg.result
                 .into_result()
@@ -42,8 +35,14 @@ where
             .debug(format!("WASMDEBUG: prepare_sudo_payload received; resp: {resp:?}").as_str());
         let seq_id = resp.sequence_id;
         let channel_id = resp.channel;
-        self.sudo_payload
-            .save(deps.storage, (channel_id, seq_id), &payload)?;
-        Ok(Response::new())
+        let mut self_tx_state: TxState = self.tx_state.load(deps.storage)?;
+        self_tx_state.seq_id = Some(seq_id);
+        self_tx_state.status = TxStateStatus::WaitingForAck;
+        self.tx_state.save(deps.storage, &self_tx_state)?;
+        let atts = vec![
+            attr("channel_id", channel_id.to_string()),
+            attr("seq_id", seq_id.to_string()),
+        ];
+        Ok(response("sudo-payload-received", "puppeteer-base", atts))
     }
 }

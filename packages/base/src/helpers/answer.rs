@@ -1,11 +1,10 @@
 use cosmwasm_std::{attr, Attribute, Event, Response};
-use neutron_sdk::bindings::msg::NeutronMsg;
 
-pub fn response<A: Into<Attribute>>(
+pub fn response<A: Into<Attribute>, T>(
     ty: &str,
     contract_name: &str,
     attrs: impl IntoIterator<Item = A>,
-) -> Response<NeutronMsg> {
+) -> Response<T> {
     Response::new().add_event(Event::new(format!("{}-{}", contract_name, ty)).add_attributes(attrs))
 }
 

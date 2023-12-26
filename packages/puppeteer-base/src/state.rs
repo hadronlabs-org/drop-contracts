@@ -1,51 +1,44 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Coin, Delegation};
-use cw_storage_plus::{Item, Map};
+use cw_storage_plus::Item;
 use neutron_sdk::bindings::msg::IbcFee;
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::msg::SudoPayload;
+use crate::msg::Transaction;
 
-pub struct PuppeteerBase<'a, T, C>
+pub struct PuppeteerBase<'a, T>
 where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
-    C: std::fmt::Debug + Serialize + DeserializeOwned + Clone,
 {
     pub config: Item<'a, T>,
     pub state: Item<'a, State>,
     pub recipient_txs: Item<'a, Vec<Transfer>>,
-    pub transactions: Item<'a, Vec<C>>,
     pub delegations: Item<'a, (Vec<Delegation>, u64)>,
-    pub sudo_payload: Map<'a, (String, u64), SudoPayload<C>>,
-    pub reply_id_storage: Item<'a, Vec<u8>>,
+    pub tx_state: Item<'a, TxState>,
     pub ibc_fee: Item<'a, IbcFee>,
     pub register_fee: Item<'a, Coin>,
 }
 
-impl<T, C> Default for PuppeteerBase<'static, T, C>
+impl<T> Default for PuppeteerBase<'static, T>
 where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
-    C: std::fmt::Debug + Serialize + DeserializeOwned + Clone,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a, T, C> PuppeteerBase<'a, T, C>
+impl<'a, T> PuppeteerBase<'a, T>
 where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
-    C: std::fmt::Debug + Serialize + DeserializeOwned + Clone,
 {
     pub fn new() -> Self {
         Self {
             config: Item::new("config"),
             state: Item::new("state"),
             recipient_txs: Item::new("txs"),
-            transactions: Item::new("transactions"),
             delegations: Item::new("delegations"),
-            sudo_payload: Map::new("sudo_payload"),
-            reply_id_storage: Item::new("reply_queue_id"),
+            tx_state: Item::new("sudo_payload"),
             ibc_fee: Item::new("ibc_fee"),
             register_fee: Item::new("register_fee"),
         }
@@ -73,6 +66,7 @@ pub enum IcaState {
     None,
     InProgress,
     Registered,
+    Timeout,
 }
 
 #[cw_serde]
@@ -81,6 +75,24 @@ pub struct State {
     pub last_processed_height: Option<u64>,
     pub ica: Option<String>,
     pub ica_state: IcaState,
+}
+
+#[cw_serde]
+#[derive(Default)]
+pub enum TxStateStatus {
+    #[default]
+    Idle,
+    InProgress,
+    WaitingForAck,
+}
+
+#[cw_serde]
+#[derive(Default)]
+pub struct TxState {
+    pub status: TxStateStatus,
+    pub seq_id: Option<u64>,
+    pub transaction: Option<Transaction>,
+    pub reply_to: Option<String>,
 }
 
 pub type Recipient = str;

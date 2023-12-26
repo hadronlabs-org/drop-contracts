@@ -6,8 +6,6 @@ use lido_puppeteer_base::{
     state::{BaseConfig, State, Transfer},
 };
 
-use crate::msg::Transaction;
-
 #[cw_serde]
 pub struct Config {
     pub connection_id: String,
@@ -40,8 +38,6 @@ pub enum QueryMsg {
     #[returns(State)]
     State {},
     #[returns(Vec<Transfer>)]
-    Transactions {},
-    #[returns(Vec<Transaction>)]
     InterchainTransactions {},
     #[returns(DelegationsResponse)]
     Delegations {},

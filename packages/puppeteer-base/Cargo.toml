@@ -41,6 +41,7 @@ cw20 = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde-json-wasm = { workspace = true }
+lido-staking-base = { workspace = true }
 
 
 [dev-dependencies]

@@ -30,21 +30,25 @@ pub enum ExecuteMsg {
         validator: String,
         amount: Uint128,
         timeout: Option<u64>,
+        reply_to: String,
     },
     Undelegate {
         validator: String,
         amount: Uint128,
         timeout: Option<u64>,
+        reply_to: String,
     },
     Redelegate {
         validator_from: String,
         validator_to: String,
         amount: Uint128,
         timeout: Option<u64>,
+        reply_to: String,
     },
     WithdrawReward {
         validator: String,
         timeout: Option<u64>,
+        reply_to: String,
     },
 }
 
@@ -67,33 +71,6 @@ impl ExecuteMsg {
             _ => unimplemented!(),
         }
     }
-}
-
-#[cw_serde]
-pub enum Transaction {
-    Delegate {
-        interchain_account_id: String,
-        validator: String,
-        denom: String,
-        amount: u128,
-    },
-    Undelegate {
-        interchain_account_id: String,
-        validator: String,
-        denom: String,
-        amount: u128,
-    },
-    Redelegate {
-        interchain_account_id: String,
-        validator_from: String,
-        validator_to: String,
-        denom: String,
-        amount: u128,
-    },
-    WithdrawReward {
-        interchain_account_id: String,
-        validator: String,
-    },
 }
 
 #[cw_serde]

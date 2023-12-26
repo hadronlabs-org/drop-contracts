@@ -261,7 +261,6 @@ export const setupPark = async (
       }),
     ),
   );
-  console.log('Awaited first blocks');
   if (needRelayers) {
     await awaitNeutronChannels(
       `127.0.0.1:${instance.ports['neutron'].rest}`,

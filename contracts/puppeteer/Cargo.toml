@@ -39,9 +39,9 @@ cw20 = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde-json-wasm = { workspace = true }
-
+lido-staking-base = { workspace = true }
 lido-puppeteer-base = { workspace = true }
 
 [dev-dependencies]
-cosmwasm-storage = { version = "1.0" }
-cw-multi-test = "0.19.0"
+cosmwasm-storage = { workspace = true }
+cw-multi-test = { workspace = true }
