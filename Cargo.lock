@@ -934,6 +934,7 @@ dependencies = [
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
  "cw20",
+ "lido-staking-base",
  "neutron-sdk",
  "prost",
  "prost-types",
@@ -942,6 +943,7 @@ dependencies = [
  "serde",
  "serde-json-wasm 1.0.0",
  "tendermint-proto",
+ "thiserror",
 ]
 
 [[package]]
