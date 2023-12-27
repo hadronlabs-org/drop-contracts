@@ -1,10 +1,7 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_schema::cw_serde;
 
 use cosmwasm_std::Addr;
-use lido_puppeteer_base::{
-    msg::DelegationsResponse,
-    state::{BaseConfig, State, Transfer},
-};
+use lido_puppeteer_base::state::BaseConfig;
 
 #[cw_serde]
 pub struct Config {
@@ -28,17 +25,4 @@ impl BaseConfig for Config {
     fn update_period(&self) -> u64 {
         self.update_period
     }
-}
-
-#[cw_serde]
-#[derive(QueryResponses)]
-pub enum QueryMsg {
-    #[returns(Config)]
-    Config {},
-    #[returns(State)]
-    State {},
-    #[returns(Vec<Transfer>)]
-    InterchainTransactions {},
-    #[returns(DelegationsResponse)]
-    Delegations {},
 }

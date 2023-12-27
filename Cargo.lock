@@ -612,6 +612,7 @@ dependencies = [
  "cw-storage-plus",
  "cw2",
  "cw20",
+ "lido-helpers",
  "lido-staking-base",
  "neutron-sdk",
  "prost",
@@ -660,6 +661,46 @@ dependencies = [
  "cw-storage-plus",
  "cw2",
  "cw20",
+ "lido-helpers",
+ "lido-staking-base",
+ "neutron-sdk",
+ "prost",
+ "prost-types",
+ "protobuf",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.0",
+ "tendermint-proto",
+ "thiserror",
+]
+
+[[package]]
+name = "lido-helpers"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test 0.20.0",
+ "cw-storage-plus",
+ "neutron-sdk",
+]
+
+[[package]]
+name = "lido-hook-tester"
+version = "1.0.0"
+dependencies = [
+ "base64",
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test 0.20.0",
+ "cw-storage-plus",
+ "cw2",
+ "cw20",
+ "lido-helpers",
+ "lido-puppeteer-base",
  "lido-staking-base",
  "neutron-sdk",
  "prost",
@@ -685,6 +726,7 @@ dependencies = [
  "cw-storage-plus",
  "cw2",
  "cw20",
+ "lido-helpers",
  "lido-puppeteer-base",
  "lido-staking-base",
  "neutron-sdk",
@@ -710,6 +752,7 @@ dependencies = [
  "cw-storage-plus",
  "cw2",
  "cw20",
+ "lido-helpers",
  "lido-puppeteer-base",
  "lido-staking-base",
  "neutron-sdk",
@@ -736,7 +779,7 @@ dependencies = [
  "cw-storage-plus",
  "cw2",
  "cw20",
- "lido-staking-base",
+ "lido-helpers",
  "neutron-sdk",
  "prost",
  "prost-types",
@@ -757,6 +800,7 @@ dependencies = [
  "cosmwasm-storage",
  "cw-multi-test 0.20.0",
  "cw-storage-plus",
+ "lido-puppeteer-base",
  "neutron-sdk",
 ]
 
@@ -816,6 +860,7 @@ dependencies = [
  "cw-storage-plus",
  "cw-utils",
  "cw2",
+ "lido-helpers",
  "lido-staking-base",
  "neutron-sdk",
  "thiserror",
@@ -834,6 +879,7 @@ dependencies = [
  "cw-storage-plus",
  "cw2",
  "cw20",
+ "lido-helpers",
  "lido-staking-base",
  "neutron-sdk",
  "prost",

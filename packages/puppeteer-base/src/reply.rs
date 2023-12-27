@@ -1,5 +1,5 @@
 use cosmwasm_std::{attr, DepsMut, Env, Reply, Response, StdError, StdResult};
-use lido_staking_base::helpers::answer::response;
+use lido_helpers::answer::response;
 use neutron_sdk::bindings::msg::MsgSubmitTxResponse;
 use serde::{de::DeserializeOwned, Serialize};
 

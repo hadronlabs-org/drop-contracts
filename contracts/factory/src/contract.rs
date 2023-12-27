@@ -8,10 +8,9 @@ use cosmwasm_std::{
     Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
+use lido_helpers::answer::response;
+use lido_staking_base::msg::core::InstantiateMsg as CoreInstantiateMsg;
 use lido_staking_base::msg::token::InstantiateMsg as TokenInstantiateMsg;
-use lido_staking_base::{
-    helpers::answer::response, msg::core::InstantiateMsg as CoreInstantiateMsg,
-};
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     NeutronResult,

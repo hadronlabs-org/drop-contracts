@@ -4,7 +4,7 @@ use cosmwasm_std::{
     Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
-use lido_staking_base::helpers::answer::response;
+use lido_helpers::answer::response;
 use lido_staking_base::msg::core::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use lido_staking_base::msg::token::ExecuteMsg as TokenExecuteMsg;
 use lido_staking_base::state::core::CONFIG;

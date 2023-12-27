@@ -40,6 +40,7 @@ schemars = { workspace = true }
 serde = { workspace = true }
 serde-json-wasm = { workspace = true }
 lido-staking-base = { workspace = true }
+lido-helpers = { workspace = true }
 lido-puppeteer-base = { workspace = true }
 
 [dev-dependencies]

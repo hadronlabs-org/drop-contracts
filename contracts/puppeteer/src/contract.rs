@@ -10,7 +10,11 @@ use cosmwasm_std::{
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
-use lido_staking_base::helpers::answer::response;
+use lido_helpers::answer::response;
+use lido_staking_base::{
+    msg::puppeteer::{ExecuteMsg, InstantiateMsg, MigrateMsg},
+    state::puppeteer::Config,
+};
 use neutron_sdk::{
     bindings::{
         msg::{IbcFee, NeutronMsg},
@@ -32,14 +36,12 @@ use lido_puppeteer_base::{
 use prost::Message;
 
 use crate::{
-    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg},
     proto::cosmos::base::v1beta1::Coin as ProtoCoin,
     proto::liquidstaking::staking::v1beta1::{
         MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgDelegateResponse,
         MsgRedeemTokensforShares, MsgRedeemTokensforSharesResponse, MsgTokenizeShares,
         MsgTokenizeSharesResponse, MsgUndelegateResponse,
     },
-    state::Config,
 };
 
 pub type Puppeteer<'a> = PuppeteerBase<'a, Config>;

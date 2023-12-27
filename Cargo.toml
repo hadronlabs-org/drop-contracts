@@ -10,9 +10,11 @@ members = [
     "contracts/token",
     "contracts/validators-set",
     "contracts/strategy",
+    "contracts/hook-tester",
     "contracts/core",
     "packages/puppeteer-base",
     "packages/base",
+    "packages/helpers",
 ]
 
 resolver = "2"
@@ -45,6 +47,7 @@ bech32 = { version = "0.9.1" }
 
 lido-puppeteer-base = { path = "./packages/puppeteer-base", default-features = false }
 lido-staking-base = { path = "./packages/base", default-features = false }
+lido-helpers = { path = "./packages/helpers", default-features = false }
 thiserror = "1.0.50"
 
 [profile.release]

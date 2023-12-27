@@ -1,11 +1,8 @@
 [package]
-authors = [
-  "Sergey Ratiashvili <serg.s.r@gmail.com>",
-  "Albert Andrejev <albert.andrejev@gmail.com>",
-]
-description = "Contract to facilitate base interchain features with authz module usage"
+authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>"]
+description = "Contract to test puppeteer and hooks"
 edition = "2021"
-name = "lido-puppeteer-authz"
+name = "lido-hook-tester"
 version = "1.0.0"
 
 exclude = [
@@ -41,12 +38,12 @@ cw2 = { workspace = true }
 cw20 = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
+thiserror = { workspace = true }
 serde-json-wasm = { workspace = true }
-
-lido-puppeteer-base = { workspace = true }
 lido-staking-base = { workspace = true }
 lido-helpers = { workspace = true }
+lido-puppeteer-base = { workspace = true }
 
 [dev-dependencies]
-cosmwasm-storage = { version = "1.0" }
-cw-multi-test = "0.20.0"
+cosmwasm-storage = { workspace = true }
+cw-multi-test = { workspace = true }

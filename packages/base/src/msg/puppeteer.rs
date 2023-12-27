@@ -1,7 +1,12 @@
-use cosmwasm_schema::cw_serde;
+use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
 
-use lido_puppeteer_base::msg::ExecuteMsg as BaseExecuteMsg;
+use lido_puppeteer_base::{
+    msg::{DelegationsResponse, ExecuteMsg as BaseExecuteMsg},
+    state::{State, Transfer},
+};
+
+use crate::state::puppeteer::Config;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -83,3 +88,16 @@ impl ExecuteMsg {
 
 #[cw_serde]
 pub struct MigrateMsg {}
+
+#[cw_serde]
+#[derive(QueryResponses)]
+pub enum QueryMsg {
+    #[returns(Config)]
+    Config {},
+    #[returns(State)]
+    State {},
+    #[returns(Vec<Transfer>)]
+    InterchainTransactions {},
+    #[returns(DelegationsResponse)]
+    Delegations {},
+}

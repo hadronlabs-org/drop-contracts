@@ -2,7 +2,7 @@ use cosmwasm_std::{
     attr, ensure_eq, Coin as CosmosCoin, CosmosMsg, DepsMut, Env, MessageInfo, Response, StdError,
     StdResult, SubMsg, Uint128,
 };
-use lido_staking_base::helpers::answer::response;
+use lido_helpers::answer::response;
 use neutron_sdk::{
     bindings::{
         msg::{IbcFee, NeutronMsg},

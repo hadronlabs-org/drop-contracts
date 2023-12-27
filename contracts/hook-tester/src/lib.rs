@@ -1,2 +1,2 @@
 pub mod contract;
-pub mod proto;
+pub mod error;
