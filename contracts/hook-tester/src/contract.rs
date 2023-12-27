@@ -3,6 +3,7 @@ use cosmwasm_std::{
     WasmMsg,
 };
 use lido_helpers::answer::response;
+use lido_puppeteer_base::msg::ResponseHookMsg;
 use lido_staking_base::{
     msg::hook_tester::{ExecuteMsg, InstantiateMsg},
     state::hook_tester::{Config, CONFIG},
@@ -72,6 +73,21 @@ pub fn execute(
             denom,
             timeout,
         } => execute_redeem_share(deps, env, validator, amount, denom, timeout),
+        ExecuteMsg::PuppeteerHook(hook_msg) => match hook_msg {
+            ResponseHookMsg::Success(success_msg) => {
+                let attrs = vec![attr("action", "hook-success")];
+                deps.api.debug(&format!("success_msg: {:?}", success_msg));
+                Ok(response("hook-success", "hook-tester", attrs))
+            }
+            ResponseHookMsg::Error(error_msg) => {
+                let attrs = vec![
+                    attr("action", "hook-error"),
+                    attr("request_id", error_msg.request_id.to_string()),
+                ];
+                deps.api.debug(&format!("error_msg: {:?}", error_msg));
+                Ok(response("hook-error", "hook-tester", attrs))
+            }
+        },
     }
 }
 

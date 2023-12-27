@@ -29,7 +29,10 @@ use neutron_sdk::{
 
 use lido_puppeteer_base::{
     error::ContractResult,
-    msg::{QueryMsg, ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg, Transaction},
+    msg::{
+        PuppeteerHook, QueryMsg, ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg,
+        Transaction,
+    },
     state::{IcaState, PuppeteerBase, State, TxState, TxStateStatus, ICA_ID},
 };
 
@@ -528,12 +531,14 @@ fn sudo_response(
         };
         msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: reply_to.clone(),
-            msg: to_json_binary(&ResponseHookMsg::Success(ResponseHookSuccessMsg {
-                request_id: seq_id,
-                request: request.clone(),
-                transaction: transaction.clone(),
-                answer,
-            }))?,
+            msg: to_json_binary(&PuppeteerHook(ResponseHookMsg::Success(
+                ResponseHookSuccessMsg {
+                    request_id: seq_id,
+                    request: request.clone(),
+                    transaction: transaction.clone(),
+                    answer,
+                },
+            )))?,
             funds: vec![],
         }))
     }
@@ -580,11 +585,13 @@ fn sudo_error(
         contract_addr: tx_state
             .reply_to
             .ok_or_else(|| StdError::generic_err("reply_to not found"))?,
-        msg: to_json_binary(&ResponseHookMsg::Error(ResponseHookErrorMsg {
-            request_id: seq_id,
-            request,
-            details,
-        }))?,
+        msg: to_json_binary(&PuppeteerHook(ResponseHookMsg::Error(
+            ResponseHookErrorMsg {
+                request_id: seq_id,
+                request,
+                details,
+            },
+        )))?,
         funds: vec![],
     });
     puppeteer_base.tx_state.save(
@@ -609,6 +616,18 @@ fn sudo_timeout(
         attr("request_id", request.sequence.unwrap_or(0).to_string()),
     ];
     let puppeteer_base: PuppeteerBase<'_, Config> = Puppeteer::default();
+    let seq_id = request
+        .sequence
+        .ok_or_else(|| StdError::generic_err("sequence not found"))?;
+    let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
+    ensure_eq!(
+        tx_state.status,
+        TxStateStatus::InProgress,
+        NeutronError::Std(StdError::generic_err(
+            "Transaction state is not in progress",
+        ))
+    );
+    let puppeteer_base: PuppeteerBase<'_, Config> = Puppeteer::default();
     puppeteer_base.state.save(
         deps.storage,
         &State {
@@ -630,7 +649,21 @@ fn sudo_timeout(
         "WASMDEBUG: sudo_timeout: request: {request:?}",
         request = request
     ));
-    Ok(response("sudo-timeout", "puppeteer", attrs))
+    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: tx_state
+            .reply_to
+            .ok_or_else(|| StdError::generic_err("reply_to not found"))?,
+        msg: to_json_binary(&PuppeteerHook(ResponseHookMsg::Error(
+            ResponseHookErrorMsg {
+                request_id: seq_id,
+                request,
+                details: "Timeout".to_string(),
+            },
+        )))?,
+        funds: vec![],
+    });
+
+    Ok(response("sudo-timeout", "puppeteer", attrs).add_message(msg))
 }
 
 #[entry_point]

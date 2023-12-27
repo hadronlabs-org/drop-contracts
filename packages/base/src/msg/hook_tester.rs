@@ -1,5 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Uint128;
+use lido_puppeteer_base::msg::ResponseHookMsg;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -35,4 +36,5 @@ pub enum ExecuteMsg {
         denom: String,
         timeout: Option<u64>,
     },
+    PuppeteerHook(ResponseHookMsg),
 }

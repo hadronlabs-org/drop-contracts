@@ -47,6 +47,9 @@ pub enum QueryMsg {
 }
 
 #[cw_serde]
+pub struct PuppeteerHook(pub ResponseHookMsg);
+
+#[cw_serde]
 pub enum ResponseHookMsg {
     Success(ResponseHookSuccessMsg),
     Error(ResponseHookErrorMsg),
