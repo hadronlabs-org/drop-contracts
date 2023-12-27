@@ -8,7 +8,7 @@ name: tests
 jobs:
   clippy:
     name: Actions - clippy
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v1
         with:
@@ -24,7 +24,7 @@ jobs:
 
   rustfmt:
     name: Actions - rustfmt
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v1
         with:
@@ -39,10 +39,7 @@ jobs:
 
   unit-test:
     name: Actions - unit test
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v1
       - uses: actions-rs/toolchain@v1
@@ -56,10 +53,7 @@ jobs:
           RUST_BACKTRACE: 1
   integration-test:
     name: Actions - integration test
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
+    runs-on: self-hosted
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x /usr/local/bin/docker-compose
