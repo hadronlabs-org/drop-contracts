@@ -10,6 +10,7 @@ pub struct InstantiateMsg {
     pub update_period: u64,
     pub remote_denom: String,
     pub owner: String,
+    pub allowed_senders: Vec<String>,
 }
 
 #[cw_serde]

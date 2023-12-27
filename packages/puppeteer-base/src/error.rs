@@ -21,6 +21,9 @@ pub enum ContractError {
 
     #[error("ICA is already registered")]
     IcaAlreadyRegistered {},
+
+    #[error("Unauthorized")]
+    Unauthorized {},
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

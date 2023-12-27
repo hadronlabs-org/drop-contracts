@@ -74,7 +74,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Bin
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
@@ -115,7 +115,7 @@ pub fn execute(
         ExecuteMsg::RegisterDelegatorDelegationsQuery { validators } => {
             register_delegations_query(deps, validators)
         }
-        _ => puppeteer_base.execute(deps, env, msg.to_base_enum()),
+        _ => puppeteer_base.execute(deps, env, info, msg.to_base_enum()),
     }
 }
 

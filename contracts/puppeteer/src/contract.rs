@@ -5,7 +5,7 @@ use cosmos_sdk_proto::cosmos::{
     staking::v1beta1::{MsgDelegate, MsgUndelegate},
 };
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, to_json_binary, CosmosMsg, Deps, Reply, StdError, SubMsg,
+    attr, ensure_eq, entry_point, to_json_binary, Addr, CosmosMsg, Deps, Reply, StdError, SubMsg,
     Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
@@ -58,13 +58,18 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     let owner = deps.api.addr_validate(&msg.owner)?;
-
+    let allowed_senders = msg
+        .allowed_senders
+        .iter()
+        .map(|addr| deps.api.addr_validate(addr))
+        .collect::<StdResult<Vec<_>>>()?;
     let config = &Config {
         connection_id: msg.connection_id,
         port_id: msg.port_id,
         update_period: msg.update_period,
         remote_denom: msg.remote_denom,
         owner,
+        allowed_senders,
     };
 
     Puppeteer::default().instantiate(deps, config)
@@ -79,24 +84,23 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Bin
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
-
     match msg {
         ExecuteMsg::Delegate {
             validator,
             amount,
             timeout,
             reply_to,
-        } => execute_delegate(deps, env, validator, amount, timeout, reply_to),
+        } => execute_delegate(deps, info, validator, amount, timeout, reply_to),
         ExecuteMsg::Undelegate {
             validator,
             amount,
             timeout,
             reply_to,
-        } => execute_undelegate(deps, env, validator, amount, timeout, reply_to),
+        } => execute_undelegate(deps, info, validator, amount, timeout, reply_to),
         ExecuteMsg::Redelegate {
             validator_from,
             validator_to,
@@ -105,7 +109,7 @@ pub fn execute(
             reply_to,
         } => execute_redelegate(
             deps,
-            env,
+            info,
             validator_from,
             validator_to,
             amount,
@@ -117,18 +121,18 @@ pub fn execute(
             amount,
             timeout,
             reply_to,
-        } => execute_tokenize_share(deps, env, validator, amount, timeout, reply_to),
+        } => execute_tokenize_share(deps, info, validator, amount, timeout, reply_to),
         ExecuteMsg::RedeemShare {
             validator,
             amount,
             denom,
             timeout,
             reply_to,
-        } => execute_redeem_share(deps, env, validator, amount, denom, timeout, reply_to),
+        } => execute_redeem_share(deps, info, validator, amount, denom, timeout, reply_to),
         ExecuteMsg::RegisterDelegatorDelegationsQuery { validators } => {
             register_delegations_query(deps, validators)
         }
-        _ => puppeteer_base.execute(deps, env, msg.to_base_enum()),
+        _ => puppeteer_base.execute(deps, env, info, msg.to_base_enum()),
     }
 }
 
@@ -150,7 +154,7 @@ fn register_delegations_query(
 
 fn execute_delegate(
     mut deps: DepsMut<NeutronQuery>,
-    _env: Env,
+    info: MessageInfo,
     validator: String,
     amount: Uint128,
     timeout: Option<u64>,
@@ -159,6 +163,7 @@ fn execute_delegate(
     let puppeteer_base = Puppeteer::default();
     deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
+    validate_sender(&config, &info.sender)?;
     let delegator = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
     let delegate_msg = MsgDelegate {
         delegator_address: delegator,
@@ -189,7 +194,7 @@ fn execute_delegate(
 
 fn execute_undelegate(
     mut deps: DepsMut<NeutronQuery>,
-    _env: Env,
+    info: MessageInfo,
     validator: String,
     amount: Uint128,
     timeout: Option<u64>,
@@ -198,6 +203,7 @@ fn execute_undelegate(
     let puppeteer_base = Puppeteer::default();
     deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
+    validate_sender(&config, &info.sender)?;
     let delegator = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
 
     let undelegate_msg = MsgUndelegate {
@@ -229,7 +235,7 @@ fn execute_undelegate(
 
 fn execute_redelegate(
     mut deps: DepsMut<NeutronQuery>,
-    _env: Env,
+    info: MessageInfo,
     validator_from: String,
     validator_to: String,
     amount: Uint128,
@@ -239,6 +245,7 @@ fn execute_redelegate(
     let puppeteer_base = Puppeteer::default();
     deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
+    validate_sender(&config, &info.sender)?;
     let delegator = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
     let redelegate_msg = MsgBeginRedelegate {
         delegator_address: delegator,
@@ -271,7 +278,7 @@ fn execute_redelegate(
 
 fn execute_tokenize_share(
     mut deps: DepsMut<NeutronQuery>,
-    _env: Env,
+    info: MessageInfo,
     validator: String,
     amount: Uint128,
     timeout: Option<u64>,
@@ -280,6 +287,7 @@ fn execute_tokenize_share(
     let puppeteer_base = Puppeteer::default();
     deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
+    validate_sender(&config, &info.sender)?;
     let delegator = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
     let tokenize_msg = MsgTokenizeShares {
         delegator_address: delegator.clone(),
@@ -310,7 +318,7 @@ fn execute_tokenize_share(
 
 fn execute_redeem_share(
     mut deps: DepsMut<NeutronQuery>,
-    _env: Env,
+    info: MessageInfo,
     validator: String,
     amount: Uint128,
     denom: String,
@@ -326,6 +334,7 @@ fn execute_redeem_share(
     let puppeteer_base = Puppeteer::default();
     deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
+    validate_sender(&config, &info.sender)?;
     let delegator = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
     let redeem_msg = MsgRedeemTokensforShares {
         delegator_address: delegator,
@@ -631,4 +640,12 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
 pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     deps.api.debug("WASMDEBUG: migrate");
     Ok(Response::default())
+}
+
+fn validate_sender(config: &Config, sender: &Addr) -> StdResult<()> {
+    if config.allowed_senders.contains(sender) {
+        Ok(())
+    } else {
+        Err(StdError::generic_err("Sender is not allowed"))
+    }
 }

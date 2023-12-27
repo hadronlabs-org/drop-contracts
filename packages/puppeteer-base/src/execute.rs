@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    attr, Coin as CosmosCoin, CosmosMsg, DepsMut, Env, Response, StdError, StdResult, SubMsg,
-    Uint128,
+    attr, ensure_eq, Coin as CosmosCoin, CosmosMsg, DepsMut, Env, MessageInfo, Response, StdError,
+    StdResult, SubMsg, Uint128,
 };
 use lido_staking_base::helpers::answer::response;
 use neutron_sdk::{
@@ -41,6 +41,7 @@ where
         &self,
         deps: DepsMut<NeutronQuery>,
         env: Env,
+        info: MessageInfo,
         msg: ExecuteMsg,
     ) -> ContractResult<Response<NeutronMsg>> {
         match msg {
@@ -51,7 +52,7 @@ where
                 ack_fee,
                 timeout_fee,
                 register_fee,
-            } => self.execute_set_fees(deps, recv_fee, ack_fee, timeout_fee, register_fee),
+            } => self.execute_set_fees(deps, info, recv_fee, ack_fee, timeout_fee, register_fee),
         }
     }
 
@@ -132,11 +133,18 @@ where
     fn execute_set_fees(
         &self,
         deps: DepsMut<NeutronQuery>,
+        info: MessageInfo,
         recv_fee: Uint128,
         ack_fee: Uint128,
         timeout_fee: Uint128,
         register_fee: Uint128,
     ) -> ContractResult<Response<NeutronMsg>> {
+        let config = self.config.load(deps.storage)?;
+        ensure_eq!(
+            config.owner(),
+            info.sender.as_str(),
+            ContractError::Unauthorized {}
+        );
         // TODO: Change LOCAL_DENOM to configurable value
         let fees = IbcFee {
             recv_fee: vec![CosmosCoin {

@@ -13,6 +13,7 @@ pub struct Config {
     pub update_period: u64,
     pub remote_denom: String,
     pub owner: Addr,
+    pub allowed_senders: Vec<Addr>,
 }
 
 impl BaseConfig for Config {
