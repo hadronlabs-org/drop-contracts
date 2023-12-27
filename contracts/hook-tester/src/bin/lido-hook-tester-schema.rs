@@ -1,14 +1,10 @@
 use cosmwasm_schema::write_api;
 
-use lido_hook_tester::{
-    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg},
-    state::QueryMsg,
-};
+use lido_staking_base::msg::hook_tester::{ExecuteMsg, InstantiateMsg, MigrateMsg};
 
 fn main() {
     write_api! {
         instantiate: InstantiateMsg,
-        query: QueryMsg,
         execute: ExecuteMsg,
         migrate: MigrateMsg
     }

@@ -1,2 +1,2 @@
 [alias]
-schema = "run --bin lido-hook-tester-shema"
+schema = "run --bin lido-hook-tester-schema"

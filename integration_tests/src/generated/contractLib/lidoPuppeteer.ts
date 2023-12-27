@@ -1,6 +1,7 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
 export interface InstantiateMsg {
+  allowed_senders: string[];
   connection_id: string;
   owner: string;
   port_id: string;
@@ -31,60 +32,11 @@ export type Addr = string;
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type Transaction =
-  | {
-      delegate: {
-        amount: number;
-        denom: string;
-        interchain_account_id: string;
-        validator: string;
-      };
-    }
-  | {
-      undelegate: {
-        amount: number;
-        denom: string;
-        interchain_account_id: string;
-        validator: string;
-      };
-    }
-  | {
-      redelegate: {
-        amount: number;
-        denom: string;
-        interchain_account_id: string;
-        validator_from: string;
-        validator_to: string;
-      };
-    }
-  | {
-      withdraw_reward: {
-        interchain_account_id: string;
-        validator: string;
-      };
-    }
-  | {
-      tokenize_share: {
-        amount: number;
-        denom: string;
-        interchain_account_id: string;
-        validator: string;
-      };
-    }
-  | {
-      redeem_share: {
-        amount: number;
-        denom: string;
-        interchain_account_id: string;
-        validator: string;
-      };
-    };
-export type ArrayOfTransaction = Transaction[];
-export type IcaState = "none" | "in_progress" | "registered";
 export type ArrayOfTransfer = Transfer[];
+export type IcaState = "none" | "in_progress" | "registered" | "timeout";
 
 export interface LidoPuppeteerSchema {
-  responses: Config | DelegationsResponse | ArrayOfTransaction | State | ArrayOfTransfer;
+  responses: Config | DelegationsResponse | ArrayOfTransfer | State;
   execute:
     | RegisterDelegatorDelegationsQueryArgs
     | SetFeesArgs
@@ -96,6 +48,7 @@ export interface LidoPuppeteerSchema {
   [k: string]: unknown;
 }
 export interface Config {
+  allowed_senders: Addr[];
   connection_id: string;
   owner: Addr;
   port_id: string;
@@ -128,16 +81,16 @@ export interface Coin {
   denom: string;
   [k: string]: unknown;
 }
-export interface State {
-  ica?: string | null;
-  ica_state: IcaState;
-  last_processed_height?: number | null;
-}
 export interface Transfer {
   amount: string;
   denom: string;
   recipient: string;
   sender: string;
+}
+export interface State {
+  ica?: string | null;
+  ica_state: IcaState;
+  last_processed_height?: number | null;
 }
 export interface RegisterDelegatorDelegationsQueryArgs {
   validators: string[];
@@ -150,28 +103,33 @@ export interface SetFeesArgs {
 }
 export interface DelegateArgs {
   amount: Uint128;
+  reply_to: string;
   timeout?: number | null;
   validator: string;
 }
 export interface UndelegateArgs {
   amount: Uint128;
+  reply_to: string;
   timeout?: number | null;
   validator: string;
 }
 export interface RedelegateArgs {
   amount: Uint128;
+  reply_to: string;
   timeout?: number | null;
   validator_from: string;
   validator_to: string;
 }
 export interface TokenizeShareArgs {
   amount: Uint128;
+  reply_to: string;
   timeout?: number | null;
   validator: string;
 }
 export interface RedeemShareArgs {
   amount: Uint128;
   denom: string;
+  reply_to: string;
   timeout?: number | null;
   validator: string;
 }
@@ -213,10 +171,7 @@ export class Client {
   queryState = async(): Promise<State> => {
     return this.client.queryContractSmart(this.contractAddress, { state: {} });
   }
-  queryTransactions = async(): Promise<ArrayOfTransfer> => {
-    return this.client.queryContractSmart(this.contractAddress, { transactions: {} });
-  }
-  queryInterchainTransactions = async(): Promise<ArrayOfTransaction> => {
+  queryInterchainTransactions = async(): Promise<ArrayOfTransfer> => {
     return this.client.queryContractSmart(this.contractAddress, { interchain_transactions: {} });
   }
   queryDelegations = async(): Promise<DelegationsResponse> => {

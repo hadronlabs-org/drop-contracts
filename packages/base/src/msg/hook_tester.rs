@@ -38,3 +38,6 @@ pub enum ExecuteMsg {
     },
     PuppeteerHook(ResponseHookMsg),
 }
+
+#[cw_serde]
+pub struct MigrateMsg {}
