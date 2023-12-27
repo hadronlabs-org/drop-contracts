@@ -68,6 +68,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v3
         with:
+          node-version: '18.16.1'
           cache: 'yarn'
           cache-dependency-path: integration_tests/yarn.lock
       - name: Lint
