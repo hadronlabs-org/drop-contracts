@@ -80,7 +80,7 @@ pub fn execute(
             denom,
             timeout,
         } => execute_redeem_share(deps, env, validator, amount, denom, timeout),
-        ExecuteMsg::PuppeteerHook(hook_msg) => match hook_msg {
+        ExecuteMsg::PuppeteerHook(hook_msg) => match *hook_msg {
             ResponseHookMsg::Success(success_msg) => hook_success(deps, env, info, success_msg),
             ResponseHookMsg::Error(error_msg) => hook_error(deps, env, info, error_msg),
         },

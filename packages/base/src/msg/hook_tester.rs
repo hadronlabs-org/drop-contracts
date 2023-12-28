@@ -38,7 +38,7 @@ pub enum ExecuteMsg {
         denom: String,
         timeout: Option<u64>,
     },
-    PuppeteerHook(ResponseHookMsg),
+    PuppeteerHook(Box<ResponseHookMsg>),
 }
 
 #[cw_serde]
