@@ -6,7 +6,7 @@ use lido_helpers::answer::response;
 use lido_puppeteer_base::msg::{ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg};
 use lido_staking_base::{
     msg::hook_tester::{ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::hook_tester::{Config, ANSWERS, CONFIG, ERRORS},
+    state::hook_tester::{ANSWERS, CONFIG, ERRORS},
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -20,18 +20,9 @@ pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    msg: InstantiateMsg,
+    _msg: InstantiateMsg,
 ) -> NeutronResult<Response> {
-    let attrs = vec![
-        attr("action", "instantiate"),
-        attr("puppeteer_addr", &msg.puppeteer_addr),
-    ];
-    CONFIG.save(
-        deps.storage,
-        &Config {
-            puppeteer_addr: msg.puppeteer_addr,
-        },
-    )?;
+    let attrs = vec![attr("action", "instantiate")];
     ERRORS.save(deps.storage, &vec![])?;
     ANSWERS.save(deps.storage, &vec![])?;
     Ok(response("instantiate", "hook-tester", attrs))
@@ -53,6 +44,9 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
+        ExecuteMsg::SetConfig { puppeteer_addr } => {
+            execute_set_config(deps, env, info, puppeteer_addr)
+        }
         ExecuteMsg::Delegate {
             validator,
             amount,
@@ -113,6 +107,20 @@ fn hook_error(
         Ok(errors)
     })?;
     Ok(response("hook-success", "hook-tester", attrs))
+}
+
+fn execute_set_config(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _info: MessageInfo,
+    puppeteer_addr: String,
+) -> ContractResult<Response<NeutronMsg>> {
+    let attrs = vec![attr("action", "set-config")];
+    CONFIG.update(deps.storage, |mut config| -> ContractResult<_> {
+        config.puppeteer_addr = puppeteer_addr;
+        Ok(config)
+    })?;
+    Ok(response("set-config", "hook-tester", attrs))
 }
 
 fn execute_delegate(

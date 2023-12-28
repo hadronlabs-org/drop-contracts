@@ -1,8 +1,6 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
-export interface InstantiateMsg {
-  puppeteer_addr: string;
-}
+export interface InstantiateMsg {}
 export type ResponseAnswer =
   | {
       delegate_response: MsgDelegateResponse;
@@ -98,7 +96,7 @@ export type ArrayOfResponseHookErrorMsg = ResponseHookErrorMsg[];
 
 export interface LidoHookTesterSchema {
   responses: ArrayOfResponseHookSuccessMsg | ArrayOfResponseHookErrorMsg;
-  execute: DelegateArgs | UndelegateArgs | RedelegateArgs | TokenizeShareArgs | RedeemShareArgs;
+  execute: SetConfigArgs | DelegateArgs | UndelegateArgs | RedelegateArgs | TokenizeShareArgs | RedeemShareArgs;
   [k: string]: unknown;
 }
 export interface ResponseHookSuccessMsg {
@@ -152,6 +150,9 @@ export interface ResponseHookErrorMsg {
   details: string;
   request: RequestPacket;
   request_id: number;
+}
+export interface SetConfigArgs {
+  puppeteer_addr: string;
 }
 export interface DelegateArgs {
   amount: Uint128;
@@ -217,6 +218,10 @@ export class Client {
   }
   queryErrors = async(): Promise<ArrayOfResponseHookErrorMsg> => {
     return this.client.queryContractSmart(this.contractAddress, { errors: {} });
+  }
+  setConfig = async(sender:string, args: SetConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { set_config: args }, fee || "auto", memo, funds);
   }
   delegate = async(sender:string, args: DelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

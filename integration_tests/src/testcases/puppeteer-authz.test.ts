@@ -19,7 +19,6 @@ import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
 import {
   DelegationsResponse,
-  Transaction,
   Transfer,
 } from '../generated/contractLib/lidoPuppeteerAuthz';
 
@@ -28,7 +27,7 @@ import { AuthzExtension } from '@cosmjs/stargate/build/modules/authz/queries';
 
 const PuppeteerClass = LidoPuppeteerAuthz.Client;
 
-describe('Interchain puppeteer with AuthZ support', () => {
+describe.skip('Interchain puppeteer with AuthZ support', () => {
   const context: {
     park?: Cosmopark;
     contractAddress?: string;

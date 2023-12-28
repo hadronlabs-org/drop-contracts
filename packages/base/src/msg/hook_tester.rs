@@ -5,12 +5,13 @@ use lido_puppeteer_base::msg::ResponseHookMsg;
 use lido_puppeteer_base::msg::ResponseHookSuccessMsg;
 
 #[cw_serde]
-pub struct InstantiateMsg {
-    pub puppeteer_addr: String,
-}
+pub struct InstantiateMsg {}
 
 #[cw_serde]
 pub enum ExecuteMsg {
+    SetConfig {
+        puppeteer_addr: String,
+    },
     Delegate {
         validator: String,
         amount: Uint128,
