@@ -1,12 +1,12 @@
 use cosmwasm_std::{
-    attr, entry_point, to_json_binary, CosmosMsg, DepsMut, Env, MessageInfo, Response, Uint128,
-    WasmMsg,
+    attr, entry_point, to_json_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
+    Response, StdResult, Uint128, WasmMsg,
 };
 use lido_helpers::answer::response;
-use lido_puppeteer_base::msg::ResponseHookMsg;
+use lido_puppeteer_base::msg::{ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg};
 use lido_staking_base::{
-    msg::hook_tester::{ExecuteMsg, InstantiateMsg},
-    state::hook_tester::{Config, CONFIG},
+    msg::hook_tester::{ExecuteMsg, InstantiateMsg, QueryMsg},
+    state::hook_tester::{Config, ANSWERS, CONFIG, ERRORS},
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -32,17 +32,24 @@ pub fn instantiate(
             puppeteer_addr: msg.puppeteer_addr,
         },
     )?;
+    ERRORS.save(deps.storage, &vec![])?;
+    ANSWERS.save(deps.storage, &vec![])?;
     Ok(response("instantiate", "hook-tester", attrs))
 }
 
-// #[cfg_attr(not(feature = "library"), entry_point)]
-// pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Binary> {}
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    match msg {
+        QueryMsg::Answers {} => to_json_binary(&ANSWERS.load(deps.storage)?),
+        QueryMsg::Errors {} => to_json_binary(&ERRORS.load(deps.storage)?),
+    }
+}
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
@@ -74,21 +81,38 @@ pub fn execute(
             timeout,
         } => execute_redeem_share(deps, env, validator, amount, denom, timeout),
         ExecuteMsg::PuppeteerHook(hook_msg) => match hook_msg {
-            ResponseHookMsg::Success(success_msg) => {
-                let attrs = vec![attr("action", "hook-success")];
-                deps.api.debug(&format!("success_msg: {:?}", success_msg));
-                Ok(response("hook-success", "hook-tester", attrs))
-            }
-            ResponseHookMsg::Error(error_msg) => {
-                let attrs = vec![
-                    attr("action", "hook-error"),
-                    attr("request_id", error_msg.request_id.to_string()),
-                ];
-                deps.api.debug(&format!("error_msg: {:?}", error_msg));
-                Ok(response("hook-error", "hook-tester", attrs))
-            }
+            ResponseHookMsg::Success(success_msg) => hook_success(deps, env, info, success_msg),
+            ResponseHookMsg::Error(error_msg) => hook_error(deps, env, info, error_msg),
         },
     }
+}
+
+fn hook_success(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _info: MessageInfo,
+    answer: ResponseHookSuccessMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let attrs = vec![attr("action", "hook-success")];
+    ANSWERS.update(deps.storage, |mut answers| -> ContractResult<_> {
+        answers.push(answer);
+        Ok(answers)
+    })?;
+    Ok(response("hook-success", "hook-tester", attrs))
+}
+
+fn hook_error(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _info: MessageInfo,
+    answer: ResponseHookErrorMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let attrs = vec![attr("action", "hook-success")];
+    ERRORS.update(deps.storage, |mut errors| -> ContractResult<_> {
+        errors.push(answer);
+        Ok(errors)
+    })?;
+    Ok(response("hook-success", "hook-tester", attrs))
 }
 
 fn execute_delegate(

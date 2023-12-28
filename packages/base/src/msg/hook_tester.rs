@@ -1,6 +1,8 @@
-use cosmwasm_schema::cw_serde;
+use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
+use lido_puppeteer_base::msg::ResponseHookErrorMsg;
 use lido_puppeteer_base::msg::ResponseHookMsg;
+use lido_puppeteer_base::msg::ResponseHookSuccessMsg;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -37,6 +39,15 @@ pub enum ExecuteMsg {
         timeout: Option<u64>,
     },
     PuppeteerHook(ResponseHookMsg),
+}
+
+#[cw_serde]
+#[derive(QueryResponses)]
+pub enum QueryMsg {
+    #[returns(Vec<ResponseHookSuccessMsg>)]
+    Answers {},
+    #[returns(Vec<ResponseHookErrorMsg>)]
+    Errors {},
 }
 
 #[cw_serde]

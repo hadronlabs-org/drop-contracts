@@ -3,6 +3,28 @@ import { StdFee } from "@cosmjs/amino";
 export interface InstantiateMsg {
   puppeteer_addr: string;
 }
+export type ResponseAnswer =
+  | {
+      delegate_response: MsgDelegateResponse;
+    }
+  | {
+      undelegate_response: MsgUndelegateResponse;
+    }
+  | {
+      begin_redelegate_response: MsgBeginRedelegateResponse;
+    }
+  | {
+      tokenize_shares_response: MsgTokenizeSharesResponse;
+    }
+  | {
+      redeem_tokensfor_shares_response: MsgRedeemTokensforSharesResponse;
+    }
+  | {
+      authz_exec_response: MsgExecResponse;
+    }
+  | {
+      unknown_response: {};
+    };
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -17,10 +39,119 @@ export interface InstantiateMsg {
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
+/**
+ * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
+ *
+ * This is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.
+ */
+export type Binary = string;
+export type Transaction =
+  | {
+      delegate: {
+        amount: number;
+        denom: string;
+        interchain_account_id: string;
+        validator: string;
+      };
+    }
+  | {
+      undelegate: {
+        amount: number;
+        denom: string;
+        interchain_account_id: string;
+        validator: string;
+      };
+    }
+  | {
+      redelegate: {
+        amount: number;
+        denom: string;
+        interchain_account_id: string;
+        validator_from: string;
+        validator_to: string;
+      };
+    }
+  | {
+      withdraw_reward: {
+        interchain_account_id: string;
+        validator: string;
+      };
+    }
+  | {
+      tokenize_share: {
+        amount: number;
+        denom: string;
+        interchain_account_id: string;
+        validator: string;
+      };
+    }
+  | {
+      redeem_share: {
+        amount: number;
+        denom: string;
+        interchain_account_id: string;
+        validator: string;
+      };
+    };
+export type ArrayOfResponseHookSuccessMsg = ResponseHookSuccessMsg[];
+export type ArrayOfResponseHookErrorMsg = ResponseHookErrorMsg[];
 
 export interface LidoHookTesterSchema {
+  responses: ArrayOfResponseHookSuccessMsg | ArrayOfResponseHookErrorMsg;
   execute: DelegateArgs | UndelegateArgs | RedelegateArgs | TokenizeShareArgs | RedeemShareArgs;
   [k: string]: unknown;
+}
+export interface ResponseHookSuccessMsg {
+  answer: ResponseAnswer;
+  request: RequestPacket;
+  request_id: number;
+  transaction: Transaction;
+}
+export interface MsgDelegateResponse {}
+export interface MsgUndelegateResponse {
+  completion_time?: Timestamp | null;
+}
+export interface Timestamp {
+  nanos: number;
+  seconds: number;
+}
+export interface MsgBeginRedelegateResponse {
+  completion_time?: Timestamp | null;
+}
+export interface MsgTokenizeSharesResponse {
+  amount?: Coin | null;
+}
+export interface Coin {
+  amount: Uint128;
+  denom: string;
+  [k: string]: unknown;
+}
+export interface MsgRedeemTokensforSharesResponse {
+  amount?: Coin | null;
+}
+export interface MsgExecResponse {
+  results: number[][];
+}
+export interface RequestPacket {
+  data?: Binary | null;
+  destination_channel?: string | null;
+  destination_port?: string | null;
+  sequence?: number | null;
+  source_channel?: string | null;
+  source_port?: string | null;
+  timeout_height?: RequestPacketTimeoutHeight | null;
+  timeout_timestamp?: number | null;
+  [k: string]: unknown;
+}
+export interface RequestPacketTimeoutHeight {
+  revision_height?: number | null;
+  revision_number?: number | null;
+  [k: string]: unknown;
+}
+export interface ResponseHookErrorMsg {
+  details: string;
+  request: RequestPacket;
+  request_id: number;
 }
 export interface DelegateArgs {
   amount: Uint128;
@@ -80,6 +211,12 @@ export class Client {
       ...(initCoins && initCoins.length && { funds: initCoins }),
     });
     return res;
+  }
+  queryAnswers = async(): Promise<ArrayOfResponseHookSuccessMsg> => {
+    return this.client.queryContractSmart(this.contractAddress, { answers: {} });
+  }
+  queryErrors = async(): Promise<ArrayOfResponseHookErrorMsg> => {
+    return this.client.queryContractSmart(this.contractAddress, { errors: {} });
   }
   delegate = async(sender:string, args: DelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
