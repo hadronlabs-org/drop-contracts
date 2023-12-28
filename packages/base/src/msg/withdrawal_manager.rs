@@ -1,8 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cw721::Cw721ReceiveMsg;
 
-use crate::state::withdrawal_manager::Config;
-
 #[cw_serde]
 pub struct InstantiateMsg {
     pub core_contract: String,
@@ -14,7 +12,7 @@ pub struct InstantiateMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(Config)]
+    #[returns(crate::state::withdrawal_manager::Config)]
     Config {},
 }
 

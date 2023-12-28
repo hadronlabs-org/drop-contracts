@@ -31,7 +31,6 @@ cosmos-sdk-proto = { workspace = true }
 neutron-sdk = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
-protobuf = { workspace = true }
 tendermint-proto = { workspace = true }
 
 cosmwasm-schema = { workspace = true }

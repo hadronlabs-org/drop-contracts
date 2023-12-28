@@ -1,8 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
 
-use super::distribution::IdealDelegation;
-
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig {
@@ -19,9 +17,9 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     #[returns(ConfigResponse)]
     Config {},
-    #[returns(Vec<IdealDelegation>)]
+    #[returns(Vec<super::distribution::IdealDelegation>)]
     CalcDeposit { deposit: Uint128 },
-    #[returns(Vec<IdealDelegation>)]
+    #[returns(Vec<super::distribution::IdealDelegation>)]
     CalcWithdraw { withdraw: Uint128 },
 }
 

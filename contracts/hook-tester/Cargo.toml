@@ -26,7 +26,6 @@ library = []
 cosmos-sdk-proto = { workspace = true }
 neutron-sdk = { workspace = true }
 prost = { workspace = true }
-protobuf = { workspace = true }
 
 cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }

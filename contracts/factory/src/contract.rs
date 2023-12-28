@@ -58,6 +58,7 @@ pub fn instantiate(
             remote_opts: msg.remote_opts,
             owner: info.sender.to_string(),
             subdenom: msg.subdenom.to_string(),
+            token_metadata: msg.token_metadata,
         },
     )?;
 
@@ -302,6 +303,8 @@ fn execute_init(
             msg: to_json_binary(&TokenInstantiateMsg {
                 core_address: core_contract.to_string(),
                 subdenom: config.subdenom,
+                token_metadata: config.token_metadata,
+                owner: env.contract.address.to_string(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),

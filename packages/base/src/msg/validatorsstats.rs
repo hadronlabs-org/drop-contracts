@@ -1,7 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 
-use crate::state::validatorsstats::{Config, ValidatorState};
-
 #[cw_serde]
 pub struct InstantiateMsg {
     pub connection_id: String,
@@ -20,9 +18,9 @@ pub enum ExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(Config)]
+    #[returns(crate::state::validatorsstats::Config)]
     Config {},
-    #[returns(Vec<ValidatorState>)]
+    #[returns(Vec<crate::state::validatorsstats::ValidatorState>)]
     State {},
 }
 

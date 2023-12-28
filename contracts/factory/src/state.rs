@@ -1,5 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cw_storage_plus::Item;
+use lido_staking_base::msg::token::DenomMetadata;
 
 #[cw_serde]
 pub struct CodeIds {
@@ -29,6 +30,7 @@ pub struct Config {
     pub owner: String,
     pub salt: String,
     pub subdenom: String,
+    pub token_metadata: DenomMetadata,
 }
 
 #[cw_serde]
