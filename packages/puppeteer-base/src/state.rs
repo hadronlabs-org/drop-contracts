@@ -12,7 +12,7 @@ where
 {
     pub config: Item<'a, T>,
     pub state: Item<'a, State>,
-    pub recipient_txs: Item<'a, Vec<Transfer>>,
+    pub recipient_transfers: Item<'a, Vec<Transfer>>,
     pub delegations: Item<'a, (Vec<Delegation>, u64)>,
     pub tx_state: Item<'a, TxState>,
     pub ibc_fee: Item<'a, IbcFee>,
@@ -36,7 +36,7 @@ where
         Self {
             config: Item::new("config"),
             state: Item::new("state"),
-            recipient_txs: Item::new("txs"),
+            recipient_transfers: Item::new("transfers"),
             delegations: Item::new("delegations"),
             tx_state: Item::new("sudo_payload"),
             ibc_fee: Item::new("ibc_fee"),

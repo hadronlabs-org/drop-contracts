@@ -30,8 +30,8 @@ use neutron_sdk::{
 use lido_puppeteer_base::{
     error::ContractResult,
     msg::{
-        PuppeteerHook, QueryMsg, ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg,
-        Transaction,
+        QueryMsg, ReceiverExecuteMsg, ResponseHookErrorMsg, ResponseHookMsg,
+        ResponseHookSuccessMsg, Transaction,
     },
     state::{IcaState, PuppeteerBase, State, TxState, TxStateStatus, ICA_ID},
 };
@@ -61,7 +61,6 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> NeutronResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-
     let owner = deps.api.addr_validate(&msg.owner)?;
     let allowed_senders = msg
         .allowed_senders
@@ -178,6 +177,10 @@ fn execute_delegate(
             amount: amount.to_string(),
         }),
     };
+    deps.api.debug(&format!(
+        "WASMDEBUG: execute_delegate: delegate_msg: {delegate_msg:?}",
+        delegate_msg = delegate_msg
+    ));
 
     let submsg = compose_submsg(
         deps.branch(),
@@ -445,6 +448,7 @@ fn sudo_response(
     request: RequestPacket,
     data: Binary,
 ) -> NeutronResult<Response> {
+    deps.api.debug(&format!("WASMDEBUG: sudo response"));
     let attrs = vec![
         attr("action", "sudo_response"),
         attr("request_id", request.sequence.unwrap_or(0).to_string()),
@@ -454,15 +458,20 @@ fn sudo_response(
         .sequence
         .ok_or_else(|| StdError::generic_err("sequence not found"))?;
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
-    if tx_state.status != TxStateStatus::InProgress {
-        return Err(NeutronError::Std(StdError::generic_err(
-            "Transaction state is not in progress",
-        )));
-    }
+    deps.api
+        .debug(&format!("WASMDEBUG: tx_state {:?}", tx_state));
+    ensure_eq!(
+        tx_state.status,
+        TxStateStatus::WaitingForAck,
+        NeutronError::Std(StdError::generic_err(
+            "Transaction state is not waiting for ack",
+        ))
+    );
+    deps.api.debug(&format!("WASMDEBUG: sudo response 5"));
     let reply_to = tx_state
         .reply_to
         .ok_or_else(|| StdError::generic_err("reply_to not found"))?;
-
+    deps.api.debug(&format!("WASMDEBUG: sudo response 6"));
     let transaction = tx_state
         .transaction
         .ok_or_else(|| StdError::generic_err("transaction not found"))?;
@@ -475,7 +484,6 @@ fn sudo_response(
             reply_to: None,
         },
     )?;
-
     let msg_data: TxMsgData = TxMsgData::decode(data.as_slice())?;
     deps.api
         .debug(&format!("WASMDEBUG: msg_data: data: {msg_data:?}"));
@@ -529,16 +537,31 @@ fn sudo_response(
                 lido_puppeteer_base::msg::ResponseAnswer::UnknownResponse {}
             }
         };
+        deps.api.debug(&format!(
+            "WASMDEBUG: sudo_response: answer: {answer:?}",
+            answer = answer
+        ));
+        deps.api.debug(&format!(
+            "WASMDEBUG: json: {request:?}",
+            request = to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
+                ResponseHookMsg::Success(ResponseHookSuccessMsg {
+                    request_id: seq_id,
+                    request: request.clone(),
+                    transaction: transaction.clone(),
+                    answer: answer.clone(),
+                },)
+            ))?
+        ));
         msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: reply_to.clone(),
-            msg: to_json_binary(&PuppeteerHook(ResponseHookMsg::Success(
-                ResponseHookSuccessMsg {
+            msg: to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
+                ResponseHookMsg::Success(ResponseHookSuccessMsg {
                     request_id: seq_id,
                     request: request.clone(),
                     transaction: transaction.clone(),
                     answer,
-                },
-            )))?,
+                }),
+            ))?,
             funds: vec![],
         }))
     }
@@ -572,9 +595,9 @@ fn sudo_error(
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
     ensure_eq!(
         tx_state.status,
-        TxStateStatus::InProgress,
+        TxStateStatus::WaitingForAck,
         NeutronError::Std(StdError::generic_err(
-            "Transaction state is not in progress",
+            "Transaction state is not waiting for ack",
         ))
     );
     let seq_id = request
@@ -585,7 +608,7 @@ fn sudo_error(
         contract_addr: tx_state
             .reply_to
             .ok_or_else(|| StdError::generic_err("reply_to not found"))?,
-        msg: to_json_binary(&PuppeteerHook(ResponseHookMsg::Error(
+        msg: to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(ResponseHookMsg::Error(
             ResponseHookErrorMsg {
                 request_id: seq_id,
                 request,
@@ -622,9 +645,9 @@ fn sudo_timeout(
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
     ensure_eq!(
         tx_state.status,
-        TxStateStatus::InProgress,
+        TxStateStatus::WaitingForAck,
         NeutronError::Std(StdError::generic_err(
-            "Transaction state is not in progress",
+            "Transaction state is not waiting for ack",
         ))
     );
     let puppeteer_base: PuppeteerBase<'_, Config> = Puppeteer::default();
@@ -653,7 +676,7 @@ fn sudo_timeout(
         contract_addr: tx_state
             .reply_to
             .ok_or_else(|| StdError::generic_err("reply_to not found"))?,
-        msg: to_json_binary(&PuppeteerHook(ResponseHookMsg::Error(
+        msg: to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(ResponseHookMsg::Error(
             ResponseHookErrorMsg {
                 request_id: seq_id,
                 request,

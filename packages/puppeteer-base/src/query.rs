@@ -40,7 +40,7 @@ where
     }
 
     fn query_transactions(&self, deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
-        let transactions: Vec<Transfer> = self.recipient_txs.load(deps.storage)?;
-        to_json_binary(&transactions)
+        let transfers: Vec<Transfer> = self.recipient_transfers.load(deps.storage)?;
+        to_json_binary(&transfers)
     }
 }

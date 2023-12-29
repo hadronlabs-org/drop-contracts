@@ -32,11 +32,11 @@ export type Addr = string;
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type ArrayOfTransfer = Transfer[];
 export type IcaState = "none" | "in_progress" | "registered" | "timeout";
+export type ArrayOfTransfer = Transfer[];
 
 export interface LidoPuppeteerSchema {
-  responses: Config | DelegationsResponse | ArrayOfTransfer | State;
+  responses: Config | DelegationsResponse | State | ArrayOfTransfer;
   execute:
     | RegisterDelegatorDelegationsQueryArgs
     | SetFeesArgs
@@ -81,16 +81,16 @@ export interface Coin {
   denom: string;
   [k: string]: unknown;
 }
+export interface State {
+  ica?: string | null;
+  ica_state: IcaState;
+  last_processed_height?: number | null;
+}
 export interface Transfer {
   amount: string;
   denom: string;
   recipient: string;
   sender: string;
-}
-export interface State {
-  ica?: string | null;
-  ica_state: IcaState;
-  last_processed_height?: number | null;
 }
 export interface RegisterDelegatorDelegationsQueryArgs {
   validators: string[];
@@ -171,8 +171,8 @@ export class Client {
   queryState = async(): Promise<State> => {
     return this.client.queryContractSmart(this.contractAddress, { state: {} });
   }
-  queryInterchainTransactions = async(): Promise<ArrayOfTransfer> => {
-    return this.client.queryContractSmart(this.contractAddress, { interchain_transactions: {} });
+  queryTransactions = async(): Promise<ArrayOfTransfer> => {
+    return this.client.queryContractSmart(this.contractAddress, { transactions: {} });
   }
   queryDelegations = async(): Promise<DelegationsResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { delegations: {} });

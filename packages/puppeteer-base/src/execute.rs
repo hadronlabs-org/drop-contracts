@@ -33,7 +33,7 @@ where
 
         self.config.save(deps.storage, config)?;
         self.state.save(deps.storage, &State::default())?;
-        self.recipient_txs.save(deps.storage, &vec![])?;
+        self.recipient_transfers.save(deps.storage, &vec![])?;
         Ok(Response::default())
     }
 
@@ -82,6 +82,8 @@ where
         transaction: Transaction,
         reply_to: String,
     ) -> StdResult<SubMsg<X>> {
+        deps.api
+            .debug("WASMDEBUG: msg_with_sudo_callback save tx_state InProgress");
         self.tx_state.save(
             deps.storage,
             &TxState {

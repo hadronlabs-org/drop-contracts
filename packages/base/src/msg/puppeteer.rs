@@ -97,7 +97,7 @@ pub enum QueryMsg {
     #[returns(State)]
     State {},
     #[returns(Vec<Transfer>)]
-    InterchainTransactions {},
+    Transactions {},
     #[returns(DelegationsResponse)]
     Delegations {},
 }

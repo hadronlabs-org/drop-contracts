@@ -6,7 +6,7 @@ use lido_helpers::answer::response;
 use lido_puppeteer_base::msg::{ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg};
 use lido_staking_base::{
     msg::hook_tester::{ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::hook_tester::{ANSWERS, CONFIG, ERRORS},
+    state::hook_tester::{Config, ANSWERS, CONFIG, ERRORS},
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -51,7 +51,7 @@ pub fn execute(
             validator,
             amount,
             timeout,
-        } => execute_delegate(deps, env, validator, amount, timeout),
+        } => execute_delegate(deps, env, info, validator, amount, timeout),
         ExecuteMsg::Undelegate {
             validator,
             amount,
@@ -87,6 +87,8 @@ fn hook_success(
     _info: MessageInfo,
     answer: ResponseHookSuccessMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
+    deps.api
+        .debug(&format!("WASMDEBUG: hook_success: {:?}", answer));
     let attrs = vec![attr("action", "hook-success")];
     ANSWERS.update(deps.storage, |mut answers| -> ContractResult<_> {
         answers.push(answer);
@@ -101,6 +103,8 @@ fn hook_error(
     _info: MessageInfo,
     answer: ResponseHookErrorMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
+    deps.api
+        .debug(&format!("WASMDEBUG: hook_error: {:?}", answer));
     let attrs = vec![attr("action", "hook-success")];
     ERRORS.update(deps.storage, |mut errors| -> ContractResult<_> {
         errors.push(answer);
@@ -116,16 +120,14 @@ fn execute_set_config(
     puppeteer_addr: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let attrs = vec![attr("action", "set-config")];
-    CONFIG.update(deps.storage, |mut config| -> ContractResult<_> {
-        config.puppeteer_addr = puppeteer_addr;
-        Ok(config)
-    })?;
+    CONFIG.save(deps.storage, &Config { puppeteer_addr })?;
     Ok(response("set-config", "hook-tester", attrs))
 }
 
 fn execute_delegate(
     deps: DepsMut<NeutronQuery>,
     env: Env,
+    info: MessageInfo,
     validator: String,
     amount: Uint128,
     timeout: Option<u64>,
@@ -135,6 +137,7 @@ fn execute_delegate(
         attr("action", "delegate"),
         attr("validator", validator.clone()),
         attr("amount", amount.to_string()),
+        attr("funds", format!("{:?}", info.funds)),
     ];
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_addr,
@@ -144,7 +147,7 @@ fn execute_delegate(
             timeout,
             reply_to: env.contract.address.to_string(),
         })?,
-        funds: vec![],
+        funds: info.funds,
     });
     Ok(response("execute-delegate", "hook-tester", attrs).add_message(msg))
 }

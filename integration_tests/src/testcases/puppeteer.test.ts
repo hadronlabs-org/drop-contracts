@@ -16,7 +16,11 @@ import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import { Transfer } from '../generated/contractLib/lidoPuppeteer';
+import {
+  DelegationsResponse,
+  Transfer,
+} from '../generated/contractLib/lidoPuppeteer';
+import { ResponseHookSuccessMsg } from '../generated/contractLib/lidoHookTester';
 
 const PuppeteerClass = LidoPuppeteer.Client;
 const HookTesterClass = LidoHookTester.Client;
@@ -150,6 +154,16 @@ describe('Interchain puppeteer', () => {
     }
   });
 
+  it('set puppeteer address into hook tester', async () => {
+    const res = await context.hookContractClient.setConfig(
+      context.account.address,
+      {
+        puppeteer_addr: context.contractClient.contractAddress,
+      },
+    );
+    expect(res.transactionHash).toBeTruthy();
+  });
+
   it('set fees', async () => {
     const { contractClient, account } = context;
     const res = await contractClient.setFees(
@@ -233,406 +247,263 @@ describe('Interchain puppeteer', () => {
     expect(res.code).toEqual(0);
   });
 
-  // it('query received transactions on neutron side', async () => {
-  //   let txs: Transfer[] = [];
-  //   await waitFor(async () => {
-  //     try {
-  //       const res = await context.contractClient.queryTransactions();
-  //       txs = res;
-  //       return res.length > 0;
-  //     } catch (e) {
-  //       return false;
-  //     }
-  //   }, 60_000);
-  //   expect(txs).toEqual([
-  //     {
-  //       amount: '10000000',
-  //       denom: 'stake',
-  //       recipient: context.icaAddress,
-  //       sender: (await context.gaiaWallet.getAccounts())[0].address,
-  //     },
-  //   ]);
-  // });
+  it('query received transactions on neutron side', async () => {
+    let txs: Transfer[] = [];
+    await waitFor(async () => {
+      try {
+        const res = await context.contractClient.queryTransactions();
+        txs = res;
+        return res.length > 0;
+      } catch (e) {
+        return false;
+      }
+    }, 60_000);
+    expect(txs).toEqual([
+      {
+        amount: '10000000',
+        denom: 'stake',
+        recipient: context.icaAddress,
+        sender: (await context.gaiaWallet.getAccounts())[0].address,
+      },
+    ]);
+  });
 
-  // it('delegate tokens on gaia side', async () => {
-  //   const { contractClient, account } = context;
-  //   {
-  //     const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
-  //       context.park.config.master_mnemonic,
-  //       {
-  //         prefix: 'cosmosvaloper',
-  //         hdPaths: [stringToPath("m/44'/118'/1'/0/0") as any],
-  //       },
-  //     );
-  //     context.firstValidatorAddress = (await wallet.getAccounts())[0].address;
-  //   }
-  //   {
-  //     const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
-  //       context.park.config.master_mnemonic,
-  //       {
-  //         prefix: 'cosmosvaloper',
-  //         hdPaths: [stringToPath("m/44'/118'/2'/0/0") as any],
-  //       },
-  //     );
-  //     context.secondValidatorAddress = (await wallet.getAccounts())[0].address;
-  //   }
-  //   const res = await contractClient.delegate(
-  //     account.address,
-  //     {
-  //       validator: context.firstValidatorAddress,
-  //       amount: '100000',
-  //       timeout: 1,
-  //     },
-  //     1.5,
-  //     undefined,
-  //     [{ amount: '1000000', denom: 'untrn' }],
-  //   );
-  //   expect(res.transactionHash).toBeTruthy();
-  //   // await context.park.pauseRelayer('hermes', 0);
-  //   await context.park.pauseNetwork('gaia');
-  // });
+  it('delegate tokens on gaia side', async () => {
+    const { hookContractClient, account } = context;
+    {
+      const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
+        context.park.config.master_mnemonic,
+        {
+          prefix: 'cosmosvaloper',
+          hdPaths: [stringToPath("m/44'/118'/1'/0/0") as any],
+        },
+      );
+      context.firstValidatorAddress = (await wallet.getAccounts())[0].address;
+    }
+    {
+      const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
+        context.park.config.master_mnemonic,
+        {
+          prefix: 'cosmosvaloper',
+          hdPaths: [stringToPath("m/44'/118'/2'/0/0") as any],
+        },
+      );
+      context.secondValidatorAddress = (await wallet.getAccounts())[0].address;
+    }
+    const res = await hookContractClient.delegate(
+      account.address,
+      {
+        validator: context.firstValidatorAddress,
+        amount: '100000',
+        timeout: 1000,
+      },
+      1.5,
+      undefined,
+      [{ amount: '1000000', denom: 'untrn' }],
+    );
+    expect(res.transactionHash).toBeTruthy();
+    await context.park.pauseNetwork('gaia');
+  });
 
-  // it('query done delegations', async () => {
-  //   const { contractClient } = context;
-  //   let res: Transaction[] = [];
-  //   // await context.park.resumeRelayer('hermes', 0);
-  //   await expect(
-  //     waitFor(async () => {
-  //       res = await contractClient.queryInterchainTransactions();
-  //       return res.length > 0;
-  //     }, 60_000),
-  //   ).to.rejects.toThrowError();
+  it('query done delegations', async () => {
+    const { hookContractClient } = context;
+    let res: ResponseHookSuccessMsg[] = [];
+    await waitFor(async () => {
+      res = await hookContractClient.queryAnswers();
+      return res.length > 0;
+    }, 60_000);
+    expect(res.length).toEqual(1);
+    expect(res[0].answer).toEqual({
+      delegate_response: {},
+    });
+  });
 
-  //   expect(res).toEqual([]);
-  // });
+  it('undelegate tokens on gaia side', async () => {
+    const { hookContractClient, account } = context;
+    const res = await hookContractClient.undelegate(
+      account.address,
+      {
+        validator: context.firstValidatorAddress,
+        amount: '1000',
+        timeout: 600,
+      },
+      1.5,
+      undefined,
+      [{ amount: '1000000', denom: 'untrn' }],
+    );
+    expect(res.transactionHash).toBeTruthy();
+  });
 
-  // it('delegate tokens on gaia side', async () => {
-  //   const { contractClient, account } = context;
-  //   {
-  //     const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
-  //       context.park.config.master_mnemonic,
-  //       {
-  //         prefix: 'cosmosvaloper',
-  //         hdPaths: [stringToPath("m/44'/118'/1'/0/0") as any],
-  //       },
-  //     );
-  //     context.firstValidatorAddress = (await wallet.getAccounts())[0].address;
-  //   }
-  //   {
-  //     const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
-  //       context.park.config.master_mnemonic,
-  //       {
-  //         prefix: 'cosmosvaloper',
-  //         hdPaths: [stringToPath("m/44'/118'/2'/0/0") as any],
-  //       },
-  //     );
-  //     context.secondValidatorAddress = (await wallet.getAccounts())[0].address;
-  //   }
-  //   const res = await contractClient.delegate(
-  //     account.address,
-  //     {
-  //       validator: context.firstValidatorAddress,
-  //       amount: '100000',
-  //       timeout: 100,
-  //     },
-  //     1.5,
-  //     undefined,
-  //     [{ amount: '1000000', denom: 'untrn' }],
-  //   );
-  //   expect(res.transactionHash).toBeTruthy();
-  // });
+  it('query done undelegation', async () => {
+    const { hookContractClient } = context;
+    let res: ResponseHookSuccessMsg[] = [];
+    await waitFor(async () => {
+      res = await hookContractClient.queryAnswers();
+      return res.length > 1;
+    }, 20_000);
+    expect(res.length).toEqual(2);
+    expect(res[1].answer).toMatchObject({
+      undelegate_response: {
+        completion_time: {
+          nanos: expect.any(Number),
+          seconds: expect.any(Number),
+        },
+      },
+    });
+  });
 
-  // it('query done delegations', async () => {
-  //   const { contractClient } = context;
-  //   let res: Transaction[] = [];
-  //   await waitFor(async () => {
-  //     res = await contractClient.queryInterchainTransactions();
-  //     return res.length > 0;
-  //   }, 60_000);
-  //   expect(res).toEqual([
-  //     {
-  //       delegate: {
-  //         interchain_account_id: 'LIDO',
-  //         validator: context.firstValidatorAddress,
-  //         denom: 'stake',
-  //         amount: '100000',
-  //       },
-  //     },
-  //   ]);
-  // });
-  // it('undelegate tokens on gaia side', async () => {
-  //   const { contractClient, account } = context;
-  //   const res = await contractClient.undelegate(
-  //     account.address,
-  //     {
-  //       validator: context.firstValidatorAddress,
-  //       amount: '1000',
-  //       timeout: 600,
-  //     },
-  //     1.5,
-  //     undefined,
-  //     [{ amount: '1000000', denom: 'untrn' }],
-  //   );
-  //   expect(res.transactionHash).toBeTruthy();
-  // });
+  it('redelegate tokens on gaia side', async () => {
+    const { hookContractClient, account } = context;
+    const res = await hookContractClient.redelegate(
+      account.address,
+      {
+        validator_from: context.firstValidatorAddress,
+        validator_to: context.secondValidatorAddress,
+        amount: '10000',
+        timeout: 600,
+      },
+      1.5,
+      undefined,
+      [{ amount: '1000000', denom: 'untrn' }],
+    );
+    expect(res.transactionHash).toBeTruthy();
+  });
 
-  // it('query done undelegation', async () => {
-  //   const { contractClient } = context;
-  //   let res: Transaction[] = [];
-  //   await waitFor(async () => {
-  //     res = await contractClient.queryInterchainTransactions();
-  //     return res.length > 1;
-  //   }, 20_000);
-  //   expect(res).toEqual([
-  //     {
-  //       delegate: {
-  //         interchain_account_id: 'LIDO',
-  //         validator: context.firstValidatorAddress,
-  //         denom: 'stake',
-  //         amount: '100000',
-  //       },
-  //     },
-  //     {
-  //       undelegate: {
-  //         interchain_account_id: 'LIDO',
-  //         validator: context.firstValidatorAddress,
-  //         denom: 'stake',
-  //         amount: '1000',
-  //       },
-  //     },
-  //   ]);
-  // });
+  it('query done redelegation', async () => {
+    const { hookContractClient } = context;
+    let res: ResponseHookSuccessMsg[] = [];
+    await waitFor(async () => {
+      res = await hookContractClient.queryAnswers();
+      return res.length > 2;
+    }, 40_000);
+    expect(res.length).toEqual(3);
+    expect(res[2].answer).toEqual({
+      begin_redelegate_response: {
+        completion_time: {
+          nanos: expect.any(Number),
+          seconds: expect.any(Number),
+        },
+      },
+    });
+  });
 
-  // it('redelegate tokens on gaia side', async () => {
-  //   const { contractClient, account } = context;
-  //   const res = await contractClient.redelegate(
-  //     account.address,
-  //     {
-  //       validator_from: context.firstValidatorAddress,
-  //       validator_to: context.secondValidatorAddress,
-  //       amount: '10000',
-  //       timeout: 600,
-  //     },
-  //     1.5,
-  //     undefined,
-  //     [{ amount: '1000000', denom: 'untrn' }],
-  //   );
-  //   expect(res.transactionHash).toBeTruthy();
-  // });
+  it('tokenize share on gaia side', async () => {
+    const { hookContractClient, account } = context;
+    const res = await hookContractClient.tokenizeShare(
+      account.address,
+      {
+        validator: context.firstValidatorAddress,
+        amount: '5000',
+        timeout: 600,
+      },
+      1.5,
+      undefined,
+      [{ amount: '1000000', denom: 'untrn' }],
+    );
+    expect(res.transactionHash).toBeTruthy();
+  });
 
-  // it('query done redelegation', async () => {
-  //   const { contractClient } = context;
-  //   let res: Transaction[] = [];
-  //   await waitFor(async () => {
-  //     res = await contractClient.queryInterchainTransactions();
-  //     return res.length > 2;
-  //   }, 40_000);
-  //   expect(res).toEqual([
-  //     {
-  //       delegate: {
-  //         interchain_account_id: 'LIDO',
-  //         validator: context.firstValidatorAddress,
-  //         denom: 'stake',
-  //         amount: '100000',
-  //       },
-  //     },
-  //     {
-  //       undelegate: {
-  //         interchain_account_id: 'LIDO',
-  //         validator: context.firstValidatorAddress,
-  //         denom: 'stake',
-  //         amount: '1000',
-  //       },
-  //     },
-  //     {
-  //       redelegate: {
-  //         interchain_account_id: 'LIDO',
-  //         validator_from: context.firstValidatorAddress,
-  //         validator_to: context.secondValidatorAddress,
-  //         denom: 'stake',
-  //         amount: '10000',
-  //       },
-  //     },
-  //   ]);
-  // });
+  it('query done tokenize share', async () => {
+    const { hookContractClient } = context;
+    let res: ResponseHookSuccessMsg[] = [];
+    await waitFor(async () => {
+      res = await hookContractClient.queryAnswers();
+      return res.length > 3;
+    }, 40_000);
+    expect(res.length).toEqual(4);
+    expect(res[3].answer).toEqual({
+      tokenize_shares_response: {
+        amount: {
+          amount: '5000',
+          denom: `${context.firstValidatorAddress}/1`,
+        },
+      },
+    });
+  });
 
-  // it('tokenize share on gaia side', async () => {
-  //   const { contractClient, account } = context;
-  //   const res = await contractClient.tokenizeShare(
-  //     account.address,
-  //     {
-  //       validator: context.firstValidatorAddress,
-  //       amount: '5000',
-  //       timeout: 600,
-  //     },
-  //     1.5,
-  //     undefined,
-  //     [{ amount: '1000000', denom: 'untrn' }],
-  //   );
-  //   expect(res.transactionHash).toBeTruthy();
-  // });
+  it('redeem share', async () => {
+    const { hookContractClient, account } = context;
+    const res = await hookContractClient.redeemShare(
+      account.address,
+      {
+        validator: context.firstValidatorAddress,
+        amount: '5000',
+        timeout: 600,
+        denom: `${context.firstValidatorAddress}/1`,
+      },
+      1.5,
+      undefined,
+      [{ amount: '1000000', denom: 'untrn' }],
+    );
+    expect(res.transactionHash).toBeTruthy();
+  });
 
-  // it('query done tokenize share', async () => {
-  //   const { contractClient } = context;
-  //   let res: Transaction[] = [];
-  //   await waitFor(async () => {
-  //     res = await contractClient.queryInterchainTransactions();
-  //     return res.length > 3;
-  //   }, 40_000);
-  //   expect(res).toEqual([
-  //     {
-  //       delegate: {
-  //         interchain_account_id: 'LIDO',
-  //         validator: context.firstValidatorAddress,
-  //         denom: 'stake',
-  //         amount: '100000',
-  //       },
-  //     },
-  //     {
-  //       undelegate: {
-  //         interchain_account_id: 'LIDO',
-  //         validator: context.firstValidatorAddress,
-  //         denom: 'stake',
-  //         amount: '1000',
-  //       },
-  //     },
-  //     {
-  //       redelegate: {
-  //         interchain_account_id: 'LIDO',
-  //         validator_from: context.firstValidatorAddress,
-  //         validator_to: context.secondValidatorAddress,
-  //         denom: 'stake',
-  //         amount: '10000',
-  //       },
-  //     },
-  //     {
-  //       tokenize_share: {
-  //         interchain_account_id: 'LIDO',
-  //         validator: context.firstValidatorAddress,
-  //         denom: `${context.firstValidatorAddress}/1`,
-  //         amount: '5000',
-  //       },
-  //     },
-  //   ]);
-  // });
+  it('query done redeem share', async () => {
+    const { hookContractClient } = context;
+    let res: ResponseHookSuccessMsg[] = [];
+    await waitFor(async () => {
+      res = await hookContractClient.queryAnswers();
+      return res.length > 4;
+    }, 40_000);
+    expect(res.length).toEqual(5);
+    expect(res[4].answer).toEqual({
+      redeem_tokensfor_shares_response: {
+        amount: {
+          amount: '5000',
+          denom: 'stake',
+        },
+      },
+    });
+  });
 
-  // it('redeem share', async () => {
-  //   const { contractClient, account } = context;
-  //   const res = await contractClient.redeemShare(
-  //     account.address,
-  //     {
-  //       validator: context.firstValidatorAddress,
-  //       amount: '5000',
-  //       timeout: 600,
-  //       denom: `${context.firstValidatorAddress}/1`,
-  //     },
-  //     1.5,
-  //     undefined,
-  //     [{ amount: '1000000', denom: 'untrn' }],
-  //   );
-  //   expect(res.transactionHash).toBeTruthy();
-  // });
+  it('register delegations query', async () => {
+    const { contractClient, account } = context;
+    const res = await contractClient.registerDelegatorDelegationsQuery(
+      account.address,
+      {
+        validators: [
+          context.firstValidatorAddress,
+          context.secondValidatorAddress,
+        ],
+      },
+      1.5,
+      undefined,
+      [{ amount: '1000000', denom: 'untrn' }],
+    );
+    expect(res.transactionHash).toBeTruthy();
+  });
 
-  // it('query done redeem share', async () => {
-  //   const { contractClient } = context;
-  //   let res: Transaction[] = [];
-  //   await waitFor(async () => {
-  //     res = await contractClient.queryInterchainTransactions();
-  //     return res.length > 4;
-  //   }, 40_000);
-  //   expect(res).toEqual([
-  //     {
-  //       delegate: {
-  //         interchain_account_id: 'LIDO',
-  //         validator: context.firstValidatorAddress,
-  //         denom: 'stake',
-  //         amount: '100000',
-  //       },
-  //     },
-  //     {
-  //       undelegate: {
-  //         interchain_account_id: 'LIDO',
-  //         validator: context.firstValidatorAddress,
-  //         denom: 'stake',
-  //         amount: '1000',
-  //       },
-  //     },
-  //     {
-  //       redelegate: {
-  //         interchain_account_id: 'LIDO',
-  //         validator_from: context.firstValidatorAddress,
-  //         validator_to: context.secondValidatorAddress,
-  //         denom: 'stake',
-  //         amount: '10000',
-  //       },
-  //     },
-  //     {
-  //       tokenize_share: {
-  //         interchain_account_id: 'LIDO',
-  //         validator: context.firstValidatorAddress,
-  //         denom: `${context.firstValidatorAddress}/1`,
-  //         amount: '5000',
-  //       },
-  //     },
-  //     {
-  //       redeem_share: {
-  //         interchain_account_id: 'LIDO',
-  //         validator: context.firstValidatorAddress,
-  //         denom: `${context.firstValidatorAddress}/1`,
-  //         amount: '5000',
-  //       },
-  //     },
-  //   ]);
-  // });
-
-  // it('register delegations query', async () => {
-  //   const { contractClient, account } = context;
-  //   const res = await contractClient.registerDelegatorDelegationsQuery(
-  //     account.address,
-  //     {
-  //       validators: [
-  //         context.firstValidatorAddress,
-  //         context.secondValidatorAddress,
-  //       ],
-  //     },
-  //     1.5,
-  //     undefined,
-  //     [{ amount: '1000000', denom: 'untrn' }],
-  //   );
-  //   expect(res.transactionHash).toBeTruthy();
-  // });
-
-  // it('query delegations query', async () => {
-  //   let delegations: DelegationsResponse;
-  //   await waitFor(async () => {
-  //     delegations = await context.contractClient.queryDelegations();
-  //     return delegations.delegations.length > 0;
-  //   });
-  //   delegations.delegations.sort((a, b) =>
-  //     a.validator.localeCompare(b.validator),
-  //   );
-  //   const expected = [
-  //     {
-  //       delegator: context.icaAddress,
-  //       validator: context.firstValidatorAddress,
-  //       amount: {
-  //         denom: 'stake',
-  //         amount: '89000',
-  //       },
-  //     },
-  //     {
-  //       delegator: context.icaAddress,
-  //       validator: context.secondValidatorAddress,
-  //       amount: {
-  //         denom: 'stake',
-  //         amount: '10000',
-  //       },
-  //     },
-  //   ];
-  //   expected.sort((a, b) => a.validator.localeCompare(b.validator)); //fml
-  //   expect(delegations).toMatchObject<DelegationsResponse>({
-  //     delegations: expected,
-  //     last_updated_height: expect.any(Number),
-  //   });
-  // });
+  it('query delegations query', async () => {
+    let delegations: DelegationsResponse;
+    await waitFor(async () => {
+      delegations = await context.contractClient.queryDelegations();
+      return delegations.delegations.length > 0;
+    });
+    delegations.delegations.sort((a, b) =>
+      a.validator.localeCompare(b.validator),
+    );
+    const expected = [
+      {
+        delegator: context.icaAddress,
+        validator: context.firstValidatorAddress,
+        amount: {
+          denom: 'stake',
+          amount: '89000',
+        },
+      },
+      {
+        delegator: context.icaAddress,
+        validator: context.secondValidatorAddress,
+        amount: {
+          denom: 'stake',
+          amount: '10000',
+        },
+      },
+    ];
+    expected.sort((a, b) => a.validator.localeCompare(b.validator)); //fml
+    expect(delegations).toMatchObject<DelegationsResponse>({
+      delegations: expected,
+      last_updated_height: expect.any(Number),
+    });
+  });
 });

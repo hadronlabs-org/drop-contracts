@@ -53,9 +53,9 @@ where
                         "failed to find a matching transaction message",
                     )));
                 }
-                let mut txs = self.recipient_txs.load(deps.storage)?;
+                let mut txs = self.recipient_transfers.load(deps.storage)?;
                 txs.extend(deposits);
-                self.recipient_txs.save(deps.storage, &txs)?;
+                self.recipient_transfers.save(deps.storage, &txs)?;
             }
             _ => {}
         }
