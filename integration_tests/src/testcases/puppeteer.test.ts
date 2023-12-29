@@ -20,7 +20,10 @@ import {
   DelegationsResponse,
   Transfer,
 } from '../generated/contractLib/lidoPuppeteer';
-import { ResponseHookSuccessMsg } from '../generated/contractLib/lidoHookTester';
+import {
+  ResponseHookErrorMsg,
+  ResponseHookSuccessMsg,
+} from '../generated/contractLib/lidoHookTester';
 
 const PuppeteerClass = LidoPuppeteer.Client;
 const HookTesterClass = LidoHookTester.Client;
@@ -505,5 +508,35 @@ describe('Interchain puppeteer', () => {
       delegations: expected,
       last_updated_height: expect.any(Number),
     });
+  });
+
+  it('send a failing delegation', async () => {
+    const { hookContractClient, account } = context;
+
+    const res = await hookContractClient.delegate(
+      account.address,
+      {
+        validator: context.firstValidatorAddress,
+        amount: '10000000000000',
+        timeout: 1000,
+      },
+      1.5,
+      undefined,
+      [{ amount: '1000000', denom: 'untrn' }],
+    );
+    expect(res.transactionHash).toBeTruthy();
+    await context.park.pauseNetwork('gaia');
+  });
+  it('query error', async () => {
+    const { hookContractClient } = context;
+    let res: ResponseHookErrorMsg[] = [];
+    await waitFor(async () => {
+      res = await hookContractClient.queryErrors();
+      return res.length > 0;
+    }, 40_000);
+    expect(res.length).toEqual(1);
+    expect(res[0].details).toEqual(
+      'ABCI code: 107: error handling packet: see events for details',
+    );
   });
 });
