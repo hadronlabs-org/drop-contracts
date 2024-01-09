@@ -307,6 +307,23 @@ describe('Interchain puppeteer', () => {
     expect(res.transactionHash).toBeTruthy();
   });
 
+  it('try delegate before ack is received', async () => {
+    const { hookContractClient, account } = context;
+    await expect(
+      hookContractClient.delegate(
+        account.address,
+        {
+          validator: context.firstValidatorAddress,
+          amount: '100000',
+          timeout: 1000,
+        },
+        1.5,
+        undefined,
+        [{ amount: '1000000', denom: 'untrn' }],
+      ),
+    ).to.rejects.toThrowError('Transaction state is not in idle');
+  });
+
   it('query done delegations', async () => {
     const { hookContractClient } = context;
     let res: ResponseHookSuccessMsg[] = [];

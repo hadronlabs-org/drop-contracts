@@ -80,7 +80,7 @@ where
         match tx_state.status {
             TxStateStatus::Idle => Ok(()),
             _ => Err(NeutronError::Std(StdError::generic_err(
-                "Transaction is not in idle state",
+                "Transaction state is not in idle",
             ))),
         }
     }
