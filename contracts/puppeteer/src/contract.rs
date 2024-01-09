@@ -634,6 +634,10 @@ fn sudo_timeout(
     _env: Env,
     request: RequestPacket,
 ) -> NeutronResult<Response> {
+    deps.api.debug(&format!(
+        "WASMDEBUG: sudo_timeout: request: {request:?}",
+        request = request
+    ));
     let attrs = vec![
         attr("action", "sudo_timeout"),
         attr("request_id", request.sequence.unwrap_or(0).to_string()),

@@ -305,7 +305,6 @@ describe('Interchain puppeteer', () => {
       [{ amount: '1000000', denom: 'untrn' }],
     );
     expect(res.transactionHash).toBeTruthy();
-    await context.park.pauseNetwork('gaia');
   });
 
   it('query done delegations', async () => {
@@ -525,7 +524,6 @@ describe('Interchain puppeteer', () => {
       [{ amount: '1000000', denom: 'untrn' }],
     );
     expect(res.transactionHash).toBeTruthy();
-    await context.park.pauseNetwork('gaia');
   });
   it('query error', async () => {
     const { hookContractClient } = context;
@@ -538,5 +536,32 @@ describe('Interchain puppeteer', () => {
     expect(res[0].details).toEqual(
       'ABCI code: 107: error handling packet: see events for details',
     );
+  });
+  it('send with timeout', async () => {
+    const { hookContractClient, account } = context;
+    await context.park.restartRelayer('hermes', 0);
+    const res = await hookContractClient.delegate(
+      account.address,
+      {
+        validator: context.firstValidatorAddress,
+        amount: '1000',
+        timeout: 1,
+      },
+      1.5,
+      undefined,
+      [{ amount: '1000000', denom: 'untrn' }],
+    );
+    expect(res.transactionHash).toBeTruthy();
+  });
+  it('query timeouted error', async () => {
+    const { hookContractClient } = context;
+    let res: ResponseHookErrorMsg[] = [];
+    await context.park.restartRelayer('hermes', 0);
+    await waitFor(async () => {
+      res = await hookContractClient.queryErrors();
+      return res.length > 1;
+    }, 80_000);
+    expect(res.length).toEqual(2);
+    expect(res[1].details).toEqual('Timeout');
   });
 });
