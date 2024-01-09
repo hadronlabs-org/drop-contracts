@@ -1,5 +1,5 @@
 [package]
-authors = []
+authors = ["Albert Andrejev <albert.andrejev@gmail.com>"]
 description = "Contract to support staking distribution"
 edition = "2021"
 name = "lido-distribution"
@@ -23,24 +23,27 @@ backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
-cosmos-sdk-proto  = { workspace = true }
-prost             = { workspace = true }
-prost-types       = { workspace = true }
-protobuf          = { workspace = true }
-tendermint-proto  = { workspace = true }
+cosmos-sdk-proto = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
+protobuf = { workspace = true }
+tendermint-proto = { workspace = true }
+thiserror = { workspace = true }
 
-cosmwasm-schema   = { workspace = true }
-cosmwasm-std      = { workspace = true }
-cw-storage-plus   = { workspace = true }
-cw-ownable        = { workspace = true }
-cw2               = { workspace = true }
-cw20              = { workspace = true }
-schemars          = { workspace = true }
-serde             = { workspace = true }
-serde-json-wasm   = { workspace = true }
+cosmwasm-schema = { workspace = true }
+cosmwasm-std = { workspace = true }
+cw-storage-plus = { workspace = true }
+cw-ownable = { workspace = true }
+cw2 = { workspace = true }
+cw20 = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true }
+serde-json-wasm = { workspace = true }
 
-neutron-sdk       = { workspace = true }
+neutron-sdk = { workspace = true }
+lido-staking-base = { workspace = true }
+lido-helpers = { workspace = true }
 
 [dev-dependencies]
-cosmwasm-storage  = { workspace = true }
-cw-multi-test     = { workspace = true }
+cosmwasm-storage = { workspace = true }
+cw-multi-test = { workspace = true }
