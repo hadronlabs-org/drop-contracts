@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    attr, ensure_eq, Coin as CosmosCoin, CosmosMsg, DepsMut, Env, MessageInfo, Response, StdError,
-    StdResult, SubMsg, Uint128,
+    attr, ensure_eq, Coin as CosmosCoin, CosmosMsg, CustomQuery, Deps, DepsMut, Env, MessageInfo,
+    Response, StdError, StdResult, SubMsg, Uint128,
 };
 use lido_helpers::answer::response;
 use neutron_sdk::{
@@ -71,6 +71,16 @@ where
             }),
             IcaState::Timeout => Err(NeutronError::Std(StdError::generic_err(
                 "Interchain account registration timeout. Please register it again",
+            ))),
+        }
+    }
+
+    pub fn validate_tx_idle_state<C: CustomQuery>(&self, deps: Deps<C>) -> NeutronResult<()> {
+        let tx_state = self.tx_state.load(deps.storage).unwrap_or_default();
+        match tx_state.status {
+            TxStateStatus::Idle => Ok(()),
+            _ => Err(NeutronError::Std(StdError::generic_err(
+                "Transaction is not in idle state",
             ))),
         }
     }

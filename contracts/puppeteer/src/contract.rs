@@ -168,6 +168,7 @@ fn execute_delegate(
     deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
+    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
     let delegator = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
     let delegate_msg = MsgDelegate {
         delegator_address: delegator,
@@ -212,6 +213,7 @@ fn execute_undelegate(
     deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
+    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
     let delegator = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
 
     let undelegate_msg = MsgUndelegate {
@@ -254,6 +256,7 @@ fn execute_redelegate(
     deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
+    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
     let delegator = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
     let redelegate_msg = MsgBeginRedelegate {
         delegator_address: delegator,
@@ -296,6 +299,7 @@ fn execute_tokenize_share(
     deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
+    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
     let delegator = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
     let tokenize_msg = MsgTokenizeShares {
         delegator_address: delegator.clone(),
@@ -341,6 +345,7 @@ fn execute_redeem_share(
     ];
     let puppeteer_base = Puppeteer::default();
     deps.api.addr_validate(&reply_to)?;
+    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
     let delegator = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
