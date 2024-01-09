@@ -20,6 +20,7 @@ compile:
 		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
 		--platform linux/amd64 \
 		cosmwasm/workspace-optimizer:0.15.0
+        @sudo chown -R $(shell id -u):$(shell id -g) artifacts
 
 check_contracts:
 	@cargo install cosmwasm-check
