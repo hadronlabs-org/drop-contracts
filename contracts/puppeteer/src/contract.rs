@@ -453,7 +453,7 @@ fn sudo_response(
     request: RequestPacket,
     data: Binary,
 ) -> NeutronResult<Response> {
-    deps.api.debug(&format!("WASMDEBUG: sudo response"));
+    deps.api.debug("WASMDEBUG: sudo response");
     let attrs = vec![
         attr("action", "sudo_response"),
         attr("request_id", request.sequence.unwrap_or(0).to_string()),
@@ -472,11 +472,9 @@ fn sudo_response(
             "Transaction state is not waiting for ack",
         ))
     );
-    deps.api.debug(&format!("WASMDEBUG: sudo response 5"));
     let reply_to = tx_state
         .reply_to
         .ok_or_else(|| StdError::generic_err("reply_to not found"))?;
-    deps.api.debug(&format!("WASMDEBUG: sudo response 6"));
     let transaction = tx_state
         .transaction
         .ok_or_else(|| StdError::generic_err("transaction not found"))?;
