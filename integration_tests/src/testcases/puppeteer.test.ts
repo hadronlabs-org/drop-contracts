@@ -18,6 +18,7 @@ import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
 import {
   DelegationsResponse,
+  IcaState,
   Transfer,
 } from '../generated/contractLib/lidoPuppeteer';
 import {
@@ -580,5 +581,30 @@ describe('Interchain puppeteer', () => {
     }, 80_000);
     expect(res.length).toEqual(2);
     expect(res[1].details).toEqual('Timeout');
+  });
+  it('ensure ICA is closed', async () => {
+    const { contractClient } = context;
+    const res = await contractClient.queryState();
+    expect(res.ica).toBeFalsy();
+    expect<IcaState>(res.ica_state).toEqual('timeout');
+  });
+  it('reopen ICA', async () => {
+    const { contractClient, account } = context;
+    const res = await contractClient.registerICA(
+      account.address,
+      1.5,
+      undefined,
+      [{ amount: '1000000', denom: 'untrn' }],
+    );
+    expect(res.transactionHash).toBeTruthy();
+    let ica = '';
+    await waitFor(async () => {
+      const res = await contractClient.queryState();
+      ica = res.ica;
+      return !!res.ica;
+    }, 50_000);
+    expect(ica).toHaveLength(65);
+    expect(ica.startsWith('cosmos')).toBeTruthy();
+    context.icaAddress = ica;
   });
 });
