@@ -46,5 +46,5 @@
     "vitest": "^0.34.1"
   },
   "description": "Lido on Cosmos integration test",
-  "repository": "git@github.com:hadronlabs-org/lionco-integration-tests.git"
+  "repository": "git@github.com:hadronlabs-org/lionco-contracts.git"
 }
