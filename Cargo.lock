@@ -717,6 +717,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "lido-pump"
+version = "1.0.0"
+dependencies = [
+ "base64",
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test 0.20.0",
+ "cw-storage-plus",
+ "cw2",
+ "cw20",
+ "lido-helpers",
+ "lido-staking-base",
+ "neutron-sdk",
+ "prost",
+ "prost-types",
+ "protobuf",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.0",
+ "tendermint-proto",
+ "thiserror",
+]
+
+[[package]]
 name = "lido-puppeteer"
 version = "1.0.0"
 dependencies = [

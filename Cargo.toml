@@ -10,6 +10,7 @@ members = [
     "contracts/token",
     "contracts/validators-set",
     "contracts/strategy",
+    "contracts/pump",
     "contracts/hook-tester",
     "contracts/core",
     "packages/puppeteer-base",
