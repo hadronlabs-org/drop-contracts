@@ -4,14 +4,21 @@ use cosmwasm_std::{
     Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
+
 use lido_staking_base::helpers::answer::response;
-use lido_staking_base::msg::core::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use lido_staking_base::msg::token::ExecuteMsg as TokenExecuteMsg;
-use lido_staking_base::state::core::CONFIG;
+use lido_staking_base::msg::{
+    core::{ExecuteMsg, InstantiateMsg, QueryMsg},
+    token::ExecuteMsg as TokenExecuteMsg,
+    withdrawal_voucher::ExecuteMsg as VoucherExecuteMsg,
+};
+use lido_staking_base::state::core::{
+    UnbondBatchStatus, UnbondItem, CONFIG, UNBOND_BATCHES, UNBOND_BATCH_ID,
+};
+use lido_staking_base::state::withdrawal_voucher::{Metadata, Trait};
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 use std::str::FromStr;
 use std::vec;
-const CONTRACT_NAME: &str = concat!("crates.io:lido-neutron-contracts__", env!("CARGO_PKG_NAME"));
+const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -22,14 +29,29 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-
-    CONFIG.save(deps.storage, &msg.clone().into())?;
     let attrs: Vec<Attribute> = vec![
-        attr("token_contract", msg.token_contract),
-        attr("puppeteer_contract", msg.puppeteer_contract),
-        attr("strategy_contract", msg.strategy_contract),
-        attr("owner", msg.owner),
+        attr("token_contract", &msg.token_contract),
+        attr("puppeteer_contract", &msg.puppeteer_contract),
+        attr("strategy_contract", &msg.strategy_contract),
+        attr("base_denom", &msg.base_denom),
+        attr("owner", &msg.owner),
     ];
+    CONFIG.save(deps.storage, &msg.into())?;
+    //an empty unbonding batch added as it's ready to be used on unbond action
+    UNBOND_BATCH_ID.save(deps.storage, &0u128)?;
+    UNBOND_BATCHES.save(
+        deps.storage,
+        0u128,
+        &lido_staking_base::state::core::UnbondBatch {
+            total_amount: Uint128::zero(),
+            expected_amount: Uint128::zero(),
+            unbond_items: vec![],
+            status: UnbondBatchStatus::New,
+            slashing_effect: None,
+            unbonded_amount: None,
+            withdrawed_amount: None,
+        },
+    )?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
@@ -38,11 +60,16 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Bin
     match msg {
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::ExchangeRate {} => to_json_binary(&query_exchange_rate(deps, env)?),
+        QueryMsg::UnbondBatch { batch_id } => query_unbond_batch(deps, batch_id),
     }
 }
 
 fn query_exchange_rate(_deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Decimal> {
     Decimal::from_str("1.01")
+}
+
+fn query_unbond_batch(deps: Deps<NeutronQuery>, batch_id: Uint128) -> StdResult<Binary> {
+    to_json_binary(&UNBOND_BATCHES.load(deps.storage, batch_id.into())?)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -54,22 +81,48 @@ pub fn execute(
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
         ExecuteMsg::Bond { receiver } => execute_bond(deps, env, info, receiver),
-        ExecuteMsg::Unbond { amount } => execute_unbond(deps, env, info, amount),
+        ExecuteMsg::Unbond {} => execute_unbond(deps, env, info),
         ExecuteMsg::UpdateConfig {
             token_contract,
             puppeteer_contract,
             strategy_contract,
             owner,
+            ld_denom,
         } => execute_update_config(
             deps,
-            env,
             info,
             token_contract,
             puppeteer_contract,
             strategy_contract,
             owner,
+            ld_denom,
         ),
+        ExecuteMsg::FakeProcessBatch {
+            batch_id,
+            unbonded_amount,
+        } => execute_fake_process_batch(deps, env, info, batch_id, unbonded_amount),
     }
+}
+
+fn execute_fake_process_batch(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _info: MessageInfo,
+    batch_id: Uint128,
+    unbonded_amount: Uint128,
+) -> ContractResult<Response<NeutronMsg>> {
+    let mut attrs = vec![attr("action", "fake_process_batch")];
+    let mut unbond_batch = UNBOND_BATCHES.load(deps.storage, batch_id.into())?;
+    unbond_batch.unbonded_amount = Some(unbonded_amount);
+    unbond_batch.status = UnbondBatchStatus::Unbonded;
+    unbond_batch.slashing_effect = Some(
+        Decimal::from_str(&unbonded_amount.to_string())?
+            / Decimal::from_str(&unbond_batch.expected_amount.to_string())?,
+    );
+    UNBOND_BATCHES.save(deps.storage, batch_id.into(), &unbond_batch)?;
+    attrs.push(attr("batch_id", batch_id.to_string()));
+    attrs.push(attr("unbonded_amount", unbonded_amount.to_string()));
+    Ok(response("execute-fake_process_batch", CONTRACT_NAME, attrs))
 }
 
 fn execute_bond(
@@ -104,7 +157,7 @@ fn execute_bond(
     let exchange_rate = query_exchange_rate(deps.as_ref(), env)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
 
-    let issue_amount = amount * exchange_rate;
+    let issue_amount = amount * (Decimal::one() / exchange_rate);
     attrs.push(attr("issue_amount", issue_amount.to_string()));
 
     let receiver = receiver.map_or(Ok::<String, ContractError>(info.sender.to_string()), |a| {
@@ -131,12 +184,12 @@ fn check_denom(_denom: String) -> ContractResult<()> {
 
 fn execute_update_config(
     deps: DepsMut<NeutronQuery>,
-    _env: Env,
     info: MessageInfo,
     token_contract: Option<String>,
     puppeteer_contract: Option<String>,
     strategy_contract: Option<String>,
     owner: Option<String>,
+    ld_denom: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut config = CONFIG.load(deps.storage)?;
     ensure_eq!(config.owner, info.sender, ContractError::Unauthorized {});
@@ -158,15 +211,96 @@ fn execute_update_config(
         config.owner = owner.clone();
         attrs.push(attr("owner", owner));
     }
+    if let Some(ld_denom) = ld_denom {
+        config.ld_denom = Some(ld_denom.clone());
+        attrs.push(attr("ld_denom", ld_denom));
+    }
     CONFIG.save(deps.storage, &config)?;
     Ok(response("execute-update_config", CONTRACT_NAME, attrs))
 }
 
 fn execute_unbond(
-    _deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    _info: MessageInfo,
-    _amount: Uint128,
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    unimplemented!("todo");
+    let mut attrs = vec![attr("action", "unbond")];
+    let unbond_batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
+    ensure_eq!(
+        info.funds.len(),
+        1,
+        ContractError::InvalidFunds {
+            reason: "Must be one token".to_string(),
+        }
+    );
+    let config = CONFIG.load(deps.storage)?;
+    let ld_denom = config.ld_denom.ok_or(ContractError::LDDenomIsNotSet {})?;
+    let amount = info.funds[0].amount;
+    let denom = info.funds[0].denom.to_string();
+    ensure_eq!(
+        denom,
+        ld_denom,
+        ContractError::InvalidFunds {
+            reason: "Must be LD token".to_string(),
+        }
+    );
+    let mut unbond_batch = UNBOND_BATCHES.load(deps.storage, unbond_batch_id)?;
+    let exchange_rate = query_exchange_rate(deps.as_ref(), env)?;
+    attrs.push(attr("exchange_rate", exchange_rate.to_string()));
+    let expected_amount = amount * exchange_rate;
+    unbond_batch.unbond_items.push(UnbondItem {
+        sender: info.sender.to_string(),
+        amount,
+        expected_amount,
+    });
+    unbond_batch.total_amount += amount;
+    unbond_batch.expected_amount += expected_amount;
+
+    attrs.push(attr("expected_amount", expected_amount.to_string()));
+    UNBOND_BATCHES.save(deps.storage, unbond_batch_id, &unbond_batch)?;
+    let extension = Some(Metadata {
+        description: Some("Withdrawal voucher".into()),
+        name: "LDV voucher".to_string(),
+        batch_id: unbond_batch_id.to_string(),
+        amount,
+        expected_amount,
+        attributes: Some(vec![
+            Trait {
+                display_type: None,
+                trait_type: "unbond_batch_id".to_string(),
+                value: unbond_batch_id.to_string(),
+            },
+            Trait {
+                display_type: None,
+                trait_type: "received_amount".to_string(),
+                value: amount.to_string(),
+            },
+            Trait {
+                display_type: None,
+                trait_type: "expected_amount".to_string(),
+                value: expected_amount.to_string(),
+            },
+            Trait {
+                display_type: None,
+                trait_type: "exchange_rate".to_string(),
+                value: exchange_rate.to_string(),
+            },
+        ]),
+    });
+    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.withdrawal_voucher_contract,
+        msg: to_json_binary(&VoucherExecuteMsg::Mint {
+            owner: info.sender.to_string(),
+            token_id: unbond_batch_id.to_string()
+                + "_"
+                + info.sender.to_string().as_str()
+                + "_"
+                + &unbond_batch.unbond_items.len().to_string(),
+            token_uri: None,
+            extension,
+        })?,
+        funds: vec![],
+    });
+
+    Ok(response("execute-unbond", CONTRACT_NAME, attrs).add_message(msg))
 }

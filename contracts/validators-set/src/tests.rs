@@ -42,11 +42,10 @@ fn instantiate() {
     assert_eq!(
         response.events,
         vec![
-            Event::new("crates.io:lido-neutron-contracts__lido-validators-set-instantiate")
-                .add_attributes([
-                    attr("core", "core"),
-                    attr("stats_contract", "stats_contract")
-                ])
+            Event::new("crates.io:lido-staking__lido-validators-set-instantiate").add_attributes([
+                attr("core", "core"),
+                attr("stats_contract", "stats_contract")
+            ])
         ]
     );
     assert!(response.attributes.is_empty());

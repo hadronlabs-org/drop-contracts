@@ -2,26 +2,26 @@ import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
 export interface InstantiateMsg {
-  core_code_id: number;
-  salt: string;
-  subdenom: string;
-  token_code_id: number;
-  withdrawal_manager_code_id: number;
-  withdrawal_voucher_code_id: number;
+  base_denom: string;
+  core_contract: string;
+  owner: string;
+  voucher_contract: string;
 }
-export interface LidoFactorySchema {
-  responses: State;
-  execute: InitArgs;
+export interface LidoWithdrawalManagerSchema {
+  responses: Config;
+  execute: UpdateConfigArgs;
   [k: string]: unknown;
 }
-export interface State {
+export interface Config {
+  base_denom: string;
   core_contract: string;
-  token_contract: string;
-  withdrawal_manager_contract: string;
+  owner: string;
   withdrawal_voucher_contract: string;
 }
-export interface InitArgs {
-  base_denom: string;
+export interface UpdateConfigArgs {
+  core_contract?: string | null;
+  owner?: string | null;
+  voucher_contract?: string | null;
 }
 
 
@@ -55,15 +55,15 @@ export class Client {
     });
     return res;
   }
-  queryState = async(): Promise<State> => {
-    return this.client.queryContractSmart(this.contractAddress, { state: {} });
+  queryConfig = async(): Promise<Config> => {
+    return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
-  init = async(sender:string, args: InitArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { init: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
   }
-  callback = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  receiveNft = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { callback: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { receive_nft: {} }, fee || "auto", memo, funds);
   }
 }

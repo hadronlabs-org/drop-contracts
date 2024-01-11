@@ -46,5 +46,5 @@ serde-json-wasm = { workspace = true }
 lido-interchain-interceptor-base = { workspace = true }
 
 [dev-dependencies]
-cosmwasm-storage = { version = "1.0" }
-cw-multi-test = "0.20.0"
+cosmwasm-storage = { workspace = true }
+cw-multi-test = { workspace = true }

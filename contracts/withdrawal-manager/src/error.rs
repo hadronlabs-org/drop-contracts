@@ -10,9 +10,6 @@ pub enum ContractError {
     #[error("{0}")]
     NeutronError(#[from] NeutronError),
 
-    #[error("Invalid Funds: {reason}")]
-    InvalidFunds { reason: String },
-
     #[error("Invalid NFT: {reason}")]
     InvalidNFT { reason: String },
 
@@ -30,9 +27,6 @@ pub enum ContractError {
 
     #[error("Slashing effect is not set")]
     BatchSlashingEffectIsEmpty {},
-
-    #[error("LD denom is not set")]
-    LDDenomIsNotSet {},
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;
