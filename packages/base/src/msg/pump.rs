@@ -44,9 +44,9 @@ pub enum ExecuteMsg {
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub dest_address: String,
-    pub dest_channel: String,
-    pub dest_port: String,
+    pub dest_address: Option<String>,
+    pub dest_channel: Option<String>,
+    pub dest_port: Option<String>,
     pub connection_id: String,
     pub ibc_fees: IBCFees,
     pub refundee: Option<String>,

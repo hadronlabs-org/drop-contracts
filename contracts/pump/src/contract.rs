@@ -35,17 +35,14 @@ pub fn instantiate(
     let attrs = vec![
         attr("contract_name", CONTRACT_NAME),
         attr("contract_version", CONTRACT_VERSION),
-        attr("dest_address", &msg.dest_address),
-        attr("dest_channel", &msg.dest_channel),
-        attr("dest_port", &msg.dest_port),
-        attr("refundee", msg.refundee.clone().unwrap_or_default()),
+        attr("msg", format!("{:?}", msg)),
         attr("admin", &info.sender),
     ];
 
     CONFIG.save(
         deps.storage,
         &Config {
-            dest_address: Addr::unchecked(&msg.dest_address),
+            dest_address: msg.dest_address.map(|a| Addr::unchecked(&a)),
             dest_channel: msg.dest_channel,
             dest_port: msg.dest_port,
             connection_id: msg.connection_id,
@@ -127,13 +124,13 @@ fn execute_update_config(
         attr("new_config", format!("{:?}", new_config)),
     ];
     if let Some(dest_address) = new_config.dest_address {
-        config.dest_address = deps.api.addr_validate(&dest_address)?;
+        config.dest_address = Some(Addr::unchecked(&dest_address));
     }
     if let Some(dest_channel) = new_config.dest_channel {
-        config.dest_channel = dest_channel;
+        config.dest_channel = Some(dest_channel);
     }
     if let Some(dest_port) = new_config.dest_port {
-        config.dest_port = dest_port;
+        config.dest_port = Some(dest_port);
     }
     if let Some(connection_id) = new_config.connection_id {
         config.connection_id = connection_id;
@@ -223,16 +220,29 @@ fn execute_push(
     };
     let ica = state.ica.ok_or(ContractError::IcaNotRegistered {})?;
     let timeout_timestamp = env.block.time.plus_seconds(config.timeout.remote).seconds();
+    let dst_port = &config
+        .dest_port
+        .as_ref()
+        .ok_or_else(|| ContractError::NoDestinationPort {})?;
+    let dst_channel = &config
+        .dest_channel
+        .as_ref()
+        .ok_or_else(|| ContractError::NoDestinationChannel {})?;
+    let dst_address = config
+        .dest_address
+        .as_ref()
+        .ok_or_else(|| ContractError::NoDestinationAddress {})?
+        .to_string();
     for coin in coins {
         let msg = MsgTransfer {
-            source_port: config.dest_port.to_string(),
-            source_channel: config.dest_channel.to_string(),
+            source_port: dst_port.to_string(),
+            source_channel: dst_channel.to_string(),
             token: Some(ProtoCoin {
                 denom: coin.denom,
                 amount: coin.amount.to_string(),
             }),
             sender: ica.to_string(),
-            receiver: config.dest_address.to_string(),
+            receiver: dst_address.to_string(),
             timeout_height: None,
             timeout_timestamp,
         };

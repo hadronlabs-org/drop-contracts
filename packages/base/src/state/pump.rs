@@ -18,9 +18,9 @@ pub struct PumpTimeout {
 
 #[cw_serde]
 pub struct Config {
-    pub dest_address: Addr,
-    pub dest_channel: String,
-    pub dest_port: String,
+    pub dest_address: Option<Addr>,
+    pub dest_channel: Option<String>,
+    pub dest_port: Option<String>,
     pub connection_id: String,
     pub refundee: Option<Addr>,
     pub admin: Addr,

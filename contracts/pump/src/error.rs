@@ -31,6 +31,15 @@ pub enum ContractError {
     #[error("Unknown sudo response")]
     UnknownResponse {},
 
+    #[error("No destination address is set")]
+    NoDestinationAddress {},
+
+    #[error("No destination port is set")]
+    NoDestinationPort {},
+
+    #[error("No destination channel is set")]
+    NoDestinationChannel {},
+
     #[error("Refundee is not set")]
     RefundeeIsNotSet {},
 }

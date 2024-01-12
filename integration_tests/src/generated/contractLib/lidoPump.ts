@@ -17,9 +17,9 @@ export type Uint128 = string;
 
 export interface InstantiateMsg {
   connection_id: string;
-  dest_address: string;
-  dest_channel: string;
-  dest_port: string;
+  dest_address?: string | null;
+  dest_channel?: string | null;
+  dest_port?: string | null;
   ibc_fees: IBCFees;
   local_denom: string;
   refundee?: string | null;
@@ -59,18 +59,19 @@ export type Addr = string;
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
+export type IcaState = "none" | "in_progress" | "registered" | "timeout";
 
 export interface LidoPumpSchema {
-  responses: Config;
+  responses: Config | State;
   execute: PushArgs | UpdateConfigArgs;
   [k: string]: unknown;
 }
 export interface Config {
   admin: Addr;
   connection_id: string;
-  dest_address: Addr;
-  dest_channel: string;
-  dest_port: string;
+  dest_address?: Addr | null;
+  dest_channel?: string | null;
+  dest_port?: string | null;
   ibc_fees: IBCFees;
   local_denom: string;
   refundee?: Addr | null;
@@ -85,6 +86,11 @@ export interface IBCFees {
 export interface PumpTimeout {
   local?: number | null;
   remote: number;
+}
+export interface State {
+  ica?: string | null;
+  ica_state: IcaState;
+  last_processed_height?: number | null;
 }
 export interface PushArgs {
   coins: Coin[];
@@ -142,6 +148,9 @@ export class Client {
   }
   queryConfig = async(): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
+  }
+  queryState = async(): Promise<State> => {
+    return this.client.queryContractSmart(this.contractAddress, { state: {} });
   }
   registerICA = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

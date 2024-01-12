@@ -188,5 +188,13 @@ describe('Pump', () => {
     );
     expect(res).toBeTruthy();
     expect(res.transactionHash).toHaveLength(64);
+    let ica = '';
+    await waitFor(async () => {
+      const res = await contractClient.queryState();
+      ica = res.ica;
+      return !!res.ica;
+    }, 50_000);
+    expect(ica).toHaveLength(65);
+    expect(ica.startsWith('cosmos')).toBeTruthy();
   });
 });
