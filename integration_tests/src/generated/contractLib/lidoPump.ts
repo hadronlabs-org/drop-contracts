@@ -16,6 +16,7 @@ import { StdFee } from "@cosmjs/amino";
 export type Uint128 = string;
 
 export interface InstantiateMsg {
+  admin?: string | null;
   connection_id: string;
   dest_address?: string | null;
   dest_channel?: string | null;

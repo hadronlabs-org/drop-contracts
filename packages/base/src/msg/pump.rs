@@ -52,6 +52,7 @@ pub struct InstantiateMsg {
     pub refundee: Option<String>,
     pub timeout: PumpTimeout,
     pub local_denom: String,
+    pub admin: Option<String>,
 }
 
 #[cw_serde]

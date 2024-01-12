@@ -36,13 +36,13 @@ pub fn instantiate(
         attr("contract_name", CONTRACT_NAME),
         attr("contract_version", CONTRACT_VERSION),
         attr("msg", format!("{:?}", msg)),
-        attr("admin", &info.sender),
+        attr("sender", &info.sender),
     ];
 
     CONFIG.save(
         deps.storage,
         &Config {
-            dest_address: msg.dest_address.map(|a| Addr::unchecked(&a)),
+            dest_address: msg.dest_address.map(Addr::unchecked),
             dest_channel: msg.dest_channel,
             dest_port: msg.dest_port,
             connection_id: msg.connection_id,
@@ -50,7 +50,11 @@ pub fn instantiate(
                 .refundee
                 .map(|r| deps.api.addr_validate(&r))
                 .transpose()?,
-            admin: info.sender,
+            admin: msg
+                .admin
+                .map(|a| deps.api.addr_validate(&a))
+                .transpose()?
+                .unwrap_or(info.sender),
             ibc_fees: msg.ibc_fees,
             timeout: msg.timeout,
             local_denom: msg.local_denom,
@@ -124,7 +128,7 @@ fn execute_update_config(
         attr("new_config", format!("{:?}", new_config)),
     ];
     if let Some(dest_address) = new_config.dest_address {
-        config.dest_address = Some(Addr::unchecked(&dest_address));
+        config.dest_address = Some(Addr::unchecked(dest_address));
     }
     if let Some(dest_channel) = new_config.dest_channel {
         config.dest_channel = Some(dest_channel);
@@ -219,19 +223,19 @@ fn execute_push(
         timeout_fee: uint_into_vec_coin(config.ibc_fees.timeout_fee, &config.local_denom),
     };
     let ica = state.ica.ok_or(ContractError::IcaNotRegistered {})?;
-    let timeout_timestamp = env.block.time.plus_seconds(config.timeout.remote).seconds();
+    let timeout_timestamp = env.block.time.plus_seconds(config.timeout.remote).nanos();
     let dst_port = &config
         .dest_port
         .as_ref()
-        .ok_or_else(|| ContractError::NoDestinationPort {})?;
+        .ok_or(ContractError::NoDestinationPort {})?;
     let dst_channel = &config
         .dest_channel
         .as_ref()
-        .ok_or_else(|| ContractError::NoDestinationChannel {})?;
+        .ok_or(ContractError::NoDestinationChannel {})?;
     let dst_address = config
         .dest_address
         .as_ref()
-        .ok_or_else(|| ContractError::NoDestinationAddress {})?
+        .ok_or(ContractError::NoDestinationAddress {})?
         .to_string();
     for coin in coins {
         let msg = MsgTransfer {

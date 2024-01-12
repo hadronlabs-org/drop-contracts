@@ -8,14 +8,13 @@ import {
   setupBankExtension,
   SigningStargateClient,
 } from '@cosmjs/stargate';
-import { MsgTransfer } from 'cosmjs-types/ibc/applications/transfer/v1/tx';
 import { join } from 'path';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
-import { awaitBlocks, setupPark } from '../testSuite';
+import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
@@ -112,15 +111,12 @@ describe('Pump', () => {
   });
 
   it('instantiate', async () => {
-    const { client, account, neutronSecondUserAddress, gaiaUserAddress } =
-      context;
-
+    const { client, account, neutronSecondUserAddress } = context;
     const res = await client.upload(
       account.address,
       fs.readFileSync(join(__dirname, '../../../artifacts/lido_pump.wasm')),
       1.5,
     );
-
     expect(res.codeId).toBeGreaterThan(0);
     const instantiateRes = await LidoPump.Client.instantiate(
       client,
@@ -128,7 +124,7 @@ describe('Pump', () => {
       res.codeId,
       {
         connection_id: 'connection-0',
-        dest_address: gaiaUserAddress,
+        dest_address: neutronSecondUserAddress,
         dest_channel: 'channel-0',
         dest_port: 'transfer',
         ibc_fees: {
@@ -140,9 +136,10 @@ describe('Pump', () => {
         local_denom: 'untrn',
         refundee: neutronSecondUserAddress,
         timeout: {
-          local: 10,
-          remote: 10,
+          local: 100,
+          remote: 100,
         },
+        admin: account.address,
       },
       'label',
       [],
@@ -196,5 +193,127 @@ describe('Pump', () => {
     }, 50_000);
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();
+    context.icaAddress = ica;
+  });
+  it('send some funds to ICA', async () => {
+    const { gaiaClient, gaiaUserAddress, icaAddress } = context;
+    const res = await gaiaClient.sendTokens(
+      gaiaUserAddress,
+      icaAddress,
+      [
+        {
+          amount: '1000000',
+          denom: 'stake',
+        },
+      ],
+      1.5,
+    );
+    expect(res.transactionHash).toHaveLength(64);
+  });
+  it('try to push pump w/o funds', async () => {
+    const { contractClient, neutronUserAddress } = context;
+    await expect(
+      contractClient.push(
+        neutronUserAddress,
+        {
+          coins: [{ amount: '10', denom: 'stake' }],
+        },
+        1.5,
+      ),
+    ).rejects.toThrowError(/fee should be provided and be one coin/);
+  });
+  it('try to push pump w less funds', async () => {
+    const { contractClient, neutronUserAddress } = context;
+    await expect(
+      contractClient.push(
+        neutronUserAddress,
+        {
+          coins: [{ amount: '10', denom: 'stake' }],
+        },
+        1.5,
+        undefined,
+        [
+          {
+            amount: '1',
+            denom: 'untrn',
+          },
+        ],
+      ),
+    ).rejects.toThrowError(/expected at least/);
+  });
+  it('push pump', async () => {
+    const { contractClient, neutronUserAddress } = context;
+    const res = await contractClient.push(
+      neutronUserAddress,
+      {
+        coins: [{ amount: '1000', denom: 'stake' }],
+      },
+      1.5,
+      undefined,
+      [
+        {
+          amount: '20000',
+          denom: 'untrn',
+        },
+      ],
+    );
+    expect(res).toBeTruthy();
+    expect(res.transactionHash).toHaveLength(64);
+  });
+  it('verify funds are received', async () => {
+    const { neutronClient, neutronSecondUserAddress } = context;
+    let ibcBalance = 0;
+    await waitFor(async () => {
+      const res = await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+        neutronSecondUserAddress,
+      );
+      ibcBalance = parseInt(
+        res.data.balances.find((b) => b.denom.startsWith('ibc/'))?.amount ||
+          '0',
+      );
+      return res.data.balances.length > 1;
+    }, 40000);
+    expect(ibcBalance).toEqual(1000);
+  });
+  it('check balance on pump', async () => {
+    const { neutronClient, contractAddress } = context;
+    const res =
+      await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+        contractAddress,
+      );
+    expect(res.data.balances).toEqual([
+      {
+        amount: '10000',
+        denom: 'untrn',
+      },
+    ]);
+  });
+  it('try to refund tokens from the pump', async () => {
+    const {
+      contractClient,
+      neutronClient,
+      neutronUserAddress,
+      neutronSecondUserAddress,
+    } = context;
+    const {
+      data: { balance },
+    } = await neutronClient.CosmosBankV1Beta1.query.queryBalance(
+      neutronSecondUserAddress,
+      {
+        denom: 'untrn',
+      },
+    );
+    const res = await contractClient.refund(neutronUserAddress, 1.5);
+    expect(res).toBeTruthy();
+    expect(res.transactionHash).toHaveLength(64);
+    const {
+      data: { balance: newBalance },
+    } = await neutronClient.CosmosBankV1Beta1.query.queryBalance(
+      neutronSecondUserAddress,
+      { denom: 'untrn' },
+    );
+    expect(parseInt(newBalance.amount) - parseInt(balance.amount)).toEqual(
+      10000,
+    );
   });
 });
