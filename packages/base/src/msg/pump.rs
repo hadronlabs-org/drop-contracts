@@ -1,4 +1,4 @@
-use crate::state::pump::{Config, IBCFees, PumpTimeout};
+use crate::state::pump::{Config, IBCFees, PumpTimeout, State};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Coin;
 
@@ -7,6 +7,8 @@ use cosmwasm_std::Coin;
 pub enum QueryMsg {
     #[returns(Config)]
     Config {},
+    #[returns(State)]
+    State {},
 }
 
 #[cw_serde]

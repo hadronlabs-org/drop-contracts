@@ -64,15 +64,21 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> NeutronResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> NeutronResult<Binary> {
     match msg {
-        QueryMsg::Config {} => query_config(deps, env),
+        QueryMsg::Config {} => query_config(deps),
+        QueryMsg::State {} => query_state(deps),
     }
 }
 
-fn query_config(deps: Deps, _env: Env) -> NeutronResult<Binary> {
+fn query_config(deps: Deps) -> NeutronResult<Binary> {
     let config = CONFIG.load(deps.storage)?;
     to_json_binary(&config).map_err(neutron_sdk::NeutronError::Std)
+}
+
+fn query_state(deps: Deps) -> NeutronResult<Binary> {
+    let state = STATE.load(deps.storage)?;
+    to_json_binary(&state).map_err(neutron_sdk::NeutronError::Std)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
