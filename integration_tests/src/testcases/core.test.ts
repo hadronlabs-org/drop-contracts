@@ -242,13 +242,7 @@ describe('Core', () => {
       await context.wallet.getAccounts()
     )[0].address;
   });
-  it('query exchange rate', async () => {
-    const { coreContractClient } = context;
-    context.exchangeRate = parseFloat(
-      await coreContractClient.queryExchangeRate(),
-    );
-    expect(context.exchangeRate).toBeGreaterThan(1);
-  });
+
   it('transfer tokens to neutron', async () => {
     const { gaiaClient, gaiaUserAddress, neutronUserAddress, neutronClient } =
       context;

@@ -26,15 +26,6 @@ use neutron_sdk::{
 };
 use sha2::{Digest, Sha256};
 
-use crate::state::{
-    MissedBlocks, QueryMsg, ValidatorMissedBlocksForPeriod, ValidatorState, CONFIG, MISSED_BLOCKS,
-    SIGNING_INFO_QUERY_ID, STATE_MAP, VALCONS_TO_VALOPER, VALIDATOR_PROFILE_QUERY_ID,
-};
-use crate::{
-    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg},
-    state::{Config, SIGNING_INFO_REPLY_ID, VALIDATOR_PROFILE_REPLY_ID},
-};
-
 const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -395,6 +386,10 @@ pub fn pubkey_to_address(pubkey: Vec<u8>, prefix: &str) -> StdResult<String> {
     }
 
     let pubkey_bytes = &pubkey[2..];
+
+    // let mut hasher = Sha256::new();
+    // hasher.update(pubkey_bytes);
+    // let hash = hasher.finalize();
 
     let hash = Sha256::digest(pubkey_bytes);
     let addr_bytes = &hash[..20];

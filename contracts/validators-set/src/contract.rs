@@ -10,14 +10,6 @@ use lido_staking_base::state::validatorset::{Config, ValidatorInfo, CONFIG, VALI
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
 
-use crate::error::{ContractError, ContractResult};
-use crate::msg::{ValidatorData, ValidatorInfoUpdate};
-use crate::state::{ValidatorInfo, CONFIG, VALIDATORS_SET};
-use crate::{
-    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
-    state::Config,
-};
-
 const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
 
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -211,7 +211,7 @@ fn test_initialization() {
     assert_eq!(
         res.events,
         vec![
-            Event::new("crates.io:lido-neutron-contracts__lido-strategy-instantiate".to_string())
+            Event::new("crates.io:lido-staking__lido-strategy-instantiate".to_string())
                 .add_attributes(vec![
                     Attribute::new("core_address".to_string(), CORE_CONTRACT_ADDR.to_string()),
                     Attribute::new(

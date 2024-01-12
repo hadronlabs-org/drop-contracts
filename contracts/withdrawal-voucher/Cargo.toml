@@ -42,7 +42,6 @@ cw721-base = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde-json-wasm = { workspace = true }
-sha2 = { workspace = true }
 lido-staking-base = { workspace = true }
 thiserror = { workspace = true }
 

@@ -5,8 +5,6 @@ use lido_staking_base::error::distribution::{ContractError, ContractResult};
 use lido_staking_base::msg::distribution::{Delegation, IdealDelegation, InstantiateMsg, QueryMsg};
 use neutron_sdk::bindings::msg::NeutronMsg;
 
-use crate::error::{ContractError, ContractResult};
-
 const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
