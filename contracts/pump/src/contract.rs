@@ -2,8 +2,8 @@ use cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxMsgData;
 use cosmos_sdk_proto::cosmos::base::v1beta1::Coin as ProtoCoin;
 use cosmos_sdk_proto::ibc::applications::transfer::v1::{MsgTransfer, MsgTransferResponse};
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, to_json_binary, Addr, Coin, CosmosMsg, Deps, StdError, SubMsg,
-    Uint128,
+    attr, ensure, ensure_eq, entry_point, to_json_binary, Addr, Coin, CosmosMsg, Deps, StdError,
+    SubMsg, Uint128,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use lido_helpers::answer::response;
@@ -83,8 +83,8 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::RegisterICA {} => execute_register_ica(deps, env),
-        ExecuteMsg::Push { coins } => execute_push(deps, env, coins),
+        ExecuteMsg::RegisterICA {} => execute_register_ica(deps, env, info),
+        ExecuteMsg::Push { coins } => execute_push(deps, env, info, coins),
         ExecuteMsg::Refund {} => execute_refund(deps, env),
         ExecuteMsg::UpdateConfig { new_config } => {
             execute_update_config(deps, env, info, *new_config)
@@ -154,6 +154,7 @@ fn execute_update_config(
 fn execute_register_ica(
     deps: DepsMut<NeutronQuery>,
     env: Env,
+    info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let state = STATE.load(deps.storage)?;
@@ -161,6 +162,7 @@ fn execute_register_ica(
         attr("connection_id", &config.connection_id),
         attr("ica_id", ICA_ID),
     ];
+    check_funds(info.funds, &config, config.ibc_fees.register_fee)?;
     return match state.ica_state {
         IcaState::InProgress => Err(ContractError::IcaInProgress {}),
         IcaState::Registered => Err(ContractError::IcaAlreadyRegistered {}),
@@ -170,7 +172,7 @@ fn execute_register_ica(
                 config.connection_id,
                 ICA_ID.to_string(),
                 Some(vec![Coin {
-                    denom: "uluna".to_string(),
+                    denom: config.local_denom,
                     amount: register_fee,
                 }]),
             );
@@ -191,11 +193,17 @@ fn execute_register_ica(
 fn execute_push(
     deps: DepsMut<NeutronQuery>,
     env: Env,
+    info: MessageInfo,
     coins: Vec<Coin>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let state = STATE.load(deps.storage)?;
     let mut messages = vec![];
+    check_funds(
+        info.funds,
+        &config,
+        config.ibc_fees.ack_fee + config.ibc_fees.recv_fee + config.ibc_fees.timeout_fee,
+    )?;
     let attrs = vec![
         attr("action", "push"),
         attr("connection_id", &config.connection_id),
@@ -414,4 +422,37 @@ fn uint_into_vec_coin(amount: Uint128, denom: &String) -> Vec<Coin> {
         denom: denom.to_string(),
         amount,
     }]
+}
+
+fn check_funds(funds: Vec<Coin>, config: &Config, amount: Uint128) -> ContractResult<()> {
+    ensure_eq!(
+        funds.len(),
+        1,
+        ContractError::InvalidFunds {
+            reason: "fee should be provided and be one coin".to_string()
+        }
+    );
+    let coin = funds.get(0).ok_or(ContractError::InvalidFunds {
+        reason: "no funds provided".to_string(),
+    })?;
+    ensure_eq!(
+        coin.denom,
+        config.local_denom,
+        ContractError::InvalidFunds {
+            reason: format!(
+                "invalid denom: expected {}, got {}",
+                &config.local_denom, &coin.denom
+            )
+        }
+    );
+    ensure!(
+        coin.amount >= amount,
+        ContractError::InvalidFunds {
+            reason: format!(
+                "invalid amount: expected at least {}, got {}",
+                config.ibc_fees.register_fee, coin.amount
+            )
+        }
+    );
+    Ok(())
 }

@@ -155,4 +155,38 @@ describe('Pump', () => {
       context.contractAddress,
     );
   });
+
+  it('register ICA w/o funds', async () => {
+    const { contractClient, neutronUserAddress } = context;
+    await expect(
+      contractClient.registerICA(neutronUserAddress, 1.5),
+    ).rejects.toThrowError(/fee should be provided and be one coin/);
+  });
+  it('register ICA w less then needed funds', async () => {
+    const { contractClient, neutronUserAddress } = context;
+    await expect(
+      contractClient.registerICA(neutronUserAddress, 1.5, undefined, [
+        {
+          amount: '1',
+          denom: 'untrn',
+        },
+      ]),
+    ).rejects.toThrowError(/expected at least/);
+  });
+  it('register ICA', async () => {
+    const { contractClient, neutronUserAddress } = context;
+    const res = await contractClient.registerICA(
+      neutronUserAddress,
+      1.5,
+      undefined,
+      [
+        {
+          amount: '1000000',
+          denom: 'untrn',
+        },
+      ],
+    );
+    expect(res).toBeTruthy();
+    expect(res.transactionHash).toHaveLength(64);
+  });
 });

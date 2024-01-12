@@ -25,6 +25,9 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized {},
 
+    #[error("Invalid Funds: {reason}")]
+    InvalidFunds { reason: String },
+
     #[error("Unknown sudo response")]
     UnknownResponse {},
 
