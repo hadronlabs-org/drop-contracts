@@ -291,13 +291,6 @@ fn test_ideal_deposit_calculation() {
         },
     );
 
-    let config: lido_staking_base::msg::strategy::ConfigResponse = app
-        .wrap()
-        .query_wasm_smart(strategy_contract.clone(), &QueryMsg::Config {})
-        .unwrap();
-
-    println!("{:?}", config);
-
     let ideal_deposit: Vec<lido_staking_base::msg::distribution::IdealDelegation> = app
         .wrap()
         .query_wasm_smart(
@@ -307,8 +300,6 @@ fn test_ideal_deposit_calculation() {
             },
         )
         .unwrap();
-
-    println!("{:?}", ideal_deposit);
 
     assert_eq!(
         ideal_deposit,
@@ -359,13 +350,6 @@ fn test_ideal_withdraw_calculation() {
         },
     );
 
-    let config: lido_staking_base::msg::strategy::ConfigResponse = app
-        .wrap()
-        .query_wasm_smart(strategy_contract.clone(), &QueryMsg::Config {})
-        .unwrap();
-
-    println!("{:?}", config);
-
     let ideal_deposit: Vec<lido_staking_base::msg::distribution::IdealDelegation> = app
         .wrap()
         .query_wasm_smart(
@@ -375,8 +359,6 @@ fn test_ideal_withdraw_calculation() {
             },
         )
         .unwrap();
-
-    println!("{:?}", ideal_deposit);
 
     assert_eq!(
         ideal_deposit,

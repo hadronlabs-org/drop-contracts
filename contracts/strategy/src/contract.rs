@@ -75,8 +75,6 @@ fn query_config(deps: Deps, _env: Env) -> NeutronResult<Binary> {
 }
 
 pub fn query_calc_deposit(deps: Deps, deposit: Uint128) -> NeutronResult<Binary> {
-    println!("deposit: {:?}", deposit);
-
     let distribution_address = DISTRIBUTION_ADDRESS.load(deps.storage)?.into_string();
 
     let delegations: Vec<lido_staking_base::msg::distribution::Delegation> =
@@ -91,14 +89,10 @@ pub fn query_calc_deposit(deps: Deps, deposit: Uint128) -> NeutronResult<Binary>
             },
         )?;
 
-    println!("delegations: {:?}", ideal_deposit);
-
     Ok(to_json_binary(&ideal_deposit)?)
 }
 
 pub fn query_calc_withdraw(deps: Deps, withdraw: Uint128) -> NeutronResult<Binary> {
-    println!("withdraw: {:?}", withdraw);
-
     let distribution_address = DISTRIBUTION_ADDRESS.load(deps.storage)?.into_string();
 
     let delegations: Vec<lido_staking_base::msg::distribution::Delegation> =
@@ -112,8 +106,6 @@ pub fn query_calc_withdraw(deps: Deps, withdraw: Uint128) -> NeutronResult<Binar
                 delegations,
             },
         )?;
-
-    println!("delegations: {:?}", ideal_deposit);
 
     Ok(to_json_binary(&ideal_deposit)?)
 }
@@ -131,20 +123,14 @@ fn prepare_delegation_data(
             &lido_interchain_interceptor_base::msg::QueryMsg::Delegations {},
         )?;
 
-    println!("account_delegations: {:?}", account_delegations);
-
     let validator_set: Vec<lido_staking_base::state::validatorset::ValidatorInfo> =
         deps.querier.query_wasm_smart(
             &validator_set_address,
             &lido_staking_base::msg::validatorset::QueryMsg::Validators {},
         )?;
 
-    println!("validator_set: {:?}", validator_set);
-
     let mut delegations: Vec<lido_staking_base::msg::distribution::Delegation> = Vec::new();
     for validator in validator_set.iter() {
-        println!("validator: {:?}", validator);
-
         let validator_denom_delegation = account_delegations
             .delegations
             .iter()
