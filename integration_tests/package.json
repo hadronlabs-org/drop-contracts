@@ -7,6 +7,7 @@
     "test": "vitest --run",
     "test:poc-stargate": "vitest --run poc-stargate --bail 1",
     "test:core": "vitest --run core --bail 1",
+    "test:pump": "vitest --run pump --bail 1",
     "test:puppeteer": "vitest --run puppeteer.test --bail 1",
     "test:puppeteer-authz": "vitest --run puppeteer-authz.test --bail 1",
     "test:validators-stats": "vitest --run validators-stats.test --bail 1",

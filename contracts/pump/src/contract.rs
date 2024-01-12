@@ -2,7 +2,8 @@ use cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxMsgData;
 use cosmos_sdk_proto::cosmos::base::v1beta1::Coin as ProtoCoin;
 use cosmos_sdk_proto::ibc::applications::transfer::v1::{MsgTransfer, MsgTransferResponse};
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, to_json_binary, Coin, CosmosMsg, Deps, StdError, SubMsg, Uint128,
+    attr, ensure_eq, entry_point, to_json_binary, Addr, Coin, CosmosMsg, Deps, StdError, SubMsg,
+    Uint128,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use lido_helpers::answer::response;
@@ -44,7 +45,7 @@ pub fn instantiate(
     CONFIG.save(
         deps.storage,
         &Config {
-            dest_address: deps.api.addr_validate(&msg.dest_address)?,
+            dest_address: Addr::unchecked(&msg.dest_address),
             dest_channel: msg.dest_channel,
             dest_port: msg.dest_port,
             connection_id: msg.connection_id,
