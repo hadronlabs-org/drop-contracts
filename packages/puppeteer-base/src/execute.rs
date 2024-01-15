@@ -75,14 +75,33 @@ where
         }
     }
 
-    pub fn validate_tx_idle_state<C: CustomQuery>(&self, deps: Deps<C>) -> NeutronResult<()> {
+    pub fn validate_tx_state<C: CustomQuery>(
+        &self,
+        deps: Deps<C>,
+        status: TxStateStatus,
+    ) -> NeutronResult<()> {
         let tx_state = self.tx_state.load(deps.storage).unwrap_or_default();
-        match tx_state.status {
-            TxStateStatus::Idle => Ok(()),
-            _ => Err(NeutronError::Std(StdError::generic_err(
-                "Transaction state is not in idle",
-            ))),
-        }
+        ensure_eq!(
+            tx_state.status,
+            status,
+            NeutronError::Std(StdError::generic_err(format!(
+                "Transaction txState is not equal to expected: {}",
+                status
+            )))
+        );
+        Ok(())
+    }
+
+    pub fn validate_tx_idle_state<C: CustomQuery>(&self, deps: Deps<C>) -> NeutronResult<()> {
+        self.validate_tx_state(deps, TxStateStatus::Idle)
+    }
+
+    pub fn validate_tx_waiting_state<C: CustomQuery>(&self, deps: Deps<C>) -> NeutronResult<()> {
+        self.validate_tx_state(deps, TxStateStatus::WaitingForAck)
+    }
+
+    pub fn validate_tx_inprogress_state<C: CustomQuery>(&self, deps: Deps<C>) -> NeutronResult<()> {
+        self.validate_tx_state(deps, TxStateStatus::InProgress)
     }
 
     pub fn msg_with_sudo_callback<C: Into<CosmosMsg<X>> + Serialize, X>(

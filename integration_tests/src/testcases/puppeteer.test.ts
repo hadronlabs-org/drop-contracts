@@ -322,7 +322,7 @@ describe('Interchain puppeteer', () => {
         undefined,
         [{ amount: '1000000', denom: 'untrn' }],
       ),
-    ).to.rejects.toThrowError('Transaction state is not in idle');
+    ).to.rejects.toThrowError('txState is not equal to expected: Idle');
   });
 
   it('query done delegations', async () => {
@@ -551,8 +551,8 @@ describe('Interchain puppeteer', () => {
       return res.length > 0;
     }, 40_000);
     expect(res.length).toEqual(1);
-    expect(res[0].details).toEqual(
-      'ABCI code: 107: error handling packet: see events for details',
+    expect(res[0].details).toMatch(
+      /ABCI code: 107: error handling packet: see events for details/,
     );
   });
   it('send with timeout', async () => {

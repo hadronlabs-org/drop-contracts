@@ -465,13 +465,7 @@ fn sudo_response(
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
     deps.api
         .debug(&format!("WASMDEBUG: tx_state {:?}", tx_state));
-    ensure_eq!(
-        tx_state.status,
-        TxStateStatus::WaitingForAck,
-        NeutronError::Std(StdError::generic_err(
-            "Transaction state is not waiting for ack",
-        ))
-    );
+    puppeteer_base.validate_tx_waiting_state(deps.as_ref())?;
     let reply_to = tx_state
         .reply_to
         .ok_or_else(|| StdError::generic_err("reply_to not found"))?;
@@ -596,13 +590,8 @@ fn sudo_error(
         details = details
     ));
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
-    ensure_eq!(
-        tx_state.status,
-        TxStateStatus::WaitingForAck,
-        NeutronError::Std(StdError::generic_err(
-            "Transaction state is not waiting for ack",
-        ))
-    );
+    puppeteer_base.validate_tx_waiting_state(deps.as_ref())?;
+
     let seq_id = request
         .sequence
         .ok_or_else(|| StdError::generic_err("sequence not found"))?;
@@ -650,13 +639,8 @@ fn sudo_timeout(
         .sequence
         .ok_or_else(|| StdError::generic_err("sequence not found"))?;
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
-    ensure_eq!(
-        tx_state.status,
-        TxStateStatus::WaitingForAck,
-        NeutronError::Std(StdError::generic_err(
-            "Transaction state is not waiting for ack",
-        ))
-    );
+    puppeteer_base.validate_tx_waiting_state(deps.as_ref())?;
+
     let puppeteer_base: PuppeteerBase<'_, Config> = Puppeteer::default();
     puppeteer_base.state.save(
         deps.storage,

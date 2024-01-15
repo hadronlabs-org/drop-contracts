@@ -86,6 +86,16 @@ pub enum TxStateStatus {
     WaitingForAck,
 }
 
+impl std::fmt::Display for TxStateStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TxStateStatus::Idle => write!(f, "Idle"),
+            TxStateStatus::InProgress => write!(f, "InProgress"),
+            TxStateStatus::WaitingForAck => write!(f, "WaitingForAck"),
+        }
+    }
+}
+
 #[cw_serde]
 #[derive(Default)]
 pub struct TxState {
