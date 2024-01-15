@@ -41,6 +41,7 @@ serde = { workspace = true }
 serde-json-wasm = { workspace = true }
 
 lido-interchain-interceptor-base = { workspace = true }
+lido-staking-base = { workspace = true }
 
 [dev-dependencies]
 cosmwasm-storage = { workspace = true }

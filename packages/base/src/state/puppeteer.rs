@@ -6,7 +6,7 @@ use lido_interchain_interceptor_base::{
     state::{BaseConfig, State, Transfer},
 };
 
-use crate::msg::Transaction;
+use crate::msg::puppeteer::Transaction;
 
 #[cw_serde]
 pub struct Config {

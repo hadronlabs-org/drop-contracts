@@ -1,13 +1,9 @@
-use cosmwasm_std::{entry_point, to_json_binary, Attribute, Decimal, Deps, Uint128};
+use cosmwasm_std::{entry_point, to_json_binary, Decimal, Deps, Event, Uint128};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw2::set_contract_version;
-use lido_staking_base::helpers::answer::response;
+use lido_staking_base::error::distribution::{ContractError, ContractResult};
 use lido_staking_base::msg::distribution::{Delegation, IdealDelegation, InstantiateMsg, QueryMsg};
 use neutron_sdk::bindings::msg::NeutronMsg;
-use neutron_sdk::bindings::query::NeutronQuery;
-use neutron_sdk::NeutronResult;
-
-use crate::error::{ContractError, ContractResult};
 
 const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -18,16 +14,14 @@ pub fn instantiate(
     _env: Env,
     _info: MessageInfo,
     _msg: InstantiateMsg,
-) -> NeutronResult<Response<NeutronMsg>> {
+) -> ContractResult<Response<NeutronMsg>> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    let empty_attr: Vec<Attribute> = Vec::new();
-
-    Ok(response("instantiate", CONTRACT_NAME, empty_attr))
+    Ok(Response::new().add_event(Event::new(format!("{}-{}", CONTRACT_NAME, "instantiate"))))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(_deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
+pub fn query(_deps: Deps, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     match msg {
         QueryMsg::CalcDeposit {
             deposit,

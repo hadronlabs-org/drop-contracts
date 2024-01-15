@@ -3,9 +3,12 @@ import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
 export interface InstantiateMsg {
   core_code_id: number;
+  distribution_code_id: number;
   salt: string;
+  strategy_code_id: number;
   subdenom: string;
   token_code_id: number;
+  validators_set_code_id: number;
   withdrawal_manager_code_id: number;
   withdrawal_voucher_code_id: number;
 }
@@ -16,7 +19,10 @@ export interface LidoFactorySchema {
 }
 export interface State {
   core_contract: string;
+  distribution_contract: string;
+  strategy_contract: string;
   token_contract: string;
+  validators_set_contract: string;
   withdrawal_manager_contract: string;
   withdrawal_voucher_contract: string;
 }

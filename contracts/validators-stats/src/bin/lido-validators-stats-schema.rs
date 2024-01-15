@@ -1,8 +1,6 @@
 use cosmwasm_schema::write_api;
-use lido_validators_stats::{
-    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg},
-    state::QueryMsg,
-};
+
+use lido_staking_base::msg::validatorsstats::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 
 fn main() {
     write_api! {

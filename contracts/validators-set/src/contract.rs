@@ -1,17 +1,14 @@
 use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Addr, Deps, Order};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
+use lido_staking_base::error::validatorset::{ContractError, ContractResult};
 use lido_staking_base::helpers::answer::response;
+use lido_staking_base::msg::validatorset::{
+    ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ValidatorData, ValidatorInfoUpdate,
+};
+use lido_staking_base::state::validatorset::{Config, ValidatorInfo, CONFIG, VALIDATORS_SET};
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
-
-use crate::error::{ContractError, ContractResult};
-use crate::msg::{ValidatorData, ValidatorInfoUpdate};
-use crate::state::{ValidatorInfo, CONFIG, VALIDATORS_SET};
-use crate::{
-    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
-    state::Config,
-};
 
 const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
 
@@ -46,7 +43,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     match msg {
         QueryMsg::Config {} => query_config(deps, env),
         QueryMsg::Validator { valoper } => query_validator(deps, valoper),
@@ -54,24 +51,24 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Bin
     }
 }
 
-fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
+fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Binary> {
     let config = CONFIG.load(deps.storage)?;
-    to_json_binary(&config)
+    Ok(to_json_binary(&config)?)
 }
 
-fn query_validator(deps: Deps<NeutronQuery>, valoper: Addr) -> StdResult<Binary> {
+fn query_validator(deps: Deps<NeutronQuery>, valoper: Addr) -> ContractResult<Binary> {
     let validators = VALIDATORS_SET.may_load(deps.storage, valoper.to_string())?;
 
-    to_json_binary(&validators)
+    Ok(to_json_binary(&validators)?)
 }
 
-fn query_validators(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
+fn query_validators(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let validators: StdResult<Vec<_>> = VALIDATORS_SET
         .range_raw(deps.storage, None, None, Order::Ascending)
         .map(|item| item.map(|(_key, value)| value))
         .collect();
 
-    to_json_binary(&validators?)
+    Ok(to_json_binary(&validators?)?)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

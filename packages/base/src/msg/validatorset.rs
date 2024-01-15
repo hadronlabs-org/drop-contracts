@@ -1,7 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Decimal};
 
-use crate::state::{Config, ValidatorInfo};
+use crate::state::validatorset::ValidatorInfo;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -47,7 +47,7 @@ pub enum ExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(Config)]
+    #[returns(crate::state::validatorset::Config)]
     Config {},
     #[returns(ValidatorInfo)]
     Validator { valoper: Addr },
