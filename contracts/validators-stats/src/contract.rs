@@ -4,10 +4,10 @@ use cosmwasm_std::{
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
-use lido_staking_base::msg::validatorsstats::{ExecuteMsg, InstantiateMsg, MigrateMsg};
+use lido_staking_base::msg::validatorsstats::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use lido_staking_base::state::validatorsstats::{
-    Config, MissedBlocks, QueryMsg, ValidatorMissedBlocksForPeriod, ValidatorState, CONFIG,
-    MISSED_BLOCKS, SIGNING_INFO_QUERY_ID, SIGNING_INFO_REPLY_ID, STATE_MAP, VALCONS_TO_VALOPER,
+    Config, MissedBlocks, ValidatorMissedBlocksForPeriod, ValidatorState, CONFIG, MISSED_BLOCKS,
+    SIGNING_INFO_QUERY_ID, SIGNING_INFO_REPLY_ID, STATE_MAP, VALCONS_TO_VALOPER,
     VALIDATOR_PROFILE_QUERY_ID, VALIDATOR_PROFILE_REPLY_ID,
 };
 use neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse;

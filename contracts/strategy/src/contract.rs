@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use cosmwasm_std::{attr, entry_point, to_json_binary, Attribute, Deps, Uint128};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
@@ -130,15 +132,17 @@ fn prepare_delegation_data(
         )?;
 
     let mut delegations: Vec<lido_staking_base::msg::distribution::Delegation> = Vec::new();
+    let delegation_validator_map: HashMap<_, _> = account_delegations
+        .delegations
+        .iter()
+        .filter(|delegation| delegation.amount.denom == denom)
+        .map(|delegation| (delegation.validator.clone(), delegation.amount.amount))
+        .collect();
+
     for validator in validator_set.iter() {
-        let validator_denom_delegation = account_delegations
-            .delegations
-            .iter()
-            .find(|delegation| {
-                delegation.validator == validator.valoper_address
-                    && delegation.amount.denom == denom
-            })
-            .map(|delegation| delegation.amount.amount)
+        let validator_denom_delegation = delegation_validator_map
+            .get(&validator.valoper_address)
+            .copied()
             .unwrap_or_default();
 
         let delegation = lido_staking_base::msg::distribution::Delegation {
