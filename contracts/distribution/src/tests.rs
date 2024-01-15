@@ -1,12 +1,11 @@
 use cosmwasm_std::{
     testing::{mock_env, MockApi, MockQuerier, MockStorage},
-    to_json_binary, OwnedDeps, Querier, Uint128,
+    to_json_binary, Empty, OwnedDeps, Querier, Uint128,
 };
 use lido_staking_base::msg::distribution::{Delegation, IdealDelegation, QueryMsg};
-use neutron_sdk::bindings::query::NeutronQuery;
 use std::marker::PhantomData;
 
-fn mock_dependencies<Q: Querier + Default>() -> OwnedDeps<MockStorage, MockApi, Q, NeutronQuery> {
+fn mock_dependencies<Q: Querier + Default>() -> OwnedDeps<MockStorage, MockApi, Q, Empty> {
     OwnedDeps {
         storage: MockStorage::default(),
         api: MockApi::default(),

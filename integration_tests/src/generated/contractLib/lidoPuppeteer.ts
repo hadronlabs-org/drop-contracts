@@ -52,6 +52,7 @@ export interface Config {
   connection_id: string;
   owner: Addr;
   port_id: string;
+  proxy_address?: Addr | null;
   remote_denom: string;
   update_period: number;
 }

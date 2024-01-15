@@ -1,21 +1,10 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
-/**
- * A human readable address.
- *
- * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
- *
- * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
- *
- * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
- */
-export type Addr = string;
-
 export interface InstantiateMsg {
+  allowed_senders: string[];
   connection_id: string;
   owner: string;
   port_id: string;
-  proxy_address: Addr;
   remote_denom: string;
   update_period: number;
 }
@@ -43,25 +32,27 @@ export type Addr = string;
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type ArrayOfTransfer = Transfer[];
 export type IcaState = "none" | "in_progress" | "registered" | "timeout";
+export type ArrayOfTransfer = Transfer[];
 
 export interface LidoPuppeteerAuthzSchema {
-  responses: Config | DelegationsResponse | ArrayOfTransfer | State;
+  responses: Config | DelegationsResponse | State | ArrayOfTransfer;
   execute:
     | RegisterDelegatorDelegationsQueryArgs
     | SetFeesArgs
     | DelegateArgs
     | UndelegateArgs
     | RedelegateArgs
-    | WithdrawRewardArgs;
+    | TokenizeShareArgs
+    | RedeemShareArgs;
   [k: string]: unknown;
 }
 export interface Config {
+  allowed_senders: Addr[];
   connection_id: string;
   owner: Addr;
   port_id: string;
-  proxy_address: Addr;
+  proxy_address?: Addr | null;
   remote_denom: string;
   update_period: number;
 }
@@ -91,16 +82,16 @@ export interface Coin {
   denom: string;
   [k: string]: unknown;
 }
+export interface State {
+  ica?: string | null;
+  ica_state: IcaState;
+  last_processed_height?: number | null;
+}
 export interface Transfer {
   amount: string;
   denom: string;
   recipient: string;
   sender: string;
-}
-export interface State {
-  ica?: string | null;
-  ica_state: IcaState;
-  last_processed_height?: number | null;
 }
 export interface RegisterDelegatorDelegationsQueryArgs {
   validators: string[];
@@ -130,7 +121,15 @@ export interface RedelegateArgs {
   validator_from: string;
   validator_to: string;
 }
-export interface WithdrawRewardArgs {
+export interface TokenizeShareArgs {
+  amount: Uint128;
+  reply_to: string;
+  timeout?: number | null;
+  validator: string;
+}
+export interface RedeemShareArgs {
+  amount: Uint128;
+  denom: string;
   reply_to: string;
   timeout?: number | null;
   validator: string;
@@ -173,8 +172,8 @@ export class Client {
   queryState = async(): Promise<State> => {
     return this.client.queryContractSmart(this.contractAddress, { state: {} });
   }
-  queryInterchainTransactions = async(): Promise<ArrayOfTransfer> => {
-    return this.client.queryContractSmart(this.contractAddress, { interchain_transactions: {} });
+  queryTransactions = async(): Promise<ArrayOfTransfer> => {
+    return this.client.queryContractSmart(this.contractAddress, { transactions: {} });
   }
   queryDelegations = async(): Promise<DelegationsResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { delegations: {} });
@@ -207,8 +206,12 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { redelegate: args }, fee || "auto", memo, funds);
   }
-  withdrawReward = async(sender:string, args: WithdrawRewardArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  tokenizeShare = async(sender:string, args: TokenizeShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { withdraw_reward: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { tokenize_share: args }, fee || "auto", memo, funds);
+  }
+  redeemShare = async(sender:string, args: RedeemShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { redeem_share: args }, fee || "auto", memo, funds);
   }
 }

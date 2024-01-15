@@ -6,13 +6,24 @@ use crate::state::State;
 pub struct InstantiateMsg {
     pub token_code_id: u64,
     pub core_code_id: u64,
+    pub withdrawal_voucher_code_id: u64,
+    pub withdrawal_manager_code_id: u64,
+    pub strategy_code_id: u64,
+    pub validators_set_code_id: u64,
+    pub distribution_code_id: u64,
     pub salt: String,
     pub subdenom: String,
 }
 
 #[cw_serde]
+pub enum CallbackMsg {
+    PostInit {},
+}
+
+#[cw_serde]
 pub enum ExecuteMsg {
-    Init {},
+    Init { base_denom: String },
+    Callback(CallbackMsg),
 }
 #[cw_serde]
 pub enum MigrateMsg {}

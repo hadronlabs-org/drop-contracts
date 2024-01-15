@@ -25,5 +25,5 @@ pub struct InstantiateMsg {
     pub subdenom: String,
 }
 
-#[cosmwasm_schema::cw_serde]
+#[cw_serde]
 pub enum MigrateMsg {}

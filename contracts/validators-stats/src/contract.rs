@@ -4,6 +4,12 @@ use cosmwasm_std::{
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
+use lido_staking_base::msg::validatorsstats::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
+use lido_staking_base::state::validatorsstats::{
+    Config, MissedBlocks, ValidatorMissedBlocksForPeriod, ValidatorState, CONFIG, MISSED_BLOCKS,
+    SIGNING_INFO_QUERY_ID, SIGNING_INFO_REPLY_ID, STATE_MAP, VALCONS_TO_VALOPER,
+    VALIDATOR_PROFILE_QUERY_ID, VALIDATOR_PROFILE_REPLY_ID,
+};
 use neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse;
 use neutron_sdk::bindings::query::QueryRegisteredQueryResultResponse;
 use neutron_sdk::interchain_queries::queries::get_raw_interchain_query_result;
@@ -20,16 +26,7 @@ use neutron_sdk::{
 };
 use sha2::{Digest, Sha256};
 
-use crate::state::{
-    MissedBlocks, QueryMsg, ValidatorMissedBlocksForPeriod, ValidatorState, CONFIG, MISSED_BLOCKS,
-    SIGNING_INFO_QUERY_ID, STATE_MAP, VALCONS_TO_VALOPER, VALIDATOR_PROFILE_QUERY_ID,
-};
-use crate::{
-    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg},
-    state::{Config, SIGNING_INFO_REPLY_ID, VALIDATOR_PROFILE_REPLY_ID},
-};
-
-const CONTRACT_NAME: &str = concat!("crates.io:lido-validators_stats__", env!("CARGO_PKG_NAME"));
+const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -88,7 +85,6 @@ pub fn execute(
     _info: MessageInfo,
     msg: ExecuteMsg,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    // TODO: Add code to remove queries and withdraw funds from the contract
     // TODO: Add update config support
     // TODO: Add block time change support
     match msg {
@@ -390,6 +386,10 @@ pub fn pubkey_to_address(pubkey: Vec<u8>, prefix: &str) -> StdResult<String> {
     }
 
     let pubkey_bytes = &pubkey[2..];
+
+    // let mut hasher = Sha256::new();
+    // hasher.update(pubkey_bytes);
+    // let hash = hasher.finalize();
 
     let hash = Sha256::digest(pubkey_bytes);
     let addr_bytes = &hash[..20];

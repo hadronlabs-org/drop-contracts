@@ -3,6 +3,8 @@ members = [
 
     "contracts/stargate-poc",
     "contracts/distribution",
+    "contracts/withdrawal-voucher",
+    "contracts/withdrawal-manager",
     "contracts/factory",
     "contracts/puppeteer",
     "contracts/puppeteer-authz",
@@ -23,7 +25,7 @@ resolver = "2"
 cosmos-sdk-proto = { version = "0.20.0", default-features = false }
 base64 = "0.21.2"
 cw-ownable = "0.5.1"
-neutron-sdk = { package = "neutron-sdk", git = "https://github.com/neutron-org/neutron-sdk", rev = "0312d1edfcdca00818e85fc14504be9479efd5ee" }
+neutron-sdk = { package = "neutron-sdk", git = "https://github.com/neutron-org/neutron-sdk", rev = "9f0ed09746b4cc75e902315b0a0d5a3e0e5350a7" }
 prost = "0.12.1"
 prost-types = "0.12.1"
 protobuf = "3.2.0"
@@ -36,6 +38,8 @@ cosmwasm-schema = { version = "1.5.0", default-features = false }
 cw-storage-plus = { version = "1.2.0", default-features = false }
 cw2 = { version = "1.1.2", default-features = false }
 cw20 = { version = "1.0.1" }
+cw721 = { version = "0.18.0" }
+cw721-base = { version = "0.18.0", features = ["library"] }
 cosmwasm-storage = { version = "1.5.0" }
 cw-multi-test = "0.20.0"
 cw-utils = { version = "1.0.3", default-features = false }

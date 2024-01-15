@@ -5,7 +5,8 @@ pub fn response<A: Into<Attribute>, T>(
     contract_name: &str,
     attrs: impl IntoIterator<Item = A>,
 ) -> Response<T> {
-    Response::new().add_event(Event::new(format!("{}-{}", contract_name, ty)).add_attributes(attrs))
+    Response::<T>::new()
+        .add_event(Event::new(format!("{}-{}", contract_name, ty)).add_attributes(attrs))
 }
 
 pub fn attr_coin(

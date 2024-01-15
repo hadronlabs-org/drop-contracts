@@ -5,8 +5,8 @@ use cosmos_sdk_proto::cosmos::{
     staking::v1beta1::{MsgDelegate, MsgUndelegate},
 };
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, to_json_binary, Addr, CosmosMsg, Deps, Reply, StdError, SubMsg,
-    Uint128, WasmMsg,
+    attr, entry_point, to_json_binary, Addr, CosmosMsg, Deps, Reply, StdError, SubMsg, Uint128,
+    WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
@@ -74,13 +74,14 @@ pub fn instantiate(
         remote_denom: msg.remote_denom,
         owner,
         allowed_senders,
+        proxy_address: None,
     };
 
     Puppeteer::default().instantiate(deps, config)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     Puppeteer::default().query(deps, env, msg)
 }
 

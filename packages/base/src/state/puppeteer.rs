@@ -11,6 +11,7 @@ pub struct Config {
     pub remote_denom: String,
     pub owner: Addr,
     pub allowed_senders: Vec<Addr>,
+    pub proxy_address: Option<Addr>,
 }
 
 impl BaseConfig for Config {

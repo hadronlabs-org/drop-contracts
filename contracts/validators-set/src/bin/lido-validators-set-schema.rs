@@ -1,5 +1,5 @@
 use cosmwasm_schema::write_api;
-use lido_validators_set::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
+use lido_staking_base::msg::validatorset::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 
 fn main() {
     write_api! {

@@ -22,17 +22,19 @@ fn instantiate() {
         deps.as_mut(),
         mock_env(),
         mock_info("admin", &[]),
-        crate::msg::InstantiateMsg {
+        lido_staking_base::msg::validatorset::InstantiateMsg {
             core: "core".to_string(),
             stats_contract: "stats_contract".to_string(),
         },
     )
     .unwrap();
 
-    let config = crate::state::CONFIG.load(deps.as_ref().storage).unwrap();
+    let config = lido_staking_base::state::validatorset::CONFIG
+        .load(deps.as_ref().storage)
+        .unwrap();
     assert_eq!(
         config,
-        crate::state::Config {
+        lido_staking_base::state::validatorset::Config {
             core: Addr::unchecked("core"),
             stats_contract: Addr::unchecked("stats_contract"),
         }
@@ -42,11 +44,10 @@ fn instantiate() {
     assert_eq!(
         response.events,
         vec![
-            Event::new("crates.io:lido-neutron-contracts__lido-validators-set-instantiate")
-                .add_attributes([
-                    attr("core", "core"),
-                    attr("stats_contract", "stats_contract")
-                ])
+            Event::new("crates.io:lido-staking__lido-validators-set-instantiate").add_attributes([
+                attr("core", "core"),
+                attr("stats_contract", "stats_contract")
+            ])
         ]
     );
     assert!(response.attributes.is_empty());
@@ -55,21 +56,25 @@ fn instantiate() {
 #[test]
 fn query_config() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    crate::state::CONFIG
+    lido_staking_base::state::validatorset::CONFIG
         .save(
             deps.as_mut().storage,
-            &crate::state::Config {
+            &lido_staking_base::state::validatorset::Config {
                 core: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
             },
         )
         .unwrap();
 
-    let response =
-        crate::contract::query(deps.as_ref(), mock_env(), crate::msg::QueryMsg::Config {}).unwrap();
+    let response = crate::contract::query(
+        deps.as_ref(),
+        mock_env(),
+        lido_staking_base::msg::validatorset::QueryMsg::Config {},
+    )
+    .unwrap();
     assert_eq!(
         response,
-        to_json_binary(&crate::state::Config {
+        to_json_binary(&lido_staking_base::state::validatorset::Config {
             core: Addr::unchecked("core"),
             stats_contract: Addr::unchecked("stats_contract")
         })
@@ -81,10 +86,10 @@ fn query_config() {
 fn update_config_wrong_owner() {
     let mut deps = mock_dependencies::<MockQuerier>();
 
-    crate::state::CONFIG
+    lido_staking_base::state::validatorset::CONFIG
         .save(
             deps.as_mut().storage,
-            &crate::state::Config {
+            &lido_staking_base::state::validatorset::Config {
                 core: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
             },
@@ -95,7 +100,7 @@ fn update_config_wrong_owner() {
         deps.as_mut(),
         mock_env(),
         mock_info("core1", &[]),
-        crate::msg::ExecuteMsg::UpdateConfig {
+        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
             core: Some(Addr::unchecked("owner1")),
             stats_contract: Some(Addr::unchecked("stats_contract1")),
         },
@@ -103,7 +108,7 @@ fn update_config_wrong_owner() {
     .unwrap_err();
     assert_eq!(
         error,
-        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::Std(
+        lido_staking_base::error::validatorset::ContractError::OwnershipError(cw_ownable::OwnershipError::Std(
             cosmwasm_std::StdError::NotFound {
                 kind: "type: cw_ownable::Ownership<cosmwasm_std::addresses::Addr>; key: [6F, 77, 6E, 65, 72, 73, 68, 69, 70]".to_string()
             }
@@ -123,10 +128,10 @@ fn update_config_ok() {
         Some(Addr::unchecked("core").as_ref()),
     );
 
-    crate::state::CONFIG
+    lido_staking_base::state::validatorset::CONFIG
         .save(
             deps.as_mut().storage,
-            &crate::state::Config {
+            &lido_staking_base::state::validatorset::Config {
                 core: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
             },
@@ -137,7 +142,7 @@ fn update_config_ok() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        crate::msg::ExecuteMsg::UpdateConfig {
+        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
             core: Some(Addr::unchecked("owner1")),
             stats_contract: Some(Addr::unchecked("stats_contract1")),
         },
@@ -145,11 +150,15 @@ fn update_config_ok() {
     .unwrap();
     assert_eq!(response.messages.len(), 0);
 
-    let config =
-        crate::contract::query(deps.as_ref(), mock_env(), crate::msg::QueryMsg::Config {}).unwrap();
+    let config = crate::contract::query(
+        deps.as_ref(),
+        mock_env(),
+        lido_staking_base::msg::validatorset::QueryMsg::Config {},
+    )
+    .unwrap();
     assert_eq!(
         config,
-        to_json_binary(&crate::state::Config {
+        to_json_binary(&lido_staking_base::state::validatorset::Config {
             core: Addr::unchecked("owner1"),
             stats_contract: Addr::unchecked("stats_contract1")
         })
@@ -165,8 +174,8 @@ fn update_validator_wrong_owner() {
         deps.as_mut(),
         mock_env(),
         mock_info("core1", &[]),
-        crate::msg::ExecuteMsg::UpdateValidator {
-            validator: crate::msg::ValidatorData {
+        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidator {
+            validator: lido_staking_base::msg::validatorset::ValidatorData {
                 valoper_address: "valoper_address".to_string(),
                 weight: 1,
             },
@@ -175,7 +184,7 @@ fn update_validator_wrong_owner() {
     .unwrap_err();
     assert_eq!(
         error,
-        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::Std(
+        lido_staking_base::error::validatorset::ContractError::OwnershipError(cw_ownable::OwnershipError::Std(
             cosmwasm_std::StdError::NotFound {
                 kind: "type: cw_ownable::Ownership<cosmwasm_std::addresses::Addr>; key: [6F, 77, 6E, 65, 72, 73, 68, 69, 70]".to_string()
             }
@@ -199,8 +208,8 @@ fn update_validator_ok() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        crate::msg::ExecuteMsg::UpdateValidator {
-            validator: crate::msg::ValidatorData {
+        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidator {
+            validator: lido_staking_base::msg::validatorset::ValidatorData {
                 valoper_address: "valoper_address".to_string(),
                 weight: 1,
             },
@@ -212,14 +221,14 @@ fn update_validator_ok() {
     let validator = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        crate::msg::QueryMsg::Validator {
+        lido_staking_base::msg::validatorset::QueryMsg::Validator {
             valoper: Addr::unchecked("valoper_address"),
         },
     )
     .unwrap();
     assert_eq!(
         validator,
-        to_json_binary(&crate::state::ValidatorInfo {
+        to_json_binary(&lido_staking_base::state::validatorset::ValidatorInfo {
             valoper_address: "valoper_address".to_string(),
             weight: 1,
             last_processed_remote_height: None,
@@ -242,8 +251,8 @@ fn update_validators_wrong_owner() {
         deps.as_mut(),
         mock_env(),
         mock_info("core1", &[]),
-        crate::msg::ExecuteMsg::UpdateValidators {
-            validators: vec![crate::msg::ValidatorData {
+        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
+            validators: vec![lido_staking_base::msg::validatorset::ValidatorData {
                 valoper_address: "valoper_address".to_string(),
                 weight: 1,
             }],
@@ -252,7 +261,7 @@ fn update_validators_wrong_owner() {
     .unwrap_err();
     assert_eq!(
         error,
-        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::Std(
+        lido_staking_base::error::validatorset::ContractError::OwnershipError(cw_ownable::OwnershipError::Std(
             cosmwasm_std::StdError::NotFound {
                 kind: "type: cw_ownable::Ownership<cosmwasm_std::addresses::Addr>; key: [6F, 77, 6E, 65, 72, 73, 68, 69, 70]".to_string()
             }
@@ -276,13 +285,13 @@ fn update_validators_ok() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        crate::msg::ExecuteMsg::UpdateValidators {
+        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
             validators: vec![
-                crate::msg::ValidatorData {
+                lido_staking_base::msg::validatorset::ValidatorData {
                     valoper_address: "valoper_address1".to_string(),
                     weight: 1,
                 },
-                crate::msg::ValidatorData {
+                lido_staking_base::msg::validatorset::ValidatorData {
                     valoper_address: "valoper_address2".to_string(),
                     weight: 1,
                 },
@@ -295,13 +304,13 @@ fn update_validators_ok() {
     let validator = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        crate::msg::QueryMsg::Validators {},
+        lido_staking_base::msg::validatorset::QueryMsg::Validators {},
     )
     .unwrap();
     assert_eq!(
         validator,
         to_json_binary(&vec![
-            crate::state::ValidatorInfo {
+            lido_staking_base::state::validatorset::ValidatorInfo {
                 valoper_address: "valoper_address1".to_string(),
                 weight: 1,
                 last_processed_remote_height: None,
@@ -312,7 +321,7 @@ fn update_validators_ok() {
                 tombstone: false,
                 jailed_number: None,
             },
-            crate::state::ValidatorInfo {
+            lido_staking_base::state::validatorset::ValidatorInfo {
                 valoper_address: "valoper_address2".to_string(),
                 weight: 1,
                 last_processed_remote_height: None,
@@ -340,10 +349,10 @@ fn update_validator_info_wrong_sender() {
         Some(Addr::unchecked("core").as_ref()),
     );
 
-    crate::state::CONFIG
+    lido_staking_base::state::validatorset::CONFIG
         .save(
             deps_mut.storage,
-            &crate::state::Config {
+            &lido_staking_base::state::validatorset::Config {
                 core: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
             },
@@ -354,8 +363,8 @@ fn update_validator_info_wrong_sender() {
         deps_mut,
         mock_env(),
         mock_info("core", &[]),
-        crate::msg::ExecuteMsg::UpdateValidator {
-            validator: crate::msg::ValidatorData {
+        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidator {
+            validator: lido_staking_base::msg::validatorset::ValidatorData {
                 valoper_address: "valoper_address".to_string(),
                 weight: 1,
             },
@@ -367,8 +376,8 @@ fn update_validator_info_wrong_sender() {
         deps.as_mut(),
         mock_env(),
         mock_info("stats_contract1", &[]),
-        crate::msg::ExecuteMsg::UpdateValidatorInfo {
-            validators: vec![crate::msg::ValidatorInfoUpdate {
+        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorInfo {
+            validators: vec![lido_staking_base::msg::validatorset::ValidatorInfoUpdate {
                 valoper_address: "valoper_address".to_string(),
                 last_processed_remote_height: None,
                 last_processed_local_height: None,
@@ -381,7 +390,10 @@ fn update_validator_info_wrong_sender() {
         },
     )
     .unwrap_err();
-    assert_eq!(error, crate::error::ContractError::Unauthorized);
+    assert_eq!(
+        error,
+        lido_staking_base::error::validatorset::ContractError::Unauthorized
+    );
 }
 
 #[test]
@@ -396,10 +408,10 @@ fn update_validator_info_ok() {
         Some(Addr::unchecked("core").as_ref()),
     );
 
-    crate::state::CONFIG
+    lido_staking_base::state::validatorset::CONFIG
         .save(
             deps_mut.storage,
-            &crate::state::Config {
+            &lido_staking_base::state::validatorset::Config {
                 core: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
             },
@@ -410,8 +422,8 @@ fn update_validator_info_ok() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        crate::msg::ExecuteMsg::UpdateValidator {
-            validator: crate::msg::ValidatorData {
+        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidator {
+            validator: lido_staking_base::msg::validatorset::ValidatorData {
                 valoper_address: "valoper_address".to_string(),
                 weight: 1,
             },
@@ -424,8 +436,8 @@ fn update_validator_info_ok() {
         deps.as_mut(),
         mock_env(),
         mock_info("stats_contract", &[]),
-        crate::msg::ExecuteMsg::UpdateValidatorInfo {
-            validators: vec![crate::msg::ValidatorInfoUpdate {
+        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorInfo {
+            validators: vec![lido_staking_base::msg::validatorset::ValidatorInfoUpdate {
                 valoper_address: "valoper_address".to_string(),
                 last_processed_remote_height: Some(1234),
                 last_processed_local_height: Some(2345),
@@ -443,7 +455,7 @@ fn update_validator_info_ok() {
     let validator = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        crate::msg::QueryMsg::Validator {
+        lido_staking_base::msg::validatorset::QueryMsg::Validator {
             valoper: Addr::unchecked("valoper_address"),
         },
     )
@@ -451,7 +463,7 @@ fn update_validator_info_ok() {
 
     assert_eq!(
         validator,
-        to_json_binary(&crate::state::ValidatorInfo {
+        to_json_binary(&lido_staking_base::state::validatorset::ValidatorInfo {
             valoper_address: "valoper_address".to_string(),
             weight: 1,
             last_processed_remote_height: Some(1234),
