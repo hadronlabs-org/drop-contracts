@@ -693,26 +693,16 @@ dependencies = [
 name = "lido-hook-tester"
 version = "1.0.0"
 dependencies = [
- "base64",
  "cosmos-sdk-proto",
  "cosmwasm-schema",
  "cosmwasm-std",
- "cosmwasm-storage",
  "cw-multi-test 0.20.0",
- "cw-storage-plus",
- "cw2",
- "cw20",
  "lido-helpers",
  "lido-puppeteer-base",
  "lido-staking-base",
  "neutron-sdk",
  "prost",
- "prost-types",
  "protobuf",
- "schemars",
- "serde",
- "serde-json-wasm 1.0.0",
- "tendermint-proto",
  "thiserror",
 ]
 
