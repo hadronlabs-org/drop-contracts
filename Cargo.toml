@@ -11,6 +11,7 @@ members = [
     "contracts/validators-stats",
     "contracts/token",
     "contracts/validators-set",
+    "contracts/rewards-manager",
     "contracts/strategy",
     "contracts/pump",
     "contracts/hook-tester",

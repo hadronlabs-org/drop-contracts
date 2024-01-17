@@ -3,6 +3,8 @@ pub mod distribution;
 pub mod hook_tester;
 pub mod pump;
 pub mod puppeteer;
+pub mod reward_handler;
+pub mod rewards_manager;
 pub mod strategy;
 pub mod token;
 pub mod validatorset;
