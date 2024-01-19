@@ -1,6 +1,6 @@
 [workspace]
 members = [
-
+    "contracts/astroport-exchange-handler",
     "contracts/stargate-poc",
     "contracts/distribution",
     "contracts/withdrawal-voucher",

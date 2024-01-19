@@ -8,7 +8,7 @@ use lido_staking_base::msg::rewards_manager::{
 };
 use lido_staking_base::state::rewards_manager::{HandlerConfig, CORE_ADDRESS, REWARDS_HANDLERS};
 
-use lido_staking_base::msg::reward_handler::ExecuteMsg as HandlerExecuteMsg;
+use lido_staking_base::msg::reward_handler::HandlerExecuteMsg;
 
 const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");

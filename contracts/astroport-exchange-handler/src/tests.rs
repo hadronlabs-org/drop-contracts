@@ -6,7 +6,7 @@ use cosmwasm_std::{
 };
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
 use lido_helpers::answer::{attr_coin, response};
-use lido_staking_base::msg::reward_handler::HandlerExecuteMsg;
+use lido_staking_base::msg::reward_handler::ExecuteMsg as HandlerExecuteMsg;
 use lido_staking_base::msg::rewards_manager::QueryMsg;
 use lido_staking_base::msg::rewards_manager::{ExecuteMsg, InstantiateMsg};
 use lido_staking_base::state::rewards_manager::HandlerConfig;

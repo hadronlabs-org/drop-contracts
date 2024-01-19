@@ -707,6 +707,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13e3bf6590cbc649f4d1a3eefc9d5d6eb746f5200ffb04e5e142700b8faa56e7"
 
 [[package]]
+name = "lido-astroport-exchange-handler"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test 0.20.0",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "cw20",
+ "lido-helpers",
+ "lido-staking-base",
+ "prost",
+ "prost-types",
+ "protobuf",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.0",
+ "tendermint-proto",
+]
+
+[[package]]
 name = "lido-core"
 version = "1.0.0"
 dependencies = [
