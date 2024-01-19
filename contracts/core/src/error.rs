@@ -1,4 +1,5 @@
 use cosmwasm_std::{OverflowError, StdError};
+use lido_helpers::fsm::FsmError;
 use neutron_sdk::NeutronError;
 use thiserror::Error;
 
@@ -9,6 +10,9 @@ pub enum ContractError {
 
     #[error("{0}")]
     NeutronError(#[from] NeutronError),
+
+    #[error("{0}")]
+    FsmError(#[from] FsmError),
 
     #[error("Invalid Funds: {reason}")]
     InvalidFunds { reason: String },
@@ -33,6 +37,21 @@ pub enum ContractError {
 
     #[error("LD denom is not set")]
     LDDenomIsNotSet {},
+
+    #[error("Idle min interval is not reached")]
+    IdleMinIntervalIsNotReached {},
+
+    #[error("Unbonding time is too close")]
+    UnbondingTimeIsClose {},
+
+    #[error("Pump address is not set")]
+    PumpAddressIsNotSet {},
+
+    #[error("Response is empty")]
+    ResponseIsEmpty {},
+
+    #[error("InvalidTransaction")]
+    InvalidTransaction {},
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

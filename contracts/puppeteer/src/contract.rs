@@ -1,6 +1,7 @@
 use std::{str::FromStr, vec};
 
 use cosmos_sdk_proto::cosmos::{
+    bank::v1beta1::MsgSend,
     base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
     staking::v1beta1::{MsgDelegate, MsgUndelegate},
 };
@@ -31,7 +32,7 @@ use lido_puppeteer_base::{
     error::ContractResult,
     msg::{
         QueryMsg, ReceiverExecuteMsg, ResponseHookErrorMsg, ResponseHookMsg,
-        ResponseHookSuccessMsg, Transaction,
+        ResponseHookSuccessMsg, Transaction, TransferReadyBatchMsg,
     },
     state::{IcaState, PuppeteerBase, State, TxState, TxStateStatus, ICA_ID},
 };
@@ -40,10 +41,13 @@ use prost::Message;
 
 use crate::{
     proto::cosmos::base::v1beta1::Coin as ProtoCoin,
-    proto::liquidstaking::staking::v1beta1::{
-        MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgDelegateResponse,
-        MsgRedeemTokensforShares, MsgRedeemTokensforSharesResponse, MsgTokenizeShares,
-        MsgTokenizeSharesResponse, MsgUndelegateResponse,
+    proto::liquidstaking::{
+        distribution::v1beta1::MsgWithdrawDelegatorReward,
+        staking::v1beta1::{
+            MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgDelegateResponse,
+            MsgRedeemTokensforShares, MsgRedeemTokensforSharesResponse, MsgTokenizeShares,
+            MsgTokenizeSharesResponse, MsgUndelegateResponse,
+        },
     },
 };
 
@@ -134,6 +138,14 @@ pub fn execute(
             timeout,
             reply_to,
         } => execute_redeem_share(deps, info, validator, amount, denom, timeout, reply_to),
+        ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
+            validators,
+            transfer,
+            timeout,
+            reply_to,
+        } => execute_claim_rewards_and_optionaly_transfer(
+            deps, info, validators, transfer, timeout, reply_to,
+        ),
         ExecuteMsg::RegisterDelegatorDelegationsQuery { validators } => {
             register_delegations_query(deps, validators)
         }
@@ -187,13 +199,71 @@ fn execute_delegate(
     let submsg = compose_submsg(
         deps.branch(),
         config.clone(),
-        delegate_msg,
-        "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
+        vec![prepare_any_msg(
+            delegate_msg,
+            "/cosmos.staking.v1beta1.MsgDelegate",
+        )?],
         Transaction::Delegate {
             interchain_account_id: ICA_ID.to_string(),
             validator,
             denom: config.remote_denom,
             amount: amount.into(),
+        },
+        timeout,
+        reply_to,
+    )?;
+
+    Ok(Response::default().add_submessages(vec![submsg]))
+}
+
+fn execute_claim_rewards_and_optionaly_transfer(
+    mut deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    validators: Vec<String>,
+    transfer: Option<TransferReadyBatchMsg>,
+    timeout: Option<u64>,
+    reply_to: String,
+) -> ContractResult<Response<NeutronMsg>> {
+    let puppeteer_base = Puppeteer::default();
+    deps.api.addr_validate(&reply_to)?;
+    let config: Config = puppeteer_base.config.load(deps.storage)?;
+    validate_sender(&config, &info.sender)?;
+    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
+    let ica = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
+    let mut any_msgs = vec![];
+    if let Some(transfer) = transfer.clone() {
+        let transfer_msg = MsgSend {
+            from_address: ica.to_string(),
+            to_address: transfer.recipient,
+            amount: vec![Coin {
+                amount: transfer.amount.to_string(),
+                denom: config.remote_denom.to_string(),
+            }],
+        };
+        any_msgs.push(prepare_any_msg(
+            transfer_msg,
+            "/cosmos.bank.v1beta1.MsgSend",
+        )?);
+    }
+    for val in validators.clone() {
+        let withdraw_msg = MsgWithdrawDelegatorReward {
+            delegator_address: ica.to_string(),
+            validator_address: val,
+        };
+        any_msgs.push(prepare_any_msg(
+            withdraw_msg,
+            "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
+        )?);
+    }
+    let submsg = compose_submsg(
+        deps.branch(),
+        config.clone(),
+        any_msgs,
+        Transaction::ClaimRewardsAndOptionalyTransfer {
+            interchain_account_id: ICA_ID.to_string(),
+            validators,
+            denom: config.remote_denom.to_string(),
+            transfer,
         },
         timeout,
         reply_to,
@@ -229,8 +299,10 @@ fn execute_undelegate(
     let submsg = compose_submsg(
         deps.branch(),
         config.clone(),
-        undelegate_msg,
-        "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
+        vec![prepare_any_msg(
+            undelegate_msg,
+            "/cosmos.staking.v1beta1.MsgUndelegate",
+        )?],
         Transaction::Undelegate {
             interchain_account_id: ICA_ID.to_string(),
             validator,
@@ -272,8 +344,10 @@ fn execute_redelegate(
     let submsg = compose_submsg(
         deps.branch(),
         config.clone(),
-        redelegate_msg,
-        "/cosmos.staking.v1beta1.MsgBeginRedelegate".to_string(),
+        vec![prepare_any_msg(
+            redelegate_msg,
+            "/cosmos.staking.v1beta1.MsgBeginRedelegate",
+        )?],
         Transaction::Redelegate {
             interchain_account_id: ICA_ID.to_string(),
             validator_from,
@@ -314,8 +388,10 @@ fn execute_tokenize_share(
     let submsg = compose_submsg(
         deps.branch(),
         config.clone(),
-        tokenize_msg,
-        "/cosmos.staking.v1beta1.MsgTokenizeShares".to_string(),
+        vec![prepare_any_msg(
+            tokenize_msg,
+            "/cosmos.staking.v1beta1.MsgTokenizeShares",
+        )?],
         Transaction::TokenizeShare {
             interchain_account_id: ICA_ID.to_string(),
             validator,
@@ -360,8 +436,10 @@ fn execute_redeem_share(
     let submsg = compose_submsg(
         deps.branch(),
         config,
-        redeem_msg,
-        "/cosmos.staking.v1beta1.MsgRedeemTokensForShares".to_string(),
+        vec![prepare_any_msg(
+            redeem_msg,
+            "/cosmos.staking.v1beta1.MsgRedeemTokensForShares",
+        )?],
         Transaction::RedeemShare {
             interchain_account_id: ICA_ID.to_string(),
             validator,
@@ -376,11 +454,25 @@ fn execute_redeem_share(
         .add_attributes(attrs))
 }
 
-fn compose_submsg<T: prost::Message>(
+fn prepare_any_msg<T: prost::Message>(msg: T, type_url: &str) -> NeutronResult<ProtobufAny> {
+    let mut buf = Vec::new();
+    buf.reserve(msg.encoded_len());
+
+    if let Err(e) = msg.encode(&mut buf) {
+        return Err(NeutronError::Std(StdError::generic_err(format!(
+            "Encode error: {e}"
+        ))));
+    }
+    Ok(ProtobufAny {
+        type_url: type_url.to_string(),
+        value: Binary::from(buf),
+    })
+}
+
+fn compose_submsg(
     mut deps: DepsMut<NeutronQuery>,
     config: Config,
-    in_msg: T,
-    type_url: String,
+    any_msgs: Vec<ProtobufAny>,
     transaction: Transaction,
     timeout: Option<u64>,
     reply_to: String,
@@ -388,22 +480,10 @@ fn compose_submsg<T: prost::Message>(
     let puppeteer_base = Puppeteer::default();
     let ibc_fee: IbcFee = puppeteer_base.ibc_fee.load(deps.storage)?;
     let connection_id = config.connection_id;
-    let mut buf = Vec::new();
-    buf.reserve(in_msg.encoded_len());
-
-    if let Err(e) = in_msg.encode(&mut buf) {
-        return Err(NeutronError::Std(StdError::generic_err(format!(
-            "Encode error: {e}"
-        ))));
-    }
-    let any_msg = ProtobufAny {
-        type_url,
-        value: Binary::from(buf),
-    };
     let cosmos_msg = NeutronMsg::submit_tx(
         connection_id,
         ICA_ID.to_string(),
-        vec![any_msg],
+        any_msgs,
         "".to_string(),
         timeout.unwrap_or(DEFAULT_TIMEOUT_SECONDS),
         ibc_fee,
@@ -485,8 +565,7 @@ fn sudo_response(
     let msg_data: TxMsgData = TxMsgData::decode(data.as_slice())?;
     deps.api
         .debug(&format!("WASMDEBUG: msg_data: data: {msg_data:?}"));
-
-    let mut msgs = vec![];
+    let mut answers = vec![];
     #[allow(deprecated)]
     for item in msg_data.data {
         let answer = match item.msg_type.as_str() {
@@ -539,31 +618,32 @@ fn sudo_response(
             "WASMDEBUG: sudo_response: answer: {answer:?}",
             answer = answer
         ));
-        deps.api.debug(&format!(
-            "WASMDEBUG: json: {request:?}",
-            request = to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
-                ResponseHookMsg::Success(ResponseHookSuccessMsg {
-                    request_id: seq_id,
-                    request: request.clone(),
-                    transaction: transaction.clone(),
-                    answer: answer.clone(),
-                },)
-            ))?
-        ));
-        msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: reply_to.clone(),
-            msg: to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
-                ResponseHookMsg::Success(ResponseHookSuccessMsg {
-                    request_id: seq_id,
-                    request: request.clone(),
-                    transaction: transaction.clone(),
-                    answer,
-                }),
-            ))?,
-            funds: vec![],
-        }))
+        answers.push(answer);
     }
-    Ok(response("sudo-response", "puppeteer", attrs).add_messages(msgs))
+    deps.api.debug(&format!(
+        "WASMDEBUG: json: {request:?}",
+        request = to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
+            ResponseHookMsg::Success(ResponseHookSuccessMsg {
+                request_id: seq_id,
+                request: request.clone(),
+                transaction: transaction.clone(),
+                answers: answers.clone(),
+            },)
+        ))?
+    ));
+    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: reply_to.clone(),
+        msg: to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
+            ResponseHookMsg::Success(ResponseHookSuccessMsg {
+                request_id: seq_id,
+                request: request.clone(),
+                transaction: transaction.clone(),
+                answers,
+            }),
+        ))?,
+        funds: vec![],
+    });
+    Ok(response("sudo-response", "puppeteer", attrs).add_message(msg))
 }
 
 fn convert_coin(coin: crate::proto::cosmos::base::v1beta1::Coin) -> StdResult<cosmwasm_std::Coin> {

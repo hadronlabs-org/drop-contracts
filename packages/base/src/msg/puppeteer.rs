@@ -2,7 +2,7 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
 
 use lido_puppeteer_base::{
-    msg::{DelegationsResponse, ExecuteMsg as BaseExecuteMsg},
+    msg::{DelegationsResponse, ExecuteMsg as BaseExecuteMsg, TransferReadyBatchMsg},
     state::{State, Transfer},
 };
 
@@ -60,6 +60,12 @@ pub enum ExecuteMsg {
         validator: String,
         amount: Uint128,
         denom: String,
+        timeout: Option<u64>,
+        reply_to: String,
+    },
+    ClaimRewardsAndOptionalyTransfer {
+        validators: Vec<String>,
+        transfer: Option<TransferReadyBatchMsg>,
         timeout: Option<u64>,
         reply_to: String,
     },

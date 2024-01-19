@@ -47,6 +47,13 @@ pub enum QueryMsg {
 }
 
 #[cw_serde]
+pub struct TransferReadyBatchMsg {
+    pub batch_id: u128,
+    pub amount: Uint128,
+    pub recipient: String,
+}
+
+#[cw_serde]
 pub enum ReceiverExecuteMsg {
     PuppeteerHook(ResponseHookMsg),
 }
@@ -62,7 +69,7 @@ pub struct ResponseHookSuccessMsg {
     pub request_id: u64,
     pub request: RequestPacket,
     pub transaction: Transaction,
-    pub answer: ResponseAnswer,
+    pub answers: Vec<ResponseAnswer>,
 }
 #[cw_serde]
 pub struct ResponseHookErrorMsg {
@@ -118,5 +125,11 @@ pub enum Transaction {
         validator: String,
         denom: String,
         amount: u128,
+    },
+    ClaimRewardsAndOptionalyTransfer {
+        interchain_account_id: String,
+        validators: Vec<String>,
+        denom: String,
+        transfer: Option<TransferReadyBatchMsg>,
     },
 }

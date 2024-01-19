@@ -720,6 +720,7 @@ dependencies = [
  "cw2 1.1.2",
  "cw20",
  "lido-helpers",
+ "lido-puppeteer-base",
  "lido-staking-base",
  "neutron-sdk",
  "prost",
@@ -794,6 +795,7 @@ dependencies = [
  "cw-multi-test 0.20.0",
  "cw-storage-plus 1.2.0",
  "neutron-sdk",
+ "thiserror",
 ]
 
 [[package]]
@@ -903,6 +905,7 @@ dependencies = [
  "cw-storage-plus 1.2.0",
  "cw721 0.18.0",
  "cw721-base 0.18.0",
+ "lido-helpers",
  "lido-puppeteer-base",
  "neutron-sdk",
  "thiserror",
