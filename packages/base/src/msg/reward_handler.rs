@@ -5,4 +5,3 @@ use cosmwasm_std::Coin;
 pub enum HandlerExecuteMsg {
     Exchange { coin: Coin },
 }
-

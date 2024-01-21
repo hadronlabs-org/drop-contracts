@@ -1,5 +1,7 @@
 use astroport::asset::{Asset, AssetInfo};
 use astroport::pair::ExecuteMsg as PairExecuteMsg;
+use astroport::router::ExecuteMsg as RouterExecuteMsg;
+use astroport::router::SwapOperation;
 use cosmwasm_std::{
     attr, ensure_eq, entry_point, to_json_binary, Attribute, Coin, CosmosMsg, Deps, WasmMsg,
 };
@@ -11,7 +13,7 @@ use lido_staking_base::msg::astroport_exchange_handler::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
 use lido_staking_base::state::astroport_exchange_handler::{
-    CORE_ADDRESS, CRON_ADDRESS, FROM_DENOM,
+    CORE_ADDRESS, CRON_ADDRESS, FROM_DENOM, ROUTER_CONTRACT_ADDRESS,
 };
 
 const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
@@ -32,6 +34,9 @@ pub fn instantiate(
     let cron = deps.api.addr_validate(&msg.cron_address)?;
     CRON_ADDRESS.save(deps.storage, &cron)?;
 
+    let router_contract = deps.api.addr_validate(&msg.router_contract_address)?;
+    ROUTER_CONTRACT_ADDRESS.save(deps.storage, &router_contract)?;
+
     FROM_DENOM.save(deps.storage, &msg.from_denom)?;
 
     Ok(response(
@@ -40,6 +45,7 @@ pub fn instantiate(
         [
             attr("core_address", msg.core_address),
             attr("cron_address", msg.cron_address),
+            attr("router_contract_address", msg.router_contract_address),
             attr("from_denom", msg.from_denom),
         ],
     ))
@@ -55,11 +61,13 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 fn query_config(deps: Deps, _env: Env) -> StdResult<Binary> {
     let core_address = CORE_ADDRESS.load(deps.storage)?.into_string();
     let cron_address = CRON_ADDRESS.load(deps.storage)?.into_string();
+    let router_contract_address = ROUTER_CONTRACT_ADDRESS.load(deps.storage)?.into_string();
     let from_denom = FROM_DENOM.load(deps.storage)?;
 
     to_json_binary(&ConfigResponse {
         core_address,
         cron_address,
+        router_contract_address,
         from_denom,
     })
 }
@@ -75,10 +83,20 @@ pub fn execute(
         ExecuteMsg::UpdateConfig {
             core_address,
             cron_address,
+            router_contract_address,
             from_denom,
-        } => exec_config_update(deps, info, core_address, cron_address, from_denom),
+        } => exec_config_update(
+            deps,
+            info,
+            core_address,
+            cron_address,
+            router_contract_address,
+            from_denom,
+        ),
         ExecuteMsg::Exchange { coin } => exec_exchange(deps, info, coin),
-        ExecuteMsg::SetRouteAndSwap { operations } => todo!(),
+        ExecuteMsg::SetRouteAndSwap { operations } => {
+            exec_route_and_swap(deps, env, info, operations)
+        }
         ExecuteMsg::DirectSwap { contract_address } => {
             exec_direct_swap(deps, env, info, contract_address)
         }
@@ -90,6 +108,7 @@ fn exec_config_update(
     info: MessageInfo,
     core_address: Option<String>,
     cron_address: Option<String>,
+    router_contract_address: Option<String>,
     from_denom: Option<String>,
 ) -> ContractResult<Response> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
@@ -108,6 +127,12 @@ fn exec_config_update(
         attrs.push(attr("cron_address", cron_address))
     }
 
+    if let Some(router_contract_address) = router_contract_address {
+        let router_contract = deps.api.addr_validate(&router_contract_address)?;
+        ROUTER_CONTRACT_ADDRESS.save(deps.storage, &router_contract)?;
+        attrs.push(attr("router_contract", router_contract_address))
+    }
+
     if let Some(from_denom) = from_denom {
         FROM_DENOM.save(deps.storage, &from_denom)?;
         attrs.push(attr("from_denom", from_denom))
@@ -124,6 +149,44 @@ fn exec_exchange(deps: DepsMut, info: MessageInfo, coin: Coin) -> ContractResult
         CONTRACT_NAME,
         [attr_coin("exchange_coin", coin.amount, coin.denom)],
     ))
+}
+
+fn exec_route_and_swap(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    operations: Vec<SwapOperation>,
+) -> ContractResult<Response> {
+    let cron_address = CRON_ADDRESS.load(deps.storage)?.into_string();
+    ensure_eq!(cron_address, info.sender, ContractError::Unauthorized {});
+
+    let router_contract_address = ROUTER_CONTRACT_ADDRESS.load(deps.storage)?.into_string();
+    let from_denom = FROM_DENOM.load(deps.storage)?;
+
+    let balance = deps
+        .querier
+        .query_balance(env.contract.address, from_denom.clone())?;
+
+    let exchange_rewards_msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: router_contract_address.clone(),
+        msg: to_json_binary(&RouterExecuteMsg::ExecuteSwapOperations {
+            operations,
+            minimum_receive: None,
+            to: None,
+            max_spread: None,
+        })?,
+        funds: vec![balance.clone()],
+    });
+
+    Ok(response(
+        "set_route_and_swap",
+        CONTRACT_NAME,
+        [
+            attr("router_contract", router_contract_address),
+            attr_coin("swap_amount", balance.amount, balance.denom),
+        ],
+    )
+    .add_message(exchange_rewards_msg))
 }
 
 fn exec_direct_swap(

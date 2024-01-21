@@ -7,6 +7,7 @@ pub enum ExecuteMsg {
     UpdateConfig {
         core_address: Option<String>,
         cron_address: Option<String>,
+        router_contract_address: Option<String>,
         from_denom: Option<String>,
     },
     SetRouteAndSwap {
@@ -31,6 +32,7 @@ pub enum QueryMsg {
 pub struct ConfigResponse {
     pub core_address: String,
     pub cron_address: String,
+    pub router_contract_address: String,
     pub from_denom: String,
 }
 
@@ -38,6 +40,7 @@ pub struct ConfigResponse {
 pub struct InstantiateMsg {
     pub core_address: String,
     pub cron_address: String,
+    pub router_contract_address: String,
     pub from_denom: String,
 }
 
