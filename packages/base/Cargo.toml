@@ -34,6 +34,7 @@ cw721 = { workspace = true }
 thiserror = { workspace = true }
 cw-ownable = { workspace = true }
 optfield = { workspace = true }
+astroport = { workspace = true }
 
 [dev-dependencies]
 cosmwasm-storage = { workspace = true }

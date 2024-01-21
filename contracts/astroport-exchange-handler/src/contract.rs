@@ -1,14 +1,18 @@
+use astroport::asset::{Asset, AssetInfo};
+use astroport::pair::ExecuteMsg as PairExecuteMsg;
 use cosmwasm_std::{
-    attr, entry_point, to_json_binary, Attribute, Coin, CosmosMsg, Deps, Order, WasmMsg,
+    attr, ensure_eq, entry_point, to_json_binary, Attribute, Coin, CosmosMsg, Deps, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use lido_helpers::answer::{attr_coin, response};
-use lido_staking_base::error::astroport_exchange_handler::ContractResult;
+use lido_staking_base::error::astroport_exchange_handler::{ContractError, ContractResult};
 use lido_staking_base::msg::astroport_exchange_handler::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
-use lido_staking_base::state::astroport_exchange_handler::CORE_ADDRESS;
+use lido_staking_base::state::astroport_exchange_handler::{
+    CORE_ADDRESS, CRON_ADDRESS, FROM_DENOM,
+};
 
 const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -25,10 +29,19 @@ pub fn instantiate(
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(core.as_ref()))?;
     CORE_ADDRESS.save(deps.storage, &core)?;
 
+    let cron = deps.api.addr_validate(&msg.cron_address)?;
+    CRON_ADDRESS.save(deps.storage, &cron)?;
+
+    FROM_DENOM.save(deps.storage, &msg.from_denom)?;
+
     Ok(response(
         "instantiate",
         CONTRACT_NAME,
-        [attr("core_address", msg.core_address)],
+        [
+            attr("core_address", msg.core_address),
+            attr("cron_address", msg.cron_address),
+            attr("from_denom", msg.from_denom),
+        ],
     ))
 }
 
@@ -41,8 +54,14 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 
 fn query_config(deps: Deps, _env: Env) -> StdResult<Binary> {
     let core_address = CORE_ADDRESS.load(deps.storage)?.into_string();
+    let cron_address = CRON_ADDRESS.load(deps.storage)?.into_string();
+    let from_denom = FROM_DENOM.load(deps.storage)?;
 
-    to_json_binary(&ConfigResponse { core_address })
+    to_json_binary(&ConfigResponse {
+        core_address,
+        cron_address,
+        from_denom,
+    })
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -53,8 +72,16 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response> {
     match msg {
-        ExecuteMsg::UpdateConfig { core_address } => exec_config_update(deps, info, core_address),
+        ExecuteMsg::UpdateConfig {
+            core_address,
+            cron_address,
+            from_denom,
+        } => exec_config_update(deps, info, core_address, cron_address, from_denom),
         ExecuteMsg::Exchange { coin } => exec_exchange(deps, info, coin),
+        ExecuteMsg::SetRouteAndSwap { operations } => todo!(),
+        ExecuteMsg::DirectSwap { contract_address } => {
+            exec_direct_swap(deps, env, info, contract_address)
+        }
     }
 }
 
@@ -62,6 +89,8 @@ fn exec_config_update(
     deps: DepsMut,
     info: MessageInfo,
     core_address: Option<String>,
+    cron_address: Option<String>,
+    from_denom: Option<String>,
 ) -> ContractResult<Response> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
@@ -71,6 +100,17 @@ fn exec_config_update(
         CORE_ADDRESS.save(deps.storage, &core_address)?;
         cw_ownable::initialize_owner(deps.storage, deps.api, Some(core_address.as_ref()))?;
         attrs.push(attr("core_address", core_address))
+    }
+
+    if let Some(cron_address) = cron_address {
+        let cron_address = deps.api.addr_validate(&cron_address)?;
+        CRON_ADDRESS.save(deps.storage, &cron_address)?;
+        attrs.push(attr("cron_address", cron_address))
+    }
+
+    if let Some(from_denom) = from_denom {
+        FROM_DENOM.save(deps.storage, &from_denom)?;
+        attrs.push(attr("from_denom", from_denom))
     }
 
     Ok(response("config_update", CONTRACT_NAME, attrs))
@@ -84,6 +124,50 @@ fn exec_exchange(deps: DepsMut, info: MessageInfo, coin: Coin) -> ContractResult
         CONTRACT_NAME,
         [attr_coin("exchange_coin", coin.amount, coin.denom)],
     ))
+}
+
+fn exec_direct_swap(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    contract_address: String,
+) -> ContractResult<Response> {
+    let cron_address = CRON_ADDRESS.load(deps.storage)?.into_string();
+    ensure_eq!(cron_address, info.sender, ContractError::Unauthorized {});
+
+    let from_denom = FROM_DENOM.load(deps.storage)?;
+    let contract_addr = deps.api.addr_validate(&contract_address)?;
+
+    let balance = deps
+        .querier
+        .query_balance(env.contract.address, from_denom.clone())?;
+
+    let exchange_rewards_msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: contract_addr.to_string(),
+        msg: to_json_binary(&PairExecuteMsg::Swap {
+            offer_asset: Asset {
+                info: AssetInfo::NativeToken {
+                    denom: from_denom.clone(),
+                },
+                amount: balance.amount,
+            },
+            ask_asset_info: None,
+            belief_price: None,
+            max_spread: None,
+            to: None,
+        })?,
+        funds: vec![balance.clone()],
+    });
+
+    Ok(response(
+        "direct_swap",
+        CONTRACT_NAME,
+        [
+            attr("swap_contract", contract_address),
+            attr_coin("swap_amount", balance.amount, balance.denom),
+        ],
+    )
+    .add_message(exchange_rewards_msg))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
