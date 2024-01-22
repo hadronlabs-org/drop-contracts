@@ -3,7 +3,8 @@ use astroport::pair::ExecuteMsg as PairExecuteMsg;
 use astroport::router::ExecuteMsg as RouterExecuteMsg;
 use astroport::router::SwapOperation;
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, to_json_binary, Attribute, Coin, CosmosMsg, Deps, WasmMsg,
+    attr, ensure_eq, entry_point, to_json_binary, Attribute, Coin, CosmosMsg, Deps, Uint128,
+    WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
@@ -12,9 +13,7 @@ use lido_staking_base::error::astroport_exchange_handler::{ContractError, Contra
 use lido_staking_base::msg::astroport_exchange_handler::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
-use lido_staking_base::state::astroport_exchange_handler::{
-    CORE_ADDRESS, CRON_ADDRESS, FROM_DENOM, ROUTER_CONTRACT_ADDRESS,
-};
+use lido_staking_base::state::astroport_exchange_handler::{Config, CONFIG, SWAP_OPERATIONS};
 
 const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -27,26 +26,37 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let core = deps.api.addr_validate(&msg.core_address)?;
-    cw_ownable::initialize_owner(deps.storage, deps.api, Some(core.as_ref()))?;
-    CORE_ADDRESS.save(deps.storage, &core)?;
+    let owner = deps.api.addr_validate(&msg.owner)?;
+    cw_ownable::initialize_owner(deps.storage, deps.api, Some(owner.as_ref()))?;
 
     let cron = deps.api.addr_validate(&msg.cron_address)?;
-    CRON_ADDRESS.save(deps.storage, &cron)?;
+    let core_contract = deps.api.addr_validate(&msg.core_contract)?;
+    let swap_contract = deps.api.addr_validate(&msg.swap_contract)?;
+    let router_contract = deps.api.addr_validate(&msg.router_contract)?;
 
-    let router_contract = deps.api.addr_validate(&msg.router_contract_address)?;
-    ROUTER_CONTRACT_ADDRESS.save(deps.storage, &router_contract)?;
+    let config = Config {
+        owner: msg.owner,
+        cron_address: cron.to_string(),
+        core_contract: core_contract.to_string(),
+        swap_contract: swap_contract.to_string(),
+        router_contract: router_contract.to_string(),
+        from_denom: msg.from_denom,
+        min_rewards: msg.min_rewards,
+    };
 
-    FROM_DENOM.save(deps.storage, &msg.from_denom)?;
+    CONFIG.save(deps.storage, &config)?;
 
     Ok(response(
         "instantiate",
         CONTRACT_NAME,
         [
-            attr("core_address", msg.core_address),
+            attr("owner", msg.owner),
+            attr("core_address", msg.core_contract),
             attr("cron_address", msg.cron_address),
-            attr("router_contract_address", msg.router_contract_address),
+            attr("swap_contract", msg.swap_contract),
+            attr("router_contract", msg.router_contract),
             attr("from_denom", msg.from_denom),
+            attr("min_rewards", msg.min_rewards),
         ],
     ))
 }
@@ -59,16 +69,19 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 fn query_config(deps: Deps, _env: Env) -> StdResult<Binary> {
-    let core_address = CORE_ADDRESS.load(deps.storage)?.into_string();
-    let cron_address = CRON_ADDRESS.load(deps.storage)?.into_string();
-    let router_contract_address = ROUTER_CONTRACT_ADDRESS.load(deps.storage)?.into_string();
-    let from_denom = FROM_DENOM.load(deps.storage)?;
+    let config = CONFIG.load(deps.storage)?;
+
+    let swap_operations = SWAP_OPERATIONS.may_load(deps.storage)?;
 
     to_json_binary(&ConfigResponse {
-        core_address,
-        cron_address,
-        router_contract_address,
-        from_denom,
+        owner: config.owner,
+        core_contract: config.core_contract,
+        cron_address: config.cron_address,
+        swap_contract: config.swap_contract,
+        router_contract: config.router_contract,
+        from_denom: config.from_denom,
+        min_rewards: config.min_rewards,
+        swap_operations,
     })
 }
 
@@ -81,24 +94,27 @@ pub fn execute(
 ) -> ContractResult<Response> {
     match msg {
         ExecuteMsg::UpdateConfig {
-            core_address,
+            owner,
+            core_contract,
             cron_address,
-            router_contract_address,
+            router_contract,
+            swap_contract,
             from_denom,
+            min_rewards,
         } => exec_config_update(
             deps,
             info,
-            core_address,
+            owner,
+            core_contract,
             cron_address,
-            router_contract_address,
+            router_contract,
+            swap_contract,
             from_denom,
+            min_rewards,
         ),
         ExecuteMsg::Exchange { coin } => exec_exchange(deps, info, coin),
-        ExecuteMsg::SetRouteAndSwap { operations } => {
-            exec_route_and_swap(deps, env, info, operations)
-        }
-        ExecuteMsg::DirectSwap { contract_address } => {
-            exec_direct_swap(deps, env, info, contract_address)
+        ExecuteMsg::UpdateSwapOperations { operations } => {
+            exec_update_swap_operations(deps, env, info, operations)
         }
     }
 }
@@ -106,36 +122,58 @@ pub fn execute(
 fn exec_config_update(
     deps: DepsMut,
     info: MessageInfo,
-    core_address: Option<String>,
+    owner: Option<String>,
+    core_contract: Option<String>,
     cron_address: Option<String>,
-    router_contract_address: Option<String>,
+    router_contract: Option<String>,
+    swap_contract: Option<String>,
     from_denom: Option<String>,
+    min_rewards: Option<Uint128>,
 ) -> ContractResult<Response> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
+    let mut config = CONFIG.load(deps.storage)?;
+
     let mut attrs: Vec<Attribute> = Vec::new();
-    if let Some(core_address) = core_address {
-        let core_address = deps.api.addr_validate(&core_address)?;
-        CORE_ADDRESS.save(deps.storage, &core_address)?;
-        cw_ownable::initialize_owner(deps.storage, deps.api, Some(core_address.as_ref()))?;
-        attrs.push(attr("core_address", core_address))
+    if let Some(owner) = owner {
+        let owner = deps.api.addr_validate(&owner)?;
+        config.owner = owner.to_string();
+        cw_ownable::initialize_owner(deps.storage, deps.api, Some(owner.as_ref()))?;
+        attrs.push(attr("owner", owner))
+    }
+
+    if let Some(core_contract) = core_contract {
+        let core_contract = deps.api.addr_validate(&core_contract)?;
+        config.core_contract = core_contract.to_string();
+        attrs.push(attr("core_contract", core_contract))
     }
 
     if let Some(cron_address) = cron_address {
         let cron_address = deps.api.addr_validate(&cron_address)?;
-        CRON_ADDRESS.save(deps.storage, &cron_address)?;
+        config.cron_address = cron_address.to_string();
         attrs.push(attr("cron_address", cron_address))
     }
 
-    if let Some(router_contract_address) = router_contract_address {
-        let router_contract = deps.api.addr_validate(&router_contract_address)?;
-        ROUTER_CONTRACT_ADDRESS.save(deps.storage, &router_contract)?;
-        attrs.push(attr("router_contract", router_contract_address))
+    if let Some(router_contract) = router_contract {
+        let router_contract = deps.api.addr_validate(&router_contract)?;
+        config.router_contract = router_contract.to_string();
+        attrs.push(attr("router_contract", router_contract))
+    }
+
+    if let Some(swap_contract) = swap_contract {
+        let swap_contract = deps.api.addr_validate(&swap_contract)?;
+        config.swap_contract = swap_contract.to_string();
+        attrs.push(attr("swap_contract", swap_contract))
     }
 
     if let Some(from_denom) = from_denom {
-        FROM_DENOM.save(deps.storage, &from_denom)?;
+        config.from_denom = from_denom.to_string();
         attrs.push(attr("from_denom", from_denom))
+    }
+
+    if let Some(min_rewards) = min_rewards {
+        config.min_rewards = min_rewards;
+        attrs.push(attr("min_rewards", min_rewards))
     }
 
     Ok(response("config_update", CONTRACT_NAME, attrs))
@@ -151,42 +189,60 @@ fn exec_exchange(deps: DepsMut, info: MessageInfo, coin: Coin) -> ContractResult
     ))
 }
 
-fn exec_route_and_swap(
+fn exec_update_swap_operations(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    operations: Vec<SwapOperation>,
+    operations: Option<Vec<SwapOperation>>,
 ) -> ContractResult<Response> {
-    let cron_address = CRON_ADDRESS.load(deps.storage)?.into_string();
-    ensure_eq!(cron_address, info.sender, ContractError::Unauthorized {});
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
-    let router_contract_address = ROUTER_CONTRACT_ADDRESS.load(deps.storage)?.into_string();
-    let from_denom = FROM_DENOM.load(deps.storage)?;
+    if let Some(operations) = operations {
+        SWAP_OPERATIONS.save(deps.storage, &operations)?;
+        return Ok(response(
+            "update_swap_operations",
+            CONTRACT_NAME,
+            [attr("new_swap_operations", operations.len().to_string())],
+        ));
+    }
 
-    let balance = deps
-        .querier
-        .query_balance(env.contract.address, from_denom.clone())?;
-
-    let exchange_rewards_msg = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: router_contract_address.clone(),
-        msg: to_json_binary(&RouterExecuteMsg::ExecuteSwapOperations {
-            operations,
-            minimum_receive: None,
-            to: None,
-            max_spread: None,
-        })?,
-        funds: vec![balance.clone()],
-    });
-
+    SWAP_OPERATIONS.remove(deps.storage);
     Ok(response(
-        "set_route_and_swap",
+        "update_swap_operations",
         CONTRACT_NAME,
-        [
-            attr("router_contract", router_contract_address),
-            attr_coin("swap_amount", balance.amount, balance.denom),
-        ],
-    )
-    .add_message(exchange_rewards_msg))
+        [attr("clear_operations", "1".to_string())],
+    ))
+
+    // let cron_address = CRON_ADDRESS.load(deps.storage)?.into_string();
+    // ensure_eq!(cron_address, info.sender, ContractError::Unauthorized {});
+
+    // let router_contract_address = ROUTER_CONTRACT_ADDRESS.load(deps.storage)?.into_string();
+    // let from_denom = FROM_DENOM.load(deps.storage)?;
+
+    // let balance = deps
+    //     .querier
+    //     .query_balance(env.contract.address, from_denom.clone())?;
+
+    // let exchange_rewards_msg = CosmosMsg::Wasm(WasmMsg::Execute {
+    //     contract_addr: router_contract_address.clone(),
+    //     msg: to_json_binary(&RouterExecuteMsg::ExecuteSwapOperations {
+    //         operations,
+    //         minimum_receive: None,
+    //         to: None,
+    //         max_spread: None,
+    //     })?,
+    //     funds: vec![balance.clone()],
+    // });
+
+    // Ok(response(
+    //     "update_swap_operations",
+    //     CONTRACT_NAME,
+    //     [
+    //         attr("router_contract", router_contract_address),
+    //         attr_coin("swap_amount", balance.amount, balance.denom),
+    //     ],
+    // )
+    // .add_message(exchange_rewards_msg))
 }
 
 fn exec_direct_swap(

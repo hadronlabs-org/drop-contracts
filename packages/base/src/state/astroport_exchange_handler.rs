@@ -1,7 +1,18 @@
-use cosmwasm_std::Addr;
+use astroport::router::SwapOperation;
+use cosmwasm_schema::cw_serde;
+use cosmwasm_std::Uint128;
 use cw_storage_plus::Item;
 
-pub const CORE_ADDRESS: Item<Addr> = Item::new("core");
-pub const CRON_ADDRESS: Item<Addr> = Item::new("cron_address");
-pub const ROUTER_CONTRACT_ADDRESS: Item<Addr> = Item::new("router_contract_address");
-pub const FROM_DENOM: Item<String> = Item::new("from_denom");
+#[cw_serde]
+pub struct Config {
+    pub owner: String,
+    pub core_contract: String,
+    pub cron_address: String,
+    pub router_contract: String,
+    pub swap_contract: String,
+    pub from_denom: String,
+    pub min_rewards: Uint128,
+}
+pub const CONFIG: Item<Config> = Item::new("config");
+
+pub const SWAP_OPERATIONS: Item<Vec<SwapOperation>> = Item::new("swap_operations");
