@@ -37,7 +37,7 @@ fn handler_contract() -> Box<dyn Contract<Empty>> {
         ContractWrapper::new(
             |_, _, info, msg: HandlerExecuteMsg| {
                 match msg {
-                    HandlerExecuteMsg::Exchange { coin } => {
+                    HandlerExecuteMsg::Exchange {} => {
                         if !info.funds.is_empty() {
                             println!("received funds {:?}", info.funds);
                             return Ok(response(
@@ -45,11 +45,6 @@ fn handler_contract() -> Box<dyn Contract<Empty>> {
                                 "handler_mock",
                                 [
                                     attr("message", "ExecuteMsg::Exchange".to_string()),
-                                    attr_coin(
-                                        "provided_funds",
-                                        coin.amount.to_string(),
-                                        coin.denom.clone(),
-                                    ),
                                     attr_coin(
                                         "received_funds",
                                         info.funds[0].amount.to_string(),
@@ -339,7 +334,6 @@ fn test_handler_call() {
         attrs,
         vec![
             Attribute::new("message".to_string(), "ExecuteMsg::Exchange".to_string()),
-            Attribute::new("provided_funds".to_string(), "100ueth".to_string()),
             Attribute::new("received_funds".to_string(), "100ueth".to_string()),
         ]
     );
@@ -431,7 +425,6 @@ fn test_two_handlers_call() {
         ueth_attrs,
         vec![
             Attribute::new("message".to_string(), "ExecuteMsg::Exchange".to_string()),
-            Attribute::new("provided_funds".to_string(), "100ueth".to_string()),
             Attribute::new("received_funds".to_string(), "100ueth".to_string()),
         ]
     );
@@ -442,7 +435,6 @@ fn test_two_handlers_call() {
         untrn_attrs,
         vec![
             Attribute::new("message".to_string(), "ExecuteMsg::Exchange".to_string()),
-            Attribute::new("provided_funds".to_string(), "55untrn".to_string()),
             Attribute::new("received_funds".to_string(), "55untrn".to_string()),
         ]
     );

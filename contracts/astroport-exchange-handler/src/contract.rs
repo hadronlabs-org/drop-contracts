@@ -3,13 +3,12 @@ use astroport::pair::ExecuteMsg as PairExecuteMsg;
 use astroport::router::ExecuteMsg as RouterExecuteMsg;
 use astroport::router::SwapOperation;
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, to_json_binary, Attribute, Coin, CosmosMsg, Deps, Uint128,
-    WasmMsg,
+    attr, entry_point, to_json_binary, Attribute, CosmosMsg, Deps, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use lido_helpers::answer::{attr_coin, response};
-use lido_staking_base::error::astroport_exchange_handler::{ContractError, ContractResult};
+use lido_staking_base::error::astroport_exchange_handler::ContractResult;
 use lido_staking_base::msg::astroport_exchange_handler::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
@@ -35,12 +34,12 @@ pub fn instantiate(
     let router_contract = deps.api.addr_validate(&msg.router_contract)?;
 
     let config = Config {
-        owner: msg.owner,
+        owner: msg.owner.clone(),
         cron_address: cron.to_string(),
         core_contract: core_contract.to_string(),
         swap_contract: swap_contract.to_string(),
         router_contract: router_contract.to_string(),
-        from_denom: msg.from_denom,
+        from_denom: msg.from_denom.clone(),
         min_rewards: msg.min_rewards,
     };
 
@@ -112,13 +111,14 @@ pub fn execute(
             from_denom,
             min_rewards,
         ),
-        ExecuteMsg::Exchange { coin } => exec_exchange(deps, info, coin),
+        ExecuteMsg::Exchange {} => exec_exchange(deps, env),
         ExecuteMsg::UpdateSwapOperations { operations } => {
-            exec_update_swap_operations(deps, env, info, operations)
+            exec_update_swap_operations(deps, info, operations)
         }
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn exec_config_update(
     deps: DepsMut,
     info: MessageInfo,
@@ -179,19 +179,72 @@ fn exec_config_update(
     Ok(response("config_update", CONTRACT_NAME, attrs))
 }
 
-fn exec_exchange(deps: DepsMut, info: MessageInfo, coin: Coin) -> ContractResult<Response> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+fn exec_exchange(deps: DepsMut, env: Env) -> ContractResult<Response> {
+    let swap_operations = SWAP_OPERATIONS.may_load(deps.storage)?;
+    let config = CONFIG.load(deps.storage)?;
 
-    Ok(response(
+    let from_denom = config.from_denom;
+    let balance = deps
+        .querier
+        .query_balance(env.contract.address, from_denom.clone())?;
+
+    let mut res = response(
         "exchange",
         CONTRACT_NAME,
-        [attr_coin("exchange_coin", coin.amount, coin.denom)],
-    ))
+        [attr_coin(
+            "swap_amount",
+            balance.amount,
+            balance.denom.clone(),
+        )],
+    );
+
+    if let Some(swap_operations) = swap_operations {
+        let router_contract_address = config.router_contract;
+
+        let exchange_rewards_msg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: router_contract_address.clone(),
+            msg: to_json_binary(&RouterExecuteMsg::ExecuteSwapOperations {
+                operations: swap_operations,
+                minimum_receive: None,
+                to: Some(config.core_contract),
+                max_spread: None,
+            })?,
+            funds: vec![balance.clone()],
+        });
+
+        res = res
+            .add_message(exchange_rewards_msg)
+            .add_attribute("router_contract", router_contract_address);
+    } else {
+        let swap_contract = config.swap_contract;
+
+        let exchange_rewards_msg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: swap_contract.to_string(),
+            msg: to_json_binary(&PairExecuteMsg::Swap {
+                offer_asset: Asset {
+                    info: AssetInfo::NativeToken {
+                        denom: from_denom.clone(),
+                    },
+                    amount: balance.amount,
+                },
+                ask_asset_info: None,
+                belief_price: None,
+                max_spread: None,
+                to: Some(config.core_contract),
+            })?,
+            funds: vec![balance.clone()],
+        });
+
+        res = res
+            .add_message(exchange_rewards_msg)
+            .add_attribute("swap_contract", swap_contract);
+    }
+
+    Ok(res)
 }
 
 fn exec_update_swap_operations(
     deps: DepsMut,
-    env: Env,
     info: MessageInfo,
     operations: Option<Vec<SwapOperation>>,
 ) -> ContractResult<Response> {
@@ -212,81 +265,6 @@ fn exec_update_swap_operations(
         CONTRACT_NAME,
         [attr("clear_operations", "1".to_string())],
     ))
-
-    // let cron_address = CRON_ADDRESS.load(deps.storage)?.into_string();
-    // ensure_eq!(cron_address, info.sender, ContractError::Unauthorized {});
-
-    // let router_contract_address = ROUTER_CONTRACT_ADDRESS.load(deps.storage)?.into_string();
-    // let from_denom = FROM_DENOM.load(deps.storage)?;
-
-    // let balance = deps
-    //     .querier
-    //     .query_balance(env.contract.address, from_denom.clone())?;
-
-    // let exchange_rewards_msg = CosmosMsg::Wasm(WasmMsg::Execute {
-    //     contract_addr: router_contract_address.clone(),
-    //     msg: to_json_binary(&RouterExecuteMsg::ExecuteSwapOperations {
-    //         operations,
-    //         minimum_receive: None,
-    //         to: None,
-    //         max_spread: None,
-    //     })?,
-    //     funds: vec![balance.clone()],
-    // });
-
-    // Ok(response(
-    //     "update_swap_operations",
-    //     CONTRACT_NAME,
-    //     [
-    //         attr("router_contract", router_contract_address),
-    //         attr_coin("swap_amount", balance.amount, balance.denom),
-    //     ],
-    // )
-    // .add_message(exchange_rewards_msg))
-}
-
-fn exec_direct_swap(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    contract_address: String,
-) -> ContractResult<Response> {
-    let cron_address = CRON_ADDRESS.load(deps.storage)?.into_string();
-    ensure_eq!(cron_address, info.sender, ContractError::Unauthorized {});
-
-    let from_denom = FROM_DENOM.load(deps.storage)?;
-    let contract_addr = deps.api.addr_validate(&contract_address)?;
-
-    let balance = deps
-        .querier
-        .query_balance(env.contract.address, from_denom.clone())?;
-
-    let exchange_rewards_msg = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: contract_addr.to_string(),
-        msg: to_json_binary(&PairExecuteMsg::Swap {
-            offer_asset: Asset {
-                info: AssetInfo::NativeToken {
-                    denom: from_denom.clone(),
-                },
-                amount: balance.amount,
-            },
-            ask_asset_info: None,
-            belief_price: None,
-            max_spread: None,
-            to: None,
-        })?,
-        funds: vec![balance.clone()],
-    });
-
-    Ok(response(
-        "direct_swap",
-        CONTRACT_NAME,
-        [
-            attr("swap_contract", contract_address),
-            attr_coin("swap_amount", balance.amount, balance.denom),
-        ],
-    )
-    .add_message(exchange_rewards_msg))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

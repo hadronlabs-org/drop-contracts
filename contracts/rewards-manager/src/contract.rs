@@ -146,9 +146,7 @@ fn exec_exchange_rewards(deps: DepsMut, env: Env, _info: MessageInfo) -> Contrac
 
             let exchange_rewards_msg = CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: handler.address,
-                msg: to_json_binary(&HandlerExecuteMsg::Exchange {
-                    coin: balance.clone(),
-                })?,
+                msg: to_json_binary(&HandlerExecuteMsg::Exchange {})?,
                 funds: vec![balance],
             });
 

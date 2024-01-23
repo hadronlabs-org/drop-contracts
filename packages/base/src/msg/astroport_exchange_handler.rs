@@ -1,6 +1,6 @@
 use astroport::router::SwapOperation;
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Coin, Uint128};
+use cosmwasm_std::Uint128;
 
 #[cw_serde]
 pub enum ExecuteMsg {
@@ -16,9 +16,7 @@ pub enum ExecuteMsg {
     UpdateSwapOperations {
         operations: Option<Vec<SwapOperation>>,
     },
-    Exchange {
-        coin: Coin,
-    },
+    Exchange {},
 }
 
 #[cw_serde]
