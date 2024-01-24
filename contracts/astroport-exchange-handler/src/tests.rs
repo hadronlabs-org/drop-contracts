@@ -407,8 +407,6 @@ fn test_exchange_through_router_call() {
         )
         .unwrap();
 
-    println!("res {:?}", res);
-
     let ty = res.events[4].ty.clone();
 
     assert_eq!(ty, "wasm-router_mock-router_contract_execute".to_string());
