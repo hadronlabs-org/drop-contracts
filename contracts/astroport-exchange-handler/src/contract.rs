@@ -8,7 +8,7 @@ use cosmwasm_std::{
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use lido_helpers::answer::{attr_coin, response};
-use lido_staking_base::error::astroport_exchange_handler::ContractResult;
+use lido_staking_base::error::astroport_exchange_handler::{ContractError, ContractResult};
 use lido_staking_base::msg::astroport_exchange_handler::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
@@ -187,6 +187,14 @@ fn exec_exchange(deps: DepsMut, env: Env) -> ContractResult<Response> {
     let balance = deps
         .querier
         .query_balance(env.contract.address, from_denom.clone())?;
+
+    if balance.amount < config.min_rewards {
+        return Err(ContractError::LowBalance {
+            min_amount: config.min_rewards,
+            amount: balance.amount,
+            denom: from_denom,
+        });
+    }
 
     let mut res = response(
         "exchange",

@@ -1,4 +1,4 @@
-use cosmwasm_std::StdError;
+use cosmwasm_std::{StdError, Uint128};
 use cw_ownable::OwnershipError;
 use neutron_sdk::NeutronError;
 use thiserror::Error;
@@ -16,6 +16,13 @@ pub enum ContractError {
 
     #[error("unauthorized")]
     Unauthorized,
+
+    #[error("Low balance to perform swap operation. Minimum: {min_amount}{denom}, current: {amount}{denom}")]
+    LowBalance {
+        min_amount: Uint128,
+        amount: Uint128,
+        denom: String,
+    },
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

@@ -431,6 +431,48 @@ fn test_exchange_through_router_call() {
 }
 
 #[test]
+fn test_not_enough_balance_error() {
+    let mut app = mock_app();
+
+    let sender_address = Addr::unchecked(SENDER_ADDR);
+
+    let astroport_exchange_handler_code_id = app.store_code(astroport_handler_contract());
+
+    let astroport_handler_contract = instantiate_astroport_handler_contract(
+        &mut app,
+        astroport_exchange_handler_code_id,
+        InstantiateMsg {
+            owner: OWNER_CONTRACT_ADDR.to_string(),
+            core_contract: CORE_CONTRACT_ADDR.to_string(),
+            cron_address: CRON_ADDR.to_string(),
+            pair_contract: "pair_contract".to_string(),
+            router_contract: "router_contract".to_string(),
+            from_denom: "ueth".to_string(),
+            min_rewards: Uint128::from(200u128),
+        },
+    );
+
+    let amount = coins(100, "ueth");
+    let _ = app
+        .send_tokens(sender_address, astroport_handler_contract.clone(), &amount)
+        .unwrap();
+
+    let res = app.execute_contract(
+        Addr::unchecked(CORE_CONTRACT_ADDR),
+        astroport_handler_contract.clone(),
+        &ExecuteMsg::Exchange {},
+        &[],
+    );
+
+    let unwrapped_err = res.unwrap_err();
+    let chain: Vec<_> = unwrapped_err.chain().collect();
+    assert_eq!(
+        chain[1].to_string(),
+        "Low balance to perform swap operation. Minimum: 200ueth, current: 100ueth",
+    );
+}
+
+#[test]
 fn test_unauthorized_router_call() {
     let mut app = mock_app();
 
