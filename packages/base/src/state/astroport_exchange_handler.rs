@@ -9,7 +9,7 @@ pub struct Config {
     pub core_contract: String,
     pub cron_address: String,
     pub router_contract: String,
-    pub swap_contract: String,
+    pub pair_contract: String,
     pub from_denom: String,
     pub min_rewards: Uint128,
 }

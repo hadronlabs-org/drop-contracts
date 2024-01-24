@@ -30,14 +30,14 @@ pub fn instantiate(
 
     let cron = deps.api.addr_validate(&msg.cron_address)?;
     let core_contract = deps.api.addr_validate(&msg.core_contract)?;
-    let swap_contract = deps.api.addr_validate(&msg.swap_contract)?;
+    let pair_contract = deps.api.addr_validate(&msg.pair_contract)?;
     let router_contract = deps.api.addr_validate(&msg.router_contract)?;
 
     let config = Config {
         owner: msg.owner.clone(),
         cron_address: cron.to_string(),
         core_contract: core_contract.to_string(),
-        swap_contract: swap_contract.to_string(),
+        pair_contract: pair_contract.to_string(),
         router_contract: router_contract.to_string(),
         from_denom: msg.from_denom.clone(),
         min_rewards: msg.min_rewards,
@@ -50,9 +50,9 @@ pub fn instantiate(
         CONTRACT_NAME,
         [
             attr("owner", msg.owner),
-            attr("core_address", msg.core_contract),
+            attr("core_contract", msg.core_contract),
             attr("cron_address", msg.cron_address),
-            attr("swap_contract", msg.swap_contract),
+            attr("pair_contract", msg.pair_contract),
             attr("router_contract", msg.router_contract),
             attr("from_denom", msg.from_denom),
             attr("min_rewards", msg.min_rewards),
@@ -76,7 +76,7 @@ fn query_config(deps: Deps, _env: Env) -> StdResult<Binary> {
         owner: config.owner,
         core_contract: config.core_contract,
         cron_address: config.cron_address,
-        swap_contract: config.swap_contract,
+        pair_contract: config.pair_contract,
         router_contract: config.router_contract,
         from_denom: config.from_denom,
         min_rewards: config.min_rewards,
@@ -97,7 +97,7 @@ pub fn execute(
             core_contract,
             cron_address,
             router_contract,
-            swap_contract,
+            pair_contract,
             from_denom,
             min_rewards,
         } => exec_config_update(
@@ -107,7 +107,7 @@ pub fn execute(
             core_contract,
             cron_address,
             router_contract,
-            swap_contract,
+            pair_contract,
             from_denom,
             min_rewards,
         ),
@@ -126,7 +126,7 @@ fn exec_config_update(
     core_contract: Option<String>,
     cron_address: Option<String>,
     router_contract: Option<String>,
-    swap_contract: Option<String>,
+    pair_contract: Option<String>,
     from_denom: Option<String>,
     min_rewards: Option<Uint128>,
 ) -> ContractResult<Response> {
@@ -160,10 +160,10 @@ fn exec_config_update(
         attrs.push(attr("router_contract", router_contract))
     }
 
-    if let Some(swap_contract) = swap_contract {
-        let swap_contract = deps.api.addr_validate(&swap_contract)?;
-        config.swap_contract = swap_contract.to_string();
-        attrs.push(attr("swap_contract", swap_contract))
+    if let Some(pair_contract) = pair_contract {
+        let pair_contract = deps.api.addr_validate(&pair_contract)?;
+        config.pair_contract = pair_contract.to_string();
+        attrs.push(attr("pair_contract", pair_contract))
     }
 
     if let Some(from_denom) = from_denom {
@@ -216,10 +216,10 @@ fn exec_exchange(deps: DepsMut, env: Env) -> ContractResult<Response> {
             .add_message(exchange_rewards_msg)
             .add_attribute("router_contract", router_contract_address);
     } else {
-        let swap_contract = config.swap_contract;
+        let pair_contract = config.pair_contract;
 
         let exchange_rewards_msg = CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: swap_contract.to_string(),
+            contract_addr: pair_contract.to_string(),
             msg: to_json_binary(&PairExecuteMsg::Swap {
                 offer_asset: Asset {
                     info: AssetInfo::NativeToken {
@@ -237,7 +237,7 @@ fn exec_exchange(deps: DepsMut, env: Env) -> ContractResult<Response> {
 
         res = res
             .add_message(exchange_rewards_msg)
-            .add_attribute("swap_contract", swap_contract);
+            .add_attribute("pair_contract", pair_contract);
     }
 
     Ok(res)
