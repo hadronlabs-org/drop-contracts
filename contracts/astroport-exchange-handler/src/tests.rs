@@ -162,9 +162,7 @@ fn get_swap_operation(operation: SwapOperation) -> StdResult<String> {
             offer_denom,
             ask_denom,
         } => Ok(format!("{}/{}", offer_denom, ask_denom)),
-        _ => {
-            return Err(StdError::generic_err("Wrong token type"));
-        }
+        _ => Err(StdError::generic_err("Wrong token type")),
     }
 }
 
