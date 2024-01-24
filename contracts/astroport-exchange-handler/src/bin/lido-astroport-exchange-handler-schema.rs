@@ -1,7 +1,7 @@
 use cosmwasm_schema::write_api;
 use lido_staking_base::msg::{
-    distribution::QueryMsg,
-    strategy::{ExecuteMsg, InstantiateMsg, MigrateMsg},
+    astroport_exchange_handler::QueryMsg,
+    astroport_exchange_handler::{ExecuteMsg, InstantiateMsg, MigrateMsg},
 };
 
 fn main() {

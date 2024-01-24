@@ -407,6 +407,8 @@ fn test_exchange_through_router_call() {
         )
         .unwrap();
 
+    println!("res {:?}", res);
+
     let ty = res.events[4].ty.clone();
 
     assert_eq!(ty, "wasm-router_mock-router_contract_execute".to_string());
@@ -629,6 +631,25 @@ fn test_config_update() {
             Attribute::new("from_denom".to_string(), "untrn".to_string()),
             Attribute::new("min_rewards".to_string(), Uint128::zero()),
         ]
+    );
+
+    let config: ConfigResponse = app
+        .wrap()
+        .query_wasm_smart(astroport_handler_contract.clone(), &QueryMsg::Config {})
+        .unwrap();
+
+    assert_eq!(
+        config,
+        ConfigResponse {
+            owner: "owner1".to_string(),
+            core_contract: "core1".to_string(),
+            cron_address: "cron1".to_string(),
+            pair_contract: "pair_contract_1".to_string(),
+            router_contract: "router_contract_1".to_string(),
+            from_denom: "untrn".to_string(),
+            min_rewards: Uint128::zero(),
+            swap_operations: None,
+        }
     );
 }
 

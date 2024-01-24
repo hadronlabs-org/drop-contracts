@@ -176,6 +176,8 @@ fn exec_config_update(
         attrs.push(attr("min_rewards", min_rewards))
     }
 
+    CONFIG.save(deps.storage, &config)?;
+
     Ok(response("config_update", CONTRACT_NAME, attrs))
 }
 
