@@ -19,10 +19,21 @@ pub struct InstantiateMsg {
 pub enum CallbackMsg {
     PostInit {},
 }
+#[cw_serde]
+pub struct CoreParams {
+    pub idle_min_interval: u64,
+    pub puppeteer_timeout: u64,
+    pub unbonding_period: u64,
+    pub unbonding_safe_period: u64,
+    pub unbond_batch_switch_time: u64,
+}
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    Init { base_denom: String },
+    Init {
+        base_denom: String,
+        core_params: CoreParams,
+    },
     Callback(CallbackMsg),
 }
 #[cw_serde]

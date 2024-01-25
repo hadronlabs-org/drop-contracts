@@ -1,4 +1,4 @@
-use crate::state::core::{Config, UnbondBatch};
+use crate::state::core::{Config, ConfigOptional, UnbondBatch};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Decimal, Uint128};
 use lido_puppeteer_base::msg::ResponseHookMsg;
@@ -11,11 +11,12 @@ pub struct InstantiateMsg {
     pub strategy_contract: String,
     pub withdrawal_voucher_contract: String,
     pub withdrawal_manager_contract: String,
-    pub validator_set_contract: String,
+    pub validators_set_contract: String,
     pub base_denom: String,
-    pub idle_min_interval: u64,     //seconds
-    pub unbonding_period: u64,      //seconds
-    pub unbonding_safe_period: u64, //seconds
+    pub idle_min_interval: u64,        //seconds
+    pub unbonding_period: u64,         //seconds
+    pub unbonding_safe_period: u64,    //seconds
+    pub unbond_batch_switch_time: u64, //seconds
     pub pump_address: Option<String>,
     pub owner: String,
 }
@@ -39,12 +40,7 @@ pub enum ExecuteMsg {
     Unbond {},
     //permissioned
     UpdateConfig {
-        token_contract: Option<String>,
-        puppeteer_contract: Option<String>,
-        strategy_contract: Option<String>,
-        owner: Option<String>,
-        ld_denom: Option<String>,
-        tick_min_interval: Option<u64>,
+        new_config: Box<ConfigOptional>,
     },
     FakeProcessBatch {
         batch_id: Uint128,
@@ -73,7 +69,8 @@ impl From<InstantiateMsg> for Config {
             unbonding_safe_period: val.unbonding_safe_period,
             unbonding_period: val.unbonding_period,
             pump_address: val.pump_address,
-            validator_set_contract: val.validator_set_contract,
+            validators_set_contract: val.validators_set_contract,
+            unbond_batch_switch_time: val.unbond_batch_switch_time,
         }
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     error::ContractResult,
-    msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, QueryMsg},
+    msg::{CallbackMsg, CoreParams, ExecuteMsg, InstantiateMsg, QueryMsg},
     state::{Config, State, CONFIG, STATE},
 };
 use cosmwasm_std::{
@@ -93,7 +93,10 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::Init { base_denom } => execute_init(deps, env, info, base_denom),
+        ExecuteMsg::Init {
+            base_denom,
+            core_params,
+        } => execute_init(deps, env, info, base_denom, core_params),
         ExecuteMsg::Callback(msg) => match msg {
             CallbackMsg::PostInit {} => execute_post_init(deps, env, info),
         },
@@ -105,6 +108,7 @@ fn execute_init(
     env: Env,
     _info: MessageInfo,
     base_denom: String,
+    core_params: CoreParams,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let canonical_self_address = deps.api.addr_canonicalize(env.contract.address.as_str())?;
@@ -265,6 +269,13 @@ fn execute_init(
                 withdrawal_voucher_contract: withdrawal_voucher_contract.to_string(),
                 withdrawal_manager_contract: withdrawal_manager_contract.to_string(),
                 base_denom: base_denom.to_string(),
+                pump_address: None,
+                validators_set_contract,
+                puppeteer_timeout: core_params.puppeteer_timeout,
+                unbonding_period: core_params.unbonding_period,
+                unbonding_safe_period: core_params.unbonding_safe_period,
+                unbond_batch_switch_time: core_params.unbond_batch_switch_time,
+                idle_min_interval: core_params.idle_min_interval,
                 owner: env.contract.address.to_string(),
             })?,
             funds: vec![],
@@ -318,11 +329,10 @@ fn execute_post_init(
     let core_update_msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: state.core_contract,
         msg: to_json_binary(&CoreExecuteMsg::UpdateConfig {
-            token_contract: None,
-            puppeteer_contract: None,
-            strategy_contract: None,
-            owner: None,
-            ld_denom: Some(token_config.denom),
+            new_config: Box::new(lido_staking_base::state::core::ConfigOptional {
+                ld_denom: Some(token_config.denom),
+                ..lido_staking_base::state::core::ConfigOptional::default()
+            }),
         })?,
         funds: vec![],
     });

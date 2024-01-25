@@ -21,6 +21,9 @@ export type ResponseAnswer =
       authz_exec_response: MsgExecResponse;
     }
   | {
+      i_b_c_transfer: MsgIBCTransfer;
+    }
+  | {
       unknown_response: {};
     };
 /**
@@ -90,6 +93,21 @@ export type Transaction =
         interchain_account_id: string;
         validator: string;
       };
+    }
+  | {
+      claim_rewards_and_optionaly_transfer: {
+        denom: string;
+        interchain_account_id: string;
+        transfer?: TransferReadyBatchMsg | null;
+        validators: string[];
+      };
+    }
+  | {
+      i_b_c_transfer: {
+        amount: number;
+        denom: string;
+        recipient: string;
+      };
     };
 export type ArrayOfResponseHookSuccessMsg = ResponseHookSuccessMsg[];
 export type ArrayOfResponseHookErrorMsg = ResponseHookErrorMsg[];
@@ -100,7 +118,7 @@ export interface LidoHookTesterSchema {
   [k: string]: unknown;
 }
 export interface ResponseHookSuccessMsg {
-  answer: ResponseAnswer;
+  answers: ResponseAnswer[];
   request: RequestPacket;
   request_id: number;
   transaction: Transaction;
@@ -130,6 +148,7 @@ export interface MsgRedeemTokensforSharesResponse {
 export interface MsgExecResponse {
   results: number[][];
 }
+export interface MsgIBCTransfer {}
 export interface RequestPacket {
   data?: Binary | null;
   destination_channel?: string | null;
@@ -145,6 +164,11 @@ export interface RequestPacketTimeoutHeight {
   revision_height?: number | null;
   revision_number?: number | null;
   [k: string]: unknown;
+}
+export interface TransferReadyBatchMsg {
+  amount: Uint128;
+  batch_id: number;
+  recipient: string;
 }
 export interface ResponseHookErrorMsg {
   details: string;

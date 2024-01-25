@@ -142,8 +142,7 @@ fn execute_delegate(
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_addr,
         msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
-            validator,
-            amount,
+            items: vec![(validator, amount)],
             timeout,
             reply_to: env.contract.address.to_string(),
         })?,
@@ -168,8 +167,7 @@ fn execute_undelegate(
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_addr,
         msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
-            validator,
-            amount,
+            items: vec![(validator, amount)],
             timeout,
             reply_to: env.contract.address.to_string(),
         })?,

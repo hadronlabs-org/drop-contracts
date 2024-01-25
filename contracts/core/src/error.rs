@@ -52,6 +52,12 @@ pub enum ContractError {
 
     #[error("InvalidTransaction")]
     InvalidTransaction {},
+
+    #[error("ICA balance is zero")]
+    ICABalanceZero {},
+
+    #[error("Puppereer balance is outdated")]
+    PuppereerBalanceOutdated {},
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

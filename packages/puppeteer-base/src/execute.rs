@@ -19,13 +19,13 @@ use crate::{
     msg::{ExecuteMsg, Transaction},
     state::{
         BaseConfig, IcaState, PuppeteerBase, State, TxState, TxStateStatus, ICA_ID, LOCAL_DENOM,
-        SUDO_PAYLOAD_REPLY_ID,
     },
 };
 
-impl<'a, T> PuppeteerBase<'a, T>
+impl<'a, T, U> PuppeteerBase<'a, T, U>
 where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
+    U: Serialize + DeserializeOwned + Clone,
 {
     pub fn instantiate(&self, deps: DepsMut, config: &T) -> NeutronResult<Response> {
         deps.api.debug("WASMDEBUG: instantiate");
@@ -110,6 +110,7 @@ where
         msg: C,
         transaction: Transaction,
         reply_to: String,
+        payload_id: u64,
     ) -> StdResult<SubMsg<X>> {
         deps.api
             .debug("WASMDEBUG: msg_with_sudo_callback save tx_state InProgress");
@@ -122,7 +123,7 @@ where
                 reply_to: Some(reply_to),
             },
         )?;
-        Ok(SubMsg::reply_on_success(msg, SUDO_PAYLOAD_REPLY_ID))
+        Ok(SubMsg::reply_on_success(msg, payload_id))
     }
 
     fn execute_register_ica(

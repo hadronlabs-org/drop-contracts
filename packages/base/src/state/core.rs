@@ -2,8 +2,11 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Decimal, Uint128};
 use cw_storage_plus::{Item, Map};
 use lido_helpers::fsm::{Fsm, Transition};
+use optfield::optfield;
 
+#[optfield(pub ConfigOptional, attrs)]
 #[cw_serde]
+#[derive(Default)]
 pub struct Config {
     pub token_contract: String,
     pub puppeteer_contract: String,
@@ -11,15 +14,17 @@ pub struct Config {
     pub strategy_contract: String,
     pub withdrawal_voucher_contract: String,
     pub withdrawal_manager_contract: String,
-    pub validator_set_contract: String,
-    pub owner: String,
+    pub validators_set_contract: String,
     pub base_denom: String,
-    pub ld_denom: Option<String>,
-    pub idle_min_interval: u64,     //seconds
-    pub unbonding_period: u64,      //seconds
-    pub unbonding_safe_period: u64, //seconds
+    pub idle_min_interval: u64,        //seconds
+    pub unbonding_period: u64,         //seconds
+    pub unbonding_safe_period: u64,    //seconds
+    pub unbond_batch_switch_time: u64, //seconds
     pub pump_address: Option<String>,
+    pub owner: String,
+    pub ld_denom: Option<String>,
 }
+
 pub const CONFIG: Item<Config> = Item::new("config");
 
 #[cw_serde]
@@ -47,6 +52,7 @@ pub struct UnbondBatch {
     pub slashing_effect: Option<Decimal>,
     pub unbonded_amount: Option<Uint128>,
     pub withdrawed_amount: Option<Uint128>,
+    pub created: u64,
 }
 
 pub const UNBOND_BATCHES: Map<u128, UnbondBatch> = Map::new("batches");
@@ -58,6 +64,7 @@ pub enum ContractState {
     Claiming,
     Unbonding,
     Staking,
+    Transfering,
 }
 
 pub fn get_transitions() -> Vec<Transition<ContractState>> {
@@ -68,10 +75,14 @@ pub fn get_transitions() -> Vec<Transition<ContractState>> {
         },
         Transition {
             from: ContractState::Claiming,
-            to: ContractState::Unbonding,
+            to: ContractState::Transfering,
         },
         Transition {
-            from: ContractState::Unbonding,
+            from: ContractState::Transfering,
+            to: ContractState::Staking,
+        },
+        Transition {
+            from: ContractState::Claiming,
             to: ContractState::Staking,
         },
         Transition {
@@ -83,3 +94,4 @@ pub fn get_transitions() -> Vec<Transition<ContractState>> {
 
 pub const FSM: Item<Fsm<ContractState>> = Item::new("machine_state");
 pub const LAST_IDLE_CALL: Item<u64> = Item::new("last_tick");
+pub const LAST_ICA_BALANCE_CHANGE_HEIGHT: Item<u64> = Item::new("last_ica_balance_change_height");

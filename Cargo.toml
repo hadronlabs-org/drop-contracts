@@ -7,7 +7,7 @@ members = [
     "contracts/withdrawal-manager",
     "contracts/factory",
     "contracts/puppeteer",
-    "contracts/puppeteer-authz",
+    # "contracts/puppeteer-authz",
     "contracts/validators-stats",
     "contracts/token",
     "contracts/validators-set",
@@ -53,6 +53,7 @@ lido-puppeteer-base = { path = "./packages/puppeteer-base", default-features = f
 lido-staking-base = { path = "./packages/base", default-features = false }
 lido-helpers = { path = "./packages/helpers", default-features = false }
 thiserror = "1.0.50"
+optfield = { version = "0.3.0" }
 
 [profile.release]
 opt-level = 3

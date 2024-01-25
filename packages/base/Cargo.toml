@@ -33,6 +33,7 @@ cw721-base = { workspace = true }
 cw721 = { workspace = true }
 thiserror = { workspace = true }
 cw-ownable = { workspace = true }
+optfield = { workspace = true }
 
 [dev-dependencies]
 cosmwasm-storage = { workspace = true }

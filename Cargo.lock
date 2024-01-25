@@ -842,32 +842,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "lido-puppeteer-authz"
-version = "1.0.0"
-dependencies = [
- "base64",
- "cosmos-sdk-proto",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cosmwasm-storage",
- "cw-multi-test 0.20.0",
- "cw-storage-plus 1.2.0",
- "cw2 1.1.2",
- "cw20",
- "lido-helpers",
- "lido-puppeteer-base",
- "lido-staking-base",
- "neutron-sdk",
- "prost",
- "prost-types",
- "protobuf",
- "schemars",
- "serde",
- "serde-json-wasm 1.0.0",
- "tendermint-proto",
-]
-
-[[package]]
 name = "lido-puppeteer-base"
 version = "1.0.0"
 dependencies = [
@@ -908,6 +882,7 @@ dependencies = [
  "lido-helpers",
  "lido-puppeteer-base",
  "neutron-sdk",
+ "optfield",
  "thiserror",
 ]
 
@@ -1140,6 +1115,17 @@ name = "opaque-debug"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
+
+[[package]]
+name = "optfield"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa59f025cde9c698fcb4fcb3533db4621795374065bee908215263488f2d2a1d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.48",
+]
 
 [[package]]
 name = "paste"

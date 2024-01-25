@@ -170,6 +170,8 @@ describe('Interchain puppeteer', () => {
 
   it('set fees', async () => {
     const { contractClient, account } = context;
+    const x = await contractClient.queryExtention({ msg: { balances: {} } });
+
     const res = await contractClient.setFees(
       account.address,
       {

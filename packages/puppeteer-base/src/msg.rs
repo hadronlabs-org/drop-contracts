@@ -1,11 +1,13 @@
-use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Delegation, Uint128};
+use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::{Binary, Empty, Uint128};
 use neutron_sdk::sudo::msg::RequestPacket;
+use schemars::JsonSchema;
 
 use crate::proto::{
-    MsgBeginRedelegateResponse, MsgDelegateResponse, MsgExecResponse,
+    MsgBeginRedelegateResponse, MsgDelegateResponse, MsgExecResponse, MsgIBCTransfer,
     MsgRedeemTokensforSharesResponse, MsgTokenizeSharesResponse, MsgUndelegateResponse,
 };
+use crate::state::State;
 
 #[cw_serde]
 pub enum ExecuteMsg {
@@ -33,17 +35,20 @@ pub struct OpenAckVersion {
 pub struct MigrateMsg {}
 
 #[cw_serde]
-pub struct DelegationsResponse {
-    pub delegations: Vec<Delegation>,
-    pub last_updated_height: u64,
-}
+#[derive(QueryResponses)]
 
-#[cw_serde]
-pub enum QueryMsg {
+pub enum QueryMsg<E = Empty>
+where
+    E: JsonSchema,
+{
+    #[returns(State)]
     Config {},
+    #[returns(State)]
     State {},
+    #[returns(Vec<Transaction>)]
     Transactions {},
-    Delegations {},
+    #[returns(Binary)]
+    Extention { msg: E },
 }
 
 #[cw_serde]
@@ -86,6 +91,7 @@ pub enum ResponseAnswer {
     TokenizeSharesResponse(MsgTokenizeSharesResponse),
     RedeemTokensforSharesResponse(MsgRedeemTokensforSharesResponse),
     AuthzExecResponse(MsgExecResponse),
+    IBCTransfer(MsgIBCTransfer),
     UnknownResponse {},
 }
 
@@ -93,15 +99,13 @@ pub enum ResponseAnswer {
 pub enum Transaction {
     Delegate {
         interchain_account_id: String,
-        validator: String,
         denom: String,
-        amount: u128,
+        items: Vec<(String, Uint128)>,
     },
     Undelegate {
         interchain_account_id: String,
-        validator: String,
+        items: Vec<(String, Uint128)>,
         denom: String,
-        amount: u128,
     },
     Redelegate {
         interchain_account_id: String,
@@ -131,5 +135,10 @@ pub enum Transaction {
         validators: Vec<String>,
         denom: String,
         transfer: Option<TransferReadyBatchMsg>,
+    },
+    IBCTransfer {
+        denom: String,
+        amount: u128,
+        recipient: String,
     },
 }

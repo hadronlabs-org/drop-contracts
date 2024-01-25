@@ -1,12 +1,8 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
 
-use lido_puppeteer_base::{
-    msg::{DelegationsResponse, ExecuteMsg as BaseExecuteMsg, TransferReadyBatchMsg},
-    state::{State, Transfer},
-};
-
-use crate::state::puppeteer::Config;
+use lido_puppeteer_base::msg::{ExecuteMsg as BaseExecuteMsg, TransferReadyBatchMsg};
+use neutron_sdk::interchain_queries::v045::types::{Balances, Delegations};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -16,6 +12,7 @@ pub struct InstantiateMsg {
     pub remote_denom: String,
     pub owner: String,
     pub allowed_senders: Vec<String>,
+    pub transfer_channel_id: String,
 }
 
 #[cw_serde]
@@ -25,6 +22,9 @@ pub enum ExecuteMsg {
     RegisterDelegatorDelegationsQuery {
         validators: Vec<String>,
     },
+    RegisterBalanceQuery {
+        denom: String,
+    },
     SetFees {
         recv_fee: Uint128,
         ack_fee: Uint128,
@@ -32,14 +32,12 @@ pub enum ExecuteMsg {
         register_fee: Uint128,
     },
     Delegate {
-        validator: String,
-        amount: Uint128,
+        items: Vec<(String, Uint128)>,
         timeout: Option<u64>,
         reply_to: String,
     },
     Undelegate {
-        validator: String,
-        amount: Uint128,
+        items: Vec<(String, Uint128)>,
         timeout: Option<u64>,
         reply_to: String,
     },
@@ -61,6 +59,10 @@ pub enum ExecuteMsg {
         amount: Uint128,
         denom: String,
         timeout: Option<u64>,
+        reply_to: String,
+    },
+    IBCTransfer {
+        timeout: u64,
         reply_to: String,
     },
     ClaimRewardsAndOptionalyTransfer {
@@ -95,15 +97,19 @@ impl ExecuteMsg {
 #[cw_serde]
 pub struct MigrateMsg {}
 
+pub type DelegationsResponse = (Delegations, u64);
+
+#[cw_serde]
+pub struct BalancesResponse {
+    pub balances: Vec<Balances>,
+    pub last_updated_height: u64,
+}
+
 #[cw_serde]
 #[derive(QueryResponses)]
-pub enum QueryMsg {
-    #[returns(Config)]
-    Config {},
-    #[returns(State)]
-    State {},
-    #[returns(Vec<Transfer>)]
-    Transactions {},
+pub enum QueryExtMsg {
     #[returns(DelegationsResponse)]
     Delegations {},
+    #[returns(BalancesResponse)]
+    Balances {},
 }
