@@ -284,6 +284,13 @@ describe('Core', () => {
     const { contractClient } = context;
     const res = await contractClient.init(context.neutronUserAddress, {
       base_denom: context.neutronIBCDenom,
+      core_params: {
+        idle_min_interval: 1,
+        puppeteer_timeout: 60,
+        unbond_batch_switch_time: 6000,
+        unbonding_safe_period: 10,
+        unbonding_period: 60,
+      },
     });
     expect(res.transactionHash).toHaveLength(64);
   });
@@ -429,6 +436,8 @@ describe('Core', () => {
     expect(batch).toBeTruthy();
     expect(batch).toEqual<UnbondBatch>({
       slashing_effect: null,
+      created: expect.any(Number),
+      expected_release: 0,
       status: 'new',
       total_amount: '495049',
       expected_amount: '499999',
@@ -515,6 +524,8 @@ describe('Core', () => {
     expect(batch).toEqual<UnbondBatch>({
       slashing_effect: '1',
       status: 'unbonded',
+      created: expect.any(Number),
+      expected_release: 0,
       total_amount: '495049',
       expected_amount: '499999',
       unbond_items: [
