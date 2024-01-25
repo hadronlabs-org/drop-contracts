@@ -28,6 +28,14 @@ export interface State {
 }
 export interface InitArgs {
   base_denom: string;
+  core_params: CoreParams;
+}
+export interface CoreParams {
+  idle_min_interval: number;
+  puppeteer_timeout: number;
+  unbond_batch_switch_time: number;
+  unbonding_period: number;
+  unbonding_safe_period: number;
 }
 
 

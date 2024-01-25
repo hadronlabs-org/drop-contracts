@@ -49,18 +49,16 @@ export type Binary = string;
 export type Transaction =
   | {
       delegate: {
-        amount: number;
         denom: string;
         interchain_account_id: string;
-        validator: string;
+        items: [string, Uint128][];
       };
     }
   | {
       undelegate: {
-        amount: number;
         denom: string;
         interchain_account_id: string;
-        validator: string;
+        items: [string, Uint128][];
       };
     }
   | {

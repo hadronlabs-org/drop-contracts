@@ -11,28 +11,25 @@ export interface InstantiateMsg {
   update_period: number;
 }
 export type IcaState = "none" | "in_progress" | "registered" | "timeout";
-export type QueryExtMsg =
-  | {
-      delegations: {};
-    }
-  | {
-      balances: {};
-    };
+/**
+ * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
+ *
+ * This is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.
+ */
+export type Binary = string;
 export type Transaction =
   | {
       delegate: {
-        amount: number;
         denom: string;
         interchain_account_id: string;
-        validator: string;
+        items: [string, Uint128][];
       };
     }
   | {
       undelegate: {
-        amount: number;
         denom: string;
         interchain_account_id: string;
-        validator: string;
+        items: [string, Uint128][];
       };
     }
   | {
@@ -96,7 +93,7 @@ export type Transaction =
  */
 export type Uint128 = string;
 export type ArrayOfTransaction = Transaction[];
-export type QueryExtMsg1 =
+export type QueryExtMsg =
   | {
       delegations: {};
     }
@@ -105,7 +102,7 @@ export type QueryExtMsg1 =
     };
 
 export interface LidoPuppeteerSchema {
-  responses: State | QueryExtMsg | State1 | ArrayOfTransaction;
+  responses: State | Binary | State1 | ArrayOfTransaction;
   query: ExtentionArgs;
   execute:
     | RegisterDelegatorDelegationsQueryArgs
@@ -136,7 +133,7 @@ export interface TransferReadyBatchMsg {
   recipient: string;
 }
 export interface ExtentionArgs {
-  msg: QueryExtMsg1;
+  msg: QueryExtMsg;
 }
 export interface RegisterDelegatorDelegationsQueryArgs {
   validators: string[];
@@ -151,16 +148,14 @@ export interface SetFeesArgs {
   timeout_fee: Uint128;
 }
 export interface DelegateArgs {
-  amount: Uint128;
+  items: [string, Uint128][];
   reply_to: string;
   timeout?: number | null;
-  validator: string;
 }
 export interface UndelegateArgs {
-  amount: Uint128;
+  items: [string, Uint128][];
   reply_to: string;
   timeout?: number | null;
-  validator: string;
 }
 export interface RedelegateArgs {
   amount: Uint128;
@@ -233,7 +228,7 @@ export class Client {
   queryTransactions = async(): Promise<ArrayOfTransaction> => {
     return this.client.queryContractSmart(this.contractAddress, { transactions: {} });
   }
-  queryExtention = async(args: ExtentionArgs): Promise<QueryExtMsg> => {
+  queryExtention = async(args: ExtentionArgs): Promise<Binary> => {
     return this.client.queryContractSmart(this.contractAddress, { extention: args });
   }
   registerICA = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
