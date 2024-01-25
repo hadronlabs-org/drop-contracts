@@ -61,6 +61,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Bin
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::ExchangeRate {} => to_json_binary(&query_exchange_rate(deps, env)?),
         QueryMsg::UnbondBatch { batch_id } => query_unbond_batch(deps, batch_id),
+        QueryMsg::ContractState {} => to_json_binary(&FSM.load(deps.storage)?),
     }
 }
 
