@@ -16,12 +16,9 @@ import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
+import { IcaState } from '../generated/contractLib/lidoPuppeteer';
 import {
-  DelegationsResponse,
-  IcaState,
-  Transfer,
-} from '../generated/contractLib/lidoPuppeteer';
-import {
+  ResponseAnswer,
   ResponseHookErrorMsg,
   ResponseHookSuccessMsg,
 } from '../generated/contractLib/lidoHookTester';
@@ -143,6 +140,7 @@ describe('Interchain puppeteer', () => {
           update_period: 10,
           remote_denom: 'stake',
           owner: account.address,
+          transfer_channel_id: 'channel-0',
           allowed_senders: [context.hookContractClient.contractAddress],
         },
         'label',
@@ -170,8 +168,6 @@ describe('Interchain puppeteer', () => {
 
   it('set fees', async () => {
     const { contractClient, account } = context;
-    const x = await contractClient.queryExtention({ msg: { balances: {} } });
-
     const res = await contractClient.setFees(
       account.address,
       {
@@ -254,7 +250,7 @@ describe('Interchain puppeteer', () => {
   });
 
   it('query received transactions on neutron side', async () => {
-    let txs: Transfer[] = [];
+    let txs = [];
     await waitFor(async () => {
       try {
         const res = await context.contractClient.queryTransactions();
@@ -335,9 +331,11 @@ describe('Interchain puppeteer', () => {
       return res.length > 0;
     }, 60_000);
     expect(res.length).toEqual(1);
-    expect(res[0].answer).toEqual({
-      delegate_response: {},
-    });
+    expect<ResponseAnswer[]>(res[0].answers).toEqual([
+      {
+        delegate_response: {},
+      },
+    ]);
   });
 
   it('undelegate tokens on gaia side', async () => {
@@ -364,14 +362,16 @@ describe('Interchain puppeteer', () => {
       return res.length > 1;
     }, 20_000);
     expect(res.length).toEqual(2);
-    expect(res[1].answer).toMatchObject({
-      undelegate_response: {
-        completion_time: {
-          nanos: expect.any(Number),
-          seconds: expect.any(Number),
+    expect(res[1].answers).toMatchObject([
+      {
+        undelegate_response: {
+          completion_time: {
+            nanos: expect.any(Number),
+            seconds: expect.any(Number),
+          },
         },
       },
-    });
+    ]);
   });
 
   it('redelegate tokens on gaia side', async () => {
@@ -399,14 +399,16 @@ describe('Interchain puppeteer', () => {
       return res.length > 2;
     }, 40_000);
     expect(res.length).toEqual(3);
-    expect(res[2].answer).toEqual({
-      begin_redelegate_response: {
-        completion_time: {
-          nanos: expect.any(Number),
-          seconds: expect.any(Number),
+    expect(res[2].answers).toEqual([
+      {
+        begin_redelegate_response: {
+          completion_time: {
+            nanos: expect.any(Number),
+            seconds: expect.any(Number),
+          },
         },
       },
-    });
+    ]);
   });
 
   it('tokenize share on gaia side', async () => {
@@ -433,14 +435,16 @@ describe('Interchain puppeteer', () => {
       return res.length > 3;
     }, 40_000);
     expect(res.length).toEqual(4);
-    expect(res[3].answer).toEqual({
-      tokenize_shares_response: {
-        amount: {
-          amount: '5000',
-          denom: `${context.firstValidatorAddress}/1`,
+    expect(res[3].answers).toEqual([
+      {
+        tokenize_shares_response: {
+          amount: {
+            amount: '5000',
+            denom: `${context.firstValidatorAddress}/1`,
+          },
         },
       },
-    });
+    ]);
   });
 
   it('redeem share', async () => {
@@ -468,14 +472,16 @@ describe('Interchain puppeteer', () => {
       return res.length > 4;
     }, 40_000);
     expect(res.length).toEqual(5);
-    expect(res[4].answer).toEqual({
-      redeem_tokensfor_shares_response: {
-        amount: {
-          amount: '5000',
-          denom: 'stake',
+    expect(res[4].answers).toEqual([
+      {
+        redeem_tokensfor_shares_response: {
+          amount: {
+            amount: '5000',
+            denom: 'stake',
+          },
         },
       },
-    });
+    ]);
   });
 
   it('register delegations query', async () => {
@@ -496,14 +502,18 @@ describe('Interchain puppeteer', () => {
   });
 
   it('query delegations query', async () => {
-    let delegations: DelegationsResponse;
+    let delegations = [];
+    let height = 0;
     await waitFor(async () => {
-      delegations = await context.contractClient.queryDelegations();
-      return delegations.delegations.length > 0;
+      const [d, h] = (await context.contractClient.queryExtention({
+        msg: { delegations: {} },
+      })) as unknown as any[];
+      delegations = d.delegations;
+      height = h;
+      return d.delegations.length > 0;
     });
-    delegations.delegations.sort((a, b) =>
-      a.validator.localeCompare(b.validator),
-    );
+    expect(height).toBeGreaterThan(0);
+    delegations.sort((a, b) => a.validator.localeCompare(b.validator));
     const expected = [
       {
         delegator: context.icaAddress,
@@ -523,10 +533,7 @@ describe('Interchain puppeteer', () => {
       },
     ];
     expected.sort((a, b) => a.validator.localeCompare(b.validator)); //fml
-    expect(delegations).toMatchObject<DelegationsResponse>({
-      delegations: expected,
-      last_updated_height: expect.any(Number),
-    });
+    expect(delegations).toMatchObject(expected);
   });
 
   it('send a failing delegation', async () => {
