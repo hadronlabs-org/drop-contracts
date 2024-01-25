@@ -11,6 +11,7 @@ pub struct CodeIds {
     pub strategy_code_id: u64,
     pub validators_set_code_id: u64,
     pub distribution_code_id: u64,
+    pub rewards_manager_code_id: u64,
 }
 
 #[cw_serde]
@@ -41,6 +42,7 @@ pub struct State {
     pub strategy_contract: String,
     pub validators_set_contract: String,
     pub distribution_contract: String,
+    pub rewards_manager_contract: String,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

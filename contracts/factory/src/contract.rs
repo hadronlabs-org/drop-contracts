@@ -16,6 +16,7 @@ use lido_staking_base::{
     msg::core::{ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg},
     msg::distribution::InstantiateMsg as DistributionInstantiateMsg,
     msg::puppeteer::InstantiateMsg as PuppeteerInstantiateMsg,
+    msg::rewards_manager::InstantiateMsg as RewardsMangerInstantiateMsg,
     msg::strategy::InstantiateMsg as StrategyInstantiateMsg,
     msg::token::{
         ConfigResponse as TokenConfigResponse, InstantiateMsg as TokenInstantiateMsg,
@@ -205,6 +206,8 @@ fn execute_init(
         get_code_checksum(deps.as_ref(), config.code_ids.distribution_code_id)?;
     let puppeteer_contract_checksum =
         get_code_checksum(deps.as_ref(), config.code_ids.puppeteer_code_id)?;
+    let rewards_manager_contract_checksum =
+        get_code_checksum(deps.as_ref(), config.code_ids.rewards_manager_code_id)?;
 
     let salt = config.salt.as_bytes();
 
@@ -252,11 +255,6 @@ fn execute_init(
         validators_set_address.to_string(),
     ));
 
-    attrs.push(attr(
-        "withdrawal_voucher_address",
-        withdrawal_voucher_address.to_string(),
-    ));
-
     let distribution_address = instantiate2_address(
         &distribution_contract_checksum,
         &canonical_self_address,
@@ -265,6 +263,16 @@ fn execute_init(
     attrs.push(attr(
         "distribution_address",
         distribution_address.to_string(),
+    ));
+
+    let rewards_manager_address = instantiate2_address(
+        &rewards_manager_contract_checksum,
+        &canonical_self_address,
+        salt,
+    )?;
+    attrs.push(attr(
+        "rewards_manager_address",
+        rewards_manager_address.to_string(),
     ));
 
     let core_contract = deps.api.addr_humanize(&core_address)?.to_string();
@@ -281,6 +289,10 @@ fn execute_init(
     let validators_set_contract = deps.api.addr_humanize(&validators_set_address)?.to_string();
     let distribution_contract = deps.api.addr_humanize(&distribution_address)?.to_string();
     let puppeteer_contract = deps.api.addr_humanize(&puppeteer_address)?.to_string();
+    let rewards_manager_contract = deps
+        .api
+        .addr_humanize(&rewards_manager_address)?
+        .to_string();
 
     let state = State {
         token_contract: token_contract.to_string(),
@@ -291,6 +303,7 @@ fn execute_init(
         strategy_contract: strategy_contract.to_string(),
         validators_set_contract: validators_set_contract.to_string(),
         distribution_contract: distribution_contract.to_string(),
+        rewards_manager_contract: rewards_manager_contract.to_string(),
     };
 
     STATE.save(deps.storage, &state)?;
@@ -400,6 +413,16 @@ fn execute_init(
                 voucher_contract: withdrawal_voucher_contract.to_string(),
                 owner: env.contract.address.to_string(),
                 base_denom,
+            })?,
+            funds: vec![],
+            salt: Binary::from(salt),
+        }),
+        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
+            admin: Some(env.contract.address.to_string()),
+            code_id: config.rewards_manager_code_id,
+            label: get_contract_label("rewards manager"),
+            msg: to_json_binary(&RewardsMangerInstantiateMsg {
+                core_address: core_contract.to_string(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),
