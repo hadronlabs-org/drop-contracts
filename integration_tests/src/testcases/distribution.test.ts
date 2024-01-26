@@ -89,7 +89,11 @@ describe('Distribution', () => {
     await waitFor(async () => {
       res = await contractClient.queryCalcDeposit({
         deposit: '100',
-        delegations: [{ valoper_address: 'valoper1', stake: '0', weight: 10 }],
+        delegations: [
+          { valoper_address: 'valoper1', stake: '15', weight: 10 },
+          { valoper_address: 'valoper2', stake: '70', weight: 20 },
+          { valoper_address: 'valoper3', stake: '56', weight: 40 },
+        ],
       });
       return res.length > 0;
     }, 60_000);
@@ -97,10 +101,24 @@ describe('Distribution', () => {
     expect(res).toEqual([
       {
         valoper_address: 'valoper1',
-        ideal_stake: '100',
-        current_stake: '0',
-        stake_change: '100',
+        ideal_stake: '35',
+        current_stake: '15',
+        stake_change: '20',
         weight: 10,
+      },
+      {
+        valoper_address: 'valoper2',
+        ideal_stake: '69',
+        current_stake: '70',
+        stake_change: '1',
+        weight: 20,
+      },
+      {
+        valoper_address: 'valoper3',
+        ideal_stake: '137',
+        current_stake: '56',
+        stake_change: '79',
+        weight: 40,
       },
     ]);
   });
@@ -113,6 +131,8 @@ describe('Distribution', () => {
         withdraw: '50',
         delegations: [
           { valoper_address: 'valoper1', stake: '100', weight: 10 },
+          { valoper_address: 'valoper2', stake: '250', weight: 20 },
+          { valoper_address: 'valoper3', stake: '400', weight: 40 },
         ],
       });
       return res.length > 0;
@@ -121,10 +141,24 @@ describe('Distribution', () => {
     expect(res).toEqual([
       {
         valoper_address: 'valoper1',
-        ideal_stake: '50',
+        ideal_stake: '100',
         current_stake: '100',
-        stake_change: '50',
+        stake_change: '1',
         weight: 10,
+      },
+      {
+        valoper_address: 'valoper2',
+        ideal_stake: '200',
+        current_stake: '250',
+        stake_change: '48',
+        weight: 20,
+      },
+      {
+        valoper_address: 'valoper3',
+        ideal_stake: '400',
+        current_stake: '400',
+        stake_change: '1',
+        weight: 40,
       },
     ]);
   });
