@@ -1,16 +1,12 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::Uint128;
 
-use crate::state::State;
+use crate::state::{CodeIds, RemoteOpts, State};
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub token_code_id: u64,
-    pub core_code_id: u64,
-    pub withdrawal_voucher_code_id: u64,
-    pub withdrawal_manager_code_id: u64,
-    pub strategy_code_id: u64,
-    pub validators_set_code_id: u64,
-    pub distribution_code_id: u64,
+    pub code_ids: CodeIds,
+    pub remote_opts: RemoteOpts,
     pub salt: String,
     pub subdenom: String,
 }
@@ -29,12 +25,27 @@ pub struct CoreParams {
 }
 
 #[cw_serde]
+pub struct FeesMsg {
+    pub recv_fee: Uint128,
+    pub ack_fee: Uint128,
+    pub timeout_fee: Uint128,
+    pub register_fee: Uint128,
+}
+
+#[cw_serde]
+pub enum UpdateConfigMsg {
+    Core(lido_staking_base::state::core::ConfigOptional),
+    PuppeteerFees(FeesMsg),
+}
+
+#[cw_serde]
 pub enum ExecuteMsg {
     Init {
         base_denom: String,
         core_params: CoreParams,
     },
     Callback(CallbackMsg),
+    UpdateConfig(UpdateConfigMsg),
 }
 #[cw_serde]
 pub enum MigrateMsg {}

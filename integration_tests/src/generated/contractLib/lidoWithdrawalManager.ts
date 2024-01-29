@@ -9,7 +9,7 @@ export interface InstantiateMsg {
 }
 export interface LidoWithdrawalManagerSchema {
   responses: Config;
-  execute: UpdateConfigArgs;
+  execute: UpdateConfigArgs | ReceiveNftArgs;
   [k: string]: unknown;
 }
 export interface Config {
@@ -22,6 +22,18 @@ export interface UpdateConfigArgs {
   core_contract?: string | null;
   owner?: string | null;
   voucher_contract?: string | null;
+}
+/**
+ * Cw721ReceiveMsg should be de/serialized under `Receive()` variant in a ExecuteMsg
+ */
+export interface ReceiveNftArgs {
+  description?: "Cw721ReceiveMsg should be de/serialized under `Receive()` variant in a ExecuteMsg";
+  type?: "object";
+  required?: ["msg", "sender", "token_id"];
+  properties?: {
+    [k: string]: unknown;
+  };
+  additionalProperties?: false;
 }
 
 
@@ -62,8 +74,8 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
   }
-  receiveNft = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  receiveNft = async(sender:string, args: ReceiveNftArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { receive_nft: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { receive_nft: args }, fee || "auto", memo, funds);
   }
 }

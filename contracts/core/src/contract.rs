@@ -207,7 +207,7 @@ fn execute_tick_idle(
         )?,
         funds: vec![],
     });
-
+    deps.api.debug(&format!("WASMDEBUG tick msg {:?}", msg));
     machine.go_to(ContractState::Claiming)?;
     FSM.save(deps.storage, machine)?;
     attrs.push(attr("state", "claiming"));

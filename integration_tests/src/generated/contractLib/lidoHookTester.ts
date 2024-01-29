@@ -109,10 +109,24 @@ export type Transaction =
     };
 export type ArrayOfResponseHookSuccessMsg = ResponseHookSuccessMsg[];
 export type ArrayOfResponseHookErrorMsg = ResponseHookErrorMsg[];
+export type PuppeteerHookArgs =
+  | {
+      success: ResponseHookSuccessMsg;
+    }
+  | {
+      error: ResponseHookErrorMsg;
+    };
 
 export interface LidoHookTesterSchema {
   responses: ArrayOfResponseHookSuccessMsg | ArrayOfResponseHookErrorMsg;
-  execute: SetConfigArgs | DelegateArgs | UndelegateArgs | RedelegateArgs | TokenizeShareArgs | RedeemShareArgs;
+  execute:
+    | SetConfigArgs
+    | DelegateArgs
+    | UndelegateArgs
+    | RedelegateArgs
+    | TokenizeShareArgs
+    | RedeemShareArgs
+    | PuppeteerHookArgs;
   [k: string]: unknown;
 }
 export interface ResponseHookSuccessMsg {
@@ -265,8 +279,8 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { redeem_share: args }, fee || "auto", memo, funds);
   }
-  puppeteerHook = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  puppeteerHook = async(sender:string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { puppeteer_hook: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
   }
 }

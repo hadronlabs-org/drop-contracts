@@ -2,6 +2,8 @@ import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import {
   LidoCore,
   LidoFactory,
+  LidoPump,
+  LidoPuppeteer,
   LidoWithdrawalManager,
   LidoWithdrawalVoucher,
 } from '../generated/contractLib';
@@ -28,6 +30,8 @@ import { UnbondBatch } from '../generated/contractLib/lidoCore';
 
 const LidoFactoryClass = LidoFactory.Client;
 const LidoCoreClass = LidoCore.Client;
+const LidoPumpClass = LidoPump.Client;
+const LidoPuppeteerClass = LidoPuppeteer.Client;
 const LidoWithdrawalVoucherClass = LidoWithdrawalVoucher.Client;
 const LidoWithdrawalManagerClass = LidoWithdrawalManager.Client;
 
@@ -39,6 +43,8 @@ describe('Core', () => {
     gaiaWallet?: DirectSecp256k1HdWallet;
     contractClient?: InstanceType<typeof LidoFactoryClass>;
     coreContractClient?: InstanceType<typeof LidoCoreClass>;
+    pumpContractClient?: InstanceType<typeof LidoPumpClass>;
+    puppeteerContractClient?: InstanceType<typeof LidoPuppeteerClass>;
     withdrawalVoucherContractClient?: InstanceType<
       typeof LidoWithdrawalVoucherClass
     >;
@@ -57,18 +63,21 @@ describe('Core', () => {
     validatorAddress?: string;
     secondValidatorAddress?: string;
     tokenizedDenomOnNeutron?: string;
-    coreCoreId?: number;
-    tokenCodeId?: number;
-    withdrawalVoucherCodeId?: number;
-    withdrawalManagerCodeId?: number;
-    strategyCodeId?: number;
-    validatorsSetCodeId?: number;
-    distributionCodeId?: number;
+    codeIds: {
+      core?: number;
+      token?: number;
+      withdrawalVoucher?: number;
+      withdrawalManager?: number;
+      strategy?: number;
+      puppeteer?: number;
+      validatorsSet?: number;
+      distribution?: number;
+    };
     exchangeRate?: number;
     tokenContractAddress?: string;
     neutronIBCDenom?: string;
     ldDenom?: string;
-  } = {};
+  } = { codeIds: {} };
 
   beforeAll(async () => {
     context.park = await setupPark('core', ['neutron', 'gaia'], true);
@@ -130,6 +139,7 @@ describe('Core', () => {
 
   it('instantiate', async () => {
     const { client, account } = context;
+    context.codeIds = {};
 
     {
       const res = await client.upload(
@@ -138,7 +148,7 @@ describe('Core', () => {
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
-      context.coreCoreId = res.codeId;
+      context.codeIds.core = res.codeId;
     }
     {
       const res = await client.upload(
@@ -147,7 +157,7 @@ describe('Core', () => {
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
-      context.tokenCodeId = res.codeId;
+      context.codeIds.token = res.codeId;
     }
     {
       const res = await client.upload(
@@ -158,7 +168,7 @@ describe('Core', () => {
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
-      context.withdrawalVoucherCodeId = res.codeId;
+      context.codeIds.withdrawalVoucher = res.codeId;
     }
     {
       const res = await client.upload(
@@ -169,7 +179,7 @@ describe('Core', () => {
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
-      context.withdrawalManagerCodeId = res.codeId;
+      context.codeIds.withdrawalManager = res.codeId;
     }
     {
       const res = await client.upload(
@@ -180,7 +190,7 @@ describe('Core', () => {
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
-      context.strategyCodeId = res.codeId;
+      context.codeIds.strategy = res.codeId;
     }
     {
       const res = await client.upload(
@@ -191,7 +201,7 @@ describe('Core', () => {
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
-      context.distributionCodeId = res.codeId;
+      context.codeIds.distribution = res.codeId;
     }
     {
       const res = await client.upload(
@@ -202,7 +212,18 @@ describe('Core', () => {
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
-      context.validatorsSetCodeId = res.codeId;
+      context.codeIds.validatorsSet = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/lido_puppeteer.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.puppeteer = res.codeId;
     }
     const res = await client.upload(
       account.address,
@@ -215,13 +236,23 @@ describe('Core', () => {
       account.address,
       res.codeId,
       {
-        core_code_id: context.coreCoreId,
-        token_code_id: context.tokenCodeId,
-        withdrawal_voucher_code_id: context.withdrawalVoucherCodeId,
-        withdrawal_manager_code_id: context.withdrawalManagerCodeId,
-        strategy_code_id: context.strategyCodeId,
-        distribution_code_id: context.distributionCodeId,
-        validators_set_code_id: context.validatorsSetCodeId,
+        code_ids: {
+          core_code_id: context.codeIds.core,
+          token_code_id: context.codeIds.token,
+          withdrawal_voucher_code_id: context.codeIds.withdrawalVoucher,
+          withdrawal_manager_code_id: context.codeIds.withdrawalManager,
+          strategy_code_id: context.codeIds.strategy,
+          distribution_code_id: context.codeIds.distribution,
+          validators_set_code_id: context.codeIds.validatorsSet,
+          puppeteer_code_id: context.codeIds.puppeteer,
+        },
+        remote_opts: {
+          connection_id: 'connection-0',
+          transfer_channel_id: 'channel-0',
+          port_id: 'transfer',
+          denom: 'stake',
+          update_period: 10,
+        },
         salt: 'salt',
         subdenom: 'lido',
       },
@@ -280,6 +311,7 @@ describe('Core', () => {
     });
     expect(context.neutronIBCDenom).toBeTruthy();
   });
+
   it('init', async () => {
     const { contractClient } = context;
     const res = await contractClient.init(context.neutronUserAddress, {
@@ -294,6 +326,7 @@ describe('Core', () => {
     });
     expect(res.transactionHash).toHaveLength(64);
   });
+
   it('query factory state', async () => {
     const { contractClient, neutronClient } = context;
     const res = await contractClient.queryState();
@@ -324,6 +357,13 @@ describe('Core', () => {
     expect(withdrawalManagerContractInfo.data.contract_info.label).toBe(
       'LIDO-staking-withdrawal-manager',
     );
+    const puppeteerContractInfo =
+      await neutronClient.CosmwasmWasmV1.query.queryContractInfo(
+        res.puppeteer_contract,
+      );
+    expect(puppeteerContractInfo.data.contract_info.label).toBe(
+      'LIDO-staking-puppeteer',
+    );
     context.coreContractClient = new LidoCore.Client(
       context.client,
       res.core_contract,
@@ -337,7 +377,50 @@ describe('Core', () => {
       res.withdrawal_manager_contract,
     );
     context.tokenContractAddress = res.token_contract;
+    context.puppeteerContractClient = new LidoPuppeteer.Client(
+      context.client,
+      res.puppeteer_contract,
+    );
   });
+  it('set fees for puppeteer', async () => {
+    const { neutronUserAddress, contractClient } = context;
+    const res = await contractClient.updateConfig(neutronUserAddress, {
+      puppeteer_fees: {
+        timeout_fee: '10000',
+        ack_fee: '10000',
+        recv_fee: '0',
+        register_fee: '1000000',
+      },
+    });
+    expect(res.transactionHash).toHaveLength(64);
+  });
+  it('register ICA', async () => {
+    const { puppeteerContractClient, neutronUserAddress } = context;
+    const res = await puppeteerContractClient.registerICA(
+      neutronUserAddress,
+      1.5,
+      undefined,
+      [{ amount: '1000000', denom: 'untrn' }],
+    );
+    expect(res.transactionHash).toHaveLength(64);
+  });
+  it('register ICQs', async () => {
+    const { puppeteerContractClient, neutronUserAddress } = context;
+    const res = await puppeteerContractClient.registerBalanceQuery(
+      neutronUserAddress,
+      { denom: 'stake' },
+      1.5,
+      undefined,
+      [
+        {
+          amount: '1000000',
+          denom: 'untrn',
+        },
+      ],
+    );
+    expect(res.transactionHash).toHaveLength(64);
+  });
+
   it('query exchange rate', async () => {
     const { coreContractClient } = context;
     context.exchangeRate = parseFloat(
@@ -378,6 +461,7 @@ describe('Core', () => {
       amount: String(Math.floor(500_000 / context.exchangeRate)),
     });
   });
+
   it('bond with receiver', async () => {
     const {
       coreContractClient,
@@ -413,6 +497,7 @@ describe('Core', () => {
     });
     context.ldDenom = ldBalance?.denom;
   });
+
   it('unbond', async () => {
     const { coreContractClient, neutronUserAddress, ldDenom } = context;
     const res = await coreContractClient.unbond(
@@ -428,6 +513,7 @@ describe('Core', () => {
     );
     expect(res.transactionHash).toHaveLength(64);
   });
+
   it('validate unbonding batch', async () => {
     const { coreContractClient, neutronUserAddress } = context;
     const batch = await coreContractClient.queryUnbondBatch({
@@ -452,6 +538,7 @@ describe('Core', () => {
       withdrawed_amount: null,
     });
   });
+
   it('validate NFT', async () => {
     const { withdrawalVoucherContractClient, neutronUserAddress } = context;
     const vouchers = await withdrawalVoucherContractClient.queryTokens({
@@ -497,6 +584,7 @@ describe('Core', () => {
       token_uri: null,
     });
   });
+
   it('try to withdraw before unbonded', async () => {
     const { withdrawalVoucherContractClient, neutronUserAddress } = context;
     const tokenId = `0_${neutronUserAddress}_1`;
@@ -508,6 +596,7 @@ describe('Core', () => {
       }),
     ).rejects.toThrowError(/is not unbonded yet/);
   });
+
   it('update batch status', async () => {
     const { coreContractClient, neutronUserAddress } = context;
     await coreContractClient.fakeProcessBatch(neutronUserAddress, {
@@ -515,6 +604,7 @@ describe('Core', () => {
       unbonded_amount: '499999',
     });
   });
+
   it('validate unbonding batch', async () => {
     const { coreContractClient, neutronUserAddress } = context;
     const batch = await coreContractClient.queryUnbondBatch({
@@ -539,6 +629,7 @@ describe('Core', () => {
       withdrawed_amount: null,
     });
   });
+
   it('withdraw win non funded withdrawal manager', async () => {
     const {
       withdrawalVoucherContractClient: voucherContractClient,
@@ -553,6 +644,7 @@ describe('Core', () => {
       }),
     ).rejects.toThrowError(/spendable balance {2}is smaller/);
   });
+
   it('fund withdrawal manager', async () => {
     const {
       withdrawalManagerContractClient,
@@ -568,6 +660,7 @@ describe('Core', () => {
     );
     expect(res.code).toEqual(0);
   });
+
   it('withdraw', async () => {
     const {
       withdrawalVoucherContractClient: voucherContractClient,
@@ -595,5 +688,65 @@ describe('Core', () => {
       { denom: neutronIBCDenom },
     );
     expect(parseInt(balance.data.balance.amount) - balanceBefore).toBe(499999);
+  });
+
+  describe('state machine', () => {
+    it('deploy pump', async () => {
+      const { client, account, neutronUserAddress } = context;
+      const resUpload = await client.upload(
+        account.address,
+        fs.readFileSync(join(__dirname, '../../../artifacts/lido_pump.wasm')),
+        1.5,
+      );
+      expect(resUpload.codeId).toBeGreaterThan(0);
+      const { codeId } = resUpload;
+      const res = await LidoPump.Client.instantiate(
+        client,
+        neutronUserAddress,
+        codeId,
+        {
+          connection_id: 'connection-0',
+          ibc_fees: {
+            timeout_fee: '10000',
+            ack_fee: '10000',
+            recv_fee: '0',
+            register_fee: '1000000',
+          },
+          local_denom: 'stake',
+          timeout: {
+            local: 60,
+            remote: 60,
+          },
+        },
+        'Lido-staking-pump',
+        [],
+        1.5,
+      );
+      expect(res.contractAddress).toHaveLength(66);
+      context.pumpContractClient = new LidoPump.Client(
+        client,
+        res.contractAddress,
+      );
+      const resFactory = await context.contractClient.updateConfig(
+        neutronUserAddress,
+        {
+          core: {
+            pump_address: context.pumpContractClient.contractAddress,
+          },
+        },
+      );
+      expect(resFactory.transactionHash).toHaveLength(64);
+    });
+    it('get machine state', async () => {
+      const state = await context.coreContractClient.queryContractState();
+      expect(state.current_state).toEqual('idle');
+    });
+    it('tick', async () => {
+      const { neutronUserAddress } = context;
+      const res = await context.coreContractClient.tick(neutronUserAddress);
+      expect(res.transactionHash).toHaveLength(64);
+      const state = await context.coreContractClient.queryContractState();
+      expect(state.current_state).toEqual('claiming');
+    });
   });
 });

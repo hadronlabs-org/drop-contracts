@@ -16,6 +16,7 @@ export interface InstantiateMsg {
   withdrawal_manager_contract: string;
   withdrawal_voucher_contract: string;
 }
+export type ContractState = "idle" | "claiming" | "unbonding" | "staking" | "transfering";
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
@@ -43,11 +44,110 @@ export type Uint128 = string;
  */
 export type Decimal1 = string;
 export type UnbondBatchStatus = "new" | "unbonding" | "unbonded" | "withdrawn";
+export type PuppeteerHookArgs =
+  | {
+      success: ResponseHookSuccessMsg;
+    }
+  | {
+      error: ResponseHookErrorMsg;
+    };
+export type ResponseAnswer =
+  | {
+      delegate_response: MsgDelegateResponse;
+    }
+  | {
+      undelegate_response: MsgUndelegateResponse;
+    }
+  | {
+      begin_redelegate_response: MsgBeginRedelegateResponse;
+    }
+  | {
+      tokenize_shares_response: MsgTokenizeSharesResponse;
+    }
+  | {
+      redeem_tokensfor_shares_response: MsgRedeemTokensforSharesResponse;
+    }
+  | {
+      authz_exec_response: MsgExecResponse;
+    }
+  | {
+      i_b_c_transfer: MsgIBCTransfer;
+    }
+  | {
+      unknown_response: {};
+    };
+/**
+ * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
+ *
+ * This is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.
+ */
+export type Binary = string;
+export type Transaction =
+  | {
+      delegate: {
+        denom: string;
+        interchain_account_id: string;
+        items: [string, Uint128][];
+      };
+    }
+  | {
+      undelegate: {
+        denom: string;
+        interchain_account_id: string;
+        items: [string, Uint128][];
+      };
+    }
+  | {
+      redelegate: {
+        amount: number;
+        denom: string;
+        interchain_account_id: string;
+        validator_from: string;
+        validator_to: string;
+      };
+    }
+  | {
+      withdraw_reward: {
+        interchain_account_id: string;
+        validator: string;
+      };
+    }
+  | {
+      tokenize_share: {
+        amount: number;
+        denom: string;
+        interchain_account_id: string;
+        validator: string;
+      };
+    }
+  | {
+      redeem_share: {
+        amount: number;
+        denom: string;
+        interchain_account_id: string;
+        validator: string;
+      };
+    }
+  | {
+      claim_rewards_and_optionaly_transfer: {
+        denom: string;
+        interchain_account_id: string;
+        transfer?: TransferReadyBatchMsg | null;
+        validators: string[];
+      };
+    }
+  | {
+      i_b_c_transfer: {
+        amount: number;
+        denom: string;
+        recipient: string;
+      };
+    };
 
 export interface LidoCoreSchema {
-  responses: Config | Decimal | UnbondBatch;
+  responses: Config | FsmFor_ContractState | Decimal | UnbondBatch;
   query: UnbondBatchArgs;
-  execute: BondArgs | UpdateConfigArgs | FakeProcessBatchArgs;
+  execute: BondArgs | UpdateConfigArgs | FakeProcessBatchArgs | PuppeteerHookArgs;
   [k: string]: unknown;
 }
 export interface Config {
@@ -66,6 +166,15 @@ export interface Config {
   validators_set_contract: string;
   withdrawal_manager_contract: string;
   withdrawal_voucher_contract: string;
+}
+export interface FsmFor_ContractState {
+  current_state: ContractState;
+  initial_state: ContractState;
+  transitions: TransitionFor_ContractState[];
+}
+export interface TransitionFor_ContractState {
+  from: ContractState;
+  to: ContractState;
 }
 export interface UnbondBatch {
   created: number;
@@ -113,6 +222,64 @@ export interface FakeProcessBatchArgs {
   batch_id: Uint128;
   unbonded_amount: Uint128;
 }
+export interface ResponseHookSuccessMsg {
+  answers: ResponseAnswer[];
+  request: RequestPacket;
+  request_id: number;
+  transaction: Transaction;
+}
+export interface MsgDelegateResponse {}
+export interface MsgUndelegateResponse {
+  completion_time?: Timestamp | null;
+}
+export interface Timestamp {
+  nanos: number;
+  seconds: number;
+}
+export interface MsgBeginRedelegateResponse {
+  completion_time?: Timestamp | null;
+}
+export interface MsgTokenizeSharesResponse {
+  amount?: Coin | null;
+}
+export interface Coin {
+  amount: Uint128;
+  denom: string;
+  [k: string]: unknown;
+}
+export interface MsgRedeemTokensforSharesResponse {
+  amount?: Coin | null;
+}
+export interface MsgExecResponse {
+  results: number[][];
+}
+export interface MsgIBCTransfer {}
+export interface RequestPacket {
+  data?: Binary | null;
+  destination_channel?: string | null;
+  destination_port?: string | null;
+  sequence?: number | null;
+  source_channel?: string | null;
+  source_port?: string | null;
+  timeout_height?: RequestPacketTimeoutHeight | null;
+  timeout_timestamp?: number | null;
+  [k: string]: unknown;
+}
+export interface RequestPacketTimeoutHeight {
+  revision_height?: number | null;
+  revision_number?: number | null;
+  [k: string]: unknown;
+}
+export interface TransferReadyBatchMsg {
+  amount: Uint128;
+  batch_id: number;
+  recipient: string;
+}
+export interface ResponseHookErrorMsg {
+  details: string;
+  request: RequestPacket;
+  request_id: number;
+}
 
 
 function isSigningCosmWasmClient(
@@ -154,6 +321,9 @@ export class Client {
   queryUnbondBatch = async(args: UnbondBatchArgs): Promise<UnbondBatch> => {
     return this.client.queryContractSmart(this.contractAddress, { unbond_batch: args });
   }
+  queryContractState = async(): Promise<Fsm_for_ContractState> => {
+    return this.client.queryContractSmart(this.contractAddress, { contract_state: {} });
+  }
   bond = async(sender:string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { bond: args }, fee || "auto", memo, funds);
@@ -174,8 +344,8 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { tick: {} }, fee || "auto", memo, funds);
   }
-  puppeteerHook = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  puppeteerHook = async(sender:string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { puppeteer_hook: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
   }
 }
