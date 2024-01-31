@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use cosmwasm_std::{attr, entry_point, to_json_binary, Attribute, Deps, Uint128};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
-use lido_staking_base::helpers::answer::response;
+use lido_helpers::answer::response;
 use lido_staking_base::msg::strategy::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
@@ -119,10 +119,10 @@ fn prepare_delegation_data(
     let validator_set_address = VALIDATOR_SET_ADDRESS.load(deps.storage)?.into_string();
     let denom = DENOM.load(deps.storage)?;
 
-    let account_delegations: lido_interchain_interceptor_base::msg::DelegationsResponse =
+    let account_delegations: lido_puppeteer_base::msg::DelegationsResponse =
         deps.querier.query_wasm_smart(
             &puppeteer_address,
-            &lido_interchain_interceptor_base::msg::QueryMsg::Delegations {},
+            &lido_puppeteer_base::msg::QueryMsg::Delegations {},
         )?;
 
     let validator_set: Vec<lido_staking_base::state::validatorset::ValidatorInfo> =

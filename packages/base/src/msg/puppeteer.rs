@@ -1,7 +1,12 @@
-use cosmwasm_schema::cw_serde;
+use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
 
-use lido_interchain_interceptor_base::msg::ExecuteMsg as BaseExecuteMsg;
+use lido_puppeteer_base::{
+    msg::{DelegationsResponse, ExecuteMsg as BaseExecuteMsg},
+    state::{State, Transfer},
+};
+
+use crate::state::puppeteer::Config;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -10,6 +15,7 @@ pub struct InstantiateMsg {
     pub update_period: u64,
     pub remote_denom: String,
     pub owner: String,
+    pub allowed_senders: Vec<String>,
 }
 
 #[cw_serde]
@@ -29,28 +35,33 @@ pub enum ExecuteMsg {
         validator: String,
         amount: Uint128,
         timeout: Option<u64>,
+        reply_to: String,
     },
     Undelegate {
         validator: String,
         amount: Uint128,
         timeout: Option<u64>,
+        reply_to: String,
     },
     Redelegate {
         validator_from: String,
         validator_to: String,
         amount: Uint128,
         timeout: Option<u64>,
+        reply_to: String,
     },
     TokenizeShare {
         validator: String,
         amount: Uint128,
         timeout: Option<u64>,
+        reply_to: String,
     },
     RedeemShare {
         validator: String,
         amount: Uint128,
         denom: String,
         timeout: Option<u64>,
+        reply_to: String,
     },
 }
 
@@ -76,43 +87,17 @@ impl ExecuteMsg {
 }
 
 #[cw_serde]
-pub enum Transaction {
-    Delegate {
-        interchain_account_id: String,
-        validator: String,
-        denom: String,
-        amount: u128,
-    },
-    Undelegate {
-        interchain_account_id: String,
-        validator: String,
-        denom: String,
-        amount: u128,
-    },
-    Redelegate {
-        interchain_account_id: String,
-        validator_from: String,
-        validator_to: String,
-        denom: String,
-        amount: u128,
-    },
-    WithdrawReward {
-        interchain_account_id: String,
-        validator: String,
-    },
-    TokenizeShare {
-        interchain_account_id: String,
-        validator: String,
-        denom: String,
-        amount: u128,
-    },
-    RedeemShare {
-        interchain_account_id: String,
-        validator: String,
-        denom: String,
-        amount: u128,
-    },
-}
+pub struct MigrateMsg {}
 
 #[cw_serde]
-pub struct MigrateMsg {}
+#[derive(QueryResponses)]
+pub enum QueryMsg {
+    #[returns(Config)]
+    Config {},
+    #[returns(State)]
+    State {},
+    #[returns(Vec<Transfer>)]
+    Transactions {},
+    #[returns(DelegationsResponse)]
+    Delegations {},
+}

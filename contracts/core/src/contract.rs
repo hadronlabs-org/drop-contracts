@@ -5,7 +5,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 
-use lido_staking_base::helpers::answer::response;
+use lido_helpers::answer::response;
 use lido_staking_base::msg::{
     core::{ExecuteMsg, InstantiateMsg, QueryMsg},
     token::ExecuteMsg as TokenExecuteMsg,

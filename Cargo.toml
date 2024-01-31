@@ -6,15 +6,17 @@ members = [
     "contracts/withdrawal-voucher",
     "contracts/withdrawal-manager",
     "contracts/factory",
-    "contracts/interchain-interceptor",
-    "contracts/interchain-interceptor-authz",
+    "contracts/puppeteer",
+    "contracts/puppeteer-authz",
     "contracts/validators-stats",
     "contracts/token",
     "contracts/validators-set",
     "contracts/strategy",
+    "contracts/hook-tester",
     "contracts/core",
-    "packages/interchain-interceptor-base",
+    "packages/puppeteer-base",
     "packages/base",
+    "packages/helpers",
 ]
 
 resolver = "2"
@@ -47,8 +49,9 @@ serde-json-wasm = { version = "1.0.0" }
 sha2 = { version = "0.10.8" }
 bech32 = { version = "0.9.1" }
 
-lido-interchain-interceptor-base = { path = "./packages/interchain-interceptor-base", default-features = false }
+lido-puppeteer-base = { path = "./packages/puppeteer-base", default-features = false }
 lido-staking-base = { path = "./packages/base", default-features = false }
+lido-helpers = { path = "./packages/helpers", default-features = false }
 thiserror = "1.0.50"
 
 [profile.release]

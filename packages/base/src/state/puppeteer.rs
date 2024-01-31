@@ -1,12 +1,7 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_schema::cw_serde;
 
 use cosmwasm_std::Addr;
-use lido_interchain_interceptor_base::{
-    msg::DelegationsResponse,
-    state::{BaseConfig, State, Transfer},
-};
-
-use crate::msg::puppeteer::Transaction;
+use lido_puppeteer_base::state::BaseConfig;
 
 #[cw_serde]
 pub struct Config {
@@ -15,6 +10,8 @@ pub struct Config {
     pub update_period: u64,
     pub remote_denom: String,
     pub owner: Addr,
+    pub allowed_senders: Vec<Addr>,
+    pub proxy_address: Option<Addr>,
 }
 
 impl BaseConfig for Config {
@@ -29,19 +26,4 @@ impl BaseConfig for Config {
     fn update_period(&self) -> u64 {
         self.update_period
     }
-}
-
-#[cw_serde]
-#[derive(QueryResponses)]
-pub enum QueryMsg {
-    #[returns(Config)]
-    Config {},
-    #[returns(State)]
-    State {},
-    #[returns(Vec<Transfer>)]
-    Transactions {},
-    #[returns(Vec<Transaction>)]
-    InterchainTransactions {},
-    #[returns(DelegationsResponse)]
-    Delegations {},
 }

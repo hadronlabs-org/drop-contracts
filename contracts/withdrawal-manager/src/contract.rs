@@ -4,8 +4,8 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw721::NftInfoResponse;
+use lido_helpers::answer::response;
 use lido_staking_base::{
-    helpers::answer::response,
     msg::{
         withdrawal_manager::{ExecuteMsg, InstantiateMsg, QueryMsg},
         withdrawal_voucher::Extension,

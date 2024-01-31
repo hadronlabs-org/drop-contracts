@@ -1,6 +1,6 @@
 [package]
 authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>"]
-description = "Package for Lido Interchain Interceptor Base"
+description = "Package for Lido Puppeteer Base"
 edition = "2021"
 name = "lido-staking-base"
 version = "1.0.0"
@@ -27,12 +27,12 @@ cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
 cw-storage-plus = { workspace = true }
 neutron-sdk = { workspace = true }
+lido-puppeteer-base = { workspace = true }
 cw721-base = { workspace = true }
 cw721 = { workspace = true }
 thiserror = { workspace = true }
 cw-ownable = { workspace = true }
 
-lido-interchain-interceptor-base = { workspace = true }
 
 [dev-dependencies]
 cosmwasm-storage = { workspace = true }

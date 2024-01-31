@@ -1,8 +1,8 @@
 use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Addr, Deps, Order};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
+use lido_helpers::answer::response;
 use lido_staking_base::error::validatorset::{ContractError, ContractResult};
-use lido_staking_base::helpers::answer::response;
 use lido_staking_base::msg::validatorset::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ValidatorData, ValidatorInfoUpdate,
 };

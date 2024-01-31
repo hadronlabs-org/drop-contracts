@@ -1,6 +1,7 @@
-use cosmwasm_std::{entry_point, to_json_binary, Decimal, Deps, Event, Uint128};
+use cosmwasm_std::{entry_point, to_json_binary, Attribute, Decimal, Deps, Uint128};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw2::set_contract_version;
+use lido_helpers::answer::response;
 use lido_staking_base::error::distribution::{ContractError, ContractResult};
 use lido_staking_base::msg::distribution::{Delegation, IdealDelegation, InstantiateMsg, QueryMsg};
 use neutron_sdk::bindings::msg::NeutronMsg;
@@ -17,7 +18,8 @@ pub fn instantiate(
 ) -> ContractResult<Response<NeutronMsg>> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    Ok(Response::new().add_event(Event::new(format!("{}-{}", CONTRACT_NAME, "instantiate"))))
+    let empty_attr: Vec<Attribute> = Vec::new();
+    Ok(response("instantiate", CONTRACT_NAME, empty_attr))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

@@ -39,7 +39,7 @@ schemars = { workspace = true }
 serde = { workspace = true }
 serde-json-wasm = { workspace = true }
 
-lido-interchain-interceptor-base = { path = "../../packages/interchain-interceptor-base", default-features = false }
+lido-puppeteer-base = { workspace = true }
 
 [dev-dependencies]
 cosmwasm-storage = { workspace = true }

@@ -8,9 +8,8 @@ use cosmwasm_std::{
     Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
-
+use lido_helpers::answer::response;
 use lido_staking_base::{
-    helpers::answer::response,
     msg::core::{ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg},
     msg::distribution::InstantiateMsg as DistributionInstantiateMsg,
     msg::strategy::InstantiateMsg as StrategyInstantiateMsg,

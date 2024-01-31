@@ -1,2 +1,0 @@
-[alias]
-schema = "run --bin lido-interchain-interceptor-schema"

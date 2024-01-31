@@ -8,8 +8,8 @@ use cosmwasm_std::{
     Uint128,
 };
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
-use lido_interchain_interceptor_base::error::ContractError as PuppeteerContractError;
-use lido_interchain_interceptor_base::msg::QueryMsg as PuppeteerQueryMsg;
+use lido_puppeteer_base::error::ContractError as PuppeteerContractError;
+use lido_puppeteer_base::msg::QueryMsg as PuppeteerQueryMsg;
 use lido_staking_base::error::distribution::ContractError as DistributionContractError;
 use lido_staking_base::error::validatorset::ContractError as ValidatorSetContractError;
 use lido_staking_base::msg::distribution::IdealDelegation;
@@ -73,7 +73,6 @@ fn puppeteer_query(_deps: Deps, _env: Env, msg: PuppeteerQueryMsg) -> StdResult<
         PuppeteerQueryMsg::Config {} => todo!(),
         PuppeteerQueryMsg::State {} => todo!(),
         PuppeteerQueryMsg::Transactions {} => todo!(),
-        PuppeteerQueryMsg::InterchainTransactions {} => todo!(),
         PuppeteerQueryMsg::Delegations {} => {
             let mut delegations_amount: Vec<cosmwasm_std::Delegation> = Vec::new();
             for i in 0..3 {
@@ -87,7 +86,7 @@ fn puppeteer_query(_deps: Deps, _env: Env, msg: PuppeteerQueryMsg) -> StdResult<
                 };
                 delegations_amount.push(delegation);
             }
-            let delegations = lido_interchain_interceptor_base::msg::DelegationsResponse {
+            let delegations = lido_puppeteer_base::msg::DelegationsResponse {
                 delegations: delegations_amount,
                 last_updated_height: 0,
             };
