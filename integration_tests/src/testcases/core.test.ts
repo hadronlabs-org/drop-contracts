@@ -27,6 +27,8 @@ import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
 import { UnbondBatch } from '../generated/contractLib/lidoCore';
+import { pubkeyToAddress } from '@cosmjs/amino';
+import { stringToPath } from '@cosmjs/crypto';
 
 const LidoFactoryClass = LidoFactory.Client;
 const LidoCoreClass = LidoCore.Client;
@@ -272,6 +274,26 @@ describe('Core', () => {
     context.neutronUserAddress = (
       await context.wallet.getAccounts()
     )[0].address;
+    {
+      const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
+        context.park.config.master_mnemonic,
+        {
+          prefix: 'cosmosvaloper',
+          hdPaths: [stringToPath("m/44'/118'/1'/0/0") as any],
+        },
+      );
+      context.validatorAddress = (await wallet.getAccounts())[0].address;
+    }
+    {
+      const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
+        context.park.config.master_mnemonic,
+        {
+          prefix: 'cosmosvaloper',
+          hdPaths: [stringToPath("m/44'/118'/2'/0/0") as any],
+        },
+      );
+      context.secondValidatorAddress = (await wallet.getAccounts())[0].address;
+    }
   });
 
   it('transfer tokens to neutron', async () => {
@@ -403,6 +425,15 @@ describe('Core', () => {
       [{ amount: '1000000', denom: 'untrn' }],
     );
     expect(res.transactionHash).toHaveLength(64);
+    let ica = '';
+    await waitFor(async () => {
+      const res = await puppeteerContractClient.queryState();
+      ica = res.ica;
+      return !!res.ica;
+    }, 50_000);
+    expect(ica).toHaveLength(65);
+    expect(ica.startsWith('cosmos')).toBeTruthy();
+    context.icaAddress = ica;
   });
   it('register ICQs', async () => {
     const { puppeteerContractClient, neutronUserAddress } = context;
@@ -418,6 +449,32 @@ describe('Core', () => {
         },
       ],
     );
+    expect(res.transactionHash).toHaveLength(64);
+  });
+
+  it('add validators into validators set', async () => {
+    const {
+      neutronUserAddress,
+      contractClient,
+      validatorAddress,
+      secondValidatorAddress,
+    } = context;
+    const res = await contractClient.proxy(neutronUserAddress, {
+      validator_set: {
+        update_validators: {
+          validators: [
+            {
+              valoper_address: validatorAddress,
+              weight: 1,
+            },
+            {
+              valoper_address: secondValidatorAddress,
+              weight: 1,
+            },
+          ],
+        },
+      },
+    });
     expect(res.transactionHash).toHaveLength(64);
   });
 
@@ -743,8 +800,22 @@ describe('Core', () => {
     });
     it('tick', async () => {
       const { neutronUserAddress } = context;
-      const res = await context.coreContractClient.tick(neutronUserAddress);
+      const res = await context.coreContractClient.tick(
+        neutronUserAddress,
+        1.5,
+        undefined,
+        [
+          {
+            amount: '10000000',
+            denom: 'untrn',
+          },
+        ],
+      );
       expect(res.transactionHash).toHaveLength(64);
+      const state = await context.coreContractClient.queryContractState();
+      expect(state.current_state).toEqual('claiming');
+    });
+    it('state of fsm is claiming', async () => {
       const state = await context.coreContractClient.queryContractState();
       expect(state.current_state).toEqual('claiming');
     });

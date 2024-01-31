@@ -1,6 +1,9 @@
 use crate::{
     error::{ContractError, ContractResult},
-    msg::{CallbackMsg, CoreParams, ExecuteMsg, InstantiateMsg, QueryMsg, UpdateConfigMsg},
+    msg::{
+        CallbackMsg, CoreParams, ExecuteMsg, InstantiateMsg, QueryMsg, UpdateConfigMsg,
+        ValidatorSetMsg,
+    },
     state::{Config, State, CONFIG, STATE},
 };
 use cosmwasm_std::{
@@ -95,6 +98,13 @@ pub fn execute(
                         new_config: Box::new(msg),
                     },
                 ),
+                UpdateConfigMsg::ValidatorsSet(new_config) => execute_update_config(
+                    deps,
+                    env,
+                    info,
+                    state.validators_set_contract,
+                    lido_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig { new_config },
+                ),
                 UpdateConfigMsg::PuppeteerFees(fees) => execute_update_config(
                     deps,
                     env,
@@ -107,6 +117,40 @@ pub fn execute(
                         register_fee: fees.register_fee,
                     },
                 ),
+            }
+        }
+        ExecuteMsg::Proxy(msg) => {
+            let state = STATE.load(deps.storage)?;
+            match msg {
+                crate::msg::ProxyMsg::ValidatorSet(msg) => match msg {
+                    ValidatorSetMsg::UpdateValidators { validators } => execute_proxy_call(
+                        deps,
+                        env,
+                        info,
+                        state.validators_set_contract,
+                        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
+                            validators,
+                        },
+                    ),
+                    ValidatorSetMsg::UpdateValidator { validator } => execute_proxy_call(
+                        deps,
+                        env,
+                        info,
+                        state.validators_set_contract,
+                        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidator {
+                            validator,
+                        },
+                    ),
+                    ValidatorSetMsg::UpdateValidatorInfo { validators } => execute_proxy_call(
+                        deps,
+                        env,
+                        info,
+                        state.validators_set_contract,
+                        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorInfo {
+                            validators,
+                        },
+                    ),
+                },
             }
         }
     }
@@ -127,7 +171,32 @@ fn execute_update_config<T: cosmwasm_schema::serde::Serialize>(
         ContractError::Unauthorized {}
     );
     Ok(
-        response("execute-init", CONTRACT_NAME, attrs).add_message(CosmosMsg::Wasm(
+        response("execute-update-config", CONTRACT_NAME, attrs).add_message(CosmosMsg::Wasm(
+            WasmMsg::Execute {
+                contract_addr,
+                msg: to_json_binary(&msg)?,
+                funds: vec![],
+            },
+        )),
+    )
+}
+
+fn execute_proxy_call<T: cosmwasm_schema::serde::Serialize>(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    contract_addr: String,
+    msg: T,
+) -> ContractResult<Response<NeutronMsg>> {
+    let attrs = vec![attr("action", "update_config")];
+    let config = CONFIG.load(deps.storage)?;
+    ensure_eq!(
+        config.owner,
+        info.sender.to_string(),
+        ContractError::Unauthorized {}
+    );
+    Ok(
+        response("execute-proxy-call", CONTRACT_NAME, attrs).add_message(CosmosMsg::Wasm(
             WasmMsg::Execute {
                 contract_addr,
                 msg: to_json_binary(&msg)?,
@@ -273,7 +342,7 @@ fn execute_init(
             label: "validators set".to_string(),
             msg: to_json_binary(&ValidatorsSetInstantiateMsg {
                 stats_contract: "neutron1x69dz0c0emw8m2c6kp5v6c08kgjxmu30f4a8w5".to_string(), //FIXME: mock address, replace with real one
-                core: env.contract.address.to_string(),
+                owner: env.contract.address.to_string(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),

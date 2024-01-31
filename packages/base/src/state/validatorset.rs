@@ -1,11 +1,12 @@
 use cosmwasm_schema::cw_serde;
-
 use cosmwasm_std::{Addr, Decimal};
 use cw_storage_plus::{Item, Map};
+use optfield::optfield;
 
+#[optfield(pub ConfigOptional, attrs)]
 #[cw_serde]
 pub struct Config {
-    pub core: Addr,
+    pub owner: Addr,
     pub stats_contract: Addr,
 }
 

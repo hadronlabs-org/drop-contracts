@@ -111,6 +111,11 @@ fn execute_tick(
     let mut machine = FSM.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
     let now = env.block.time.seconds();
+    deps.api.debug(&format!(
+        "WASMDEBUG tick {:?} - {:?}",
+        machine.current_state, response_msg
+    ));
+
     let res = match machine.current_state {
         ContractState::Idle => execute_tick_idle(deps.branch(), env, info, &mut machine, &config),
         ContractState::Claiming => execute_tick_claiming(
@@ -143,7 +148,7 @@ fn execute_tick(
 fn execute_tick_idle(
     deps: DepsMut<NeutronQuery>,
     env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     machine: &mut Fsm<ContractState>,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
@@ -205,7 +210,7 @@ fn execute_tick_idle(
                 reply_to: env.contract.address.to_string(),
             },
         )?,
-        funds: vec![],
+        funds: info.funds,
     });
     deps.api.debug(&format!("WASMDEBUG tick msg {:?}", msg));
     machine.go_to(ContractState::Claiming)?;

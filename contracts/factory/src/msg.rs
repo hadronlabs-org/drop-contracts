@@ -35,7 +35,26 @@ pub struct FeesMsg {
 #[cw_serde]
 pub enum UpdateConfigMsg {
     Core(lido_staking_base::state::core::ConfigOptional),
+    ValidatorsSet(lido_staking_base::state::validatorset::ConfigOptional),
     PuppeteerFees(FeesMsg),
+}
+
+#[cw_serde]
+pub enum ProxyMsg {
+    ValidatorSet(ValidatorSetMsg),
+}
+
+#[cw_serde]
+pub enum ValidatorSetMsg {
+    UpdateValidators {
+        validators: Vec<lido_staking_base::msg::validatorset::ValidatorData>,
+    },
+    UpdateValidator {
+        validator: lido_staking_base::msg::validatorset::ValidatorData,
+    },
+    UpdateValidatorInfo {
+        validators: Vec<lido_staking_base::msg::validatorset::ValidatorInfoUpdate>,
+    },
 }
 
 #[cw_serde]
@@ -46,6 +65,7 @@ pub enum ExecuteMsg {
     },
     Callback(CallbackMsg),
     UpdateConfig(UpdateConfigMsg),
+    Proxy(ProxyMsg),
 }
 #[cw_serde]
 pub enum MigrateMsg {}
