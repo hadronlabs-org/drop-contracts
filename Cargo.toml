@@ -1,6 +1,5 @@
 [workspace]
 members = [
-
     "contracts/stargate-poc",
     "contracts/distribution",
     "contracts/withdrawal-voucher",
@@ -16,6 +15,7 @@ members = [
     "contracts/hook-tester",
     "contracts/core",
     "packages/puppeteer-base",
+    "contracts/auto-withdrawer",
     "packages/base",
     "packages/helpers",
 ]

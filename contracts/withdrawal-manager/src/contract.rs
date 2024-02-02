@@ -1,13 +1,13 @@
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, to_json_binary, Attribute, BankMsg, Binary, Coin, CosmosMsg,
-    Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    attr, ensure_eq, entry_point, from_json, to_json_binary, Attribute, BankMsg, Binary, Coin,
+    CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
 };
 use cw2::set_contract_version;
 use cw721::NftInfoResponse;
 use lido_helpers::answer::response;
 use lido_staking_base::{
     msg::{
-        withdrawal_manager::{ExecuteMsg, InstantiateMsg, QueryMsg},
+        withdrawal_manager::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveNftMsg},
         withdrawal_voucher::Extension,
     },
     state::{
@@ -58,7 +58,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
@@ -68,7 +68,18 @@ pub fn execute(
             core_contract,
             voucher_contract,
         } => execute_update_config(deps, info, owner, core_contract, voucher_contract),
-        ExecuteMsg::ReceiveNft(msg) => execute_receive_nft(deps, env, info, msg),
+        ExecuteMsg::ReceiveNft(Cw721ReceiveMsg {
+            sender,
+            token_id,
+            msg: raw_msg,
+        }) => {
+            let msg: ReceiveNftMsg = from_json(raw_msg)?;
+            match msg {
+                ReceiveNftMsg::Withdraw { receiver } => {
+                    execute_receive_nft_withdraw(deps, info, sender, token_id, receiver)
+                }
+            }
+        }
     }
 }
 
@@ -100,11 +111,12 @@ fn execute_update_config(
     Ok(response("update_config", CONTRACT_NAME, attrs))
 }
 
-fn execute_receive_nft(
+fn execute_receive_nft_withdraw(
     deps: DepsMut<NeutronQuery>,
-    _env: Env,
     info: MessageInfo,
-    msg: Cw721ReceiveMsg,
+    sender: String,
+    token_id: String,
+    receiver: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut attrs = vec![attr("action", "receive_nft")];
     let config = CONFIG.load(deps.storage)?;
@@ -115,9 +127,7 @@ fn execute_receive_nft(
     );
     let voucher: NftInfoResponse<Extension> = deps.querier.query_wasm_smart(
         config.withdrawal_voucher_contract,
-        &lido_staking_base::msg::withdrawal_voucher::QueryMsg::NftInfo {
-            token_id: msg.token_id.clone(),
-        },
+        &lido_staking_base::msg::withdrawal_voucher::QueryMsg::NftInfo { token_id },
     )?;
     let voucher_extention = voucher.extension.ok_or_else(|| ContractError::InvalidNFT {
         reason: "extension is not set".to_string(),
@@ -147,14 +157,17 @@ fn execute_receive_nft(
         .ok_or(ContractError::BatchSlashingEffectIsEmpty {})?
         * voucher_extention.expected_amount;
 
+    let to_address = receiver.unwrap_or(sender);
+    attrs.push(attr("batch_id", batch_id.to_string()));
+    attrs.push(attr("payout_amount", payout_amount.to_string()));
+    attrs.push(attr("to_address", &to_address));
+
     let msg = CosmosMsg::Bank(BankMsg::Send {
-        to_address: msg.sender,
+        to_address,
         amount: vec![Coin {
             denom: config.base_denom,
             amount: payout_amount,
         }],
     });
-    attrs.push(attr("batch_id", batch_id.to_string()));
-    attrs.push(attr("payout_amount", payout_amount.to_string()));
     Ok(response("execute-receive_nft", CONTRACT_NAME, attrs).add_message(msg))
 }

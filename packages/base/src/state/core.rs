@@ -50,6 +50,9 @@ pub struct UnbondBatch {
     pub total_amount: Uint128,
     pub expected_amount: Uint128,
     pub expected_release: u64,
+    // TODO: this always growing array should definitely be refactored into some kind of a map,
+    //       because each successfull unbond call will consume more and more gas on (de)serialization
+    //       until it eventually doesn't fit in a block anymore
     pub unbond_items: Vec<UnbondItem>,
     pub status: UnbondBatchStatus,
     pub slashing_effect: Option<Decimal>,

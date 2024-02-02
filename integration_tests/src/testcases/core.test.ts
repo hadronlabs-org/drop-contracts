@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import {
+  LidoAutoWithdrawer,
   LidoCore,
   LidoFactory,
   LidoPump,
@@ -37,6 +38,7 @@ const LidoPuppeteerClass = LidoPuppeteer.Client;
 const LidoStrategyClass = LidoStrategy.Client;
 const LidoWithdrawalVoucherClass = LidoWithdrawalVoucher.Client;
 const LidoWithdrawalManagerClass = LidoWithdrawalManager.Client;
+const LidoAutoWithdrawerClass = LidoAutoWithdrawer.Client;
 
 describe('Core', () => {
   const context: {
@@ -55,6 +57,7 @@ describe('Core', () => {
     withdrawalManagerContractClient?: InstanceType<
       typeof LidoWithdrawalManagerClass
     >;
+    autoWithdrawerContractClient?: InstanceType<typeof LidoAutoWithdrawerClass>;
     account?: AccountData;
     icaAddress?: string;
     client?: SigningCosmWasmClient;
@@ -143,7 +146,6 @@ describe('Core', () => {
 
   it('instantiate', async () => {
     const { client, account } = context;
-    context.codeIds = {};
 
     {
       const res = await client.upload(
@@ -575,17 +577,25 @@ describe('Core', () => {
 
   it('unbond', async () => {
     const { coreContractClient, neutronUserAddress, ldDenom } = context;
-    const res = await coreContractClient.unbond(
+    let res = await coreContractClient.unbond(
       neutronUserAddress,
       1.6,
       undefined,
       [
         {
-          amount: Math.floor(500_000 / context.exchangeRate).toString(),
+          amount: Math.floor(300_000 / context.exchangeRate).toString(),
           denom: ldDenom,
         },
       ],
     );
+    expect(res.transactionHash).toHaveLength(64);
+
+    res = await coreContractClient.unbond(neutronUserAddress, 1.6, undefined, [
+      {
+        amount: Math.floor(100_000 / context.exchangeRate).toString(),
+        denom: ldDenom,
+      },
+    ]);
     expect(res.transactionHash).toHaveLength(64);
   });
 
@@ -600,12 +610,17 @@ describe('Core', () => {
       created: expect.any(Number),
       expected_release: 0,
       status: 'new',
-      total_amount: '495049',
-      expected_amount: '499999',
+      total_amount: '396038',
+      expected_amount: '399998',
       unbond_items: [
         {
-          amount: '495049',
-          expected_amount: '499999',
+          amount: '297029',
+          expected_amount: '299999',
+          sender: neutronUserAddress,
+        },
+        {
+          amount: '99009',
+          expected_amount: '99999',
           sender: neutronUserAddress,
         },
       ],
@@ -619,16 +634,17 @@ describe('Core', () => {
     const vouchers = await withdrawalVoucherContractClient.queryTokens({
       owner: context.neutronUserAddress,
     });
-    expect(vouchers.tokens.length).toBe(1);
+    expect(vouchers.tokens.length).toBe(2);
+
     expect(vouchers.tokens[0]).toBe(`0_${neutronUserAddress}_1`);
-    const tokenId = vouchers.tokens[0];
-    const voucher = await withdrawalVoucherContractClient.queryNftInfo({
+    let tokenId = vouchers.tokens[0];
+    let voucher = await withdrawalVoucherContractClient.queryNftInfo({
       token_id: tokenId,
     });
     expect(voucher).toBeTruthy();
     expect(voucher).toMatchObject({
       extension: {
-        amount: '495049',
+        amount: '297029',
         attributes: [
           {
             display_type: null,
@@ -638,12 +654,12 @@ describe('Core', () => {
           {
             display_type: null,
             trait_type: 'received_amount',
-            value: '495049',
+            value: '297029',
           },
           {
             display_type: null,
             trait_type: 'expected_amount',
-            value: '499999',
+            value: '299999',
           },
           {
             display_type: null,
@@ -653,7 +669,46 @@ describe('Core', () => {
         ],
         batch_id: '0',
         description: 'Withdrawal voucher',
-        expected_amount: '499999',
+        expected_amount: '299999',
+        name: 'LDV voucher',
+      },
+      token_uri: null,
+    });
+
+    expect(vouchers.tokens[1]).toBe(`0_${neutronUserAddress}_2`);
+    tokenId = vouchers.tokens[1];
+    voucher = await withdrawalVoucherContractClient.queryNftInfo({
+      token_id: tokenId,
+    });
+    expect(voucher).toBeTruthy();
+    expect(voucher).toMatchObject({
+      extension: {
+        amount: '99009',
+        attributes: [
+          {
+            display_type: null,
+            trait_type: 'unbond_batch_id',
+            value: '0',
+          },
+          {
+            display_type: null,
+            trait_type: 'received_amount',
+            value: '99009',
+          },
+          {
+            display_type: null,
+            trait_type: 'expected_amount',
+            value: '99999',
+          },
+          {
+            display_type: null,
+            trait_type: 'exchange_rate',
+            value: '1.01',
+          },
+        ],
+        batch_id: '0',
+        description: 'Withdrawal voucher',
+        expected_amount: '99999',
         name: 'LDV voucher',
       },
       token_uri: null,
@@ -667,7 +722,11 @@ describe('Core', () => {
       withdrawalVoucherContractClient.sendNft(neutronUserAddress, {
         token_id: tokenId,
         contract: context.withdrawalManagerContractClient.contractAddress,
-        msg: Buffer.from('{}').toString('base64'),
+        msg: Buffer.from(
+          JSON.stringify({
+            withdraw: {},
+          }),
+        ).toString('base64'),
       }),
     ).rejects.toThrowError(/is not unbonded yet/);
   });
@@ -687,16 +746,21 @@ describe('Core', () => {
     });
     expect(batch).toBeTruthy();
     expect(batch).toEqual<UnbondBatch>({
-      slashing_effect: '1',
+      slashing_effect: '1.250003750018750093',
       status: 'unbonded',
       created: expect.any(Number),
       expected_release: 0,
-      total_amount: '495049',
-      expected_amount: '499999',
+      total_amount: '396038',
+      expected_amount: '399998',
       unbond_items: [
         {
-          amount: '495049',
-          expected_amount: '499999',
+          amount: '297029',
+          expected_amount: '299999',
+          sender: neutronUserAddress,
+        },
+        {
+          amount: '99009',
+          expected_amount: '99999',
           sender: neutronUserAddress,
         },
       ],
@@ -715,7 +779,11 @@ describe('Core', () => {
       voucherContractClient.sendNft(neutronUserAddress, {
         token_id: tokenId,
         contract: context.withdrawalManagerContractClient.contractAddress,
-        msg: Buffer.from('{}').toString('base64'),
+        msg: Buffer.from(
+          JSON.stringify({
+            withdraw: {},
+          }),
+        ).toString('base64'),
       }),
     ).rejects.toThrowError(/spendable balance {2}is smaller/);
   });
@@ -755,13 +823,53 @@ describe('Core', () => {
     const res = await voucherContractClient.sendNft(neutronUserAddress, {
       token_id: tokenId,
       contract: context.withdrawalManagerContractClient.contractAddress,
-      msg: Buffer.from('{}').toString('base64'),
+      msg: Buffer.from(
+        JSON.stringify({
+          withdraw: {},
+        }),
+      ).toString('base64'),
     });
     expect(res.transactionHash).toHaveLength(64);
     const balance = await neutronClient.CosmosBankV1Beta1.query.queryBalance(
       neutronUserAddress,
       { denom: neutronIBCDenom },
     );
-    expect(parseInt(balance.data.balance.amount) - balanceBefore).toBe(499999);
+    expect(parseInt(balance.data.balance.amount) - balanceBefore).toBe(374999);
+  });
+  it('withdraw to custom receiver', async () => {
+    const {
+      withdrawalVoucherContractClient: voucherContractClient,
+      neutronUserAddress,
+      neutronSecondUserAddress,
+      neutronClient,
+      neutronIBCDenom,
+    } = context;
+    const balanceBefore = parseInt(
+      (
+        await neutronClient.CosmosBankV1Beta1.query.queryBalance(
+          neutronSecondUserAddress,
+          { denom: neutronIBCDenom },
+        )
+      ).data.balance.amount,
+    );
+    expect(balanceBefore).toEqual(0);
+    const tokenId = `0_${neutronUserAddress}_2`;
+    const res = await voucherContractClient.sendNft(neutronUserAddress, {
+      token_id: tokenId,
+      contract: context.withdrawalManagerContractClient.contractAddress,
+      msg: Buffer.from(
+        JSON.stringify({
+          withdraw: {
+            receiver: neutronSecondUserAddress,
+          },
+        }),
+      ).toString('base64'),
+    });
+    expect(res.transactionHash).toHaveLength(64);
+    const balance = await neutronClient.CosmosBankV1Beta1.query.queryBalance(
+      neutronSecondUserAddress,
+      { denom: neutronIBCDenom },
+    );
+    expect(parseInt(balance.data.balance.amount)).toBe(124999);
   });
 });
