@@ -14,6 +14,7 @@ pub struct InstantiateMsg {
     pub withdrawal_manager_contract: String,
     pub validators_set_contract: String,
     pub base_denom: String,
+    pub remote_denom: String,
     pub idle_min_interval: u64,        //seconds
     pub unbonding_period: u64,         //seconds
     pub unbonding_safe_period: u64,    //seconds
@@ -33,6 +34,8 @@ pub enum QueryMsg {
     UnbondBatch { batch_id: Uint128 },
     #[returns(Fsm<ContractState>)]
     ContractState {},
+    #[returns(ResponseHookMsg)]
+    LastPuppeteerResponse {},
 }
 
 #[cw_serde]
@@ -66,6 +69,7 @@ impl From<InstantiateMsg> for Config {
             withdrawal_voucher_contract: val.withdrawal_voucher_contract,
             withdrawal_manager_contract: val.withdrawal_manager_contract,
             base_denom: val.base_denom,
+            remote_denom: val.remote_denom,
             owner: val.owner,
             ld_denom: None,
             idle_min_interval: val.idle_min_interval,

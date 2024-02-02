@@ -27,7 +27,6 @@ import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
 import { UnbondBatch } from '../generated/contractLib/lidoCore';
-import { pubkeyToAddress } from '@cosmjs/amino';
 import { stringToPath } from '@cosmjs/crypto';
 
 const LidoFactoryClass = LidoFactory.Client;
@@ -253,7 +252,7 @@ describe('Core', () => {
           transfer_channel_id: 'channel-0',
           port_id: 'transfer',
           denom: 'stake',
-          update_period: 10,
+          update_period: 2,
         },
         salt: 'salt',
         subdenom: 'lido',
@@ -748,55 +747,64 @@ describe('Core', () => {
   });
 
   describe('state machine', () => {
-    it('deploy pump', async () => {
-      const { client, account, neutronUserAddress } = context;
-      const resUpload = await client.upload(
-        account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/lido_pump.wasm')),
-        1.5,
-      );
-      expect(resUpload.codeId).toBeGreaterThan(0);
-      const { codeId } = resUpload;
-      const res = await LidoPump.Client.instantiate(
-        client,
-        neutronUserAddress,
-        codeId,
-        {
-          connection_id: 'connection-0',
-          ibc_fees: {
-            timeout_fee: '10000',
-            ack_fee: '10000',
-            recv_fee: '0',
-            register_fee: '1000000',
+    const ica: { balance?: number } = {};
+    describe('prepare', () => {
+      it('get ICA balance', async () => {
+        const { gaiaClient } = context;
+        const res = await gaiaClient.getBalance(context.icaAddress, 'stake');
+        ica.balance = parseInt(res.amount);
+        expect(ica.balance).toEqual(0);
+      });
+      it('deploy pump', async () => {
+        const { client, account, neutronUserAddress } = context;
+        const resUpload = await client.upload(
+          account.address,
+          fs.readFileSync(join(__dirname, '../../../artifacts/lido_pump.wasm')),
+          1.5,
+        );
+        expect(resUpload.codeId).toBeGreaterThan(0);
+        const { codeId } = resUpload;
+        const res = await LidoPump.Client.instantiate(
+          client,
+          neutronUserAddress,
+          codeId,
+          {
+            connection_id: 'connection-0',
+            ibc_fees: {
+              timeout_fee: '10000',
+              ack_fee: '10000',
+              recv_fee: '0',
+              register_fee: '1000000',
+            },
+            local_denom: 'stake',
+            timeout: {
+              local: 60,
+              remote: 60,
+            },
           },
-          local_denom: 'stake',
-          timeout: {
-            local: 60,
-            remote: 60,
+          'Lido-staking-pump',
+          [],
+          1.5,
+        );
+        expect(res.contractAddress).toHaveLength(66);
+        context.pumpContractClient = new LidoPump.Client(
+          client,
+          res.contractAddress,
+        );
+        const resFactory = await context.contractClient.updateConfig(
+          neutronUserAddress,
+          {
+            core: {
+              pump_address: context.pumpContractClient.contractAddress,
+            },
           },
-        },
-        'Lido-staking-pump',
-        [],
-        1.5,
-      );
-      expect(res.contractAddress).toHaveLength(66);
-      context.pumpContractClient = new LidoPump.Client(
-        client,
-        res.contractAddress,
-      );
-      const resFactory = await context.contractClient.updateConfig(
-        neutronUserAddress,
-        {
-          core: {
-            pump_address: context.pumpContractClient.contractAddress,
-          },
-        },
-      );
-      expect(resFactory.transactionHash).toHaveLength(64);
-    });
-    it('get machine state', async () => {
-      const state = await context.coreContractClient.queryContractState();
-      expect(state.current_state).toEqual('idle');
+        );
+        expect(resFactory.transactionHash).toHaveLength(64);
+      });
+      it('get machine state', async () => {
+        const state = await context.coreContractClient.queryContractState();
+        expect(state.current_state).toEqual('idle');
+      });
     });
     it('tick', async () => {
       const { neutronUserAddress } = context;
@@ -806,18 +814,89 @@ describe('Core', () => {
         undefined,
         [
           {
-            amount: '10000000',
+            amount: '1000000',
             denom: 'untrn',
           },
         ],
       );
       expect(res.transactionHash).toHaveLength(64);
       const state = await context.coreContractClient.queryContractState();
-      expect(state.current_state).toEqual('claiming');
+      expect(state.current_state).toEqual('transfering');
     });
-    it('state of fsm is claiming', async () => {
+    it('second tick is failed bc no response from puppeteer yet', async () => {
+      const { neutronUserAddress } = context;
+      await expect(
+        context.coreContractClient.tick(neutronUserAddress, 1.5, undefined, []),
+      ).rejects.toThrowError(/Puppeteer response is not received/);
+    });
+    it('state of fsm is transfering', async () => {
       const state = await context.coreContractClient.queryContractState();
-      expect(state.current_state).toEqual('claiming');
+      expect(state.current_state).toEqual('transfering');
+    });
+    it('wait for response from puppeteer', async () => {
+      let response;
+      await waitFor(async () => {
+        try {
+          response =
+            await context.coreContractClient.queryLastPuppeteerResponse();
+        } catch (e) {
+          //
+        }
+        return !!response;
+      }, 100_000);
+    });
+    it('get ICA increased balance', async () => {
+      const { gaiaClient } = context;
+      const res = await gaiaClient.getBalance(context.icaAddress, 'stake');
+      const balance = parseInt(res.amount);
+      expect(balance - 1000000).toEqual(ica.balance);
+      ica.balance = balance;
+    });
+    it('second tick when zero local balance', async () => {
+      const { neutronUserAddress } = context;
+      await expect(
+        context.coreContractClient.tick(neutronUserAddress, 1.5, undefined, [
+          {
+            amount: '1000000',
+            denom: 'untrn',
+          },
+        ]),
+      ).rejects.toThrowError(
+        /(Puppereer balance is outdated|ICA balance is zero)/,
+      );
+    });
+    it('wait for balances to come', async () => {
+      let res;
+      await waitFor(async () => {
+        try {
+          res = await context.puppeteerContractClient.queryExtention({
+            msg: {
+              balances: {},
+            },
+          });
+        } catch (e) {
+          //
+        }
+        return res && res[1] !== 0;
+      }, 100_000);
+      console.log(JSON.stringify(res, null, 2));
+    });
+    it('second tick failed because ICQ result must be newer than Puppeteer response', async () => {
+      const { neutronUserAddress } = context;
+      const res = await context.coreContractClient.tick(
+        neutronUserAddress,
+        1.5,
+        undefined,
+        [
+          {
+            amount: '1000000',
+            denom: 'untrn',
+          },
+        ],
+      );
+      expect(res.transactionHash).toHaveLength(64);
+      const state = await context.coreContractClient.queryContractState();
+      expect(state.current_state).toEqual('staking');
     });
   });
 });

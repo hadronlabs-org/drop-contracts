@@ -16,6 +16,7 @@ pub struct Config {
     pub withdrawal_manager_contract: String,
     pub validators_set_contract: String,
     pub base_denom: String,
+    pub remote_denom: String,
     pub idle_min_interval: u64,        //seconds
     pub unbonding_period: u64,         //seconds
     pub unbonding_safe_period: u64,    //seconds
@@ -74,6 +75,18 @@ pub fn get_transitions() -> Vec<Transition<ContractState>> {
             to: ContractState::Claiming,
         },
         Transition {
+            from: ContractState::Idle,
+            to: ContractState::Staking,
+        },
+        Transition {
+            from: ContractState::Idle,
+            to: ContractState::Transfering,
+        },
+        Transition {
+            from: ContractState::Idle,
+            to: ContractState::Claiming,
+        },
+        Transition {
             from: ContractState::Claiming,
             to: ContractState::Transfering,
         },
@@ -95,3 +108,5 @@ pub fn get_transitions() -> Vec<Transition<ContractState>> {
 pub const FSM: Item<Fsm<ContractState>> = Item::new("machine_state");
 pub const LAST_IDLE_CALL: Item<u64> = Item::new("last_tick");
 pub const LAST_ICA_BALANCE_CHANGE_HEIGHT: Item<u64> = Item::new("last_ica_balance_change_height");
+pub const LAST_PUPPETEER_RESPONSE: Item<lido_puppeteer_base::msg::ResponseHookMsg> =
+    Item::new("last_puppeteer_response");

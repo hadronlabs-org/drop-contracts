@@ -9,7 +9,8 @@ use lido_helpers::{answer::response, fsm::Fsm};
 use lido_puppeteer_base::msg::TransferReadyBatchMsg;
 use lido_staking_base::state::core::{
     get_transitions, Config, ConfigOptional, ContractState, UnbondBatch, UnbondBatchStatus,
-    UnbondItem, CONFIG, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, UNBOND_BATCHES, UNBOND_BATCH_ID,
+    UnbondItem, CONFIG, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_PUPPETEER_RESPONSE,
+    UNBOND_BATCHES, UNBOND_BATCH_ID,
 };
 use lido_staking_base::state::validatorset::ValidatorInfo;
 use lido_staking_base::state::withdrawal_voucher::{Metadata, Trait};
@@ -62,6 +63,9 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Bin
         QueryMsg::ExchangeRate {} => to_json_binary(&query_exchange_rate(deps, env)?),
         QueryMsg::UnbondBatch { batch_id } => query_unbond_batch(deps, batch_id),
         QueryMsg::ContractState {} => to_json_binary(&FSM.load(deps.storage)?),
+        QueryMsg::LastPuppeteerResponse {} => {
+            to_json_binary(&LAST_PUPPETEER_RESPONSE.load(deps.storage)?)
+        }
     }
 }
 
@@ -88,7 +92,7 @@ pub fn execute(
             batch_id,
             unbonded_amount,
         } => execute_fake_process_batch(deps, env, info, batch_id, unbonded_amount),
-        ExecuteMsg::Tick {} => execute_tick(deps, env, info, None),
+        ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::PuppeteerHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
     }
 }
@@ -99,33 +103,40 @@ fn execute_puppeteer_hook(
     info: MessageInfo,
     msg: lido_puppeteer_base::msg::ResponseHookMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    execute_tick(deps, env, info, Some(msg))
+    let config = CONFIG.load(deps.storage)?;
+    ensure_eq!(
+        info.sender,
+        config.puppeteer_contract,
+        ContractError::Unauthorized {}
+    );
+    deps.api
+        .debug(&format!("WASMDEBUG puppeteer_hook {:?}", msg));
+    if let lido_puppeteer_base::msg::ResponseHookMsg::Success(_) = msg {
+        LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &env.block.height)?;
+    }
+    LAST_PUPPETEER_RESPONSE.save(deps.storage, &msg)?;
+
+    Ok(response(
+        "execute-puppeteer_hook",
+        CONTRACT_NAME,
+        vec![attr("action", "puppeteer_hook")],
+    ))
 }
 
 fn execute_tick(
     mut deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
-    response_msg: Option<lido_puppeteer_base::msg::ResponseHookMsg>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut machine = FSM.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
-    let now = env.block.time.seconds();
-    deps.api.debug(&format!(
-        "WASMDEBUG tick {:?} - {:?}",
-        machine.current_state, response_msg
-    ));
-
-    let res = match machine.current_state {
+    deps.api
+        .debug(&format!("WASMDEBUG tick {:?}", machine.current_state));
+    match machine.current_state {
         ContractState::Idle => execute_tick_idle(deps.branch(), env, info, &mut machine, &config),
-        ContractState::Claiming => execute_tick_claiming(
-            deps.branch(),
-            env,
-            info,
-            &mut machine,
-            &config,
-            response_msg,
-        ),
+        ContractState::Claiming => {
+            execute_tick_claiming(deps.branch(), env, info, &mut machine, &config)
+        }
         ContractState::Transfering => {
             execute_tick_transfering(deps.branch(), env, info, &mut machine, &config)
         }
@@ -135,13 +146,6 @@ fn execute_tick(
         ContractState::Staking => {
             execute_tick_staking(deps.branch(), env, info, &mut machine, &config)
         }
-    };
-    match res {
-        Ok(res) => {
-            LAST_IDLE_CALL.save(deps.branch().storage, &now)?;
-            Ok(res)
-        }
-        Err(err) => Err(err),
     }
 }
 
@@ -197,26 +201,59 @@ fn execute_tick_idle(
         &lido_staking_base::msg::validatorset::QueryMsg::Validators {},
     )?;
 
-    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.puppeteer_contract.to_string(),
-        msg: to_json_binary(
-            &lido_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
-                validators: validators
-                    .iter()
-                    .map(|v| v.valoper_address.to_string())
-                    .collect(),
-                transfer,
-                timeout: Some(config.puppeteer_timeout),
-                reply_to: env.contract.address.to_string(),
+    let (delegations, _) = deps
+        .querier
+        .query_wasm_smart::<lido_staking_base::msg::puppeteer::DelegationsResponse>(
+            config.puppeteer_contract.to_string(),
+            &lido_puppeteer_base::msg::QueryMsg::Extention {
+                msg: lido_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
-        )?,
-        funds: info.funds,
-    });
-    deps.api.debug(&format!("WASMDEBUG tick msg {:?}", msg));
+        )?;
+
+    let validators_map = validators
+        .iter()
+        .map(|v| (v.valoper_address.clone(), v))
+        .collect::<std::collections::HashMap<_, _>>();
+    let validators_to_claim = delegations
+        .delegations
+        .iter()
+        .filter(|d| validators_map.get(&d.validator).map_or(false, |_| true))
+        .map(|d| d.validator.clone())
+        .collect::<Vec<_>>();
+    let mut messages = vec![];
     machine.go_to(ContractState::Claiming)?;
+    if validators_to_claim.is_empty() {
+        attrs.push(attr("validators_to_claim", "empty"));
+        if let Some(transfer_msg) =
+            transfer_pending_balance(deps.as_ref(), &env, config, info.funds.clone())?
+        {
+            machine.go_to(ContractState::Transfering)?;
+            messages.push(transfer_msg);
+        } else {
+            messages.push(get_stake_msg(deps.as_ref(), &env, config, info.funds)?);
+            machine.go_to(ContractState::Staking)?;
+        }
+    } else {
+        attrs.push(attr("validators_to_claim", validators_to_claim.join(",")));
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: config.puppeteer_contract.to_string(),
+            msg: to_json_binary(
+                &lido_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
+                    validators: validators_to_claim,
+                    transfer,
+                    timeout: Some(config.puppeteer_timeout),
+                    reply_to: env.contract.address.to_string(),
+                },
+            )?,
+            funds: info.funds,
+        }));
+    }
+    deps.api
+        .debug(&format!("WASMDEBUG tick msg {:?}", messages));
     FSM.save(deps.storage, machine)?;
     attrs.push(attr("state", "claiming"));
-    Ok(response("execute-tick_idle", CONTRACT_NAME, attrs).add_message(msg))
+    LAST_IDLE_CALL.save(deps.storage, &env.block.time.nanos())?;
+    Ok(response("execute-tick_idle", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 fn execute_tick_claiming(
@@ -225,18 +262,15 @@ fn execute_tick_claiming(
     info: MessageInfo,
     machine: &mut Fsm<ContractState>,
     config: &Config,
-    response_msg: Option<lido_puppeteer_base::msg::ResponseHookMsg>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let response_msg = response_msg.ok_or(ContractError::ResponseIsEmpty {})?;
+    let response_msg = get_received_puppeteer_response(deps.as_ref())?;
+    LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut attrs = vec![attr("action", "tick_claiming")];
-    ensure_eq!(
-        info.sender,
-        config.puppeteer_contract,
-        ContractError::Unauthorized {}
-    );
-    LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &env.block.height)?;
+    let mut messages = vec![];
     match response_msg {
         lido_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) => {
+            deps.api
+                .debug(&format!("WASMDEBUG tick success {:?}", success_msg));
             match success_msg.transaction {
                 lido_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
                     transfer,
@@ -252,26 +286,24 @@ fn execute_tick_claiming(
                 }
                 _ => return Err(ContractError::InvalidTransaction {}),
             }
-            let mut messages = vec![];
-            if let Some(transfer_msg) = transfer_pending_balance(deps.as_ref(), &env, config)? {
-                machine.go_to(ContractState::Transfering)?;
-                messages.push(transfer_msg);
-            } else {
-                messages.push(stake(deps.as_ref(), &env, config)?);
-                machine.go_to(ContractState::Staking)?;
-            }
-            FSM.save(deps.storage, machine)?;
-            // any tokens waiting for transfer to remote zone?
-            attrs.push(attr("state", "unbonding"));
-            Ok(response("execute-tick_claiming", CONTRACT_NAME, attrs).add_messages(messages))
         }
         lido_puppeteer_base::msg::ResponseHookMsg::Error(err) => {
-            machine.go_to(ContractState::Idle)?;
-            FSM.save(deps.storage, machine)?;
+            deps.api.debug(&format!("WASMDEBUG tick error {:?}", err));
             attrs.push(attr("error_on_claiming", format!("{:?}", err)));
-            Ok(response("execute-tick_claiming", CONTRACT_NAME, attrs))
         }
     }
+    if let Some(transfer_msg) =
+        transfer_pending_balance(deps.as_ref(), &env, config, info.funds.clone())?
+    {
+        machine.go_to(ContractState::Transfering)?;
+        messages.push(transfer_msg);
+    } else {
+        messages.push(get_stake_msg(deps.as_ref(), &env, config, info.funds)?);
+        machine.go_to(ContractState::Staking)?;
+    }
+    FSM.save(deps.storage, machine)?;
+    attrs.push(attr("state", "unbonding"));
+    Ok(response("execute-tick_claiming", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 fn execute_tick_transfering(
@@ -281,17 +313,15 @@ fn execute_tick_transfering(
     machine: &mut Fsm<ContractState>,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
-    ensure_eq!(
-        info.sender,
-        config.puppeteer_contract,
-        ContractError::Unauthorized {}
-    );
+    let response_msg = get_received_puppeteer_response(deps.as_ref())?;
+    deps.api
+        .debug(&format!("WASMDEBUG tick transfering {:?}", response_msg));
+    LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut attrs = vec![attr("action", "tick_transfering")];
-    LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &env.block.height)?;
     machine.go_to(ContractState::Staking)?;
     FSM.save(deps.storage, machine)?;
     attrs.push(attr("state", "staking"));
-    let message = stake(deps.as_ref(), &env, config)?;
+    let message = get_stake_msg(deps.as_ref(), &env, config, info.funds)?;
     Ok(response("execute-tick_transfering", CONTRACT_NAME, attrs).add_message(message))
 }
 
@@ -302,13 +332,11 @@ fn execute_tick_staking(
     machine: &mut Fsm<ContractState>,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let response_msg = get_received_puppeteer_response(deps.as_ref())?;
+    deps.api
+        .debug(&format!("WASMDEBUG tick staking {:?}", response_msg));
+    LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut attrs = vec![attr("action", "tick_staking")];
-    ensure_eq!(
-        info.sender,
-        config.puppeteer_contract,
-        ContractError::Unauthorized {}
-    );
-    LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &env.block.height)?;
     let mut messages = vec![];
     let batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
     let unbond = UNBOND_BATCHES.load(deps.storage, batch_id)?;
@@ -336,7 +364,7 @@ fn execute_tick_staking(
                 timeout: Some(config.puppeteer_timeout),
                 reply_to: env.contract.address.to_string(),
             })?,
-            funds: vec![],
+            funds: info.funds,
         }));
     } else {
         machine.go_to(ContractState::Idle)?;
@@ -349,17 +377,15 @@ fn execute_tick_staking(
 fn execute_tick_unbonding(
     deps: DepsMut<NeutronQuery>,
     env: Env,
-    info: MessageInfo,
+    _info: MessageInfo,
     machine: &mut Fsm<ContractState>,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let response_msg = get_received_puppeteer_response(deps.as_ref())?;
+    deps.api
+        .debug(&format!("WASMDEBUG tick unbonding {:?}", response_msg));
+    LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut attrs = vec![attr("action", "tick_unbonding")];
-    ensure_eq!(
-        info.sender,
-        config.puppeteer_contract,
-        ContractError::Unauthorized {}
-    );
-    LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &env.block.height)?;
     let batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
     let mut unbond = UNBOND_BATCHES.load(deps.storage, batch_id)?;
     unbond.status = UnbondBatchStatus::Unbonding;
@@ -648,6 +674,7 @@ fn transfer_pending_balance<T>(
     deps: Deps<NeutronQuery>,
     env: &Env,
     config: &Config,
+    funds: Vec<cosmwasm_std::Coin>,
 ) -> ContractResult<Option<CosmosMsg<T>>> {
     let pending_amount = deps
         .querier
@@ -659,6 +686,12 @@ fn transfer_pending_balance<T>(
     if pending_amount.is_zero() {
         return Ok(None);
     }
+    let mut all_funds = vec![cosmwasm_std::Coin {
+        denom: config.base_denom.to_string(),
+        amount: pending_amount,
+    }];
+    all_funds.extend(funds);
+
     Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_contract.to_string(),
         msg: to_json_binary(
@@ -667,32 +700,38 @@ fn transfer_pending_balance<T>(
                 reply_to: env.contract.address.to_string(),
             },
         )?,
-        funds: vec![cosmwasm_std::Coin {
-            denom: config.base_denom.to_string(),
-            amount: pending_amount,
-        }],
+        funds: all_funds,
     })))
 }
 
-fn stake<T>(deps: Deps<NeutronQuery>, env: &Env, config: &Config) -> ContractResult<CosmosMsg<T>> {
-    let ica_balances: lido_staking_base::msg::puppeteer::BalancesResponse =
+fn get_stake_msg<T>(
+    deps: Deps<NeutronQuery>,
+    env: &Env,
+    config: &Config,
+    funds: Vec<cosmwasm_std::Coin>,
+) -> ContractResult<CosmosMsg<T>> {
+    let ica_balances_res: lido_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             config.puppeteer_contract.to_string(),
             &lido_puppeteer_base::msg::QueryMsg::Extention {
                 msg: lido_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
             },
         )?;
-    let balance_height = ica_balances.last_updated_height;
+    let (ica_balances, balance_height) = ica_balances_res;
     let balance = ica_balances
-        .balances
-        .get(0)
-        .and_then(|b| b.coins.get(0).map(|c| c.amount))
+        .coins
+        .iter()
+        .find(|b| b.denom == config.remote_denom)
+        .map(|b| b.amount)
         .ok_or(ContractError::ICABalanceZero {})?;
     ensure_ne!(balance, Uint128::zero(), ContractError::ICABalanceZero {});
     let last_ica_balance_change_height = LAST_ICA_BALANCE_CHANGE_HEIGHT.load(deps.storage)?;
     ensure!(
         last_ica_balance_change_height < balance_height,
-        ContractError::PuppereerBalanceOutdated {}
+        ContractError::PuppereerBalanceOutdated {
+            ica_height: last_ica_balance_change_height,
+            puppeteer_height: balance_height
+        }
     );
     let to_delegate: Vec<lido_staking_base::msg::distribution::IdealDelegation> =
         deps.querier.query_wasm_smart(
@@ -709,8 +748,16 @@ fn stake<T>(deps: Deps<NeutronQuery>, env: &Env, config: &Config) -> ContractRes
             timeout: Some(config.puppeteer_timeout),
             reply_to: env.contract.address.to_string(),
         })?,
-        funds: vec![],
+        funds,
     }))
+}
+
+fn get_received_puppeteer_response(
+    deps: Deps<NeutronQuery>,
+) -> ContractResult<lido_puppeteer_base::msg::ResponseHookMsg> {
+    LAST_PUPPETEER_RESPONSE
+        .load(deps.storage)
+        .map_err(|_| ContractError::PuppeteerResponseIsNotReceived {})
 }
 
 fn is_unbonding_time_close(

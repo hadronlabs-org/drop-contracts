@@ -47,17 +47,20 @@ pub enum ContractError {
     #[error("Pump address is not set")]
     PumpAddressIsNotSet {},
 
-    #[error("Response is empty")]
-    ResponseIsEmpty {},
-
     #[error("InvalidTransaction")]
     InvalidTransaction {},
 
     #[error("ICA balance is zero")]
     ICABalanceZero {},
 
-    #[error("Puppereer balance is outdated")]
-    PuppereerBalanceOutdated {},
+    #[error("Puppeteer response is not received")]
+    PuppeteerResponseIsNotReceived {},
+
+    #[error("Puppereer balance is outdated: ICA balance height {ica_height}, puppeteer balance height {puppeteer_height}")]
+    PuppereerBalanceOutdated {
+        ica_height: u64,
+        puppeteer_height: u64,
+    },
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

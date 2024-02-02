@@ -7,6 +7,7 @@ export interface InstantiateMsg {
   pump_address?: string | null;
   puppeteer_contract: string;
   puppeteer_timeout: number;
+  remote_denom: string;
   strategy_contract: string;
   token_contract: string;
   unbond_batch_switch_time: number;
@@ -23,28 +24,7 @@ export type ContractState = "idle" | "claiming" | "unbonding" | "staking" | "tra
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal = string;
-/**
- * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u128` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
- *
- * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
- *
- * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
- */
-export type Uint128 = string;
-/**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal1 = string;
-export type UnbondBatchStatus = "new" | "unbonding" | "unbonded" | "withdrawn";
-export type PuppeteerHookArgs =
+export type ResponseHookMsg =
   | {
       success: ResponseHookSuccessMsg;
     }
@@ -76,6 +56,20 @@ export type ResponseAnswer =
   | {
       unknown_response: {};
     };
+/**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint128 = string;
 /**
  * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
  *
@@ -143,9 +137,23 @@ export type Transaction =
         recipient: string;
       };
     };
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal1 = string;
+export type UnbondBatchStatus = "new" | "unbonding" | "unbonded" | "withdrawn";
+export type PuppeteerHookArgs =
+  | {
+      success: ResponseHookSuccessMsg;
+    }
+  | {
+      error: ResponseHookErrorMsg;
+    };
 
 export interface LidoCoreSchema {
-  responses: Config | FsmFor_ContractState | Decimal | UnbondBatch;
+  responses: Config | FsmFor_ContractState | Decimal | ResponseHookMsg | UnbondBatch;
   query: UnbondBatchArgs;
   execute: BondArgs | UpdateConfigArgs | FakeProcessBatchArgs | PuppeteerHookArgs;
   [k: string]: unknown;
@@ -158,6 +166,7 @@ export interface Config {
   pump_address?: string | null;
   puppeteer_contract: string;
   puppeteer_timeout: number;
+  remote_denom: string;
   strategy_contract: string;
   token_contract: string;
   unbond_batch_switch_time: number;
@@ -175,52 +184,6 @@ export interface FsmFor_ContractState {
 export interface TransitionFor_ContractState {
   from: ContractState;
   to: ContractState;
-}
-export interface UnbondBatch {
-  created: number;
-  expected_amount: Uint128;
-  expected_release: number;
-  slashing_effect?: Decimal1 | null;
-  status: UnbondBatchStatus;
-  total_amount: Uint128;
-  unbond_items: UnbondItem[];
-  unbonded_amount?: Uint128 | null;
-  withdrawed_amount?: Uint128 | null;
-}
-export interface UnbondItem {
-  amount: Uint128;
-  expected_amount: Uint128;
-  sender: string;
-}
-export interface UnbondBatchArgs {
-  batch_id: Uint128;
-}
-export interface BondArgs {
-  receiver?: string | null;
-}
-export interface UpdateConfigArgs {
-  new_config: ConfigOptional;
-}
-export interface ConfigOptional {
-  base_denom?: string | null;
-  idle_min_interval?: number | null;
-  ld_denom?: string | null;
-  owner?: string | null;
-  pump_address?: string | null;
-  puppeteer_contract?: string | null;
-  puppeteer_timeout?: number | null;
-  strategy_contract?: string | null;
-  token_contract?: string | null;
-  unbond_batch_switch_time?: number | null;
-  unbonding_period?: number | null;
-  unbonding_safe_period?: number | null;
-  validators_set_contract?: string | null;
-  withdrawal_manager_contract?: string | null;
-  withdrawal_voucher_contract?: string | null;
-}
-export interface FakeProcessBatchArgs {
-  batch_id: Uint128;
-  unbonded_amount: Uint128;
 }
 export interface ResponseHookSuccessMsg {
   answers: ResponseAnswer[];
@@ -280,6 +243,53 @@ export interface ResponseHookErrorMsg {
   request: RequestPacket;
   request_id: number;
 }
+export interface UnbondBatch {
+  created: number;
+  expected_amount: Uint128;
+  expected_release: number;
+  slashing_effect?: Decimal1 | null;
+  status: UnbondBatchStatus;
+  total_amount: Uint128;
+  unbond_items: UnbondItem[];
+  unbonded_amount?: Uint128 | null;
+  withdrawed_amount?: Uint128 | null;
+}
+export interface UnbondItem {
+  amount: Uint128;
+  expected_amount: Uint128;
+  sender: string;
+}
+export interface UnbondBatchArgs {
+  batch_id: Uint128;
+}
+export interface BondArgs {
+  receiver?: string | null;
+}
+export interface UpdateConfigArgs {
+  new_config: ConfigOptional;
+}
+export interface ConfigOptional {
+  base_denom?: string | null;
+  idle_min_interval?: number | null;
+  ld_denom?: string | null;
+  owner?: string | null;
+  pump_address?: string | null;
+  puppeteer_contract?: string | null;
+  puppeteer_timeout?: number | null;
+  remote_denom?: string | null;
+  strategy_contract?: string | null;
+  token_contract?: string | null;
+  unbond_batch_switch_time?: number | null;
+  unbonding_period?: number | null;
+  unbonding_safe_period?: number | null;
+  validators_set_contract?: string | null;
+  withdrawal_manager_contract?: string | null;
+  withdrawal_voucher_contract?: string | null;
+}
+export interface FakeProcessBatchArgs {
+  batch_id: Uint128;
+  unbonded_amount: Uint128;
+}
 
 
 function isSigningCosmWasmClient(
@@ -323,6 +333,9 @@ export class Client {
   }
   queryContractState = async(): Promise<Fsm_for_ContractState> => {
     return this.client.queryContractSmart(this.contractAddress, { contract_state: {} });
+  }
+  queryLastPuppeteerResponse = async(): Promise<ResponseHookMsg> => {
+    return this.client.queryContractSmart(this.contractAddress, { last_puppeteer_response: {} });
   }
   bond = async(sender:string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

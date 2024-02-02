@@ -27,6 +27,7 @@ use neutron_sdk::{
     },
     interchain_queries::v045::{
         new_register_balance_query_msg, new_register_delegator_delegations_query_msg,
+        types::{Balances, Delegations},
     },
     interchain_txs::helpers::decode_message_response,
     sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg},
@@ -40,7 +41,7 @@ use lido_puppeteer_base::{
         ResponseHookSuccessMsg, Transaction, TransferReadyBatchMsg,
     },
     proto::MsgIBCTransfer,
-    state::{IcaState, PuppeteerBase, State, TxState, TxStateStatus, ICA_ID},
+    state::{IcaState, PuppeteerBase, State, TxState, TxStateStatus, ICA_ID, LOCAL_DENOM},
 };
 
 use prost::Message;
@@ -86,6 +87,16 @@ pub fn instantiate(
         proxy_address: None,
         transfer_channel_id: msg.transfer_channel_id,
     };
+    DELEGATIONS.save(
+        deps.storage,
+        &(
+            Delegations {
+                delegations: vec![],
+            },
+            0,
+        ),
+    )?;
+    BALANCES.save(deps.storage, &(Balances { coins: vec![] }, 0))?;
     Puppeteer::default().instantiate(deps, config)
 }
 
@@ -185,21 +196,27 @@ fn execute_ibc_transfer(
     let config = puppeteer_base.config.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
+    // exclude fees, no need to send local denom tokens to remote zone
+    let message_funds: Vec<_> = info
+        .funds
+        .iter()
+        .filter(|f| f.denom != LOCAL_DENOM)
+        .collect();
     ensure_eq!(
-        info.funds.len(),
+        message_funds.len(),
         1,
         ContractError::InvalidFunds {
             reason: "Only one coin is allowed".to_string()
         }
     );
-    let coin = info.funds.get(0).ok_or(ContractError::InvalidFunds {
+    let coin = message_funds.get(0).ok_or(ContractError::InvalidFunds {
         reason: "No funds".to_string(),
     })?;
     let ica_address = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
     let msg = NeutronMsg::IbcTransfer {
         source_port: config.port_id,
         source_channel: config.transfer_channel_id,
-        token: coin.clone(),
+        token: (*coin).clone(),
         sender: env.contract.address.to_string(),
         receiver: ica_address.to_string(),
         timeout_height: RequestPacketTimeoutHeight {
@@ -240,6 +257,10 @@ fn register_delegations_query(
         )?,
         SUDO_KV_DELEGATIONS_REPLY_ID,
     );
+    deps.api.debug(&format!(
+        "WASMDEBUG: register_delegations_query {msg:?}",
+        msg = msg
+    ));
     Ok(Response::new().add_submessage(msg))
 }
 
@@ -254,6 +275,10 @@ fn register_balance_query(
         new_register_balance_query_msg(config.connection_id, ica, denom, config.update_period)?,
         SUDO_KV_BALANCE_REPLY_ID,
     );
+    deps.api.debug(&format!(
+        "WASMDEBUG: register_balance_query {msg:?}",
+        msg = msg
+    ));
     Ok(Response::new().add_submessage(msg))
 }
 
@@ -648,12 +673,21 @@ fn sudo_response(
     deps.api
         .debug(&format!("WASMDEBUG: tx_state {:?}", tx_state));
     puppeteer_base.validate_tx_waiting_state(deps.as_ref())?;
+    deps.api.debug(&format!("WASMDEBUG: state is ok"));
     let reply_to = tx_state
         .reply_to
         .ok_or_else(|| StdError::generic_err("reply_to not found"))?;
+    deps.api.debug(&format!(
+        "WASMDEBUG: reply_to: {reply_to}",
+        reply_to = reply_to
+    ));
     let transaction = tx_state
         .transaction
         .ok_or_else(|| StdError::generic_err("transaction not found"))?;
+    deps.api.debug(&format!(
+        "WASMDEBUG: transaction: {transaction:?}",
+        transaction = transaction
+    ));
     puppeteer_base.tx_state.save(
         deps.storage,
         &TxState {
@@ -663,12 +697,12 @@ fn sudo_response(
             reply_to: None,
         },
     )?;
-    let msg_data: TxMsgData = TxMsgData::decode(data.as_slice())?;
-    deps.api
-        .debug(&format!("WASMDEBUG: msg_data: data: {msg_data:?}"));
     let answers = match transaction {
         Transaction::IBCTransfer { .. } => vec![ResponseAnswer::IBCTransfer(MsgIBCTransfer {})],
-        _ => get_answers_from_msg_data(deps.as_ref(), msg_data)?,
+        _ => {
+            let msg_data: TxMsgData = TxMsgData::decode(data.as_slice())?;
+            get_answers_from_msg_data(deps.as_ref(), msg_data)?
+        }
     };
     deps.api.debug(&format!(
         "WASMDEBUG: json: {request:?}",
@@ -877,9 +911,13 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
         SUDO_PAYLOAD_REPLY_ID => puppeteer_base.submit_tx_reply(deps, env, msg),
         SUDO_IBC_TRANSFER_REPLY_ID => puppeteer_base.submit_ibc_transfer_reply(deps, env, msg),
         SUDO_KV_BALANCE_REPLY_ID => {
+            deps.api
+                .debug(&format!("WASMDEBUG: KV_BALANCE_REPLY_ID {:?}", msg));
             puppeteer_base.register_kv_query_reply(deps, env, msg, KVQueryType::Balance)
         }
         SUDO_KV_DELEGATIONS_REPLY_ID => {
+            deps.api
+                .debug(&format!("WASMDEBUG: DELEGATIONS_REPLY_ID {:?}", msg));
             puppeteer_base.register_kv_query_reply(deps, env, msg, KVQueryType::Delegations)
         }
         _ => Err(StdError::generic_err("Unknown reply id")),

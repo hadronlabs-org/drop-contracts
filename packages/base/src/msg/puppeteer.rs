@@ -99,11 +99,7 @@ pub struct MigrateMsg {}
 
 pub type DelegationsResponse = (Delegations, u64);
 
-#[cw_serde]
-pub struct BalancesResponse {
-    pub balances: Vec<Balances>,
-    pub last_updated_height: u64,
-}
+pub type BalancesResponse = (Balances, u64);
 
 #[cw_serde]
 #[derive(QueryResponses)]

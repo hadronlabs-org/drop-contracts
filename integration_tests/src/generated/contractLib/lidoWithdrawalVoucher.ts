@@ -111,6 +111,7 @@ export interface LidoWithdrawalVoucherSchema {
     | NftInfoArgs
     | AllNftInfoArgs
     | TokensArgs
+    | AllTokensArgs
     | ExtensionArgs;
   execute:
     | TransferNftArgs
@@ -292,6 +293,10 @@ export interface TokensArgs {
   owner: string;
   start_after?: string | null;
 }
+export interface AllTokensArgs {
+  limit?: number | null;
+  start_after?: string | null;
+}
 export interface ExtensionArgs {
   msg: Empty;
 }
@@ -419,8 +424,8 @@ export class Client {
   queryTokens = async(args: TokensArgs): Promise<TokensResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { tokens: args });
   }
-  queryAllTokens = async(): Promise<TokensResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { all_tokens: {} });
+  queryAllTokens = async(args: AllTokensArgs): Promise<TokensResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, { all_tokens: args });
   }
   queryMinter = async(): Promise<MinterResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { minter: {} });

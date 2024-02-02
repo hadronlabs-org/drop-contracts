@@ -396,6 +396,7 @@ fn execute_init(
                 withdrawal_voucher_contract: withdrawal_voucher_contract.to_string(),
                 withdrawal_manager_contract: withdrawal_manager_contract.to_string(),
                 base_denom: base_denom.to_string(),
+                remote_denom: config.remote_opts.denom.to_string(),
                 pump_address: None,
                 validators_set_contract,
                 puppeteer_timeout: core_params.puppeteer_timeout,

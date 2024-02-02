@@ -121,6 +121,7 @@ export interface ConfigOptional {
   pump_address?: string | null;
   puppeteer_contract?: string | null;
   puppeteer_timeout?: number | null;
+  remote_denom?: string | null;
   strategy_contract?: string | null;
   token_contract?: string | null;
   unbond_batch_switch_time?: number | null;

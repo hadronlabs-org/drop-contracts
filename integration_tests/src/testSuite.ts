@@ -10,6 +10,7 @@ const keys = [
   'hermes',
   'ibcrelayer',
   'demowallet1',
+  'neutronqueryrelayer',
   'demo1',
   'demo2',
   'demo3',
@@ -248,12 +249,18 @@ export const setupPark = async (
       }
       return connections;
     }, []);
+
     config.relayers = [
       {
         ...relayersConfig.hermes,
         networks,
         connections: connections,
         mnemonic: wallets.hermes,
+      } as any,
+      {
+        ...relayersConfig.neutron,
+        networks,
+        mnemonic: wallets.neutronqueryrelayer,
       } as any,
     ];
   }
