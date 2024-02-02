@@ -881,7 +881,7 @@ describe('Core', () => {
       }, 100_000);
       console.log(JSON.stringify(res, null, 2));
     });
-    it('second tick failed because ICQ result must be newer than Puppeteer response', async () => {
+    it('second tick goes to staking', async () => {
       const { neutronUserAddress } = context;
       const res = await context.coreContractClient.tick(
         neutronUserAddress,
@@ -897,6 +897,24 @@ describe('Core', () => {
       expect(res.transactionHash).toHaveLength(64);
       const state = await context.coreContractClient.queryContractState();
       expect(state.current_state).toEqual('staking');
+    });
+    it('second tick is failed bc no response from puppeteer yet', async () => {
+      const { neutronUserAddress } = context;
+      await expect(
+        context.coreContractClient.tick(neutronUserAddress, 1.5, undefined, []),
+      ).rejects.toThrowError(/Puppeteer response is not received/);
+    });
+    it('wait for response from puppeteer', async () => {
+      let response;
+      await waitFor(async () => {
+        try {
+          response =
+            await context.coreContractClient.queryLastPuppeteerResponse();
+        } catch (e) {
+          //
+        }
+        return !!response;
+      }, 100_000);
     });
   });
 });
