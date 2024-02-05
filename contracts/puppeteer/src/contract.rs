@@ -175,7 +175,7 @@ pub fn execute(
             deps, info, validators, transfer, timeout, reply_to,
         ),
         ExecuteMsg::RegisterDelegatorDelegationsQuery { validators } => {
-            register_delegations_query(deps, validators)
+            register_delegations_query(deps, info, validators)
         }
         ExecuteMsg::RegisterBalanceQuery { denom } => register_balance_query(deps, denom),
         ExecuteMsg::IBCTransfer { timeout, reply_to } => {
@@ -243,10 +243,27 @@ fn execute_ibc_transfer(
 
 fn register_delegations_query(
     deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
     validators: Vec<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.storage)?;
+    ensure_eq!(config.owner, info.sender, ContractError::Unauthorized {});
+    // remove old delegation query if any
+    let kv_queries = puppeteer_base
+        .kv_queries
+        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+        .collect::<Result<Vec<(u64, KVQueryType)>, _>>()?;
+    let mut messages = vec![];
+    for (query_id, query_type) in kv_queries {
+        match query_type {
+            KVQueryType::Delegations => {
+                messages.push(NeutronMsg::remove_interchain_query(query_id));
+            }
+            _ => {}
+        }
+    }
+    //
     let delegator = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
     let msg = SubMsg::reply_on_success(
         new_register_delegator_delegations_query_msg(
@@ -261,7 +278,7 @@ fn register_delegations_query(
         "WASMDEBUG: register_delegations_query {msg:?}",
         msg = msg
     ));
-    Ok(Response::new().add_submessage(msg))
+    Ok(Response::new().add_messages(messages).add_submessage(msg))
 }
 
 fn register_balance_query(

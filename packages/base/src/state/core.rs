@@ -95,6 +95,10 @@ pub fn get_transitions() -> Vec<Transition<ContractState>> {
             to: ContractState::Staking,
         },
         Transition {
+            from: ContractState::Staking,
+            to: ContractState::Unbonding,
+        },
+        Transition {
             from: ContractState::Claiming,
             to: ContractState::Staking,
         },

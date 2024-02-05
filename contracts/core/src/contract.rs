@@ -340,13 +340,30 @@ fn execute_tick_staking(
     let mut messages = vec![];
     let batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
     let unbond = UNBOND_BATCHES.load(deps.storage, batch_id)?;
+    deps.api.debug(&format!(
+        "WASMDEBUG unbond {:?}: conditions: {:?} {:?} {:?}",
+        unbond,
+        (Timestamp::from_seconds(unbond.created).plus_seconds(config.unbond_batch_switch_time)
+            > env.block.time),
+        !unbond.unbond_items.is_empty(),
+        !unbond.total_amount.is_zero(),
+    ));
     if (Timestamp::from_seconds(unbond.created).plus_seconds(config.unbond_batch_switch_time)
         > env.block.time)
         && !unbond.unbond_items.is_empty()
         && !unbond.total_amount.is_zero()
     {
+        deps.api
+            .debug(&format!("WASMDEBUG going to unbond {:?}", unbond));
         machine.go_to(ContractState::Unbonding)?;
         attrs.push(attr("state", "unbonding"));
+        deps.api.debug(&format!(
+            "WASMDEBUG query {:?} to {:?}",
+            config.strategy_contract.to_string(),
+            &lido_staking_base::msg::strategy::QueryMsg::CalcWithdraw {
+                withdraw: unbond.total_amount,
+            },
+        ));
         let undelegations: Vec<lido_staking_base::msg::distribution::IdealDelegation> =
             deps.querier.query_wasm_smart(
                 config.strategy_contract.to_string(),
@@ -367,6 +384,12 @@ fn execute_tick_staking(
             funds: info.funds,
         }));
     } else {
+        deps.api.debug("WASMDEBUG nothing to unbond");
+        deps.api.debug(&format!(
+            "WASMDEBUG goting from {:?} to {:?}",
+            machine.current_state,
+            ContractState::Idle
+        ));
         machine.go_to(ContractState::Idle)?;
         attrs.push(attr("state", "idle"));
     }

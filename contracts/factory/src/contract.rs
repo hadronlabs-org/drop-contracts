@@ -1,7 +1,7 @@
 use crate::{
     error::{ContractError, ContractResult},
     msg::{
-        CallbackMsg, CoreParams, ExecuteMsg, InstantiateMsg, QueryMsg, UpdateConfigMsg,
+        CallbackMsg, CoreParams, ExecuteMsg, InstantiateMsg, ProxyMsg, QueryMsg, UpdateConfigMsg,
         ValidatorSetMsg,
     },
     state::{Config, State, CONFIG, STATE},
@@ -86,124 +86,120 @@ pub fn execute(
         ExecuteMsg::Callback(msg) => match msg {
             CallbackMsg::PostInit {} => execute_post_init(deps, env, info),
         },
-        ExecuteMsg::UpdateConfig(message_type) => {
-            let state = STATE.load(deps.storage)?;
-            match message_type {
-                UpdateConfigMsg::Core(msg) => execute_update_config(
-                    deps,
-                    env,
-                    info,
-                    state.core_contract,
-                    lido_staking_base::msg::core::ExecuteMsg::UpdateConfig {
-                        new_config: Box::new(msg),
-                    },
-                ),
-                UpdateConfigMsg::ValidatorsSet(new_config) => execute_update_config(
-                    deps,
-                    env,
-                    info,
-                    state.validators_set_contract,
-                    lido_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig { new_config },
-                ),
-                UpdateConfigMsg::PuppeteerFees(fees) => execute_update_config(
-                    deps,
-                    env,
-                    info,
-                    state.puppeteer_contract,
-                    lido_puppeteer_base::msg::ExecuteMsg::SetFees {
-                        recv_fee: fees.recv_fee,
-                        ack_fee: fees.ack_fee,
-                        timeout_fee: fees.timeout_fee,
-                        register_fee: fees.register_fee,
-                    },
-                ),
-            }
-        }
-        ExecuteMsg::Proxy(msg) => {
-            let state = STATE.load(deps.storage)?;
-            match msg {
-                crate::msg::ProxyMsg::ValidatorSet(msg) => match msg {
-                    ValidatorSetMsg::UpdateValidators { validators } => execute_proxy_call(
-                        deps,
-                        env,
-                        info,
-                        state.validators_set_contract,
-                        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
-                            validators,
-                        },
-                    ),
-                    ValidatorSetMsg::UpdateValidator { validator } => execute_proxy_call(
-                        deps,
-                        env,
-                        info,
-                        state.validators_set_contract,
-                        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidator {
-                            validator,
-                        },
-                    ),
-                    ValidatorSetMsg::UpdateValidatorInfo { validators } => execute_proxy_call(
-                        deps,
-                        env,
-                        info,
-                        state.validators_set_contract,
-                        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorInfo {
-                            validators,
-                        },
-                    ),
-                },
-            }
-        }
+        ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, env, info, msg),
+        ExecuteMsg::Proxy(msg) => execute_proxy_msg(deps, env, info, msg),
     }
 }
 
-fn execute_update_config<T: cosmwasm_schema::serde::Serialize>(
+fn execute_update_config(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    contract_addr: String,
-    msg: T,
+    msg: UpdateConfigMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let attrs = vec![attr("action", "update_config")];
-    let config = CONFIG.load(deps.storage)?;
-    ensure_eq!(
-        config.owner,
-        info.sender.to_string(),
-        ContractError::Unauthorized {}
-    );
-    Ok(
-        response("execute-update-config", CONTRACT_NAME, attrs).add_message(CosmosMsg::Wasm(
-            WasmMsg::Execute {
-                contract_addr,
-                msg: to_json_binary(&msg)?,
-                funds: vec![],
+    let attrs = vec![attr("action", "update-config")];
+    let state = STATE.load(deps.storage)?;
+    let mut messages = vec![];
+    match msg {
+        UpdateConfigMsg::Core(msg) => messages.push(get_proxied_message(
+            deps,
+            info,
+            state.core_contract,
+            lido_staking_base::msg::core::ExecuteMsg::UpdateConfig {
+                new_config: Box::new(msg),
             },
-        )),
-    )
+        )?),
+        UpdateConfigMsg::ValidatorsSet(new_config) => messages.push(get_proxied_message(
+            deps,
+            info,
+            state.validators_set_contract,
+            lido_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig { new_config },
+        )?),
+        UpdateConfigMsg::PuppeteerFees(fees) => messages.push(get_proxied_message(
+            deps,
+            info,
+            state.puppeteer_contract,
+            lido_puppeteer_base::msg::ExecuteMsg::SetFees {
+                recv_fee: fees.recv_fee,
+                ack_fee: fees.ack_fee,
+                timeout_fee: fees.timeout_fee,
+                register_fee: fees.register_fee,
+            },
+        )?),
+    }
+    Ok(response("execute-proxy-call", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
-fn execute_proxy_call<T: cosmwasm_schema::serde::Serialize>(
-    deps: DepsMut,
+fn execute_proxy_msg(
+    mut deps: DepsMut,
     _env: Env,
+    info: MessageInfo,
+    msg: ProxyMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let state = STATE.load(deps.storage)?;
+    let mut messages = vec![];
+    let attrs = vec![attr("action", "proxy-call")];
+    match msg {
+        crate::msg::ProxyMsg::ValidatorSet(msg) => match msg {
+            ValidatorSetMsg::UpdateValidators { validators } => {
+                let info_wo_funds = MessageInfo {
+                    sender: info.sender.clone(),
+                    funds: vec![],
+                };
+                messages.push(get_proxied_message(
+                    deps.branch(),
+                    info_wo_funds,
+                    state.validators_set_contract,
+                    lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
+                        validators: validators.clone(),
+                    },
+                )?);
+                messages.push(get_proxied_message(
+                    deps,
+                    info,
+                    state.puppeteer_contract,
+                    lido_staking_base::msg::puppeteer::ExecuteMsg::RegisterDelegatorDelegationsQuery { validators: validators.iter().map(|v| {v.valoper_address.to_string()}).collect() }
+                )?)
+            }
+            ValidatorSetMsg::UpdateValidator { validator } => messages.push(get_proxied_message(
+                deps,
+                info,
+                state.validators_set_contract,
+                lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidator { validator },
+            )?),
+            ValidatorSetMsg::UpdateValidatorInfo { validators } => {
+                messages.push(get_proxied_message(
+                    deps,
+                    info,
+                    state.validators_set_contract,
+                    lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorInfo {
+                        validators,
+                    },
+                )?)
+            }
+        },
+    }
+    Ok(response("execute-proxy-call", CONTRACT_NAME, attrs).add_messages(messages))
+}
+
+fn get_proxied_message<T: cosmwasm_schema::serde::Serialize>(
+    deps: DepsMut,
     info: MessageInfo,
     contract_addr: String,
     msg: T,
-) -> ContractResult<Response<NeutronMsg>> {
-    let attrs = vec![attr("action", "update_config")];
+) -> ContractResult<CosmosMsg<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     ensure_eq!(
         config.owner,
         info.sender.to_string(),
         ContractError::Unauthorized {}
     );
-    Ok(
-        response("execute-proxy-call", CONTRACT_NAME, attrs).add_message(CosmosMsg::Wasm(
-            WasmMsg::Execute {
-                contract_addr,
-                msg: to_json_binary(&msg)?,
-                funds: vec![],
-            },
-        )),
-    )
+    let msg: CosmosMsg<NeutronMsg> = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr,
+        msg: to_json_binary(&msg)?,
+        funds: info.funds,
+    });
+    Ok(msg)
 }
 
 fn execute_init(
@@ -380,7 +376,7 @@ fn execute_init(
                 puppeteer_address: puppeteer_contract.to_string(),
                 validator_set_address: validators_set_contract.to_string(),
                 distribution_address: distribution_contract.to_string(),
-                denom: "uatom".to_string(),
+                denom: config.remote_opts.denom.to_string(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),

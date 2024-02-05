@@ -4,6 +4,7 @@ import {
   LidoFactory,
   LidoPump,
   LidoPuppeteer,
+  LidoStrategy,
   LidoWithdrawalManager,
   LidoWithdrawalVoucher,
 } from '../generated/contractLib';
@@ -33,6 +34,7 @@ const LidoFactoryClass = LidoFactory.Client;
 const LidoCoreClass = LidoCore.Client;
 const LidoPumpClass = LidoPump.Client;
 const LidoPuppeteerClass = LidoPuppeteer.Client;
+const LidoStrategyClass = LidoStrategy.Client;
 const LidoWithdrawalVoucherClass = LidoWithdrawalVoucher.Client;
 const LidoWithdrawalManagerClass = LidoWithdrawalManager.Client;
 
@@ -42,8 +44,9 @@ describe('Core', () => {
     contractAddress?: string;
     wallet?: DirectSecp256k1HdWallet;
     gaiaWallet?: DirectSecp256k1HdWallet;
-    contractClient?: InstanceType<typeof LidoFactoryClass>;
+    factoryContractClient?: InstanceType<typeof LidoFactoryClass>;
     coreContractClient?: InstanceType<typeof LidoCoreClass>;
+    strategyContractClient?: InstanceType<typeof LidoStrategyClass>;
     pumpContractClient?: InstanceType<typeof LidoPumpClass>;
     puppeteerContractClient?: InstanceType<typeof LidoPuppeteerClass>;
     withdrawalVoucherContractClient?: InstanceType<
@@ -135,7 +138,7 @@ describe('Core', () => {
   });
 
   afterAll(async () => {
-    await context.park.stop();
+    //await context.park.stop();
   });
 
   it('instantiate', async () => {
@@ -263,7 +266,7 @@ describe('Core', () => {
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
     context.contractAddress = instantiateRes.contractAddress;
-    context.contractClient = new LidoFactory.Client(
+    context.factoryContractClient = new LidoFactory.Client(
       client,
       context.contractAddress,
     );
@@ -334,7 +337,7 @@ describe('Core', () => {
   });
 
   it('init', async () => {
-    const { contractClient } = context;
+    const { factoryContractClient: contractClient } = context;
     const res = await contractClient.init(context.neutronUserAddress, {
       base_denom: context.neutronIBCDenom,
       core_params: {
@@ -349,7 +352,7 @@ describe('Core', () => {
   });
 
   it('query factory state', async () => {
-    const { contractClient, neutronClient } = context;
+    const { factoryContractClient: contractClient, neutronClient } = context;
     const res = await contractClient.queryState();
     expect(res).toBeTruthy();
     const tokenContractInfo =
@@ -397,6 +400,10 @@ describe('Core', () => {
       context.client,
       res.withdrawal_manager_contract,
     );
+    context.strategyContractClient = new LidoStrategy.Client(
+      context.client,
+      res.strategy_contract,
+    );
     context.tokenContractAddress = res.token_contract;
     context.puppeteerContractClient = new LidoPuppeteer.Client(
       context.client,
@@ -404,7 +411,8 @@ describe('Core', () => {
     );
   });
   it('set fees for puppeteer', async () => {
-    const { neutronUserAddress, contractClient } = context;
+    const { neutronUserAddress, factoryContractClient: contractClient } =
+      context;
     const res = await contractClient.updateConfig(neutronUserAddress, {
       puppeteer_fees: {
         timeout_fee: '10000',
@@ -434,7 +442,7 @@ describe('Core', () => {
     expect(ica.startsWith('cosmos')).toBeTruthy();
     context.icaAddress = ica;
   });
-  it('register ICQs', async () => {
+  it('register balance ICQ', async () => {
     const { puppeteerContractClient, neutronUserAddress } = context;
     const res = await puppeteerContractClient.registerBalanceQuery(
       neutronUserAddress,
@@ -454,26 +462,37 @@ describe('Core', () => {
   it('add validators into validators set', async () => {
     const {
       neutronUserAddress,
-      contractClient,
+      factoryContractClient,
       validatorAddress,
       secondValidatorAddress,
     } = context;
-    const res = await contractClient.proxy(neutronUserAddress, {
-      validator_set: {
-        update_validators: {
-          validators: [
-            {
-              valoper_address: validatorAddress,
-              weight: 1,
-            },
-            {
-              valoper_address: secondValidatorAddress,
-              weight: 1,
-            },
-          ],
+    const res = await factoryContractClient.proxy(
+      neutronUserAddress,
+      {
+        validator_set: {
+          update_validators: {
+            validators: [
+              {
+                valoper_address: validatorAddress,
+                weight: 1,
+              },
+              {
+                valoper_address: secondValidatorAddress,
+                weight: 1,
+              },
+            ],
+          },
         },
       },
-    });
+      1.5,
+      undefined,
+      [
+        {
+          amount: '1000000',
+          denom: 'untrn',
+        },
+      ],
+    );
     expect(res.transactionHash).toHaveLength(64);
   });
 
@@ -791,7 +810,7 @@ describe('Core', () => {
           client,
           res.contractAddress,
         );
-        const resFactory = await context.contractClient.updateConfig(
+        const resFactory = await context.factoryContractClient.updateConfig(
           neutronUserAddress,
           {
             core: {
@@ -899,6 +918,54 @@ describe('Core', () => {
       expect(state.current_state).toEqual('staking');
     });
     it('second tick is failed bc no response from puppeteer yet', async () => {
+      const { neutronUserAddress } = context;
+      await expect(
+        context.coreContractClient.tick(neutronUserAddress, 1.5, undefined, []),
+      ).rejects.toThrowError(/Puppeteer response is not received/);
+    });
+    it('wait for response from puppeteer', async () => {
+      let response;
+      await waitFor(async () => {
+        try {
+          response =
+            await context.coreContractClient.queryLastPuppeteerResponse();
+          console.log(JSON.stringify(response, null, 2));
+        } catch (e) {
+          //
+        }
+        return !!response;
+      }, 100_000);
+    });
+    it('query strategy contract to see delegations', async () => {
+      await waitFor(async () => {
+        try {
+          await context.strategyContractClient.queryCalcWithdraw({
+            withdraw: '495049',
+          });
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }, 100_000);
+    });
+    it('third tick goes to unbonding', async () => {
+      const { neutronUserAddress } = context;
+      const res = await context.coreContractClient.tick(
+        neutronUserAddress,
+        1.5,
+        undefined,
+        [
+          {
+            amount: '1000000',
+            denom: 'untrn',
+          },
+        ],
+      );
+      expect(res.transactionHash).toHaveLength(64);
+      const state = await context.coreContractClient.queryContractState();
+      expect(state.current_state).toEqual('unbonding');
+    });
+    it('third tick is failed bc no response from puppeteer yet', async () => {
       const { neutronUserAddress } = context;
       await expect(
         context.coreContractClient.tick(neutronUserAddress, 1.5, undefined, []),

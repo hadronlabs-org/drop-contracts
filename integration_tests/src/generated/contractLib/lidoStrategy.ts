@@ -26,7 +26,7 @@ export type ArrayOfIdealDelegation = IdealDelegation[];
 export type ArrayOfIdealDelegation1 = IdealDelegation[];
 
 export interface LidoStrategySchema {
-  responses: ArrayOfIdealDelegation | ArrayOfIdealDelegation1;
+  responses: ArrayOfIdealDelegation | ArrayOfIdealDelegation1 | ConfigResponse;
   query: CalcDepositArgs | CalcWithdrawArgs;
   execute: UpdateConfigArgs;
   [k: string]: unknown;
@@ -38,17 +38,17 @@ export interface IdealDelegation {
   valoper_address: string;
   weight: number;
 }
+export interface ConfigResponse {
+  core_address: string;
+  denom: string;
+  distribution_address: string;
+  puppeteer_address: string;
+  validator_set_address: string;
+}
 export interface CalcDepositArgs {
-  delegations: Delegation[];
   deposit: Uint128;
 }
-export interface Delegation {
-  stake: Uint128;
-  valoper_address: string;
-  weight: number;
-}
 export interface CalcWithdrawArgs {
-  delegations: Delegation[];
   withdraw: Uint128;
 }
 export interface UpdateConfigArgs {
@@ -89,6 +89,9 @@ export class Client {
       ...(initCoins && initCoins.length && { funds: initCoins }),
     });
     return res;
+  }
+  queryConfig = async(): Promise<ConfigResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
   queryCalcDeposit = async(args: CalcDepositArgs): Promise<ArrayOfIdealDelegation> => {
     return this.client.queryContractSmart(this.contractAddress, { calc_deposit: args });
