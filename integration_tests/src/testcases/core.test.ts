@@ -971,6 +971,29 @@ describe('Core', () => {
         context.coreContractClient.tick(neutronUserAddress, 1.5, undefined, []),
       ).rejects.toThrowError(/Puppeteer response is not received/);
     });
+    it('query unbonding batch', async () => {
+      const batch = await context.coreContractClient.queryUnbondBatch({
+        batch_id: '1',
+      });
+      expect(batch).toBeTruthy();
+      expect(batch).toEqual<UnbondBatch>({
+        slashing_effect: '1',
+        status: 'unbond_requested',
+        created: expect.any(Number),
+        expected_release: 0,
+        total_amount: '495049',
+        expected_amount: '499999',
+        unbond_items: [
+          {
+            amount: '495049',
+            expected_amount: '499999',
+            sender: context.neutronUserAddress,
+          },
+        ],
+        unbonded_amount: '499999',
+        withdrawed_amount: null,
+      });
+    });
     it('wait for response from puppeteer', async () => {
       let response;
       await waitFor(async () => {

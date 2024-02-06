@@ -56,6 +56,7 @@ export type Transaction =
     }
   | {
       undelegate: {
+        batch_id: number;
         denom: string;
         interchain_account_id: string;
         items: [string, Uint128][];
@@ -186,6 +187,7 @@ export interface ResponseHookErrorMsg {
   details: string;
   request: RequestPacket;
   request_id: number;
+  transaction: Transaction;
 }
 export interface SetConfigArgs {
   puppeteer_addr: string;

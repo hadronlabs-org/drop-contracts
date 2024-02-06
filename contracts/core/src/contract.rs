@@ -9,8 +9,8 @@ use lido_helpers::{answer::response, fsm::Fsm};
 use lido_puppeteer_base::msg::TransferReadyBatchMsg;
 use lido_staking_base::state::core::{
     get_transitions, Config, ConfigOptional, ContractState, UnbondBatch, UnbondBatchStatus,
-    UnbondItem, CONFIG, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_PUPPETEER_RESPONSE,
-    UNBOND_BATCHES, UNBOND_BATCH_ID,
+    UnbondItem, CONFIG, FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT,
+    LAST_PUPPETEER_RESPONSE, UNBOND_BATCHES, UNBOND_BATCH_ID,
 };
 use lido_staking_base::state::validatorset::ValidatorInfo;
 use lido_staking_base::state::withdrawal_voucher::{Metadata, Trait};
@@ -338,16 +338,10 @@ fn execute_tick_staking(
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut attrs = vec![attr("action", "tick_staking")];
     let mut messages = vec![];
-    let batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
+    let batch_id = FAILED_BATCH_ID
+        .may_load(deps.storage)?
+        .unwrap_or(UNBOND_BATCH_ID.load(deps.storage)?);
     let unbond = UNBOND_BATCHES.load(deps.storage, batch_id)?;
-    deps.api.debug(&format!(
-        "WASMDEBUG unbond {:?}: conditions: {:?} {:?} {:?}",
-        unbond,
-        (Timestamp::from_seconds(unbond.created).plus_seconds(config.unbond_batch_switch_time)
-            > env.block.time),
-        !unbond.unbond_items.is_empty(),
-        !unbond.total_amount.is_zero(),
-    ));
     if (Timestamp::from_seconds(unbond.created).plus_seconds(config.unbond_batch_switch_time)
         > env.block.time)
         && !unbond.unbond_items.is_empty()
@@ -378,6 +372,7 @@ fn execute_tick_staking(
                     .iter()
                     .map(|d| (d.valoper_address.clone(), d.stake_change))
                     .collect::<Vec<_>>(),
+                batch_id,
                 timeout: Some(config.puppeteer_timeout),
                 reply_to: env.contract.address.to_string(),
             })?,
@@ -404,22 +399,36 @@ fn execute_tick_unbonding(
     machine: &mut Fsm<ContractState>,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let response_msg = get_received_puppeteer_response(deps.as_ref())?;
-    deps.api
-        .debug(&format!("WASMDEBUG tick unbonding {:?}", response_msg));
+    let res = get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut attrs = vec![attr("action", "tick_unbonding")];
-    let batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
-    let mut unbond = UNBOND_BATCHES.load(deps.storage, batch_id)?;
-    unbond.status = UnbondBatchStatus::Unbonding;
-    unbond.expected_release = env.block.time.seconds() + config.unbonding_period;
-    UNBOND_BATCHES.save(deps.storage, batch_id, &unbond)?;
-    UNBOND_BATCHES.save(
-        deps.storage,
-        batch_id + 1,
-        &new_unbond(env.block.time.seconds()),
-    )?;
-    attrs.push(attr("state", "idle"));
+    match res {
+        lido_puppeteer_base::msg::ResponseHookMsg::Success(response) => {
+            match response.transaction {
+                lido_puppeteer_base::msg::Transaction::Undelegate { batch_id, .. } => {
+                    attrs.push(attr("batch_id", batch_id.to_string()));
+                    let mut unbond = UNBOND_BATCHES.load(deps.storage, batch_id)?;
+                    unbond.status = UnbondBatchStatus::Unbonding;
+                    unbond.expected_release = env.block.time.seconds() + config.unbonding_period;
+                    UNBOND_BATCHES.save(deps.storage, batch_id, &unbond)?;
+                    FAILED_BATCH_ID.remove(deps.storage);
+                    attrs.push(attr("unbonding", "success"));
+                }
+                _ => return Err(ContractError::InvalidTransaction {}),
+            }
+        }
+        lido_puppeteer_base::msg::ResponseHookMsg::Error(response) => match response.transaction {
+            lido_puppeteer_base::msg::Transaction::Undelegate { batch_id, .. } => {
+                attrs.push(attr("batch_id", batch_id.to_string()));
+                let mut unbond = UNBOND_BATCHES.load(deps.storage, batch_id)?;
+                unbond.status = UnbondBatchStatus::UnbondFailed;
+                UNBOND_BATCHES.save(deps.storage, batch_id, &unbond)?;
+                FAILED_BATCH_ID.save(deps.storage, &batch_id)?;
+                attrs.push(attr("unbonding", "failed"));
+            }
+            _ => return Err(ContractError::InvalidTransaction {}),
+        },
+    }
     machine.go_to(ContractState::Idle)?;
     FSM.save(deps.storage, machine)?;
     Ok(response("execute-tick_unbonding", CONTRACT_NAME, attrs))

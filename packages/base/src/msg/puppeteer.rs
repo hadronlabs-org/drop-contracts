@@ -38,6 +38,7 @@ pub enum ExecuteMsg {
     },
     Undelegate {
         items: Vec<(String, Uint128)>,
+        batch_id: u128,
         timeout: Option<u64>,
         reply_to: String,
     },

@@ -86,6 +86,7 @@ export type Transaction =
     }
   | {
       undelegate: {
+        batch_id: number;
         denom: string;
         interchain_account_id: string;
         items: [string, Uint128][];
@@ -143,7 +144,7 @@ export type Transaction =
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal1 = string;
-export type UnbondBatchStatus = "new" | "unbonding" | "unbonded" | "withdrawn";
+export type UnbondBatchStatus = "new" | "unbond_requested" | "unbond_failed" | "unbonding" | "unbonded" | "withdrawn";
 export type PuppeteerHookArgs =
   | {
       success: ResponseHookSuccessMsg;
@@ -242,6 +243,7 @@ export interface ResponseHookErrorMsg {
   details: string;
   request: RequestPacket;
   request_id: number;
+  transaction: Transaction;
 }
 export interface UnbondBatch {
   created: number;

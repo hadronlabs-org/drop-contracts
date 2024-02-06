@@ -135,9 +135,10 @@ pub fn execute(
         } => execute_delegate(deps, info, items, timeout, reply_to),
         ExecuteMsg::Undelegate {
             items,
+            batch_id,
             timeout,
             reply_to,
-        } => execute_undelegate(deps, info, items, timeout, reply_to),
+        } => execute_undelegate(deps, info, items, batch_id, timeout, reply_to),
         ExecuteMsg::Redelegate {
             validator_from,
             validator_to,
@@ -256,11 +257,8 @@ fn register_delegations_query(
         .collect::<Result<Vec<(u64, KVQueryType)>, _>>()?;
     let mut messages = vec![];
     for (query_id, query_type) in kv_queries {
-        match query_type {
-            KVQueryType::Delegations => {
-                messages.push(NeutronMsg::remove_interchain_query(query_id));
-            }
-            _ => {}
+        if query_type == KVQueryType::Delegations {
+            messages.push(NeutronMsg::remove_interchain_query(query_id));
         }
     }
     //
@@ -403,6 +401,7 @@ fn execute_undelegate(
     mut deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
     items: Vec<(String, Uint128)>,
+    batch_id: u128,
     timeout: Option<u64>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
@@ -432,6 +431,7 @@ fn execute_undelegate(
         Transaction::Undelegate {
             interchain_account_id: ICA_ID.to_string(),
             denom: config.remote_denom,
+            batch_id,
             items,
         },
         timeout,
@@ -687,17 +687,10 @@ fn sudo_response(
         .sequence
         .ok_or_else(|| StdError::generic_err("sequence not found"))?;
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
-    deps.api
-        .debug(&format!("WASMDEBUG: tx_state {:?}", tx_state));
     puppeteer_base.validate_tx_waiting_state(deps.as_ref())?;
-    deps.api.debug(&format!("WASMDEBUG: state is ok"));
     let reply_to = tx_state
         .reply_to
         .ok_or_else(|| StdError::generic_err("reply_to not found"))?;
-    deps.api.debug(&format!(
-        "WASMDEBUG: reply_to: {reply_to}",
-        reply_to = reply_to
-    ));
     let transaction = tx_state
         .transaction
         .ok_or_else(|| StdError::generic_err("transaction not found"))?;
@@ -839,7 +832,9 @@ fn sudo_error(
     let seq_id = request
         .sequence
         .ok_or_else(|| StdError::generic_err("sequence not found"))?;
-
+    let transaction = tx_state
+        .transaction
+        .ok_or_else(|| StdError::generic_err("transaction not found"))?;
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: tx_state
             .reply_to
@@ -848,6 +843,7 @@ fn sudo_error(
             ResponseHookErrorMsg {
                 request_id: seq_id,
                 request,
+                transaction,
                 details,
             },
         )))?,
@@ -883,6 +879,9 @@ fn sudo_timeout(
         .sequence
         .ok_or_else(|| StdError::generic_err("sequence not found"))?;
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
+    let transaction = tx_state
+        .transaction
+        .ok_or_else(|| StdError::generic_err("transaction not found"))?;
     puppeteer_base.validate_tx_waiting_state(deps.as_ref())?;
     puppeteer_base.state.save(
         deps.storage,
@@ -913,6 +912,7 @@ fn sudo_timeout(
             ResponseHookErrorMsg {
                 request_id: seq_id,
                 request,
+                transaction,
                 details: "Timeout".to_string(),
             },
         )))?,

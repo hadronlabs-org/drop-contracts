@@ -34,7 +34,7 @@ pub struct FeesMsg {
 
 #[cw_serde]
 pub enum UpdateConfigMsg {
-    Core(lido_staking_base::state::core::ConfigOptional),
+    Core(Box<lido_staking_base::state::core::ConfigOptional>),
     ValidatorsSet(lido_staking_base::state::validatorset::ConfigOptional),
     PuppeteerFees(FeesMsg),
 }
@@ -64,7 +64,7 @@ pub enum ExecuteMsg {
         core_params: CoreParams,
     },
     Callback(CallbackMsg),
-    UpdateConfig(UpdateConfigMsg),
+    UpdateConfig(Box<UpdateConfigMsg>),
     Proxy(ProxyMsg),
 }
 #[cw_serde]

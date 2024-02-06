@@ -169,6 +169,7 @@ fn execute_undelegate(
         msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
             items: vec![(validator, amount)],
             timeout,
+            batch_id: 0,
             reply_to: env.contract.address.to_string(),
         })?,
         funds: vec![],

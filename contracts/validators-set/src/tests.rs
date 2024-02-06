@@ -3,6 +3,7 @@ use cosmwasm_std::{
     testing::{mock_env, mock_info, MockApi, MockQuerier, MockStorage},
     to_json_binary, Addr, Decimal, Event, OwnedDeps, Querier,
 };
+use lido_staking_base::state::validatorset::ConfigOptional;
 use neutron_sdk::bindings::query::NeutronQuery;
 use std::marker::PhantomData;
 
@@ -101,8 +102,10 @@ fn update_config_wrong_owner() {
         mock_env(),
         mock_info("core1", &[]),
         lido_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
-            core: Some(Addr::unchecked("owner1")),
-            stats_contract: Some(Addr::unchecked("stats_contract1")),
+            new_config: ConfigOptional {
+                owner: Some(Addr::unchecked("owner1")),
+                stats_contract: Some(Addr::unchecked("stats_contract1")),
+            },
         },
     )
     .unwrap_err();
@@ -143,8 +146,10 @@ fn update_config_ok() {
         mock_env(),
         mock_info("core", &[]),
         lido_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
-            core: Some(Addr::unchecked("owner1")),
-            stats_contract: Some(Addr::unchecked("stats_contract1")),
+            new_config: ConfigOptional {
+                owner: Some(Addr::unchecked("owner1")),
+                stats_contract: Some(Addr::unchecked("stats_contract1")),
+            },
         },
     )
     .unwrap();

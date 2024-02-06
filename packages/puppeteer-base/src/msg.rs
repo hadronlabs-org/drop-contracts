@@ -79,6 +79,7 @@ pub struct ResponseHookSuccessMsg {
 #[cw_serde]
 pub struct ResponseHookErrorMsg {
     pub request_id: u64,
+    pub transaction: Transaction,
     pub request: RequestPacket,
     pub details: String,
 }
@@ -106,6 +107,7 @@ pub enum Transaction {
         interchain_account_id: String,
         items: Vec<(String, Uint128)>,
         denom: String,
+        batch_id: u128,
     },
     Redelegate {
         interchain_account_id: String,

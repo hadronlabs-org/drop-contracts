@@ -86,7 +86,7 @@ pub fn execute(
         ExecuteMsg::Callback(msg) => match msg {
             CallbackMsg::PostInit {} => execute_post_init(deps, env, info),
         },
-        ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, env, info, msg),
+        ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, env, info, *msg),
         ExecuteMsg::Proxy(msg) => execute_proxy_msg(deps, env, info, msg),
     }
 }
@@ -106,7 +106,7 @@ fn execute_update_config(
             info,
             state.core_contract,
             lido_staking_base::msg::core::ExecuteMsg::UpdateConfig {
-                new_config: Box::new(msg),
+                new_config: Box::new(*msg),
             },
         )?),
         UpdateConfigMsg::ValidatorsSet(new_config) => messages.push(get_proxied_message(
@@ -189,11 +189,7 @@ fn get_proxied_message<T: cosmwasm_schema::serde::Serialize>(
     msg: T,
 ) -> ContractResult<CosmosMsg<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
-    ensure_eq!(
-        config.owner,
-        info.sender.to_string(),
-        ContractError::Unauthorized {}
-    );
+    ensure_eq!(config.owner, info.sender, ContractError::Unauthorized {});
     let msg: CosmosMsg<NeutronMsg> = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr,
         msg: to_json_binary(&msg)?,

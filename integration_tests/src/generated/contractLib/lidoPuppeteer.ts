@@ -27,6 +27,7 @@ export type Transaction =
     }
   | {
       undelegate: {
+        batch_id: number;
         denom: string;
         interchain_account_id: string;
         items: [string, Uint128][];
@@ -153,6 +154,7 @@ export interface DelegateArgs {
   timeout?: number | null;
 }
 export interface UndelegateArgs {
+  batch_id: number;
   items: [string, Uint128][];
   reply_to: string;
   timeout?: number | null;
