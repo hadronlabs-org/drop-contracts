@@ -7,6 +7,7 @@
     "test": "vitest --run",
     "test:poc-stargate": "vitest --run poc-stargate --bail 1",
     "test:core": "vitest --run core --bail 1",
+    "test:core:fsm": "vitest --run core.fsm --bail 1",
     "test:pump": "vitest --run pump --bail 1",
     "test:pump-multi": "vitest --run pump-multi --bail 1",
     "test:puppeteer": "vitest --run puppeteer.test --bail 1",

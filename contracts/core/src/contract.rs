@@ -1,7 +1,8 @@
 use crate::error::{ContractError, ContractResult};
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, entry_point, to_json_binary, Attribute, Binary, CosmosMsg,
-    Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Timestamp, Uint128, WasmMsg,
+    CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Timestamp, Uint128,
+    WasmMsg,
 };
 use cw2::set_contract_version;
 
@@ -10,7 +11,7 @@ use lido_puppeteer_base::msg::TransferReadyBatchMsg;
 use lido_staking_base::state::core::{
     get_transitions, Config, ConfigOptional, ContractState, UnbondBatch, UnbondBatchStatus,
     UnbondItem, CONFIG, FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT,
-    LAST_PUPPETEER_RESPONSE, UNBOND_BATCHES, UNBOND_BATCH_ID,
+    LAST_PUPPETEER_RESPONSE, PRE_UNBONDING_BALANCE, UNBOND_BATCHES, UNBOND_BATCH_ID,
 };
 use lido_staking_base::state::validatorset::ValidatorInfo;
 use lido_staking_base::state::withdrawal_voucher::{Metadata, Trait};
@@ -341,14 +342,22 @@ fn execute_tick_staking(
     let batch_id = FAILED_BATCH_ID
         .may_load(deps.storage)?
         .unwrap_or(UNBOND_BATCH_ID.load(deps.storage)?);
-    let unbond = UNBOND_BATCHES.load(deps.storage, batch_id)?;
+    let mut unbond = UNBOND_BATCHES.load(deps.storage, batch_id)?;
     if (Timestamp::from_seconds(unbond.created).plus_seconds(config.unbond_batch_switch_time)
         > env.block.time)
         && !unbond.unbond_items.is_empty()
         && !unbond.total_amount.is_zero()
     {
-        deps.api
-            .debug(&format!("WASMDEBUG going to unbond {:?}", unbond));
+        deps.api.debug(&format!(
+            "WASMDEBUG going to unbond id:{} {:?}",
+            batch_id, unbond
+        ));
+        let (pre_unbonding_balance, _) = get_ica_balance_by_denom(
+            deps.as_ref(),
+            &config.puppeteer_contract,
+            &config.remote_denom,
+        )?;
+        PRE_UNBONDING_BALANCE.save(deps.storage, &pre_unbonding_balance)?;
         machine.go_to(ContractState::Unbonding)?;
         attrs.push(attr("state", "unbonding"));
         deps.api.debug(&format!(
@@ -378,6 +387,8 @@ fn execute_tick_staking(
             })?,
             funds: info.funds,
         }));
+        unbond.status = UnbondBatchStatus::UnbondRequested;
+        UNBOND_BATCHES.save(deps.storage, batch_id, &unbond)?;
     } else {
         deps.api.debug("WASMDEBUG nothing to unbond");
         deps.api.debug(&format!(
@@ -400,12 +411,12 @@ fn execute_tick_unbonding(
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
     let res = get_received_puppeteer_response(deps.as_ref())?;
-    LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut attrs = vec![attr("action", "tick_unbonding")];
     match res {
         lido_puppeteer_base::msg::ResponseHookMsg::Success(response) => {
             match response.transaction {
                 lido_puppeteer_base::msg::Transaction::Undelegate { batch_id, .. } => {
+                    LAST_PUPPETEER_RESPONSE.remove(deps.storage);
                     attrs.push(attr("batch_id", batch_id.to_string()));
                     let mut unbond = UNBOND_BATCHES.load(deps.storage, batch_id)?;
                     unbond.status = UnbondBatchStatus::Unbonding;
@@ -742,24 +753,12 @@ fn get_stake_msg<T>(
     config: &Config,
     funds: Vec<cosmwasm_std::Coin>,
 ) -> ContractResult<CosmosMsg<T>> {
-    let ica_balances_res: lido_staking_base::msg::puppeteer::BalancesResponse =
-        deps.querier.query_wasm_smart(
-            config.puppeteer_contract.to_string(),
-            &lido_puppeteer_base::msg::QueryMsg::Extention {
-                msg: lido_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
-            },
-        )?;
-    let (ica_balances, balance_height) = ica_balances_res;
-    let balance = ica_balances
-        .coins
-        .iter()
-        .find(|b| b.denom == config.remote_denom)
-        .map(|b| b.amount)
-        .ok_or(ContractError::ICABalanceZero {})?;
+    let (balance, balance_height) =
+        get_ica_balance_by_denom(deps, &config.puppeteer_contract, &config.remote_denom)?;
     ensure_ne!(balance, Uint128::zero(), ContractError::ICABalanceZero {});
     let last_ica_balance_change_height = LAST_ICA_BALANCE_CHANGE_HEIGHT.load(deps.storage)?;
     ensure!(
-        last_ica_balance_change_height < balance_height,
+        last_ica_balance_change_height <= balance_height,
         ContractError::PuppereerBalanceOutdated {
             ica_height: last_ica_balance_change_height,
             puppeteer_height: balance_height
@@ -811,6 +810,32 @@ fn is_unbonding_time_close(
         unbond_batch_id -= 1;
     }
     Ok(false)
+}
+
+fn get_ica_balance_by_denom<T: CustomQuery>(
+    deps: Deps<T>,
+    puppeteer_contract: &str,
+    remote_denom: &str,
+) -> ContractResult<(Uint128, u64)> {
+    let (ica_balances, remote_height): lido_staking_base::msg::puppeteer::BalancesResponse =
+        deps.querier.query_wasm_smart(
+            puppeteer_contract.to_string(),
+            &lido_puppeteer_base::msg::QueryMsg::Extention {
+                msg: lido_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
+            },
+        )?;
+    let balance = ica_balances
+        .coins
+        .iter()
+        .find_map(|c| {
+            if c.denom == remote_denom {
+                Some(c.amount)
+            } else {
+                None
+            }
+        })
+        .ok_or(ContractError::ICABalanceZero {})?;
+    Ok((balance, remote_height))
 }
 
 fn new_unbond(now: u64) -> lido_staking_base::state::core::UnbondBatch {
