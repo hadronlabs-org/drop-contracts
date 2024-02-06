@@ -253,7 +253,7 @@ fn execute_tick_idle(
         .debug(&format!("WASMDEBUG tick msg {:?}", messages));
     FSM.save(deps.storage, machine)?;
     attrs.push(attr("state", "claiming"));
-    LAST_IDLE_CALL.save(deps.storage, &env.block.time.nanos())?;
+    LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
     Ok(response("execute-tick_idle", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
