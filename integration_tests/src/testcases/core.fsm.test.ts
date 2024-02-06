@@ -613,7 +613,6 @@ describe('Core', () => {
       withdrawed_amount: null,
     });
   });
-
   describe('state machine', () => {
     const ica: { balance?: number } = {};
     describe('prepare', () => {
@@ -854,6 +853,41 @@ describe('Core', () => {
         }
         return !!response;
       }, 100_000);
+    });
+    it('next tick goes to idle', async () => {
+      const { neutronUserAddress } = context;
+      const res = await context.coreContractClient.tick(
+        neutronUserAddress,
+        1.5,
+        undefined,
+        [],
+      );
+      expect(res.transactionHash).toHaveLength(64);
+      const state = await context.coreContractClient.queryContractState();
+      expect(state.current_state).toEqual('idle');
+    });
+    it('verify that unbonding batch is in unbonding state', async () => {
+      const batch = await context.coreContractClient.queryUnbondBatch({
+        batch_id: '0',
+      });
+      expect(batch).toBeTruthy();
+      expect(batch).toEqual<UnbondBatch>({
+        slashing_effect: null,
+        status: 'unbonding',
+        created: expect.any(Number),
+        expected_release: expect.any(Number),
+        total_amount: '495049',
+        expected_amount: '499999',
+        unbond_items: [
+          {
+            amount: '495049',
+            expected_amount: '499999',
+            sender: context.neutronUserAddress,
+          },
+        ],
+        unbonded_amount: null,
+        withdrawed_amount: null,
+      });
     });
   });
 });
