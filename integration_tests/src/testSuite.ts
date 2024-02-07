@@ -94,6 +94,7 @@ const networkConfigs = {
     prefix: 'neutron',
     loglevel: 'debug',
     trace: true,
+    public: true,
     type: 'ics',
     upload: [
       './artifacts/contracts',
