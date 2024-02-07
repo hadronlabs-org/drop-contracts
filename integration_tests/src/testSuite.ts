@@ -64,6 +64,9 @@ const networkConfigs = {
       'app_state.slashing.params.downtime_jail_duration': '10s',
       'app_state.slashing.params.signed_blocks_window': '10',
       'app_state.staking.params.validator_bond_factor': '10',
+      'app_state.mint.minter.inflation': '0.9',
+      'app_state.mint.params.inflation_max': '0.95',
+      'app_state.mint.params.inflation_min': '0.5',
       'app_state.interchainaccounts.host_genesis_state.params.allow_messages': [
         '*',
       ],

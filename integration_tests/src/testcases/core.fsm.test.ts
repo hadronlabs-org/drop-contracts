@@ -673,220 +673,334 @@ describe('Core', () => {
         expect(state.current_state).toEqual('idle');
       });
     });
-    it('tick', async () => {
-      const { neutronUserAddress } = context;
-      const res = await context.coreContractClient.tick(
-        neutronUserAddress,
-        1.5,
-        undefined,
-        [
-          {
-            amount: '1000000',
-            denom: 'untrn',
-          },
-        ],
-      );
-      expect(res.transactionHash).toHaveLength(64);
-      const state = await context.coreContractClient.queryContractState();
-      expect(state.current_state).toEqual('transfering');
+    describe('first cycle', () => {
+      it('tick', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state.current_state).toEqual('transfering');
+      });
+      it('second tick is failed bc no response from puppeteer yet', async () => {
+        const { neutronUserAddress } = context;
+        await expect(
+          context.coreContractClient.tick(
+            neutronUserAddress,
+            1.5,
+            undefined,
+            [],
+          ),
+        ).rejects.toThrowError(/Puppeteer response is not received/);
+      });
+      it('state of fsm is transfering', async () => {
+        const state = await context.coreContractClient.queryContractState();
+        expect(state.current_state).toEqual('transfering');
+      });
+      it('wait for response from puppeteer', async () => {
+        let response;
+        await waitFor(async () => {
+          try {
+            response =
+              await context.coreContractClient.queryLastPuppeteerResponse();
+          } catch (e) {
+            //
+          }
+          return !!response;
+        }, 100_000);
+      });
+      it('get ICA increased balance', async () => {
+        const { gaiaClient } = context;
+        const res = await gaiaClient.getBalance(context.icaAddress, 'stake');
+        const balance = parseInt(res.amount);
+        expect(balance - 1000000).toEqual(ica.balance);
+        ica.balance = balance;
+      });
+      it('second tick when zero local balance', async () => {
+        const { neutronUserAddress } = context;
+        await expect(
+          context.coreContractClient.tick(neutronUserAddress, 1.5, undefined, [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ]),
+        ).rejects.toThrowError(
+          /(Puppereer balance is outdated|ICA balance is zero)/,
+        );
+      });
+      it('wait for balances to come', async () => {
+        let res;
+        await waitFor(async () => {
+          try {
+            res = await context.puppeteerContractClient.queryExtention({
+              msg: {
+                balances: {},
+              },
+            });
+          } catch (e) {
+            //
+          }
+          return res && res[1] !== 0;
+        }, 100_000);
+        console.log(JSON.stringify(res, null, 2));
+      });
+      it('second tick goes to staking', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state.current_state).toEqual('staking');
+      });
+      it('second tick is failed bc no response from puppeteer yet', async () => {
+        const { neutronUserAddress } = context;
+        await expect(
+          context.coreContractClient.tick(
+            neutronUserAddress,
+            1.5,
+            undefined,
+            [],
+          ),
+        ).rejects.toThrowError(/Puppeteer response is not received/);
+      });
+      it('wait for response from puppeteer', async () => {
+        let response;
+        await waitFor(async () => {
+          try {
+            response =
+              await context.coreContractClient.queryLastPuppeteerResponse();
+            console.log(JSON.stringify(response, null, 2));
+          } catch (e) {
+            //
+          }
+          return !!response;
+        }, 100_000);
+      });
+      it('query strategy contract to see delegations', async () => {
+        await waitFor(async () => {
+          try {
+            await context.strategyContractClient.queryCalcWithdraw({
+              withdraw: '495049',
+            });
+            return true;
+          } catch (e) {
+            return false;
+          }
+        }, 100_000);
+      });
+      it('third tick goes to unbonding', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state.current_state).toEqual('unbonding');
+      });
+      it('third tick is failed bc no response from puppeteer yet', async () => {
+        const { neutronUserAddress } = context;
+        await expect(
+          context.coreContractClient.tick(
+            neutronUserAddress,
+            1.5,
+            undefined,
+            [],
+          ),
+        ).rejects.toThrowError(/Puppeteer response is not received/);
+      });
+      it('query unbonding batch', async () => {
+        const batch = await context.coreContractClient.queryUnbondBatch({
+          batch_id: '0',
+        });
+        expect(batch).toBeTruthy();
+        expect(batch).toEqual<UnbondBatch>({
+          slashing_effect: null,
+          status: 'unbond_requested',
+          created: expect.any(Number),
+          expected_release: 0,
+          total_amount: '495049',
+          expected_amount: '499999',
+          unbond_items: [
+            {
+              amount: '495049',
+              expected_amount: '499999',
+              sender: context.neutronUserAddress,
+            },
+          ],
+          unbonded_amount: null,
+          withdrawed_amount: null,
+        });
+      });
+      it('wait for response from puppeteer', async () => {
+        let response;
+        await waitFor(async () => {
+          try {
+            response =
+              await context.coreContractClient.queryLastPuppeteerResponse();
+          } catch (e) {
+            //
+          }
+          return !!response;
+        }, 100_000);
+      });
+      it('next tick goes to idle', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state.current_state).toEqual('idle');
+      });
+      it('verify that unbonding batch is in unbonding state', async () => {
+        const batch = await context.coreContractClient.queryUnbondBatch({
+          batch_id: '0',
+        });
+        expect(batch).toBeTruthy();
+        expect(batch).toEqual<UnbondBatch>({
+          slashing_effect: null,
+          status: 'unbonding',
+          created: expect.any(Number),
+          expected_release: expect.any(Number),
+          total_amount: '495049',
+          expected_amount: '499999',
+          unbond_items: [
+            {
+              amount: '495049',
+              expected_amount: '499999',
+              sender: context.neutronUserAddress,
+            },
+          ],
+          unbonded_amount: null,
+          withdrawed_amount: null,
+        });
+      });
     });
-    it('second tick is failed bc no response from puppeteer yet', async () => {
-      const { neutronUserAddress } = context;
-      await expect(
-        context.coreContractClient.tick(neutronUserAddress, 1.5, undefined, []),
-      ).rejects.toThrowError(/Puppeteer response is not received/);
-    });
-    it('state of fsm is transfering', async () => {
-      const state = await context.coreContractClient.queryContractState();
-      expect(state.current_state).toEqual('transfering');
-    });
-    it('wait for response from puppeteer', async () => {
-      let response;
-      await waitFor(async () => {
-        try {
-          response =
-            await context.coreContractClient.queryLastPuppeteerResponse();
-        } catch (e) {
-          //
-        }
-        return !!response;
-      }, 100_000);
-    });
-    it('get ICA increased balance', async () => {
-      const { gaiaClient } = context;
-      const res = await gaiaClient.getBalance(context.icaAddress, 'stake');
-      const balance = parseInt(res.amount);
-      expect(balance - 1000000).toEqual(ica.balance);
-      ica.balance = balance;
-    });
-    it('second tick when zero local balance', async () => {
-      const { neutronUserAddress } = context;
-      await expect(
-        context.coreContractClient.tick(neutronUserAddress, 1.5, undefined, [
-          {
-            amount: '1000000',
-            denom: 'untrn',
-          },
-        ]),
-      ).rejects.toThrowError(
-        /(Puppereer balance is outdated|ICA balance is zero)/,
-      );
-    });
-    it('wait for balances to come', async () => {
-      let res;
-      await waitFor(async () => {
-        try {
-          res = await context.puppeteerContractClient.queryExtention({
+    describe('second cycle', () => {
+      let balance = 0;
+      it('get ICA balance', async () => {
+        const { gaiaClient } = context;
+        const res = await gaiaClient.getBalance(context.icaAddress, 'stake');
+        balance = parseInt(res.amount);
+      });
+      it('wait for 30 seconds', async () => {
+        await new Promise((resolve) => setTimeout(resolve, 30_000));
+      });
+      it('idle tick', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state.current_state).toEqual('claiming');
+      });
+      it('wait for response from puppeteer', async () => {
+        let response;
+        await waitFor(async () => {
+          try {
+            response =
+              await context.coreContractClient.queryLastPuppeteerResponse();
+            console.log(JSON.stringify(response, null, 2));
+          } catch (e) {
+            //
+          }
+          return !!response;
+        }, 100_000);
+      });
+      it('get ICA balance', async () => {
+        const { gaiaClient } = context;
+        const res = await gaiaClient.getBalance(context.icaAddress, 'stake');
+        const newBalance = parseInt(res.amount);
+        expect(newBalance).toBeGreaterThan(balance);
+      });
+      it('wait for balance to update', async () => {
+        const [, currentHeight] =
+          (await context.puppeteerContractClient.queryExtention({
             msg: {
               balances: {},
             },
-          });
-        } catch (e) {
-          //
-        }
-        return res && res[1] !== 0;
-      }, 100_000);
-      console.log(JSON.stringify(res, null, 2));
-    });
-    it('second tick goes to staking', async () => {
-      const { neutronUserAddress } = context;
-      const res = await context.coreContractClient.tick(
-        neutronUserAddress,
-        1.5,
-        undefined,
-        [
-          {
-            amount: '1000000',
-            denom: 'untrn',
-          },
-        ],
-      );
-      expect(res.transactionHash).toHaveLength(64);
-      const state = await context.coreContractClient.queryContractState();
-      expect(state.current_state).toEqual('staking');
-    });
-    it('second tick is failed bc no response from puppeteer yet', async () => {
-      const { neutronUserAddress } = context;
-      await expect(
-        context.coreContractClient.tick(neutronUserAddress, 1.5, undefined, []),
-      ).rejects.toThrowError(/Puppeteer response is not received/);
-    });
-    it('wait for response from puppeteer', async () => {
-      let response;
-      await waitFor(async () => {
-        try {
-          response =
-            await context.coreContractClient.queryLastPuppeteerResponse();
-          console.log(JSON.stringify(response, null, 2));
-        } catch (e) {
-          //
-        }
-        return !!response;
-      }, 100_000);
-    });
-    it('query strategy contract to see delegations', async () => {
-      await waitFor(async () => {
-        try {
-          await context.strategyContractClient.queryCalcWithdraw({
-            withdraw: '495049',
-          });
-          return true;
-        } catch (e) {
-          return false;
-        }
-      }, 100_000);
-    });
-    it('third tick goes to unbonding', async () => {
-      const { neutronUserAddress } = context;
-      const res = await context.coreContractClient.tick(
-        neutronUserAddress,
-        1.5,
-        undefined,
-        [
-          {
-            amount: '1000000',
-            denom: 'untrn',
-          },
-        ],
-      );
-      expect(res.transactionHash).toHaveLength(64);
-      const state = await context.coreContractClient.queryContractState();
-      expect(state.current_state).toEqual('unbonding');
-    });
-    it('third tick is failed bc no response from puppeteer yet', async () => {
-      const { neutronUserAddress } = context;
-      await expect(
-        context.coreContractClient.tick(neutronUserAddress, 1.5, undefined, []),
-      ).rejects.toThrowError(/Puppeteer response is not received/);
-    });
-    it('query unbonding batch', async () => {
-      const batch = await context.coreContractClient.queryUnbondBatch({
-        batch_id: '0',
+          })) as any;
+        let res;
+        await waitFor(async () => {
+          const [, nowHeight] =
+            (await context.puppeteerContractClient.queryExtention({
+              msg: {
+                balances: {},
+              },
+            })) as any;
+          return nowHeight !== currentHeight;
+        }, 30_000);
       });
-      expect(batch).toBeTruthy();
-      expect(batch).toEqual<UnbondBatch>({
-        slashing_effect: null,
-        status: 'unbond_requested',
-        created: expect.any(Number),
-        expected_release: 0,
-        total_amount: '495049',
-        expected_amount: '499999',
-        unbond_items: [
-          {
-            amount: '495049',
-            expected_amount: '499999',
-            sender: context.neutronUserAddress,
-          },
-        ],
-        unbonded_amount: null,
-        withdrawed_amount: null,
+      it('next tick goes to staking', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state.current_state).toEqual('staking');
       });
-    });
-    it('wait for response from puppeteer', async () => {
-      let response;
-      await waitFor(async () => {
-        try {
-          response =
-            await context.coreContractClient.queryLastPuppeteerResponse();
-        } catch (e) {
-          //
-        }
-        return !!response;
-      }, 100_000);
-    });
-    it('next tick goes to idle', async () => {
-      const { neutronUserAddress } = context;
-      const res = await context.coreContractClient.tick(
-        neutronUserAddress,
-        1.5,
-        undefined,
-        [],
-      );
-      expect(res.transactionHash).toHaveLength(64);
-      const state = await context.coreContractClient.queryContractState();
-      expect(state.current_state).toEqual('idle');
-    });
-    it('verify that unbonding batch is in unbonding state', async () => {
-      const batch = await context.coreContractClient.queryUnbondBatch({
-        batch_id: '0',
+      it('wait for response from puppeteer', async () => {
+        let response;
+        await waitFor(async () => {
+          try {
+            response =
+              await context.coreContractClient.queryLastPuppeteerResponse();
+            console.log(JSON.stringify(response, null, 2));
+          } catch (e) {
+            //
+          }
+          return !!response;
+        }, 100_000);
       });
-      expect(batch).toBeTruthy();
-      expect(batch).toEqual<UnbondBatch>({
-        slashing_effect: null,
-        status: 'unbonding',
-        created: expect.any(Number),
-        expected_release: expect.any(Number),
-        total_amount: '495049',
-        expected_amount: '499999',
-        unbond_items: [
-          {
-            amount: '495049',
-            expected_amount: '499999',
-            sender: context.neutronUserAddress,
-          },
-        ],
-        unbonded_amount: null,
-        withdrawed_amount: null,
+      it('next tick goes to idle', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state.current_state).toEqual('idle');
       });
     });
   });

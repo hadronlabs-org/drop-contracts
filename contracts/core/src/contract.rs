@@ -389,6 +389,12 @@ fn execute_tick_staking(
         }));
         unbond.status = UnbondBatchStatus::UnbondRequested;
         UNBOND_BATCHES.save(deps.storage, batch_id, &unbond)?;
+        UNBOND_BATCH_ID.save(deps.storage, &(batch_id + 1))?;
+        UNBOND_BATCHES.save(
+            deps.storage,
+            batch_id + 1,
+            &new_unbond(env.block.time.seconds()),
+        )?;
     } else {
         deps.api.debug("WASMDEBUG nothing to unbond");
         deps.api.debug(&format!(
