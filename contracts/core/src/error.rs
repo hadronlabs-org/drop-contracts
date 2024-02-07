@@ -57,7 +57,7 @@ pub enum ContractError {
     #[error("Puppeteer response is not received")]
     PuppeteerResponseIsNotReceived {},
 
-    #[error("Puppeteer response is not set")]
+    #[error("Unbonded amount is not set")]
     UnbondedAmountIsNotSet {},
 
     #[error("Puppereer balance is outdated: ICA balance height {ica_height}, puppeteer balance height {puppeteer_height}")]
