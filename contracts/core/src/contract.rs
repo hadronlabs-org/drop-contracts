@@ -165,10 +165,6 @@ fn execute_tick_idle(
         .clone()
         .ok_or(ContractError::PumpAddressIsNotSet {})?;
     ensure!(
-        env.block.time.seconds() - last_idle_call >= idle_min_interval,
-        ContractError::IdleMinIntervalIsNotReached {}
-    );
-    ensure!(
         !is_unbonding_time_close(
             deps.as_ref(),
             &env.block.time.seconds(),
