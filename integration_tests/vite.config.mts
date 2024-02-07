@@ -5,5 +5,7 @@ export default defineConfig({
     hookTimeout: 500_000,
     testTimeout: 500_000,
     watchExclude: ['**/node_modules/**', '**/*.yml', '**/.__cosmopark'],
+    maxThreads: 2,
+    minThreads: 2,
   },
 });
