@@ -752,7 +752,6 @@ describe('Core', () => {
           }
           return res && res[1] !== 0;
         }, 100_000);
-        console.log(JSON.stringify(res, null, 2));
       });
       it('second tick goes to staking', async () => {
         const { neutronUserAddress } = context;
@@ -788,7 +787,6 @@ describe('Core', () => {
           try {
             response =
               await context.coreContractClient.queryLastPuppeteerResponse();
-            console.log(JSON.stringify(response, null, 2));
           } catch (e) {
             //
           }
@@ -934,7 +932,6 @@ describe('Core', () => {
           try {
             response =
               await context.coreContractClient.queryLastPuppeteerResponse();
-            console.log(JSON.stringify(response, null, 2));
           } catch (e) {
             //
           }
@@ -982,7 +979,6 @@ describe('Core', () => {
           try {
             response =
               await context.coreContractClient.queryLastPuppeteerResponse();
-            console.log(JSON.stringify(response, null, 2));
           } catch (e) {
             //
           }
