@@ -3,9 +3,10 @@ use cosmos_sdk_proto::cosmos::base::v1beta1::Coin as ProtoCoin;
 use cosmos_sdk_proto::ibc::applications::transfer::v1::{MsgTransfer, MsgTransferResponse};
 use cosmwasm_std::{
     attr, ensure, ensure_eq, entry_point, to_json_binary, Addr, Coin, CosmosMsg, Deps, StdError,
-    SubMsg, Uint128,
+    Uint128,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
+use cw_utils::must_pay;
 use lido_helpers::answer::response;
 use lido_staking_base::msg::pump::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion, QueryMsg, UpdateConfigMsg,
@@ -102,17 +103,13 @@ pub fn execute(
 fn execute_refund(deps: DepsMut<NeutronQuery>, env: Env) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let refundee = config.refundee.ok_or(ContractError::RefundeeIsNotSet {})?;
-    let balances = deps.querier.query_all_balances(&env.contract.address)?;
-    let mut messages = vec![];
+    let balances = deps.querier.query_all_balances(env.contract.address)?;
     let attrs = vec![attr("action", "refund"), attr("refundee", &refundee)];
-    for coin in balances {
-        let msg = CosmosMsg::Bank(cosmwasm_std::BankMsg::Send {
-            to_address: refundee.to_string(),
-            amount: vec![coin],
-        });
-        messages.push(SubMsg::new(msg));
-    }
-    Ok(response("refund", CONTRACT_NAME, attrs).add_submessages(messages))
+    let msg = CosmosMsg::Bank(cosmwasm_std::BankMsg::Send {
+        to_address: refundee.to_string(),
+        amount: balances,
+    });
+    Ok(response("refund", CONTRACT_NAME, attrs).add_message(msg))
 }
 
 fn execute_update_config(
@@ -169,7 +166,7 @@ fn execute_register_ica(
         attr("connection_id", &config.connection_id),
         attr("ica_id", ICA_ID),
     ];
-    check_funds(info.funds, &config, config.ibc_fees.register_fee)?;
+    check_funds(&info, &config, config.ibc_fees.register_fee)?;
     return match state.ica_state {
         IcaState::InProgress => Err(ContractError::IcaInProgress {}),
         IcaState::Registered => Err(ContractError::IcaAlreadyRegistered {}),
@@ -207,7 +204,7 @@ fn execute_push(
     let state = STATE.load(deps.storage)?;
     let mut messages = vec![];
     check_funds(
-        info.funds,
+        &info,
         &config,
         config.ibc_fees.ack_fee + config.ibc_fees.recv_fee + config.ibc_fees.timeout_fee,
     )?;
@@ -444,33 +441,14 @@ fn uint_into_vec_coin(amount: Uint128, denom: &String) -> Vec<Coin> {
     }]
 }
 
-fn check_funds(funds: Vec<Coin>, config: &Config, amount: Uint128) -> ContractResult<()> {
-    ensure_eq!(
-        funds.len(),
-        1,
-        ContractError::InvalidFunds {
-            reason: "fee should be provided and be one coin".to_string()
-        }
-    );
-    let coin = funds.get(0).ok_or(ContractError::InvalidFunds {
-        reason: "no funds provided".to_string(),
-    })?;
-    ensure_eq!(
-        coin.denom,
-        config.local_denom,
-        ContractError::InvalidFunds {
-            reason: format!(
-                "invalid denom: expected {}, got {}",
-                &config.local_denom, &coin.denom
-            )
-        }
-    );
+fn check_funds(info: &MessageInfo, config: &Config, amount: Uint128) -> ContractResult<()> {
+    let info_amount = must_pay(info, &config.local_denom)?;
     ensure!(
-        coin.amount >= amount,
+        info_amount >= amount,
         ContractError::InvalidFunds {
             reason: format!(
                 "invalid amount: expected at least {}, got {}",
-                config.ibc_fees.register_fee, coin.amount
+                config.ibc_fees.register_fee, info_amount
             )
         }
     );

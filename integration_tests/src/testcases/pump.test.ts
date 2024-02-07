@@ -157,7 +157,7 @@ describe('Pump', () => {
     const { contractClient, neutronUserAddress } = context;
     await expect(
       contractClient.registerICA(neutronUserAddress, 1.5),
-    ).rejects.toThrowError(/fee should be provided and be one coin/);
+    ).rejects.toThrowError(/No funds sent/);
   });
   it('register ICA w less then needed funds', async () => {
     const { contractClient, neutronUserAddress } = context;
@@ -220,7 +220,7 @@ describe('Pump', () => {
         },
         1.5,
       ),
-    ).rejects.toThrowError(/fee should be provided and be one coin/);
+    ).rejects.toThrowError(/No funds sent/);
   });
   it('try to push pump w less funds', async () => {
     const { contractClient, neutronUserAddress } = context;

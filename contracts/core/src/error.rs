@@ -1,6 +1,5 @@
 use cosmwasm_std::{OverflowError, StdError};
 use lido_helpers::fsm::FsmError;
-use lido_staking_base::error;
 use neutron_sdk::NeutronError;
 use thiserror::Error;
 

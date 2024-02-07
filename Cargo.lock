@@ -827,6 +827,7 @@ dependencies = [
  "cosmwasm-storage",
  "cw-multi-test 0.20.0",
  "cw-storage-plus 1.2.0",
+ "cw-utils 1.0.3",
  "cw2 1.1.2",
  "cw20",
  "lido-helpers",
