@@ -46,7 +46,12 @@ describe('Interchain puppeteer', () => {
   } = {};
 
   beforeAll(async () => {
-    context.park = await setupPark('puppeteer', ['neutron', 'gaia'], true);
+    context.park = await setupPark(
+      'puppeteer',
+      ['neutron', 'gaia'],
+      true,
+      true,
+    );
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
       {
