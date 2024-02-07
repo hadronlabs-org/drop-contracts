@@ -114,7 +114,7 @@ fn execute_puppeteer_hook(
         .debug(&format!("WASMDEBUG puppeteer_hook {:?}", msg));
     if let lido_puppeteer_base::msg::ResponseHookMsg::Success(_) = msg {
         LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &env.block.height)?;
-    }
+    } // if it's error we don't need to save the height because balance wasn't changed
     LAST_PUPPETEER_RESPONSE.save(deps.storage, &msg)?;
 
     Ok(response(
