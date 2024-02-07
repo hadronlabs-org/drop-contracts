@@ -9,8 +9,9 @@ jobs:
   clippy:
     name: Actions - clippy
     runs-on: self-hosted
+    container:
+      options: --user runner 
     steps:
-      - run: sudo chown -R runner:runner artifacts
       - uses: actions/checkout@v1
         with:
           fetch-depth: 1
