@@ -140,7 +140,7 @@ fn execute_proxy_msg(
     let mut messages = vec![];
     let attrs = vec![attr("action", "proxy-call")];
     match msg {
-        crate::msg::ProxyMsg::ValidatorSet(msg) => match msg {
+        ProxyMsg::ValidatorSet(msg) => match msg {
             ValidatorSetMsg::UpdateValidators { validators } => {
                 let info_wo_funds = MessageInfo {
                     sender: info.sender.clone(),
