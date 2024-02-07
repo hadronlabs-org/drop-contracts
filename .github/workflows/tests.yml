@@ -10,7 +10,7 @@ jobs:
     name: Actions - clippy
     runs-on: self-hosted
     steps:
-      - run: sudo chown -R $USER:$USER artifacts
+      - run: sudo chown -R runner:runner artifacts
       - uses: actions/checkout@v1
         with:
           fetch-depth: 1
