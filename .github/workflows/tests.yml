@@ -9,8 +9,6 @@ jobs:
   clippy:
     name: Actions - clippy
     runs-on: self-hosted
-    container:
-      options: --user runner 
     steps:
       - uses: actions/checkout@v1
         with:
