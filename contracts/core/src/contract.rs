@@ -178,12 +178,16 @@ fn execute_tick_idle(
     );
     // process unbond if any aleready unbonded
     // and claim rewards
-    let transfer =
-        get_unbonded_batch(deps.as_ref())?.map(|(batch_id, batch)| TransferReadyBatchMsg {
+    let transfer: Option<TransferReadyBatchMsg> = match get_unbonded_batch(deps.as_ref())? {
+        Some((batch_id, batch)) => Some(TransferReadyBatchMsg {
             batch_id,
-            amount: batch.unbonded_amount.unwrap(),
+            amount: batch
+                .unbonded_amount
+                .ok_or(ContractError::UnbondedAmountIsNotSet {})?,
             recipient: pump_address,
-        });
+        }),
+        None => None,
+    };
 
     let validators: Vec<ValidatorInfo> = deps.querier.query_wasm_smart(
         config.validators_set_contract.to_string(),
