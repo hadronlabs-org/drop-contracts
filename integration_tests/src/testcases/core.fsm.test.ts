@@ -84,7 +84,7 @@ describe('Core', () => {
   } = { codeIds: {} };
 
   beforeAll(async () => {
-    context.park = await setupPark('corefsm', ['neutron', 'gaia'], true);
+    context.park = await setupPark('corefsm', ['neutron', 'gaia'], true, true);
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
       {
@@ -954,7 +954,6 @@ describe('Core', () => {
               balances: {},
             },
           })) as any;
-        let res;
         await waitFor(async () => {
           const [, nowHeight] =
             (await context.puppeteerContractClient.queryExtention({

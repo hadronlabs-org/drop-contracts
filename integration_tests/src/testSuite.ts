@@ -221,6 +221,7 @@ export const setupPark = async (
   context = 'lido',
   networks: string[] = [],
   needHermes = false,
+  needNeutronRelayer = false,
 ): Promise<cosmopark> => {
   const wallets = await generateWallets();
   const config: CosmoparkConfig = {
@@ -252,20 +253,19 @@ export const setupPark = async (
       }
       return connections;
     }, []);
-
-    config.relayers = [
-      {
-        ...relayersConfig.hermes,
-        networks,
-        connections: connections,
-        mnemonic: wallets.hermes,
-      } as any,
-      {
-        ...relayersConfig.neutron,
-        networks,
-        mnemonic: wallets.neutronqueryrelayer,
-      } as any,
-    ];
+    config.relayers.push({
+      ...relayersConfig.hermes,
+      networks,
+      connections: connections,
+      mnemonic: wallets.hermes,
+    } as any);
+  }
+  if (needNeutronRelayer) {
+    config.relayers.push({
+      ...relayersConfig.neutron,
+      networks,
+      mnemonic: wallets.neutronqueryrelayer,
+    } as any);
   }
   const instance = await cosmopark.create(config);
   await Promise.all(
