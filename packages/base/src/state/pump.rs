@@ -23,7 +23,7 @@ pub struct Config {
     pub dest_port: Option<String>,
     pub connection_id: String,
     pub refundee: Option<Addr>,
-    pub admin: Addr,
+    pub owner: Addr,
     pub ibc_fees: IBCFees,
     pub timeout: PumpTimeout,
     pub local_denom: String,

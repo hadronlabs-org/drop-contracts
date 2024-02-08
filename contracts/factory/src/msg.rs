@@ -52,9 +52,6 @@ pub enum ValidatorSetMsg {
     UpdateValidator {
         validator: lido_staking_base::msg::validatorset::ValidatorData,
     },
-    UpdateValidatorInfo {
-        validators: Vec<lido_staking_base::msg::validatorset::ValidatorInfoUpdate>,
-    },
 }
 
 #[cw_serde]

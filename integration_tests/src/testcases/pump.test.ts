@@ -139,7 +139,7 @@ describe('Pump', () => {
           local: 100,
           remote: 100,
         },
-        admin: account.address,
+        owner: account.address,
       },
       'label',
       [],

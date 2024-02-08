@@ -757,7 +757,7 @@ fn get_stake_msg<T>(
     let last_ica_balance_change_height = LAST_ICA_BALANCE_CHANGE_HEIGHT.load(deps.storage)?;
     ensure!(
         last_ica_balance_change_height <= balance_height,
-        ContractError::PuppereerBalanceOutdated {
+        ContractError::PuppeteerBalanceOutdated {
             ica_height: last_ica_balance_change_height,
             puppeteer_height: balance_height
         }

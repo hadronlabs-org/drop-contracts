@@ -60,7 +60,7 @@ pub enum ContractError {
     UnbondedAmountIsNotSet {},
 
     #[error("Puppereer balance is outdated: ICA balance height {ica_height}, puppeteer balance height {puppeteer_height}")]
-    PuppereerBalanceOutdated {
+    PuppeteerBalanceOutdated {
         ica_height: u64,
         puppeteer_height: u64,
     },

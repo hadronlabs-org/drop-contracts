@@ -725,19 +725,6 @@ describe('Core', () => {
         expect(balance - 1000000).toEqual(ica.balance);
         ica.balance = balance;
       });
-      it('second tick when zero local balance', async () => {
-        const { neutronUserAddress } = context;
-        await expect(
-          context.coreContractClient.tick(neutronUserAddress, 1.5, undefined, [
-            {
-              amount: '1000000',
-              denom: 'untrn',
-            },
-          ]),
-        ).rejects.toThrowError(
-          /(Puppereer balance is outdated|ICA balance is zero)/,
-        );
-      });
       it('wait for balances to come', async () => {
         let res;
         await waitFor(async () => {

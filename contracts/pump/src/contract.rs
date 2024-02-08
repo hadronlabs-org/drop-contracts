@@ -51,8 +51,8 @@ pub fn instantiate(
                 .refundee
                 .map(|r| deps.api.addr_validate(&r))
                 .transpose()?,
-            admin: msg
-                .admin
+            owner: msg
+                .owner
                 .map(|a| deps.api.addr_validate(&a))
                 .transpose()?
                 .unwrap_or(info.sender),
@@ -119,7 +119,7 @@ fn execute_update_config(
     new_config: UpdateConfigMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut config = CONFIG.load(deps.storage)?;
-    ensure_eq!(info.sender, config.admin, ContractError::Unauthorized {});
+    ensure_eq!(info.sender, config.owner, ContractError::Unauthorized {});
     let attrs = vec![
         attr("action", "update_config"),
         attr("new_config", format!("{:?}", new_config)),
@@ -140,7 +140,7 @@ fn execute_update_config(
         config.refundee = Some(deps.api.addr_validate(&refundee)?);
     }
     if let Some(admin) = new_config.admin {
-        config.admin = deps.api.addr_validate(&admin)?;
+        config.owner = deps.api.addr_validate(&admin)?;
     }
     if let Some(ibc_fees) = new_config.ibc_fees {
         config.ibc_fees = ibc_fees;

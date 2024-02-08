@@ -16,13 +16,13 @@ import { StdFee } from "@cosmjs/amino";
 export type Uint128 = string;
 
 export interface InstantiateMsg {
-  admin?: string | null;
   connection_id: string;
   dest_address?: string | null;
   dest_channel?: string | null;
   dest_port?: string | null;
   ibc_fees: IBCFees;
   local_denom: string;
+  owner?: string | null;
   refundee?: string | null;
   timeout: PumpTimeout;
 }
@@ -68,13 +68,13 @@ export interface LidoPumpSchema {
   [k: string]: unknown;
 }
 export interface Config {
-  admin: Addr;
   connection_id: string;
   dest_address?: Addr | null;
   dest_channel?: string | null;
   dest_port?: string | null;
   ibc_fees: IBCFees;
   local_denom: string;
+  owner: Addr;
   refundee?: Addr | null;
   timeout: PumpTimeout;
 }

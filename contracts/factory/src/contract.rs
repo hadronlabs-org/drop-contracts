@@ -161,15 +161,6 @@ fn execute_proxy_msg(
                 lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidator { validator },
                 info.funds,
             )?),
-            ValidatorSetMsg::UpdateValidatorInfo { validators } => {
-                messages.push(get_proxied_message(
-                    state.validators_set_contract,
-                    lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorInfo {
-                        validators,
-                    },
-                    info.funds,
-                )?)
-            }
         },
     }
     Ok(response("execute-proxy-call", CONTRACT_NAME, attrs).add_messages(messages))

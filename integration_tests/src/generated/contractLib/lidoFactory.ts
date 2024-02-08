@@ -74,18 +74,7 @@ export type ValidatorSetMsg =
       update_validator: {
         validator: ValidatorData;
       };
-    }
-  | {
-      update_validator_info: {
-        validators: ValidatorInfoUpdate[];
-      };
     };
-/**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal = string;
 
 export interface LidoFactorySchema {
   responses: State;
@@ -144,16 +133,6 @@ export interface FeesMsg {
 export interface ValidatorData {
   valoper_address: string;
   weight: number;
-}
-export interface ValidatorInfoUpdate {
-  jailed_number?: number | null;
-  last_commission_in_range?: number | null;
-  last_processed_local_height?: number | null;
-  last_processed_remote_height?: number | null;
-  last_validated_height?: number | null;
-  tombstone: boolean;
-  uptime: Decimal;
-  valoper_address: string;
 }
 
 

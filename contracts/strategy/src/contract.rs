@@ -23,9 +23,9 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> NeutronResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let core = deps.api.addr_validate(&msg.core_address)?;
-    cw_ownable::initialize_owner(deps.storage, deps.api, Some(core.as_ref()))?;
-    CORE_ADDRESS.save(deps.storage, &core)?;
+    let core_address = deps.api.addr_validate(&msg.core_address)?;
+    cw_ownable::initialize_owner(deps.storage, deps.api, Some(core_address.as_ref()))?;
+    CORE_ADDRESS.save(deps.storage, &core_address)?;
 
     let puppeteer = deps.api.addr_validate(&msg.puppeteer_address)?;
     PUPPETEER_ADDRESS.save(deps.storage, &puppeteer)?;
