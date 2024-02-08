@@ -49,7 +49,7 @@ pub fn instantiate(
         attr("owner", &info.sender),
         attr("subdenom", &msg.subdenom),
     ];
-
+    cw_ownable::initialize_owner(deps.storage, deps.api, Some(info.sender.as_str()))?;
     CONFIG.save(
         deps.storage,
         &Config {
@@ -98,8 +98,7 @@ fn execute_update_config(
     msg: UpdateConfigMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let attrs = vec![attr("action", "update-config")];
-    let config = CONFIG.load(deps.storage)?;
-    ensure_eq!(config.owner, info.sender, ContractError::Unauthorized {});
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let state = STATE.load(deps.storage)?;
     let mut messages = vec![];
     match msg {
@@ -138,8 +137,7 @@ fn execute_proxy_msg(
     let state = STATE.load(deps.storage)?;
     let mut messages = vec![];
     let attrs = vec![attr("action", "proxy-call")];
-    let config = CONFIG.load(deps.storage)?;
-    ensure_eq!(config.owner, info.sender, ContractError::Unauthorized {});
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
     match msg {
         ProxyMsg::ValidatorSet(msg) => match msg {
             ValidatorSetMsg::UpdateValidators { validators } => {
