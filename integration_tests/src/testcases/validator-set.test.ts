@@ -68,7 +68,7 @@ describe('Validator set', () => {
       account.address,
       res.codeId,
       {
-        core: account.address,
+        owner: account.address,
         stats_contract: account.address,
       },
       'label',
