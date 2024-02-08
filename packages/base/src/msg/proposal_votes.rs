@@ -1,16 +1,10 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Addr;
 
-use crate::state::proposal_votes::ConfigResponse;
+use crate::state::proposal_votes::Config;
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub core_address: String,
-    pub gov_helper_address: String,
-}
-
-#[cw_serde]
-pub struct Config {
     pub connection_id: String,
     pub port_id: String,
     pub update_period: u64,
@@ -22,8 +16,8 @@ pub struct Config {
 pub enum ExecuteMsg {
     UpdateConfig {
         connection_id: Option<String>,
-        port_id: String,
-        update_period: u64,
+        port_id: Option<String>,
+        update_period: Option<u64>,
         core_address: Option<String>,
         gov_helper_address: Option<String>,
     },
@@ -31,14 +25,14 @@ pub enum ExecuteMsg {
         active_proposals: Vec<u64>,
     },
     UpdateVotersList {
-        voters: Vec<Addr>,
+        voters: Vec<String>,
     },
 }
 
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(ConfigResponse)]
+    #[returns(Config)]
     Config {},
 }
 
