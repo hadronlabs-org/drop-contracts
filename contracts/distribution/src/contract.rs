@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    entry_point, to_json_binary, Attribute, Binary, Decimal, Deps, DepsMut, Env, Event,
-    MessageInfo, Response, Uint128,
+    entry_point, to_json_binary, Attribute, Binary, Decimal, Deps, DepsMut, Env, MessageInfo,
+    Response, Uint128,
 };
 use std::ops::Sub;
 
@@ -98,7 +98,6 @@ fn distribute_stake_deposit(
 
     for d in &mut ideal_distribution {
         if d.ideal_stake <= d.current_stake || stake_left == Uint128::zero() {
-            // distribution.push(d);
             continue;
         }
 
