@@ -270,20 +270,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw-asset"
-version = "3.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c999a12f8cd8736f6f86e9a4ede5905530cb23cfdef946b9da1c506ad1b70799"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-address-like",
- "cw-storage-plus 1.2.0",
- "cw20 1.1.2",
- "thiserror",
-]
-
-[[package]]
 name = "cw-multi-test"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -810,6 +796,7 @@ dependencies = [
  "astroport",
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cosmwasm-storage",
  "cw-multi-test",
  "cw-ownable",
  "cw2 1.1.2",
@@ -837,6 +824,10 @@ version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
  "lido-helpers",
  "lido-puppeteer-base",
@@ -863,6 +854,8 @@ version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test",
  "cw-ownable",
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
@@ -879,6 +872,8 @@ version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test",
  "cw-storage-plus 1.2.0",
  "neutron-sdk",
  "serde",
@@ -892,6 +887,7 @@ version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cw-multi-test",
  "lido-helpers",
  "lido-puppeteer-base",
  "lido-staking-base",
@@ -900,13 +896,43 @@ dependencies = [
 ]
 
 [[package]]
-name = "lido-pump"
+name = "lido-proposal-votes"
 version = "1.0.0"
 dependencies = [
  "cosmos-sdk-proto",
  "cosmwasm-schema",
  "cosmwasm-std",
- "cw-utils 1.0.3",
+ "cosmwasm-storage",
+ "cw-multi-test",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "cw20",
+ "lido-helpers",
+ "lido-staking-base",
+ "neutron-sdk",
+ "prost",
+ "prost-types",
+ "protobuf",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.0",
+ "tendermint-proto",
+ "thiserror",
+]
+
+[[package]]
+name = "lido-puppeteer"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "cw20",
  "lido-helpers",
  "lido-staking-base",
  "neutron-sdk",
@@ -922,6 +948,9 @@ dependencies = [
  "cosmos-sdk-proto",
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test",
+ "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
  "lido-helpers",
  "lido-puppeteer-base",
@@ -939,6 +968,8 @@ dependencies = [
  "cosmos-sdk-proto",
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test",
  "cw-ownable",
  "cw-storage-plus 1.2.0",
  "lido-helpers",
@@ -971,6 +1002,8 @@ dependencies = [
  "astroport",
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test",
  "cw-ownable",
  "cw-storage-plus 1.2.0",
  "cw721 0.18.0",
@@ -989,6 +1022,12 @@ dependencies = [
  "cosmos-sdk-proto",
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "cw20",
+ "lido-puppeteer-base",
  "neutron-sdk",
  "prost",
 ]
@@ -999,6 +1038,7 @@ version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cosmwasm-storage",
  "cw-multi-test",
  "cw-ownable",
  "cw2 1.1.2",
@@ -1031,27 +1071,13 @@ version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test",
  "cw-ownable",
  "cw2 1.1.2",
  "lido-helpers",
  "lido-staking-base",
  "neutron-sdk",
-]
-
-[[package]]
-name = "lido-validators-stats"
-version = "1.0.0"
-dependencies = [
- "bech32",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-ownable",
- "cw2 1.1.2",
- "lido-helpers",
- "lido-staking-base",
- "neutron-sdk",
- "serde-json-wasm 1.0.1",
- "sha2 0.10.8",
 ]
 
 [[package]]
@@ -1060,6 +1086,10 @@ version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
  "cw721 0.18.0",
  "lido-helpers",
@@ -1074,6 +1104,10 @@ version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
  "cw721-base 0.18.0",
  "lido-staking-base",
@@ -1082,7 +1116,7 @@ dependencies = [
 [[package]]
 name = "neutron-sdk"
 version = "0.8.0"
-source = "git+https://github.com/neutron-org/neutron-sdk?branch=feat/LIDO-68-query-siginig-info#e753df9a24cb0001dfb125ef6f67595da01eee64"
+source = "git+https://github.com/neutron-org/neutron-sdk?rev=af2b8353eecaf6366455d04184c9c4985fb1dd29#af2b8353eecaf6366455d04184c9c4985fb1dd29"
 dependencies = [
  "bech32",
  "cosmos-sdk-proto",
