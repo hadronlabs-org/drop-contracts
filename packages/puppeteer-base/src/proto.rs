@@ -5,6 +5,9 @@ use cosmwasm_std::Coin;
 pub struct MsgDelegateResponse {}
 
 #[cw_serde]
+pub struct MsgIBCTransfer {}
+
+#[cw_serde]
 pub struct MsgUndelegateResponse {
     pub completion_time: Option<Timestamp>,
 }

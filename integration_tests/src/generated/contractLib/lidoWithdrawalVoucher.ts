@@ -73,6 +73,18 @@ export type Binary = string;
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
+/**
+ * Actions that can be taken to alter the contract's ownership
+ */
+export type UpdateOwnershipArgs =
+  | {
+      transfer_ownership: {
+        expiry?: Expiration | null;
+        new_owner: string;
+      };
+    }
+  | "accept_ownership"
+  | "renounce_ownership";
 
 export interface LidoWithdrawalVoucherSchema {
   responses:
@@ -99,6 +111,7 @@ export interface LidoWithdrawalVoucherSchema {
     | NftInfoArgs
     | AllNftInfoArgs
     | TokensArgs
+    | AllTokensArgs
     | ExtensionArgs;
   execute:
     | TransferNftArgs
@@ -109,7 +122,8 @@ export interface LidoWithdrawalVoucherSchema {
     | RevokeAllArgs
     | MintArgs
     | BurnArgs
-    | ExtensionArgs1;
+    | ExtensionArgs1
+    | UpdateOwnershipArgs;
   [k: string]: unknown;
 }
 export interface AllNftInfoResponseFor_Empty {
@@ -279,6 +293,10 @@ export interface TokensArgs {
   owner: string;
   start_after?: string | null;
 }
+export interface AllTokensArgs {
+  limit?: number | null;
+  start_after?: string | null;
+}
 export interface ExtensionArgs {
   msg: Empty;
 }
@@ -406,8 +424,8 @@ export class Client {
   queryTokens = async(args: TokensArgs): Promise<TokensResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { tokens: args });
   }
-  queryAllTokens = async(): Promise<TokensResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { all_tokens: {} });
+  queryAllTokens = async(args: AllTokensArgs): Promise<TokensResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, { all_tokens: args });
   }
   queryMinter = async(): Promise<MinterResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { minter: {} });
@@ -454,8 +472,8 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { extension: args }, fee || "auto", memo, funds);
   }
-  updateOwnership = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_ownership: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
   }
 }

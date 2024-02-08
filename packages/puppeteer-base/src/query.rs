@@ -1,38 +1,34 @@
-use cosmwasm_std::{to_json_binary, Binary, Deps, Env};
+use cosmwasm_std::{to_json_binary, Binary, Deps, Env, StdError};
 use neutron_sdk::bindings::query::NeutronQuery;
+use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    error::ContractResult,
-    msg::{DelegationsResponse, QueryMsg},
+    error::{ContractError, ContractResult},
+    msg::QueryMsg,
     state::{BaseConfig, PuppeteerBase, State, Transfer},
 };
 
-impl<'a, T> PuppeteerBase<'a, T>
+impl<'a, T, U> PuppeteerBase<'a, T, U>
 where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
+    U: Serialize + DeserializeOwned + Clone,
 {
-    pub fn query(
+    pub fn query<X: std::fmt::Debug + JsonSchema>(
         &self,
         deps: Deps<NeutronQuery>,
         env: Env,
-        msg: QueryMsg,
+        msg: QueryMsg<X>,
     ) -> ContractResult<Binary> {
         match msg {
             QueryMsg::State {} => self.query_state(deps, env),
             QueryMsg::Config {} => self.query_config(deps, env),
             QueryMsg::Transactions {} => self.query_transactions(deps, env),
-            QueryMsg::Delegations {} => self.query_delegations(deps, env),
+            QueryMsg::Extention { msg } => Err(ContractError::Std(StdError::generic_err(format!(
+                "Unsupported query message: {:?}",
+                msg
+            )))),
         }
-    }
-
-    fn query_delegations(&self, deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Binary> {
-        let (delegations, last_updated_height) = self.delegations.load(deps.storage)?;
-        let response = DelegationsResponse {
-            delegations,
-            last_updated_height,
-        };
-        Ok(to_json_binary(&response)?)
     }
 
     fn query_state(&self, deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Binary> {

@@ -1,46 +1,51 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Coin, Delegation};
-use cw_storage_plus::Item;
+use cosmwasm_std::Coin;
+use cw_storage_plus::{Item, Map};
 use neutron_sdk::bindings::msg::IbcFee;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::msg::Transaction;
 
-pub struct PuppeteerBase<'a, T>
+pub struct PuppeteerBase<'a, T, U>
 where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
+    U: Serialize + DeserializeOwned + Clone,
 {
     pub config: Item<'a, T>,
     pub state: Item<'a, State>,
     pub recipient_transfers: Item<'a, Vec<Transfer>>,
-    pub delegations: Item<'a, (Vec<Delegation>, u64)>,
+    pub transfer_channel_id: Item<'a, String>,
     pub tx_state: Item<'a, TxState>,
     pub ibc_fee: Item<'a, IbcFee>,
     pub register_fee: Item<'a, Coin>,
+    pub kv_queries: Map<'a, u64, U>,
 }
 
-impl<T> Default for PuppeteerBase<'static, T>
+impl<T, U> Default for PuppeteerBase<'static, T, U>
 where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
+    U: Serialize + DeserializeOwned + Clone,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a, T> PuppeteerBase<'a, T>
+impl<'a, T, U> PuppeteerBase<'a, T, U>
 where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
+    U: Serialize + DeserializeOwned + Clone,
 {
     pub fn new() -> Self {
         Self {
             config: Item::new("config"),
             state: Item::new("state"),
             recipient_transfers: Item::new("transfers"),
-            delegations: Item::new("delegations"),
             tx_state: Item::new("sudo_payload"),
             ibc_fee: Item::new("ibc_fee"),
             register_fee: Item::new("register_fee"),
+            transfer_channel_id: Item::new("transfer_channel_id"),
+            kv_queries: Map::new("kv_queries"),
         }
     }
 }
@@ -106,7 +111,5 @@ pub struct TxState {
 }
 
 pub type Recipient = str;
-
-pub const SUDO_PAYLOAD_REPLY_ID: u64 = 1;
 pub const LOCAL_DENOM: &str = "untrn";
 pub const ICA_ID: &str = "LIDO";

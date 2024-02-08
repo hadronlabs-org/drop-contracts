@@ -21,6 +21,9 @@ export type ResponseAnswer =
       authz_exec_response: MsgExecResponse;
     }
   | {
+      i_b_c_transfer: MsgIBCTransfer;
+    }
+  | {
       unknown_response: {};
     };
 /**
@@ -46,18 +49,17 @@ export type Binary = string;
 export type Transaction =
   | {
       delegate: {
-        amount: number;
         denom: string;
         interchain_account_id: string;
-        validator: string;
+        items: [string, Uint128][];
       };
     }
   | {
       undelegate: {
-        amount: number;
+        batch_id: number;
         denom: string;
         interchain_account_id: string;
-        validator: string;
+        items: [string, Uint128][];
       };
     }
   | {
@@ -90,17 +92,46 @@ export type Transaction =
         interchain_account_id: string;
         validator: string;
       };
+    }
+  | {
+      claim_rewards_and_optionaly_transfer: {
+        denom: string;
+        interchain_account_id: string;
+        transfer?: TransferReadyBatchMsg | null;
+        validators: string[];
+      };
+    }
+  | {
+      i_b_c_transfer: {
+        amount: number;
+        denom: string;
+        recipient: string;
+      };
     };
 export type ArrayOfResponseHookSuccessMsg = ResponseHookSuccessMsg[];
 export type ArrayOfResponseHookErrorMsg = ResponseHookErrorMsg[];
+export type PuppeteerHookArgs =
+  | {
+      success: ResponseHookSuccessMsg;
+    }
+  | {
+      error: ResponseHookErrorMsg;
+    };
 
 export interface LidoHookTesterSchema {
   responses: ArrayOfResponseHookSuccessMsg | ArrayOfResponseHookErrorMsg;
-  execute: SetConfigArgs | DelegateArgs | UndelegateArgs | RedelegateArgs | TokenizeShareArgs | RedeemShareArgs;
+  execute:
+    | SetConfigArgs
+    | DelegateArgs
+    | UndelegateArgs
+    | RedelegateArgs
+    | TokenizeShareArgs
+    | RedeemShareArgs
+    | PuppeteerHookArgs;
   [k: string]: unknown;
 }
 export interface ResponseHookSuccessMsg {
-  answer: ResponseAnswer;
+  answers: ResponseAnswer[];
   request: RequestPacket;
   request_id: number;
   transaction: Transaction;
@@ -130,6 +161,7 @@ export interface MsgRedeemTokensforSharesResponse {
 export interface MsgExecResponse {
   results: number[][];
 }
+export interface MsgIBCTransfer {}
 export interface RequestPacket {
   data?: Binary | null;
   destination_channel?: string | null;
@@ -146,10 +178,16 @@ export interface RequestPacketTimeoutHeight {
   revision_number?: number | null;
   [k: string]: unknown;
 }
+export interface TransferReadyBatchMsg {
+  amount: Uint128;
+  batch_id: number;
+  recipient: string;
+}
 export interface ResponseHookErrorMsg {
   details: string;
   request: RequestPacket;
   request_id: number;
+  transaction: Transaction;
 }
 export interface SetConfigArgs {
   puppeteer_addr: string;
@@ -243,8 +281,8 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { redeem_share: args }, fee || "auto", memo, funds);
   }
-  puppeteerHook = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  puppeteerHook = async(sender:string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { puppeteer_hook: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
   }
 }

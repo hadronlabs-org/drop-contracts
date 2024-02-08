@@ -9,9 +9,8 @@ use neutron_sdk::{
         types::Height,
     },
     interchain_queries::{
-        get_registered_query, query_kv_result,
-        types::QueryType,
-        v045::types::{Delegations, COSMOS_SDK_TRANSFER_MSG_URL},
+        get_registered_query, query_kv_result, types::QueryType,
+        v045::types::COSMOS_SDK_TRANSFER_MSG_URL,
     },
     NeutronError, NeutronResult,
 };
@@ -23,9 +22,10 @@ use crate::{
     state::{BaseConfig, IcaState, PuppeteerBase, State, Transfer},
 };
 
-impl<'a, T> PuppeteerBase<'a, T>
+impl<'a, T, U> PuppeteerBase<'a, T, U>
 where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
+    U: Serialize + DeserializeOwned + Clone,
 {
     pub fn sudo_tx_query_result(
         &self,
@@ -93,13 +93,20 @@ where
         Ok(deposits)
     }
 
-    pub fn sudo_kv_query_result(
+    pub fn sudo_kv_query_result<
+        X: neutron_sdk::interchain_queries::types::KVReconstruct
+            + std::fmt::Debug
+            + Serialize
+            + Clone
+            + DeserializeOwned,
+    >(
         &self,
         deps: DepsMut<NeutronQuery>,
         env: Env,
         query_id: u64,
+        storage: cw_storage_plus::Item<'a, (X, u64)>,
     ) -> NeutronResult<Response> {
-        let data: Delegations = query_kv_result(deps.as_ref(), query_id)?;
+        let data: X = query_kv_result(deps.as_ref(), query_id)?;
         deps.api.debug(
             format!(
                 "WASMDEBUG: sudo_kv_query_result received; query_id: {query_id:?} data: {data:?}"
@@ -107,10 +114,7 @@ where
             .as_str(),
         );
         let height = env.block.height;
-        let delegations = data.delegations;
-        self.delegations
-            .save(deps.storage, &(delegations, height))?;
-
+        storage.save(deps.storage, &(data, height))?;
         Ok(Response::default())
     }
 

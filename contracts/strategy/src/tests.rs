@@ -18,6 +18,7 @@ use lido_staking_base::msg::validatorset::QueryMsg as ValidatorSetQueryMsg;
 use lido_staking_base::msg::{
     distribution::QueryMsg as DistributionQueryMsg, strategy::InstantiateMsg,
 };
+use neutron_sdk::interchain_queries::v045::types::Delegations;
 
 const CORE_CONTRACT_ADDR: &str = "core_contract";
 const PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
@@ -68,30 +69,39 @@ fn instantiate_distribution_contract(app: &mut App) -> Addr {
     )
 }
 
-fn puppeteer_query(_deps: Deps, _env: Env, msg: PuppeteerQueryMsg) -> StdResult<Binary> {
+fn puppeteer_query(
+    _deps: Deps,
+    _env: Env,
+    msg: PuppeteerQueryMsg<lido_staking_base::msg::puppeteer::QueryExtMsg>,
+) -> StdResult<Binary> {
     match msg {
         PuppeteerQueryMsg::Config {} => todo!(),
         PuppeteerQueryMsg::State {} => todo!(),
         PuppeteerQueryMsg::Transactions {} => todo!(),
-        PuppeteerQueryMsg::Delegations {} => {
-            let mut delegations_amount: Vec<cosmwasm_std::Delegation> = Vec::new();
-            for i in 0..3 {
-                let delegation = cosmwasm_std::Delegation {
-                    validator: format!("valoper{}", i),
-                    delegator: Addr::unchecked("delegator".to_owned() + i.to_string().as_str()),
-                    amount: cosmwasm_std::Coin {
-                        denom: "uatom".to_string(),
-                        amount: Uint128::from(100u128),
+        PuppeteerQueryMsg::Extention { msg } => match msg {
+            lido_staking_base::msg::puppeteer::QueryExtMsg::Delegations {} => {
+                let mut delegations_amount: Vec<cosmwasm_std::Delegation> = Vec::new();
+                for i in 0..3 {
+                    let delegation = cosmwasm_std::Delegation {
+                        validator: format!("valoper{}", i),
+                        delegator: Addr::unchecked("delegator".to_owned() + i.to_string().as_str()),
+                        amount: cosmwasm_std::Coin {
+                            denom: "uatom".to_string(),
+                            amount: Uint128::from(100u128),
+                        },
+                    };
+                    delegations_amount.push(delegation);
+                }
+                let delegations = (
+                    Delegations {
+                        delegations: delegations_amount,
                     },
-                };
-                delegations_amount.push(delegation);
+                    0,
+                );
+                Ok(to_json_binary(&delegations)?)
             }
-            let delegations = lido_puppeteer_base::msg::DelegationsResponse {
-                delegations: delegations_amount,
-                last_updated_height: 0,
-            };
-            Ok(to_json_binary(&delegations)?)
-        }
+            _ => todo!(),
+        },
     }
 }
 
@@ -99,7 +109,7 @@ fn puppeteer_contract() -> Box<dyn Contract<Empty>> {
     let contract: ContractWrapper<
         EmptyMsg,
         EmptyMsg,
-        PuppeteerQueryMsg,
+        PuppeteerQueryMsg<lido_staking_base::msg::puppeteer::QueryExtMsg>,
         PuppeteerContractError,
         PuppeteerContractError,
         cosmwasm_std::StdError,
