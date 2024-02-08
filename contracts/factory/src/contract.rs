@@ -1,5 +1,5 @@
 use crate::{
-    error::{ContractError, ContractResult},
+    error::ContractResult,
     msg::{
         CallbackMsg, CoreParams, ExecuteMsg, InstantiateMsg, ProxyMsg, QueryMsg, UpdateConfigMsg,
         ValidatorSetMsg,
@@ -7,8 +7,8 @@ use crate::{
     state::{Config, State, CONFIG, STATE},
 };
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, instantiate2_address, to_json_binary, Binary, CodeInfoResponse,
-    CosmosMsg, Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, WasmMsg,
+    attr, entry_point, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg,
+    Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
 use lido_helpers::answer::response;
