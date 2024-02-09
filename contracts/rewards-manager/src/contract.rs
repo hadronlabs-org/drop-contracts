@@ -63,7 +63,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response> {
     match msg {
-        ExecuteMsg::UpdateConfig { core_address } => exec_config_update(deps, info, core_address),
+        ExecuteMsg::UpdateConfig { core_address } => exec_update_config(deps, info, core_address),
         ExecuteMsg::AddHandler { config } => exec_add_handler(deps, info, config),
         ExecuteMsg::RemoveHandler { denom } => exec_remove_handler(deps, info, denom),
         ExecuteMsg::ExchangeRewards {} => exec_exchange_rewards(deps, env, info),
