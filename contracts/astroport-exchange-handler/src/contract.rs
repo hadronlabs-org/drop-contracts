@@ -100,7 +100,7 @@ pub fn execute(
             pair_contract,
             from_denom,
             min_rewards,
-        } => exec_config_update(
+        } => exec_update_config(
             deps,
             info,
             owner,
@@ -119,7 +119,7 @@ pub fn execute(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn exec_config_update(
+fn exec_update_config(
     deps: DepsMut,
     info: MessageInfo,
     owner: Option<String>,

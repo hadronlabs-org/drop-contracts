@@ -127,13 +127,10 @@ fn exec_remove_handler(
 fn exec_exchange_rewards(deps: DepsMut, env: Env, _info: MessageInfo) -> ContractResult<Response> {
     let balances = deps.querier.query_all_balances(env.contract.address)?;
 
-    let mut res = response(
-        "exchange_rewards",
-        CONTRACT_NAME,
-        [attr("total_denoms", balances.len().to_string())],
-    );
+    let mut messages: Vec<CosmosMsg> = Vec::new();
+    let mut attrs: Vec<Attribute> = Vec::new();
 
-    for balance in balances {
+    for balance in &balances {
         let denom = balance.denom.clone();
         let amount = balance.amount;
 
@@ -147,18 +144,21 @@ fn exec_exchange_rewards(deps: DepsMut, env: Env, _info: MessageInfo) -> Contrac
             let exchange_rewards_msg = CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: handler.address,
                 msg: to_json_binary(&HandlerExecuteMsg::Exchange {})?,
-                funds: vec![balance],
+                funds: vec![balance.clone()],
             });
 
-            res = res
-                .clone()
-                .add_message(exchange_rewards_msg)
-                .add_attribute("action", "process_rewards")
-                .add_attribute("denom", denom);
+            messages.push(exchange_rewards_msg);
+            attrs.push(attr("denom", denom));
         }
     }
 
-    Ok(res)
+    Ok(response(
+        "exchange_rewards",
+        CONTRACT_NAME,
+        [attr("total_denoms", balances.len().to_string())],
+    )
+    .add_messages(messages)
+    .add_attributes(attrs))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
