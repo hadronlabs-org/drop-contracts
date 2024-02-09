@@ -15,12 +15,13 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     #[returns(ConfigResponse)]
     Config {},
+    #[returns(Vec<HandlerConfig>)]
+    Handlers {},
 }
 
 #[cw_serde]
 pub struct ConfigResponse {
     pub core_address: String,
-    pub handlers: Vec<HandlerConfig>,
 }
 
 #[cw_serde]

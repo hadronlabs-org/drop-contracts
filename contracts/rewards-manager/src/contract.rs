@@ -36,12 +36,17 @@ pub fn instantiate(
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => query_config(deps, env),
+        QueryMsg::Handlers {} => query_handlers(deps, env),
     }
 }
 
 fn query_config(deps: Deps, _env: Env) -> StdResult<Binary> {
     let core_address = CORE_ADDRESS.load(deps.storage)?.into_string();
 
+    to_json_binary(&ConfigResponse { core_address })
+}
+
+fn query_handlers(deps: Deps, _env: Env) -> StdResult<Binary> {
     let handlers: StdResult<Vec<_>> = REWARDS_HANDLERS
         .range_raw(deps.storage, None, None, Order::Ascending)
         .map(|item| item.map(|(_key, value)| value))
@@ -49,10 +54,7 @@ fn query_config(deps: Deps, _env: Env) -> StdResult<Binary> {
 
     let handlers = handlers.unwrap_or_default();
 
-    to_json_binary(&ConfigResponse {
-        core_address,
-        handlers,
-    })
+    to_json_binary(&handlers)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

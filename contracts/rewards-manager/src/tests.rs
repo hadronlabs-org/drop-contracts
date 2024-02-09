@@ -157,9 +157,30 @@ fn test_config_query() {
         config,
         lido_staking_base::msg::rewards_manager::ConfigResponse {
             core_address: CORE_CONTRACT_ADDR.to_string(),
-            handlers: vec![]
         }
     );
+}
+
+#[test]
+fn test_handlers_query() {
+    let mut app = mock_app();
+
+    let rewards_manager_code_id = app.store_code(rewards_manager_contract());
+
+    let rewards_manager_contract = instantiate_rewards_manager_contract(
+        &mut app,
+        rewards_manager_code_id,
+        InstantiateMsg {
+            core_address: CORE_CONTRACT_ADDR.to_string(),
+        },
+    );
+
+    let handlers: Vec<HandlerConfig> = app
+        .wrap()
+        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::Handlers {})
+        .unwrap();
+
+    assert_eq!(handlers, vec![]);
 }
 
 #[test]
@@ -216,21 +237,18 @@ fn test_add_remove_handler() {
         ]
     );
 
-    let config: lido_staking_base::msg::rewards_manager::ConfigResponse = app
+    let handlers: Vec<HandlerConfig> = app
         .wrap()
-        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::Config {})
+        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::Handlers {})
         .unwrap();
 
     assert_eq!(
-        config,
-        lido_staking_base::msg::rewards_manager::ConfigResponse {
-            core_address: CORE_CONTRACT_ADDR.to_string(),
-            handlers: vec![HandlerConfig {
-                address: handler_config.address.clone(),
-                denom: handler_config.denom.clone(),
-                min_rewards: Uint128::zero()
-            }]
-        }
+        handlers,
+        vec![HandlerConfig {
+            address: handler_config.address.clone(),
+            denom: handler_config.denom.clone(),
+            min_rewards: Uint128::zero()
+        }]
     );
 
     let res = app
@@ -261,18 +279,12 @@ fn test_add_remove_handler() {
         ),]
     );
 
-    let config: lido_staking_base::msg::rewards_manager::ConfigResponse = app
+    let handlers: Vec<HandlerConfig> = app
         .wrap()
-        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::Config {})
+        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::Handlers {})
         .unwrap();
 
-    assert_eq!(
-        config,
-        lido_staking_base::msg::rewards_manager::ConfigResponse {
-            core_address: CORE_CONTRACT_ADDR.to_string(),
-            handlers: vec![]
-        }
-    );
+    assert_eq!(handlers, vec![]);
 }
 
 #[test]
