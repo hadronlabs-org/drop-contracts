@@ -259,21 +259,18 @@ fn exec_update_swap_operations(
     operations: Option<Vec<SwapOperation>>,
 ) -> ContractResult<Response> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-
+    let mut attrs = vec![];
     if let Some(operations) = operations {
         SWAP_OPERATIONS.save(deps.storage, &operations)?;
-        return Ok(response(
-            "update_swap_operations",
-            CONTRACT_NAME,
-            [attr("new_swap_operations", operations.len().to_string())],
-        ));
+        attrs.push(attr("new_swap_operations", operations.len().to_string()));
+    } else {
+        SWAP_OPERATIONS.remove(deps.storage);
+        attrs.push(attr("clear_operations", "1".to_string()));
     }
-
-    SWAP_OPERATIONS.remove(deps.storage);
     Ok(response(
         "update_swap_operations",
         CONTRACT_NAME,
-        [attr("clear_operations", "1".to_string())],
+        attrs,
     ))
 }
 
