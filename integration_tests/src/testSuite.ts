@@ -5,6 +5,7 @@ import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { waitFor } from './helpers/waitFor';
 import { sleep } from './helpers/sleep';
 import child_process from 'child_process';
+const packageJSON = require(`${__dirname}/../package.json`);
 
 const keys = [
   'master',
@@ -24,7 +25,7 @@ const networkConfigs = {
     binary: 'liquidstakingd',
     chain_id: 'testlsm',
     denom: 'stake',
-    image: 'lsm',
+    image: `lsm-test:${packageJSON.version}`,
     prefix: 'cosmos',
     trace: true,
     validators: 2,
@@ -56,7 +57,7 @@ const networkConfigs = {
     binary: 'gaiad',
     chain_id: 'testgaia',
     denom: 'stake',
-    image: 'gaia',
+    image: `gaia-test:${packageJSON.version}`,
     prefix: 'cosmos',
     trace: true,
     validators: 2,
@@ -91,7 +92,7 @@ const networkConfigs = {
     binary: 'neutrond',
     chain_id: 'ntrntest',
     denom: 'untrn',
-    image: 'neutron-node',
+    image: `neutron-test:${packageJSON.version}`,
     prefix: 'neutron',
     loglevel: 'debug',
     trace: true,
@@ -133,14 +134,14 @@ const relayersConfig = {
       'chains.1.gas_multiplier': 1.2,
       'chains.0.gas_multiplier': 1.2,
     },
-    image: 'hermes',
+    image: `hermes-test:${packageJSON.version}`,
     log_level: 'trace',
     type: 'hermes',
   },
   neutron: {
     balance: '1000000000',
     binary: 'neutron-query-relayer',
-    image: 'neutron-org/neutron-query-relayer',
+    image: `neutron-query-relayer-test:${packageJSON.version}`,
     log_level: 'debug',
     type: 'neutron',
   },
