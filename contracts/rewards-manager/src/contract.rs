@@ -70,7 +70,7 @@ pub fn execute(
     }
 }
 
-fn exec_config_update(
+fn exec_update_config(
     deps: DepsMut,
     info: MessageInfo,
     core_address: Option<String>,

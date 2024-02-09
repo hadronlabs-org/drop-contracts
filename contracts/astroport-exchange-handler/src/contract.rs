@@ -267,11 +267,7 @@ fn exec_update_swap_operations(
         SWAP_OPERATIONS.remove(deps.storage);
         attrs.push(attr("clear_operations", "1".to_string()));
     }
-    Ok(response(
-        "update_swap_operations",
-        CONTRACT_NAME,
-        attrs,
-    ))
+    Ok(response("update_swap_operations", CONTRACT_NAME, attrs))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
