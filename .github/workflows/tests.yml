@@ -82,6 +82,11 @@ jobs:
         with:
           key: docker-layer-caching-lido
           restore-keys: docker-layer-caching-lido
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
       - name: Build images
         run: |
           cd integration_tests
