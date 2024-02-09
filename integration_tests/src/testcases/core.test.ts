@@ -76,6 +76,7 @@ describe('Core', () => {
       puppeteer?: number;
       validatorsSet?: number;
       distribution?: number;
+      rewardsManager?: number;
     };
     exchangeRate?: number;
     tokenContractAddress?: string;
@@ -229,6 +230,17 @@ describe('Core', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.puppeteer = res.codeId;
     }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/lido_rewards_manager.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.rewardsManager = res.codeId;
+    }
     const res = await client.upload(
       account.address,
       fs.readFileSync(join(__dirname, '../../../artifacts/lido_factory.wasm')),
@@ -249,6 +261,7 @@ describe('Core', () => {
           distribution_code_id: context.codeIds.distribution,
           validators_set_code_id: context.codeIds.validatorsSet,
           puppeteer_code_id: context.codeIds.puppeteer,
+          rewards_manager_code_id: context.codeIds.rewardsManager,
         },
         remote_opts: {
           connection_id: 'connection-0',
@@ -460,30 +473,9 @@ describe('Core', () => {
   });
 
   it('add validators into validators set', async () => {
-    const {
-      neutronUserAddress,
-      factoryContractClient,
-      validatorAddress,
-      secondValidatorAddress,
-    } = context;
+    const { neutronUserAddress, factoryContractClient } = context;
     const res = await factoryContractClient.proxy(
       neutronUserAddress,
-      {
-        validator_set: {
-          update_validators: {
-            validators: [
-              {
-                valoper_address: validatorAddress,
-                weight: 1,
-              },
-              {
-                valoper_address: secondValidatorAddress,
-                weight: 1,
-              },
-            ],
-          },
-        },
-      },
       1.5,
       undefined,
       [

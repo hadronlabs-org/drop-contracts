@@ -419,7 +419,7 @@ fn execute_init(
         }),
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
-            code_id: config.rewards_manager_code_id,
+            code_id: config.code_ids.rewards_manager_code_id,
             label: get_contract_label("rewards manager"),
             msg: to_json_binary(&RewardsMangerInstantiateMsg {
                 core_address: core_contract.to_string(),
