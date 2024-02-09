@@ -74,7 +74,7 @@ describe('Auto withdrawer', () => {
     neutronIBCDenom?: string;
     ldDenom?: string;
   } = {
-    codeIds: {}
+    codeIds: {},
   };
 
   beforeAll(async () => {
@@ -312,7 +312,8 @@ describe('Auto withdrawer', () => {
     const { contractClient, neutronUserAddress, neutronIBCDenom } = context;
     {
       const res = await contractClient.init(context.neutronUserAddress, {
-        base_denom: context.neutronIBCDenom, core_params: {
+        base_denom: context.neutronIBCDenom,
+        core_params: {
           idle_min_interval: 1,
           puppeteer_timeout: 60,
           unbond_batch_switch_time: 6000,
