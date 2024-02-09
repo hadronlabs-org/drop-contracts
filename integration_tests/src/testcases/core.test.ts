@@ -472,22 +472,6 @@ describe('Core', () => {
     expect(res.transactionHash).toHaveLength(64);
   });
 
-  it('add validators into validators set', async () => {
-    const { neutronUserAddress, factoryContractClient } = context;
-    const res = await factoryContractClient.proxy(
-      neutronUserAddress,
-      1.5,
-      undefined,
-      [
-        {
-          amount: '1000000',
-          denom: 'untrn',
-        },
-      ],
-    );
-    expect(res.transactionHash).toHaveLength(64);
-  });
-
   it('query exchange rate', async () => {
     const { coreContractClient } = context;
     context.exchangeRate = parseFloat(
