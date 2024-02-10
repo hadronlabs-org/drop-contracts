@@ -1,9 +1,6 @@
 use std::collections::HashSet;
 
-use cosmwasm_std::{
-    attr, ensure_eq, entry_point, to_json_binary, Addr, Attribute, Deps, Order, Reply, SubMsg,
-    SubMsgResult,
-};
+use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Attribute, Deps, Reply, SubMsg};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use lido_helpers::answer::response;
@@ -18,6 +15,7 @@ use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::{NeutronQuery, QueryRegisteredQueryResultResponse};
 use neutron_sdk::interchain_queries::queries::get_raw_interchain_query_result;
 use neutron_sdk::interchain_queries::types::KVReconstruct;
+use neutron_sdk::interchain_queries::v045::helpers::create_gov_proposals_voters_votes_keys;
 use neutron_sdk::interchain_queries::v045::register_queries::new_register_gov_proposal_votes_query_msg;
 use neutron_sdk::interchain_queries::v045::types::GovernmentProposalVotes;
 use neutron_sdk::sudo::msg::SudoMsg;
@@ -41,10 +39,10 @@ pub fn instantiate(
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(core.as_ref()))?;
 
     let config = &Config {
-        connection_id: msg.connection_id,
-        port_id: msg.port_id,
+        connection_id: msg.connection_id.clone(),
+        port_id: msg.port_id.clone(),
         update_period: msg.update_period,
-        core_address: msg.core_address,
+        core_address: msg.core_address.to_string(),
         gov_helper_address: gov_helper.to_string(),
     };
 
@@ -54,7 +52,7 @@ pub fn instantiate(
         "instantiate",
         CONTRACT_NAME,
         [
-            attr("connection_id", msg.core_address),
+            attr("connection_id", msg.connection_id),
             attr("port_id", msg.port_id),
             attr("update_period", msg.update_period.to_string()),
             attr("core_address", msg.core_address),
@@ -132,12 +130,12 @@ fn execute_update_config(
     }
 
     if let Some(connection_id) = connection_id {
-        config.connection_id = connection_id;
+        config.connection_id = connection_id.clone();
         attrs.push(attr("connection_id", connection_id))
     }
 
     if let Some(port_id) = port_id {
-        config.port_id = port_id;
+        config.port_id = port_id.clone();
         attrs.push(attr("port_id", port_id))
     }
 
@@ -180,77 +178,104 @@ fn execute_update_active_proposals(
 
     let query_id = QUERY_ID.may_load(deps.storage)?;
 
-    if active_proposals.is_empty() && query_id.is_some() {
-        let query_id = query_id.unwrap();
-        let msg = NeutronMsg::remove_interchain_query(query_id);
-        let sub_msg = SubMsg::reply_on_success(msg, PROPOSALS_VOTES_REMOVE_REPLY_ID);
-
-        return Ok(response(
-            "update_active_proposals",
-            CONTRACT_NAME,
-            [attr("remove_query", "true")],
-        )
-        .add_submessage(sub_msg));
+    if active_proposals.is_empty() && query_id.is_none() {
+        return Ok(Response::default());
     }
 
-    let voters = VOTERS.may_load(deps.storage)?;
-
-    if !active_proposals.is_empty() && query_id.is_none() {
-        if let Some(voters) = voters {
-            let msg = new_register_gov_proposal_votes_query_msg(
-                config.connection_id.clone(),
-                active_proposals,
-                voters,
-                config.update_period,
-            )?;
-
-            let sub_msg = SubMsg::reply_on_success(msg, PROPOSALS_VOTES_REPLY_ID);
-
-            return Ok(response(
-                "update_active_proposals",
-                CONTRACT_NAME,
-                [attr("remove_query", "true")],
-            )
-            .add_submessage(sub_msg));
+    if active_proposals.is_empty() && query_id.is_some() {
+        if let Some(query_id) = query_id {
+            return remove_votes_interchain_query(query_id);
         }
     }
 
-    let old_active_proposals = ACTIVE_PROPOSALS
-        .may_load(deps.storage)?
-        .unwrap_or_else(|| vec![]);
+    let voters = VOTERS.may_load(deps.storage)?;
+    if let Some(voters) = voters {
+        if !active_proposals.is_empty() && query_id.is_none() {
+            return register_votes_interchain_query(&config, active_proposals, voters);
+        }
 
-    let active_proposals_set: HashSet<_> = active_proposals.into_iter().collect();
-    let old_active_proposals_set: HashSet<_> = old_active_proposals.into_iter().collect();
+        let old_active_proposals = ACTIVE_PROPOSALS
+            .may_load(deps.storage)?
+            .unwrap_or_else(Vec::new);
 
-    let new_proposals: HashSet<_> = active_proposals_set
-        .difference(&old_active_proposals_set)
-        .cloned()
-        .collect();
-    let proposals_to_remove: HashSet<_> = old_active_proposals_set
-        .difference(&active_proposals_set)
-        .cloned()
-        .collect();
+        let active_proposals_set: HashSet<_> = active_proposals.clone().into_iter().collect();
+        let old_active_proposals_set: HashSet<_> = old_active_proposals.into_iter().collect();
 
-    if !new_proposals.is_empty() || !proposals_to_remove.is_empty() {
-        let query_id = query_id.unwrap();
-        let msg = NeutronMsg::update_interchain_query(query_id);
-        let sub_msg = SubMsg::reply_on_success(msg, PROPOSALS_VOTES_REMOVE_REPLY_ID);
+        let new_proposals: HashSet<_> = active_proposals_set
+            .difference(&old_active_proposals_set)
+            .cloned()
+            .collect();
+        let proposals_to_remove: HashSet<_> = old_active_proposals_set
+            .difference(&active_proposals_set)
+            .cloned()
+            .collect();
 
-        return Ok(response(
-            "update_active_proposals",
-            CONTRACT_NAME,
-            [attr("remove_query", "true")],
-        )
-        .add_submessage(sub_msg));
-
-        return Ok(response(
-            "update_active_proposals",
-            CONTRACT_NAME,
-            [attr("total_count", active_proposals.len().to_string())],
-        ));
+        if !new_proposals.is_empty() || !proposals_to_remove.is_empty() {
+            if let Some(query_id) = query_id {
+                return update_votes_interchain_query(query_id, active_proposals, voters);
+            }
+        }
     }
 
-    Ok(Response::new().add_submessage(sub_msg))
+    Ok(Response::default())
+}
+
+fn update_votes_interchain_query(
+    quiery_id: u64,
+    active_proposals: Vec<u64>,
+    voters: Vec<String>,
+) -> ContractResult<Response<NeutronMsg>> {
+    let kv_keys = create_gov_proposals_voters_votes_keys(active_proposals.clone(), voters.clone())?;
+    let msg = NeutronMsg::update_interchain_query(quiery_id, Some(kv_keys), None, None)?;
+
+    let sub_msg = SubMsg::reply_on_success(msg, PROPOSALS_VOTES_REPLY_ID);
+
+    Ok(response(
+        "update_votes_interchain_query",
+        CONTRACT_NAME,
+        [
+            attr("total_proposals", active_proposals.len().to_string()),
+            attr("total_voters", voters.len().to_string()),
+        ],
+    )
+    .add_submessage(sub_msg))
+}
+
+fn register_votes_interchain_query(
+    config: &Config,
+    active_proposals: Vec<u64>,
+    voters: Vec<String>,
+) -> ContractResult<Response<NeutronMsg>> {
+    let msg = new_register_gov_proposal_votes_query_msg(
+        config.connection_id.to_string(),
+        active_proposals.clone(),
+        voters.clone(),
+        config.update_period,
+    )?;
+
+    let sub_msg = SubMsg::reply_on_success(msg, PROPOSALS_VOTES_REPLY_ID);
+
+    Ok(response(
+        "register_votes_interchain_query",
+        CONTRACT_NAME,
+        [
+            attr("total_proposals", active_proposals.len().to_string()),
+            attr("total_voters", voters.len().to_string()),
+        ],
+    )
+    .add_submessage(sub_msg))
+}
+
+fn remove_votes_interchain_query(query_id: u64) -> ContractResult<Response<NeutronMsg>> {
+    let msg = NeutronMsg::remove_interchain_query(query_id);
+    let sub_msg = SubMsg::reply_on_success(msg, PROPOSALS_VOTES_REMOVE_REPLY_ID);
+
+    Ok(response(
+        "remove_votes_interchain_query",
+        CONTRACT_NAME,
+        [attr("query_id", query_id.to_string())],
+    )
+    .add_submessage(sub_msg))
 }
 
 #[entry_point]
@@ -290,7 +315,7 @@ pub fn sudo_kv_query_result(
     let interchain_query_result = get_raw_interchain_query_result(deps.as_ref(), query_id)?;
 
     if optional_query_id == votes_query_id {
-        return sudo_proposal_votes(deps, _env, interchain_query_result);
+        return sudo_proposal_votes(deps, interchain_query_result);
     } else {
         deps.api.debug(&format!(
             "WASMDEBUG: sudo_kv_query_result query_id: {:?}",
@@ -303,7 +328,6 @@ pub fn sudo_kv_query_result(
 
 fn sudo_proposal_votes(
     deps: DepsMut<NeutronQuery>,
-    env: Env,
     interchain_query_result: QueryRegisteredQueryResultResponse,
 ) -> ContractResult<Response<NeutronMsg>> {
     let data: GovernmentProposalVotes =
@@ -316,17 +340,18 @@ fn sudo_proposal_votes(
 }
 
 #[entry_point]
-pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
+pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> ContractResult<Response> {
     deps.api
         .debug(format!("WASMDEBUG: reply msg: {msg:?}").as_str());
 
     match msg.id {
         PROPOSALS_VOTES_REPLY_ID => proposals_votes_reply(deps, env, msg),
         PROPOSALS_VOTES_REMOVE_REPLY_ID => proposals_votes_remove_reply(deps, env, msg),
+        id => Err(ContractError::UnknownReplyId { id }),
     }
 }
 
-fn proposals_votes_reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
+fn proposals_votes_reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
     deps.api
         .debug(&format!("WASMDEBUG: proposals_votes_reply call: {msg:?}",));
 
@@ -337,12 +362,10 @@ fn proposals_votes_reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Resp
     Ok(Response::new())
 }
 
-fn proposals_votes_remove_reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
+fn proposals_votes_remove_reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
     deps.api.debug(&format!(
         "WASMDEBUG: proposals_votes_remove_reply call: {msg:?}",
     ));
-
-    let query_id = get_query_id(msg.result)?;
 
     QUERY_ID.remove(deps.storage);
 
