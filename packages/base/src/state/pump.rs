@@ -1,6 +1,7 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128};
 use cw_storage_plus::Item;
+use lido_helpers::ica::Ica;
 
 #[cw_serde]
 pub struct IBCFees {
@@ -29,24 +30,6 @@ pub struct Config {
     pub local_denom: String,
 }
 
-#[cw_serde]
-#[derive(Default)]
-pub enum IcaState {
-    #[default]
-    None,
-    InProgress,
-    Registered,
-    Timeout,
-}
-
-#[cw_serde]
-#[derive(Default)]
-pub struct State {
-    pub last_processed_height: Option<u64>,
-    pub ica: Option<String>,
-    pub ica_state: IcaState,
-}
-
 pub const CONFIG: Item<Config> = Item::new("core");
-pub const STATE: Item<State> = Item::new("state");
+pub const ICA: Ica = Ica::new("ica");
 pub const ICA_ID: &str = "LIDO_PUMP";

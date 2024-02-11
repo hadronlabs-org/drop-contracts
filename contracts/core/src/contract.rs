@@ -6,12 +6,12 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 
-use lido_helpers::{answer::response, fsm::Fsm};
+use lido_helpers::answer::response;
 use lido_puppeteer_base::msg::TransferReadyBatchMsg;
 use lido_staking_base::state::core::{
-    get_transitions, Config, ConfigOptional, ContractState, UnbondBatch, UnbondBatchStatus,
-    UnbondItem, CONFIG, FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT,
-    LAST_PUPPETEER_RESPONSE, PRE_UNBONDING_BALANCE, UNBOND_BATCHES, UNBOND_BATCH_ID,
+    Config, ConfigOptional, ContractState, UnbondBatch, UnbondBatchStatus, UnbondItem, CONFIG,
+    FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_PUPPETEER_RESPONSE,
+    PRE_UNBONDING_BALANCE, UNBOND_BATCHES, UNBOND_BATCH_ID,
 };
 use lido_staking_base::state::validatorset::ValidatorInfo;
 use lido_staking_base::state::withdrawal_voucher::{Metadata, Trait};
@@ -48,26 +48,23 @@ pub fn instantiate(
     //an empty unbonding batch added as it's ready to be used on unbond action
     UNBOND_BATCH_ID.save(deps.storage, &0)?;
     UNBOND_BATCHES.save(deps.storage, 0, &new_unbond(env.block.time.seconds()))?;
-    FSM.save(
-        deps.storage,
-        &Fsm::new(ContractState::Idle, get_transitions()),
-    )?;
+    FSM.set_initial_state(deps.storage, ContractState::Idle)?;
     LAST_IDLE_CALL.save(deps.storage, &0)?;
     LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &0)?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Binary> {
-    match msg {
-        QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?),
-        QueryMsg::ExchangeRate {} => to_json_binary(&query_exchange_rate(deps, env)?),
-        QueryMsg::UnbondBatch { batch_id } => query_unbond_batch(deps, batch_id),
-        QueryMsg::ContractState {} => to_json_binary(&FSM.load(deps.storage)?),
+pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResult<Binary> {
+    Ok(match msg {
+        QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?)?,
+        QueryMsg::ExchangeRate {} => to_json_binary(&query_exchange_rate(deps, env)?)?,
+        QueryMsg::UnbondBatch { batch_id } => query_unbond_batch(deps, batch_id)?,
+        QueryMsg::ContractState {} => to_json_binary(&FSM.get_current_state(deps.storage)?)?,
         QueryMsg::LastPuppeteerResponse {} => {
-            to_json_binary(&LAST_PUPPETEER_RESPONSE.load(deps.storage)?)
+            to_json_binary(&LAST_PUPPETEER_RESPONSE.load(deps.storage)?)?
         }
-    }
+    })
 }
 
 fn query_exchange_rate(_deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Decimal> {
@@ -129,24 +126,16 @@ fn execute_tick(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let mut machine = FSM.load(deps.storage)?;
+    let current_state = FSM.get_current_state(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
     deps.api
-        .debug(&format!("WASMDEBUG tick {:?}", machine.current_state));
-    match machine.current_state {
-        ContractState::Idle => execute_tick_idle(deps.branch(), env, info, &mut machine, &config),
-        ContractState::Claiming => {
-            execute_tick_claiming(deps.branch(), env, info, &mut machine, &config)
-        }
-        ContractState::Transfering => {
-            execute_tick_transfering(deps.branch(), env, info, &mut machine, &config)
-        }
-        ContractState::Unbonding => {
-            execute_tick_unbonding(deps.branch(), env, info, &mut machine, &config)
-        }
-        ContractState::Staking => {
-            execute_tick_staking(deps.branch(), env, info, &mut machine, &config)
-        }
+        .debug(&format!("WASMDEBUG tick {:?}", current_state));
+    match current_state {
+        ContractState::Idle => execute_tick_idle(deps.branch(), env, info, &config),
+        ContractState::Claiming => execute_tick_claiming(deps.branch(), env, info, &config),
+        ContractState::Transfering => execute_tick_transfering(deps.branch(), env, info, &config),
+        ContractState::Unbonding => execute_tick_unbonding(deps.branch(), env, info, &config),
+        ContractState::Staking => execute_tick_staking(deps.branch(), env, info, &config),
     }
 }
 
@@ -154,7 +143,6 @@ fn execute_tick_idle(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
-    machine: &mut Fsm<ContractState>,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut attrs = vec![attr("action", "tick_idle")];
@@ -214,17 +202,17 @@ fn execute_tick_idle(
         .map(|d| d.validator.clone())
         .collect::<Vec<_>>();
     let mut messages = vec![];
-    machine.go_to(ContractState::Claiming)?;
+    FSM.go_to(deps.storage, ContractState::Claiming)?;
     if validators_to_claim.is_empty() {
         attrs.push(attr("validators_to_claim", "empty"));
         if let Some(transfer_msg) =
             transfer_pending_balance(deps.as_ref(), &env, config, info.funds.clone())?
         {
-            machine.go_to(ContractState::Transfering)?;
+            FSM.go_to(deps.storage, ContractState::Transfering)?;
             messages.push(transfer_msg);
         } else {
             messages.push(get_stake_msg(deps.as_ref(), &env, config, info.funds)?);
-            machine.go_to(ContractState::Staking)?;
+            FSM.go_to(deps.storage, ContractState::Staking)?;
         }
     } else {
         attrs.push(attr("validators_to_claim", validators_to_claim.join(",")));
@@ -243,7 +231,6 @@ fn execute_tick_idle(
     }
     deps.api
         .debug(&format!("WASMDEBUG tick msg {:?}", messages));
-    FSM.save(deps.storage, machine)?;
     attrs.push(attr("state", "claiming"));
     LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
     Ok(response("execute-tick_idle", CONTRACT_NAME, attrs).add_messages(messages))
@@ -253,7 +240,6 @@ fn execute_tick_claiming(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
-    machine: &mut Fsm<ContractState>,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
     let response_msg = get_received_puppeteer_response(deps.as_ref())?;
@@ -288,13 +274,12 @@ fn execute_tick_claiming(
     if let Some(transfer_msg) =
         transfer_pending_balance(deps.as_ref(), &env, config, info.funds.clone())?
     {
-        machine.go_to(ContractState::Transfering)?;
+        FSM.go_to(deps.storage, ContractState::Transfering)?;
         messages.push(transfer_msg);
     } else {
         messages.push(get_stake_msg(deps.as_ref(), &env, config, info.funds)?);
-        machine.go_to(ContractState::Staking)?;
+        FSM.go_to(deps.storage, ContractState::Staking)?;
     }
-    FSM.save(deps.storage, machine)?;
     attrs.push(attr("state", "unbonding"));
     Ok(response("execute-tick_claiming", CONTRACT_NAME, attrs).add_messages(messages))
 }
@@ -303,7 +288,6 @@ fn execute_tick_transfering(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
-    machine: &mut Fsm<ContractState>,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
     let response_msg = get_received_puppeteer_response(deps.as_ref())?;
@@ -311,8 +295,7 @@ fn execute_tick_transfering(
         .debug(&format!("WASMDEBUG tick transfering {:?}", response_msg));
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut attrs = vec![attr("action", "tick_transfering")];
-    machine.go_to(ContractState::Staking)?;
-    FSM.save(deps.storage, machine)?;
+    FSM.go_to(deps.storage, ContractState::Staking)?;
     attrs.push(attr("state", "staking"));
     let message = get_stake_msg(deps.as_ref(), &env, config, info.funds)?;
     Ok(response("execute-tick_transfering", CONTRACT_NAME, attrs).add_message(message))
@@ -322,7 +305,6 @@ fn execute_tick_staking(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
-    machine: &mut Fsm<ContractState>,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
     let response_msg = get_received_puppeteer_response(deps.as_ref())?;
@@ -350,7 +332,7 @@ fn execute_tick_staking(
             &config.remote_denom,
         )?;
         PRE_UNBONDING_BALANCE.save(deps.storage, &pre_unbonding_balance)?;
-        machine.go_to(ContractState::Unbonding)?;
+        FSM.go_to(deps.storage, ContractState::Unbonding)?;
         attrs.push(attr("state", "unbonding"));
         deps.api.debug(&format!(
             "WASMDEBUG query {:?} to {:?}",
@@ -391,13 +373,12 @@ fn execute_tick_staking(
         deps.api.debug("WASMDEBUG nothing to unbond");
         deps.api.debug(&format!(
             "WASMDEBUG goting from {:?} to {:?}",
-            machine.current_state,
+            FSM.get_current_state(deps.storage)?,
             ContractState::Idle
         ));
-        machine.go_to(ContractState::Idle)?;
+        FSM.go_to(deps.storage, ContractState::Idle)?;
         attrs.push(attr("state", "idle"));
     }
-    FSM.save(deps.storage, machine)?;
     Ok(response("execute-tick_staking", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
@@ -405,7 +386,6 @@ fn execute_tick_unbonding(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     _info: MessageInfo,
-    machine: &mut Fsm<ContractState>,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
     let res = get_received_puppeteer_response(deps.as_ref())?;
@@ -438,8 +418,7 @@ fn execute_tick_unbonding(
             _ => return Err(ContractError::InvalidTransaction {}),
         },
     }
-    machine.go_to(ContractState::Idle)?;
-    FSM.save(deps.storage, machine)?;
+    FSM.go_to(deps.storage, ContractState::Idle)?;
     Ok(response("execute-tick_unbonding", CONTRACT_NAME, attrs))
 }
 

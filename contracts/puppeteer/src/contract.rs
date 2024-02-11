@@ -41,7 +41,7 @@ use lido_puppeteer_base::{
         ResponseHookSuccessMsg, Transaction, TransferReadyBatchMsg,
     },
     proto::MsgIBCTransfer,
-    state::{IcaState, PuppeteerBase, State, TxState, TxStateStatus, ICA_ID, LOCAL_DENOM},
+    state::{PuppeteerBase, TxState, TxStateStatus, ICA_ID, LOCAL_DENOM},
 };
 
 use prost::Message;
@@ -213,7 +213,7 @@ fn execute_ibc_transfer(
     let coin = message_funds.get(0).ok_or(ContractError::InvalidFunds {
         reason: "No funds".to_string(),
     })?;
-    let ica_address = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
+    let ica_address = puppeteer_base.ica.get_address(deps.storage)?;
     let msg = NeutronMsg::IbcTransfer {
         source_port: config.port_id,
         source_channel: config.transfer_channel_id,
@@ -262,7 +262,7 @@ fn register_delegations_query(
         }
     }
     //
-    let delegator = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
+    let delegator = puppeteer_base.ica.get_address(deps.storage)?;
     let msg = SubMsg::reply_on_success(
         new_register_delegator_delegations_query_msg(
             config.connection_id,
@@ -285,7 +285,7 @@ fn register_balance_query(
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.storage)?;
-    let ica = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
+    let ica = puppeteer_base.ica.get_address(deps.storage)?;
     let msg = SubMsg::reply_on_success(
         new_register_balance_query_msg(config.connection_id, ica, denom, config.update_period)?,
         SUDO_KV_BALANCE_REPLY_ID,
@@ -309,7 +309,7 @@ fn execute_delegate(
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
-    let delegator = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
+    let delegator = puppeteer_base.ica.get_address(deps.storage)?;
     let any_msgs = items
         .iter()
         .map(|(validator, amount)| MsgDelegate {
@@ -353,7 +353,7 @@ fn execute_claim_rewards_and_optionaly_transfer(
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
-    let ica = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
+    let ica = puppeteer_base.ica.get_address(deps.storage)?;
     let mut any_msgs = vec![];
     if let Some(transfer) = transfer.clone() {
         let transfer_msg = MsgSend {
@@ -410,7 +410,7 @@ fn execute_undelegate(
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
-    let delegator = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
+    let delegator = puppeteer_base.ica.get_address(deps.storage)?;
     let any_msgs = items
         .iter()
         .map(|(validator, amount)| MsgUndelegate {
@@ -456,7 +456,7 @@ fn execute_redelegate(
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
-    let delegator = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
+    let delegator = puppeteer_base.ica.get_address(deps.storage)?;
     let redelegate_msg = MsgBeginRedelegate {
         delegator_address: delegator,
         validator_src_address: validator_from.to_string(),
@@ -502,7 +502,7 @@ fn execute_tokenize_share(
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
-    let delegator = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
+    let delegator = puppeteer_base.ica.get_address(deps.storage)?;
     let tokenize_msg = MsgTokenizeShares {
         delegator_address: delegator.clone(),
         validator_address: validator.to_string(),
@@ -553,7 +553,7 @@ fn execute_redeem_share(
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
-    let delegator = puppeteer_base.get_ica(&puppeteer_base.state.load(deps.storage)?)?;
+    let delegator = puppeteer_base.ica.get_address(deps.storage)?;
     let redeem_msg = MsgRedeemTokensforShares {
         delegator_address: delegator,
         amount: Some(ProtoCoin {
@@ -750,13 +750,11 @@ fn get_answers_from_msg_data(
         let answer = match item.msg_type.as_str() {
             "/cosmos.staking.v1beta1.MsgDelegate" => {
                 let _out: MsgDelegateResponse = decode_message_response(&item.data)?;
-                lido_puppeteer_base::msg::ResponseAnswer::DelegateResponse(
-                    lido_puppeteer_base::proto::MsgDelegateResponse {},
-                )
+                ResponseAnswer::DelegateResponse(lido_puppeteer_base::proto::MsgDelegateResponse {})
             }
             "/cosmos.staking.v1beta1.MsgUndelegate" => {
                 let out: MsgUndelegateResponse = decode_message_response(&item.data)?;
-                lido_puppeteer_base::msg::ResponseAnswer::UndelegateResponse(
+                ResponseAnswer::UndelegateResponse(
                     lido_puppeteer_base::proto::MsgUndelegateResponse {
                         completion_time: out.completion_time.map(|t| t.into()),
                     },
@@ -764,7 +762,7 @@ fn get_answers_from_msg_data(
             }
             "/cosmos.staking.v1beta1.MsgTokenizeShares" => {
                 let out: MsgTokenizeSharesResponse = decode_message_response(&item.data)?;
-                lido_puppeteer_base::msg::ResponseAnswer::TokenizeSharesResponse(
+                ResponseAnswer::TokenizeSharesResponse(
                     lido_puppeteer_base::proto::MsgTokenizeSharesResponse {
                         amount: out.amount.map(convert_coin).transpose()?,
                     },
@@ -772,7 +770,7 @@ fn get_answers_from_msg_data(
             }
             "/cosmos.staking.v1beta1.MsgBeginRedelegate" => {
                 let out: MsgBeginRedelegateResponse = decode_message_response(&item.data)?;
-                lido_puppeteer_base::msg::ResponseAnswer::BeginRedelegateResponse(
+                ResponseAnswer::BeginRedelegateResponse(
                     lido_puppeteer_base::proto::MsgBeginRedelegateResponse {
                         completion_time: out.completion_time.map(|t| t.into()),
                     },
@@ -780,7 +778,7 @@ fn get_answers_from_msg_data(
             }
             "/cosmos.staking.v1beta1.MsgRedeemTokensForShares" => {
                 let out: MsgRedeemTokensforSharesResponse = decode_message_response(&item.data)?;
-                lido_puppeteer_base::msg::ResponseAnswer::RedeemTokensforSharesResponse(
+                ResponseAnswer::RedeemTokensforSharesResponse(
                     lido_puppeteer_base::proto::MsgRedeemTokensforSharesResponse {
                         amount: out.amount.map(convert_coin).transpose()?,
                     },
@@ -790,7 +788,7 @@ fn get_answers_from_msg_data(
                 deps.api.debug(
                     format!("This type of acknowledgement is not implemented: {item:?}").as_str(),
                 );
-                lido_puppeteer_base::msg::ResponseAnswer::UnknownResponse {}
+                ResponseAnswer::UnknownResponse {}
             }
         };
         deps.api.debug(&format!(
@@ -883,14 +881,7 @@ fn sudo_timeout(
         .transaction
         .ok_or_else(|| StdError::generic_err("transaction not found"))?;
     puppeteer_base.validate_tx_waiting_state(deps.as_ref())?;
-    puppeteer_base.state.save(
-        deps.storage,
-        &State {
-            ica: None,
-            last_processed_height: None,
-            ica_state: IcaState::Timeout,
-        },
-    )?;
+    puppeteer_base.ica.set_timeout(deps.storage)?;
     puppeteer_base.tx_state.save(
         deps.storage,
         &TxState {

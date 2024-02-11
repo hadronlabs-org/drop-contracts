@@ -216,9 +216,16 @@ describe('Pump-Multi', () => {
     expect(res.transactionHash).toHaveLength(64);
     let ica = '';
     await waitFor(async () => {
-      const res = await contractClientGaia.queryState();
-      ica = res.ica;
-      return !!res.ica;
+      const res = await contractClientGaia.queryIca();
+      switch (res) {
+        case 'none':
+        case 'in_progress':
+        case 'timeout':
+          return false;
+        default:
+          ica = res.registered.ica_address;
+          return true;
+      }
     }, 210_000);
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();
@@ -241,9 +248,16 @@ describe('Pump-Multi', () => {
     expect(res.transactionHash).toHaveLength(64);
     let ica = '';
     await waitFor(async () => {
-      const res = await contractClientLSM.queryState();
-      ica = res.ica;
-      return !!res.ica;
+      const res = await contractClientLSM.queryIca();
+      switch (res) {
+        case 'none':
+        case 'in_progress':
+        case 'timeout':
+          return false;
+        default:
+          ica = res.registered.ica_address;
+          return true;
+      }
     }, 50_000);
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();

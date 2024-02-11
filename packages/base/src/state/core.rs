@@ -73,52 +73,50 @@ pub enum ContractState {
     Transfering,
 }
 
-pub fn get_transitions() -> Vec<Transition<ContractState>> {
-    vec![
-        Transition {
-            from: ContractState::Idle,
-            to: ContractState::Claiming,
-        },
-        Transition {
-            from: ContractState::Idle,
-            to: ContractState::Staking,
-        },
-        Transition {
-            from: ContractState::Idle,
-            to: ContractState::Transfering,
-        },
-        Transition {
-            from: ContractState::Idle,
-            to: ContractState::Claiming,
-        },
-        Transition {
-            from: ContractState::Claiming,
-            to: ContractState::Transfering,
-        },
-        Transition {
-            from: ContractState::Transfering,
-            to: ContractState::Staking,
-        },
-        Transition {
-            from: ContractState::Staking,
-            to: ContractState::Unbonding,
-        },
-        Transition {
-            from: ContractState::Claiming,
-            to: ContractState::Staking,
-        },
-        Transition {
-            from: ContractState::Staking,
-            to: ContractState::Idle,
-        },
-        Transition {
-            from: ContractState::Unbonding,
-            to: ContractState::Idle,
-        },
-    ]
-}
+const TRANSITIONS: &[Transition<ContractState>] = &[
+    Transition {
+        from: ContractState::Idle,
+        to: ContractState::Claiming,
+    },
+    Transition {
+        from: ContractState::Idle,
+        to: ContractState::Staking,
+    },
+    Transition {
+        from: ContractState::Idle,
+        to: ContractState::Transfering,
+    },
+    Transition {
+        from: ContractState::Idle,
+        to: ContractState::Claiming,
+    },
+    Transition {
+        from: ContractState::Claiming,
+        to: ContractState::Transfering,
+    },
+    Transition {
+        from: ContractState::Transfering,
+        to: ContractState::Staking,
+    },
+    Transition {
+        from: ContractState::Staking,
+        to: ContractState::Unbonding,
+    },
+    Transition {
+        from: ContractState::Claiming,
+        to: ContractState::Staking,
+    },
+    Transition {
+        from: ContractState::Staking,
+        to: ContractState::Idle,
+    },
+    Transition {
+        from: ContractState::Unbonding,
+        to: ContractState::Idle,
+    },
+];
 
-pub const FSM: Item<Fsm<ContractState>> = Item::new("machine_state");
+pub const FSM: Fsm<ContractState> = Fsm::new("machine_state", TRANSITIONS);
 pub const LAST_IDLE_CALL: Item<u64> = Item::new("last_tick");
 pub const LAST_ICA_BALANCE_CHANGE_HEIGHT: Item<u64> = Item::new("last_ica_balance_change_height");
 pub const LAST_PUPPETEER_RESPONSE: Item<lido_puppeteer_base::msg::ResponseHookMsg> =

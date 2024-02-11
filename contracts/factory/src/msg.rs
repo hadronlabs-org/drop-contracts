@@ -1,4 +1,4 @@
-use crate::state::{CodeIds, RemoteOpts, State};
+use crate::state::{CodeIds, RemoteOpts};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
 use lido_staking_base::msg::token::DenomMetadata;
@@ -16,6 +16,7 @@ pub struct InstantiateMsg {
 pub enum CallbackMsg {
     PostInit {},
 }
+
 #[cw_serde]
 pub struct CoreParams {
     pub idle_min_interval: u64,
@@ -71,6 +72,6 @@ pub enum MigrateMsg {}
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(State)]
+    #[returns(crate::state::State)]
     State {},
 }

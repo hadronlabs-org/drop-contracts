@@ -10,13 +10,19 @@ export interface InstantiateMsg {
   transfer_channel_id: string;
   update_period: number;
 }
-export type IcaState = "none" | "in_progress" | "registered" | "timeout";
 /**
  * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
  *
  * This is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.
  */
 export type Binary = string;
+export type IcaState =
+  | ("none" | "in_progress" | "timeout")
+  | {
+      registered: {
+        ica_address: string;
+      };
+    };
 export type Transaction =
   | {
       delegate: {
@@ -103,7 +109,7 @@ export type QueryExtMsg =
     };
 
 export interface LidoPuppeteerSchema {
-  responses: State | Binary | State1 | ArrayOfTransaction;
+  responses: ConfigResponse | Binary | IcaState | ArrayOfTransaction;
   query: ExtentionArgs;
   execute:
     | RegisterDelegatorDelegationsQueryArgs
@@ -118,15 +124,10 @@ export interface LidoPuppeteerSchema {
     | ClaimRewardsAndOptionalyTransferArgs;
   [k: string]: unknown;
 }
-export interface State {
-  ica?: string | null;
-  ica_state: IcaState;
-  last_processed_height?: number | null;
-}
-export interface State1 {
-  ica?: string | null;
-  ica_state: IcaState;
-  last_processed_height?: number | null;
+export interface ConfigResponse {
+  connection_id: string;
+  owner: string;
+  update_period: number;
 }
 export interface TransferReadyBatchMsg {
   amount: Uint128;
@@ -221,11 +222,11 @@ export class Client {
     });
     return res;
   }
-  queryConfig = async(): Promise<State> => {
+  queryConfig = async(): Promise<ConfigResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
-  queryState = async(): Promise<State> => {
-    return this.client.queryContractSmart(this.contractAddress, { state: {} });
+  queryIca = async(): Promise<IcaState> => {
+    return this.client.queryContractSmart(this.contractAddress, { ica: {} });
   }
   queryTransactions = async(): Promise<ArrayOfTransaction> => {
     return this.client.queryContractSmart(this.contractAddress, { transactions: {} });

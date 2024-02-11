@@ -1,6 +1,7 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Coin;
 use cw_storage_plus::{Item, Map};
+use lido_helpers::ica::Ica;
 use neutron_sdk::bindings::msg::IbcFee;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -12,7 +13,7 @@ where
     U: Serialize + DeserializeOwned + Clone,
 {
     pub config: Item<'a, T>,
-    pub state: Item<'a, State>,
+    pub ica: Ica<'a>,
     pub recipient_transfers: Item<'a, Vec<Transfer>>,
     pub transfer_channel_id: Item<'a, String>,
     pub tx_state: Item<'a, TxState>,
@@ -39,7 +40,7 @@ where
     pub fn new() -> Self {
         Self {
             config: Item::new("config"),
-            state: Item::new("state"),
+            ica: Ica::new("ica"),
             recipient_transfers: Item::new("transfers"),
             tx_state: Item::new("sudo_payload"),
             ibc_fee: Item::new("ibc_fee"),
@@ -57,29 +58,18 @@ pub trait BaseConfig {
 }
 
 #[cw_serde]
+pub struct ConfigResponse {
+    pub owner: String,
+    pub connection_id: String,
+    pub update_period: u64,
+}
+
+#[cw_serde]
 pub struct Transfer {
     pub recipient: String,
     pub sender: String,
     pub denom: String,
     pub amount: String,
-}
-
-#[cw_serde]
-#[derive(Default)]
-pub enum IcaState {
-    #[default]
-    None,
-    InProgress,
-    Registered,
-    Timeout,
-}
-
-#[cw_serde]
-#[derive(Default)]
-pub struct State {
-    pub last_processed_height: Option<u64>,
-    pub ica: Option<String>,
-    pub ica_state: IcaState,
 }
 
 #[cw_serde]

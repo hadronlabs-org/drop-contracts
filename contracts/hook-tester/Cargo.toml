@@ -23,16 +23,10 @@ backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
-cosmos-sdk-proto = { workspace = true }
-neutron-sdk = { workspace = true }
-prost = { workspace = true }
-
-cosmwasm-schema = { workspace = true }
-cosmwasm-std = { workspace = true }
-thiserror = { workspace = true }
-lido-staking-base = { workspace = true }
-lido-helpers = { workspace = true }
+neutron-sdk         = { workspace = true }
+cosmwasm-schema     = { workspace = true }
+cosmwasm-std        = { workspace = true }
+thiserror           = { workspace = true }
+lido-staking-base   = { workspace = true }
+lido-helpers        = { workspace = true }
 lido-puppeteer-base = { workspace = true }
-
-[dev-dependencies]
-cw-multi-test = { workspace = true }

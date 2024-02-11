@@ -9,7 +9,6 @@ use neutron_sdk::{
         query::NeutronQuery,
     },
     interchain_queries::v045::new_register_transfers_query_msg,
-    interchain_txs::helpers::get_port_id,
     NeutronError, NeutronResult,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -17,9 +16,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use crate::{
     error::{ContractError, ContractResult},
     msg::{ExecuteMsg, Transaction},
-    state::{
-        BaseConfig, IcaState, PuppeteerBase, State, TxState, TxStateStatus, ICA_ID, LOCAL_DENOM,
-    },
+    state::{BaseConfig, PuppeteerBase, TxState, TxStateStatus, ICA_ID, LOCAL_DENOM},
 };
 
 impl<'a, T, U> PuppeteerBase<'a, T, U>
@@ -32,7 +29,6 @@ where
         cw_ownable::initialize_owner(deps.storage, deps.api, Some(config.owner()))?;
 
         self.config.save(deps.storage, config)?;
-        self.state.save(deps.storage, &State::default())?;
         self.recipient_transfers.save(deps.storage, &vec![])?;
         Ok(Response::default())
     }
@@ -40,12 +36,12 @@ where
     pub fn execute(
         &self,
         deps: DepsMut<NeutronQuery>,
-        env: Env,
+        _env: Env,
         info: MessageInfo,
         msg: ExecuteMsg,
     ) -> ContractResult<Response<NeutronMsg>> {
         match msg {
-            ExecuteMsg::RegisterICA {} => self.execute_register_ica(deps, env),
+            ExecuteMsg::RegisterICA {} => self.execute_register_ica(deps),
             ExecuteMsg::RegisterQuery {} => self.register_transfers_query(deps),
             ExecuteMsg::SetFees {
                 recv_fee,
@@ -53,25 +49,6 @@ where
                 timeout_fee,
                 register_fee,
             } => self.execute_set_fees(deps, info, recv_fee, ack_fee, timeout_fee, register_fee),
-        }
-    }
-
-    pub fn get_ica(&self, state: &State) -> NeutronResult<String> {
-        match state.ica_state {
-            IcaState::None => Err(NeutronError::Std(StdError::generic_err(
-                "Interchain account is not registered",
-            ))),
-            IcaState::InProgress => Err(NeutronError::Std(StdError::generic_err(
-                "Interchain account is in progress. Please wait until it is registered",
-            ))),
-            IcaState::Registered => state.clone().ica.ok_or_else(|| {
-                NeutronError::Std(StdError::generic_err(
-                    "Interchain account is not registered. Please register it first",
-                ))
-            }),
-            IcaState::Timeout => Err(NeutronError::Std(StdError::generic_err(
-                "Interchain account registration timeout. Please register it again",
-            ))),
         }
     }
 
@@ -129,37 +106,17 @@ where
     fn execute_register_ica(
         &self,
         deps: DepsMut<NeutronQuery>,
-        env: Env,
     ) -> ContractResult<Response<NeutronMsg>> {
         let config = self.config.load(deps.storage)?;
-        let state: State = self.state.load(deps.storage)?;
         let attrs = vec![
             attr("connection_id", config.connection_id()),
             attr("ica_id", ICA_ID),
         ];
-        return match state.ica_state {
-            IcaState::InProgress => Err(ContractError::IcaInProgress {}),
-            IcaState::Registered => Err(ContractError::IcaAlreadyRegistered {}),
-            IcaState::Timeout | IcaState::None => {
-                let register_fee = self.register_fee.load(deps.storage)?;
-                let register = NeutronMsg::register_interchain_account(
-                    config.connection_id(),
-                    ICA_ID.to_string(),
-                    Some(vec![register_fee]),
-                );
-                let _key = get_port_id(env.contract.address.as_str(), ICA_ID);
-
-                self.state.save(
-                    deps.storage,
-                    &State {
-                        last_processed_height: None,
-                        ica: None,
-                        ica_state: IcaState::InProgress,
-                    },
-                )?;
-                Ok(response("register-ica", "puppeteer-base", attrs).add_message(register))
-            }
-        };
+        let register_fee = self.register_fee.load(deps.storage)?;
+        let register_msg =
+            self.ica
+                .register(deps.storage, config.connection_id(), ICA_ID, register_fee)?;
+        Ok(response("register-ica", "puppeteer-base", attrs).add_message(register_msg))
     }
 
     fn execute_set_fees(
@@ -208,18 +165,14 @@ where
         deps: DepsMut<NeutronQuery>,
     ) -> ContractResult<Response<NeutronMsg>> {
         let config = self.config.load(deps.storage)?;
-        let state: State = self.state.load(deps.storage)?;
+        let ica = self.ica.get_address(deps.storage)?;
 
-        if let Some(ica) = state.ica {
-            let msg = new_register_transfers_query_msg(
-                config.connection_id(),
-                ica,
-                config.update_period(),
-                None,
-            )?;
-            Ok(Response::new().add_message(msg))
-        } else {
-            Err(ContractError::IcaNotRegistered {})
-        }
+        let msg = new_register_transfers_query_msg(
+            config.connection_id(),
+            ica,
+            config.update_period(),
+            None,
+        )?;
+        Ok(Response::new().add_message(msg))
     }
 }

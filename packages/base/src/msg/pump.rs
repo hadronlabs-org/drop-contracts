@@ -1,14 +1,14 @@
-use crate::state::pump::{Config, IBCFees, PumpTimeout, State};
+use crate::state::pump::{IBCFees, PumpTimeout};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Coin;
 
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(Config)]
+    #[returns(crate::state::pump::Config)]
     Config {},
-    #[returns(State)]
-    State {},
+    #[returns(lido_helpers::ica::IcaState)]
+    Ica {},
 }
 
 #[cw_serde]

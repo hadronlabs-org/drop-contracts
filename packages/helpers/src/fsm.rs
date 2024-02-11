@@ -1,49 +1,46 @@
-use cosmwasm_schema::cw_serde;
-use thiserror::Error;
+use cosmwasm_std::{StdError, StdResult, Storage};
+use cw_storage_plus::Item;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
-#[cw_serde]
 pub struct Transition<T> {
     pub from: T,
     pub to: T,
 }
 
-#[cw_serde]
-pub struct Fsm<T> {
-    pub initial_state: T,
-    pub current_state: T,
-    pub transitions: Vec<Transition<T>>,
+pub struct Fsm<'a, T: 'static> {
+    pub state: Item<'a, T>,
+    pub transitions: &'static [Transition<T>],
 }
 
-#[derive(Error, Debug, PartialEq)]
-pub enum FsmError {
-    #[error("Current state not found")]
-    CurrentStateNotFound,
-    #[error("Transition is not allowed")]
-    TransitionNotAllowed,
-}
-
-impl<T: PartialEq + Clone> Fsm<T> {
-    pub fn new(initial_state: T, transitions: Vec<Transition<T>>) -> Self {
+impl<'a, T: Serialize + DeserializeOwned + PartialEq> Fsm<'a, T> {
+    pub const fn new(storage_key: &'a str, transitions: &'static [Transition<T>]) -> Self {
         Self {
-            initial_state: initial_state.clone(),
-            current_state: initial_state,
+            state: Item::new(storage_key),
             transitions,
         }
     }
 
-    pub fn go_to(&mut self, to: T) -> Result<(), FsmError> {
-        let transition = self
-            .transitions
-            .iter()
-            .find(|transition| transition.from == self.current_state && transition.to == to)
-            .ok_or(FsmError::TransitionNotAllowed)?;
-        self.current_state = transition.to.clone();
-        Ok(())
+    pub fn get_current_state(&self, store: &dyn Storage) -> StdResult<T> {
+        self.state
+            .load(store)
+            .map_err(|_| StdError::generic_err("Current FSM state not found"))
     }
 
-    pub fn can_be_changed_to(&self, to: T) -> bool {
-        self.transitions
+    pub fn set_initial_state(&self, store: &mut dyn Storage, initial_state: T) -> StdResult<()> {
+        self.state.save(store, &initial_state)
+    }
+
+    pub fn go_to(&self, store: &mut dyn Storage, to: T) -> StdResult<()> {
+        let current_state = self.get_current_state(store)?;
+        if self
+            .transitions
             .iter()
-            .any(|transition| transition.from == self.current_state && transition.to == to)
+            .any(|transition| transition.from == current_state && transition.to == to)
+        {
+            self.state.save(store, &to)
+        } else {
+            Err(StdError::generic_err("This FSM transition is not allowed"))
+        }
     }
 }

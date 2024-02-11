@@ -76,7 +76,7 @@ fn puppeteer_query(
 ) -> StdResult<Binary> {
     match msg {
         PuppeteerQueryMsg::Config {} => todo!(),
-        PuppeteerQueryMsg::State {} => todo!(),
+        PuppeteerQueryMsg::Ica {} => todo!(),
         PuppeteerQueryMsg::Transactions {} => todo!(),
         PuppeteerQueryMsg::Extention { msg } => match msg {
             lido_staking_base::msg::puppeteer::QueryExtMsg::Delegations {} => {

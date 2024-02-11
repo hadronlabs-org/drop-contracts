@@ -154,7 +154,7 @@ export type PuppeteerHookArgs =
     };
 
 export interface LidoCoreSchema {
-  responses: Config | FsmFor_ContractState | Decimal | ResponseHookMsg | UnbondBatch;
+  responses: Config | ContractState | Decimal | ResponseHookMsg | UnbondBatch;
   query: UnbondBatchArgs;
   execute: BondArgs | UpdateConfigArgs | FakeProcessBatchArgs | PuppeteerHookArgs;
   [k: string]: unknown;
@@ -176,15 +176,6 @@ export interface Config {
   validators_set_contract: string;
   withdrawal_manager_contract: string;
   withdrawal_voucher_contract: string;
-}
-export interface FsmFor_ContractState {
-  current_state: ContractState;
-  initial_state: ContractState;
-  transitions: TransitionFor_ContractState[];
-}
-export interface TransitionFor_ContractState {
-  from: ContractState;
-  to: ContractState;
 }
 export interface ResponseHookSuccessMsg {
   answers: ResponseAnswer[];
@@ -333,7 +324,7 @@ export class Client {
   queryUnbondBatch = async(args: UnbondBatchArgs): Promise<UnbondBatch> => {
     return this.client.queryContractSmart(this.contractAddress, { unbond_batch: args });
   }
-  queryContractState = async(): Promise<Fsm_for_ContractState> => {
+  queryContractState = async(): Promise<ContractState> => {
     return this.client.queryContractSmart(this.contractAddress, { contract_state: {} });
   }
   queryLastPuppeteerResponse = async(): Promise<ResponseHookMsg> => {

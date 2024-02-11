@@ -19,7 +19,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     msg::OpenAckVersion,
-    state::{BaseConfig, IcaState, PuppeteerBase, State, Transfer},
+    state::{BaseConfig, PuppeteerBase, Transfer},
 };
 
 impl<'a, T, U> PuppeteerBase<'a, T, U>
@@ -36,7 +36,6 @@ where
         data: Binary,
     ) -> NeutronResult<Response> {
         let _config: T = self.config.load(deps.storage)?;
-        let state: State = self.state.load(deps.storage)?;
         let tx: TxRaw = TxRaw::decode(data.as_slice())?;
         let body: TxBody = TxBody::decode(tx.body_bytes.as_slice())?;
         let registered_query: QueryRegisteredQueryResponse =
@@ -44,9 +43,7 @@ where
         #[allow(clippy::single_match)]
         match registered_query.registered_query.query_type {
             QueryType::TX => {
-                let ica = state.ica.ok_or_else(|| {
-                    StdError::generic_err("ICA not registered, can't process query result")
-                })?;
+                let ica = self.ica.get_address(deps.storage)?;
                 let deposits = self.recipient_deposits_from_tx_body(body, &ica)?;
                 if deposits.is_empty() {
                     return Err(NeutronError::Std(StdError::generic_err(
@@ -130,18 +127,12 @@ where
         let parsed_version: Result<OpenAckVersion, _> =
             serde_json_wasm::from_str(counterparty_version.as_str());
         if let Ok(parsed_version) = parsed_version {
-            self.state.save(
-                deps.storage,
-                &State {
-                    last_processed_height: None,
-                    ica: Some(parsed_version.address),
-                    ica_state: IcaState::Registered,
-                },
-            )?;
-            return Ok(Response::default());
+            self.ica.set_address(deps.storage, parsed_version.address)?;
+            Ok(Response::default())
+        } else {
+            Err(NeutronError::Std(StdError::generic_err(
+                "can't parse version",
+            )))
         }
-        Err(NeutronError::Std(StdError::GenericErr {
-            msg: "can't parse version".to_string(),
-        }))
     }
 }

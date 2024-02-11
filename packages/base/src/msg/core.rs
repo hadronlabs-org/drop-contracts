@@ -1,7 +1,6 @@
-use crate::state::core::{Config, ConfigOptional, ContractState, UnbondBatch};
+use crate::state::core::{Config, ConfigOptional};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Decimal, Uint128};
-use lido_helpers::fsm::Fsm;
+use cosmwasm_std::Uint128;
 use lido_puppeteer_base::msg::ResponseHookMsg;
 
 #[cw_serde]
@@ -28,11 +27,11 @@ pub struct InstantiateMsg {
 pub enum QueryMsg {
     #[returns(Config)]
     Config {},
-    #[returns(Decimal)]
+    #[returns(cosmwasm_std::Decimal)]
     ExchangeRate {},
-    #[returns(UnbondBatch)]
+    #[returns(crate::state::core::UnbondBatch)]
     UnbondBatch { batch_id: Uint128 },
-    #[returns(Fsm<ContractState>)]
+    #[returns(crate::state::core::ContractState)]
     ContractState {},
     #[returns(ResponseHookMsg)]
     LastPuppeteerResponse {},
