@@ -27,4 +27,9 @@ pub enum ExecuteMsg {
 }
 
 #[cw_serde]
+pub enum ReceiveNftMsg {
+    Withdraw { receiver: Option<String> },
+}
+
+#[cw_serde]
 pub enum MigrateMsg {}

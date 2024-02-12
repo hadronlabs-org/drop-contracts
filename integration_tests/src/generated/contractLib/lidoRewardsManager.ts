@@ -18,15 +18,15 @@ export interface InstantiateMsg {
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
+export type ArrayOfHandlerConfig = HandlerConfig[];
 
 export interface LidoRewardsManagerSchema {
-  responses: ConfigResponse;
+  responses: ConfigResponse | ArrayOfHandlerConfig;
   execute: UpdateConfigArgs | AddHandlerArgs | RemoveHandlerArgs;
   [k: string]: unknown;
 }
 export interface ConfigResponse {
   core_address: string;
-  handlers: HandlerConfig[];
 }
 export interface HandlerConfig {
   address: string;
@@ -76,6 +76,9 @@ export class Client {
   }
   queryConfig = async(): Promise<ConfigResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
+  }
+  queryHandlers = async(): Promise<ArrayOfHandlerConfig> => {
+    return this.client.queryContractSmart(this.contractAddress, { handlers: {} });
   }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
