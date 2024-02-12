@@ -198,15 +198,8 @@ fn exec_exchange(deps: DepsMut, env: Env) -> ContractResult<Response> {
         });
     }
 
-    let mut res = response(
-        "exchange",
-        CONTRACT_NAME,
-        [attr_coin(
-            "swap_amount",
-            balance.amount,
-            balance.denom.clone(),
-        )],
-    );
+    let mut msgs: Vec<CosmosMsg> = Vec::new();
+    let mut attrs: Vec<Attribute> = Vec::new();
 
     if let Some(swap_operations) = swap_operations {
         let router_contract_address = config.router_contract;
@@ -222,9 +215,8 @@ fn exec_exchange(deps: DepsMut, env: Env) -> ContractResult<Response> {
             funds: vec![balance.clone()],
         });
 
-        res = res
-            .add_message(exchange_rewards_msg)
-            .add_attribute("router_contract", router_contract_address);
+        msgs.push(exchange_rewards_msg);
+        attrs.push(attr("router_contract", router_contract_address))
     } else {
         let pair_contract = config.pair_contract;
 
@@ -245,12 +237,21 @@ fn exec_exchange(deps: DepsMut, env: Env) -> ContractResult<Response> {
             funds: vec![balance.clone()],
         });
 
-        res = res
-            .add_message(exchange_rewards_msg)
-            .add_attribute("pair_contract", pair_contract);
+        msgs.push(exchange_rewards_msg);
+        attrs.push(attr("pair_contract", pair_contract))
     }
 
-    Ok(res)
+    Ok(response(
+        "exchange",
+        CONTRACT_NAME,
+        [attr_coin(
+            "swap_amount",
+            balance.amount,
+            balance.denom.clone(),
+        )],
+    )
+    .add_messages(msgs)
+    .add_attributes(attrs))
 }
 
 fn exec_update_swap_operations(
