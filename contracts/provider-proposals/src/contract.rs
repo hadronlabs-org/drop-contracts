@@ -11,10 +11,12 @@ use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::{NeutronQuery, QueryRegisteredQueryResultResponse};
 use neutron_sdk::interchain_queries::queries::get_raw_interchain_query_result;
 use neutron_sdk::interchain_queries::types::KVReconstruct;
-use neutron_sdk::interchain_queries::v045::types::{GovernmentProposalVotes, ProposalVote};
+use neutron_sdk::interchain_queries::v045::types::{
+    GovernmentProposal, GovernmentProposalVotes, ProposalVote,
+};
 use neutron_sdk::sudo::msg::SudoMsg;
 
-use crate::error::ContractResult;
+use crate::error::{ContractError, ContractResult};
 
 const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
 
@@ -181,7 +183,7 @@ pub fn sudo_kv_query_result(
         "WASMDEBUG: sudo_kv_query_result call: {query_id:?}",
     ));
 
-    let votes_query_id = QUERY_ID.may_load(deps.storage)?;
+    let proposals_query_id = QUERY_ID.may_load(deps.storage)?;
 
     deps.api.debug(&format!(
         "WASMDEBUG: sudo_kv_query_result proposal_votes_query_id: {:?}",
@@ -190,8 +192,8 @@ pub fn sudo_kv_query_result(
 
     let interchain_query_result = get_raw_interchain_query_result(deps.as_ref(), query_id)?;
 
-    if Some(query_id) == votes_query_id {
-        return sudo_proposal_votes(deps, interchain_query_result);
+    if Some(query_id) == proposals_query_id {
+        return sudo_proposals_query(deps, interchain_query_result);
     }
 
     deps.api.debug(&format!(
@@ -202,15 +204,15 @@ pub fn sudo_kv_query_result(
     Ok(Response::default())
 }
 
-fn sudo_proposal_votes(
+fn sudo_proposals_query(
     deps: DepsMut<NeutronQuery>,
     interchain_query_result: QueryRegisteredQueryResultResponse,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let data: GovernmentProposalVotes =
+    let data: GovernmentProposal =
         KVReconstruct::reconstruct(&interchain_query_result.result.kv_results)?;
 
     deps.api
-        .debug(&format!("WASMDEBUG: validator_info_sudo data: {data:?}",));
+        .debug(&format!("WASMDEBUG: sudo_proposals_query data: {data:?}",));
 
     Ok(Response::new())
 }
