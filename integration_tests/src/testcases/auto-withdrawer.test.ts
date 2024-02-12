@@ -68,6 +68,7 @@ describe('Auto withdrawer', () => {
       puppeteer?: number;
       validatorsSet?: number;
       distribution?: number;
+      rewardsManager?: number;
     };
     exchangeRate?: number;
     tokenContractAddress?: string;
@@ -222,6 +223,17 @@ describe('Auto withdrawer', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.puppeteer = res.codeId;
     }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/lido_rewards_manager.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.rewardsManager = res.codeId;
+    }
     const res = await client.upload(
       account.address,
       fs.readFileSync(join(__dirname, '../../../artifacts/lido_factory.wasm')),
@@ -242,6 +254,7 @@ describe('Auto withdrawer', () => {
           distribution_code_id: context.codeIds.distribution,
           validators_set_code_id: context.codeIds.validatorsSet,
           puppeteer_code_id: context.codeIds.puppeteer,
+          rewards_manager_code_id: context.codeIds.rewardsManager,
         },
         remote_opts: {
           connection_id: 'connection-0',
