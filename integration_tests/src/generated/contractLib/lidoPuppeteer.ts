@@ -1,23 +1,84 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
+import { Coin } from "@cosmjs/amino";
 export interface InstantiateMsg {
   allowed_senders: string[];
   connection_id: string;
   owner: string;
   port_id: string;
   remote_denom: string;
+  transfer_channel_id: string;
   update_period: number;
 }
+export type IcaState = "none" | "in_progress" | "registered" | "timeout";
 /**
- * A human readable address.
+ * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
  *
- * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
- *
- * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
- *
- * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
+ * This is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.
  */
-export type Addr = string;
+export type Binary = string;
+export type Transaction =
+  | {
+      delegate: {
+        denom: string;
+        interchain_account_id: string;
+        items: [string, Uint128][];
+      };
+    }
+  | {
+      undelegate: {
+        batch_id: number;
+        denom: string;
+        interchain_account_id: string;
+        items: [string, Uint128][];
+      };
+    }
+  | {
+      redelegate: {
+        amount: number;
+        denom: string;
+        interchain_account_id: string;
+        validator_from: string;
+        validator_to: string;
+      };
+    }
+  | {
+      withdraw_reward: {
+        interchain_account_id: string;
+        validator: string;
+      };
+    }
+  | {
+      tokenize_share: {
+        amount: number;
+        denom: string;
+        interchain_account_id: string;
+        validator: string;
+      };
+    }
+  | {
+      redeem_share: {
+        amount: number;
+        denom: string;
+        interchain_account_id: string;
+        validator: string;
+      };
+    }
+  | {
+      claim_rewards_and_optionaly_transfer: {
+        denom: string;
+        interchain_account_id: string;
+        transfer?: TransferReadyBatchMsg | null;
+        validators: string[];
+      };
+    }
+  | {
+      i_b_c_transfer: {
+        amount: number;
+        denom: string;
+        recipient: string;
+      };
+    };
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -32,54 +93,29 @@ export type Addr = string;
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type IcaState = "none" | "in_progress" | "registered" | "timeout";
-export type ArrayOfTransfer = Transfer[];
+export type ArrayOfTransaction = Transaction[];
+export type QueryExtMsg =
+  | {
+      delegations: {};
+    }
+  | {
+      balances: {};
+    };
 
 export interface LidoPuppeteerSchema {
-  responses: Config | DelegationsResponse | State | ArrayOfTransfer;
+  responses: State | Binary | State1 | ArrayOfTransaction;
+  query: ExtentionArgs;
   execute:
     | RegisterDelegatorDelegationsQueryArgs
+    | RegisterBalanceQueryArgs
     | SetFeesArgs
     | DelegateArgs
     | UndelegateArgs
     | RedelegateArgs
     | TokenizeShareArgs
-    | RedeemShareArgs;
-  [k: string]: unknown;
-}
-export interface Config {
-  allowed_senders: Addr[];
-  connection_id: string;
-  owner: Addr;
-  port_id: string;
-  proxy_address?: Addr | null;
-  remote_denom: string;
-  update_period: number;
-}
-export interface DelegationsResponse {
-  delegations: Delegation[];
-  last_updated_height: number;
-}
-/**
- * Delegation is basic (cheap to query) data about a delegation.
- *
- * Instances are created in the querier.
- */
-export interface Delegation {
-  /**
-   * How much we have locked in the delegation
-   */
-  amount: Coin;
-  delegator: Addr;
-  /**
-   * A validator address (e.g. cosmosvaloper1...)
-   */
-  validator: string;
-  [k: string]: unknown;
-}
-export interface Coin {
-  amount: Uint128;
-  denom: string;
+    | RedeemShareArgs
+    | IBCTransferArgs
+    | ClaimRewardsAndOptionalyTransferArgs;
   [k: string]: unknown;
 }
 export interface State {
@@ -87,14 +123,24 @@ export interface State {
   ica_state: IcaState;
   last_processed_height?: number | null;
 }
-export interface Transfer {
-  amount: string;
-  denom: string;
+export interface State1 {
+  ica?: string | null;
+  ica_state: IcaState;
+  last_processed_height?: number | null;
+}
+export interface TransferReadyBatchMsg {
+  amount: Uint128;
+  batch_id: number;
   recipient: string;
-  sender: string;
+}
+export interface ExtentionArgs {
+  msg: QueryExtMsg;
 }
 export interface RegisterDelegatorDelegationsQueryArgs {
   validators: string[];
+}
+export interface RegisterBalanceQueryArgs {
+  denom: string;
 }
 export interface SetFeesArgs {
   ack_fee: Uint128;
@@ -103,16 +149,15 @@ export interface SetFeesArgs {
   timeout_fee: Uint128;
 }
 export interface DelegateArgs {
-  amount: Uint128;
+  items: [string, Uint128][];
   reply_to: string;
   timeout?: number | null;
-  validator: string;
 }
 export interface UndelegateArgs {
-  amount: Uint128;
+  batch_id: number;
+  items: [string, Uint128][];
   reply_to: string;
   timeout?: number | null;
-  validator: string;
 }
 export interface RedelegateArgs {
   amount: Uint128;
@@ -133,6 +178,16 @@ export interface RedeemShareArgs {
   reply_to: string;
   timeout?: number | null;
   validator: string;
+}
+export interface IBCTransferArgs {
+  reply_to: string;
+  timeout: number;
+}
+export interface ClaimRewardsAndOptionalyTransferArgs {
+  reply_to: string;
+  timeout?: number | null;
+  transfer?: TransferReadyBatchMsg | null;
+  validators: string[];
 }
 
 
@@ -166,17 +221,17 @@ export class Client {
     });
     return res;
   }
-  queryConfig = async(): Promise<Config> => {
+  queryConfig = async(): Promise<State> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
   queryState = async(): Promise<State> => {
     return this.client.queryContractSmart(this.contractAddress, { state: {} });
   }
-  queryTransactions = async(): Promise<ArrayOfTransfer> => {
+  queryTransactions = async(): Promise<ArrayOfTransaction> => {
     return this.client.queryContractSmart(this.contractAddress, { transactions: {} });
   }
-  queryDelegations = async(): Promise<DelegationsResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { delegations: {} });
+  queryExtention = async(args: ExtentionArgs): Promise<Binary> => {
+    return this.client.queryContractSmart(this.contractAddress, { extention: args });
   }
   registerICA = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
@@ -189,6 +244,10 @@ export class Client {
   registerDelegatorDelegationsQuery = async(sender:string, args: RegisterDelegatorDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { register_delegator_delegations_query: args }, fee || "auto", memo, funds);
+  }
+  registerBalanceQuery = async(sender:string, args: RegisterBalanceQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { register_balance_query: args }, fee || "auto", memo, funds);
   }
   setFees = async(sender:string, args: SetFeesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
@@ -213,5 +272,13 @@ export class Client {
   redeemShare = async(sender:string, args: RedeemShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { redeem_share: args }, fee || "auto", memo, funds);
+  }
+  iBCTransfer = async(sender:string, args: IBCTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { i_b_c_transfer: args }, fee || "auto", memo, funds);
+  }
+  claimRewardsAndOptionalyTransfer = async(sender:string, args: ClaimRewardsAndOptionalyTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { claim_rewards_and_optionaly_transfer: args }, fee || "auto", memo, funds);
   }
 }

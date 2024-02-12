@@ -24,6 +24,9 @@ pub enum ContractError {
 
     #[error("Unauthorized")]
     Unauthorized {},
+
+    #[error("Invalid funds: {reason}")]
+    InvalidFunds { reason: String },
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

@@ -2,7 +2,7 @@ import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
 export interface InstantiateMsg {
-  core: string;
+  owner: string;
   stats_contract: string;
 }
 /**
@@ -30,7 +30,7 @@ export interface LidoValidatorsSetSchema {
   [k: string]: unknown;
 }
 export interface Config {
-  core: Addr;
+  owner: Addr;
   stats_contract: Addr;
 }
 export interface ValidatorInfo {
@@ -59,7 +59,10 @@ export interface ValidatorArgs {
   valoper: Addr;
 }
 export interface UpdateConfigArgs {
-  core?: Addr | null;
+  new_config: ConfigOptional;
+}
+export interface ConfigOptional {
+  owner?: Addr | null;
   stats_contract?: Addr | null;
 }
 export interface UpdateValidatorsArgs {

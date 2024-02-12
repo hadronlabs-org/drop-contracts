@@ -23,9 +23,9 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> NeutronResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let core = deps.api.addr_validate(&msg.core_address)?;
-    cw_ownable::initialize_owner(deps.storage, deps.api, Some(core.as_ref()))?;
-    CORE_ADDRESS.save(deps.storage, &core)?;
+    let core_address = deps.api.addr_validate(&msg.core_address)?;
+    cw_ownable::initialize_owner(deps.storage, deps.api, Some(core_address.as_ref()))?;
+    CORE_ADDRESS.save(deps.storage, &core_address)?;
 
     let puppeteer = deps.api.addr_validate(&msg.puppeteer_address)?;
     PUPPETEER_ADDRESS.save(deps.storage, &puppeteer)?;
@@ -118,11 +118,12 @@ fn prepare_delegation_data(
     let puppeteer_address = PUPPETEER_ADDRESS.load(deps.storage)?.into_string();
     let validator_set_address = VALIDATOR_SET_ADDRESS.load(deps.storage)?.into_string();
     let denom = DENOM.load(deps.storage)?;
-
-    let account_delegations: lido_puppeteer_base::msg::DelegationsResponse =
+    let account_delegations: lido_staking_base::msg::puppeteer::DelegationsResponse =
         deps.querier.query_wasm_smart(
             &puppeteer_address,
-            &lido_puppeteer_base::msg::QueryMsg::Delegations {},
+            &lido_puppeteer_base::msg::QueryMsg::Extention {
+                msg: lido_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+            },
         )?;
 
     let validator_set: Vec<lido_staking_base::state::validatorset::ValidatorInfo> =
@@ -133,6 +134,7 @@ fn prepare_delegation_data(
 
     let mut delegations: Vec<lido_staking_base::msg::distribution::Delegation> = Vec::new();
     let delegation_validator_map: HashMap<_, _> = account_delegations
+        .0
         .delegations
         .iter()
         .filter(|delegation| delegation.amount.denom == denom)

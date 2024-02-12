@@ -1,11 +1,11 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Decimal};
 
-use crate::state::validatorset::ValidatorInfo;
+use crate::state::validatorset::{ConfigOptional, ValidatorInfo};
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub core: String,
+    pub owner: String,
     pub stats_contract: String,
 }
 
@@ -30,8 +30,7 @@ pub struct ValidatorInfoUpdate {
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig {
-        core: Option<Addr>,
-        stats_contract: Option<Addr>,
+        new_config: ConfigOptional,
     },
     UpdateValidators {
         validators: Vec<ValidatorData>,

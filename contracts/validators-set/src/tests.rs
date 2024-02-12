@@ -3,6 +3,7 @@ use cosmwasm_std::{
     testing::{mock_env, mock_info, MockApi, MockQuerier, MockStorage},
     to_json_binary, Addr, Decimal, Event, OwnedDeps, Querier,
 };
+use lido_staking_base::state::validatorset::ConfigOptional;
 use neutron_sdk::bindings::query::NeutronQuery;
 use std::marker::PhantomData;
 
@@ -23,7 +24,7 @@ fn instantiate() {
         mock_env(),
         mock_info("admin", &[]),
         lido_staking_base::msg::validatorset::InstantiateMsg {
-            core: "core".to_string(),
+            owner: "core".to_string(),
             stats_contract: "stats_contract".to_string(),
         },
     )
@@ -35,7 +36,7 @@ fn instantiate() {
     assert_eq!(
         config,
         lido_staking_base::state::validatorset::Config {
-            core: Addr::unchecked("core"),
+            owner: Addr::unchecked("core"),
             stats_contract: Addr::unchecked("stats_contract"),
         }
     );
@@ -60,7 +61,7 @@ fn query_config() {
         .save(
             deps.as_mut().storage,
             &lido_staking_base::state::validatorset::Config {
-                core: Addr::unchecked("core"),
+                owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
             },
         )
@@ -75,7 +76,7 @@ fn query_config() {
     assert_eq!(
         response,
         to_json_binary(&lido_staking_base::state::validatorset::Config {
-            core: Addr::unchecked("core"),
+            owner: Addr::unchecked("core"),
             stats_contract: Addr::unchecked("stats_contract")
         })
         .unwrap()
@@ -90,7 +91,7 @@ fn update_config_wrong_owner() {
         .save(
             deps.as_mut().storage,
             &lido_staking_base::state::validatorset::Config {
-                core: Addr::unchecked("core"),
+                owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
             },
         )
@@ -101,8 +102,10 @@ fn update_config_wrong_owner() {
         mock_env(),
         mock_info("core1", &[]),
         lido_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
-            core: Some(Addr::unchecked("owner1")),
-            stats_contract: Some(Addr::unchecked("stats_contract1")),
+            new_config: ConfigOptional {
+                owner: Some(Addr::unchecked("owner1")),
+                stats_contract: Some(Addr::unchecked("stats_contract1")),
+            },
         },
     )
     .unwrap_err();
@@ -132,7 +135,7 @@ fn update_config_ok() {
         .save(
             deps.as_mut().storage,
             &lido_staking_base::state::validatorset::Config {
-                core: Addr::unchecked("core"),
+                owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
             },
         )
@@ -143,8 +146,10 @@ fn update_config_ok() {
         mock_env(),
         mock_info("core", &[]),
         lido_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
-            core: Some(Addr::unchecked("owner1")),
-            stats_contract: Some(Addr::unchecked("stats_contract1")),
+            new_config: ConfigOptional {
+                owner: Some(Addr::unchecked("owner1")),
+                stats_contract: Some(Addr::unchecked("stats_contract1")),
+            },
         },
     )
     .unwrap();
@@ -159,7 +164,7 @@ fn update_config_ok() {
     assert_eq!(
         config,
         to_json_binary(&lido_staking_base::state::validatorset::Config {
-            core: Addr::unchecked("owner1"),
+            owner: Addr::unchecked("owner1"),
             stats_contract: Addr::unchecked("stats_contract1")
         })
         .unwrap()
@@ -353,7 +358,7 @@ fn update_validator_info_wrong_sender() {
         .save(
             deps_mut.storage,
             &lido_staking_base::state::validatorset::Config {
-                core: Addr::unchecked("core"),
+                owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
             },
         )
@@ -412,7 +417,7 @@ fn update_validator_info_ok() {
         .save(
             deps_mut.storage,
             &lido_staking_base::state::validatorset::Config {
-                core: Addr::unchecked("core"),
+                owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
             },
         )

@@ -4,12 +4,14 @@ import { StargateClient } from '@cosmjs/stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { waitFor } from './helpers/waitFor';
 import { sleep } from './helpers/sleep';
+import child_process from 'child_process';
 
 const keys = [
   'master',
   'hermes',
   'ibcrelayer',
   'demowallet1',
+  'neutronqueryrelayer',
   'demo1',
   'demo2',
   'demo3',
@@ -63,6 +65,9 @@ const networkConfigs = {
       'app_state.slashing.params.downtime_jail_duration': '10s',
       'app_state.slashing.params.signed_blocks_window': '10',
       'app_state.staking.params.validator_bond_factor': '10',
+      'app_state.mint.minter.inflation': '0.9',
+      'app_state.mint.params.inflation_max': '0.95',
+      'app_state.mint.params.inflation_min': '0.5',
       'app_state.interchainaccounts.host_genesis_state.params.allow_messages': [
         '*',
       ],
@@ -90,6 +95,7 @@ const networkConfigs = {
     prefix: 'neutron',
     loglevel: 'debug',
     trace: true,
+    public: true,
     type: 'ics',
     upload: [
       './artifacts/contracts',
@@ -122,8 +128,8 @@ const relayersConfig = {
     balance: '1000000000',
     binary: 'hermes',
     config: {
-      'chains.0.trusting_period': '14days',
-      'chains.0.unbonding_period': '480h0m0s',
+      'chains.0.trusting_period': '112h0m0s',
+      'chains.0.unbonding_period': '336h0m0s',
       'chains.1.gas_multiplier': 1.2,
       'chains.0.gas_multiplier': 1.2,
     },
@@ -187,15 +193,19 @@ const awaitNeutronChannels = (rest: string, rpc: string): Promise<void> =>
         rpcURL: `http://${rpc}`,
         prefix: 'neutron',
       });
-      const res = await client.IbcCoreChannelV1.query.queryChannels();
+      const res = await client.IbcCoreChannelV1.query.queryChannels(undefined, {
+        timeout: 1000,
+      });
       if (
         res.data.channels.length > 0 &&
         res.data.channels[0].counterparty.channel_id !== ''
       ) {
         return true;
       }
+      await sleep(10000);
     } catch (e) {
       console.log('Failed to await neutron channels', e);
+      await sleep(10000);
       return false;
     }
   }, 100_000);
@@ -216,7 +226,8 @@ export const generateWallets = (): Promise<Record<Keys, string>> =>
 export const setupPark = async (
   context = 'lido',
   networks: string[] = [],
-  needRelayers = false,
+  needHermes = false,
+  needNeutronRelayer = false,
 ): Promise<cosmopark> => {
   const wallets = await generateWallets();
   const config: CosmoparkConfig = {
@@ -237,20 +248,30 @@ export const setupPark = async (
   for (const network of networks) {
     config.networks[network] = networkConfigs[network];
   }
-  if (needRelayers) {
-    config.relayers = [
-      {
-        ...relayersConfig.hermes,
-        networks,
-        connections: [networks],
-        mnemonic: wallets.hermes,
-      } as any,
-      {
-        ...relayersConfig.neutron,
-        networks,
-        mnemonic: wallets.ibcrelayer,
-      },
-    ];
+  config.relayers = [];
+  if (needHermes) {
+    const connections = networks.reduce((connections, network, index, all) => {
+      if (index === all.length - 1) {
+        return connections;
+      }
+      for (let i = index + 1; i < all.length; i++) {
+        connections.push([network, all[i]]);
+      }
+      return connections;
+    }, []);
+    config.relayers.push({
+      ...relayersConfig.hermes,
+      networks,
+      connections: connections,
+      mnemonic: wallets.hermes,
+    } as any);
+  }
+  if (needNeutronRelayer) {
+    config.relayers.push({
+      ...relayersConfig.neutron,
+      networks,
+      mnemonic: wallets.neutronqueryrelayer,
+    } as any);
   }
   const instance = await cosmopark.create(config);
   await Promise.all(
@@ -261,11 +282,16 @@ export const setupPark = async (
       }),
     ),
   );
-  if (needRelayers) {
+  if (needHermes) {
     await awaitNeutronChannels(
       `127.0.0.1:${instance.ports['neutron'].rest}`,
       `127.0.0.1:${instance.ports['neutron'].rpc}`,
     ).catch((e) => {
+      console.log(
+        child_process
+          .execSync('docker logs corefsm-relayer_hermes0-1')
+          .toString(),
+      );
       console.log(`Failed to await neutron channels: ${e}`);
       throw e;
     });

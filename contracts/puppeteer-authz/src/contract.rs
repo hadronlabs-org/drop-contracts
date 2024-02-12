@@ -475,7 +475,7 @@ fn sudo_response(
                 request_id: seq_id,
                 request: request.clone(),
                 transaction: transaction.clone(),
-                answer,
+                answers: vec![answer],
             }))?,
             funds: vec![],
         }));

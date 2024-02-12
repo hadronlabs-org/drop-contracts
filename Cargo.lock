@@ -20,6 +20,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "080e9890a082662b09c1ad45f567faeeb47f22b5fb23895fbe1e651e718e25ca"
 
 [[package]]
+name = "astroport"
+version = "3.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "195a7441515817c0d114ec3bebe9faa21393781f796c179c38c75e3cfb9fb4ec"
+dependencies = [
+ "astroport-circular-buffer",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus 0.15.1",
+ "cw-utils 1.0.3",
+ "cw20 0.15.1",
+ "cw3",
+ "itertools 0.10.5",
+ "uint",
+]
+
+[[package]]
+name = "astroport-circular-buffer"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dac37467245383e7a6baeaaabc22dfd85a7b70ff5d693f757ba63bbc6e39d2c3"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus 0.15.1",
+ "thiserror",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -200,6 +229,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "crunchy"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
+
+[[package]]
 name = "crypto-bigint"
 version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -310,6 +345,17 @@ dependencies = [
 
 [[package]]
 name = "cw-storage-plus"
+version = "0.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc6cf70ef7686e2da9ad7b067c5942cd3e88dd9453f7af42f54557f8af300fb0"
+dependencies = [
+ "cosmwasm-std",
+ "schemars",
+ "serde",
+]
+
+[[package]]
+name = "cw-storage-plus"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9b6f91c0b94481a3e9ef1ceb183c37d00764f8751e39b45fc09f4d9b970d469"
@@ -328,6 +374,21 @@ dependencies = [
  "cosmwasm-std",
  "schemars",
  "serde",
+]
+
+[[package]]
+name = "cw-utils"
+version = "0.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ae0b69fa7679de78825b4edeeec045066aa2b2c4b6e063d80042e565bb4da5c"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw2 0.15.1",
+ "schemars",
+ "semver",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -362,6 +423,19 @@ dependencies = [
 
 [[package]]
 name = "cw2"
+version = "0.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5abb8ecea72e09afff830252963cb60faf945ce6cef2c20a43814516082653da"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus 0.15.1",
+ "schemars",
+ "serde",
+]
+
+[[package]]
+name = "cw2"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91398113b806f4d2a8d5f8d05684704a20ffd5968bf87e3473e1973710b884ad"
@@ -390,6 +464,19 @@ dependencies = [
 
 [[package]]
 name = "cw20"
+version = "0.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6025276fb6e603e974c21f3e4606982cdc646080e8fba3198816605505e1d9a"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-utils 0.15.1",
+ "schemars",
+ "serde",
+]
+
+[[package]]
+name = "cw20"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "526e39bb20534e25a1cd0386727f0038f4da294e5e535729ba3ef54055246abd"
@@ -399,6 +486,21 @@ dependencies = [
  "cw-utils 1.0.3",
  "schemars",
  "serde",
+]
+
+[[package]]
+name = "cw3"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2967fbd073d4b626dd9e7148e05a84a3bebd9794e71342e12351110ffbb12395"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-utils 1.0.3",
+ "cw20 1.1.2",
+ "schemars",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -664,6 +766,15 @@ dependencies = [
 
 [[package]]
 name = "itertools"
+version = "0.10.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
@@ -707,6 +818,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13e3bf6590cbc649f4d1a3eefc9d5d6eb746f5200ffb04e5e142700b8faa56e7"
 
 [[package]]
+name = "lido-astroport-exchange-handler"
+version = "1.0.0"
+dependencies = [
+ "astroport",
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test 0.20.0",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "cw20 1.1.2",
+ "lido-helpers",
+ "lido-staking-base",
+ "prost",
+ "prost-types",
+ "protobuf",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.1",
+ "tendermint-proto",
+]
+
+[[package]]
 name = "lido-core"
 version = "1.0.0"
 dependencies = [
@@ -718,8 +854,9 @@ dependencies = [
  "cw-ownable",
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
- "cw20",
+ "cw20 1.1.2",
  "lido-helpers",
+ "lido-puppeteer-base",
  "lido-staking-base",
  "neutron-sdk",
  "prost",
@@ -727,7 +864,7 @@ dependencies = [
  "protobuf",
  "schemars",
  "serde",
- "serde-json-wasm 1.0.0",
+ "serde-json-wasm 1.0.1",
  "tendermint-proto",
  "thiserror",
 ]
@@ -744,7 +881,7 @@ dependencies = [
  "cw-ownable",
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
- "cw20",
+ "cw20 1.1.2",
  "lido-helpers",
  "lido-staking-base",
  "neutron-sdk",
@@ -753,7 +890,7 @@ dependencies = [
  "protobuf",
  "schemars",
  "serde",
- "serde-json-wasm 1.0.0",
+ "serde-json-wasm 1.0.1",
  "tendermint-proto",
  "thiserror",
 ]
@@ -770,8 +907,9 @@ dependencies = [
  "cw-ownable",
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
- "cw20",
+ "cw20 1.1.2",
  "lido-helpers",
+ "lido-puppeteer-base",
  "lido-staking-base",
  "neutron-sdk",
  "prost",
@@ -779,7 +917,7 @@ dependencies = [
  "protobuf",
  "schemars",
  "serde",
- "serde-json-wasm 1.0.0",
+ "serde-json-wasm 1.0.1",
  "tendermint-proto",
  "thiserror",
 ]
@@ -794,6 +932,7 @@ dependencies = [
  "cw-multi-test 0.20.0",
  "cw-storage-plus 1.2.0",
  "neutron-sdk",
+ "thiserror",
 ]
 
 [[package]]
@@ -814,6 +953,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "lido-pump"
+version = "1.0.0"
+dependencies = [
+ "base64",
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test 0.20.0",
+ "cw-storage-plus 1.2.0",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "cw20 1.1.2",
+ "lido-helpers",
+ "lido-staking-base",
+ "neutron-sdk",
+ "prost",
+ "prost-types",
+ "protobuf",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.1",
+ "tendermint-proto",
+ "thiserror",
+]
+
+[[package]]
 name = "lido-puppeteer"
 version = "1.0.0"
 dependencies = [
@@ -825,7 +991,7 @@ dependencies = [
  "cw-multi-test 0.20.0",
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
- "cw20",
+ "cw20 1.1.2",
  "lido-helpers",
  "lido-puppeteer-base",
  "lido-staking-base",
@@ -835,33 +1001,7 @@ dependencies = [
  "protobuf",
  "schemars",
  "serde",
- "serde-json-wasm 1.0.0",
- "tendermint-proto",
-]
-
-[[package]]
-name = "lido-puppeteer-authz"
-version = "1.0.0"
-dependencies = [
- "base64",
- "cosmos-sdk-proto",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cosmwasm-storage",
- "cw-multi-test 0.20.0",
- "cw-storage-plus 1.2.0",
- "cw2 1.1.2",
- "cw20",
- "lido-helpers",
- "lido-puppeteer-base",
- "lido-staking-base",
- "neutron-sdk",
- "prost",
- "prost-types",
- "protobuf",
- "schemars",
- "serde",
- "serde-json-wasm 1.0.0",
+ "serde-json-wasm 1.0.1",
  "tendermint-proto",
 ]
 
@@ -878,7 +1018,7 @@ dependencies = [
  "cw-ownable",
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
- "cw20",
+ "cw20 1.1.2",
  "lido-helpers",
  "neutron-sdk",
  "prost",
@@ -886,15 +1026,40 @@ dependencies = [
  "protobuf",
  "schemars",
  "serde",
- "serde-json-wasm 1.0.0",
+ "serde-json-wasm 1.0.1",
  "tendermint-proto",
  "thiserror",
+]
+
+[[package]]
+name = "lido-rewards-manager"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test 0.20.0",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "cw20 1.1.2",
+ "lido-helpers",
+ "lido-staking-base",
+ "prost",
+ "prost-types",
+ "protobuf",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.1",
+ "tendermint-proto",
 ]
 
 [[package]]
 name = "lido-staking-base"
 version = "1.0.0"
 dependencies = [
+ "astroport",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cosmwasm-storage",
@@ -903,8 +1068,10 @@ dependencies = [
  "cw-storage-plus 1.2.0",
  "cw721 0.18.0",
  "cw721-base 0.18.0",
+ "lido-helpers",
  "lido-puppeteer-base",
  "neutron-sdk",
+ "optfield",
  "thiserror",
 ]
 
@@ -920,7 +1087,7 @@ dependencies = [
  "cw-multi-test 0.20.0",
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
- "cw20",
+ "cw20 1.1.2",
  "lido-puppeteer-base",
  "neutron-sdk",
  "prost",
@@ -928,7 +1095,7 @@ dependencies = [
  "protobuf",
  "schemars",
  "serde",
- "serde-json-wasm 1.0.0",
+ "serde-json-wasm 1.0.1",
  "tendermint-proto",
 ]
 
@@ -944,7 +1111,7 @@ dependencies = [
  "cw-ownable",
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
- "cw20",
+ "cw20 1.1.2",
  "lido-distribution",
  "lido-helpers",
  "lido-puppeteer",
@@ -957,7 +1124,7 @@ dependencies = [
  "protobuf",
  "schemars",
  "serde",
- "serde-json-wasm 1.0.0",
+ "serde-json-wasm 1.0.1",
  "tendermint-proto",
 ]
 
@@ -988,7 +1155,7 @@ dependencies = [
  "cw-ownable",
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
- "cw20",
+ "cw20 1.1.2",
  "lido-helpers",
  "lido-staking-base",
  "neutron-sdk",
@@ -997,7 +1164,7 @@ dependencies = [
  "protobuf",
  "schemars",
  "serde",
- "serde-json-wasm 1.0.0",
+ "serde-json-wasm 1.0.1",
  "tendermint-proto",
  "thiserror",
 ]
@@ -1016,7 +1183,7 @@ dependencies = [
  "cw-ownable",
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
- "cw20",
+ "cw20 1.1.2",
  "lido-staking-base",
  "neutron-sdk",
  "prost",
@@ -1024,7 +1191,7 @@ dependencies = [
  "protobuf",
  "schemars",
  "serde",
- "serde-json-wasm 1.0.0",
+ "serde-json-wasm 1.0.1",
  "sha2 0.10.8",
  "tendermint-proto",
 ]
@@ -1053,7 +1220,7 @@ dependencies = [
  "protobuf",
  "schemars",
  "serde",
- "serde-json-wasm 1.0.0",
+ "serde-json-wasm 1.0.1",
  "tendermint-proto",
  "thiserror",
 ]
@@ -1081,7 +1248,7 @@ dependencies = [
  "protobuf",
  "schemars",
  "serde",
- "serde-json-wasm 1.0.0",
+ "serde-json-wasm 1.0.1",
  "tendermint-proto",
  "thiserror",
 ]
@@ -1100,7 +1267,7 @@ dependencies = [
  "protobuf",
  "schemars",
  "serde",
- "serde-json-wasm 1.0.0",
+ "serde-json-wasm 1.0.1",
  "speedate",
  "tendermint-proto",
  "thiserror",
@@ -1137,6 +1304,17 @@ name = "opaque-debug"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
+
+[[package]]
+name = "optfield"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa59f025cde9c698fcb4fcb3533db4621795374065bee908215263488f2d2a1d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.48",
+]
 
 [[package]]
 name = "paste"
@@ -1331,9 +1509,9 @@ dependencies = [
 
 [[package]]
 name = "serde-json-wasm"
-version = "1.0.0"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83c37d03f3b0f6b5f77c11af1e7c772de1c9af83e50bef7bb6069601900ba67b"
+checksum = "f05da0d153dd4595bdffd5099dc0e9ce425b205ee648eb93437ff7302af8c9a5"
 dependencies = [
  "serde",
 ]
@@ -1569,6 +1747,18 @@ name = "typenum"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825"
+
+[[package]]
+name = "uint"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76f64bba2c53b04fcab63c01a7d7427eadc821e3bc48c34dc9ba29c501164b52"
+dependencies = [
+ "byteorder",
+ "crunchy",
+ "hex",
+ "static_assertions",
+]
 
 [[package]]
 name = "unicode-ident"
