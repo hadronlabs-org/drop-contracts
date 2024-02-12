@@ -1,25 +1,20 @@
-use std::collections::HashSet;
-
-use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Attribute, Deps, Reply, SubMsg};
+use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Attribute, Deps, Reply};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use lido_helpers::answer::response;
 use lido_helpers::reply::get_query_id;
-use lido_staking_base::msg::proposal_votes::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
-use lido_staking_base::state::proposal_votes::{
-    Config, ACTIVE_PROPOSALS, CONFIG, PROPOSALS_VOTES_REMOVE_REPLY_ID, PROPOSALS_VOTES_REPLY_ID,
-    QUERY_ID, VOTERS,
+use lido_staking_base::msg::provider_proposals::{
+    ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
+use lido_staking_base::state::provider_proposals::{Config, CONFIG, QUERY_ID};
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::{NeutronQuery, QueryRegisteredQueryResultResponse};
 use neutron_sdk::interchain_queries::queries::get_raw_interchain_query_result;
 use neutron_sdk::interchain_queries::types::KVReconstruct;
-use neutron_sdk::interchain_queries::v045::helpers::create_gov_proposals_voters_votes_keys;
-use neutron_sdk::interchain_queries::v045::register_queries::new_register_gov_proposal_votes_query_msg;
-use neutron_sdk::interchain_queries::v045::types::GovernmentProposalVotes;
+use neutron_sdk::interchain_queries::v045::types::{GovernmentProposalVotes, ProposalVote};
 use neutron_sdk::sudo::msg::SudoMsg;
 
-use crate::error::{ContractError, ContractResult};
+use crate::error::ContractResult;
 
 const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
 
@@ -35,7 +30,7 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     let core = deps.api.addr_validate(&msg.core_address)?;
-    let provider_proposals = deps.api.addr_validate(&msg.provider_proposals_address)?;
+    let proposal_votes_ = deps.api.addr_validate(&msg.proposal_votes_address)?;
 
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(core.as_ref()))?;
 
@@ -44,7 +39,7 @@ pub fn instantiate(
         port_id: msg.port_id.clone(),
         update_period: msg.update_period,
         core_address: msg.core_address.to_string(),
-        provider_proposals_address: provider_proposals.to_string(),
+        proposal_votes_address: proposal_votes_.to_string(),
     };
 
     CONFIG.save(deps.storage, config)?;
@@ -57,7 +52,7 @@ pub fn instantiate(
             attr("port_id", msg.port_id),
             attr("update_period", msg.update_period.to_string()),
             attr("core_address", msg.core_address),
-            attr("provider_proposals_address", msg.provider_proposals_address),
+            attr("proposal_votes_address", msg.proposal_votes_address),
         ],
     ))
 }
@@ -87,7 +82,7 @@ pub fn execute(
             port_id,
             update_period,
             core_address,
-            provider_proposals_address,
+            proposal_votes_address,
         } => execute_update_config(
             deps,
             info,
@@ -95,12 +90,9 @@ pub fn execute(
             port_id,
             update_period,
             core_address,
-            provider_proposals_address,
+            proposal_votes_address,
         ),
-        ExecuteMsg::UpdateActiveProposals { active_proposals } => {
-            execute_update_active_proposals(deps, info, active_proposals)
-        }
-        ExecuteMsg::UpdateVotersList { voters } => execute_update_voters_list(deps, info, voters),
+        ExecuteMsg::UpdateProposalVotes { votes } => execute_update_votes(deps, info, votes),
     }
 }
 
@@ -111,7 +103,7 @@ fn execute_update_config(
     port_id: Option<String>,
     update_period: Option<u64>,
     core_address: Option<String>,
-    provider_proposals_address: Option<String>,
+    proposal_votes_address: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
@@ -124,13 +116,10 @@ fn execute_update_config(
         attrs.push(attr("core_address", core_address))
     }
 
-    if let Some(provider_proposals_address) = provider_proposals_address {
-        let provider_proposals_address = deps.api.addr_validate(&provider_proposals_address)?;
-        config.provider_proposals_address = provider_proposals_address.to_string();
-        attrs.push(attr(
-            "provider_proposals_address",
-            provider_proposals_address,
-        ))
+    if let Some(proposal_votes_address) = proposal_votes_address {
+        let proposal_votes_address = deps.api.addr_validate(&proposal_votes_address)?;
+        config.proposal_votes_address = proposal_votes_address.to_string();
+        attrs.push(attr("proposal_votes_address", proposal_votes_address))
     }
 
     if let Some(connection_id) = connection_id {
@@ -151,139 +140,20 @@ fn execute_update_config(
     Ok(response("config_update", CONTRACT_NAME, attrs))
 }
 
-fn execute_update_voters_list(
+fn execute_update_votes(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
-    voters: Vec<String>,
+    votes: Vec<ProposalVote>,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
-    VOTERS.save(deps.storage, &voters)?;
+    VOTERS.save(deps.storage, &votes)?;
 
     Ok(response(
         "config_update",
         CONTRACT_NAME,
         [attr("total_count", voters.len().to_string())],
     ))
-}
-
-fn execute_update_active_proposals(
-    deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
-    active_proposals: Vec<u64>,
-) -> ContractResult<Response<NeutronMsg>> {
-    let config = CONFIG.load(deps.storage)?;
-
-    ensure_eq!(
-        config.provider_proposals_address,
-        info.sender,
-        ContractError::Unauthorized {}
-    );
-
-    let query_id = QUERY_ID.may_load(deps.storage)?;
-
-    if active_proposals.is_empty() && query_id.is_none() {
-        return Ok(Response::default());
-    }
-
-    if active_proposals.is_empty() && query_id.is_some() {
-        if let Some(query_id) = query_id {
-            return remove_votes_interchain_query(query_id);
-        }
-    }
-
-    process_new_data(deps, &config, query_id, active_proposals)
-}
-
-fn process_new_data(
-    deps: DepsMut<NeutronQuery>,
-    config: &Config,
-    query_id: Option<u64>,
-    active_proposals: Vec<u64>,
-) -> ContractResult<Response<NeutronMsg>> {
-    let voters = VOTERS.may_load(deps.storage)?;
-
-    let mut sub_msgs: Vec<SubMsg<NeutronMsg>> = Vec::new();
-    let mut attrs: Vec<Attribute> = Vec::new();
-
-    if let Some(voters) = voters {
-        attrs.push(attr("total_proposals", active_proposals.len().to_string()));
-        attrs.push(attr("total_voters", voters.len().to_string()));
-
-        if !active_proposals.is_empty() && query_id.is_none() {
-            sub_msgs.push(register_votes_interchain_query(
-                &config,
-                &active_proposals,
-                &voters,
-            )?);
-        }
-
-        let old_active_proposals = ACTIVE_PROPOSALS
-            .may_load(deps.storage)?
-            .unwrap_or_else(Vec::new);
-
-        let active_proposals_set: HashSet<_> = active_proposals.clone().into_iter().collect();
-        let old_active_proposals_set: HashSet<_> = old_active_proposals.into_iter().collect();
-
-        let new_proposals: HashSet<_> = active_proposals_set
-            .difference(&old_active_proposals_set)
-            .cloned()
-            .collect();
-        let proposals_to_remove: HashSet<_> = old_active_proposals_set
-            .difference(&active_proposals_set)
-            .cloned()
-            .collect();
-
-        if !new_proposals.is_empty() || !proposals_to_remove.is_empty() {
-            if let Some(query_id) = query_id {
-                sub_msgs.push(update_votes_interchain_query(
-                    query_id,
-                    &active_proposals,
-                    &voters,
-                )?);
-            }
-        }
-    }
-
-    Ok(response("update_votes_interchain_query", CONTRACT_NAME, attrs).add_submessages(sub_msgs))
-}
-
-fn update_votes_interchain_query(
-    query_id: u64,
-    active_proposals: &Vec<u64>,
-    voters: &Vec<String>,
-) -> ContractResult<SubMsg<NeutronMsg>> {
-    let kv_keys = create_gov_proposals_voters_votes_keys(active_proposals.clone(), voters.clone())?;
-    let msg = NeutronMsg::update_interchain_query(query_id, Some(kv_keys), None, None)?;
-
-    Ok(SubMsg::reply_on_success(msg, PROPOSALS_VOTES_REPLY_ID))
-}
-
-fn register_votes_interchain_query(
-    config: &Config,
-    active_proposals: &Vec<u64>,
-    voters: &Vec<String>,
-) -> ContractResult<SubMsg<NeutronMsg>> {
-    let msg = new_register_gov_proposal_votes_query_msg(
-        config.connection_id.to_string(),
-        active_proposals.clone(),
-        voters.clone(),
-        config.update_period,
-    )?;
-
-    Ok(SubMsg::reply_on_success(msg, PROPOSALS_VOTES_REPLY_ID))
-}
-
-fn remove_votes_interchain_query(query_id: u64) -> ContractResult<Response<NeutronMsg>> {
-    let msg = NeutronMsg::remove_interchain_query(query_id);
-    let sub_msg = SubMsg::reply_on_success(msg, PROPOSALS_VOTES_REMOVE_REPLY_ID);
-
-    Ok(response(
-        "remove_votes_interchain_query",
-        CONTRACT_NAME,
-        [attr("query_id", query_id.to_string())],
-    )
-    .add_submessage(sub_msg))
 }
 
 #[entry_point]

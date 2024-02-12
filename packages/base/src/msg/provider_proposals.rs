@@ -1,4 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use neutron_sdk::interchain_queries::v045::types::ProposalVote;
 
 use crate::state::proposal_votes::Config;
 
@@ -8,7 +9,7 @@ pub struct InstantiateMsg {
     pub port_id: String,
     pub update_period: u64,
     pub core_address: String,
-    pub provider_proposals_address: String,
+    pub proposal_votes_address: String,
 }
 
 #[cw_serde]
@@ -18,13 +19,10 @@ pub enum ExecuteMsg {
         port_id: Option<String>,
         update_period: Option<u64>,
         core_address: Option<String>,
-        provider_proposals_address: Option<String>,
+        proposal_votes_address: Option<String>,
     },
-    UpdateActiveProposals {
-        active_proposals: Vec<u64>,
-    },
-    UpdateVotersList {
-        voters: Vec<String>,
+    UpdateProposalVotes {
+        votes: Vec<ProposalVote>,
     },
 }
 

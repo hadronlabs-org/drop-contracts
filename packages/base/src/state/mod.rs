@@ -2,6 +2,7 @@ pub mod astroport_exchange_handler;
 pub mod core;
 pub mod hook_tester;
 pub mod proposal_votes;
+pub mod provider_proposals;
 pub mod pump;
 pub mod puppeteer;
 pub mod rewards_manager;
