@@ -12,6 +12,7 @@ export interface CodeIds {
   core_code_id: number;
   distribution_code_id: number;
   puppeteer_code_id: number;
+  rewards_manager_code_id: number;
   strategy_code_id: number;
   token_code_id: number;
   validators_set_code_id: number;
@@ -116,6 +117,7 @@ export interface State {
   core_contract: string;
   distribution_contract: string;
   puppeteer_contract: string;
+  rewards_manager_contract: string;
   strategy_contract: string;
   token_contract: string;
   validators_set_contract: string;
