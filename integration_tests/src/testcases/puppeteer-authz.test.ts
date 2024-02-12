@@ -13,7 +13,7 @@ import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { stringToPath } from '@cosmjs/crypto';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
-import { setupPark } from '../testSuite';
+import { awaitBlocks, setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
@@ -544,6 +544,8 @@ describe.skip('Interchain puppeteer with AuthZ support', () => {
   });
 
   it('query delegations query', async () => {
+    await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 1);
+
     let delegations: DelegationsResponse;
     const { gaiaAccount } = context;
 

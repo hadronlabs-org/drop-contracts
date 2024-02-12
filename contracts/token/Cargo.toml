@@ -17,8 +17,10 @@ cosmwasm-std = { workspace = true }
 lido-staking-base = { workspace = true }
 lido-helpers = { workspace = true }
 cosmwasm-schema = { workspace = true }
+cosmos-sdk-proto = { workspace = true }
 cw-storage-plus = { workspace = true }
 cw2 = { workspace = true }
 cw-utils = { workspace = true }
 neutron-sdk = { workspace = true }
 thiserror = { workspace = true }
+cw-ownable = { workspace = true }

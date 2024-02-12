@@ -1,20 +1,10 @@
 use cosmwasm_std::{
     attr,
-    testing::{mock_env, mock_info, MockApi, MockQuerier, MockStorage},
-    to_json_binary, Addr, Decimal, Event, OwnedDeps, Querier,
+    testing::{mock_env, mock_info, MockQuerier},
+    to_json_binary, Addr, Decimal, Event,
 };
+use lido_helpers::testing::mock_dependencies;
 use lido_staking_base::state::validatorset::ConfigOptional;
-use neutron_sdk::bindings::query::NeutronQuery;
-use std::marker::PhantomData;
-
-fn mock_dependencies<Q: Querier + Default>() -> OwnedDeps<MockStorage, MockApi, Q, NeutronQuery> {
-    OwnedDeps {
-        storage: MockStorage::default(),
-        api: MockApi::default(),
-        querier: Q::default(),
-        custom_query_type: PhantomData,
-    }
-}
 
 #[test]
 fn instantiate() {
@@ -146,7 +136,7 @@ fn update_config_ok() {
         mock_env(),
         mock_info("core", &[]),
         lido_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
-            new_config: ConfigOptional {
+            new_config: lido_staking_base::state::validatorset::ConfigOptional {
                 owner: Some(Addr::unchecked("owner1")),
                 stats_contract: Some(Addr::unchecked("stats_contract1")),
             },
