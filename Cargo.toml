@@ -24,12 +24,11 @@ resolver = "2"
 
 [workspace.dependencies]
 cosmos-sdk-proto = { version = "0.20.0", default-features = false }
-base64 = "0.21.2"
+base64 = "0.21.5"
 cw-ownable = "0.5.1"
-neutron-sdk = { package = "neutron-sdk", git = "https://github.com/neutron-org/neutron-sdk", rev = "9f0ed09746b4cc75e902315b0a0d5a3e0e5350a7" }
-prost = "0.12.1"
-prost-types = "0.12.1"
-protobuf = "3.2.0"
+neutron-sdk = { package = "neutron-sdk", git = "https://github.com/neutron-org/neutron-sdk", branch = "feat/LIDO-68-query-siginig-info" }
+prost = "0.12.3"
+prost-types = "0.12.3"
 tendermint-proto = "0.34.0"
 cosmwasm-std = { version = "1.5.2", default-features = false, features = [
     "stargate",

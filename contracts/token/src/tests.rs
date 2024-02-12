@@ -1,30 +1,37 @@
-use cosmwasm_std::{
-    attr, coin, from_json,
-    testing::{mock_env, mock_info, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR},
-    to_json_binary, Addr, ContractResult, CosmosMsg, Event, OwnedDeps, Querier, QuerierResult,
-    QueryRequest, Reply, ReplyOn, SubMsgResult, SystemError, Uint128,
-};
-use lido_staking_base::{
-    msg::token::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::token::{CORE_ADDRESS, DENOM},
-};
-use neutron_sdk::{
-    bindings::{msg::NeutronMsg, query::NeutronQuery},
-    query::token_factory::FullDenomResponse,
-};
-use std::marker::PhantomData;
-
 use crate::{
     contract::{self, CREATE_DENOM_REPLY_ID},
     error::ContractError,
 };
+use cosmos_sdk_proto::{
+    cosmos::bank::v1beta1::{DenomUnit, Metadata},
+    prost::Message,
+};
+use cosmwasm_std::{
+    attr, coin, from_json,
+    testing::{mock_env, mock_info, MockQuerier, MOCK_CONTRACT_ADDR},
+    to_json_binary, Addr, Binary, ContractResult, CosmosMsg, Event, Querier, QuerierResult,
+    QueryRequest, Reply, ReplyOn, SubMsgResult, SystemError, Uint128,
+};
+use lido_helpers::testing::mock_dependencies;
+use lido_staking_base::{
+    msg::token::{ConfigResponse, DenomMetadata, ExecuteMsg, InstantiateMsg, QueryMsg},
+    state::token::{CORE_ADDRESS, DENOM, TOKEN_METADATA},
+};
+use neutron_sdk::{
+    bindings::{msg::NeutronMsg, query::NeutronQuery},
+    proto_types::osmosis::tokenfactory::v1beta1::MsgSetDenomMetadata,
+    query::token_factory::FullDenomResponse,
+};
 
-fn mock_dependencies<Q: Querier + Default>() -> OwnedDeps<MockStorage, MockApi, Q, NeutronQuery> {
-    OwnedDeps {
-        storage: MockStorage::default(),
-        api: MockApi::default(),
-        querier: Q::default(),
-        custom_query_type: PhantomData,
+fn sample_metadata() -> DenomMetadata {
+    DenomMetadata {
+        exponent: 6,
+        display: "token".to_string(),
+        name: "A token".to_string(),
+        description: "Some token used for testing".to_string(),
+        symbol: "TOKEN".to_string(),
+        uri: None,
+        uri_hash: None,
     }
 }
 
@@ -38,12 +45,20 @@ fn instantiate() {
         InstantiateMsg {
             core_address: "core".to_string(),
             subdenom: "subdenom".to_string(),
+            token_metadata: sample_metadata(),
+            owner: "admin".to_string(),
         },
     )
     .unwrap();
 
-    let core = CORE_ADDRESS.load(deps.as_ref().storage).unwrap();
-    assert_eq!(core, Addr::unchecked("core"));
+    assert_eq!(
+        CORE_ADDRESS.load(deps.as_ref().storage).unwrap(),
+        Addr::unchecked("core")
+    );
+    assert_eq!(
+        TOKEN_METADATA.load(deps.as_ref().storage).unwrap(),
+        sample_metadata(),
+    );
 
     let denom = DENOM.load(deps.as_ref().storage).unwrap();
     assert_eq!(denom, "subdenom");
@@ -60,7 +75,7 @@ fn instantiate() {
     assert_eq!(
         response.events,
         vec![Event::new("lido-token-instantiate")
-            .add_attributes([attr("core_address", core), attr("subdenom", "subdenom")])]
+            .add_attributes([attr("core_address", "core"), attr("subdenom", "subdenom")])]
     );
     assert!(response.attributes.is_empty());
 }
@@ -68,7 +83,7 @@ fn instantiate() {
 #[test]
 fn reply_unknown_id() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    let error = crate::contract::reply(
+    let error = contract::reply(
         deps.as_mut(),
         mock_env(),
         Reply {
@@ -122,7 +137,11 @@ fn reply() {
     DENOM
         .save(deps.as_mut().storage, &String::from("subdenom"))
         .unwrap();
-    let response = crate::contract::reply(
+    TOKEN_METADATA
+        .save(deps.as_mut().storage, &sample_metadata())
+        .unwrap();
+
+    let response = contract::reply(
         deps.as_mut(),
         mock_env(),
         Reply {
@@ -135,7 +154,46 @@ fn reply() {
     let denom = DENOM.load(deps.as_ref().storage).unwrap();
     assert_eq!(denom, "factory/subdenom");
 
-    assert!(response.messages.is_empty());
+    assert_eq!(response.messages.len(), 1);
+    match response.messages[0].msg.clone() {
+        CosmosMsg::Stargate { type_url, value } => {
+            assert_eq!(
+                type_url,
+                "/osmosis.tokenfactory.v1beta1.MsgSetDenomMetadata"
+            );
+            assert_eq!(
+                value,
+                Binary::from(
+                    MsgSetDenomMetadata {
+                        sender: MOCK_CONTRACT_ADDR.to_string(),
+                        metadata: Some(Metadata {
+                            description: "Some token used for testing".to_string(),
+                            denom_units: vec![
+                                DenomUnit {
+                                    denom: denom.clone(),
+                                    exponent: 0,
+                                    aliases: vec![],
+                                },
+                                DenomUnit {
+                                    denom: "token".to_string(),
+                                    exponent: 6,
+                                    aliases: vec![],
+                                },
+                            ],
+                            base: denom,
+                            display: "token".to_string(),
+                            name: "A token".to_string(),
+                            symbol: "TOKEN".to_string(),
+                            uri: "".to_string(),
+                            uri_hash: "".to_string(),
+                        })
+                    }
+                    .encode_to_vec()
+                )
+            );
+        }
+        _ => panic!(),
+    };
     assert_eq!(
         response.events,
         vec![Event::new("lido-token-reply-create-denom")
@@ -154,7 +212,7 @@ fn mint_zero() {
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let error = crate::contract::execute(
+    let error = contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
@@ -177,7 +235,7 @@ fn mint() {
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let response = crate::contract::execute(
+    let response = contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
@@ -215,7 +273,7 @@ fn mint_stranger() {
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let error = crate::contract::execute(
+    let error = contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("stranger", &[]),
@@ -239,7 +297,7 @@ fn burn_zero() {
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let error = crate::contract::execute(
+    let error = contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
@@ -262,7 +320,7 @@ fn burn_multiple_coins() {
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let error = crate::contract::execute(
+    let error = contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[coin(20, "coin1"), coin(10, "denom")]),
@@ -285,7 +343,7 @@ fn burn_invalid_coin() {
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let error = crate::contract::execute(
+    let error = contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[coin(20, "coin1")]),
@@ -308,7 +366,7 @@ fn burn() {
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let response = crate::contract::execute(
+    let response = contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[coin(140, "denom")]),
@@ -342,7 +400,7 @@ fn burn_stranger() {
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let error = crate::contract::execute(
+    let error = contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("stranger", &[coin(160, "denom")]),
@@ -363,7 +421,7 @@ fn query_config() {
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
 
-    let response = crate::contract::query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
+    let response = contract::query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
     assert_eq!(
         response,
         to_json_binary(&ConfigResponse {

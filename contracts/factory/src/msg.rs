@@ -1,7 +1,7 @@
+use crate::state::{CodeIds, RemoteOpts, State};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
-
-use crate::state::{CodeIds, RemoteOpts, State};
+use lido_staking_base::msg::token::DenomMetadata;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -9,6 +9,7 @@ pub struct InstantiateMsg {
     pub remote_opts: RemoteOpts,
     pub salt: String,
     pub subdenom: String,
+    pub token_metadata: DenomMetadata,
 }
 
 #[cw_serde]

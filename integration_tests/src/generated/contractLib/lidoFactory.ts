@@ -6,6 +6,7 @@ export interface InstantiateMsg {
   remote_opts: RemoteOpts;
   salt: string;
   subdenom: string;
+  token_metadata: DenomMetadata;
 }
 export interface CodeIds {
   core_code_id: number;
@@ -23,6 +24,36 @@ export interface RemoteOpts {
   port_id: string;
   transfer_channel_id: string;
   update_period: number;
+}
+export interface DenomMetadata {
+  /**
+   * Even longer description, example: "The native staking token of the Cosmos Hub"
+   */
+  description: string;
+  /**
+   * Lowercase moniker to be displayed in clients, example: "atom"
+   */
+  display: string;
+  /**
+   * Number of decimals
+   */
+  exponent: number;
+  /**
+   * Descriptive token name, example: "Cosmos Hub Atom"
+   */
+  name: string;
+  /**
+   * Symbol to be displayed on exchanges, example: "ATOM"
+   */
+  symbol: string;
+  /**
+   * URI to a document that contains additional information
+   */
+  uri?: string | null;
+  /**
+   * SHA256 hash of a document pointed by URI
+   */
+  uri_hash?: string | null;
 }
 export type CallbackArgs = {
   post_init: {};

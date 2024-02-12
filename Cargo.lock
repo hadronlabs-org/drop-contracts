@@ -739,7 +739,6 @@ dependencies = [
  "neutron-sdk",
  "prost",
  "prost-types",
- "protobuf",
  "schemars",
  "serde",
  "serde-json-wasm 1.0.1",
@@ -765,7 +764,6 @@ dependencies = [
  "neutron-sdk",
  "prost",
  "prost-types",
- "protobuf",
  "schemars",
  "serde",
  "serde-json-wasm 1.0.1",
@@ -792,7 +790,6 @@ dependencies = [
  "neutron-sdk",
  "prost",
  "prost-types",
- "protobuf",
  "schemars",
  "serde",
  "serde-json-wasm 1.0.1",
@@ -826,7 +823,6 @@ dependencies = [
  "lido-staking-base",
  "neutron-sdk",
  "prost",
- "protobuf",
  "thiserror",
 ]
 
@@ -849,7 +845,6 @@ dependencies = [
  "neutron-sdk",
  "prost",
  "prost-types",
- "protobuf",
  "schemars",
  "serde",
  "serde-json-wasm 1.0.1",
@@ -876,7 +871,6 @@ dependencies = [
  "neutron-sdk",
  "prost",
  "prost-types",
- "protobuf",
  "schemars",
  "serde",
  "serde-json-wasm 1.0.1",
@@ -901,7 +895,6 @@ dependencies = [
  "neutron-sdk",
  "prost",
  "prost-types",
- "protobuf",
  "schemars",
  "serde",
  "serde-json-wasm 1.0.1",
@@ -945,7 +938,6 @@ dependencies = [
  "neutron-sdk",
  "prost",
  "prost-types",
- "protobuf",
  "schemars",
  "serde",
  "serde-json-wasm 1.0.1",
@@ -974,7 +966,6 @@ dependencies = [
  "neutron-sdk",
  "prost",
  "prost-types",
- "protobuf",
  "schemars",
  "serde",
  "serde-json-wasm 1.0.1",
@@ -985,8 +976,10 @@ dependencies = [
 name = "lido-token"
 version = "1.0.0"
 dependencies = [
+ "cosmos-sdk-proto",
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cw-ownable",
  "cw-storage-plus 1.2.0",
  "cw-utils 1.0.3",
  "cw2 1.1.2",
@@ -1014,7 +1007,6 @@ dependencies = [
  "neutron-sdk",
  "prost",
  "prost-types",
- "protobuf",
  "schemars",
  "serde",
  "serde-json-wasm 1.0.1",
@@ -1041,7 +1033,6 @@ dependencies = [
  "neutron-sdk",
  "prost",
  "prost-types",
- "protobuf",
  "schemars",
  "serde",
  "serde-json-wasm 1.0.1",
@@ -1070,7 +1061,6 @@ dependencies = [
  "neutron-sdk",
  "prost",
  "prost-types",
- "protobuf",
  "schemars",
  "serde",
  "serde-json-wasm 1.0.1",
@@ -1098,7 +1088,6 @@ dependencies = [
  "neutron-sdk",
  "prost",
  "prost-types",
- "protobuf",
  "schemars",
  "serde",
  "serde-json-wasm 1.0.1",
@@ -1108,8 +1097,8 @@ dependencies = [
 
 [[package]]
 name = "neutron-sdk"
-version = "0.7.0"
-source = "git+https://github.com/neutron-org/neutron-sdk?rev=9f0ed09746b4cc75e902315b0a0d5a3e0e5350a7#9f0ed09746b4cc75e902315b0a0d5a3e0e5350a7"
+version = "0.8.0"
+source = "git+https://github.com/neutron-org/neutron-sdk?branch=feat/LIDO-68-query-siginig-info#e753df9a24cb0001dfb125ef6f67595da01eee64"
 dependencies = [
  "bech32",
  "cosmos-sdk-proto",
