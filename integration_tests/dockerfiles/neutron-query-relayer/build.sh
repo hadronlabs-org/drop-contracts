@@ -5,7 +5,7 @@ git clone https://github.com/neutron-org/neutron-query-relayer
 VERSION=$(cat ../../package.json | jq -r '.version')
 if [[ "$CI" == "true" ]]; then
     VERSION="_$VERSION"
-    ORG=neutronorg/
+    ORG=neutronorg/lionco-contracts:
 else
     VERSION=":$VERSION"
 fi

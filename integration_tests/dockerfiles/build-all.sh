@@ -1,7 +1,7 @@
 #!/bin/bash
 VERSION=$(cat ./package.json | jq -r '.version')
 cd dockerfiles
-IMAGES=$(ls -1 | grep -v build-all.sh)
+IMAGES=$(ls -1 | grep -v build-all.sh | grep -v '^$')
 for IMAGE in $IMAGES; do
     # check if docker image is already built
     if [[ "$CI" == "true" ]]; then
@@ -10,13 +10,17 @@ for IMAGE in $IMAGES; do
     else
         VERSION=":$VERSION"
     fi
-    if [[ "$(docker images -q $DOCKERIMAGE-test$VERSION 2> /dev/null)" == "" ]]; then
+    if [[ "$(docker images -q $DOCKERIMAGE-test_$VERSION 2> /dev/null)" == "" ]]; then
         echo "Building $DOCKERIMAGE:$VERSION"
         ./$IMAGE/build.sh
         if [[ "$CI" == "true" ]]; then
-            docker push $DOCKERIMAGE-test$VERSION
+            echo "Push image $DOCKERIMAGE-test_$VERSION"
+            docker push $DOCKERIMAGE-test_$VERSION
         fi
     else
         echo "Image $IMAGE:$VERSION already exists"
     fi
+    echo ""
 done
+
+docker images

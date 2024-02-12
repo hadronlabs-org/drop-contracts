@@ -7,7 +7,7 @@ import { sleep } from './helpers/sleep';
 import child_process from 'child_process';
 const packageJSON = require(`${__dirname}/../package.json`);
 const VERSION = (process.env.CI ? '_' : ':') + packageJSON.version;
-const ORG = process.env.CI ? 'neutronorg/' : '';
+const ORG = process.env.CI ? 'neutronorg/lionco-contracts:' : '';
 
 const keys = [
   'master',
