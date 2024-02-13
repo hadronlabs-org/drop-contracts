@@ -76,16 +76,17 @@ jobs:
         with:
           go-version: 1.20
           cache: false
-      - name: Lint
-        run: cd integration_tests && yarn --ignore-engines && yarn lint
-      # - name: Build images
-      #   run: |
-      #     cd integration_tests
-      #     cat package.json | grep -e "build-[a-z]*-image\"" | awk -F: '{print $1}' | tr -d ' ",{}' | xargs -I % -P 3 yarn %
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
       - name: Build images
         run: |
           cd integration_tests
           yarn build-images
+      - name: Lint
+        run: cd integration_tests && yarn --ignore-engines && yarn lint
       - run: make compile
       - name: Run tests
         run: |

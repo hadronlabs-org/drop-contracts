@@ -20,10 +20,10 @@
     "build-ts-client": "ts-node ./src/rebuild-client.ts",
     "build-lsm-image": "./dockerfiles/lsm/build.sh",
     "build-gaia-image": "./dockerfiles/gaia/build.sh",
-    "build-hermes-image": "docker build ./dockerfiles/hermes -t hermes",
+    "build-hermes-image": "./dockerfiles/hermes/build.sh",
     "build-neutron-image": "./dockerfiles/neutron/build.sh",
     "build-neutron-query-relayer-image": "./dockerfiles/neutron-query-relayer/build.sh",
-    "build-images": "yarn build-lsm-image && yarn build-gaia-image && yarn build-hermes-image && yarn build-neutron-image && yarn build-neutron-query-relayer-image",
+    "build-images": "./dockerfiles/build-all.sh && docker images",
     "lint": "eslint ./src -f compact"
   },
   "dependencies": {
