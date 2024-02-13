@@ -15,7 +15,9 @@ use neutron_sdk::bindings::query::{NeutronQuery, QueryRegisteredQueryResultRespo
 use neutron_sdk::interchain_queries::queries::get_raw_interchain_query_result;
 use neutron_sdk::interchain_queries::types::KVReconstruct;
 use neutron_sdk::interchain_queries::v045::helpers::create_gov_proposals_voters_votes_keys;
-use neutron_sdk::interchain_queries::v045::register_queries::new_register_gov_proposal_votes_query_msg;
+use neutron_sdk::interchain_queries::v045::register_queries::{
+    new_register_gov_proposal_votes_query_msg, update_register_gov_proposal_votes_query_msg,
+};
 use neutron_sdk::interchain_queries::v045::types::GovernmentProposalVotes;
 use neutron_sdk::sudo::msg::SudoMsg;
 
@@ -253,8 +255,13 @@ fn update_votes_interchain_query(
     active_proposals: &Vec<u64>,
     voters: &Vec<String>,
 ) -> ContractResult<SubMsg<NeutronMsg>> {
-    let kv_keys = create_gov_proposals_voters_votes_keys(active_proposals.clone(), voters.clone())?;
-    let msg = NeutronMsg::update_interchain_query(query_id, Some(kv_keys), None, None)?;
+    let msg = update_register_gov_proposal_votes_query_msg(
+        query_id,
+        active_proposals.clone(),
+        voters.clone(),
+        None,
+        None,
+    )?;
 
     Ok(SubMsg::reply_on_success(msg, PROPOSALS_VOTES_REPLY_ID))
 }

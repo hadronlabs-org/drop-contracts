@@ -59,9 +59,9 @@ fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Binary> {
 }
 
 fn query_validator(deps: Deps<NeutronQuery>, valoper: Addr) -> ContractResult<Binary> {
-    let validators = VALIDATORS_SET.may_load(deps.storage, valoper.to_string())?;
+    let validator = VALIDATORS_SET.may_load(deps.storage, valoper.to_string())?;
 
-    Ok(to_json_binary(&validators)?)
+    Ok(to_json_binary(&validator)?)
 }
 
 fn query_validators(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {

@@ -1,19 +1,24 @@
-use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Attribute, Deps, Reply};
-use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
+use std::collections::HashMap;
+
+use cosmwasm_std::{
+    attr, ensure_eq, entry_point, to_json_binary, Attribute, Binary, Deps, DepsMut, Env,
+    MessageInfo, Order, Reply, Response, StdResult, SubMsg,
+};
 use cw2::set_contract_version;
 use lido_helpers::answer::response;
 use lido_helpers::reply::get_query_id;
 use lido_staking_base::msg::provider_proposals::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
-use lido_staking_base::state::provider_proposals::{Config, CONFIG, QUERY_ID};
+use lido_staking_base::state::provider_proposals::{
+    Config, ProposalInfo, CONFIG, PROPOSALS, PROPOSALS_REPLY_ID, PROPOSALS_VOTES, QUERY_ID,
+};
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::{NeutronQuery, QueryRegisteredQueryResultResponse};
 use neutron_sdk::interchain_queries::queries::get_raw_interchain_query_result;
 use neutron_sdk::interchain_queries::types::KVReconstruct;
-use neutron_sdk::interchain_queries::v045::types::{
-    GovernmentProposal, GovernmentProposalVotes, ProposalVote,
-};
+use neutron_sdk::interchain_queries::v045::register_queries::new_register_gov_proposal_query_msg;
+use neutron_sdk::interchain_queries::v045::types::{GovernmentProposal, Proposal, ProposalVote};
 use neutron_sdk::sudo::msg::SudoMsg;
 
 use crate::error::{ContractError, ContractResult};
@@ -37,14 +42,27 @@ pub fn instantiate(
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(core.as_ref()))?;
 
     let config = &Config {
-        connection_id: msg.connection_id.clone(),
+        connection_id: msg.connection_id.to_string(),
         port_id: msg.port_id.clone(),
         update_period: msg.update_period,
         core_address: msg.core_address.to_string(),
         proposal_votes_address: proposal_votes_.to_string(),
+        init_proposal: msg.init_proposal,
+        proposals_prefetch: msg.proposals_prefetch,
     };
 
     CONFIG.save(deps.storage, config)?;
+
+    let initial_proposals: Vec<u64> =
+        (msg.init_proposal..msg.init_proposal + msg.proposals_prefetch as u64).collect();
+
+    let reg_msg = new_register_gov_proposal_query_msg(
+        msg.connection_id.to_string(),
+        initial_proposals.clone(),
+        msg.update_period,
+    )?;
+
+    let sub_msg = SubMsg::reply_on_success(reg_msg, PROPOSALS_REPLY_ID);
 
     Ok(response(
         "instantiate",
@@ -55,20 +73,54 @@ pub fn instantiate(
             attr("update_period", msg.update_period.to_string()),
             attr("core_address", msg.core_address),
             attr("proposal_votes_address", msg.proposal_votes_address),
+            attr("init_proposal", msg.init_proposal.to_string()),
+            attr("proposals_prefetch", msg.proposals_prefetch.to_string()),
         ],
-    ))
+    )
+    .add_submessage(sub_msg))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => query_config(deps, env),
+        QueryMsg::GetProposal { proposal_id } => query_proposal(deps, proposal_id),
+        QueryMsg::GetProposals {} => query_proposals(deps),
     }
 }
 
 fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
     let config = CONFIG.load(deps.storage)?;
     to_json_binary(&config)
+}
+
+fn query_proposal(deps: Deps<NeutronQuery>, proposal_id: u64) -> StdResult<Binary> {
+    let proposal: Proposal = PROPOSALS.load(deps.storage, proposal_id)?;
+    let votes = PROPOSALS_VOTES
+        .may_load(deps.storage, proposal_id)
+        .ok()
+        .unwrap_or_default();
+    to_json_binary(&ProposalInfo { proposal, votes })
+}
+
+fn query_proposals(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
+    let proposals: StdResult<Vec<_>> = PROPOSALS
+        .range_raw(deps.storage, None, None, Order::Ascending)
+        .map(|item| {
+            item.map(|(_key, value)| {
+                let votes = PROPOSALS_VOTES
+                    .may_load(deps.storage, value.proposal_id)
+                    .ok()
+                    .unwrap_or_default();
+                ProposalInfo {
+                    proposal: value,
+                    votes,
+                }
+            })
+        })
+        .collect();
+
+    to_json_binary(&proposals?)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -85,6 +137,7 @@ pub fn execute(
             update_period,
             core_address,
             proposal_votes_address,
+            proposals_prefetch,
         } => execute_update_config(
             deps,
             info,
@@ -93,6 +146,7 @@ pub fn execute(
             update_period,
             core_address,
             proposal_votes_address,
+            proposals_prefetch,
         ),
         ExecuteMsg::UpdateProposalVotes { votes } => execute_update_votes(deps, info, votes),
     }
@@ -106,6 +160,7 @@ fn execute_update_config(
     update_period: Option<u64>,
     core_address: Option<String>,
     proposal_votes_address: Option<String>,
+    proposals_prefetch: Option<u64>,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
@@ -139,6 +194,11 @@ fn execute_update_config(
         attrs.push(attr("update_period", update_period.to_string()))
     }
 
+    if let Some(proposals_prefetch) = proposals_prefetch {
+        config.proposals_prefetch = proposals_prefetch;
+        attrs.push(attr("proposals_prefetch", proposals_prefetch.to_string()))
+    }
+
     Ok(response("config_update", CONTRACT_NAME, attrs))
 }
 
@@ -149,12 +209,23 @@ fn execute_update_votes(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
-    VOTERS.save(deps.storage, &votes)?;
+    let mut votes_map: HashMap<u64, Vec<ProposalVote>> = HashMap::new();
+
+    for vote in votes.clone() {
+        votes_map
+            .entry(vote.proposal_id.clone())
+            .or_insert_with(Vec::new)
+            .push(vote);
+    }
+
+    for (proposal_id, votes) in votes_map.iter() {
+        PROPOSALS_VOTES.save(deps.storage, *proposal_id, votes)?;
+    }
 
     Ok(response(
         "config_update",
         CONTRACT_NAME,
-        [attr("total_count", voters.len().to_string())],
+        [attr("total_count", votes.len().to_string())],
     ))
 }
 
@@ -214,6 +285,10 @@ fn sudo_proposals_query(
     deps.api
         .debug(&format!("WASMDEBUG: sudo_proposals_query data: {data:?}",));
 
+    for proposal in data.proposals {
+        PROPOSALS.save(deps.storage, proposal.proposal_id, &proposal)?;
+    }
+
     Ok(Response::new())
 }
 
@@ -223,8 +298,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> ContractResult<Response> {
         .debug(format!("WASMDEBUG: reply msg: {msg:?}").as_str());
 
     match msg.id {
-        PROPOSALS_VOTES_REPLY_ID => proposals_votes_reply(deps, env, msg),
-        PROPOSALS_VOTES_REMOVE_REPLY_ID => proposals_votes_remove_reply(deps, env, msg),
+        PROPOSALS_REPLY_ID => proposals_votes_reply(deps, env, msg),
         id => Err(ContractError::UnknownReplyId { id }),
     }
 }
@@ -236,16 +310,6 @@ fn proposals_votes_reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult
     let query_id = get_query_id(msg.result)?;
 
     QUERY_ID.save(deps.storage, &query_id)?;
-
-    Ok(Response::new())
-}
-
-fn proposals_votes_remove_reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
-    deps.api.debug(&format!(
-        "WASMDEBUG: proposals_votes_remove_reply call: {msg:?}",
-    ));
-
-    QUERY_ID.remove(deps.storage);
 
     Ok(Response::new())
 }
