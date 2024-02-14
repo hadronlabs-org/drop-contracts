@@ -34,11 +34,37 @@ export type Addr = string;
 export type Uint128 = string;
 export type IcaState = "none" | "in_progress" | "registered" | "timeout";
 export type ArrayOfTransfer = Transfer[];
+/**
+ * A point in time in nanosecond precision.
+ *
+ * This type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.
+ *
+ * ## Examples
+ *
+ * ``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);
+ *
+ * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
+ */
+export type Timestamp = Uint64;
+/**
+ * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u64` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
+ *
+ * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
+ */
+export type Uint64 = string;
+export type ArrayOfUnbondingDelegation = UnbondingDelegation[];
 
 export interface LidoPuppeteerAuthzSchema {
-  responses: Config | DelegationsResponse | State | ArrayOfTransfer;
+  responses: Config | DelegationsResponse | State | ArrayOfTransfer | ArrayOfUnbondingDelegation;
   execute:
     | RegisterDelegatorDelegationsQueryArgs
+    | RegisterDelegatorUnbondingDelegationsQueryArgs
     | SetFeesArgs
     | DelegateArgs
     | UndelegateArgs
@@ -93,7 +119,23 @@ export interface Transfer {
   recipient: string;
   sender: string;
 }
+export interface UnbondingDelegation {
+  last_updated_height: number;
+  query_id: number;
+  unbonding_delegations: UnbondingEntry[];
+  validator_address: string;
+}
+export interface UnbondingEntry {
+  balance: Uint128;
+  completion_time?: Timestamp | null;
+  creation_height: number;
+  initial_balance: Uint128;
+  [k: string]: unknown;
+}
 export interface RegisterDelegatorDelegationsQueryArgs {
+  validators: string[];
+}
+export interface RegisterDelegatorUnbondingDelegationsQueryArgs {
   validators: string[];
 }
 export interface SetFeesArgs {
@@ -178,6 +220,9 @@ export class Client {
   queryDelegations = async(): Promise<DelegationsResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { delegations: {} });
   }
+  queryUnbondingDelegations = async(): Promise<ArrayOfUnbondingDelegation> => {
+    return this.client.queryContractSmart(this.contractAddress, { unbonding_delegations: {} });
+  }
   registerICA = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { register_i_c_a: {} }, fee || "auto", memo, funds);
@@ -189,6 +234,10 @@ export class Client {
   registerDelegatorDelegationsQuery = async(sender:string, args: RegisterDelegatorDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { register_delegator_delegations_query: args }, fee || "auto", memo, funds);
+  }
+  registerDelegatorUnbondingDelegationsQuery = async(sender:string, args: RegisterDelegatorUnbondingDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { register_delegator_unbonding_delegations_query: args }, fee || "auto", memo, funds);
   }
   setFees = async(sender:string, args: SetFeesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

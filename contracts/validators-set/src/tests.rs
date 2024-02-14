@@ -107,9 +107,7 @@ fn update_config_wrong_owner() {
     assert_eq!(
         error,
         lido_staking_base::error::validatorset::ContractError::OwnershipError(cw_ownable::OwnershipError::Std(
-            cosmwasm_std::StdError::NotFound {
-                kind: "type: cw_ownable::Ownership<cosmwasm_std::addresses::Addr>; key: [6F, 77, 6E, 65, 72, 73, 68, 69, 70]".to_string()
-            }
+            cosmwasm_std::StdError::not_found("type: cw_ownable::Ownership<cosmwasm_std::addresses::Addr>; key: [6F, 77, 6E, 65, 72, 73, 68, 69, 70]")
         ))
     );
 }
@@ -188,9 +186,7 @@ fn update_validator_wrong_owner() {
     assert_eq!(
         error,
         lido_staking_base::error::validatorset::ContractError::OwnershipError(cw_ownable::OwnershipError::Std(
-            cosmwasm_std::StdError::NotFound {
-                kind: "type: cw_ownable::Ownership<cosmwasm_std::addresses::Addr>; key: [6F, 77, 6E, 65, 72, 73, 68, 69, 70]".to_string()
-            }
+            cosmwasm_std::StdError::not_found("type: cw_ownable::Ownership<cosmwasm_std::addresses::Addr>; key: [6F, 77, 6E, 65, 72, 73, 68, 69, 70]")
         ))
     );
 }
@@ -225,25 +221,27 @@ fn update_validator_ok() {
         deps.as_ref(),
         mock_env(),
         lido_staking_base::msg::validatorset::QueryMsg::Validator {
-            valoper: Addr::unchecked("valoper_address"),
+            valoper: "valoper_address".to_string(),
         },
     )
     .unwrap();
     assert_eq!(
         validator,
-        to_json_binary(&lido_staking_base::state::validatorset::ValidatorInfo {
-            valoper_address: "valoper_address".to_string(),
-            weight: 1,
-            last_processed_remote_height: None,
-            last_processed_local_height: None,
-            last_validated_height: None,
-            last_commission_in_range: None,
-            uptime: Decimal::zero(),
-            tombstone: false,
-            jailed_number: None,
-            init_proposal: None,
-            total_passed_proposals: 0,
-            total_voted_proposals: 0,
+        to_json_binary(&lido_staking_base::msg::validatorset::ValidatorResponse {
+            validator: Some(lido_staking_base::state::validatorset::ValidatorInfo {
+                valoper_address: "valoper_address".to_string(),
+                weight: 1,
+                last_processed_remote_height: None,
+                last_processed_local_height: None,
+                last_validated_height: None,
+                last_commission_in_range: None,
+                uptime: Decimal::zero(),
+                tombstone: false,
+                jailed_number: None,
+                init_proposal: None,
+                total_passed_proposals: 0,
+                total_voted_proposals: 0,
+            })
         })
         .unwrap()
     );
@@ -268,9 +266,7 @@ fn update_validators_wrong_owner() {
     assert_eq!(
         error,
         lido_staking_base::error::validatorset::ContractError::OwnershipError(cw_ownable::OwnershipError::Std(
-            cosmwasm_std::StdError::NotFound {
-                kind: "type: cw_ownable::Ownership<cosmwasm_std::addresses::Addr>; key: [6F, 77, 6E, 65, 72, 73, 68, 69, 70]".to_string()
-            }
+            cosmwasm_std::StdError::not_found("type: cw_ownable::Ownership<cosmwasm_std::addresses::Addr>; key: [6F, 77, 6E, 65, 72, 73, 68, 69, 70]")
         ))
     );
 }
@@ -470,26 +466,28 @@ fn update_validator_info_ok() {
         deps.as_ref(),
         mock_env(),
         lido_staking_base::msg::validatorset::QueryMsg::Validator {
-            valoper: Addr::unchecked("valoper_address"),
+            valoper: "valoper_address".to_string(),
         },
     )
     .unwrap();
 
     assert_eq!(
         validator,
-        to_json_binary(&lido_staking_base::state::validatorset::ValidatorInfo {
-            valoper_address: "valoper_address".to_string(),
-            weight: 1,
-            last_processed_remote_height: Some(1234),
-            last_processed_local_height: Some(2345),
-            last_validated_height: Some(3456),
-            last_commission_in_range: Some(4567),
-            uptime: Decimal::one(),
-            tombstone: true,
-            jailed_number: Some(5678),
-            init_proposal: None,
-            total_passed_proposals: 0,
-            total_voted_proposals: 0,
+        to_json_binary(&lido_staking_base::msg::validatorset::ValidatorResponse {
+            validator: Some(lido_staking_base::state::validatorset::ValidatorInfo {
+                valoper_address: "valoper_address".to_string(),
+                weight: 1,
+                last_processed_remote_height: Some(1234),
+                last_processed_local_height: Some(2345),
+                last_validated_height: Some(3456),
+                last_commission_in_range: Some(4567),
+                uptime: Decimal::one(),
+                tombstone: true,
+                jailed_number: Some(5678),
+                init_proposal: None,
+                total_passed_proposals: 0,
+                total_voted_proposals: 0,
+            })
         })
         .unwrap()
     );

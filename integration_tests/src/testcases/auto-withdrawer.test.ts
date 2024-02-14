@@ -341,6 +341,7 @@ describe('Auto withdrawer', () => {
           unbond_batch_switch_time: 6000,
           unbonding_safe_period: 10,
           unbonding_period: 60,
+          channel: 'channel-0',
         },
       });
       expect(res.transactionHash).toHaveLength(64);

@@ -23,6 +23,7 @@ pub struct Config {
     pub unbond_batch_switch_time: u64, //seconds
     pub pump_address: Option<String>,
     pub owner: String,
+    pub channel: String,
     pub ld_denom: Option<String>,
 }
 
@@ -63,6 +64,7 @@ pub struct UnbondBatch {
 
 pub const UNBOND_BATCHES: Map<u128, UnbondBatch> = Map::new("batches");
 pub const UNBOND_BATCH_ID: Item<u128> = Item::new("batches_ids");
+pub const TOTAL_LSM_SHARES: Item<u128> = Item::new("total_lsm_shares");
 
 #[cw_serde]
 pub enum ContractState {

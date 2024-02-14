@@ -1,6 +1,7 @@
 use crate::state::validatorset::{Config, ConfigOptional, ValidatorInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, Decimal};
+use cosmwasm_std::Decimal;
+use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 
 use crate::state::provider_proposals::ProposalInfo;
 
@@ -28,6 +29,7 @@ pub struct ValidatorInfoUpdate {
     pub jailed_number: Option<u64>,
 }
 
+#[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig {
@@ -48,13 +50,19 @@ pub enum ExecuteMsg {
 }
 
 #[cw_serde]
+pub struct ValidatorResponse {
+    pub validator: Option<ValidatorInfo>,
+}
+
+#[cw_ownable_query]
+#[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     #[returns(Config)]
     Config {},
-    #[returns(ValidatorInfo)]
-    Validator { valoper: Addr },
-    #[returns(Vec<ValidatorInfo>)]
+    #[returns(ValidatorResponse)]
+    Validator { valoper: String },
+    #[returns(Vec<crate::state::validatorset::ValidatorInfo>)]
     Validators {},
 }
 

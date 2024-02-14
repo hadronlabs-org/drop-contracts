@@ -1,10 +1,12 @@
-use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Addr, Attribute, Deps, Order};
+use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Attribute, Deps, Order};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
+use cw_ownable::{get_ownership, update_ownership};
 use lido_helpers::answer::response;
 use lido_staking_base::error::validatorset::{ContractError, ContractResult};
 use lido_staking_base::msg::validatorset::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ValidatorData, ValidatorInfoUpdate,
+    ValidatorResponse,
 };
 use lido_staking_base::state::provider_proposals::ProposalInfo;
 use lido_staking_base::state::validatorset::{
@@ -49,6 +51,7 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     match msg {
+        QueryMsg::Ownership {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
         QueryMsg::Config {} => query_config(deps, env),
         QueryMsg::Validator { valoper } => query_validator(deps, valoper),
         QueryMsg::Validators {} => query_validators(deps),
@@ -60,10 +63,10 @@ fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Binary> {
     Ok(to_json_binary(&config)?)
 }
 
-fn query_validator(deps: Deps<NeutronQuery>, valoper: Addr) -> ContractResult<Binary> {
-    let validator = VALIDATORS_SET.may_load(deps.storage, valoper.to_string())?;
+fn query_validator(deps: Deps<NeutronQuery>, valoper: String) -> ContractResult<Binary> {
+    let validator = VALIDATORS_SET.may_load(deps.storage, valoper)?;
 
-    Ok(to_json_binary(&validator)?)
+    Ok(to_json_binary(&ValidatorResponse { validator })?)
 }
 
 fn query_validators(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
@@ -78,11 +81,15 @@ fn query_validators(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
+        ExecuteMsg::UpdateOwnership(action) => {
+            update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
+            Ok(Response::new())
+        }
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
         ExecuteMsg::UpdateValidators { validators } => {
             execute_update_validators(deps, info, validators)

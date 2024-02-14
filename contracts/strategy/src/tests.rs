@@ -130,6 +130,7 @@ fn instantiate_puppeteer_contract(app: &mut App) -> Addr {
 
 fn validator_set_query(_deps: Deps, _env: Env, msg: ValidatorSetQueryMsg) -> StdResult<Binary> {
     match msg {
+        ValidatorSetQueryMsg::Ownership {} => todo!(),
         ValidatorSetQueryMsg::Config {} => todo!(),
         ValidatorSetQueryMsg::Validator { valoper: _ } => todo!(),
         ValidatorSetQueryMsg::Validators {} => {
