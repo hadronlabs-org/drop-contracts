@@ -28,7 +28,6 @@ compile_arm64:
 		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
 		--platform linux/arm64 \
 		cosmwasm/workspace-optimizer-arm64:0.15.0
-        @sudo chown -R $(shell id -u):$(shell id -g) artifacts
 	@cd artifacts && for file in *-aarch64.wasm; do cp -f "$$file" "$${file%-aarch64.wasm}.wasm"; done
 
 check_contracts:
