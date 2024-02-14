@@ -16,7 +16,6 @@ import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import { IcaState } from '../generated/contractLib/lidoPuppeteer';
 import {
   ResponseAnswer,
   ResponseHookErrorMsg,
@@ -197,9 +196,16 @@ describe('Interchain puppeteer', () => {
     expect(res.transactionHash).toBeTruthy();
     let ica = '';
     await waitFor(async () => {
-      const res = await contractClient.queryState();
-      ica = res.ica;
-      return !!res.ica;
+      const res = await contractClient.queryIca();
+      switch (res) {
+        case 'none':
+        case 'in_progress':
+        case 'timeout':
+          return false;
+        default:
+          ica = res.registered.ica_address;
+          return true;
+      }
     }, 50_000);
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();
@@ -598,9 +604,8 @@ describe('Interchain puppeteer', () => {
   });
   it('ensure ICA is closed', async () => {
     const { contractClient } = context;
-    const res = await contractClient.queryState();
-    expect(res.ica).toBeFalsy();
-    expect<IcaState>(res.ica_state).toEqual('timeout');
+    const res = await contractClient.queryIca();
+    expect(res).toEqual('timeout');
   });
   it('reopen ICA', async () => {
     const { contractClient, account } = context;
@@ -613,9 +618,16 @@ describe('Interchain puppeteer', () => {
     expect(res.transactionHash).toBeTruthy();
     let ica = '';
     await waitFor(async () => {
-      const res = await contractClient.queryState();
-      ica = res.ica;
-      return !!res.ica;
+      const res = await contractClient.queryIca();
+      switch (res) {
+        case 'none':
+        case 'in_progress':
+        case 'timeout':
+          return false;
+        default:
+          ica = res.registered.ica_address;
+          return true;
+      }
     }, 50_000);
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();

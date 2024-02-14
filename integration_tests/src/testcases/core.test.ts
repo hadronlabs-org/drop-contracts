@@ -458,10 +458,17 @@ describe('Core', () => {
     expect(res.transactionHash).toHaveLength(64);
     let ica = '';
     await waitFor(async () => {
-      const res = await puppeteerContractClient.queryState();
-      ica = res.ica;
-      return !!res.ica;
-    }, 50_000);
+      const res = await puppeteerContractClient.queryIca();
+      switch (res) {
+        case 'none':
+        case 'in_progress':
+        case 'timeout':
+          return false;
+        default:
+          ica = res.registered.ica_address;
+          return true;
+      }
+    }, 100_000);
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();
     context.icaAddress = ica;

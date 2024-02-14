@@ -1,5 +1,4 @@
 use cosmwasm_std::{OverflowError, StdError};
-use lido_helpers::fsm::FsmError;
 use neutron_sdk::NeutronError;
 use thiserror::Error;
 
@@ -10,9 +9,6 @@ pub enum ContractError {
 
     #[error("{0}")]
     NeutronError(#[from] NeutronError),
-
-    #[error("{0}")]
-    FsmError(#[from] FsmError),
 
     #[error("Invalid Funds: {reason}")]
     InvalidFunds { reason: String },

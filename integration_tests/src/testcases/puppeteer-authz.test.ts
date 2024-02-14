@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { LidoPuppeteerAuthz } from '../generated/contractLib';
+//import { LidoPuppeteerAuthz } from '../generated/contractLib';
 import {
   QueryClient,
   StakingExtension,
@@ -25,7 +25,7 @@ import {
 import { grantAuthzPermission } from '../helpers/utils';
 import { AuthzExtension } from '@cosmjs/stargate/build/modules/authz/queries';
 
-const PuppeteerClass = LidoPuppeteerAuthz.Client;
+//const PuppeteerClass = LidoPuppeteerAuthz.Client;
 
 describe.skip('Interchain puppeteer with AuthZ support', () => {
   const context: {

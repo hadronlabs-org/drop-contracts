@@ -23,26 +23,16 @@ backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
-base64 = { workspace = true }
 cosmos-sdk-proto = { workspace = true }
-neutron-sdk = { workspace = true }
-prost = { workspace = true }
-prost-types = { workspace = true }
-tendermint-proto = { workspace = true }
-thiserror = { workspace = true }
-
-cosmwasm-schema = { workspace = true }
-cosmwasm-std = { workspace = true }
-cw-ownable = { workspace = true }
-cw-storage-plus = { workspace = true }
-cw2 = { workspace = true }
-cw20 = { workspace = true }
-schemars = { workspace = true }
-serde = { workspace = true }
-serde-json-wasm = { workspace = true }
-lido-helpers = { workspace = true }
-
-
-[dev-dependencies]
-cosmwasm-storage = { workspace = true }
-cw-multi-test = { workspace = true }
+neutron-sdk      = { workspace = true }
+prost            = { workspace = true }
+prost-types      = { workspace = true }
+thiserror        = { workspace = true }
+cosmwasm-schema  = { workspace = true }
+cosmwasm-std     = { workspace = true }
+cw-ownable       = { workspace = true }
+cw-storage-plus  = { workspace = true }
+serde            = { workspace = true }
+serde-json-wasm  = { workspace = true }
+lido-helpers     = { workspace = true }
+schemars         = { workspace = true }

@@ -2,8 +2,8 @@ use cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxMsgData;
 use cosmos_sdk_proto::cosmos::base::v1beta1::Coin as ProtoCoin;
 use cosmos_sdk_proto::ibc::applications::transfer::v1::{MsgTransfer, MsgTransferResponse};
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, entry_point, to_json_binary, Addr, Coin, CosmosMsg, Deps, StdError,
-    Uint128,
+    attr, coin, ensure, ensure_eq, entry_point, to_json_binary, Addr, Coin, CosmosMsg, Deps,
+    StdError, Uint128,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw_utils::must_pay;
@@ -11,11 +11,11 @@ use lido_helpers::answer::response;
 use lido_staking_base::msg::pump::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion, QueryMsg, UpdateConfigMsg,
 };
-use lido_staking_base::state::pump::{Config, IcaState, State, CONFIG, ICA_ID, STATE};
+use lido_staking_base::state::pump::{Config, CONFIG, ICA, ICA_ID};
 use neutron_sdk::bindings::msg::{IbcFee, NeutronMsg};
 use neutron_sdk::bindings::query::NeutronQuery;
 use neutron_sdk::bindings::types::ProtobufAny;
-use neutron_sdk::interchain_txs::helpers::{decode_message_response, get_port_id};
+use neutron_sdk::interchain_txs::helpers::decode_message_response;
 use neutron_sdk::sudo::msg::{RequestPacket, SudoMsg};
 use neutron_sdk::{NeutronError, NeutronResult};
 use prost::Message;
@@ -61,7 +61,6 @@ pub fn instantiate(
             local_denom: msg.local_denom,
         },
     )?;
-    STATE.save(deps.storage, &State::default())?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
@@ -69,18 +68,18 @@ pub fn instantiate(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> NeutronResult<Binary> {
     match msg {
         QueryMsg::Config {} => query_config(deps),
-        QueryMsg::State {} => query_state(deps),
+        QueryMsg::Ica {} => query_ica(deps),
     }
 }
 
 fn query_config(deps: Deps) -> NeutronResult<Binary> {
     let config = CONFIG.load(deps.storage)?;
-    to_json_binary(&config).map_err(neutron_sdk::NeutronError::Std)
+    to_json_binary(&config).map_err(NeutronError::Std)
 }
 
-fn query_state(deps: Deps) -> NeutronResult<Binary> {
-    let state = STATE.load(deps.storage)?;
-    to_json_binary(&state).map_err(neutron_sdk::NeutronError::Std)
+fn query_ica(deps: Deps) -> NeutronResult<Binary> {
+    let ica = ICA.load(deps.storage)?;
+    to_json_binary(&ica).map_err(NeutronError::Std)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -91,7 +90,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::RegisterICA {} => execute_register_ica(deps, env, info),
+        ExecuteMsg::RegisterICA {} => execute_register_ica(deps, info),
         ExecuteMsg::Push { coins } => execute_push(deps, env, info, coins),
         ExecuteMsg::Refund {} => execute_refund(deps, env),
         ExecuteMsg::UpdateConfig { new_config } => {
@@ -157,41 +156,22 @@ fn execute_update_config(
 
 fn execute_register_ica(
     deps: DepsMut<NeutronQuery>,
-    env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
-    let state = STATE.load(deps.storage)?;
     let attrs = vec![
         attr("connection_id", &config.connection_id),
         attr("ica_id", ICA_ID),
     ];
     check_funds(&info, &config, config.ibc_fees.register_fee)?;
-    return match state.ica_state {
-        IcaState::InProgress => Err(ContractError::IcaInProgress {}),
-        IcaState::Registered => Err(ContractError::IcaAlreadyRegistered {}),
-        IcaState::Timeout | IcaState::None => {
-            let register_fee: Uint128 = config.ibc_fees.register_fee;
-            let register = NeutronMsg::register_interchain_account(
-                config.connection_id,
-                ICA_ID.to_string(),
-                Some(vec![Coin {
-                    denom: config.local_denom,
-                    amount: register_fee,
-                }]),
-            );
-            let _key = get_port_id(env.contract.address.as_str(), ICA_ID);
-            STATE.save(
-                deps.storage,
-                &State {
-                    last_processed_height: None,
-                    ica: None,
-                    ica_state: IcaState::InProgress,
-                },
-            )?;
-            Ok(response("register-ica", CONTRACT_NAME, attrs).add_message(register))
-        }
-    };
+    let register_fee: Uint128 = config.ibc_fees.register_fee;
+    let register_msg = ICA.register(
+        deps.storage,
+        config.connection_id,
+        ICA_ID,
+        coin(register_fee.u128(), config.local_denom),
+    )?;
+    Ok(response("register-ica", CONTRACT_NAME, attrs).add_message(register_msg))
 }
 
 fn execute_push(
@@ -201,7 +181,6 @@ fn execute_push(
     coins: Vec<Coin>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
-    let state = STATE.load(deps.storage)?;
     let mut messages = vec![];
     check_funds(
         &info,
@@ -219,7 +198,7 @@ fn execute_push(
         ack_fee: uint_into_vec_coin(config.ibc_fees.ack_fee, &config.local_denom),
         timeout_fee: uint_into_vec_coin(config.ibc_fees.timeout_fee, &config.local_denom),
     };
-    let ica = state.ica.ok_or(ContractError::IcaNotRegistered {})?;
+    let ica = ICA.get_address(deps.storage)?;
     let timeout_timestamp = env.block.time.plus_seconds(config.timeout.remote).nanos();
     let dst_port = &config
         .dest_port
@@ -330,19 +309,13 @@ pub fn sudo_open_ack(
     let parsed_version: Result<OpenAckVersion, _> =
         serde_json_wasm::from_str(counterparty_version.as_str());
     if let Ok(parsed_version) = parsed_version {
-        STATE.save(
-            deps.storage,
-            &State {
-                last_processed_height: None,
-                ica: Some(parsed_version.address),
-                ica_state: IcaState::Registered,
-            },
-        )?;
-        return Ok(Response::default());
+        ICA.set_address(deps.storage, parsed_version.address)?;
+        Ok(Response::default())
+    } else {
+        Err(NeutronError::Std(StdError::generic_err(
+            "can't parse version",
+        )))
     }
-    Err(NeutronError::Std(StdError::GenericErr {
-        msg: "can't parse version".to_string(),
-    }))
 }
 
 fn sudo_response(
@@ -373,9 +346,9 @@ fn sudo_response(
                 deps.api.debug(
                     format!("This type of acknowledgement is not implemented: {item:?}").as_str(),
                 );
-                return Err(NeutronError::Std(StdError::GenericErr {
-                    msg: "This type of acknowledgement is not implemented".to_string(),
-                }));
+                return Err(NeutronError::Std(StdError::generic_err(
+                    "This type of acknowledgement is not implemented",
+                )));
             }
         };
     }
@@ -391,14 +364,7 @@ fn sudo_timeout(
         attr("action", "sudo_timeout"),
         attr("request_id", request.sequence.unwrap_or(0).to_string()),
     ];
-    STATE.save(
-        deps.storage,
-        &State {
-            ica: None,
-            last_processed_height: None,
-            ica_state: IcaState::Timeout,
-        },
-    )?;
+    ICA.set_timeout(deps.storage)?;
     deps.api.debug(&format!(
         "WASMDEBUG: sudo_timeout: request: {request:?}",
         request = request

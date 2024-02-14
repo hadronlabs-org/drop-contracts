@@ -457,10 +457,17 @@ describe('Core', () => {
     expect(res.transactionHash).toHaveLength(64);
     let ica = '';
     await waitFor(async () => {
-      const res = await puppeteerContractClient.queryState();
-      ica = res.ica;
-      return !!res.ica;
-    }, 50_000);
+      const res = await puppeteerContractClient.queryIca();
+      switch (res) {
+        case 'none':
+        case 'in_progress':
+        case 'timeout':
+          return false;
+        default:
+          ica = res.registered.ica_address;
+          return true;
+      }
+    }, 100_000);
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();
     context.icaAddress = ica;
@@ -693,7 +700,7 @@ describe('Core', () => {
       });
       it('get machine state', async () => {
         const state = await context.coreContractClient.queryContractState();
-        expect(state.current_state).toEqual('idle');
+        expect(state).toEqual('idle');
       });
     });
     describe('first cycle', () => {
@@ -712,7 +719,7 @@ describe('Core', () => {
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
-        expect(state.current_state).toEqual('transfering');
+        expect(state).toEqual('transfering');
       });
       it('second tick is failed bc no response from puppeteer yet', async () => {
         const { neutronUserAddress } = context;
@@ -727,7 +734,7 @@ describe('Core', () => {
       });
       it('state of fsm is transfering', async () => {
         const state = await context.coreContractClient.queryContractState();
-        expect(state.current_state).toEqual('transfering');
+        expect(state).toEqual('transfering');
       });
       it('wait for response from puppeteer', async () => {
         let response;
@@ -778,7 +785,7 @@ describe('Core', () => {
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
-        expect(state.current_state).toEqual('staking');
+        expect(state).toEqual('staking');
       });
       it('second tick is failed bc no response from puppeteer yet', async () => {
         const { neutronUserAddress } = context;
@@ -830,7 +837,7 @@ describe('Core', () => {
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
-        expect(state.current_state).toEqual('unbonding');
+        expect(state).toEqual('unbonding');
       });
       it('third tick is failed bc no response from puppeteer yet', async () => {
         const { neutronUserAddress } = context;
@@ -888,7 +895,7 @@ describe('Core', () => {
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
-        expect(state.current_state).toEqual('idle');
+        expect(state).toEqual('idle');
       });
       it('verify that unbonding batch is in unbonding state', async () => {
         const batch = await context.coreContractClient.queryUnbondBatch({
@@ -934,7 +941,7 @@ describe('Core', () => {
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
-        expect(state.current_state).toEqual('claiming');
+        expect(state).toEqual('claiming');
       });
       it('wait for response from puppeteer', async () => {
         let response;
@@ -981,7 +988,7 @@ describe('Core', () => {
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
-        expect(state.current_state).toEqual('staking');
+        expect(state).toEqual('staking');
       });
       it('wait for response from puppeteer', async () => {
         let response;
@@ -1005,7 +1012,7 @@ describe('Core', () => {
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
-        expect(state.current_state).toEqual('idle');
+        expect(state).toEqual('idle');
       });
     });
   });

@@ -1,13 +1,11 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Binary, Empty, Uint128};
-use neutron_sdk::sudo::msg::RequestPacket;
-use schemars::JsonSchema;
-
 use crate::proto::{
     MsgBeginRedelegateResponse, MsgDelegateResponse, MsgExecResponse, MsgIBCTransfer,
     MsgRedeemTokensforSharesResponse, MsgTokenizeSharesResponse, MsgUndelegateResponse,
 };
-use crate::state::State;
+use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::{Empty, Uint128};
+use neutron_sdk::sudo::msg::RequestPacket;
+use schemars::JsonSchema;
 
 #[cw_serde]
 pub enum ExecuteMsg {
@@ -41,13 +39,13 @@ pub enum QueryMsg<E = Empty>
 where
     E: JsonSchema,
 {
-    #[returns(State)]
+    #[returns(crate::state::ConfigResponse)]
     Config {},
-    #[returns(State)]
-    State {},
+    #[returns(lido_helpers::ica::IcaState)]
+    Ica {},
     #[returns(Vec<Transaction>)]
     Transactions {},
-    #[returns(Binary)]
+    #[returns(cosmwasm_std::Binary)]
     Extention { msg: E },
 }
 
