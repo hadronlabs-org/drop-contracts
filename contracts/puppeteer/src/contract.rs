@@ -292,7 +292,6 @@ fn register_unbonding_delegations_query(
     info: MessageInfo,
     validators: Vec<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let mut response = Response::new();
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.storage)?;
     ensure_eq!(config.owner, info.sender, ContractError::Unauthorized {});
@@ -307,33 +306,37 @@ fn register_unbonding_delegations_query(
     //       and update existing queries
 
     let delegator = puppeteer_base.ica.get_address(deps.storage)?;
-    for (i, validator) in validators.into_iter().enumerate() {
-        puppeteer_base.unbonding_delegations_reply_id_storage.save(
-            deps.storage,
-            i as u16,
-            &UnbondingDelegation {
-                validator_address: validator.clone(),
-                query_id: 0,
-                unbonding_delegations: vec![],
-                last_updated_height: 0,
-            },
-        )?;
+    let msgs = validators
+        .into_iter()
+        .enumerate()
+        .map(|(i, validator)| {
+            puppeteer_base.unbonding_delegations_reply_id_storage.save(
+                deps.storage,
+                i as u16,
+                &UnbondingDelegation {
+                    validator_address: validator.clone(),
+                    query_id: 0,
+                    unbonding_delegations: vec![],
+                    last_updated_height: 0,
+                },
+            )?;
 
-        response = response.add_submessage(SubMsg::reply_on_success(
-            new_register_delegator_unbonding_delegations_query_msg(
-                config.connection_id.clone(),
-                delegator.clone(),
-                vec![validator],
-                config.update_period,
-            )?,
-            ReplyMsg::KvUnbondingDelegations {
-                validator_index: i as u16,
-            }
-            .to_reply_id(),
-        ))
-    }
+            Ok(SubMsg::reply_on_success(
+                new_register_delegator_unbonding_delegations_query_msg(
+                    config.connection_id.clone(),
+                    delegator.clone(),
+                    vec![validator],
+                    config.update_period,
+                )?,
+                ReplyMsg::KvUnbondingDelegations {
+                    validator_index: i as u16,
+                }
+                .to_reply_id(),
+            ))
+        })
+        .collect::<ContractResult<Vec<_>>>()?;
 
-    Ok(response)
+    Ok(Response::new().add_submessages(msgs))
 }
 
 fn register_balance_query(
