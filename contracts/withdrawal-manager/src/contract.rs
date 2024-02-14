@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, entry_point, from_json, to_json_binary, Attribute, BankMsg, Binary,
-    Coin, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
+    attr, ensure_eq, entry_point, from_json, to_json_binary, Attribute, BankMsg, Binary, Coin,
+    CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
 };
 use cw2::set_contract_version;
 use cw721::NftInfoResponse;

@@ -727,29 +727,30 @@ fn execute_unbond(
             },
         ]),
     });
-    let mut msgs = vec![];
-    msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.withdrawal_voucher_contract,
-        msg: to_json_binary(&VoucherExecuteMsg::Mint {
-            owner: info.sender.to_string(),
-            token_id: unbond_batch_id.to_string()
-                + "_"
-                + info.sender.to_string().as_str()
-                + "_"
-                + &unbond_batch.unbond_items.len().to_string(),
-            token_uri: None,
-            extension,
-        })?,
-        funds: vec![],
-    }));
-    msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.token_contract,
-        msg: to_json_binary(&TokenExecuteMsg::Burn {})?,
-        funds: vec![cosmwasm_std::Coin {
-            denom: ld_denom,
-            amount,
-        }],
-    }));
+    let msgs = vec![
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: config.withdrawal_voucher_contract,
+            msg: to_json_binary(&VoucherExecuteMsg::Mint {
+                owner: info.sender.to_string(),
+                token_id: unbond_batch_id.to_string()
+                    + "_"
+                    + info.sender.to_string().as_str()
+                    + "_"
+                    + &unbond_batch.unbond_items.len().to_string(),
+                token_uri: None,
+                extension,
+            })?,
+            funds: vec![],
+        }),
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: config.token_contract,
+            msg: to_json_binary(&TokenExecuteMsg::Burn {})?,
+            funds: vec![cosmwasm_std::Coin {
+                denom: ld_denom,
+                amount,
+            }],
+        }),
+    ];
     Ok(response("execute-unbond", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
