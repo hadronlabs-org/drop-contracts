@@ -531,7 +531,7 @@ describe('Core', () => {
     context.exchangeRate = parseFloat(
       await coreContractClient.queryExchangeRate(),
     );
-    expect(context.exchangeRate).toBeGreaterThan(1);
+    expect(context.exchangeRate).toEqual(1);
   });
 
   it('bond w/o receiver', async () => {
@@ -630,12 +630,12 @@ describe('Core', () => {
       created: expect.any(Number),
       expected_release: 0,
       status: 'new',
-      total_amount: '495049',
-      expected_amount: '499999',
+      total_amount: '500000',
+      expected_amount: '500000',
       unbond_items: [
         {
-          amount: '495049',
-          expected_amount: '499999',
+          amount: '500000',
+          expected_amount: '500000',
           sender: neutronUserAddress,
         },
       ],
@@ -814,7 +814,7 @@ describe('Core', () => {
         await waitFor(async () => {
           try {
             await context.strategyContractClient.queryCalcWithdraw({
-              withdraw: '495049',
+              withdraw: '500000',
             });
             return true;
           } catch (e) {
@@ -860,12 +860,12 @@ describe('Core', () => {
           status: 'unbond_requested',
           created: expect.any(Number),
           expected_release: 0,
-          total_amount: '495049',
-          expected_amount: '499999',
+          total_amount: '500000',
+          expected_amount: '500000',
           unbond_items: [
             {
-              amount: '495049',
-              expected_amount: '499999',
+              amount: '500000',
+              expected_amount: '500000',
               sender: context.neutronUserAddress,
             },
           ],
@@ -907,12 +907,12 @@ describe('Core', () => {
           status: 'unbonding',
           created: expect.any(Number),
           expected_release: expect.any(Number),
-          total_amount: '495049',
-          expected_amount: '499999',
+          total_amount: '500000',
+          expected_amount: '500000',
           unbond_items: [
             {
-              amount: '495049',
-              expected_amount: '499999',
+              amount: '500000',
+              expected_amount: '500000',
               sender: context.neutronUserAddress,
             },
           ],

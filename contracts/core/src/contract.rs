@@ -58,7 +58,7 @@ pub fn instantiate(
 pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     Ok(match msg {
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?)?,
-        QueryMsg::ExchangeRate {} => to_json_binary(&query_exchange_rate(deps, env)?)?,
+        QueryMsg::ExchangeRate {} => to_json_binary(&query_exchange_rate(deps, env, None)?)?,
         QueryMsg::UnbondBatch { batch_id } => query_unbond_batch(deps, batch_id)?,
         QueryMsg::ContractState {} => to_json_binary(&FSM.get_current_state(deps.storage)?)?,
         QueryMsg::LastPuppeteerResponse {} => {
@@ -67,7 +67,11 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
     })
 }
 
-fn query_exchange_rate(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Decimal> {
+fn query_exchange_rate(
+    deps: Deps<NeutronQuery>,
+    env: Env,
+    current_stake: Option<Uint128>,
+) -> ContractResult<Decimal> {
     let config = CONFIG.load(deps.storage)?;
     let ld_denom = config.ld_denom.ok_or(ContractError::LDDenomIsNotSet {})?;
     let ld_total_supply: cosmwasm_std::SupplyResponse =
@@ -76,6 +80,9 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Dec
                 denom: ld_denom,
             }))?;
     let ld_total_amount = ld_total_supply.amount.amount;
+    if ld_total_amount.is_zero() {
+        return Ok(Decimal::one());
+    }
     let delegations = deps
         .querier
         .query_wasm_smart::<lido_staking_base::msg::puppeteer::DelegationsResponse>(
@@ -94,17 +101,13 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Dec
     let mut unprocessed_unbonded_amount = Uint128::zero();
     let batch = UNBOND_BATCHES.load(deps.storage, batch_id)?;
     if batch.status == UnbondBatchStatus::New {
-        unprocessed_unbonded_amount += batch
-            .unbonded_amount
-            .ok_or(ContractError::UnbondedAmountIsNotSet {})?;
+        unprocessed_unbonded_amount += batch.total_amount;
     }
     if batch_id > 0 {
         batch_id -= 1;
         let batch = UNBOND_BATCHES.load(deps.storage, batch_id)?;
         if batch.status == UnbondBatchStatus::UnbondRequested {
-            unprocessed_unbonded_amount += batch
-                .unbonded_amount
-                .ok_or(ContractError::UnbondedAmountIsNotSet {})?;
+            unprocessed_unbonded_amount += batch.total_amount;
         }
     }
     let failed_batch_id = FAILED_BATCH_ID.may_load(deps.storage)?;
@@ -126,7 +129,9 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Dec
         _ => Ok(Uint128::zero()),
     }?;
     Ok(Decimal::from_ratio(
-        delegations_amount - unprocessed_unbonded_amount + core_balance + extra_amount,
+        delegations_amount + core_balance + extra_amount
+            - current_stake.unwrap_or(Uint128::zero())
+            - unprocessed_unbonded_amount,
         ld_total_amount,
     ))
 }
@@ -534,7 +539,7 @@ fn execute_bond(
     let denom = funds[0].denom.to_string();
     check_denom(denom)?;
 
-    let exchange_rate = query_exchange_rate(deps.as_ref(), env)?;
+    let exchange_rate = query_exchange_rate(deps.as_ref(), env, Some(amount))?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
 
     let issue_amount = amount * (Decimal::one() / exchange_rate);
@@ -680,7 +685,7 @@ fn execute_unbond(
         }
     );
     let mut unbond_batch = UNBOND_BATCHES.load(deps.storage, unbond_batch_id)?;
-    let exchange_rate = query_exchange_rate(deps.as_ref(), env)?;
+    let exchange_rate = query_exchange_rate(deps.as_ref(), env, None)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
     let expected_amount = amount * exchange_rate;
     unbond_batch.unbond_items.push(UnbondItem {
@@ -722,7 +727,8 @@ fn execute_unbond(
             },
         ]),
     });
-    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+    let mut msgs = vec![];
+    msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.withdrawal_voucher_contract,
         msg: to_json_binary(&VoucherExecuteMsg::Mint {
             owner: info.sender.to_string(),
@@ -735,9 +741,16 @@ fn execute_unbond(
             extension,
         })?,
         funds: vec![],
-    });
-
-    Ok(response("execute-unbond", CONTRACT_NAME, attrs).add_message(msg))
+    }));
+    msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.token_contract,
+        msg: to_json_binary(&TokenExecuteMsg::Burn {})?,
+        funds: vec![cosmwasm_std::Coin {
+            denom: ld_denom,
+            amount,
+        }],
+    }));
+    Ok(response("execute-unbond", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
 fn get_unbonded_batch(deps: Deps<NeutronQuery>) -> ContractResult<Option<(u128, UnbondBatch)>> {
