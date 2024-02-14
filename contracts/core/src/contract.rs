@@ -1,8 +1,8 @@
 use crate::error::{ContractError, ContractResult};
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, ensure_ne, entry_point, to_json_binary, Attribute, Binary, CosmosMsg,
-    CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Timestamp, Uint128,
-    WasmMsg,
+    attr, ensure, ensure_eq, ensure_ne, entry_point, to_json_binary, Attribute, BankQuery, Binary,
+    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    Timestamp, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 
@@ -11,7 +11,7 @@ use lido_puppeteer_base::msg::TransferReadyBatchMsg;
 use lido_staking_base::state::core::{
     Config, ConfigOptional, ContractState, UnbondBatch, UnbondBatchStatus, UnbondItem, CONFIG,
     FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_PUPPETEER_RESPONSE,
-    PRE_UNBONDING_BALANCE, UNBOND_BATCHES, UNBOND_BATCH_ID,
+    PENDING_TRANSFER, PRE_UNBONDING_BALANCE, UNBOND_BATCHES, UNBOND_BATCH_ID,
 };
 use lido_staking_base::state::validatorset::ValidatorInfo;
 use lido_staking_base::state::withdrawal_voucher::{Metadata, Trait};
@@ -67,8 +67,68 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
     })
 }
 
-fn query_exchange_rate(_deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Decimal> {
-    Decimal::from_str("1.01")
+fn query_exchange_rate(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Decimal> {
+    let config = CONFIG.load(deps.storage)?;
+    let ld_denom = config.ld_denom.ok_or(ContractError::LDDenomIsNotSet {})?;
+    let ld_total_supply: cosmwasm_std::SupplyResponse =
+        deps.querier
+            .query(&cosmwasm_std::QueryRequest::Bank(BankQuery::Supply {
+                denom: ld_denom,
+            }))?;
+    let ld_total_amount = ld_total_supply.amount.amount;
+    let delegations = deps
+        .querier
+        .query_wasm_smart::<lido_staking_base::msg::puppeteer::DelegationsResponse>(
+            config.puppeteer_contract.to_string(),
+            &lido_puppeteer_base::msg::QueryMsg::Extention {
+                msg: lido_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+            },
+        )?;
+    let delegations_amount: Uint128 = delegations
+        .0
+        .delegations
+        .iter()
+        .map(|d| d.amount.amount)
+        .sum();
+    let mut batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
+    let mut unprocessed_unbonded_amount = Uint128::zero();
+    let batch = UNBOND_BATCHES.load(deps.storage, batch_id)?;
+    if batch.status == UnbondBatchStatus::New {
+        unprocessed_unbonded_amount += batch
+            .unbonded_amount
+            .ok_or(ContractError::UnbondedAmountIsNotSet {})?;
+    }
+    if batch_id > 0 {
+        batch_id -= 1;
+        let batch = UNBOND_BATCHES.load(deps.storage, batch_id)?;
+        if batch.status == UnbondBatchStatus::UnbondRequested {
+            unprocessed_unbonded_amount += batch
+                .unbonded_amount
+                .ok_or(ContractError::UnbondedAmountIsNotSet {})?;
+        }
+    }
+    let failed_batch_id = FAILED_BATCH_ID.may_load(deps.storage)?;
+    if let Some(failed_batch_id) = failed_batch_id {
+        let failed_batch = UNBOND_BATCHES.load(deps.storage, failed_batch_id)?;
+        unprocessed_unbonded_amount += failed_batch.total_amount;
+    }
+    let core_balance = deps
+        .querier
+        .query_balance(env.contract.address.to_string(), config.base_denom)?
+        .amount;
+    let extra_amount = match FSM.get_current_state(deps.storage)? {
+        ContractState::Transfering => PENDING_TRANSFER.load(deps.storage),
+        ContractState::Staking => {
+            let (ica_balance, _) =
+                get_ica_balance_by_denom(deps, &config.puppeteer_contract, &config.remote_denom)?;
+            Ok(ica_balance)
+        }
+        _ => Ok(Uint128::zero()),
+    }?;
+    Ok(Decimal::from_ratio(
+        delegations_amount - unprocessed_unbonded_amount + core_balance + extra_amount,
+        ld_total_amount,
+    ))
 }
 
 fn query_unbond_batch(deps: Deps<NeutronQuery>, batch_id: Uint128) -> StdResult<Binary> {
@@ -205,10 +265,11 @@ fn execute_tick_idle(
     FSM.go_to(deps.storage, ContractState::Claiming)?;
     if validators_to_claim.is_empty() {
         attrs.push(attr("validators_to_claim", "empty"));
-        if let Some(transfer_msg) =
-            transfer_pending_balance(deps.as_ref(), &env, config, info.funds.clone())?
+        if let Some((transfer_msg, pending_amount)) =
+            get_transfer_pending_balance(deps.as_ref(), &env, config, info.funds.clone())?
         {
             FSM.go_to(deps.storage, ContractState::Transfering)?;
+            PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
             messages.push(transfer_msg);
         } else {
             messages.push(get_stake_msg(deps.as_ref(), &env, config, info.funds)?);
@@ -271,10 +332,11 @@ fn execute_tick_claiming(
             attrs.push(attr("error_on_claiming", format!("{:?}", err)));
         }
     }
-    if let Some(transfer_msg) =
-        transfer_pending_balance(deps.as_ref(), &env, config, info.funds.clone())?
+    if let Some((transfer_msg, pending_amount)) =
+        get_transfer_pending_balance(deps.as_ref(), &env, config, info.funds.clone())?
     {
         FSM.go_to(deps.storage, ContractState::Transfering)?;
+        PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
         messages.push(transfer_msg);
     } else {
         messages.push(get_stake_msg(deps.as_ref(), &env, config, info.funds)?);
@@ -690,12 +752,12 @@ fn get_unbonded_batch(deps: Deps<NeutronQuery>) -> ContractResult<Option<(u128, 
     Ok(None)
 }
 
-fn transfer_pending_balance<T>(
+fn get_transfer_pending_balance<T>(
     deps: Deps<NeutronQuery>,
     env: &Env,
     config: &Config,
     funds: Vec<cosmwasm_std::Coin>,
-) -> ContractResult<Option<CosmosMsg<T>>> {
+) -> ContractResult<Option<(CosmosMsg<T>, Uint128)>> {
     let pending_amount = deps
         .querier
         .query_balance(
@@ -712,16 +774,19 @@ fn transfer_pending_balance<T>(
     }];
     all_funds.extend(funds);
 
-    Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.puppeteer_contract.to_string(),
-        msg: to_json_binary(
-            &lido_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
-                timeout: config.puppeteer_timeout,
-                reply_to: env.contract.address.to_string(),
-            },
-        )?,
-        funds: all_funds,
-    })))
+    Ok(Some((
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: config.puppeteer_contract.to_string(),
+            msg: to_json_binary(
+                &lido_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+                    timeout: config.puppeteer_timeout,
+                    reply_to: env.contract.address.to_string(),
+                },
+            )?,
+            funds: all_funds,
+        }),
+        pending_amount,
+    )))
 }
 
 fn get_stake_msg<T>(
