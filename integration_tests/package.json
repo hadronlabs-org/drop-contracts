@@ -24,7 +24,8 @@
     "build-neutron-image": "./dockerfiles/neutron/build.sh",
     "build-neutron-query-relayer-image": "./dockerfiles/neutron-query-relayer/build.sh",
     "build-images": "./dockerfiles/build-all.sh && docker images",
-    "lint": "eslint ./src -f compact"
+    "lint": "eslint ./src -f compact",
+    "lint:fix": "eslint ./src -f compact --fix"
   },
   "dependencies": {
     "@cosmjs/amino": "^0.32.1",

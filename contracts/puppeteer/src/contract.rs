@@ -1,24 +1,42 @@
-use std::{str::FromStr, vec};
-
+use crate::{
+    proto::cosmos::base::v1beta1::Coin as ProtoCoin,
+    proto::liquidstaking::{
+        distribution::v1beta1::MsgWithdrawDelegatorReward,
+        staking::v1beta1::{
+            MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgDelegateResponse,
+            MsgRedeemTokensforShares, MsgRedeemTokensforSharesResponse, MsgTokenizeShares,
+            MsgTokenizeSharesResponse, MsgUndelegateResponse,
+        },
+    },
+};
 use cosmos_sdk_proto::cosmos::{
     bank::v1beta1::MsgSend,
     base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
     staking::v1beta1::{MsgDelegate, MsgUndelegate},
 };
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, to_json_binary, Addr, CosmosMsg, Deps, Reply, StdError, SubMsg,
-    Uint128, WasmMsg,
+    attr, ensure_eq, entry_point, to_json_binary, Addr, CosmosMsg, Deps, Order, Reply, StdError,
+    SubMsg, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use lido_helpers::answer::response;
-use lido_staking_base::{
-    msg::puppeteer::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryExtMsg},
-    state::puppeteer::{
-        Config, KVQueryType, BALANCES, DELEGATIONS, SUDO_IBC_TRANSFER_REPLY_ID,
-        SUDO_KV_BALANCE_REPLY_ID, SUDO_KV_DELEGATIONS_REPLY_ID, SUDO_PAYLOAD_REPLY_ID,
+use lido_puppeteer_base::{
+    error::{ContractError, ContractResult},
+    msg::{
+        QueryMsg, ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg, ResponseHookMsg,
+        ResponseHookSuccessMsg, Transaction, TransferReadyBatchMsg,
+    },
+    proto::MsgIBCTransfer,
+    state::{
+        PuppeteerBase, ReplyMsg, TxState, TxStateStatus, UnbondingDelegation, ICA_ID, LOCAL_DENOM,
     },
 };
+use lido_staking_base::{
+    msg::puppeteer::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryExtMsg},
+    state::puppeteer::{Config, KVQueryType, BALANCES, DELEGATIONS},
+};
+use neutron_sdk::interchain_queries::v045::new_register_delegator_unbonding_delegations_query_msg;
 use neutron_sdk::{
     bindings::{
         msg::{IbcFee, NeutronMsg},
@@ -33,30 +51,9 @@ use neutron_sdk::{
     sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg},
     NeutronError, NeutronResult,
 };
-
-use lido_puppeteer_base::{
-    error::{ContractError, ContractResult},
-    msg::{
-        QueryMsg, ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg, ResponseHookMsg,
-        ResponseHookSuccessMsg, Transaction, TransferReadyBatchMsg,
-    },
-    proto::MsgIBCTransfer,
-    state::{PuppeteerBase, TxState, TxStateStatus, ICA_ID, LOCAL_DENOM},
-};
-
 use prost::Message;
+use std::{str::FromStr, vec};
 
-use crate::{
-    proto::cosmos::base::v1beta1::Coin as ProtoCoin,
-    proto::liquidstaking::{
-        distribution::v1beta1::MsgWithdrawDelegatorReward,
-        staking::v1beta1::{
-            MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgDelegateResponse,
-            MsgRedeemTokensforShares, MsgRedeemTokensforSharesResponse, MsgTokenizeShares,
-            MsgTokenizeSharesResponse, MsgUndelegateResponse,
-        },
-    },
-};
 pub type Puppeteer<'a> = PuppeteerBase<'a, Config, KVQueryType>;
 
 const CONTRACT_NAME: &str = concat!("crates.io:lido-neutron-contracts__", env!("CARGO_PKG_NAME"));
@@ -114,6 +111,14 @@ pub fn query(
             QueryExtMsg::Balances {} => {
                 to_json_binary(&BALANCES.load(deps.storage)?).map_err(ContractError::Std)
             }
+            QueryExtMsg::UnbondingDelegations {} => to_json_binary(
+                &Puppeteer::default()
+                    .unbonding_delegations
+                    .range(deps.storage, None, None, Order::Ascending)
+                    .map(|res| res.map(|(_key, value)| value))
+                    .collect::<StdResult<Vec<_>>>()?,
+            )
+            .map_err(ContractError::Std),
         },
         _ => Puppeteer::default().query(deps, env, msg),
     }
@@ -178,6 +183,9 @@ pub fn execute(
         ExecuteMsg::RegisterDelegatorDelegationsQuery { validators } => {
             register_delegations_query(deps, info, validators)
         }
+        ExecuteMsg::RegisterDelegatorUnbondingDelegationsQuery { validators } => {
+            register_unbonding_delegations_query(deps, info, validators)
+        }
         ExecuteMsg::RegisterBalanceQuery { denom } => register_balance_query(deps, denom),
         ExecuteMsg::IBCTransfer { timeout, reply_to } => {
             execute_ibc_transfer(deps, env, info, timeout, reply_to)
@@ -237,7 +245,7 @@ fn execute_ibc_transfer(
             recipient: ica_address,
         },
         reply_to,
-        SUDO_PAYLOAD_REPLY_ID,
+        ReplyMsg::SudoPayload.to_reply_id(),
     )?;
     Ok(Response::default().add_submessages(vec![submsg]))
 }
@@ -253,7 +261,7 @@ fn register_delegations_query(
     // remove old delegation query if any
     let kv_queries = puppeteer_base
         .kv_queries
-        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+        .range(deps.storage, None, None, Order::Ascending)
         .collect::<Result<Vec<(u64, KVQueryType)>, _>>()?;
     let mut messages = vec![];
     for (query_id, query_type) in kv_queries {
@@ -270,13 +278,62 @@ fn register_delegations_query(
             validators,
             config.update_period,
         )?,
-        SUDO_KV_DELEGATIONS_REPLY_ID,
+        ReplyMsg::KvDelegations.to_reply_id(),
     );
     deps.api.debug(&format!(
         "WASMDEBUG: register_delegations_query {msg:?}",
         msg = msg
     ));
     Ok(Response::new().add_messages(messages).add_submessage(msg))
+}
+
+fn register_unbonding_delegations_query(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    validators: Vec<String>,
+) -> ContractResult<Response<NeutronMsg>> {
+    let mut response = Response::new();
+    let puppeteer_base = Puppeteer::default();
+    let config = puppeteer_base.config.load(deps.storage)?;
+    ensure_eq!(config.owner, info.sender, ContractError::Unauthorized {});
+
+    cosmwasm_std::ensure!(
+        validators.len() < u16::MAX as usize,
+        StdError::generic_err("Too many validators provided")
+    );
+
+    // TODO: this code will leave behind many registered ICQs when called again
+    //       we need to call RegisterDelegations and RegisterUnbondingDelegations together
+    //       and update existing queries
+
+    let delegator = puppeteer_base.ica.get_address(deps.storage)?;
+    for (i, validator) in validators.into_iter().enumerate() {
+        puppeteer_base.unbonding_delegations_reply_id_storage.save(
+            deps.storage,
+            i as u16,
+            &UnbondingDelegation {
+                validator_address: validator.clone(),
+                query_id: 0,
+                unbonding_delegations: vec![],
+                last_updated_height: 0,
+            },
+        )?;
+
+        response = response.add_submessage(SubMsg::reply_on_success(
+            new_register_delegator_unbonding_delegations_query_msg(
+                config.connection_id.clone(),
+                delegator.clone(),
+                vec![validator],
+                config.update_period,
+            )?,
+            ReplyMsg::KvUnbondingDelegations {
+                validator_index: i as u16,
+            }
+            .to_reply_id(),
+        ))
+    }
+
+    Ok(response)
 }
 
 fn register_balance_query(
@@ -288,7 +345,7 @@ fn register_balance_query(
     let ica = puppeteer_base.ica.get_address(deps.storage)?;
     let msg = SubMsg::reply_on_success(
         new_register_balance_query_msg(config.connection_id, ica, denom, config.update_period)?,
-        SUDO_KV_BALANCE_REPLY_ID,
+        ReplyMsg::KvBalance.to_reply_id(),
     );
     deps.api.debug(&format!(
         "WASMDEBUG: register_balance_query {msg:?}",
@@ -334,7 +391,7 @@ fn execute_delegate(
         },
         timeout,
         reply_to,
-        SUDO_PAYLOAD_REPLY_ID,
+        ReplyMsg::SudoPayload.to_reply_id(),
     )?;
 
     Ok(Response::default().add_submessages(vec![submsg]))
@@ -391,7 +448,7 @@ fn execute_claim_rewards_and_optionaly_transfer(
         },
         timeout,
         reply_to,
-        SUDO_PAYLOAD_REPLY_ID,
+        ReplyMsg::SudoPayload.to_reply_id(),
     )?;
 
     Ok(Response::default().add_submessages(vec![submsg]))
@@ -436,7 +493,7 @@ fn execute_undelegate(
         },
         timeout,
         reply_to,
-        SUDO_PAYLOAD_REPLY_ID,
+        ReplyMsg::SudoPayload.to_reply_id(),
     )?;
 
     Ok(Response::default().add_submessages(vec![submsg]))
@@ -483,7 +540,7 @@ fn execute_redelegate(
         },
         timeout,
         reply_to,
-        SUDO_PAYLOAD_REPLY_ID,
+        ReplyMsg::SudoPayload.to_reply_id(),
     )?;
 
     Ok(Response::default().add_submessages(vec![submsg]))
@@ -527,7 +584,7 @@ fn execute_tokenize_share(
         },
         timeout,
         reply_to,
-        SUDO_PAYLOAD_REPLY_ID,
+        ReplyMsg::SudoPayload.to_reply_id(),
     )?;
 
     Ok(Response::default().add_submessages(vec![submsg]))
@@ -576,7 +633,7 @@ fn execute_redeem_share(
         },
         timeout,
         reply_to,
-        SUDO_PAYLOAD_REPLY_ID,
+        ReplyMsg::SudoPayload.to_reply_id(),
     )?;
     Ok(Response::default()
         .add_submessages(vec![submsg])
@@ -652,6 +709,9 @@ pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResul
                 }
                 KVQueryType::Delegations => {
                     puppeteer_base.sudo_kv_query_result(deps, env, query_id, DELEGATIONS)
+                }
+                KVQueryType::UnbondingDelegations => {
+                    puppeteer_base.sudo_unbonding_delegations_kv_query_result(deps, env, query_id)
                 }
             }
         }
@@ -913,22 +973,33 @@ fn sudo_timeout(
 }
 
 #[entry_point]
-pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
     let puppeteer_base: PuppeteerBase<'_, Config, KVQueryType> = Puppeteer::default();
-    match msg.id {
-        SUDO_PAYLOAD_REPLY_ID => puppeteer_base.submit_tx_reply(deps, env, msg),
-        SUDO_IBC_TRANSFER_REPLY_ID => puppeteer_base.submit_ibc_transfer_reply(deps, env, msg),
-        SUDO_KV_BALANCE_REPLY_ID => {
+    match ReplyMsg::from_reply_id(msg.id) {
+        ReplyMsg::SudoPayload => puppeteer_base.submit_tx_reply(deps, msg),
+        ReplyMsg::IbcTransfer => puppeteer_base.submit_ibc_transfer_reply(deps, msg),
+        ReplyMsg::KvBalance => {
             deps.api
                 .debug(&format!("WASMDEBUG: KV_BALANCE_REPLY_ID {:?}", msg));
-            puppeteer_base.register_kv_query_reply(deps, env, msg, KVQueryType::Balance)
+            puppeteer_base.register_kv_query_reply(deps, msg, KVQueryType::Balance)
         }
-        SUDO_KV_DELEGATIONS_REPLY_ID => {
+        ReplyMsg::KvDelegations => {
             deps.api
                 .debug(&format!("WASMDEBUG: DELEGATIONS_REPLY_ID {:?}", msg));
-            puppeteer_base.register_kv_query_reply(deps, env, msg, KVQueryType::Delegations)
+            puppeteer_base.register_kv_query_reply(deps, msg, KVQueryType::Delegations)
         }
-        _ => Err(StdError::generic_err("Unknown reply id")),
+        ReplyMsg::KvUnbondingDelegations { validator_index } => {
+            deps.api.debug(&format!(
+                "WASMDEBUG: UNBONDING_DELEGATIONS_REPLY_ID {:?}",
+                msg
+            ));
+            puppeteer_base.register_unbonding_delegations_query_reply(
+                deps,
+                msg,
+                validator_index,
+                KVQueryType::UnbondingDelegations,
+            )
+        }
     }
 }
 

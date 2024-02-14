@@ -1,26 +1,27 @@
+use crate::{
+    msg::OpenAckVersion,
+    state::{BaseConfig, PuppeteerBase, Transfer},
+};
 use cosmos_sdk_proto::cosmos::{
     bank::v1beta1::MsgSend,
     tx::v1beta1::{TxBody, TxRaw},
 };
 use cosmwasm_std::{Binary, DepsMut, Env, Response, StdError};
+use cw_storage_plus::Index;
 use neutron_sdk::{
     bindings::{
         query::{NeutronQuery, QueryRegisteredQueryResponse},
         types::Height,
     },
     interchain_queries::{
-        get_registered_query, query_kv_result, types::QueryType,
-        v045::types::COSMOS_SDK_TRANSFER_MSG_URL,
+        get_registered_query, query_kv_result,
+        types::QueryType,
+        v045::{queries::query_unbonding_delegations, types::COSMOS_SDK_TRANSFER_MSG_URL},
     },
     NeutronError, NeutronResult,
 };
 use prost::Message;
 use serde::{de::DeserializeOwned, Serialize};
-
-use crate::{
-    msg::OpenAckVersion,
-    state::{BaseConfig, PuppeteerBase, Transfer},
-};
 
 impl<'a, T, U> PuppeteerBase<'a, T, U>
 where
@@ -112,6 +113,39 @@ where
         );
         let height = env.block.height;
         storage.save(deps.storage, &(data, height))?;
+        Ok(Response::default())
+    }
+
+    pub fn sudo_unbonding_delegations_kv_query_result(
+        &self,
+        deps: DepsMut<NeutronQuery>,
+        env: Env,
+        query_id: u64,
+    ) -> NeutronResult<Response> {
+        if let Some(mut item) = self
+            .unbonding_delegations
+            .idx
+            .query_id
+            .item(deps.storage, query_id)?
+        {
+            self.unbonding_delegations
+                .idx
+                .query_id
+                .remove(deps.storage, &item.0, &item.1)?;
+
+            item.1.unbonding_delegations =
+                query_unbonding_delegations(deps.as_ref(), env.clone(), query_id)?
+                    .unbonding_delegations
+                    .unbonding_responses
+                    .pop()
+                    .unwrap()
+                    .entries;
+            item.1.last_updated_height = env.block.height;
+
+            self.unbonding_delegations
+                .save(deps.storage, &item.1.validator_address, &item.1)?;
+        }
+
         Ok(Response::default())
     }
 

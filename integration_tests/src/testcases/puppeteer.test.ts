@@ -12,7 +12,7 @@ import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { stringToPath } from '@cosmjs/crypto';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
-import { setupPark } from '../testSuite';
+import { awaitBlocks, setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
@@ -512,6 +512,23 @@ describe('Interchain puppeteer', () => {
     expect(res.transactionHash).toBeTruthy();
   });
 
+  it('register unbonding delegations query', async () => {
+    const { contractClient, account } = context;
+    const res = await contractClient.registerDelegatorUnbondingDelegationsQuery(
+      account.address,
+      {
+        validators: [
+          context.firstValidatorAddress,
+          context.secondValidatorAddress,
+        ],
+      },
+      1.5,
+      undefined,
+      [{ amount: '2000000', denom: 'untrn' }],
+    );
+    expect(res.transactionHash).toBeTruthy();
+  });
+
   it('query delegations query', async () => {
     let delegations = [];
     let height = 0;
@@ -545,6 +562,37 @@ describe('Interchain puppeteer', () => {
     ];
     expected.sort((a, b) => a.validator.localeCompare(b.validator)); //fml
     expect(delegations).toMatchObject(expected);
+  });
+
+  it('query unbonding delegations query', async () => {
+    await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 4);
+
+    const unbonding_delegations = (await context.contractClient.queryExtention({
+      msg: { unbonding_delegations: {} },
+    })) as unknown as any[];
+    unbonding_delegations.sort((a, b) =>
+      a.validator_address.localeCompare(b.validator_address),
+    );
+    const expected = [
+      {
+        validator_address: context.firstValidatorAddress,
+        query_id: 3,
+        unbonding_delegations: [
+          {
+            balance: '1000',
+          },
+        ],
+      },
+      {
+        validator_address: context.secondValidatorAddress,
+        query_id: 4,
+        unbonding_delegations: [],
+      },
+    ];
+    expected.sort((a, b) =>
+      a.validator_address.localeCompare(b.validator_address),
+    ); //fml
+    expect(unbonding_delegations).toMatchObject(expected);
   });
 
   it('send a failing delegation', async () => {
