@@ -6,7 +6,7 @@ This repository contains tests for Lido on Cosmos implementation.
 
 ### Prerequisites
 
-- node v16.19+
+- node v18.12+
 - Docker engine
 - yarn
 

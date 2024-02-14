@@ -22,6 +22,9 @@ pub enum ExecuteMsg {
     RegisterDelegatorDelegationsQuery {
         validators: Vec<String>,
     },
+    RegisterDelegatorUnbondingDelegationsQuery {
+        validators: Vec<String>,
+    },
     RegisterBalanceQuery {
         denom: String,
     },
@@ -109,4 +112,6 @@ pub enum QueryExtMsg {
     Delegations {},
     #[returns(BalancesResponse)]
     Balances {},
+    #[returns(Vec<lido_puppeteer_base::state::UnbondingDelegation>)]
+    UnbondingDelegations {},
 }

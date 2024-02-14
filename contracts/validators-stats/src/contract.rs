@@ -1,16 +1,14 @@
 use bech32::{encode, ToBase32};
-use cosmwasm_std::{
-    entry_point, to_json_binary, Decimal, Deps, Order, Reply, StdError, SubMsg, SubMsgResult,
-};
+use cosmwasm_std::{entry_point, to_json_binary, Decimal, Deps, Order, Reply, StdError, SubMsg};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
+use lido_helpers::query_id::get_query_id;
 use lido_staking_base::msg::validatorsstats::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use lido_staking_base::state::validatorsstats::{
     Config, MissedBlocks, ValidatorMissedBlocksForPeriod, ValidatorState, CONFIG, MISSED_BLOCKS,
     SIGNING_INFO_QUERY_ID, SIGNING_INFO_REPLY_ID, STATE_MAP, VALCONS_TO_VALOPER,
     VALIDATOR_PROFILE_QUERY_ID, VALIDATOR_PROFILE_REPLY_ID,
 };
-use neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse;
 use neutron_sdk::bindings::query::QueryRegisteredQueryResultResponse;
 use neutron_sdk::interchain_queries::queries::get_raw_interchain_query_result;
 use neutron_sdk::interchain_queries::types::KVReconstruct;
@@ -435,20 +433,6 @@ fn signing_info_reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Respons
     SIGNING_INFO_QUERY_ID.save(deps.storage, &query_id)?;
 
     Ok(Response::new())
-}
-
-fn get_query_id(msg_result: SubMsgResult) -> StdResult<u64> {
-    let res: MsgRegisterInterchainQueryResponse = serde_json_wasm::from_slice(
-        msg_result
-            .into_result()
-            .map_err(StdError::generic_err)?
-            .data
-            .ok_or_else(|| StdError::generic_err("no result"))?
-            .as_slice(),
-    )
-    .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?;
-
-    Ok(res.id)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

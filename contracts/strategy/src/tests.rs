@@ -1,7 +1,6 @@
 use crate::contract::instantiate;
 
 use cosmwasm_schema::cw_serde;
-// use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{
     to_json_binary, Addr, Attribute, Binary, Decimal, Deps, Empty, Env, Event, Response, StdResult,

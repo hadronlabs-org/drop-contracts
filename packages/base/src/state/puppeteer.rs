@@ -32,14 +32,10 @@ impl BaseConfig for Config {
 
 #[cw_serde]
 pub enum KVQueryType {
+    UnbondingDelegations,
     Delegations,
     Balance,
 }
-
-pub const SUDO_PAYLOAD_REPLY_ID: u64 = 1;
-pub const SUDO_IBC_TRANSFER_REPLY_ID: u64 = 2;
-pub const SUDO_KV_BALANCE_REPLY_ID: u64 = 3;
-pub const SUDO_KV_DELEGATIONS_REPLY_ID: u64 = 4;
 
 pub const DELEGATIONS: Item<(Delegations, u64)> = Item::new("delegations");
 pub const BALANCES: Item<(Balances, u64)> = Item::new("balances");
