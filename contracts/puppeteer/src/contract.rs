@@ -122,12 +122,12 @@ pub fn query(
 
 fn query_delegations(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let data = DELEGATIONS_AND_BALANCE.load(deps.storage)?;
-    to_json_binary(&data.0).map_err(ContractError::Std)
+    to_json_binary(&(data.0, data.2)).map_err(ContractError::Std)
 }
 
 fn query_balances(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let data = DELEGATIONS_AND_BALANCE.load(deps.storage)?;
-    to_json_binary(&data.1).map_err(ContractError::Std)
+    to_json_binary(&(data.1, data.2)).map_err(ContractError::Std)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
