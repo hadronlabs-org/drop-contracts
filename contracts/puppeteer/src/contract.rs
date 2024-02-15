@@ -282,7 +282,7 @@ fn register_delegations_query(
             )?); //no need to handle reply as nothing to update in the query
         }
     }
-    if messages.len() == 0 {
+    if messages.is_empty() {
         submessages.push(SubMsg::reply_on_success(
             new_delegations_and_balance_query_msg(
                 config.connection_id,
