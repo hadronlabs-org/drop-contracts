@@ -1,5 +1,6 @@
 use cosmwasm_schema::cw_serde;
 
+use cosmwasm_std::Decimal;
 use cw_storage_plus::{Item, Map};
 use neutron_sdk::interchain_queries::v045::types::{Proposal, ProposalVote};
 
@@ -7,6 +8,7 @@ use neutron_sdk::interchain_queries::v045::types::{Proposal, ProposalVote};
 pub struct ProposalInfo {
     pub proposal: Proposal,
     pub votes: Option<Vec<ProposalVote>>,
+    pub is_spam: bool,
 }
 
 #[cw_serde]
@@ -16,8 +18,10 @@ pub struct Config {
     pub update_period: u64,
     pub core_address: String,
     pub proposal_votes_address: String,
+    pub validators_set_address: String,
     pub init_proposal: u64,
     pub proposals_prefetch: u64,
+    pub veto_spam_threshold: Decimal,
 }
 
 pub const PROPOSALS_REPLY_ID: u64 = 1;

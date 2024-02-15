@@ -2,10 +2,13 @@ use crate::state::validatorset::ConfigOptional;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Decimal};
 
+use crate::state::{provider_proposals::ProposalInfo, validatorset::ValidatorInfo};
+
 #[cw_serde]
 pub struct InstantiateMsg {
     pub owner: String,
     pub stats_contract: String,
+    pub provider_proposals_contract: String,
 }
 
 #[cw_serde]
@@ -29,7 +32,9 @@ pub struct ValidatorInfoUpdate {
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig {
-        new_config: ConfigOptional,
+        owner: Option<Addr>,
+        stats_contract: Option<Addr>,
+        provider_proposals_contract: Option<Addr>,
     },
     UpdateValidators {
         validators: Vec<ValidatorData>,
@@ -37,8 +42,11 @@ pub enum ExecuteMsg {
     UpdateValidator {
         validator: ValidatorData,
     },
-    UpdateValidatorInfo {
+    UpdateValidatorsInfo {
         validators: Vec<ValidatorInfoUpdate>,
+    },
+    UpdateValidatorsVoting {
+        proposal: ProposalInfo,
     },
 }
 

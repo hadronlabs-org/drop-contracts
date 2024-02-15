@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
+use cosmos_sdk_proto::cosmos::gov::v1beta1::ProposalStatus;
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, to_json_binary, Attribute, Binary, Deps, DepsMut, Env,
-    MessageInfo, Order, Reply, Response, StdResult, SubMsg,
+    attr, entry_point, to_json_binary, Attribute, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env,
+    MessageInfo, Order, Reply, Response, StdResult, SubMsg, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use lido_helpers::answer::response;
@@ -10,6 +11,7 @@ use lido_helpers::reply::get_query_id;
 use lido_staking_base::msg::provider_proposals::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
+use lido_staking_base::msg::validatorset::ExecuteMsg as ValidatorSetExecuteMsg;
 use lido_staking_base::state::provider_proposals::{
     Config, ProposalInfo, CONFIG, PROPOSALS, PROPOSALS_REPLY_ID, PROPOSALS_VOTES, QUERY_ID,
 };
@@ -17,7 +19,9 @@ use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::{NeutronQuery, QueryRegisteredQueryResultResponse};
 use neutron_sdk::interchain_queries::queries::get_raw_interchain_query_result;
 use neutron_sdk::interchain_queries::types::KVReconstruct;
-use neutron_sdk::interchain_queries::v045::register_queries::new_register_gov_proposal_query_msg;
+use neutron_sdk::interchain_queries::v045::register_queries::{
+    new_register_gov_proposal_query_msg, update_register_gov_proposal_query_msg,
+};
 use neutron_sdk::interchain_queries::v045::types::{GovernmentProposal, Proposal, ProposalVote};
 use neutron_sdk::sudo::msg::SudoMsg;
 
@@ -37,7 +41,8 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     let core = deps.api.addr_validate(&msg.core_address)?;
-    let proposal_votes_ = deps.api.addr_validate(&msg.proposal_votes_address)?;
+    let proposal_votes = deps.api.addr_validate(&msg.proposal_votes_address)?;
+    let validators_set = deps.api.addr_validate(&msg.validators_set_address)?;
 
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(core.as_ref()))?;
 
@@ -46,9 +51,11 @@ pub fn instantiate(
         port_id: msg.port_id.clone(),
         update_period: msg.update_period,
         core_address: msg.core_address.to_string(),
-        proposal_votes_address: proposal_votes_.to_string(),
+        proposal_votes_address: proposal_votes.to_string(),
+        validators_set_address: validators_set.to_string(),
         init_proposal: msg.init_proposal,
         proposals_prefetch: msg.proposals_prefetch,
+        veto_spam_threshold: msg.veto_spam_threshold,
     };
 
     CONFIG.save(deps.storage, config)?;
@@ -73,8 +80,10 @@ pub fn instantiate(
             attr("update_period", msg.update_period.to_string()),
             attr("core_address", msg.core_address),
             attr("proposal_votes_address", msg.proposal_votes_address),
+            attr("validators_set_address", msg.validators_set_address),
             attr("init_proposal", msg.init_proposal.to_string()),
             attr("proposals_prefetch", msg.proposals_prefetch.to_string()),
+            attr("veto_spam_threshold", msg.veto_spam_threshold.to_string()),
         ],
     )
     .add_submessage(sub_msg))
@@ -95,15 +104,21 @@ fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
 }
 
 fn query_proposal(deps: Deps<NeutronQuery>, proposal_id: u64) -> StdResult<Binary> {
+    let config = CONFIG.load(deps.storage)?;
     let proposal: Proposal = PROPOSALS.load(deps.storage, proposal_id)?;
     let votes = PROPOSALS_VOTES
         .may_load(deps.storage, proposal_id)
         .ok()
         .unwrap_or_default();
-    to_json_binary(&ProposalInfo { proposal, votes })
+    to_json_binary(&ProposalInfo {
+        proposal: proposal.clone(),
+        votes,
+        is_spam: is_spam_proposal(&proposal, config.veto_spam_threshold),
+    })
 }
 
 fn query_proposals(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
+    let config = CONFIG.load(deps.storage)?;
     let proposals: StdResult<Vec<_>> = PROPOSALS
         .range_raw(deps.storage, None, None, Order::Ascending)
         .map(|item| {
@@ -113,8 +128,9 @@ fn query_proposals(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
                     .ok()
                     .unwrap_or_default();
                 ProposalInfo {
-                    proposal: value,
+                    proposal: value.clone(),
                     votes,
+                    is_spam: is_spam_proposal(&value, config.veto_spam_threshold),
                 }
             })
         })
@@ -137,7 +153,9 @@ pub fn execute(
             update_period,
             core_address,
             proposal_votes_address,
+            validators_set_address,
             proposals_prefetch,
+            veto_spam_threshold,
         } => execute_update_config(
             deps,
             info,
@@ -146,7 +164,9 @@ pub fn execute(
             update_period,
             core_address,
             proposal_votes_address,
+            validators_set_address,
             proposals_prefetch,
+            veto_spam_threshold,
         ),
         ExecuteMsg::UpdateProposalVotes { votes } => execute_update_votes(deps, info, votes),
     }
@@ -160,7 +180,9 @@ fn execute_update_config(
     update_period: Option<u64>,
     core_address: Option<String>,
     proposal_votes_address: Option<String>,
+    validators_set_address: Option<String>,
     proposals_prefetch: Option<u64>,
+    veto_spam_threshold: Option<Decimal>,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
@@ -177,6 +199,12 @@ fn execute_update_config(
         let proposal_votes_address = deps.api.addr_validate(&proposal_votes_address)?;
         config.proposal_votes_address = proposal_votes_address.to_string();
         attrs.push(attr("proposal_votes_address", proposal_votes_address))
+    }
+
+    if let Some(validators_set_address) = validators_set_address {
+        let validators_set_address = deps.api.addr_validate(&validators_set_address)?;
+        config.validators_set_address = validators_set_address.to_string();
+        attrs.push(attr("validators_set_address", validators_set_address))
     }
 
     if let Some(connection_id) = connection_id {
@@ -197,6 +225,11 @@ fn execute_update_config(
     if let Some(proposals_prefetch) = proposals_prefetch {
         config.proposals_prefetch = proposals_prefetch;
         attrs.push(attr("proposals_prefetch", proposals_prefetch.to_string()))
+    }
+
+    if let Some(veto_spam_threshold) = veto_spam_threshold {
+        config.veto_spam_threshold = veto_spam_threshold;
+        attrs.push(attr("veto_spam_threshold", veto_spam_threshold.to_string()))
     }
 
     Ok(response("config_update", CONTRACT_NAME, attrs))
@@ -285,11 +318,82 @@ fn sudo_proposals_query(
     deps.api
         .debug(&format!("WASMDEBUG: sudo_proposals_query data: {data:?}",));
 
+    let mut msgs: Vec<CosmosMsg<NeutronMsg>> = Vec::new();
+    match data.proposals.first() {
+        Some(first_proposal) => {
+            if is_proposal_finished(first_proposal) {
+                let query_id = QUERY_ID.may_load(deps.storage)?;
+                let config = CONFIG.load(deps.storage)?;
+                if let Some(query_id) = query_id {
+                    let new_proposals: Vec<u64> = (first_proposal.proposal_id
+                        ..first_proposal.proposal_id + config.proposals_prefetch as u64)
+                        .collect();
+
+                    let reg_msg = CosmosMsg::Custom(update_register_gov_proposal_query_msg(
+                        query_id,
+                        new_proposals,
+                        None,
+                        None,
+                    )?);
+
+                    msgs.push(reg_msg);
+
+                    let votes = PROPOSALS_VOTES
+                        .may_load(deps.storage, first_proposal.proposal_id)
+                        .ok()
+                        .unwrap_or_default();
+
+                    let update_msg = CosmosMsg::Wasm(WasmMsg::Execute {
+                        contract_addr: config.validators_set_address,
+                        msg: to_json_binary(&ValidatorSetExecuteMsg::UpdateValidatorsVoting {
+                            proposal: ProposalInfo {
+                                proposal: first_proposal.clone(),
+                                votes,
+                                is_spam: is_spam_proposal(
+                                    &first_proposal,
+                                    config.veto_spam_threshold,
+                                ),
+                            },
+                        })?,
+                        funds: vec![],
+                    });
+
+                    msgs.push(update_msg);
+                }
+            }
+        }
+        None => deps.api.debug("WASMDEBUG: first_proposal is None"),
+    }
+
     for proposal in data.proposals {
         PROPOSALS.save(deps.storage, proposal.proposal_id, &proposal)?;
     }
 
-    Ok(Response::new())
+    Ok(Response::new().add_messages(msgs))
+}
+
+fn is_proposal_finished(proposal: &Proposal) -> bool {
+    proposal.status == ProposalStatus::Passed as i32
+        || proposal.status == ProposalStatus::Rejected as i32
+        || proposal.status == ProposalStatus::Failed as i32
+}
+
+fn is_spam_proposal(proposal: &Proposal, veto_spam_threshold: Decimal) -> bool {
+    if let Some(final_tally_result) = &proposal.final_tally_result {
+        let total_votes = final_tally_result.yes
+            + final_tally_result.no
+            + final_tally_result.abstain
+            + final_tally_result.no_with_veto;
+
+        if total_votes == Uint128::zero() {
+            return false;
+        }
+
+        return Decimal::from_ratio(final_tally_result.no_with_veto, total_votes)
+            > veto_spam_threshold;
+    }
+
+    false
 }
 
 #[entry_point]

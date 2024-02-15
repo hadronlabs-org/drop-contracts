@@ -8,6 +8,7 @@ use optfield::optfield;
 pub struct Config {
     pub owner: Addr,
     pub stats_contract: Addr,
+    pub provider_proposals_contract: Addr,
 }
 
 #[cw_serde]
@@ -21,6 +22,9 @@ pub struct ValidatorInfo {
     pub uptime: Decimal,
     pub tombstone: bool,
     pub jailed_number: Option<u64>,
+    pub init_proposal: Option<u64>,
+    pub total_passed_proposals: u64,
+    pub total_voted_proposals: u64,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

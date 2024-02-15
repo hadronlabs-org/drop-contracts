@@ -1,4 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::Decimal;
 use neutron_sdk::interchain_queries::v045::types::ProposalVote;
 
 use crate::state::{proposal_votes::Config, provider_proposals::ProposalInfo};
@@ -10,8 +11,10 @@ pub struct InstantiateMsg {
     pub update_period: u64,
     pub core_address: String,
     pub proposal_votes_address: String,
+    pub validators_set_address: String,
     pub init_proposal: u64,
     pub proposals_prefetch: u64,
+    pub veto_spam_threshold: Decimal,
 }
 
 #[cw_serde]
@@ -22,7 +25,9 @@ pub enum ExecuteMsg {
         update_period: Option<u64>,
         core_address: Option<String>,
         proposal_votes_address: Option<String>,
+        validators_set_address: Option<String>,
         proposals_prefetch: Option<u64>,
+        veto_spam_threshold: Option<Decimal>,
     },
     UpdateProposalVotes {
         votes: Vec<ProposalVote>,

@@ -376,7 +376,7 @@ fn update_validator_info_wrong_sender() {
         deps.as_mut(),
         mock_env(),
         mock_info("stats_contract1", &[]),
-        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorInfo {
+        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorsInfo {
             validators: vec![lido_staking_base::msg::validatorset::ValidatorInfoUpdate {
                 valoper_address: "valoper_address".to_string(),
                 last_processed_remote_height: None,
@@ -436,7 +436,7 @@ fn update_validator_info_ok() {
         deps.as_mut(),
         mock_env(),
         mock_info("stats_contract", &[]),
-        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorInfo {
+        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorsInfo {
             validators: vec![lido_staking_base::msg::validatorset::ValidatorInfoUpdate {
                 valoper_address: "valoper_address".to_string(),
                 last_processed_remote_height: Some(1234),
