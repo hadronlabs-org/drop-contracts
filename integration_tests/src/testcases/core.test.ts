@@ -495,7 +495,7 @@ describe('Core', () => {
     context.exchangeRate = parseFloat(
       await coreContractClient.queryExchangeRate(),
     );
-    expect(context.exchangeRate).toBeGreaterThan(1);
+    expect(context.exchangeRate).toEqual(1);
   });
 
   it('bond w/o receiver', async () => {
@@ -569,6 +569,7 @@ describe('Core', () => {
 
   it('unbond', async () => {
     const { coreContractClient, neutronUserAddress, ldDenom } = context;
+
     let res = await coreContractClient.unbond(
       neutronUserAddress,
       1.6,
@@ -581,10 +582,15 @@ describe('Core', () => {
       ],
     );
     expect(res.transactionHash).toHaveLength(64);
-
+    const newExchangeRate = parseFloat(
+      await coreContractClient.queryExchangeRate(),
+    );
+    console.log({ newExchangeRate });
+    const amount = Math.floor(100_000 / context.exchangeRate).toString();
+    console.log({ amount });
     res = await coreContractClient.unbond(neutronUserAddress, 1.6, undefined, [
       {
-        amount: Math.floor(100_000 / context.exchangeRate).toString(),
+        amount,
         denom: ldDenom,
       },
     ]);
@@ -602,17 +608,17 @@ describe('Core', () => {
       created: expect.any(Number),
       expected_release: 0,
       status: 'new',
-      total_amount: '396038',
-      expected_amount: '399998',
+      total_amount: '400000',
+      expected_amount: '400000',
       unbond_items: [
         {
-          amount: '297029',
-          expected_amount: '299999',
+          amount: '300000',
+          expected_amount: '300000',
           sender: neutronUserAddress,
         },
         {
-          amount: '99009',
-          expected_amount: '99999',
+          amount: '100000',
+          expected_amount: '100000',
           sender: neutronUserAddress,
         },
       ],
@@ -636,7 +642,7 @@ describe('Core', () => {
     expect(voucher).toBeTruthy();
     expect(voucher).toMatchObject({
       extension: {
-        amount: '297029',
+        amount: '300000',
         attributes: [
           {
             display_type: null,
@@ -646,22 +652,22 @@ describe('Core', () => {
           {
             display_type: null,
             trait_type: 'received_amount',
-            value: '297029',
+            value: '300000',
           },
           {
             display_type: null,
             trait_type: 'expected_amount',
-            value: '299999',
+            value: '300000',
           },
           {
             display_type: null,
             trait_type: 'exchange_rate',
-            value: '1.01',
+            value: '1',
           },
         ],
         batch_id: '0',
         description: 'Withdrawal voucher',
-        expected_amount: '299999',
+        expected_amount: '300000',
         name: 'LDV voucher',
       },
       token_uri: null,
@@ -675,7 +681,7 @@ describe('Core', () => {
     expect(voucher).toBeTruthy();
     expect(voucher).toMatchObject({
       extension: {
-        amount: '99009',
+        amount: '100000',
         attributes: [
           {
             display_type: null,
@@ -685,22 +691,22 @@ describe('Core', () => {
           {
             display_type: null,
             trait_type: 'received_amount',
-            value: '99009',
+            value: '100000',
           },
           {
             display_type: null,
             trait_type: 'expected_amount',
-            value: '99999',
+            value: '100000',
           },
           {
             display_type: null,
             trait_type: 'exchange_rate',
-            value: '1.01',
+            value: '1',
           },
         ],
         batch_id: '0',
         description: 'Withdrawal voucher',
-        expected_amount: '99999',
+        expected_amount: '100000',
         name: 'LDV voucher',
       },
       token_uri: null,
@@ -727,7 +733,7 @@ describe('Core', () => {
     const { coreContractClient, neutronUserAddress } = context;
     await coreContractClient.fakeProcessBatch(neutronUserAddress, {
       batch_id: '0',
-      unbonded_amount: '499999',
+      unbonded_amount: '200000',
     });
   });
 
@@ -738,30 +744,30 @@ describe('Core', () => {
     });
     expect(batch).toBeTruthy();
     expect(batch).toEqual<UnbondBatch>({
-      slashing_effect: '1.250003750018750093',
+      slashing_effect: '0.5',
       status: 'unbonded',
       created: expect.any(Number),
       expected_release: 0,
-      total_amount: '396038',
-      expected_amount: '399998',
+      total_amount: '400000',
+      expected_amount: '400000',
       unbond_items: [
         {
-          amount: '297029',
-          expected_amount: '299999',
+          amount: '300000',
+          expected_amount: '300000',
           sender: neutronUserAddress,
         },
         {
-          amount: '99009',
-          expected_amount: '99999',
+          amount: '100000',
+          expected_amount: '100000',
           sender: neutronUserAddress,
         },
       ],
-      unbonded_amount: '499999',
+      unbonded_amount: '200000',
       withdrawed_amount: null,
     });
   });
 
-  it('withdraw win non funded withdrawal manager', async () => {
+  it('withdraw with non funded withdrawal manager', async () => {
     const {
       withdrawalVoucherContractClient: voucherContractClient,
       neutronUserAddress,
@@ -789,7 +795,7 @@ describe('Core', () => {
     const res = await context.client.sendTokens(
       neutronUserAddress,
       withdrawalManagerContractClient.contractAddress,
-      [{ amount: '500000', denom: neutronIBCDenom }],
+      [{ amount: '200000', denom: neutronIBCDenom }],
       1.6,
       undefined,
     );
@@ -826,7 +832,7 @@ describe('Core', () => {
       neutronUserAddress,
       { denom: neutronIBCDenom },
     );
-    expect(parseInt(balance.data.balance.amount) - balanceBefore).toBe(374999);
+    expect(parseInt(balance.data.balance.amount) - balanceBefore).toBe(150000);
   });
   it('withdraw to custom receiver', async () => {
     const {
@@ -862,6 +868,6 @@ describe('Core', () => {
       neutronSecondUserAddress,
       { denom: neutronIBCDenom },
     );
-    expect(parseInt(balance.data.balance.amount)).toBe(124999);
+    expect(parseInt(balance.data.balance.amount)).toBe(50000);
   });
 });

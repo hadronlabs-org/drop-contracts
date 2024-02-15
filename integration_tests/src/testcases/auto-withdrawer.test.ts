@@ -621,7 +621,7 @@ describe('Auto withdrawer', () => {
       neutronUserAddress,
       { denom: neutronIBCDenom },
     );
-    expect(parseInt(balance.data.balance.amount) - balanceBefore).toBe(2512);
+    expect(parseInt(balance.data.balance.amount) - balanceBefore).toBe(2000);
 
     const bondings = await autoWithdrawerContractClient.queryBondings({
       user: neutronUserAddress,

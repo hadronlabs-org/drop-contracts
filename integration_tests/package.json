@@ -6,7 +6,7 @@
   "scripts": {
     "test": "vitest --run",
     "test:poc-stargate": "vitest --run poc-stargate --bail 1",
-    "test:core": "vitest --run core --bail 1",
+    "test:core": "vitest --run core.test.ts --bail 1",
     "test:core:fsm": "vitest --run core.fsm --bail 1",
     "test:pump": "vitest --run pump --bail 1",
     "test:pump-multi": "vitest --run pump-multi --bail 1",
@@ -15,7 +15,7 @@
     "test:validators-stats": "vitest --run validators-stats.test --bail 1",
     "test:validator-set": "vitest --run validator-set.test --bail 1",
     "test:distribution": "vitest --run distribution.test --bail 1",
-    "test:auto-withdrawer":  "vitest --run auto-withdrawer.test --bail 1",
+    "test:auto-withdrawer": "vitest --run auto-withdrawer.test --bail 1",
     "watch": "vitest",
     "build-ts-client": "ts-node ./src/rebuild-client.ts",
     "build-lsm-image": "./dockerfiles/lsm/build.sh",

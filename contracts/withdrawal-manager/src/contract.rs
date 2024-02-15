@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     attr, ensure_eq, entry_point, from_json, to_json_binary, Attribute, BankMsg, Binary, Coin,
-    CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
 };
 use cw2::set_contract_version;
 use cw721::NftInfoResponse;
@@ -152,10 +152,14 @@ fn execute_receive_nft_withdraw(
         UnbondBatchStatus::Unbonded,
         ContractError::BatchIsNotUnbonded {}
     );
-    let payout_amount = unbond_batch
+    let slashing_effect = unbond_batch
         .slashing_effect
-        .ok_or(ContractError::BatchSlashingEffectIsEmpty {})?
-        * voucher_extention.expected_amount;
+        .ok_or(ContractError::BatchSlashingEffectIsEmpty {})?;
+
+    let payout_amount = Uint128::min(
+        slashing_effect * voucher_extention.expected_amount,
+        voucher_extention.expected_amount,
+    ); //just in case
 
     let to_address = receiver.unwrap_or(sender);
     attrs.push(attr("batch_id", batch_id.to_string()));
