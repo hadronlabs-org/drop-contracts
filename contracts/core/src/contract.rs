@@ -133,7 +133,7 @@ fn query_exchange_rate(
             - current_stake.unwrap_or(Uint128::zero())
             - unprocessed_unbonded_amount,
         ld_total_amount,
-    ))
+    )) // arithmetic operations order is important here as we don't want to overflow
 }
 
 fn query_unbond_batch(deps: Deps<NeutronQuery>, batch_id: Uint128) -> StdResult<Binary> {
