@@ -33,9 +33,9 @@ impl BaseConfig for Config {
 #[cw_serde]
 pub enum KVQueryType {
     UnbondingDelegations,
-    Delegations,
-    Balance,
+    DelegationsAndBalance,
 }
 
-pub const DELEGATIONS: Item<(Delegations, u64)> = Item::new("delegations");
-pub const BALANCES: Item<(Balances, u64)> = Item::new("balances");
+pub const DELEGATIONS_AND_BALANCE: Item<(Delegations, Balances, u64)> =
+    Item::new("delegations_and_balance");
+pub const VALIDATORS: Item<Vec<String>> = Item::new("validators");

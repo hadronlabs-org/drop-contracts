@@ -25,9 +25,7 @@ pub enum ExecuteMsg {
     RegisterDelegatorUnbondingDelegationsQuery {
         validators: Vec<String>,
     },
-    RegisterBalanceQuery {
-        denom: String,
-    },
+    RegisterBalanceQuery {},
     SetFees {
         recv_fee: Uint128,
         ack_fee: Uint128,

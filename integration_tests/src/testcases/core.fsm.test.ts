@@ -476,7 +476,6 @@ describe('Core', () => {
     const { puppeteerContractClient, neutronUserAddress } = context;
     const res = await puppeteerContractClient.registerBalanceQuery(
       neutronUserAddress,
-      { denom: 'stake' },
       1.5,
       undefined,
       [

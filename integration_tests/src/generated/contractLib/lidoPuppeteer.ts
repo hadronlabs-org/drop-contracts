@@ -117,7 +117,6 @@ export interface LidoPuppeteerSchema {
   execute:
     | RegisterDelegatorDelegationsQueryArgs
     | RegisterDelegatorUnbondingDelegationsQueryArgs
-    | RegisterBalanceQueryArgs
     | SetFeesArgs
     | DelegateArgs
     | UndelegateArgs
@@ -146,9 +145,6 @@ export interface RegisterDelegatorDelegationsQueryArgs {
 }
 export interface RegisterDelegatorUnbondingDelegationsQueryArgs {
   validators: string[];
-}
-export interface RegisterBalanceQueryArgs {
-  denom: string;
 }
 export interface SetFeesArgs {
   ack_fee: Uint128;
@@ -257,9 +253,9 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { register_delegator_unbonding_delegations_query: args }, fee || "auto", memo, funds);
   }
-  registerBalanceQuery = async(sender:string, args: RegisterBalanceQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  registerBalanceQuery = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { register_balance_query: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { register_balance_query: {} }, fee || "auto", memo, funds);
   }
   setFees = async(sender:string, args: SetFeesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
