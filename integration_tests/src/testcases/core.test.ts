@@ -474,9 +474,14 @@ describe('Core', () => {
     context.icaAddress = ica;
   });
   it('register balance ICQ', async () => {
-    const { puppeteerContractClient, neutronUserAddress } = context;
-    const res = await puppeteerContractClient.registerBalanceQuery(
+    const { factoryContractClient, neutronUserAddress } = context;
+    const res = await factoryContractClient.proxy(
       neutronUserAddress,
+      {
+        validator_set: {
+          update_validators: { validators: [] },
+        },
+      },
       1.5,
       undefined,
       [
