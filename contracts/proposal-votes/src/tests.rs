@@ -22,21 +22,27 @@ fn instantiate() {
         deps.as_mut(),
         mock_env(),
         mock_info("admin", &[]),
-        lido_staking_base::msg::validatorset::InstantiateMsg {
-            core: "core".to_string(),
-            stats_contract: "stats_contract".to_string(),
+        lido_staking_base::msg::proposal_votes::InstantiateMsg {
+            connection_id: "connection-0".to_string(),
+            port_id: "transfer".to_string(),
+            update_period: 100,
+            core_address: "core".to_string(),
+            provider_proposals_address: "provider_proposals".to_string(),
         },
     )
     .unwrap();
 
-    let config = lido_staking_base::state::validatorset::CONFIG
+    let config = lido_staking_base::state::proposal_votes::CONFIG
         .load(deps.as_ref().storage)
         .unwrap();
     assert_eq!(
         config,
-        lido_staking_base::state::validatorset::Config {
-            core: Addr::unchecked("core"),
-            stats_contract: Addr::unchecked("stats_contract"),
+        lido_staking_base::state::proposal_votes::Config {
+            connection_id: "connection-0".to_string(),
+            port_id: "transfer".to_string(),
+            update_period: 100,
+            core_address: "core".to_string(),
+            provider_proposals_address: "provider_proposals".to_string(),
         }
     );
 
@@ -56,12 +62,15 @@ fn instantiate() {
 #[test]
 fn query_config() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    lido_staking_base::state::validatorset::CONFIG
+    lido_staking_base::state::proposal_votes::CONFIG
         .save(
             deps.as_mut().storage,
-            &lido_staking_base::state::validatorset::Config {
-                core: Addr::unchecked("core"),
-                stats_contract: Addr::unchecked("stats_contract"),
+            &lido_staking_base::state::proposal_votes::Config {
+                connection_id: "connection-0".to_string(),
+                port_id: "transfer".to_string(),
+                update_period: 100,
+                core_address: "core".to_string(),
+                provider_proposals_address: "provider_proposals".to_string(),
             },
         )
         .unwrap();
@@ -69,14 +78,17 @@ fn query_config() {
     let response = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        lido_staking_base::msg::validatorset::QueryMsg::Config {},
+        lido_staking_base::msg::proposal_votes::QueryMsg::Config {},
     )
     .unwrap();
     assert_eq!(
         response,
-        to_json_binary(&lido_staking_base::state::validatorset::Config {
-            core: Addr::unchecked("core"),
-            stats_contract: Addr::unchecked("stats_contract")
+        to_json_binary(&lido_staking_base::state::proposal_votes::Config {
+            connection_id: "connection-0".to_string(),
+            port_id: "transfer".to_string(),
+            update_period: 100,
+            core_address: "core".to_string(),
+            provider_proposals_address: "provider_proposals".to_string()
         })
         .unwrap()
     );
@@ -86,12 +98,15 @@ fn query_config() {
 fn update_config_wrong_owner() {
     let mut deps = mock_dependencies::<MockQuerier>();
 
-    lido_staking_base::state::validatorset::CONFIG
+    lido_staking_base::state::proposal_votes::CONFIG
         .save(
             deps.as_mut().storage,
-            &lido_staking_base::state::validatorset::Config {
-                core: Addr::unchecked("core"),
-                stats_contract: Addr::unchecked("stats_contract"),
+            &lido_staking_base::state::proposal_votes::Config {
+                connection_id: "connection-0".to_string(),
+                port_id: "transfer".to_string(),
+                update_period: 100,
+                core_address: "core".to_string(),
+                provider_proposals_address: "provider_proposals".to_string(),
             },
         )
         .unwrap();
@@ -100,15 +115,18 @@ fn update_config_wrong_owner() {
         deps.as_mut(),
         mock_env(),
         mock_info("core1", &[]),
-        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
-            core: Some(Addr::unchecked("owner1")),
-            stats_contract: Some(Addr::unchecked("stats_contract1")),
+        lido_staking_base::msg::proposal_votes::ExecuteMsg::UpdateConfig {
+            connection_id: Some("connection-0".to_string()),
+            port_id: Some("transfer".to_string()),
+            update_period: Some(100),
+            core_address: Some("core".to_string()),
+            provider_proposals_address: Some("provider_proposals".to_string()),
         },
     )
     .unwrap_err();
     assert_eq!(
         error,
-        lido_staking_base::error::validatorset::ContractError::OwnershipError(cw_ownable::OwnershipError::Std(
+        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::Std(
             cosmwasm_std::StdError::NotFound {
                 kind: "type: cw_ownable::Ownership<cosmwasm_std::addresses::Addr>; key: [6F, 77, 6E, 65, 72, 73, 68, 69, 70]".to_string()
             }
@@ -128,12 +146,15 @@ fn update_config_ok() {
         Some(Addr::unchecked("core").as_ref()),
     );
 
-    lido_staking_base::state::validatorset::CONFIG
+    lido_staking_base::state::proposal_votes::CONFIG
         .save(
             deps.as_mut().storage,
-            &lido_staking_base::state::validatorset::Config {
-                core: Addr::unchecked("core"),
-                stats_contract: Addr::unchecked("stats_contract"),
+            &lido_staking_base::state::proposal_votes::Config {
+                connection_id: "connection-0".to_string(),
+                port_id: "transfer".to_string(),
+                update_period: 100,
+                core_address: "core".to_string(),
+                provider_proposals_address: "provider_proposals".to_string(),
             },
         )
         .unwrap();
@@ -142,9 +163,12 @@ fn update_config_ok() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
-            core: Some(Addr::unchecked("owner1")),
-            stats_contract: Some(Addr::unchecked("stats_contract1")),
+        lido_staking_base::msg::proposal_votes::ExecuteMsg::UpdateConfig {
+            connection_id: Some("connection-1".to_string()),
+            port_id: Some("transfer1".to_string()),
+            update_period: Some(200),
+            core_address: Some("core1".to_string()),
+            provider_proposals_address: Some("provider_proposals_1".to_string()),
         },
     )
     .unwrap();
@@ -153,14 +177,17 @@ fn update_config_ok() {
     let config = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        lido_staking_base::msg::validatorset::QueryMsg::Config {},
+        lido_staking_base::msg::proposal_votes::QueryMsg::Config {},
     )
     .unwrap();
     assert_eq!(
         config,
-        to_json_binary(&lido_staking_base::state::validatorset::Config {
-            core: Addr::unchecked("owner1"),
-            stats_contract: Addr::unchecked("stats_contract1")
+        to_json_binary(&lido_staking_base::state::proposal_votes::Config {
+            connection_id: "connection-1".to_string(),
+            port_id: "transfer1".to_string(),
+            update_period: 200,
+            core_address: "core1".to_string(),
+            provider_proposals_address: "provider_proposals_1".to_string()
         })
         .unwrap()
     );
