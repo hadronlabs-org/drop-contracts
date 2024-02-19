@@ -2,7 +2,7 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Decimal;
 use neutron_sdk::interchain_queries::v045::types::ProposalVote;
 
-use crate::state::{proposal_votes::Config, provider_proposals::ProposalInfo};
+use crate::state::provider_proposals::{Config, Metrics, ProposalInfo};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -43,6 +43,8 @@ pub enum QueryMsg {
     GetProposal { proposal_id: u64 },
     #[returns(Vec<ProposalInfo>)]
     GetProposals {},
+    #[returns(Metrics)]
+    Metrics {},
 }
 
 #[cw_serde]

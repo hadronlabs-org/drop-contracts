@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use cosmos_sdk_proto::cosmos::gov::v1beta1::ProposalStatus;
 use cosmwasm_std::{
-    attr, entry_point, to_json_binary, Attribute, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env,
-    MessageInfo, Order, Reply, Response, StdResult, SubMsg, Uint128, WasmMsg,
+    attr, ensure_eq, entry_point, to_json_binary, Attribute, Binary, CosmosMsg, Decimal, Deps,
+    DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult, SubMsg, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use lido_helpers::answer::response;
@@ -13,7 +13,7 @@ use lido_staking_base::msg::provider_proposals::{
 };
 use lido_staking_base::msg::validatorset::ExecuteMsg as ValidatorSetExecuteMsg;
 use lido_staking_base::state::provider_proposals::{
-    Config, ProposalInfo, CONFIG, PROPOSALS, PROPOSALS_REPLY_ID, PROPOSALS_VOTES, QUERY_ID,
+    Config, Metrics, ProposalInfo, CONFIG, PROPOSALS, PROPOSALS_REPLY_ID, PROPOSALS_VOTES, QUERY_ID,
 };
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::{NeutronQuery, QueryRegisteredQueryResultResponse};
@@ -90,17 +90,34 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => query_config(deps, env),
+        QueryMsg::Config {} => query_config(deps),
         QueryMsg::GetProposal { proposal_id } => query_proposal(deps, proposal_id),
         QueryMsg::GetProposals {} => query_proposals(deps),
+        QueryMsg::Metrics {} => query_metrics(deps),
     }
 }
 
-fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
+fn query_config(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
     let config = CONFIG.load(deps.storage)?;
     to_json_binary(&config)
+}
+
+fn query_metrics(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
+    let keys = PROPOSALS.keys(deps.storage, None, None, Order::Ascending);
+    let max_key = keys.fold(0u64, |max, current| {
+        let current_key = current.unwrap_or_default();
+        if current_key > max {
+            current_key
+        } else {
+            max
+        }
+    });
+
+    to_json_binary(&Metrics {
+        last_proposal: max_key,
+    })
 }
 
 fn query_proposal(deps: Deps<NeutronQuery>, proposal_id: u64) -> StdResult<Binary> {
@@ -235,12 +252,17 @@ fn execute_update_config(
     Ok(response("config_update", CONTRACT_NAME, attrs))
 }
 
-fn execute_update_votes(
+pub fn execute_update_votes(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
     votes: Vec<ProposalVote>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+    let config = CONFIG.load(deps.storage)?;
+    ensure_eq!(
+        config.proposal_votes_address,
+        info.sender,
+        ContractError::Unauthorized {}
+    );
 
     let mut votes_map: HashMap<u64, Vec<ProposalVote>> = HashMap::new();
 
@@ -366,7 +388,9 @@ fn sudo_proposals_query(
     }
 
     for proposal in data.proposals {
-        PROPOSALS.save(deps.storage, proposal.proposal_id, &proposal)?;
+        if proposal.status != ProposalStatus::Unspecified as i32 {
+            PROPOSALS.save(deps.storage, proposal.proposal_id, &proposal)?;
+        }
     }
 
     Ok(Response::new().add_messages(msgs))

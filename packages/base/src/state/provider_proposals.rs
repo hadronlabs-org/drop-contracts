@@ -24,6 +24,11 @@ pub struct Config {
     pub veto_spam_threshold: Decimal,
 }
 
+#[cw_serde]
+pub struct Metrics {
+    pub last_proposal: u64,
+}
+
 pub const PROPOSALS_REPLY_ID: u64 = 1;
 
 pub const QUERY_ID: Item<u64> = Item::new("query_id");
