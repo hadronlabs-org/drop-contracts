@@ -108,7 +108,7 @@ where
         query_id: u64,
         storage: cw_storage_plus::Item<'a, (Delegations, Balances, u64)>,
     ) -> NeutronResult<Response> {
-        let data: DelegationsAndBalances = query_kv_result(deps.as_ref(), query_id)?;
+        let data: BalancesAndDelegations = query_kv_result(deps.as_ref(), query_id)?;
         deps.api.debug(
             format!(
                 "WASMDEBUG: sudo_kv_query_result received; query_id: {query_id:?} data: {data:?}"
@@ -176,17 +176,24 @@ where
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
-pub struct DelegationsAndBalances {
-    pub delegations: Delegations,
+pub struct BalancesAndDelegations {
     pub balances: Balances,
+    pub delegations: Delegations,
 }
 
-impl KVReconstruct for DelegationsAndBalances {
+impl KVReconstruct for BalancesAndDelegations {
     fn reconstruct(
         storage_values: &[neutron_sdk::bindings::types::StorageValue],
     ) -> NeutronResult<Self> {
+        let mut coins: Vec<cosmwasm_std::Coin> = Vec::with_capacity(storage_values.len());
+        let kv = &storage_values[0];
+        if kv.value.len() > 0 {
+            let balance = CosmosCoin::decode(kv.value.as_slice())?;
+            let amount = Uint128::from_str(balance.amount.as_str())?;
+            coins.push(cosmwasm_std::Coin::new(amount.u128(), balance.denom));
+        }
         let mut delegations: Vec<cosmwasm_std::Delegation> =
-            Vec::with_capacity((storage_values.len() - 1) / 2);
+            Vec::with_capacity((storage_values.len() - 2) / 2);
 
         if storage_values.is_empty() {
             return Err(NeutronError::InvalidQueryResultFormat(
@@ -194,7 +201,7 @@ impl KVReconstruct for DelegationsAndBalances {
             ));
         }
         // first StorageValue is denom
-        if storage_values[0].value.is_empty() {
+        if storage_values[1].value.is_empty() {
             // Incoming denom cannot be empty, it should always be configured on chain.
             // If we receive empty denom, that means incoming data structure is corrupted
             // and we cannot build `cosmwasm_std::Delegation`'s using this data.
@@ -202,11 +209,9 @@ impl KVReconstruct for DelegationsAndBalances {
                 "denom is empty".into(),
             ));
         }
-        let denom: String = from_json(&storage_values[0].value)?;
-
-        let end_of_delegations = storage_values.len() - 1;
+        let denom: String = from_json(&storage_values[1].value)?;
         // the rest are delegations and validators alternately
-        for chunk in storage_values[1..end_of_delegations].chunks(2) {
+        for chunk in storage_values[2..].chunks(2) {
             if chunk[0].value.is_empty() {
                 // Incoming delegation can actually be empty, this just means that delegation
                 // is not present on remote chain, which is to be expected. So, if it doesn't
@@ -254,14 +259,7 @@ impl KVReconstruct for DelegationsAndBalances {
 
             delegations.push(delegation_std);
         }
-
-        let mut coins: Vec<cosmwasm_std::Coin> = Vec::with_capacity(storage_values.len());
-        let kv = &storage_values[end_of_delegations];
-        let balance: CosmosCoin = CosmosCoin::decode(kv.value.as_slice())?;
-        let amount = Uint128::from_str(balance.amount.as_str())?;
-        coins.push(cosmwasm_std::Coin::new(amount.u128(), balance.denom));
-
-        Ok(DelegationsAndBalances {
+        Ok(BalancesAndDelegations {
             delegations: Delegations { delegations },
             balances: Balances { coins },
         })

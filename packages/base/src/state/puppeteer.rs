@@ -38,4 +38,3 @@ pub enum KVQueryType {
 
 pub const DELEGATIONS_AND_BALANCE: Item<(Delegations, Balances, u64)> =
     Item::new("delegations_and_balance");
-pub const VALIDATORS: Item<Vec<String>> = Item::new("validators");

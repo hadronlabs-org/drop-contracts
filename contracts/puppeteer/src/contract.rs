@@ -22,7 +22,7 @@ use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use lido_helpers::{
     answer::response,
-    icq::{new_delegations_and_balance_query_msg, update_delegations_and_balance_query_msg},
+    icq::{new_delegations_and_balance_query_msg, update_balance_and_delegations_query_msg},
 };
 use lido_puppeteer_base::{
     error::{ContractError, ContractResult},
@@ -37,7 +37,7 @@ use lido_puppeteer_base::{
 };
 use lido_staking_base::{
     msg::puppeteer::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryExtMsg},
-    state::puppeteer::{Config, KVQueryType, DELEGATIONS_AND_BALANCE, VALIDATORS},
+    state::puppeteer::{Config, KVQueryType, DELEGATIONS_AND_BALANCE},
 };
 use neutron_sdk::interchain_queries::v045::new_register_delegator_unbonding_delegations_query_msg;
 use neutron_sdk::{
@@ -186,13 +186,12 @@ pub fn execute(
         } => execute_claim_rewards_and_optionaly_transfer(
             deps, info, validators, transfer, timeout, reply_to,
         ),
-        ExecuteMsg::RegisterDelegatorDelegationsQuery { validators } => {
-            register_delegations_query(deps, info, validators)
+        ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators } => {
+            register_balance_delegations_query(deps, info, validators)
         }
         ExecuteMsg::RegisterDelegatorUnbondingDelegationsQuery { validators } => {
             register_unbonding_delegations_query(deps, info, validators)
         }
-        ExecuteMsg::RegisterBalanceQuery {} => register_balance_query(deps, env, info),
         ExecuteMsg::IBCTransfer { timeout, reply_to } => {
             execute_ibc_transfer(deps, env, info, timeout, reply_to)
         }
@@ -256,7 +255,7 @@ fn execute_ibc_transfer(
     Ok(Response::default().add_submessages(vec![submsg]))
 }
 
-fn register_delegations_query(
+fn register_balance_delegations_query(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
     validators: Vec<String>,
@@ -264,7 +263,6 @@ fn register_delegations_query(
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.storage)?;
     ensure_eq!(config.owner, info.sender, ContractError::Unauthorized {});
-    // remove old delegation query if any
     let kv_queries = puppeteer_base
         .kv_queries
         .range(deps.storage, None, None, Order::Ascending)
@@ -274,7 +272,7 @@ fn register_delegations_query(
     let mut submessages = vec![];
     for (query_id, query_type) in kv_queries {
         if query_type == KVQueryType::DelegationsAndBalance {
-            messages.push(update_delegations_and_balance_query_msg(
+            messages.push(update_balance_and_delegations_query_msg(
                 query_id,
                 ica.to_string(),
                 config.remote_denom.to_string(),
@@ -285,18 +283,18 @@ fn register_delegations_query(
     if messages.is_empty() {
         submessages.push(SubMsg::reply_on_success(
             new_delegations_and_balance_query_msg(
-                config.connection_id,
-                ica,
-                config.remote_denom,
-                validators,
+                config.connection_id.clone(),
+                ica.clone(),
+                config.remote_denom.clone(),
+                validators.clone(),
                 config.update_period,
             )?,
             ReplyMsg::KvDelegationsAndBalance.to_reply_id(),
         ));
     }
     deps.api.debug(&format!(
-        "WASMDEBUG: register_delegations_query {msgs:?}",
-        msgs = messages
+        "WASMDEBUG: register_delegations_query messages:{:?} submessages:{:?}",
+        messages, submessages
     ));
     Ok(Response::new()
         .add_messages(messages)
@@ -353,41 +351,6 @@ fn register_unbonding_delegations_query(
         .collect::<ContractResult<Vec<_>>>()?;
 
     Ok(Response::new().add_submessages(msgs))
-}
-
-fn register_balance_query(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    _info: MessageInfo,
-) -> ContractResult<Response<NeutronMsg>> {
-    let puppeteer_base = Puppeteer::default();
-    let kv_queries = puppeteer_base
-        .kv_queries
-        .range(deps.storage, None, None, Order::Ascending)
-        .collect::<Result<Vec<(u64, KVQueryType)>, _>>()?;
-    for (_, query_type) in kv_queries {
-        if query_type == KVQueryType::DelegationsAndBalance {
-            return Err(ContractError::Unauthorized {});
-        }
-    }
-    let config = puppeteer_base.config.load(deps.storage)?;
-    let ica = puppeteer_base.ica.get_address(deps.storage)?;
-    let validators = VALIDATORS.load(deps.storage).unwrap_or(vec![]);
-    let msg = SubMsg::reply_on_success(
-        new_delegations_and_balance_query_msg(
-            config.connection_id,
-            ica,
-            config.remote_denom,
-            validators,
-            config.update_period,
-        )?,
-        ReplyMsg::KvDelegationsAndBalance.to_reply_id(),
-    );
-    deps.api.debug(&format!(
-        "WASMDEBUG: register_balance_query {msg:?}",
-        msg = msg
-    ));
-    Ok(Response::new().add_submessage(msg))
 }
 
 fn execute_delegate(
@@ -739,6 +702,8 @@ pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResul
         } => puppeteer_base.sudo_tx_query_result(deps, env, query_id, height, data),
         SudoMsg::KVQueryResult { query_id } => {
             let query_type = puppeteer_base.kv_queries.load(deps.storage, query_id)?;
+            deps.api
+                .debug(&format!("WASMDEBUG: KVQueryResult type {:?}", query_type));
             match query_type {
                 KVQueryType::DelegationsAndBalance => puppeteer_base.sudo_kv_query_result(
                     deps,
@@ -1015,8 +980,10 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
         ReplyMsg::SudoPayload => puppeteer_base.submit_tx_reply(deps, msg),
         ReplyMsg::IbcTransfer => puppeteer_base.submit_ibc_transfer_reply(deps, msg),
         ReplyMsg::KvDelegationsAndBalance => {
-            deps.api
-                .debug(&format!("WASMDEBUG: DELEGATIONS_REPLY_ID {:?}", msg));
+            deps.api.debug(&format!(
+                "WASMDEBUG: DELEGATIONS_AND_BALANCE_REPLY_ID {:?}",
+                msg
+            ));
             puppeteer_base.register_kv_query_reply(deps, msg, KVQueryType::DelegationsAndBalance)
         }
         ReplyMsg::KvUnbondingDelegations { validator_index } => {

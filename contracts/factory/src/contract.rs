@@ -152,7 +152,7 @@ fn execute_proxy_msg(
                 )?);
                 messages.push(get_proxied_message(
                     state.puppeteer_contract,
-                    lido_staking_base::msg::puppeteer::ExecuteMsg::RegisterDelegatorDelegationsQuery { validators: validators.iter().map(|v| {v.valoper_address.to_string()}).collect() },
+                    lido_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: validators.iter().map(|v| {v.valoper_address.to_string()}).collect() },
                     info.funds,
                 )?)
             }

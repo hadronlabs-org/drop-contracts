@@ -24,33 +24,38 @@ pub fn new_delegations_and_balance_query_msg(
     validators: Vec<String>,
     update_period: u64,
 ) -> NeutronResult<NeutronMsg> {
-    let keys = get_delegations_and_balance_keys(delegator, denom, validators)?;
+    let keys = get_balance_and_delegations_keys(delegator, denom, validators)?;
     NeutronMsg::register_interchain_query(QueryPayload::KV(keys), connection_id, update_period)
 }
 
-pub fn update_delegations_and_balance_query_msg(
+pub fn update_balance_and_delegations_query_msg(
     query_id: u64,
     delegator: String,
     denom: String,
     validators: Vec<String>,
 ) -> NeutronResult<NeutronMsg> {
-    let keys = get_delegations_and_balance_keys(delegator, denom, validators)?;
+    let keys = get_balance_and_delegations_keys(delegator, denom, validators)?;
     NeutronMsg::update_interchain_query(query_id, Some(keys), None, None)
 }
 
-pub fn get_delegations_and_balance_keys(
+pub fn get_balance_and_delegations_keys(
     delegator: String,
     denom: String,
     validators: Vec<String>,
 ) -> NeutronResult<Vec<KVKey>> {
     let delegator_addr = decode_and_convert(&delegator)?;
     let balance_key = create_account_denom_balance_key(&delegator_addr, denom)?;
-
     // Allocate memory for such KV keys as:
     // * staking module params to get staking denomination
     // * validators structures to calculate amount of delegated tokens
     // * delegations structures to get info about delegations itself and balance
-    let mut keys: Vec<KVKey> = Vec::with_capacity(validators.len() * 2 + 2);
+    let mut keys: Vec<KVKey> = Vec::with_capacity(validators.len() * 2 + 1);
+
+    // // create KV key to get balance of the delegator
+    keys.push(KVKey {
+        path: BANK_STORE_KEY.to_string(),
+        key: Binary(balance_key),
+    });
 
     // create KV key to get BondDenom from staking module params
     keys.push(KVKey {
@@ -73,12 +78,6 @@ pub fn get_delegations_and_balance_keys(
             key: Binary(create_validator_key(&val_addr)?),
         })
     }
-
-    // create KV key to get balance of the delegator
-    keys.push(KVKey {
-        path: BANK_STORE_KEY.to_string(),
-        key: Binary(balance_key),
-    });
 
     Ok(keys)
 }

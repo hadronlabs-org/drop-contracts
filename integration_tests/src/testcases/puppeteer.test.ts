@@ -495,20 +495,21 @@ describe('Interchain puppeteer', () => {
     ]);
   });
 
-  it('register delegations query', async () => {
+  it('register balance and delegations query', async () => {
     const { contractClient, account } = context;
-    const res = await contractClient.registerDelegatorDelegationsQuery(
-      account.address,
-      {
-        validators: [
-          context.firstValidatorAddress,
-          context.secondValidatorAddress,
-        ],
-      },
-      1.5,
-      undefined,
-      [{ amount: '1000000', denom: 'untrn' }],
-    );
+    const res =
+      await contractClient.registerBalanceAndDelegatorDelegationsQuery(
+        account.address,
+        {
+          validators: [
+            context.firstValidatorAddress,
+            context.secondValidatorAddress,
+          ],
+        },
+        1.5,
+        undefined,
+        [{ amount: '1000000', denom: 'untrn' }],
+      );
     expect(res.transactionHash).toBeTruthy();
   });
 

@@ -115,7 +115,7 @@ export interface LidoPuppeteerSchema {
   responses: ConfigResponse | Binary | IcaState | ArrayOfTransaction;
   query: ExtentionArgs;
   execute:
-    | RegisterDelegatorDelegationsQueryArgs
+    | RegisterBalanceAndDelegatorDelegationsQueryArgs
     | RegisterDelegatorUnbondingDelegationsQueryArgs
     | SetFeesArgs
     | DelegateArgs
@@ -140,7 +140,7 @@ export interface TransferReadyBatchMsg {
 export interface ExtentionArgs {
   msg: QueryExtMsg;
 }
-export interface RegisterDelegatorDelegationsQueryArgs {
+export interface RegisterBalanceAndDelegatorDelegationsQueryArgs {
   validators: string[];
 }
 export interface RegisterDelegatorUnbondingDelegationsQueryArgs {
@@ -245,17 +245,13 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { register_query: {} }, fee || "auto", memo, funds);
   }
-  registerDelegatorDelegationsQuery = async(sender:string, args: RegisterDelegatorDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  registerBalanceAndDelegatorDelegationsQuery = async(sender:string, args: RegisterBalanceAndDelegatorDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { register_delegator_delegations_query: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { register_balance_and_delegator_delegations_query: args }, fee || "auto", memo, funds);
   }
   registerDelegatorUnbondingDelegationsQuery = async(sender:string, args: RegisterDelegatorUnbondingDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { register_delegator_unbonding_delegations_query: args }, fee || "auto", memo, funds);
-  }
-  registerBalanceQuery = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { register_balance_query: {} }, fee || "auto", memo, funds);
   }
   setFees = async(sender:string, args: SetFeesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
