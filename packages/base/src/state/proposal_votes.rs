@@ -1,7 +1,9 @@
 use cosmwasm_schema::cw_serde;
 
 use cw_storage_plus::Item;
+use optfield::optfield;
 
+#[optfield(pub ConfigOptional, attrs)]
 #[cw_serde]
 pub struct Config {
     pub connection_id: String,

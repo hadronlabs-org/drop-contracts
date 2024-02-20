@@ -8,7 +8,7 @@ use optfield::optfield;
 pub struct Config {
     pub owner: Addr,
     pub stats_contract: Addr,
-    pub provider_proposals_contract: Addr,
+    pub provider_proposals_contract: Option<Addr>,
 }
 
 #[cw_serde]

@@ -1,2 +1,2 @@
 [alias]
-schema = "run --bin lido-proposal-votes-schema"
+schema = "run --bin lido-provider-proposals-schema"

@@ -4,6 +4,7 @@ pub mod distribution;
 pub mod hook_tester;
 pub mod proposal_votes;
 pub mod provider_proposals;
+pub mod pump;
 pub mod puppeteer;
 pub mod reward_handler;
 pub mod rewards_manager;

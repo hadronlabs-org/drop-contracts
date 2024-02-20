@@ -1,4 +1,4 @@
-use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Addr, Deps, Order};
+use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Addr, Attribute, Deps, Order};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use lido_helpers::answer::response;
@@ -7,7 +7,9 @@ use lido_staking_base::msg::validatorset::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ValidatorData, ValidatorInfoUpdate,
 };
 use lido_staking_base::state::provider_proposals::ProposalInfo;
-use lido_staking_base::state::validatorset::{Config, ValidatorInfo, CONFIG, VALIDATORS_SET};
+use lido_staking_base::state::validatorset::{
+    Config, ConfigOptional, ValidatorInfo, CONFIG, VALIDATORS_SET,
+};
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
 
@@ -26,14 +28,13 @@ pub fn instantiate(
 
     let owner = deps.api.addr_validate(&msg.owner)?;
     let stats_contract = deps.api.addr_validate(&msg.stats_contract)?;
-    let provider_proposals_contract = deps.api.addr_validate(&msg.provider_proposals_contract)?;
 
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(msg.owner.as_ref()))?;
 
     let config = &Config {
         owner: owner.clone(),
         stats_contract: stats_contract.clone(),
-        provider_proposals_contract: provider_proposals_contract.clone(),
+        provider_proposals_contract: None,
     };
 
     CONFIG.save(deps.storage, config)?;
@@ -41,11 +42,7 @@ pub fn instantiate(
     Ok(response(
         "instantiate",
         CONTRACT_NAME,
-        [
-            attr("core", core),
-            attr("stats_contract", stats_contract),
-            attr("provider_proposals_contract", provider_proposals_contract),
-        ],
+        [attr("owner", owner), attr("stats_contract", stats_contract)],
     ))
 }
 
@@ -86,17 +83,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::UpdateConfig {
-            core,
-            stats_contract,
-            provider_proposals_contract,
-        } => execute_update_config(
-            deps,
-            info,
-            core,
-            stats_contract,
-            provider_proposals_contract,
-        ),
+        ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
         ExecuteMsg::UpdateValidators { validators } => {
             execute_update_validators(deps, info, validators)
         }
@@ -115,39 +102,38 @@ pub fn execute(
 fn execute_update_config(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
-    owner: Option<Addr>,
-    stats_contract: Option<Addr>,
-    provider_proposals_contract: Option<Addr>,
+    new_config: ConfigOptional,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     let mut state = CONFIG.load(deps.storage)?;
 
+    let mut attrs: Vec<Attribute> = Vec::new();
+
     if let Some(owner) = new_config.owner {
         if owner != state.owner {
-            state.owner = owner;
+            state.owner = owner.clone();
             cw_ownable::initialize_owner(deps.storage, deps.api, Some(state.owner.as_ref()))?;
         }
+        attrs.push(attr("owner", owner.to_string()))
     }
 
-    if let Some(stats_contract) = stats_contract {
-        state.stats_contract = stats_contract;
+    if let Some(stats_contract) = new_config.stats_contract {
+        state.stats_contract = stats_contract.clone();
+        attrs.push(attr("stats_contract", stats_contract))
     }
 
-    if let Some(provider_proposals_contract) = provider_proposals_contract {
-        state.stats_contract = provider_proposals_contract;
+    if new_config.provider_proposals_contract.is_some() {
+        state.provider_proposals_contract = new_config.provider_proposals_contract.clone();
+        attrs.push(attr(
+            "provider_proposals_contract",
+            new_config.provider_proposals_contract.unwrap().to_string(),
+        ))
     }
 
     CONFIG.save(deps.storage, &state)?;
 
-    Ok(response(
-        "update_config",
-        CONTRACT_NAME,
-        [
-            attr("core", state.owner),
-            attr("stats_contract", state.stats_contract),
-        ],
-    ))
+    Ok(response("update_config", CONTRACT_NAME, Vec::<Attribute>::new()).add_attributes(attrs))
 }
 
 fn execute_update_validator(
@@ -288,9 +274,10 @@ fn execute_update_validators_voting(
     proposal: ProposalInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
+
     ensure_eq!(
         config.provider_proposals_contract,
-        info.sender,
+        Some(info.sender),
         ContractError::Unauthorized {}
     );
 
@@ -316,7 +303,7 @@ fn execute_update_validators_voting(
                     validator.init_proposal = Some(proposal.proposal.proposal_id);
                 }
 
-                if vote.options.len() > 0 {
+                if !vote.options.is_empty() {
                     validator.total_voted_proposals += 1;
                 }
 

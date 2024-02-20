@@ -4,10 +4,10 @@ use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Attribute, Deps
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use lido_helpers::answer::response;
-use lido_helpers::reply::get_query_id;
+use lido_helpers::query_id::get_query_id;
 use lido_staking_base::msg::proposal_votes::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use lido_staking_base::state::proposal_votes::{
-    Config, Metrics, ACTIVE_PROPOSALS, CONFIG, PROPOSALS_VOTES_REMOVE_REPLY_ID,
+    Config, ConfigOptional, Metrics, ACTIVE_PROPOSALS, CONFIG, PROPOSALS_VOTES_REMOVE_REPLY_ID,
     PROPOSALS_VOTES_REPLY_ID, QUERY_ID, VOTERS,
 };
 use neutron_sdk::bindings::msg::NeutronMsg;
@@ -92,21 +92,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::UpdateConfig {
-            connection_id,
-            port_id,
-            update_period,
-            core_address,
-            provider_proposals_address,
-        } => execute_update_config(
-            deps,
-            info,
-            connection_id,
-            port_id,
-            update_period,
-            core_address,
-            provider_proposals_address,
-        ),
+        ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
         ExecuteMsg::UpdateActiveProposals { active_proposals } => {
             execute_update_active_proposals(deps, info, active_proposals)
         }
@@ -117,24 +103,20 @@ pub fn execute(
 fn execute_update_config(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
-    connection_id: Option<String>,
-    port_id: Option<String>,
-    update_period: Option<u64>,
-    core_address: Option<String>,
-    provider_proposals_address: Option<String>,
+    new_config: ConfigOptional,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     let mut config = CONFIG.load(deps.storage)?;
 
     let mut attrs: Vec<Attribute> = Vec::new();
-    if let Some(core_address) = core_address {
+    if let Some(core_address) = new_config.core_address {
         let core_address = deps.api.addr_validate(&core_address)?;
         config.core_address = core_address.to_string();
         attrs.push(attr("core_address", core_address))
     }
 
-    if let Some(provider_proposals_address) = provider_proposals_address {
+    if let Some(provider_proposals_address) = new_config.provider_proposals_address {
         let provider_proposals_address = deps.api.addr_validate(&provider_proposals_address)?;
         config.provider_proposals_address = provider_proposals_address.to_string();
         attrs.push(attr(
@@ -143,17 +125,17 @@ fn execute_update_config(
         ))
     }
 
-    if let Some(connection_id) = connection_id {
+    if let Some(connection_id) = new_config.connection_id {
         config.connection_id = connection_id.clone();
         attrs.push(attr("connection_id", connection_id))
     }
 
-    if let Some(port_id) = port_id {
+    if let Some(port_id) = new_config.port_id {
         config.port_id = port_id.clone();
         attrs.push(attr("port_id", port_id))
     }
 
-    if let Some(update_period) = update_period {
+    if let Some(update_period) = new_config.update_period {
         config.update_period = update_period;
         attrs.push(attr("update_period", update_period.to_string()))
     }
@@ -226,9 +208,9 @@ fn process_new_data(
             ACTIVE_PROPOSALS.save(deps.storage, &active_proposals)?;
 
             sub_msgs.push(register_votes_interchain_query(
-                &config,
-                &active_proposals,
-                &voters,
+                config,
+                active_proposals.to_owned(),
+                voters.to_owned(),
             )?);
         }
 
@@ -252,8 +234,8 @@ fn process_new_data(
 
                 sub_msgs.push(update_votes_interchain_query(
                     query_id,
-                    &active_proposals,
-                    &voters,
+                    active_proposals,
+                    voters,
                 )?);
             }
         }
@@ -264,13 +246,13 @@ fn process_new_data(
 
 fn update_votes_interchain_query(
     query_id: u64,
-    active_proposals: &Vec<u64>,
-    voters: &Vec<String>,
+    active_proposals: Vec<u64>,
+    voters: Vec<String>,
 ) -> ContractResult<SubMsg<NeutronMsg>> {
     let msg = update_register_gov_proposal_votes_query_msg(
         query_id,
-        active_proposals.clone(),
-        voters.clone(),
+        active_proposals.to_owned(),
+        voters.to_owned(),
         None,
         None,
     )?;
@@ -280,13 +262,13 @@ fn update_votes_interchain_query(
 
 fn register_votes_interchain_query(
     config: &Config,
-    active_proposals: &Vec<u64>,
-    voters: &Vec<String>,
+    active_proposals: Vec<u64>,
+    voters: Vec<String>,
 ) -> ContractResult<SubMsg<NeutronMsg>> {
     let msg = new_register_gov_proposal_votes_query_msg(
         config.connection_id.to_string(),
-        active_proposals.clone(),
-        voters.clone(),
+        active_proposals,
+        voters,
         config.update_period,
     )?;
 

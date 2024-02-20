@@ -1,6 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 
-use crate::state::proposal_votes::{Config, Metrics};
+use crate::state::proposal_votes::{Config, ConfigOptional, Metrics};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -13,19 +13,9 @@ pub struct InstantiateMsg {
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    UpdateConfig {
-        connection_id: Option<String>,
-        port_id: Option<String>,
-        update_period: Option<u64>,
-        core_address: Option<String>,
-        provider_proposals_address: Option<String>,
-    },
-    UpdateActiveProposals {
-        active_proposals: Vec<u64>,
-    },
-    UpdateVotersList {
-        voters: Vec<String>,
-    },
+    UpdateConfig { new_config: ConfigOptional },
+    UpdateActiveProposals { active_proposals: Vec<u64> },
+    UpdateVotersList { voters: Vec<String> },
 }
 
 #[cw_serde]

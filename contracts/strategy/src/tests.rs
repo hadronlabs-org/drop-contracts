@@ -145,6 +145,9 @@ fn validator_set_query(_deps: Deps, _env: Env, msg: ValidatorSetQueryMsg) -> Std
                     uptime: Decimal::zero(),
                     tombstone: false,
                     jailed_number: None,
+                    init_proposal: None,
+                    total_passed_proposals: 0,
+                    total_voted_proposals: 0,
                 };
                 validators.push(validator);
             }

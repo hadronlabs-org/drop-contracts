@@ -14,9 +14,8 @@ fn instantiate() {
         mock_env(),
         mock_info("admin", &[]),
         lido_staking_base::msg::validatorset::InstantiateMsg {
-            owner: "core".to_string(),
+            owner: "owner".to_string(),
             stats_contract: "stats_contract".to_string(),
-            provider_proposals_contract: "provider_proposals_contract".to_string(),
         },
     )
     .unwrap();
@@ -27,9 +26,9 @@ fn instantiate() {
     assert_eq!(
         config,
         lido_staking_base::state::validatorset::Config {
-            owner: Addr::unchecked("core"),
+            owner: Addr::unchecked("owner"),
             stats_contract: Addr::unchecked("stats_contract"),
-            provider_proposals_contract: Addr::unchecked("provider_proposals_contract"),
+            provider_proposals_contract: None,
         }
     );
 
@@ -38,7 +37,7 @@ fn instantiate() {
         response.events,
         vec![
             Event::new("crates.io:lido-staking__lido-validators-set-instantiate").add_attributes([
-                attr("core", "core"),
+                attr("owner", "owner"),
                 attr("stats_contract", "stats_contract")
             ])
         ]
@@ -55,7 +54,7 @@ fn query_config() {
             &lido_staking_base::state::validatorset::Config {
                 owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Addr::unchecked("provider_proposals_contract"),
+                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
             },
         )
         .unwrap();
@@ -71,7 +70,7 @@ fn query_config() {
         to_json_binary(&lido_staking_base::state::validatorset::Config {
             owner: Addr::unchecked("core"),
             stats_contract: Addr::unchecked("stats_contract"),
-            provider_proposals_contract: Addr::unchecked("provider_proposals_contract")
+            provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract"))
         })
         .unwrap()
     );
@@ -87,7 +86,7 @@ fn update_config_wrong_owner() {
             &lido_staking_base::state::validatorset::Config {
                 owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Addr::unchecked("provider_proposals_contract"),
+                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
             },
         )
         .unwrap();
@@ -97,9 +96,11 @@ fn update_config_wrong_owner() {
         mock_env(),
         mock_info("core1", &[]),
         lido_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
-            owner: Some(Addr::unchecked("owner1")),
-            stats_contract: Some(Addr::unchecked("stats_contract1")),
-            provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract1")),
+            new_config: ConfigOptional {
+                owner: Some(Addr::unchecked("owner1")),
+                stats_contract: Some(Addr::unchecked("stats_contract1")),
+                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract1")),
+            },
         },
     )
     .unwrap_err();
@@ -131,7 +132,7 @@ fn update_config_ok() {
             &lido_staking_base::state::validatorset::Config {
                 owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Addr::unchecked("provider_proposals_contract"),
+                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
             },
         )
         .unwrap();
@@ -141,9 +142,11 @@ fn update_config_ok() {
         mock_env(),
         mock_info("core", &[]),
         lido_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
-            owner: Some(Addr::unchecked("owner1")),
-            stats_contract: Some(Addr::unchecked("stats_contract1")),
-            provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract1")),
+            new_config: ConfigOptional {
+                owner: Some(Addr::unchecked("owner1")),
+                stats_contract: Some(Addr::unchecked("stats_contract1")),
+                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract1")),
+            },
         },
     )
     .unwrap();
@@ -160,7 +163,7 @@ fn update_config_ok() {
         to_json_binary(&lido_staking_base::state::validatorset::Config {
             owner: Addr::unchecked("owner1"),
             stats_contract: Addr::unchecked("stats_contract1"),
-            provider_proposals_contract: Addr::unchecked("provider_proposals_contract")
+            provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract1"))
         })
         .unwrap()
     );
@@ -364,7 +367,7 @@ fn update_validator_info_wrong_sender() {
             &lido_staking_base::state::validatorset::Config {
                 owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Addr::unchecked("provider_proposals_contract"),
+                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
             },
         )
         .unwrap();
@@ -424,7 +427,7 @@ fn update_validator_info_ok() {
             &lido_staking_base::state::validatorset::Config {
                 owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Addr::unchecked("provider_proposals_contract"),
+                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
             },
         )
         .unwrap();

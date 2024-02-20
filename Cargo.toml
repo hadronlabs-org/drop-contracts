@@ -9,7 +9,7 @@ members = [
     "contracts/factory",
     "contracts/puppeteer",
     # "contracts/puppeteer-authz",
-    # "contracts/validators-stats",
+    "contracts/validators-stats",
     "contracts/token",
     "contracts/validators-set",
     "contracts/rewards-manager",

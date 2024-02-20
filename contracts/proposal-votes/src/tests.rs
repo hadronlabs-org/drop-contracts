@@ -119,11 +119,13 @@ fn update_config_wrong_owner() {
         mock_env(),
         mock_info("core1", &[]),
         lido_staking_base::msg::proposal_votes::ExecuteMsg::UpdateConfig {
-            connection_id: Some("connection-0".to_string()),
-            port_id: Some("transfer".to_string()),
-            update_period: Some(100),
-            core_address: Some("core".to_string()),
-            provider_proposals_address: Some("provider_proposals".to_string()),
+            new_config: lido_staking_base::state::proposal_votes::ConfigOptional {
+                connection_id: Some("connection-0".to_string()),
+                port_id: Some("transfer".to_string()),
+                update_period: Some(100),
+                core_address: Some("core".to_string()),
+                provider_proposals_address: Some("provider_proposals".to_string()),
+            },
         },
     )
     .unwrap_err();
@@ -167,11 +169,13 @@ fn update_config_ok() {
         mock_env(),
         mock_info("core", &[]),
         lido_staking_base::msg::proposal_votes::ExecuteMsg::UpdateConfig {
-            connection_id: Some("connection-1".to_string()),
-            port_id: Some("transfer1".to_string()),
-            update_period: Some(200),
-            core_address: Some("core1".to_string()),
-            provider_proposals_address: Some("provider_proposals_1".to_string()),
+            new_config: lido_staking_base::state::proposal_votes::ConfigOptional {
+                connection_id: Some("connection-1".to_string()),
+                port_id: Some("transfer1".to_string()),
+                update_period: Some(200),
+                core_address: Some("core1".to_string()),
+                provider_proposals_address: Some("provider_proposals_1".to_string()),
+            },
         },
     )
     .unwrap();
