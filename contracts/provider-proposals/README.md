@@ -1,5 +1,6 @@
 # LIDO Provider chain proposal and votes processing (POC)
 
+** This is POC contract. **
 
 There is at least one problem with the current implementation of the proposals queue (see the `sudo_proposals_query` function). It does not support the deletion of proposals in the case of insufficient deposits. Given that this is a POC (Proof of Concept) contract, it was decided to leave the queue processing as is.
 

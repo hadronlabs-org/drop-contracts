@@ -7,14 +7,13 @@ use lido_helpers::answer::response;
 use lido_helpers::reply::get_query_id;
 use lido_staking_base::msg::proposal_votes::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use lido_staking_base::state::proposal_votes::{
-    Config, ACTIVE_PROPOSALS, CONFIG, PROPOSALS_VOTES_REMOVE_REPLY_ID, PROPOSALS_VOTES_REPLY_ID,
-    QUERY_ID, VOTERS,
+    Config, Metrics, ACTIVE_PROPOSALS, CONFIG, PROPOSALS_VOTES_REMOVE_REPLY_ID,
+    PROPOSALS_VOTES_REPLY_ID, QUERY_ID, VOTERS,
 };
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::{NeutronQuery, QueryRegisteredQueryResultResponse};
 use neutron_sdk::interchain_queries::queries::get_raw_interchain_query_result;
 use neutron_sdk::interchain_queries::types::KVReconstruct;
-use neutron_sdk::interchain_queries::v045::helpers::create_gov_proposals_voters_votes_keys;
 use neutron_sdk::interchain_queries::v045::register_queries::{
     new_register_gov_proposal_votes_query_msg, update_register_gov_proposal_votes_query_msg,
 };
@@ -65,15 +64,24 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => query_config(deps, env),
+        QueryMsg::Config {} => query_config(deps),
+        QueryMsg::Metrics {} => query_metrics(deps),
     }
 }
 
-fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
+fn query_config(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
     let config = CONFIG.load(deps.storage)?;
     to_json_binary(&config)
+}
+
+fn query_metrics(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
+    let voters = VOTERS.may_load(deps.storage)?.unwrap_or_default();
+
+    to_json_binary(&Metrics {
+        total_voters: voters.len() as u64,
+    })
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -150,6 +158,8 @@ fn execute_update_config(
         attrs.push(attr("update_period", update_period.to_string()))
     }
 
+    CONFIG.save(deps.storage, &config)?;
+
     Ok(response("config_update", CONTRACT_NAME, attrs))
 }
 
@@ -213,6 +223,8 @@ fn process_new_data(
         attrs.push(attr("total_voters", voters.len().to_string()));
 
         if !active_proposals.is_empty() && query_id.is_none() {
+            ACTIVE_PROPOSALS.save(deps.storage, &active_proposals)?;
+
             sub_msgs.push(register_votes_interchain_query(
                 &config,
                 &active_proposals,
@@ -220,9 +232,7 @@ fn process_new_data(
             )?);
         }
 
-        let old_active_proposals = ACTIVE_PROPOSALS
-            .may_load(deps.storage)?
-            .unwrap_or_else(Vec::new);
+        let old_active_proposals = ACTIVE_PROPOSALS.may_load(deps.storage)?.unwrap_or_default();
 
         let active_proposals_set: HashSet<_> = active_proposals.clone().into_iter().collect();
         let old_active_proposals_set: HashSet<_> = old_active_proposals.into_iter().collect();
@@ -238,6 +248,8 @@ fn process_new_data(
 
         if !new_proposals.is_empty() || !proposals_to_remove.is_empty() {
             if let Some(query_id) = query_id {
+                ACTIVE_PROPOSALS.save(deps.storage, &active_proposals)?;
+
                 sub_msgs.push(update_votes_interchain_query(
                     query_id,
                     &active_proposals,

@@ -11,6 +11,11 @@ pub struct Config {
     pub provider_proposals_address: String,
 }
 
+#[cw_serde]
+pub struct Metrics {
+    pub total_voters: u64,
+}
+
 pub const PROPOSALS_VOTES_REPLY_ID: u64 = 1;
 pub const PROPOSALS_VOTES_REMOVE_REPLY_ID: u64 = 2;
 
