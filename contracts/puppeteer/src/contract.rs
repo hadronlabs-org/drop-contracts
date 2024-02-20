@@ -202,6 +202,11 @@ pub fn execute(
         ExecuteMsg::IBCTransfer { timeout, reply_to } => {
             execute_ibc_transfer(deps, env, info, timeout, reply_to)
         }
+        ExecuteMsg::Transfer {
+            items,
+            timeout,
+            reply_to,
+        } => execute_transfer(deps, info, items, timeout, reply_to),
         _ => puppeteer_base.execute(deps, env, info, msg.to_base_enum()),
     }
 }
@@ -437,6 +442,50 @@ fn execute_delegate(
         Transaction::Delegate {
             interchain_account_id: ICA_ID.to_string(),
             denom: config.remote_denom,
+            items,
+        },
+        timeout,
+        reply_to,
+        ReplyMsg::SudoPayload.to_reply_id(),
+    )?;
+
+    Ok(Response::default().add_submessages(vec![submsg]))
+}
+
+fn execute_transfer(
+    mut deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    items: Vec<(String, cosmwasm_std::Coin)>,
+    timeout: Option<u64>,
+    reply_to: String,
+) -> ContractResult<Response<NeutronMsg>> {
+    let puppeteer_base = Puppeteer::default();
+    deps.api.addr_validate(&reply_to)?;
+    let config: Config = puppeteer_base.config.load(deps.storage)?;
+    validate_sender(&config, &info.sender)?;
+    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
+    let ica = puppeteer_base.ica.get_address(deps.storage)?;
+    let mut any_msgs = vec![];
+    for (val, amount) in items.clone() {
+        let transfer_msg = MsgSend {
+            from_address: ica.to_string(),
+            to_address: val,
+            amount: vec![Coin {
+                amount: amount.to_string(),
+                denom: config.remote_denom.to_string(),
+            }],
+        };
+        any_msgs.push(prepare_any_msg(
+            transfer_msg,
+            "/cosmos.bank.v1beta1.MsgSend",
+        )?);
+    }
+    let submsg = compose_submsg(
+        deps.branch(),
+        config.clone(),
+        any_msgs,
+        Transaction::Transfer {
+            interchain_account_id: ICA_ID.to_string(),
             items,
         },
         timeout,

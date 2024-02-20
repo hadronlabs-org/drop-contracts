@@ -49,7 +49,9 @@ pub enum ProxyMsg {
 
 #[cw_serde]
 pub enum CoreMsg {
-    UpdateNonNativeRewardsReceivers { items: Vec<(String, String)> },
+    UpdateNonNativeRewardsReceivers {
+        items: Vec<lido_staking_base::state::core::NonNativeRewardsItem>,
+    },
 }
 
 #[cw_serde]

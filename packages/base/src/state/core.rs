@@ -116,6 +116,13 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
     },
 ];
 
+#[cw_serde]
+pub struct NonNativeRewardsItem {
+    pub denom: String,
+    pub address: String,
+    pub min_amount: Uint128,
+}
+
 pub const FSM: Fsm<ContractState> = Fsm::new("machine_state", TRANSITIONS);
 pub const LAST_IDLE_CALL: Item<u64> = Item::new("last_tick");
 pub const LAST_ICA_BALANCE_CHANGE_HEIGHT: Item<u64> = Item::new("last_ica_balance_change_height");
@@ -125,5 +132,5 @@ pub const FAILED_BATCH_ID: Item<u128> = Item::new("failed_batch_id");
 pub const PRE_UNBONDING_BALANCE: Item<Uint128> = Item::new("pre_unbonding_balance");
 pub const PENDING_TRANSFER: Item<Uint128> = Item::new("pending_transfer");
 // Vec<(denom, address for pumping)>
-pub const NON_NATIVE_REWARDS_CONFIG: Item<Vec<(String, String)>> =
+pub const NON_NATIVE_REWARDS_CONFIG: Item<Vec<NonNativeRewardsItem>> =
     Item::new("non_native_rewards_config");

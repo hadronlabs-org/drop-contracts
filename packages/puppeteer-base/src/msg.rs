@@ -141,4 +141,8 @@ pub enum Transaction {
         amount: u128,
         recipient: String,
     },
+    Transfer {
+        interchain_account_id: String,
+        items: Vec<(String, cosmwasm_std::Coin)>,
+    },
 }

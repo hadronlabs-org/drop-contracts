@@ -79,6 +79,11 @@ pub enum ExecuteMsg {
         timeout: u64,
         reply_to: String,
     },
+    Transfer {
+        items: Vec<(String, cosmwasm_std::Coin)>,
+        timeout: Option<u64>,
+        reply_to: String,
+    },
     ClaimRewardsAndOptionalyTransfer {
         validators: Vec<String>,
         transfer: Option<TransferReadyBatchMsg>,
