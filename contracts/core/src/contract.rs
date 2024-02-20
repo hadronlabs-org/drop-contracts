@@ -240,76 +240,80 @@ fn execute_tick_idle(
     let mut attrs = vec![attr("action", "tick_idle")];
     let last_idle_call = LAST_IDLE_CALL.load(deps.storage)?;
     let idle_min_interval = config.idle_min_interval;
-    let pump_address = config
-        .pump_address
-        .clone()
-        .ok_or(ContractError::PumpAddressIsNotSet {})?;
-    ensure!(
-        env.block.time.seconds() - last_idle_call >= idle_min_interval,
-        ContractError::IdleMinIntervalIsNotReached {}
-    );
-    ensure!(
-        !is_unbonding_time_close(
-            deps.as_ref(),
-            &env.block.time.seconds(),
-            &config.unbonding_safe_period
-        )?,
-        ContractError::UnbondingTimeIsClose {}
-    );
-    // process unbond if any aleready unbonded
-    // and claim rewards
-    let transfer: Option<TransferReadyBatchMsg> = match get_unbonded_batch(deps.as_ref())? {
-        Some((batch_id, batch)) => Some(TransferReadyBatchMsg {
-            batch_id,
-            amount: batch
-                .unbonded_amount
-                .ok_or(ContractError::UnbondedAmountIsNotSet {})?,
-            recipient: pump_address,
-        }),
-        None => None,
-    };
+    let mut messages = vec![];
+    if env.block.time.seconds() - last_idle_call < idle_min_interval {
+        //process non-native rewards
+        if let Some(transfer_msg) = get_non_native_rewards_transfer_msg(deps.as_ref(), info, env)? {
+            messages.push(transfer_msg);
+        }
+        //return error if none
+        return Err(ContractError::IdleMinIntervalIsNotReached {});
+    } else {
+        ensure!(
+            !is_unbonding_time_close(
+                deps.as_ref(),
+                &env.block.time.seconds(),
+                &config.unbonding_safe_period
+            )?,
+            ContractError::UnbondingTimeIsClose {}
+        );
+        let pump_address = config
+            .pump_address
+            .clone()
+            .ok_or(ContractError::PumpAddressIsNotSet {})?;
+        // process unbond if any aleready unbonded
+        // and claim rewards
+        let transfer: Option<TransferReadyBatchMsg> = match get_unbonded_batch(deps.as_ref())? {
+            Some((batch_id, batch)) => Some(TransferReadyBatchMsg {
+                batch_id,
+                amount: batch
+                    .unbonded_amount
+                    .ok_or(ContractError::UnbondedAmountIsNotSet {})?,
+                recipient: pump_address,
+            }),
+            None => None,
+        };
 
-    let validators: Vec<ValidatorInfo> = deps.querier.query_wasm_smart(
-        config.validators_set_contract.to_string(),
-        &lido_staking_base::msg::validatorset::QueryMsg::Validators {},
-    )?;
+        let validators: Vec<ValidatorInfo> = deps.querier.query_wasm_smart(
+            config.validators_set_contract.to_string(),
+            &lido_staking_base::msg::validatorset::QueryMsg::Validators {},
+        )?;
 
-    let (delegations, _) = deps
-        .querier
-        .query_wasm_smart::<lido_staking_base::msg::puppeteer::DelegationsResponse>(
+        let (delegations, _) = deps
+            .querier
+            .query_wasm_smart::<lido_staking_base::msg::puppeteer::DelegationsResponse>(
             config.puppeteer_contract.to_string(),
             &lido_puppeteer_base::msg::QueryMsg::Extention {
                 msg: lido_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
         )?;
 
-    let validators_map = validators
-        .iter()
-        .map(|v| (v.valoper_address.clone(), v))
-        .collect::<std::collections::HashMap<_, _>>();
-    let validators_to_claim = delegations
-        .delegations
-        .iter()
-        .filter(|d| validators_map.get(&d.validator).map_or(false, |_| true))
-        .map(|d| d.validator.clone())
-        .collect::<Vec<_>>();
-    let mut messages = vec![];
-    FSM.go_to(deps.storage, ContractState::Claiming)?;
-    if validators_to_claim.is_empty() {
-        attrs.push(attr("validators_to_claim", "empty"));
-        if let Some((transfer_msg, pending_amount)) =
-            get_transfer_pending_balance(deps.as_ref(), &env, config, info.funds.clone())?
-        {
-            FSM.go_to(deps.storage, ContractState::Transfering)?;
-            PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
-            messages.push(transfer_msg);
+        let validators_map = validators
+            .iter()
+            .map(|v| (v.valoper_address.clone(), v))
+            .collect::<std::collections::HashMap<_, _>>();
+        let validators_to_claim = delegations
+            .delegations
+            .iter()
+            .filter(|d| validators_map.get(&d.validator).map_or(false, |_| true))
+            .map(|d| d.validator.clone())
+            .collect::<Vec<_>>();
+        FSM.go_to(deps.storage, ContractState::Claiming)?;
+        if validators_to_claim.is_empty() {
+            attrs.push(attr("validators_to_claim", "empty"));
+            if let Some((transfer_msg, pending_amount)) =
+                get_transfer_pending_balance(deps.as_ref(), &env, config, info.funds.clone())?
+            {
+                FSM.go_to(deps.storage, ContractState::Transfering)?;
+                PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
+                messages.push(transfer_msg);
+            } else {
+                messages.push(get_stake_msg(deps.as_ref(), &env, config, info.funds)?);
+                FSM.go_to(deps.storage, ContractState::Staking)?;
+            }
         } else {
-            messages.push(get_stake_msg(deps.as_ref(), &env, config, info.funds)?);
-            FSM.go_to(deps.storage, ContractState::Staking)?;
-        }
-    } else {
-        attrs.push(attr("validators_to_claim", validators_to_claim.join(",")));
-        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            attrs.push(attr("validators_to_claim", validators_to_claim.join(",")));
+            messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.puppeteer_contract.to_string(),
             msg: to_json_binary(
                 &lido_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
@@ -321,11 +325,12 @@ fn execute_tick_idle(
             )?,
             funds: info.funds,
         }));
+        }
+        deps.api
+            .debug(&format!("WASMDEBUG tick msg {:?}", messages));
+        attrs.push(attr("state", "claiming"));
+        LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
     }
-    deps.api
-        .debug(&format!("WASMDEBUG tick msg {:?}", messages));
-    attrs.push(attr("state", "claiming"));
-    LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
     Ok(response("execute-tick_idle", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
@@ -941,4 +946,58 @@ fn new_unbond(now: u64) -> lido_staking_base::state::core::UnbondBatch {
         withdrawed_amount: None,
         created: now,
     }
+}
+
+fn get_non_native_rewards_transfer_msg<T>(
+    deps: Deps<NeutronQuery>,
+    info: MessageInfo,
+    env: Env,
+) -> ContractResult<Option<CosmosMsg<T>>> {
+    let config = CONFIG.load(deps.storage)?;
+    let non_native_rewards_receivers = NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?;
+    let mut items = vec![];
+    let rewards: lido_staking_base::msg::puppeteer::BalancesResponse =
+        deps.querier.query_wasm_smart(
+            config
+                .pump_address
+                .ok_or(ContractError::PumpAddressIsNotSet {})?,
+            &lido_puppeteer_base::msg::QueryMsg::Extention {
+                msg: lido_staking_base::msg::puppeteer::QueryExtMsg::NonNativeRewardsBalances {},
+            },
+        )?;
+    let rewards_map = rewards
+        .0
+        .coins
+        .iter()
+        .map(|c| (c.denom.clone(), c.amount))
+        .collect::<std::collections::HashMap<_, _>>();
+    for item in non_native_rewards_receivers {
+        let amount =
+            rewards_map
+                .get(&item.denom)
+                .ok_or(ContractError::NonNativeRewardsDenomNotFound {
+                    denom: item.denom.clone(),
+                })?;
+        if amount > &item.min_amount {
+            items.push((
+                item.address,
+                cosmwasm_std::Coin {
+                    denom: item.denom,
+                    amount: *amount,
+                },
+            ));
+        }
+    }
+    if items.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.puppeteer_contract,
+        msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
+            items,
+            timeout: Some(config.puppeteer_timeout),
+            reply_to: env.contract.address.to_string(),
+        })?,
+        funds: info.funds,
+    })))
 }

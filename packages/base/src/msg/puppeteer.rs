@@ -127,6 +127,8 @@ pub enum QueryExtMsg {
     Delegations {},
     #[returns(BalancesResponse)]
     Balances {},
+    #[returns(BalancesResponse)]
+    NonNativeRewardsBalances {},
     #[returns(Vec<lido_puppeteer_base::state::UnbondingDelegation>)]
     UnbondingDelegations {},
 }

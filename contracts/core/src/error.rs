@@ -55,6 +55,9 @@ pub enum ContractError {
     #[error("Unbonded amount is not set")]
     UnbondedAmountIsNotSet {},
 
+    #[error("Non Native rewards denom not found {denom}")]
+    NonNativeRewardsDenomNotFound { denom: String },
+
     #[error("Puppereer balance is outdated: ICA balance height {ica_height}, puppeteer balance height {puppeteer_height}")]
     PuppeteerBalanceOutdated {
         ica_height: u64,

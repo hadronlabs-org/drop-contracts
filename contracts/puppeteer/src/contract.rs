@@ -111,6 +111,7 @@ pub fn query(
         QueryMsg::Extention { msg } => match msg {
             QueryExtMsg::Delegations {} => query_delegations(deps),
             QueryExtMsg::Balances {} => query_balances(deps),
+            QueryExtMsg::NonNativeRewardsBalances {} => query_non_native_rewards_balances(deps),
             QueryExtMsg::UnbondingDelegations {} => to_json_binary(
                 &Puppeteer::default()
                     .unbonding_delegations
@@ -132,6 +133,10 @@ fn query_delegations(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
 fn query_balances(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let data = DELEGATIONS_AND_BALANCE.load(deps.storage)?;
     to_json_binary(&(data.0.balances, data.1)).map_err(ContractError::Std)
+}
+fn query_non_native_rewards_balances(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+    let data = NON_NATIVE_REWARD_BALANCES.load(deps.storage)?;
+    to_json_binary(&(data.0, data.1)).map_err(ContractError::Std)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
