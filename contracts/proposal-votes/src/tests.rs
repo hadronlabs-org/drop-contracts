@@ -331,3 +331,5 @@ fn update_active_proposals_ok() {
 
     assert_eq!(active_proposals, vec![1, 2]);
 }
+
+// TODO: Add more tests

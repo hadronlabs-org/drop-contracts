@@ -1,11 +1,15 @@
 use std::collections::HashSet;
 
-use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Attribute, Deps, Reply, SubMsg};
+use cosmwasm_std::{
+    attr, ensure_eq, entry_point, to_json_binary, Attribute, CosmosMsg, Deps, Reply, SubMsg,
+    WasmMsg,
+};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use lido_helpers::answer::response;
 use lido_helpers::query_id::get_query_id;
 use lido_staking_base::msg::proposal_votes::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
+use lido_staking_base::msg::provider_proposals::ExecuteMsg as ProviderProposalsExecuteMsg;
 use lido_staking_base::state::proposal_votes::{
     Config, ConfigOptional, Metrics, ACTIVE_PROPOSALS, CONFIG, PROPOSALS_VOTES_REMOVE_REPLY_ID,
     PROPOSALS_VOTES_REPLY_ID, QUERY_ID, VOTERS,
@@ -150,6 +154,9 @@ fn execute_update_voters_list(
     info: MessageInfo,
     voters: Vec<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
+    deps.api.debug(&format!(
+        "WASMDEBUG: execute_update_voters_list data: {voters:?}",
+    ));
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     VOTERS.save(deps.storage, &voters)?;
@@ -166,6 +173,9 @@ fn execute_update_active_proposals(
     info: MessageInfo,
     active_proposals: Vec<u64>,
 ) -> ContractResult<Response<NeutronMsg>> {
+    deps.api.debug(&format!(
+        "WASMDEBUG: execute_update_active_proposals data: {active_proposals:?}",
+    ));
     let config = CONFIG.load(deps.storage)?;
 
     ensure_eq!(
@@ -341,9 +351,19 @@ fn sudo_proposal_votes(
         KVReconstruct::reconstruct(&interchain_query_result.result.kv_results)?;
 
     deps.api
-        .debug(&format!("WASMDEBUG: validator_info_sudo data: {data:?}",));
+        .debug(&format!("WASMDEBUG: sudo_proposal_votes data: {data:?}",));
 
-    Ok(Response::new())
+    let config = CONFIG.load(deps.storage)?;
+
+    let msg: CosmosMsg<NeutronMsg> = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.provider_proposals_address,
+        msg: to_json_binary(&ProviderProposalsExecuteMsg::UpdateProposalVotes {
+            votes: data.proposal_votes,
+        })?,
+        funds: vec![],
+    });
+
+    Ok(Response::new().add_message(msg))
 }
 
 #[entry_point]

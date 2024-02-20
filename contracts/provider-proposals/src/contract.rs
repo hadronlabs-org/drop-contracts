@@ -8,6 +8,7 @@ use cosmwasm_std::{
 
 use lido_helpers::answer::response;
 use lido_helpers::query_id::get_query_id;
+use lido_staking_base::msg::proposal_votes::ExecuteMsg as ProposalVotesExecuteMsg;
 use lido_staking_base::msg::provider_proposals::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
@@ -135,14 +136,26 @@ fn query_proposal(deps: Deps<NeutronQuery>, proposal_id: u64) -> StdResult<Binar
 
 fn query_proposals(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
     let config = CONFIG.load(deps.storage)?;
+    deps.api.debug("WASMDEBUG: query_proposals");
     let proposals: StdResult<Vec<_>> = PROPOSALS
         .range_raw(deps.storage, None, None, Order::Ascending)
         .map(|item| {
             item.map(|(_key, value)| {
+                deps.api.debug(&format!(
+                    "WASMDEBUG: query_proposals: inside map: {:?}",
+                    value
+                ));
+
                 let votes = PROPOSALS_VOTES
                     .may_load(deps.storage, value.proposal_id)
                     .ok()
                     .unwrap_or_default();
+
+                deps.api.debug(&format!(
+                    "WASMDEBUG: query_proposals: inside map votes: {:?}",
+                    votes
+                ));
+
                 ProposalInfo {
                     proposal: value.clone(),
                     votes,
@@ -151,6 +164,11 @@ fn query_proposals(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
             })
         })
         .collect();
+
+    deps.api.debug(&format!(
+        "WASMDEBUG: query_proposals: proposals: {:?}",
+        proposals
+    ));
 
     to_json_binary(&proposals?)
 }
@@ -177,6 +195,8 @@ fn execute_update_config(
 
     let mut config = CONFIG.load(deps.storage)?;
 
+    let mut msgs: Vec<CosmosMsg<NeutronMsg>> = Vec::new();
+
     let mut attrs: Vec<Attribute> = Vec::new();
     if let Some(core_address) = new_config.core_address {
         let core_address = deps.api.addr_validate(&core_address)?;
@@ -187,6 +207,23 @@ fn execute_update_config(
     if let Some(proposal_votes_address) = new_config.proposal_votes_address {
         let proposal_votes_address = deps.api.addr_validate(&proposal_votes_address)?;
         config.proposal_votes_address = Some(proposal_votes_address.to_string());
+
+        let keys = PROPOSALS.keys(deps.storage, None, None, Order::Ascending);
+        let proposal_ids = keys
+            .map(|key| key.unwrap_or_default())
+            .filter(|id| *id != 0)
+            .collect::<Vec<u64>>();
+
+        deps.api.debug(&format!(
+            "WASMDEBUG: execute_update_config: {:?}",
+            proposal_ids
+        ));
+
+        msgs.push(update_voting_proposals_msg(
+            proposal_votes_address.to_string(),
+            proposal_ids,
+        )?);
+
         attrs.push(attr("proposal_votes_address", proposal_votes_address))
     }
 
@@ -221,7 +258,9 @@ fn execute_update_config(
         attrs.push(attr("veto_spam_threshold", veto_spam_threshold.to_string()))
     }
 
-    Ok(response("config_update", CONTRACT_NAME, attrs))
+    CONFIG.save(deps.storage, &config)?;
+
+    Ok(response("config_update", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
 pub fn execute_update_votes(
@@ -229,22 +268,48 @@ pub fn execute_update_votes(
     info: MessageInfo,
     votes: Vec<ProposalVote>,
 ) -> ContractResult<Response<NeutronMsg>> {
+    deps.api
+        .debug(&format!("WASMDEBUG: execute_update_votes: {:?}", votes));
     let config = CONFIG.load(deps.storage)?;
+    deps.api.debug("WASMDEBUG: execute_update_votes: 1");
+    deps.api.debug(&format!(
+        "WASMDEBUG: execute_update_votes: ensure {:?}, {:?}",
+        config.proposal_votes_address, info.sender
+    ));
+
     ensure_eq!(
         config.proposal_votes_address,
         Some(info.sender.to_string()),
         ContractError::Unauthorized {}
     );
 
+    deps.api.debug("WASMDEBUG: execute_update_votes: 2");
+
     let mut votes_map: HashMap<u64, Vec<ProposalVote>> = HashMap::new();
+
+    deps.api.debug("WASMDEBUG: execute_update_votes: 3");
 
     for vote in votes.clone() {
         votes_map.entry(vote.proposal_id).or_default().push(vote);
     }
 
+    deps.api.debug("WASMDEBUG: execute_update_votes: 4");
+
+    deps.api.debug(&format!(
+        "WASMDEBUG: execute_update_votes, votes_map: {:?}",
+        votes_map
+    ));
+
     for (proposal_id, votes) in votes_map.iter() {
+        deps.api.debug(&format!(
+            "WASMDEBUG: execute_update_votes, loop: {:?}, {:?}",
+            proposal_id, votes
+        ));
+
         PROPOSALS_VOTES.save(deps.storage, *proposal_id, votes)?;
     }
+
+    deps.api.debug("WASMDEBUG: execute_update_votes: 5");
 
     Ok(response(
         "config_update",
@@ -322,7 +387,7 @@ fn sudo_proposals_query(
 
                     let reg_msg = CosmosMsg::Custom(update_register_gov_proposal_query_msg(
                         query_id,
-                        new_proposals,
+                        new_proposals.to_owned(),
                         None,
                         None,
                     )?);
@@ -350,6 +415,13 @@ fn sudo_proposals_query(
                     });
 
                     msgs.push(update_msg);
+
+                    if let Some(proposal_votes_address) = config.proposal_votes_address {
+                        msgs.push(update_voting_proposals_msg(
+                            proposal_votes_address,
+                            new_proposals,
+                        )?);
+                    }
                 }
             }
         }
@@ -387,6 +459,17 @@ fn is_spam_proposal(proposal: &Proposal, veto_spam_threshold: Decimal) -> bool {
     }
 
     false
+}
+
+fn update_voting_proposals_msg(
+    proposal_votes_address: String,
+    active_proposals: Vec<u64>,
+) -> ContractResult<CosmosMsg<NeutronMsg>> {
+    Ok(CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: proposal_votes_address,
+        msg: to_json_binary(&ProposalVotesExecuteMsg::UpdateActiveProposals { active_proposals })?,
+        funds: vec![],
+    }))
 }
 
 #[entry_point]

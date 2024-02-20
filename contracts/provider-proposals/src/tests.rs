@@ -235,20 +235,20 @@ fn update_config_ok() {
         mock_info("core", &[]),
         lido_staking_base::msg::provider_proposals::ExecuteMsg::UpdateConfig {
             new_config: lido_staking_base::state::provider_proposals::ConfigOptional {
-                connection_id: Some("connection-0".to_string()),
-                port_id: Some("transfer".to_string()),
-                update_period: Some(100),
-                core_address: Some("core".to_string()),
-                proposal_votes_address: Some("proposal_votes".to_string()),
-                validators_set_address: Some("validators_set".to_string()),
-                proposals_prefetch: Some(5),
+                connection_id: Some("connection-1".to_string()),
+                port_id: Some("transfer1".to_string()),
+                update_period: Some(200),
+                core_address: Some("core1".to_string()),
+                proposal_votes_address: Some("proposal_votes_1".to_string()),
+                validators_set_address: Some("validators_set_1".to_string()),
+                proposals_prefetch: Some(7),
                 init_proposal: None,
-                veto_spam_threshold: Some(Decimal::from_atomics(1u64, 2).unwrap()),
+                veto_spam_threshold: Some(Decimal::from_atomics(3u64, 2).unwrap()),
             },
         },
     )
     .unwrap();
-    assert_eq!(response.messages.len(), 0);
+    assert_eq!(response.messages.len(), 1);
 
     let config = crate::contract::query(
         deps.as_ref(),
@@ -259,15 +259,15 @@ fn update_config_ok() {
     assert_eq!(
         config,
         to_json_binary(&lido_staking_base::state::provider_proposals::Config {
-            connection_id: "connection-0".to_string(),
-            port_id: "transfer".to_string(),
-            update_period: 100,
-            core_address: "core".to_string(),
-            proposal_votes_address: Some("proposal_votes".to_string()),
-            validators_set_address: "validators_set".to_string(),
+            connection_id: "connection-1".to_string(),
+            port_id: "transfer1".to_string(),
+            update_period: 200,
+            core_address: "core1".to_string(),
+            proposal_votes_address: Some("proposal_votes_1".to_string()),
+            validators_set_address: "validators_set_1".to_string(),
             init_proposal: 1,
-            proposals_prefetch: 5,
-            veto_spam_threshold: Decimal::from_atomics(1u64, 2).unwrap(),
+            proposals_prefetch: 7,
+            veto_spam_threshold: Decimal::from_atomics(3u64, 2).unwrap(),
         })
         .unwrap()
     );

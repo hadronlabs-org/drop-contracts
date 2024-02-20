@@ -15,6 +15,8 @@
     "test:validators-stats": "vitest --run validators-stats.test --bail 1",
     "test:validator-set": "vitest --run validator-set.test --bail 1",
     "test:distribution": "vitest --run distribution.test --bail 1",
+    "test:provider-proposals": "vitest --run provider-proposals.test --bail 1",
+    "test:proposal-votes": "vitest --run proposal-votes.test --bail 1",
     "test:auto-withdrawer": "vitest --run auto-withdrawer.test --bail 1",
     "watch": "vitest",
     "build-ts-client": "ts-node ./src/rebuild-client.ts",
