@@ -435,11 +435,10 @@ describe('Core', () => {
     );
   });
   it('set fees for puppeteer', async () => {
-    const { neutronUserAddress, factoryContractClient: contractClient } =
-      context;
-    const res = await contractClient.updateConfig(neutronUserAddress, {
+    const { neutronUserAddress, factoryContractClient } = context;
+    const res = await factoryContractClient.updateConfig(neutronUserAddress, {
       puppeteer_fees: {
-        timeout_fee: '10000',
+        timeout_fee: '20000',
         ack_fee: '10000',
         recv_fee: '0',
         register_fee: '1000000',
@@ -447,6 +446,29 @@ describe('Core', () => {
     });
     expect(res.transactionHash).toHaveLength(64);
   });
+  it('update by factory admin execute', async () => {
+    const { neutronUserAddress, factoryContractClient: contractClient } =
+      context;
+    const res = await contractClient.adminExecute(
+      neutronUserAddress,
+      {
+        addr: context.puppeteerContractClient.contractAddress,
+        msg: Buffer.from(
+          JSON.stringify({
+            set_fees: {
+              timeout_fee: '10000',
+              ack_fee: '10000',
+              recv_fee: '0',
+              register_fee: '1000000',
+            },
+          }),
+        ).toString('base64'),
+      },
+      1.5,
+    );
+    expect(res.transactionHash).toHaveLength(64);
+  });
+
   it('register ICA', async () => {
     const { puppeteerContractClient, neutronUserAddress } = context;
     const res = await puppeteerContractClient.registerICA(

@@ -107,10 +107,16 @@ export type ValidatorSetMsg =
         validator: ValidatorData;
       };
     };
+/**
+ * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
+ *
+ * This is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.
+ */
+export type Binary = string;
 
 export interface LidoFactorySchema {
   responses: State;
-  execute: InitArgs | CallbackArgs | UpdateConfigArgs | ProxyArgs;
+  execute: InitArgs | CallbackArgs | UpdateConfigArgs | ProxyArgs | AdminExecuteArgs;
   [k: string]: unknown;
 }
 export interface State {
@@ -167,6 +173,10 @@ export interface ValidatorData {
   valoper_address: string;
   weight: number;
 }
+export interface AdminExecuteArgs {
+  addr: string;
+  msg: Binary;
+}
 
 
 function isSigningCosmWasmClient(
@@ -217,5 +227,9 @@ export class Client {
   proxy = async(sender:string, args: ProxyArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { proxy: args }, fee || "auto", memo, funds);
+  }
+  adminExecute = async(sender:string, args: AdminExecuteArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { admin_execute: args }, fee || "auto", memo, funds);
   }
 }
