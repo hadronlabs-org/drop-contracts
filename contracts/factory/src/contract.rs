@@ -162,6 +162,23 @@ fn execute_proxy_msg(
                 info.funds,
             )?),
         },
+        ProxyMsg::Core(msg) => match msg {
+            crate::msg::CoreMsg::UpdateNonNativeRewardsReceivers { items } => {
+                messages.push(get_proxied_message(
+                    state.core_contract,
+                    lido_staking_base::msg::core::ExecuteMsg::UpdateNonNativeRewardsReceivers {
+                       items: items.clone(),
+                    },
+                    vec![],
+                )?);
+                messages.push(
+                    get_proxied_message(
+                        state.puppeteer_contract, 
+                        lido_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery { 
+                            denoms: items.iter().map(|one|{one.0.to_string()}).collect() }, info.funds)?
+                );
+            }
+        },
     }
     Ok(response("execute-proxy-call", CONTRACT_NAME, attrs).add_messages(messages))
 }

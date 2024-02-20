@@ -124,3 +124,6 @@ pub const LAST_PUPPETEER_RESPONSE: Item<lido_puppeteer_base::msg::ResponseHookMs
 pub const FAILED_BATCH_ID: Item<u128> = Item::new("failed_batch_id");
 pub const PRE_UNBONDING_BALANCE: Item<Uint128> = Item::new("pre_unbonding_balance");
 pub const PENDING_TRANSFER: Item<Uint128> = Item::new("pending_transfer");
+// Vec<(denom, address for pumping)>
+pub const NON_NATIVE_REWARDS_CONFIG: Item<Vec<(String, String)>> =
+    Item::new("non_native_rewards_config");

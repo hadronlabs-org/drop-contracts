@@ -11,7 +11,8 @@ use lido_puppeteer_base::msg::TransferReadyBatchMsg;
 use lido_staking_base::state::core::{
     Config, ConfigOptional, ContractState, UnbondBatch, UnbondBatchStatus, UnbondItem, CONFIG,
     FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_PUPPETEER_RESPONSE,
-    PENDING_TRANSFER, PRE_UNBONDING_BALANCE, UNBOND_BATCHES, UNBOND_BATCH_ID,
+    NON_NATIVE_REWARDS_CONFIG, PENDING_TRANSFER, PRE_UNBONDING_BALANCE, UNBOND_BATCHES,
+    UNBOND_BATCH_ID,
 };
 use lido_staking_base::state::validatorset::ValidatorInfo;
 use lido_staking_base::state::withdrawal_voucher::{Metadata, Trait};
@@ -60,6 +61,9 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?)?,
         QueryMsg::ExchangeRate {} => to_json_binary(&query_exchange_rate(deps, env, None)?)?,
         QueryMsg::UnbondBatch { batch_id } => query_unbond_batch(deps, batch_id)?,
+        QueryMsg::NonNativeRewardsReceivers {} => {
+            to_json_binary(&NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?)?
+        }
         QueryMsg::ContractState {} => to_json_binary(&FSM.get_current_state(deps.storage)?)?,
         QueryMsg::LastPuppeteerResponse {} => {
             to_json_binary(&LAST_PUPPETEER_RESPONSE.load(deps.storage)?)?
@@ -155,6 +159,9 @@ pub fn execute(
         ExecuteMsg::Bond { receiver } => execute_bond(deps, env, info, receiver),
         ExecuteMsg::Unbond {} => execute_unbond(deps, env, info),
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, *new_config),
+        ExecuteMsg::UpdateNonNativeRewardsReceivers { items } => {
+            execute_set_non_native_rewards_receivers(deps, env, info, items)
+        }
         ExecuteMsg::FakeProcessBatch {
             batch_id,
             unbonded_amount,
@@ -162,6 +169,22 @@ pub fn execute(
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::PuppeteerHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
     }
+}
+
+fn execute_set_non_native_rewards_receivers(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    info: MessageInfo,
+    items: Vec<(String, String)>,
+) -> ContractResult<Response<NeutronMsg>> {
+    let config = CONFIG.load(deps.storage)?;
+    ensure_eq!(info.sender, config.owner, ContractError::Unauthorized {});
+    NON_NATIVE_REWARDS_CONFIG.save(deps.storage, &items)?;
+    Ok(response(
+        "execute-set_non_native_rewards_receivers",
+        CONTRACT_NAME,
+        vec![attr("action", "set_non_native_rewards_receivers")],
+    ))
 }
 
 fn execute_puppeteer_hook(

@@ -969,6 +969,7 @@ name = "lido-staking-base"
 version = "1.0.0"
 dependencies = [
  "astroport",
+ "cosmos-sdk-proto",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-ownable",
@@ -979,6 +980,8 @@ dependencies = [
  "lido-puppeteer-base",
  "neutron-sdk",
  "optfield",
+ "prost",
+ "serde",
  "thiserror",
 ]
 

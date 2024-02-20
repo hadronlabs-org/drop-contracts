@@ -144,7 +144,8 @@ mod reply_msg {
     const SUDO_PAYLOAD: u64 = 1 << OFFSET;
     const IBC_TRANSFER: u64 = 2 << OFFSET;
     const KV_DELEGATIONS_AND_BALANCE: u64 = 3 << OFFSET;
-    const KV_UNBONDING_DELEGATIONS_LOWER_BOUND: u64 = 4 << OFFSET;
+    const KV_NON_NATIVE_REWARDS_BALANCES: u64 = 4 << OFFSET;
+    const KV_UNBONDING_DELEGATIONS_LOWER_BOUND: u64 = 5 << OFFSET;
     const KV_UNBONDING_DELEGATIONS_UPPER_BOUND: u64 =
         KV_UNBONDING_DELEGATIONS_LOWER_BOUND + u16::MAX as u64;
 
@@ -153,6 +154,7 @@ mod reply_msg {
         SudoPayload,
         IbcTransfer,
         KvDelegationsAndBalance,
+        KvNonNativeRewardsBalances,
         KvUnbondingDelegations { validator_index: u16 },
     }
 
@@ -162,6 +164,7 @@ mod reply_msg {
                 ReplyMsg::SudoPayload => SUDO_PAYLOAD,
                 ReplyMsg::IbcTransfer => IBC_TRANSFER,
                 ReplyMsg::KvDelegationsAndBalance => KV_DELEGATIONS_AND_BALANCE,
+                ReplyMsg::KvNonNativeRewardsBalances => KV_NON_NATIVE_REWARDS_BALANCES,
                 ReplyMsg::KvUnbondingDelegations { validator_index } => {
                     KV_UNBONDING_DELEGATIONS_LOWER_BOUND | *validator_index as u64
                 }

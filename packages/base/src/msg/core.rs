@@ -35,6 +35,8 @@ pub enum QueryMsg {
     ContractState {},
     #[returns(ResponseHookMsg)]
     LastPuppeteerResponse {},
+    #[returns(Vec<(String, String)>)]
+    NonNativeRewardsReceivers {},
 }
 
 #[cw_serde]
@@ -46,6 +48,9 @@ pub enum ExecuteMsg {
     //permissioned
     UpdateConfig {
         new_config: Box<ConfigOptional>,
+    },
+    UpdateNonNativeRewardsReceivers {
+        items: Vec<(String, String)>,
     },
     FakeProcessBatch {
         batch_id: Uint128,
