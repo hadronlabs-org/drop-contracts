@@ -586,12 +586,7 @@ describe('Core', () => {
       ],
     );
     expect(res.transactionHash).toHaveLength(64);
-    const newExchangeRate = parseFloat(
-      await coreContractClient.queryExchangeRate(),
-    );
-    console.log({ newExchangeRate });
     const amount = Math.floor(100_000 / context.exchangeRate).toString();
-    console.log({ amount });
     res = await coreContractClient.unbond(neutronUserAddress, 1.6, undefined, [
       {
         amount,

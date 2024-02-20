@@ -799,10 +799,9 @@ describe('Core', () => {
       it('query strategy contract to see delegations', async () => {
         await waitFor(async () => {
           try {
-            const res = await context.strategyContractClient.queryCalcWithdraw({
+            await context.strategyContractClient.queryCalcWithdraw({
               withdraw: '500000',
             });
-            console.log(res);
             return true;
           } catch (e) {
             return false;
