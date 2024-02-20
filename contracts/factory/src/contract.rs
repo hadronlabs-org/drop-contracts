@@ -167,14 +167,14 @@ fn execute_proxy_msg(
                 messages.push(get_proxied_message(
                     state.core_contract,
                     lido_staking_base::msg::core::ExecuteMsg::UpdateNonNativeRewardsReceivers {
-                       items: items.clone(),
+                        items: items.clone(),
                     },
                     vec![],
                 )?);
                 messages.push(
                     get_proxied_message(
-                        state.puppeteer_contract, 
-                        lido_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery { 
+                        state.puppeteer_contract,
+                        lido_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
                             denoms: items.iter().map(|one|{one.0.to_string()}).collect() }, info.funds)?
                 );
             }
