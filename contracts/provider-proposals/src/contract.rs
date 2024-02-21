@@ -136,25 +136,14 @@ fn query_proposal(deps: Deps<NeutronQuery>, proposal_id: u64) -> StdResult<Binar
 
 fn query_proposals(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
     let config = CONFIG.load(deps.storage)?;
-    deps.api.debug("WASMDEBUG: query_proposals");
     let proposals: StdResult<Vec<_>> = PROPOSALS
         .range_raw(deps.storage, None, None, Order::Ascending)
         .map(|item| {
             item.map(|(_key, value)| {
-                deps.api.debug(&format!(
-                    "WASMDEBUG: query_proposals: inside map: {:?}",
-                    value
-                ));
-
                 let votes = PROPOSALS_VOTES
                     .may_load(deps.storage, value.proposal_id)
                     .ok()
                     .unwrap_or_default();
-
-                deps.api.debug(&format!(
-                    "WASMDEBUG: query_proposals: inside map votes: {:?}",
-                    votes
-                ));
 
                 ProposalInfo {
                     proposal: value.clone(),
@@ -164,11 +153,6 @@ fn query_proposals(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
             })
         })
         .collect();
-
-    deps.api.debug(&format!(
-        "WASMDEBUG: query_proposals: proposals: {:?}",
-        proposals
-    ));
 
     to_json_binary(&proposals?)
 }
@@ -213,11 +197,6 @@ fn execute_update_config(
             .map(|key| key.unwrap_or_default())
             .filter(|id| *id != 0)
             .collect::<Vec<u64>>();
-
-        deps.api.debug(&format!(
-            "WASMDEBUG: execute_update_config: {:?}",
-            proposal_ids
-        ));
 
         msgs.push(update_voting_proposals_msg(
             proposal_votes_address.to_string(),
@@ -268,14 +247,7 @@ pub fn execute_update_votes(
     info: MessageInfo,
     votes: Vec<ProposalVote>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api
-        .debug(&format!("WASMDEBUG: execute_update_votes: {:?}", votes));
     let config = CONFIG.load(deps.storage)?;
-    deps.api.debug("WASMDEBUG: execute_update_votes: 1");
-    deps.api.debug(&format!(
-        "WASMDEBUG: execute_update_votes: ensure {:?}, {:?}",
-        config.proposal_votes_address, info.sender
-    ));
 
     ensure_eq!(
         config.proposal_votes_address,
@@ -283,33 +255,15 @@ pub fn execute_update_votes(
         ContractError::Unauthorized {}
     );
 
-    deps.api.debug("WASMDEBUG: execute_update_votes: 2");
-
     let mut votes_map: HashMap<u64, Vec<ProposalVote>> = HashMap::new();
-
-    deps.api.debug("WASMDEBUG: execute_update_votes: 3");
 
     for vote in votes.clone() {
         votes_map.entry(vote.proposal_id).or_default().push(vote);
     }
 
-    deps.api.debug("WASMDEBUG: execute_update_votes: 4");
-
-    deps.api.debug(&format!(
-        "WASMDEBUG: execute_update_votes, votes_map: {:?}",
-        votes_map
-    ));
-
     for (proposal_id, votes) in votes_map.iter() {
-        deps.api.debug(&format!(
-            "WASMDEBUG: execute_update_votes, loop: {:?}, {:?}",
-            proposal_id, votes
-        ));
-
         PROPOSALS_VOTES.save(deps.storage, *proposal_id, votes)?;
     }
-
-    deps.api.debug("WASMDEBUG: execute_update_votes: 5");
 
     Ok(response(
         "config_update",
@@ -345,21 +299,11 @@ pub fn sudo_kv_query_result(
 
     let proposals_query_id = QUERY_ID.may_load(deps.storage)?;
 
-    deps.api.debug(&format!(
-        "WASMDEBUG: sudo_kv_query_result proposal_votes_query_id: {:?}",
-        query_id.clone()
-    ));
-
     let interchain_query_result = get_raw_interchain_query_result(deps.as_ref(), query_id)?;
 
     if Some(query_id) == proposals_query_id {
         return sudo_proposals_query(deps, interchain_query_result);
     }
-
-    deps.api.debug(&format!(
-        "WASMDEBUG: sudo_kv_query_result query_id: {:?}",
-        query_id
-    ));
 
     Ok(Response::default())
 }
@@ -370,9 +314,6 @@ fn sudo_proposals_query(
 ) -> ContractResult<Response<NeutronMsg>> {
     let data: GovernmentProposal =
         KVReconstruct::reconstruct(&interchain_query_result.result.kv_results)?;
-
-    deps.api
-        .debug(&format!("WASMDEBUG: sudo_proposals_query data: {data:?}",));
 
     let mut msgs: Vec<CosmosMsg<NeutronMsg>> = Vec::new();
     match data.proposals.first() {
@@ -484,9 +425,6 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> ContractResult<Response> {
 }
 
 fn proposals_votes_reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
-    deps.api
-        .debug(&format!("WASMDEBUG: proposals_votes_reply call: {msg:?}",));
-
     let query_id = get_query_id(msg.result)?;
 
     QUERY_ID.save(deps.storage, &query_id)?;

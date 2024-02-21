@@ -154,9 +154,6 @@ fn execute_update_voters_list(
     info: MessageInfo,
     voters: Vec<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api.debug(&format!(
-        "WASMDEBUG: execute_update_voters_list data: {voters:?}",
-    ));
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     VOTERS.save(deps.storage, &voters)?;
@@ -173,9 +170,6 @@ fn execute_update_active_proposals(
     info: MessageInfo,
     active_proposals: Vec<u64>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api.debug(&format!(
-        "WASMDEBUG: execute_update_active_proposals data: {active_proposals:?}",
-    ));
     let config = CONFIG.load(deps.storage)?;
 
     ensure_eq!(
@@ -324,21 +318,11 @@ pub fn sudo_kv_query_result(
 
     let votes_query_id = QUERY_ID.may_load(deps.storage)?;
 
-    deps.api.debug(&format!(
-        "WASMDEBUG: sudo_kv_query_result proposal_votes_query_id: {:?}",
-        query_id.clone()
-    ));
-
     let interchain_query_result = get_raw_interchain_query_result(deps.as_ref(), query_id)?;
 
     if Some(query_id) == votes_query_id {
         return sudo_proposal_votes(deps, interchain_query_result);
     }
-
-    deps.api.debug(&format!(
-        "WASMDEBUG: sudo_kv_query_result query_id: {:?}",
-        query_id
-    ));
 
     Ok(Response::default())
 }
@@ -379,9 +363,6 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> ContractResult<Response> {
 }
 
 fn proposals_votes_reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
-    deps.api
-        .debug(&format!("WASMDEBUG: proposals_votes_reply call: {msg:?}",));
-
     let query_id = get_query_id(msg.result)?;
 
     QUERY_ID.save(deps.storage, &query_id)?;
@@ -389,11 +370,7 @@ fn proposals_votes_reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult
     Ok(Response::new())
 }
 
-fn proposals_votes_remove_reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
-    deps.api.debug(&format!(
-        "WASMDEBUG: proposals_votes_remove_reply call: {msg:?}",
-    ));
-
+fn proposals_votes_remove_reply(deps: DepsMut, _env: Env, _msg: Reply) -> ContractResult<Response> {
     QUERY_ID.remove(deps.storage);
 
     Ok(Response::new())
