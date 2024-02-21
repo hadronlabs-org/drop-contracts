@@ -175,7 +175,7 @@ fn execute_proxy_msg(
                     get_proxied_message(
                         state.puppeteer_contract,
                         lido_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
-                            denoms: items.iter().map(|one|{one.address.to_string()}).collect() }, info.funds)?
+                            denoms: items.iter().map(|one|{one.denom.to_string()}).collect() }, info.funds)?
                 );
             }
         },
