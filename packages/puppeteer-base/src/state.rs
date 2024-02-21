@@ -176,6 +176,7 @@ mod reply_msg {
                 SUDO_PAYLOAD => Self::SudoPayload,
                 IBC_TRANSFER => Self::IbcTransfer,
                 KV_DELEGATIONS_AND_BALANCE => Self::KvDelegationsAndBalance,
+                KV_NON_NATIVE_REWARDS_BALANCES => Self::KvNonNativeRewardsBalances,
                 validator_index @ KV_UNBONDING_DELEGATIONS_LOWER_BOUND
                     ..=KV_UNBONDING_DELEGATIONS_UPPER_BOUND => Self::KvUnbondingDelegations {
                     validator_index: validator_index as u16,
