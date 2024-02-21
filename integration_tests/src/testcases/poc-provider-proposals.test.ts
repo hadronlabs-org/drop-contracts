@@ -101,7 +101,7 @@ describe('POC Provider Proposals', () => {
     const res = await client.upload(
       account.address,
       fs.readFileSync(
-        join(__dirname, '../../../artifacts/lido_provider_proposals.wasm'),
+        join(__dirname, '../../../artifacts/lido_provider_proposals_poc.wasm'),
       ),
       1.5,
     );
@@ -175,7 +175,6 @@ describe('POC Provider Proposals', () => {
       `gaiad tx gov submit-proposal --type text --title test --description test --from ${context.gaiaUserAddress} --deposit 1000000stake --yes --chain-id testgaia --home=/opt --keyring-backend=test --output json`,
     );
     expect(res.exitCode).toBe(0);
-    console.log(res.out);
     out = JSON.parse(res.out);
 
     expect(out.code).toBe(0);
@@ -221,8 +220,6 @@ describe('POC Provider Proposals', () => {
 
   it('query contract metrics', async () => {
     const metrics = await context.contractClient.queryMetrics();
-
-    console.log(metrics);
 
     expect(metrics).toEqual({
       last_proposal: 1,

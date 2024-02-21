@@ -107,7 +107,7 @@ describe('POC Proposal Votes', () => {
     const propsRes = await client.upload(
       account.address,
       fs.readFileSync(
-        join(__dirname, '../../../artifacts/lido_provider_proposals.wasm'),
+        join(__dirname, '../../../artifacts/lido_provider_proposals_poc.wasm'),
       ),
       1.5,
     );
@@ -147,7 +147,7 @@ describe('POC Proposal Votes', () => {
     const votesRes = await client.upload(
       account.address,
       fs.readFileSync(
-        join(__dirname, '../../../artifacts/lido_proposal_votes.wasm'),
+        join(__dirname, '../../../artifacts/lido_proposal_votes_poc.wasm'),
       ),
       1.5,
     );
@@ -284,8 +284,6 @@ describe('POC Proposal Votes', () => {
       return proposals.length > 0 && proposals[0].votes !== null;
     }, 60000);
 
-    console.log(proposals);
-
     expect(proposals).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -321,6 +319,8 @@ describe('POC Proposal Votes', () => {
   it('query contract metrics', async () => {
     const metrics = await context.votesContractClient.queryMetrics();
 
-    console.log(metrics);
+    expect(metrics).toEqual({
+      total_voters: 1,
+    });
   });
 });
