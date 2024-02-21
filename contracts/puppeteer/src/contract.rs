@@ -478,12 +478,16 @@ fn execute_transfer(
     for (val, amount) in items.clone() {
         let transfer_msg = MsgSend {
             from_address: ica.to_string(),
-            to_address: val,
+            to_address: val.to_string(),
             amount: vec![Coin {
-                amount: amount.to_string(),
-                denom: config.remote_denom.to_string(),
+                amount: amount.amount.to_string(),
+                denom: amount.denom,
             }],
         };
+        deps.api.debug(&format!(
+            "WASMDEBUG: transfer msg: {:?} to: {:?}",
+            transfer_msg, val
+        ));
         any_msgs.push(prepare_any_msg(
             transfer_msg,
             "/cosmos.bank.v1beta1.MsgSend",

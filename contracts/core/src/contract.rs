@@ -244,9 +244,10 @@ fn execute_tick_idle(
         //process non-native rewards
         if let Some(transfer_msg) = get_non_native_rewards_transfer_msg(deps.as_ref(), info, env)? {
             messages.push(transfer_msg);
+        } else {
+            //return error if none
+            return Err(ContractError::IdleMinIntervalIsNotReached {});
         }
-        //return error if none
-        return Err(ContractError::IdleMinIntervalIsNotReached {});
     } else {
         ensure!(
             !is_unbonding_time_close(
@@ -966,6 +967,10 @@ fn get_non_native_rewards_transfer_msg<T>(
                 msg: lido_staking_base::msg::puppeteer::QueryExtMsg::NonNativeRewardsBalances {},
             },
         )?;
+    deps.api.debug(&format!(
+        "WASMDEBUG: get_non_native_rewards_transfer_msg: rewards {:?}",
+        rewards
+    ));
     let rewards_map = rewards
         .0
         .coins
@@ -980,6 +985,10 @@ fn get_non_native_rewards_transfer_msg<T>(
                     denom: item.denom.clone(),
                 })?;
         if amount > &item.min_amount {
+            deps.api.debug(&format!(
+                "WASMDEBUG: get_non_native_rewards_transfer_msg: adding item: {:?} ",
+                item
+            ));
             items.push((
                 item.address,
                 cosmwasm_std::Coin {
@@ -987,9 +996,16 @@ fn get_non_native_rewards_transfer_msg<T>(
                     amount: *amount,
                 },
             ));
+        } else {
+            deps.api.debug(&format!(
+                "WASMDEBUG: get_non_native_rewards_transfer_msg: skipping item: {:?} amount: {:?} ",
+                item, amount,
+            ));
         }
     }
     if items.is_empty() {
+        deps.api
+            .debug("WASMDEBUG: get_non_native_rewards_transfer_msg: no items");
         return Ok(None);
     }
     Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
