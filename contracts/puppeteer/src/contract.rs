@@ -277,6 +277,10 @@ fn register_non_native_rewards_balances_query(
     info: MessageInfo,
     denoms: Vec<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
+    deps.api.debug(&format!(
+        "WASMDEBUG: register_non_native_rewards_balances_query denoms:{:?}",
+        denoms
+    ));
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.storage)?;
     ensure_eq!(config.owner, info.sender, ContractError::Unauthorized {});
