@@ -239,9 +239,8 @@ fn execute_tick_idle(
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut attrs = vec![attr("action", "tick_idle")];
     let last_idle_call = LAST_IDLE_CALL.load(deps.storage)?;
-    let idle_min_interval = config.idle_min_interval;
     let mut messages = vec![];
-    if env.block.time.seconds() - last_idle_call < idle_min_interval {
+    if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
         //process non-native rewards
         if let Some(transfer_msg) = get_non_native_rewards_transfer_msg(deps.as_ref(), info, env)? {
             messages.push(transfer_msg);
@@ -472,7 +471,7 @@ fn execute_tick_staking(
     } else {
         deps.api.debug("WASMDEBUG nothing to unbond");
         deps.api.debug(&format!(
-            "WASMDEBUG goting from {:?} to {:?}",
+            "WASMDEBUG going from {:?} to {:?}",
             FSM.get_current_state(deps.storage)?,
             ContractState::Idle
         ));
