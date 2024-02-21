@@ -977,13 +977,9 @@ fn get_non_native_rewards_transfer_msg<T>(
         .iter()
         .map(|c| (c.denom.clone(), c.amount))
         .collect::<std::collections::HashMap<_, _>>();
+    let default_amount = Uint128::zero();
     for item in non_native_rewards_receivers {
-        let amount =
-            rewards_map
-                .get(&item.denom)
-                .ok_or(ContractError::NonNativeRewardsDenomNotFound {
-                    denom: item.denom.clone(),
-                })?;
+        let amount = rewards_map.get(&item.denom).unwrap_or(&default_amount);
         if amount > &item.min_amount {
             deps.api.debug(&format!(
                 "WASMDEBUG: get_non_native_rewards_transfer_msg: adding item: {:?} ",
@@ -993,7 +989,7 @@ fn get_non_native_rewards_transfer_msg<T>(
                 item.address,
                 cosmwasm_std::Coin {
                     denom: item.denom,
-                    amount: *amount - Uint128::one(),
+                    amount: *amount,
                 },
             ));
         } else {

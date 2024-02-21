@@ -1115,8 +1115,7 @@ describe('Core', () => {
                   non_native_rewards_balances: {},
                 },
               });
-
-            return res.length > 0;
+            return res.length == 2;
           } catch (e) {
             //
           }
@@ -1154,7 +1153,7 @@ describe('Core', () => {
           context.gaiaUserAddress,
           remoteNonNativeDenoms[0],
         );
-        expect(receiverBalance.amount).toEqual('66665');
+        expect(receiverBalance.amount).toEqual('66666');
         // this one is still on ICA as amount is below min_amount
         const icaBalance = await gaiaClient.getBalance(
           context.icaAddress,
@@ -1171,10 +1170,7 @@ describe('Core', () => {
               },
             },
           );
-          return (
-            res[0].coins.find((c) => c.denom === remoteNonNativeDenoms[0])
-              ?.amount === '1'
-          );
+          return res[0].coins.length === 1;
         });
       }, 30_000);
       it('tick should fail', async () => {

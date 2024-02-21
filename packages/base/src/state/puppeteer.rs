@@ -2,9 +2,8 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Addr;
 use cw_storage_plus::Item;
 use lido_puppeteer_base::state::BaseConfig;
-use neutron_sdk::interchain_queries::v045::types::Balances;
 
-use crate::msg::puppeteer::BalancesAndDelegations;
+use crate::msg::puppeteer::{BalancesAndDelegations, MultiBalances};
 
 #[cw_serde]
 pub struct Config {
@@ -39,7 +38,7 @@ pub enum KVQueryType {
     NonNativeRewardsBalances,
 }
 
-pub const NON_NATIVE_REWARD_BALANCES: Item<(Balances, u64)> =
+pub const NON_NATIVE_REWARD_BALANCES: Item<(MultiBalances, u64)> =
     Item::new("non_native_reward_balances");
 
 pub const DELEGATIONS_AND_BALANCE: Item<(BalancesAndDelegations, u64)> =

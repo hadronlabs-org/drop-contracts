@@ -8,7 +8,10 @@ use cosmos_sdk_proto::cosmos::{
     staking::v1beta1::{Delegation, Validator as CosmosValidator},
 };
 use lido_puppeteer_base::msg::{ExecuteMsg as BaseExecuteMsg, TransferReadyBatchMsg};
-use neutron_sdk::interchain_queries::v045::types::{Balances, Delegations};
+use neutron_sdk::{
+    bindings::types::StorageValue,
+    interchain_queries::v045::types::{Balances, Delegations},
+};
 use neutron_sdk::{interchain_queries::types::KVReconstruct, NeutronError, NeutronResult};
 use prost::Message;
 
@@ -139,6 +142,11 @@ pub struct BalancesAndDelegations {
     pub delegations: Delegations,
 }
 
+#[cw_serde]
+pub struct MultiBalances {
+    pub coins: Vec<cosmwasm_std::Coin>,
+}
+
 impl KVReconstruct for BalancesAndDelegations {
     fn reconstruct(
         storage_values: &[neutron_sdk::bindings::types::StorageValue],
@@ -221,5 +229,20 @@ impl KVReconstruct for BalancesAndDelegations {
             delegations: Delegations { delegations },
             balances: Balances { coins },
         })
+    }
+}
+
+impl KVReconstruct for MultiBalances {
+    //TODO: fix in sdk and remove this
+    fn reconstruct(storage_values: &[StorageValue]) -> NeutronResult<MultiBalances> {
+        let mut coins: Vec<cosmwasm_std::Coin> = Vec::with_capacity(storage_values.len());
+        for kv in storage_values {
+            if kv.value.len() > 0 {
+                let balance: CosmosCoin = CosmosCoin::decode(kv.value.as_slice())?;
+                let amount = Uint128::from_str(balance.amount.as_str())?;
+                coins.push(cosmwasm_std::Coin::new(amount.u128(), balance.denom));
+            }
+        }
+        Ok(MultiBalances { coins })
     }
 }
