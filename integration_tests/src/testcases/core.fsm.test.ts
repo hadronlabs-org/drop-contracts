@@ -1154,7 +1154,7 @@ describe('Core', () => {
           context.gaiaUserAddress,
           remoteNonNativeDenoms[0],
         );
-        expect(receiverBalance.amount).toEqual('66666');
+        expect(receiverBalance.amount).toEqual('66665');
         // this one is still on ICA as amount is below min_amount
         const icaBalance = await gaiaClient.getBalance(
           context.icaAddress,
@@ -1162,6 +1162,21 @@ describe('Core', () => {
         );
         expect(icaBalance.amount).toEqual('2222');
       });
+      it('wait for balances to update', async () => {
+        await waitFor(async () => {
+          const res: any = await context.puppeteerContractClient.queryExtention(
+            {
+              msg: {
+                non_native_rewards_balances: {},
+              },
+            },
+          );
+          return (
+            res[0].coins.find((c) => c.denom === remoteNonNativeDenoms[0])
+              ?.amount === '1'
+          );
+        });
+      }, 30_000);
       it('tick should fail', async () => {
         const { neutronUserAddress } = context;
         await expect(

@@ -993,7 +993,7 @@ fn get_non_native_rewards_transfer_msg<T>(
                 item.address,
                 cosmwasm_std::Coin {
                     denom: item.denom,
-                    amount: *amount,
+                    amount: *amount - Uint128::one(),
                 },
             ));
         } else {
