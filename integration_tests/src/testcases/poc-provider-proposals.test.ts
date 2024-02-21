@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { LidoProviderProposals } from '../generated/contractLib';
+import { LidoProviderProposalsPoc } from '../generated/contractLib';
 import {
   QueryClient,
   StakingExtension,
@@ -21,7 +21,7 @@ import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
 import { ProposalInfo1 } from '../generated/contractLib/lidoProviderProposals';
 
-const LidoProviderProposalsClass = LidoProviderProposals.Client;
+const LidoProviderProposalsClass = LidoProviderProposalsPoc.Client;
 
 describe('POC Provider Proposals', () => {
   const context: {
@@ -107,7 +107,7 @@ describe('POC Provider Proposals', () => {
     );
     expect(res.codeId).toBeGreaterThan(0);
 
-    const instantiateRes = await LidoProviderProposals.Client.instantiate(
+    const instantiateRes = await LidoProviderProposalsPoc.Client.instantiate(
       client,
       account.address,
       res.codeId,
@@ -132,7 +132,7 @@ describe('POC Provider Proposals', () => {
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
     context.contractAddress = instantiateRes.contractAddress;
-    context.contractClient = new LidoProviderProposals.Client(
+    context.contractClient = new LidoProviderProposalsPoc.Client(
       client,
       context.contractAddress,
     );
@@ -224,22 +224,8 @@ describe('POC Provider Proposals', () => {
 
     console.log(metrics);
 
-    expect(metrics).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          proposal: expect.objectContaining({
-            proposal_id: 1,
-            proposal_type: '/cosmos.gov.v1beta1.TextProposal',
-            status: 1,
-            submit_time: expect.any(Number),
-            deposit_end_time: expect.any(Number),
-            voting_start_time: expect.any(Number),
-            voting_end_time: expect.any(Number),
-          }),
-          votes: null,
-          is_spam: false,
-        }),
-      ]),
-    );
+    expect(metrics).toEqual({
+      last_proposal: 1,
+    });
   });
 });

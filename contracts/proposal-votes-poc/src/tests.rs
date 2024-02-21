@@ -50,13 +50,14 @@ fn instantiate() {
     assert_eq!(
         response.events,
         vec![
-            Event::new("crates.io:lido-staking__lido-proposal-votes-instantiate").add_attributes([
-                attr("connection_id", "connection-0"),
-                attr("port_id", "transfer"),
-                attr("update_period", "100"),
-                attr("core_address", "core"),
-                attr("provider_proposals_address", "provider_proposals")
-            ])
+            Event::new("crates.io:lido-staking__lido-proposal-votes-poc-instantiate")
+                .add_attributes([
+                    attr("connection_id", "connection-0"),
+                    attr("port_id", "transfer"),
+                    attr("update_period", "100"),
+                    attr("core_address", "core"),
+                    attr("provider_proposals_address", "provider_proposals")
+                ])
         ]
     );
     assert!(response.attributes.is_empty());

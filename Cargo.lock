@@ -900,7 +900,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "lido-proposal-votes"
+name = "lido-proposal-votes-poc"
 version = "1.0.0"
 dependencies = [
  "cosmos-sdk-proto",
@@ -923,7 +923,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "lido-provider-proposals"
+name = "lido-provider-proposals-poc"
 version = "1.0.0"
 dependencies = [
  "cosmos-sdk-proto",

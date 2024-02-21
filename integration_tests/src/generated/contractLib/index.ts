@@ -16,11 +16,11 @@ export const LidoFactory = _4;
 import * as _5 from './lidoHookTester';
 export const LidoHookTester = _5;
 
-import * as _6 from './lidoProposalVotes';
-export const LidoProposalVotes = _6;
+import * as _6 from './lidoProposalVotesPoc';
+export const LidoProposalVotesPoc = _6;
 
-import * as _7 from './lidoProviderProposals';
-export const LidoProviderProposals = _7;
+import * as _7 from './lidoProviderProposalsPoc';
+export const LidoProviderProposalsPoc = _7;
 
 import * as _8 from './lidoPump';
 export const LidoPump = _8;

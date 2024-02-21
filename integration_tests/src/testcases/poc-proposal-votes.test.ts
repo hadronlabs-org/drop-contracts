@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import {
-  LidoProviderProposals,
-  LidoProposalVotes,
+  LidoProviderProposalsPoc,
+  LidoProposalVotesPoc,
 } from '../generated/contractLib';
 import {
   QueryClient,
@@ -24,8 +24,8 @@ import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
 import { ProposalInfo1 } from '../generated/contractLib/lidoProviderProposals';
 
-const LidoProviderProposalsClass = LidoProviderProposals.Client;
-const LidoProposalVotesClass = LidoProposalVotes.Client;
+const LidoProviderProposalsClass = LidoProviderProposalsPoc.Client;
+const LidoProposalVotesClass = LidoProposalVotesPoc.Client;
 
 describe('POC Proposal Votes', () => {
   const context: {
@@ -113,32 +113,33 @@ describe('POC Proposal Votes', () => {
     );
     expect(propsRes.codeId).toBeGreaterThan(0);
 
-    const instantiatePropsRes = await LidoProviderProposals.Client.instantiate(
-      client,
-      account.address,
-      propsRes.codeId,
-      {
-        connection_id: 'connection-0',
-        port_id: 'transfer',
-        update_period: 10,
-        core_address: account.address,
-        validators_set_address: account.address,
-        init_proposal: 1,
-        proposals_prefetch: 10,
-        veto_spam_threshold: '0.5',
-      },
-      'label',
-      [
+    const instantiatePropsRes =
+      await LidoProviderProposalsPoc.Client.instantiate(
+        client,
+        account.address,
+        propsRes.codeId,
         {
-          amount: '10000000',
-          denom: 'untrn',
+          connection_id: 'connection-0',
+          port_id: 'transfer',
+          update_period: 10,
+          core_address: account.address,
+          validators_set_address: account.address,
+          init_proposal: 1,
+          proposals_prefetch: 10,
+          veto_spam_threshold: '0.5',
         },
-      ],
-      'auto',
-    );
+        'label',
+        [
+          {
+            amount: '10000000',
+            denom: 'untrn',
+          },
+        ],
+        'auto',
+      );
     expect(instantiatePropsRes.contractAddress).toHaveLength(66);
     context.propsContractAddress = instantiatePropsRes.contractAddress;
-    context.propsContractClient = new LidoProviderProposals.Client(
+    context.propsContractClient = new LidoProviderProposalsPoc.Client(
       client,
       context.propsContractAddress,
     );
@@ -152,7 +153,7 @@ describe('POC Proposal Votes', () => {
     );
     expect(votesRes.codeId).toBeGreaterThan(0);
 
-    const instantiateVotesRes = await LidoProposalVotes.Client.instantiate(
+    const instantiateVotesRes = await LidoProposalVotesPoc.Client.instantiate(
       client,
       account.address,
       votesRes.codeId,
@@ -174,7 +175,7 @@ describe('POC Proposal Votes', () => {
     );
     expect(instantiateVotesRes.contractAddress).toHaveLength(66);
     context.votesContractAddress = instantiateVotesRes.contractAddress;
-    context.votesContractClient = new LidoProposalVotes.Client(
+    context.votesContractClient = new LidoProposalVotesPoc.Client(
       client,
       context.votesContractAddress,
     );
@@ -297,7 +298,18 @@ describe('POC Proposal Votes', () => {
             voting_start_time: expect.any(Number),
             voting_end_time: expect.any(Number),
           }),
-          votes: null,
+          votes: expect.arrayContaining([
+            expect.objectContaining({
+              proposal_id: 1,
+              voter: context.gaiaUserAddress,
+              options: [
+                {
+                  option: 1,
+                  weight: '1000000000000000000',
+                },
+              ],
+            }),
+          ]),
           is_spam: false,
         }),
       ]),

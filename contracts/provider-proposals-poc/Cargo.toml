@@ -2,7 +2,7 @@
 authors = ["Albert Andrejev <albert.andrejev@gmail.com>"]
 description = "Contract to control provider proposals and collect voting information"
 edition = "2021"
-name = "lido-provider-proposals"
+name = "lido-provider-proposals-poc"
 version = "1.0.0"
 
 exclude = [

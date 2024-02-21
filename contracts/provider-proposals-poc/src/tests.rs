@@ -90,7 +90,7 @@ fn instantiate() {
     assert_eq!(
         response.events,
         vec![
-            Event::new("crates.io:lido-staking__lido-provider-proposals-instantiate")
+            Event::new("crates.io:lido-staking__lido-provider-proposals-poc-instantiate")
                 .add_attributes([
                     attr("connection_id", "connection-0"),
                     attr("port_id", "transfer"),

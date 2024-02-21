@@ -6,6 +6,8 @@
   "scripts": {
     "test": "vitest --run",
     "test:poc-stargate": "vitest --run poc-stargate --bail 1",
+    "test:poc-provider-proposals": "vitest --run poc-provider-proposals.test --bail 1",
+    "test:poc-proposal-votes": "vitest --run poc-proposal-votes.test --bail 1",
     "test:core": "vitest --run core.test.ts --bail 1",
     "test:core:fsm": "vitest --run core.fsm --bail 1",
     "test:pump": "vitest --run pump --bail 1",
@@ -15,8 +17,6 @@
     "test:validators-stats": "vitest --run validators-stats.test --bail 1",
     "test:validator-set": "vitest --run validator-set.test --bail 1",
     "test:distribution": "vitest --run distribution.test --bail 1",
-    "test:provider-proposals": "vitest --run provider-proposals.test --bail 1",
-    "test:proposal-votes": "vitest --run proposal-votes.test --bail 1",
     "test:auto-withdrawer": "vitest --run auto-withdrawer.test --bail 1",
     "watch": "vitest",
     "build-ts-client": "ts-node ./src/rebuild-client.ts",
