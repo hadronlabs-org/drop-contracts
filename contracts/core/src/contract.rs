@@ -955,11 +955,13 @@ fn get_non_native_rewards_transfer_msg<T>(
     let config = CONFIG.load(deps.storage)?;
     let non_native_rewards_receivers = NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?;
     let mut items = vec![];
+    deps.api.debug(&format!(
+        "WASMDEBUG get_non_native_rewards_transfer_msg {:?}",
+        non_native_rewards_receivers
+    ));
     let rewards: lido_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
-            config
-                .pump_address
-                .ok_or(ContractError::PumpAddressIsNotSet {})?,
+            config.puppeteer_contract.to_string(),
             &lido_puppeteer_base::msg::QueryMsg::Extention {
                 msg: lido_staking_base::msg::puppeteer::QueryExtMsg::NonNativeRewardsBalances {},
             },
