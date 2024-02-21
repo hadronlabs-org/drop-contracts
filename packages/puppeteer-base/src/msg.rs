@@ -1,6 +1,7 @@
 use crate::proto::{
     MsgBeginRedelegateResponse, MsgDelegateResponse, MsgExecResponse, MsgIBCTransfer,
-    MsgRedeemTokensforSharesResponse, MsgTokenizeSharesResponse, MsgUndelegateResponse,
+    MsgRedeemTokensforSharesResponse, MsgSendResponse, MsgTokenizeSharesResponse,
+    MsgUndelegateResponse,
 };
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Empty, Uint128};
@@ -91,6 +92,7 @@ pub enum ResponseAnswer {
     RedeemTokensforSharesResponse(MsgRedeemTokensforSharesResponse),
     AuthzExecResponse(MsgExecResponse),
     IBCTransfer(MsgIBCTransfer),
+    TransferResponse(MsgSendResponse),
     UnknownResponse {},
 }
 

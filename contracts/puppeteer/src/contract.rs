@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use cosmos_sdk_proto::cosmos::{
-    bank::v1beta1::MsgSend,
+    bank::v1beta1::{MsgSend, MsgSendResponse},
     base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
     staking::v1beta1::{MsgDelegate, MsgUndelegate},
 };
@@ -963,6 +963,10 @@ fn get_answers_from_msg_data(
                         amount: out.amount.map(convert_coin).transpose()?,
                     },
                 )
+            }
+            "/cosmos.bank.v1beta1.MsgSend" => {
+                let _out: MsgSendResponse = decode_message_response(&item.data)?;
+                ResponseAnswer::TransferResponse(lido_puppeteer_base::proto::MsgSendResponse {})
             }
             _ => {
                 deps.api.debug(

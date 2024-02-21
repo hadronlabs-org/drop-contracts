@@ -6,6 +6,8 @@ pub struct MsgDelegateResponse {}
 
 #[cw_serde]
 pub struct MsgIBCTransfer {}
+#[cw_serde]
+pub struct MsgSendResponse {}
 
 #[cw_serde]
 pub struct MsgUndelegateResponse {
