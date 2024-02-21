@@ -21,13 +21,20 @@ import { join } from 'path';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
-import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
+import {
+  AccountData,
+  Coin,
+  DirectSecp256k1HdWallet,
+} from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
 import { awaitBlocks, setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import { UnbondBatch } from '../generated/contractLib/lidoCore';
+import {
+  ResponseHookMsg,
+  UnbondBatch,
+} from '../generated/contractLib/lidoCore';
 import { stringToPath } from '@cosmjs/crypto';
 
 const LidoFactoryClass = LidoFactory.Client;
@@ -126,7 +133,6 @@ describe('Core', () => {
       setupStakingExtension,
       setupBankExtension,
     );
-
     const secondWallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demo2.mnemonic,
       {
@@ -364,7 +370,7 @@ describe('Core', () => {
     const res = await contractClient.init(context.neutronUserAddress, {
       base_denom: context.neutronIBCDenom,
       core_params: {
-        idle_min_interval: 1,
+        idle_min_interval: 60,
         puppeteer_timeout: 60,
         unbond_batch_switch_time: 6000,
         unbonding_safe_period: 10,
@@ -999,6 +1005,173 @@ describe('Core', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
+      });
+    });
+    describe('third cycle', () => {
+      let remoteNonNativeDenoms: string[] = [];
+      it('generate two new tokenfactory tokens and send them to the remote zone', async () => {
+        const { neutronUserAddress } = context;
+        await context.park.executeInNetwork(
+          'neutron',
+          `neutrond tx tokenfactory create-denom test1 --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
+        await context.park.executeInNetwork(
+          'neutron',
+          `neutrond tx tokenfactory create-denom test2 --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
+        const denoms =
+          await context.neutronClient.OsmosisTokenfactoryV1Beta1.query.queryDenomsFromCreator(
+            neutronUserAddress,
+          );
+        expect(denoms.data.denoms.length).toEqual(2);
+        await context.park.executeInNetwork(
+          'neutron',
+          `neutrond tx tokenfactory mint 1000000${denoms.data.denoms[0]} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
+        await context.park.executeInNetwork(
+          'neutron',
+          `neutrond tx tokenfactory mint 1000000${denoms.data.denoms[1]} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
+        const balances =
+          await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+            neutronUserAddress,
+          );
+        const tokenFactoryDenoms = balances.data.balances.filter((b) =>
+          b.denom.startsWith('factory/'),
+        );
+        await context.park.executeInNetwork(
+          'neutron',
+          `neutrond tx ibc-transfer transfer transfer channel-0 ${context.icaAddress} 66666${tokenFactoryDenoms[0].denom} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
+        await context.park.executeInNetwork(
+          'neutron',
+          `neutrond tx ibc-transfer transfer transfer channel-0 ${context.icaAddress} 2222${tokenFactoryDenoms[1].denom} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
+      });
+      it('wait for balances to come', async () => {
+        let res: readonly Coin[] = [];
+        await waitFor(async () => {
+          res = await context.gaiaClient.getAllBalances(context.icaAddress);
+          return (
+            res.some((b) => b.amount === '66666') &&
+            res.some((b) => b.amount === '2222')
+          );
+        }, 30_000);
+        remoteNonNativeDenoms = [
+          res.find((b) => b.amount === '66666').denom,
+          res.find((b) => b.amount === '2222').denom,
+        ];
+      });
+      it('setup non-native receivers', async () => {
+        const { factoryContractClient, neutronUserAddress } = context;
+        const res = await factoryContractClient.proxy(
+          neutronUserAddress,
+          {
+            core: {
+              update_non_native_rewards_receivers: {
+                items: remoteNonNativeDenoms.map((denom) => ({
+                  denom,
+                  address: context.gaiaUserAddress,
+                  min_amount: '10000',
+                })),
+              },
+            },
+          },
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+      });
+      it('update idle interval', async () => {
+        const { factoryContractClient, neutronUserAddress } = context;
+        const res = await factoryContractClient.updateConfig(
+          neutronUserAddress,
+          {
+            core: {
+              idle_min_interval: 10000,
+            },
+          },
+        );
+        expect(res.transactionHash).toHaveLength(64);
+      });
+      it('wait for non-native balances to come', async () => {
+        await waitFor(async () => {
+          try {
+            const res: any =
+              await context.puppeteerContractClient.queryExtention({
+                msg: {
+                  non_native_rewards_balances: {},
+                },
+              });
+
+            return res.length > 0;
+          } catch (e) {
+            //
+          }
+        });
+      });
+      it('tick', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+      it('wait for the response from puppeteer', async () => {
+        let response: ResponseHookMsg;
+        await waitFor(async () => {
+          try {
+            response =
+              await context.coreContractClient.queryLastPuppeteerResponse();
+          } catch (e) {
+            //
+          }
+          return !!response;
+        }, 30_000);
+        expect(response).toBeTruthy();
+        expect<ResponseHookMsg>(response).toHaveProperty('success');
+      });
+      it('check balances', async () => {
+        const { gaiaClient } = context;
+        const receiverBalance = await gaiaClient.getBalance(
+          context.gaiaUserAddress,
+          remoteNonNativeDenoms[0],
+        );
+        expect(receiverBalance.amount).toEqual('66666');
+        // this one is still on ICA as amount is below min_amount
+        const icaBalance = await gaiaClient.getBalance(
+          context.icaAddress,
+          remoteNonNativeDenoms[1],
+        );
+        expect(icaBalance.amount).toEqual('2222');
+      });
+      it('tick should fail', async () => {
+        const { neutronUserAddress } = context;
+        await expect(
+          context.coreContractClient.tick(
+            neutronUserAddress,
+            1.5,
+            undefined,
+            [],
+          ),
+        ).rejects.toThrowError(/Idle min interval is not reached/);
       });
     });
   });

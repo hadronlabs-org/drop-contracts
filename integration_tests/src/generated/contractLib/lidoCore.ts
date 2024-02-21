@@ -137,7 +137,14 @@ export type Transaction =
         denom: string;
         recipient: string;
       };
+    }
+  | {
+      transfer: {
+        interchain_account_id: string;
+        items: [string, Coin][];
+      };
     };
+export type ArrayOfNonNativeRewardsItem = NonNativeRewardsItem[];
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
@@ -154,9 +161,9 @@ export type PuppeteerHookArgs =
     };
 
 export interface LidoCoreSchema {
-  responses: Config | ContractState | Decimal | ResponseHookMsg | UnbondBatch;
+  responses: Config | ContractState | Decimal | ResponseHookMsg | ArrayOfNonNativeRewardsItem | UnbondBatch;
   query: UnbondBatchArgs;
-  execute: BondArgs | UpdateConfigArgs | FakeProcessBatchArgs | PuppeteerHookArgs;
+  execute: BondArgs | UpdateConfigArgs | UpdateNonNativeRewardsReceiversArgs | FakeProcessBatchArgs | PuppeteerHookArgs;
   [k: string]: unknown;
 }
 export interface Config {
@@ -236,6 +243,11 @@ export interface ResponseHookErrorMsg {
   request_id: number;
   transaction: Transaction;
 }
+export interface NonNativeRewardsItem {
+  address: string;
+  denom: string;
+  min_amount: Uint128;
+}
 export interface UnbondBatch {
   created: number;
   expected_amount: Uint128;
@@ -278,6 +290,9 @@ export interface ConfigOptional {
   validators_set_contract?: string | null;
   withdrawal_manager_contract?: string | null;
   withdrawal_voucher_contract?: string | null;
+}
+export interface UpdateNonNativeRewardsReceiversArgs {
+  items: NonNativeRewardsItem[];
 }
 export interface FakeProcessBatchArgs {
   batch_id: Uint128;
@@ -330,6 +345,9 @@ export class Client {
   queryLastPuppeteerResponse = async(): Promise<ResponseHookMsg> => {
     return this.client.queryContractSmart(this.contractAddress, { last_puppeteer_response: {} });
   }
+  queryNonNativeRewardsReceivers = async(): Promise<ArrayOfNonNativeRewardsItem> => {
+    return this.client.queryContractSmart(this.contractAddress, { non_native_rewards_receivers: {} });
+  }
   bond = async(sender:string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { bond: args }, fee || "auto", memo, funds);
@@ -341,6 +359,10 @@ export class Client {
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+  }
+  updateNonNativeRewardsReceivers = async(sender:string, args: UpdateNonNativeRewardsReceiversArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { update_non_native_rewards_receivers: args }, fee || "auto", memo, funds);
   }
   fakeProcessBatch = async(sender:string, args: FakeProcessBatchArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

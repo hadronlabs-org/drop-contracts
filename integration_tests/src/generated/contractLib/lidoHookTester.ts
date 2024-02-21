@@ -107,6 +107,12 @@ export type Transaction =
         denom: string;
         recipient: string;
       };
+    }
+  | {
+      transfer: {
+        interchain_account_id: string;
+        items: [string, Coin][];
+      };
     };
 export type ArrayOfResponseHookSuccessMsg = ResponseHookSuccessMsg[];
 export type ArrayOfResponseHookErrorMsg = ResponseHookErrorMsg[];
