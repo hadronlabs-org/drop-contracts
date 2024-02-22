@@ -109,12 +109,6 @@ where
         storage: cw_storage_plus::Item<'a, (Delegations, Balances, u64)>,
     ) -> NeutronResult<Response> {
         let data: BalancesAndDelegations = query_kv_result(deps.as_ref(), query_id)?;
-        deps.api.debug(
-            format!(
-                "WASMDEBUG: sudo_kv_query_result received; query_id: {query_id:?} data: {data:?}"
-            )
-            .as_str(),
-        );
         let height = env.block.height;
         storage.save(deps.storage, &(data.delegations, data.balances, height))?;
         Ok(Response::default())
