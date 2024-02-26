@@ -36,6 +36,7 @@ import {
   UnbondBatch,
 } from '../generated/contractLib/lidoCore';
 import { stringToPath } from '@cosmjs/crypto';
+import { sleep } from '../helpers/sleep';
 
 const LidoFactoryClass = LidoFactory.Client;
 const LidoCoreClass = LidoCore.Client;
@@ -921,7 +922,7 @@ describe('Core', () => {
         balance = parseInt(res.amount);
       });
       it('wait for 30 seconds', async () => {
-        await new Promise((resolve) => setTimeout(resolve, 30_000));
+        await sleep(30_000);
       });
       it('idle tick', async () => {
         const { neutronUserAddress } = context;
@@ -1015,12 +1016,12 @@ describe('Core', () => {
           'neutron',
           `neutrond tx tokenfactory create-denom test1 --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await new Promise((resolve) => setTimeout(resolve, 5_000));
+        await sleep(5_000);
         await context.park.executeInNetwork(
           'neutron',
           `neutrond tx tokenfactory create-denom test2 --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await new Promise((resolve) => setTimeout(resolve, 5_000));
+        await sleep(5_000);
         const denoms =
           await context.neutronClient.OsmosisTokenfactoryV1Beta1.query.queryDenomsFromCreator(
             neutronUserAddress,
@@ -1030,12 +1031,12 @@ describe('Core', () => {
           'neutron',
           `neutrond tx tokenfactory mint 1000000${denoms.data.denoms[0]} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await new Promise((resolve) => setTimeout(resolve, 5_000));
+        await sleep(5_000);
         await context.park.executeInNetwork(
           'neutron',
           `neutrond tx tokenfactory mint 1000000${denoms.data.denoms[1]} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await new Promise((resolve) => setTimeout(resolve, 5_000));
+        await sleep(5_000);
         const balances =
           await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
             neutronUserAddress,
@@ -1047,12 +1048,12 @@ describe('Core', () => {
           'neutron',
           `neutrond tx ibc-transfer transfer transfer channel-0 ${context.icaAddress} 66666${tokenFactoryDenoms[0].denom} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await new Promise((resolve) => setTimeout(resolve, 5_000));
+        await sleep(5_000);
         await context.park.executeInNetwork(
           'neutron',
           `neutrond tx ibc-transfer transfer transfer channel-0 ${context.icaAddress} 2222${tokenFactoryDenoms[1].denom} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await new Promise((resolve) => setTimeout(resolve, 5_000));
+        await sleep(5_000);
       });
       it('wait for balances to come', async () => {
         let res: readonly Coin[] = [];
