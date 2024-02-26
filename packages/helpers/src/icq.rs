@@ -15,6 +15,25 @@ use neutron_sdk::{
     NeutronResult,
 };
 
+pub fn new_multiple_balances_query_msg(
+    connection_id: String,
+    address: String,
+    denoms: Vec<String>,
+    update_period: u64,
+) -> NeutronResult<NeutronMsg> {
+    let keys = get_multiple_balances_keys(address, denoms)?;
+    NeutronMsg::register_interchain_query(QueryPayload::KV(keys), connection_id, update_period)
+}
+
+pub fn update_multiple_balances_query_msg(
+    query_id: u64,
+    address: String,
+    denoms: Vec<String>,
+) -> NeutronResult<NeutronMsg> {
+    let keys = get_multiple_balances_keys(address, denoms)?;
+    NeutronMsg::update_interchain_query(query_id, Some(keys), None, None)
+}
+
 /// Query message to get delegations and balance
 /// from a delegator to a list of validators
 pub fn new_delegations_and_balance_query_msg(
@@ -36,6 +55,22 @@ pub fn update_balance_and_delegations_query_msg(
 ) -> NeutronResult<NeutronMsg> {
     let keys = get_balance_and_delegations_keys(delegator, denom, validators)?;
     NeutronMsg::update_interchain_query(query_id, Some(keys), None, None)
+}
+
+pub fn get_multiple_balances_keys(
+    address: String,
+    denoms: Vec<String>,
+) -> NeutronResult<Vec<KVKey>> {
+    let addr = decode_and_convert(&address)?;
+    let mut keys: Vec<KVKey> = Vec::with_capacity(denoms.len());
+    for denom in denoms {
+        let balance_key = create_account_denom_balance_key(&addr, denom)?;
+        keys.push(KVKey {
+            path: BANK_STORE_KEY.to_string(),
+            key: Binary(balance_key),
+        });
+    }
+    Ok(keys)
 }
 
 pub fn get_balance_and_delegations_keys(

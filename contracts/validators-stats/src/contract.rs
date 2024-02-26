@@ -1,4 +1,4 @@
-use bech32::{encode, ToBase32};
+use bech32::{encode, Bech32, Hrp};
 use cosmwasm_std::{entry_point, to_json_binary, Decimal, Deps, Order, Reply, StdError, SubMsg};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
@@ -391,8 +391,10 @@ pub fn pubkey_to_address(pubkey: Vec<u8>, prefix: &str) -> StdResult<String> {
 
     let hash = Sha256::digest(pubkey_bytes);
     let addr_bytes = &hash[..20];
+    let hrp = Hrp::parse(prefix)
+        .map_err(|e| StdError::generic_err(format!("failed to parse hrp: {e:?}")))?;
 
-    let bech32_addr = encode(prefix, addr_bytes.to_base32(), bech32::Variant::Bech32)
+    let bech32_addr = encode::<Bech32>(hrp, addr_bytes)
         .map_err(|e| StdError::generic_err(format!("failed to encode to bech32: {e:?}")))?;
 
     Ok(bech32_addr)

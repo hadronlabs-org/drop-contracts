@@ -93,9 +93,13 @@ export type Addr = string;
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type ProxyArgs = {
-  validator_set: ValidatorSetMsg;
-};
+export type ProxyArgs =
+  | {
+      validator_set: ValidatorSetMsg;
+    }
+  | {
+      core: CoreMsg;
+    };
 export type ValidatorSetMsg =
   | {
       update_validators: {
@@ -107,6 +111,11 @@ export type ValidatorSetMsg =
         validator: ValidatorData;
       };
     };
+export type CoreMsg = {
+  update_non_native_rewards_receivers: {
+    items: NonNativeRewardsItem[];
+  };
+};
 /**
  * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
  *
@@ -173,6 +182,11 @@ export interface FeesMsg {
 export interface ValidatorData {
   valoper_address: string;
   weight: number;
+}
+export interface NonNativeRewardsItem {
+  address: string;
+  denom: string;
+  min_amount: Uint128;
 }
 export interface AdminExecuteArgs {
   addr: string;

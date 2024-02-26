@@ -1,6 +1,5 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
-import { Coin } from "@cosmjs/amino";
 export interface InstantiateMsg {
   allowed_senders: string[];
   connection_id: string;
@@ -84,6 +83,12 @@ export type Transaction =
         denom: string;
         recipient: string;
       };
+    }
+  | {
+      transfer: {
+        interchain_account_id: string;
+        items: [string, Coin][];
+      };
     };
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
@@ -108,6 +113,9 @@ export type QueryExtMsg =
       balances: {};
     }
   | {
+      non_native_rewards_balances: {};
+    }
+  | {
       fees: {};
     }
   | {
@@ -120,6 +128,7 @@ export interface LidoPuppeteerSchema {
   execute:
     | RegisterBalanceAndDelegatorDelegationsQueryArgs
     | RegisterDelegatorUnbondingDelegationsQueryArgs
+    | RegisterNonNativeRewardsBalancesQueryArgs
     | SetFeesArgs
     | DelegateArgs
     | UndelegateArgs
@@ -127,6 +136,7 @@ export interface LidoPuppeteerSchema {
     | TokenizeShareArgs
     | RedeemShareArgs
     | IBCTransferArgs
+    | TransferArgs
     | ClaimRewardsAndOptionalyTransferArgs;
   [k: string]: unknown;
 }
@@ -140,6 +150,11 @@ export interface TransferReadyBatchMsg {
   batch_id: number;
   recipient: string;
 }
+export interface Coin {
+  amount: Uint128;
+  denom: string;
+  [k: string]: unknown;
+}
 export interface ExtentionArgs {
   msg: QueryExtMsg;
 }
@@ -148,6 +163,9 @@ export interface RegisterBalanceAndDelegatorDelegationsQueryArgs {
 }
 export interface RegisterDelegatorUnbondingDelegationsQueryArgs {
   validators: string[];
+}
+export interface RegisterNonNativeRewardsBalancesQueryArgs {
+  denoms: string[];
 }
 export interface SetFeesArgs {
   ack_fee: Uint128;
@@ -189,6 +207,11 @@ export interface RedeemShareArgs {
 export interface IBCTransferArgs {
   reply_to: string;
   timeout: number;
+}
+export interface TransferArgs {
+  items: [string, Coin][];
+  reply_to: string;
+  timeout?: number | null;
 }
 export interface ClaimRewardsAndOptionalyTransferArgs {
   reply_to: string;
@@ -256,6 +279,10 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { register_delegator_unbonding_delegations_query: args }, fee || "auto", memo, funds);
   }
+  registerNonNativeRewardsBalancesQuery = async(sender:string, args: RegisterNonNativeRewardsBalancesQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { register_non_native_rewards_balances_query: args }, fee || "auto", memo, funds);
+  }
   setFees = async(sender:string, args: SetFeesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { set_fees: args }, fee || "auto", memo, funds);
@@ -283,6 +310,10 @@ export class Client {
   iBCTransfer = async(sender:string, args: IBCTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { i_b_c_transfer: args }, fee || "auto", memo, funds);
+  }
+  transfer = async(sender:string, args: TransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { transfer: args }, fee || "auto", memo, funds);
   }
   claimRewardsAndOptionalyTransfer = async(sender:string, args: ClaimRewardsAndOptionalyTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

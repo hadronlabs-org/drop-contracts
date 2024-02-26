@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use cosmos_sdk_proto::cosmos::{
-    bank::v1beta1::MsgSend,
+    bank::v1beta1::{MsgSend, MsgSendResponse},
     base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
     staking::v1beta1::{MsgDelegate, MsgUndelegate},
 };
@@ -22,7 +22,10 @@ use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use lido_helpers::{
     answer::response,
-    icq::{new_delegations_and_balance_query_msg, update_balance_and_delegations_query_msg},
+    icq::{
+        new_delegations_and_balance_query_msg, new_multiple_balances_query_msg,
+        update_balance_and_delegations_query_msg, update_multiple_balances_query_msg,
+    },
 };
 use lido_puppeteer_base::{
     error::{ContractError, ContractResult},
@@ -36,8 +39,10 @@ use lido_puppeteer_base::{
     },
 };
 use lido_staking_base::{
-    msg::puppeteer::{ExecuteMsg, FeesResponse, InstantiateMsg, MigrateMsg, QueryExtMsg},
-    state::puppeteer::{Config, KVQueryType, DELEGATIONS_AND_BALANCE},
+    msg::puppeteer::{
+        BalancesAndDelegations, ExecuteMsg, FeesResponse, InstantiateMsg, MigrateMsg, QueryExtMsg,
+    },
+    state::puppeteer::{Config, KVQueryType, DELEGATIONS_AND_BALANCE, NON_NATIVE_REWARD_BALANCES},
 };
 use neutron_sdk::interchain_queries::v045::new_register_delegator_unbonding_delegations_query_msg;
 use neutron_sdk::{
@@ -46,7 +51,6 @@ use neutron_sdk::{
         query::NeutronQuery,
         types::ProtobufAny,
     },
-    interchain_queries::v045::types::{Balances, Delegations},
     interchain_txs::helpers::decode_message_response,
     sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg},
     NeutronError, NeutronResult,
@@ -87,10 +91,12 @@ pub fn instantiate(
     DELEGATIONS_AND_BALANCE.save(
         deps.storage,
         &(
-            Delegations {
-                delegations: vec![],
+            BalancesAndDelegations {
+                balances: neutron_sdk::interchain_queries::v045::types::Balances { coins: vec![] },
+                delegations: neutron_sdk::interchain_queries::v045::types::Delegations {
+                    delegations: vec![],
+                },
             },
-            Balances { coins: vec![] },
             0,
         ),
     )?;
@@ -107,6 +113,7 @@ pub fn query(
         QueryMsg::Extention { msg } => match msg {
             QueryExtMsg::Delegations {} => query_delegations(deps),
             QueryExtMsg::Balances {} => query_balances(deps),
+            QueryExtMsg::NonNativeRewardsBalances {} => query_non_native_rewards_balances(deps),
             QueryExtMsg::UnbondingDelegations {} => to_json_binary(
                 &Puppeteer::default()
                     .unbonding_delegations
@@ -134,12 +141,16 @@ fn query_fees(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
 
 fn query_delegations(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let data = DELEGATIONS_AND_BALANCE.load(deps.storage)?;
-    to_json_binary(&(data.0, data.2)).map_err(ContractError::Std)
+    to_json_binary(&(data.0.delegations, data.1)).map_err(ContractError::Std)
 }
 
 fn query_balances(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let data = DELEGATIONS_AND_BALANCE.load(deps.storage)?;
-    to_json_binary(&(data.1, data.2)).map_err(ContractError::Std)
+    to_json_binary(&(data.0.balances, data.1)).map_err(ContractError::Std)
+}
+fn query_non_native_rewards_balances(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+    let data = NON_NATIVE_REWARD_BALANCES.load(deps.storage)?;
+    to_json_binary(&(data.0, data.1)).map_err(ContractError::Std)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -204,9 +215,17 @@ pub fn execute(
         ExecuteMsg::RegisterDelegatorUnbondingDelegationsQuery { validators } => {
             register_unbonding_delegations_query(deps, info, validators)
         }
+        ExecuteMsg::RegisterNonNativeRewardsBalancesQuery { denoms } => {
+            register_non_native_rewards_balances_query(deps, info, denoms)
+        }
         ExecuteMsg::IBCTransfer { timeout, reply_to } => {
             execute_ibc_transfer(deps, env, info, timeout, reply_to)
         }
+        ExecuteMsg::Transfer {
+            items,
+            timeout,
+            reply_to,
+        } => execute_transfer(deps, info, items, timeout, reply_to),
         _ => puppeteer_base.execute(deps, env, info, msg.to_base_enum()),
     }
 }
@@ -265,6 +284,54 @@ fn execute_ibc_transfer(
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
     Ok(Response::default().add_submessages(vec![submsg]))
+}
+
+fn register_non_native_rewards_balances_query(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    denoms: Vec<String>,
+) -> ContractResult<Response<NeutronMsg>> {
+    deps.api.debug(&format!(
+        "WASMDEBUG: register_non_native_rewards_balances_query denoms:{:?}",
+        denoms
+    ));
+    let puppeteer_base = Puppeteer::default();
+    let config = puppeteer_base.config.load(deps.storage)?;
+    ensure_eq!(config.owner, info.sender, ContractError::Unauthorized {});
+    let kv_queries = puppeteer_base
+        .kv_queries
+        .range(deps.storage, None, None, Order::Ascending)
+        .collect::<Result<Vec<(u64, KVQueryType)>, _>>()?;
+    let ica = puppeteer_base.ica.get_address(deps.storage)?;
+    let mut messages = vec![];
+    let mut submessages = vec![];
+    for (query_id, query_type) in kv_queries {
+        if query_type == KVQueryType::NonNativeRewardsBalances {
+            messages.push(update_multiple_balances_query_msg(
+                query_id,
+                ica.clone(),
+                denoms.clone(),
+            )?);
+        }
+    }
+    if messages.is_empty() {
+        submessages.push(SubMsg::reply_on_success(
+            new_multiple_balances_query_msg(
+                config.connection_id.clone(),
+                ica.clone(),
+                denoms,
+                config.update_period,
+            )?,
+            ReplyMsg::KvNonNativeRewardsBalances.to_reply_id(),
+        ));
+    }
+    deps.api.debug(&format!(
+        "WASMDEBUG: register_non_native_rewards_balances_query messages:{:?} submessages:{:?}",
+        messages, submessages
+    ));
+    Ok(Response::new()
+        .add_messages(messages)
+        .add_submessages(submessages))
 }
 
 fn register_balance_delegations_query(
@@ -394,6 +461,54 @@ fn execute_delegate(
         Transaction::Delegate {
             interchain_account_id: ICA_ID.to_string(),
             denom: config.remote_denom,
+            items,
+        },
+        timeout,
+        reply_to,
+        ReplyMsg::SudoPayload.to_reply_id(),
+    )?;
+
+    Ok(Response::default().add_submessages(vec![submsg]))
+}
+
+fn execute_transfer(
+    mut deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    items: Vec<(String, cosmwasm_std::Coin)>,
+    timeout: Option<u64>,
+    reply_to: String,
+) -> ContractResult<Response<NeutronMsg>> {
+    let puppeteer_base = Puppeteer::default();
+    deps.api.addr_validate(&reply_to)?;
+    let config: Config = puppeteer_base.config.load(deps.storage)?;
+    validate_sender(&config, &info.sender)?;
+    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
+    let ica = puppeteer_base.ica.get_address(deps.storage)?;
+    let mut any_msgs = vec![];
+    for (val, amount) in items.clone() {
+        let transfer_msg = MsgSend {
+            from_address: ica.to_string(),
+            to_address: val.to_string(),
+            amount: vec![Coin {
+                amount: amount.amount.to_string(),
+                denom: amount.denom,
+            }],
+        };
+        deps.api.debug(&format!(
+            "WASMDEBUG: transfer msg: {:?} to: {:?}",
+            transfer_msg, val
+        ));
+        any_msgs.push(prepare_any_msg(
+            transfer_msg,
+            "/cosmos.bank.v1beta1.MsgSend",
+        )?);
+    }
+    let submsg = compose_submsg(
+        deps.branch(),
+        config.clone(),
+        any_msgs,
+        Transaction::Transfer {
+            interchain_account_id: ICA_ID.to_string(),
             items,
         },
         timeout,
@@ -719,6 +834,12 @@ pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResul
                     query_id,
                     DELEGATIONS_AND_BALANCE,
                 ),
+                KVQueryType::NonNativeRewardsBalances => puppeteer_base.sudo_kv_query_result(
+                    deps,
+                    env,
+                    query_id,
+                    NON_NATIVE_REWARD_BALANCES,
+                ),
                 KVQueryType::UnbondingDelegations => {
                     puppeteer_base.sudo_unbonding_delegations_kv_query_result(deps, env, query_id)
                 }
@@ -852,6 +973,10 @@ fn get_answers_from_msg_data(
                         amount: out.amount.map(convert_coin).transpose()?,
                     },
                 )
+            }
+            "/cosmos.bank.v1beta1.MsgSend" => {
+                let _out: MsgSendResponse = decode_message_response(&item.data)?;
+                ResponseAnswer::TransferResponse(lido_puppeteer_base::proto::MsgSendResponse {})
             }
             _ => {
                 deps.api.debug(
@@ -989,6 +1114,13 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
         ReplyMsg::IbcTransfer => puppeteer_base.submit_ibc_transfer_reply(deps, msg),
         ReplyMsg::KvDelegationsAndBalance => {
             puppeteer_base.register_kv_query_reply(deps, msg, KVQueryType::DelegationsAndBalance)
+        }
+        ReplyMsg::KvNonNativeRewardsBalances => {
+            deps.api.debug(&format!(
+                "WASMDEBUG: NON_NATIVE_REWARDS_BALANCES_REPLY_ID {:?}",
+                msg
+            ));
+            puppeteer_base.register_kv_query_reply(deps, msg, KVQueryType::NonNativeRewardsBalances)
         }
         ReplyMsg::KvUnbondingDelegations { validator_index } => {
             deps.api.debug(&format!(

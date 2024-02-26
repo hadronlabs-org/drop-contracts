@@ -1,6 +1,7 @@
-use crate::state::core::{Config, ConfigOptional};
+use crate::state::core::{Config, ConfigOptional, NonNativeRewardsItem};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
+use cw_ownable::cw_ownable_execute;
 use lido_puppeteer_base::msg::ResponseHookMsg;
 
 #[cw_serde]
@@ -35,8 +36,11 @@ pub enum QueryMsg {
     ContractState {},
     #[returns(ResponseHookMsg)]
     LastPuppeteerResponse {},
+    #[returns(Vec<NonNativeRewardsItem>)]
+    NonNativeRewardsReceivers {},
 }
 
+#[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
     Bond {
@@ -46,6 +50,9 @@ pub enum ExecuteMsg {
     //permissioned
     UpdateConfig {
         new_config: Box<ConfigOptional>,
+    },
+    UpdateNonNativeRewardsReceivers {
+        items: Vec<NonNativeRewardsItem>,
     },
     FakeProcessBatch {
         batch_id: Uint128,

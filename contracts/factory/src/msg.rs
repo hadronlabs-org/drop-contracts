@@ -44,6 +44,14 @@ pub enum UpdateConfigMsg {
 #[cw_serde]
 pub enum ProxyMsg {
     ValidatorSet(ValidatorSetMsg),
+    Core(CoreMsg),
+}
+
+#[cw_serde]
+pub enum CoreMsg {
+    UpdateNonNativeRewardsReceivers {
+        items: Vec<lido_staking_base::state::core::NonNativeRewardsItem>,
+    },
 }
 
 #[cw_serde]
