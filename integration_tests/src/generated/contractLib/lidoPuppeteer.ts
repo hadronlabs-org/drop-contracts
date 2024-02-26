@@ -108,6 +108,9 @@ export type QueryExtMsg =
       balances: {};
     }
   | {
+      fees: {};
+    }
+  | {
       unbonding_delegations: {};
     };
 

@@ -467,6 +467,15 @@ describe('Core', () => {
       1.5,
     );
     expect(res.transactionHash).toHaveLength(64);
+    const fees: any = await context.puppeteerContractClient.queryExtention({
+      msg: { fees: {} },
+    });
+    expect(fees).toEqual({
+      recv_fee: [{ denom: 'untrn', amount: '0' }],
+      ack_fee: [{ denom: 'untrn', amount: '10000' }],
+      timeout_fee: [{ denom: 'untrn', amount: '10000' }],
+      register_fee: { denom: 'untrn', amount: '1000000' },
+    });
   });
 
   it('register ICA', async () => {
@@ -608,12 +617,7 @@ describe('Core', () => {
       ],
     );
     expect(res.transactionHash).toHaveLength(64);
-    const newExchangeRate = parseFloat(
-      await coreContractClient.queryExchangeRate(),
-    );
-    console.log({ newExchangeRate });
     const amount = Math.floor(100_000 / context.exchangeRate).toString();
-    console.log({ amount });
     res = await coreContractClient.unbond(neutronUserAddress, 1.6, undefined, [
       {
         amount,
@@ -659,7 +663,6 @@ describe('Core', () => {
       owner: context.neutronUserAddress,
     });
     expect(vouchers.tokens.length).toBe(2);
-
     expect(vouchers.tokens[0]).toBe(`0_${neutronUserAddress}_1`);
     let tokenId = vouchers.tokens[0];
     let voucher = await withdrawalVoucherContractClient.queryNftInfo({
@@ -698,7 +701,6 @@ describe('Core', () => {
       },
       token_uri: null,
     });
-
     expect(vouchers.tokens[1]).toBe(`0_${neutronUserAddress}_2`);
     tokenId = vouchers.tokens[1];
     voucher = await withdrawalVoucherContractClient.queryNftInfo({
