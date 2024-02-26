@@ -45,6 +45,7 @@ pub fn instantiate(
         attr("base_denom", &msg.base_denom),
         attr("owner", &msg.owner),
     ];
+    cw_ownable::initialize_owner(deps.storage, deps.api, Some(msg.owner.as_ref()))?;
     CONFIG.save(deps.storage, &msg.into())?;
     //an empty unbonding batch added as it's ready to be used on unbond action
     UNBOND_BATCH_ID.save(deps.storage, &0)?;
@@ -159,6 +160,14 @@ pub fn execute(
         ExecuteMsg::Bond { receiver } => execute_bond(deps, env, info, receiver),
         ExecuteMsg::Unbond {} => execute_unbond(deps, env, info),
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, *new_config),
+        ExecuteMsg::UpdateOwnership(action) => {
+            cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
+            Ok(response::<(&str, &str), _>(
+                "execute-update-ownership",
+                CONTRACT_NAME,
+                [],
+            ))
+        }
         ExecuteMsg::UpdateNonNativeRewardsReceivers { items } => {
             execute_set_non_native_rewards_receivers(deps, env, info, items)
         }
@@ -177,8 +186,7 @@ fn execute_set_non_native_rewards_receivers(
     info: MessageInfo,
     items: Vec<NonNativeRewardsItem>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let config = CONFIG.load(deps.storage)?;
-    ensure_eq!(info.sender, config.owner, ContractError::Unauthorized {});
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
     NON_NATIVE_REWARDS_CONFIG.save(deps.storage, &items)?;
     Ok(response(
         "execute-set_non_native_rewards_receivers",
@@ -576,7 +584,7 @@ fn execute_update_config(
     new_config: ConfigOptional,
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut config = CONFIG.load(deps.storage)?;
-    ensure_eq!(config.owner, info.sender, ContractError::Unauthorized {});
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut attrs = vec![attr("action", "update_config")];
     if let Some(token_contract) = new_config.token_contract {
         attrs.push(attr("token_contract", &token_contract));
@@ -648,10 +656,6 @@ fn execute_update_config(
             unbond_batch_switch_time.to_string(),
         ));
         config.unbond_batch_switch_time = unbond_batch_switch_time;
-    }
-    if let Some(owner) = new_config.owner {
-        attrs.push(attr("owner", &owner));
-        config.owner = owner;
     }
     if let Some(ld_denom) = new_config.ld_denom {
         attrs.push(attr("ld_denom", &ld_denom));

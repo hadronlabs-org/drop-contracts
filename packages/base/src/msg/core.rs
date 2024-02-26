@@ -1,6 +1,7 @@
 use crate::state::core::{Config, ConfigOptional, NonNativeRewardsItem};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
+use cw_ownable::cw_ownable_execute;
 use lido_puppeteer_base::msg::ResponseHookMsg;
 
 #[cw_serde]
@@ -39,6 +40,7 @@ pub enum QueryMsg {
     NonNativeRewardsReceivers {},
 }
 
+#[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
     Bond {
