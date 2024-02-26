@@ -155,6 +155,7 @@ export interface ConfigOptional {
 }
 export interface ConfigOptional2 {
   owner?: Addr | null;
+  provider_proposals_contract?: Addr | null;
   stats_contract?: Addr | null;
 }
 export interface FeesMsg {

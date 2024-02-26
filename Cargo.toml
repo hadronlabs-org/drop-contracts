@@ -13,6 +13,8 @@ members = [
     "contracts/token",
     "contracts/validators-set",
     "contracts/rewards-manager",
+    "contracts/proposal-votes-poc",
+    "contracts/provider-proposals-poc",
     "contracts/strategy",
     "contracts/pump",
     "contracts/hook-tester",
@@ -28,7 +30,7 @@ cosmwasm-std = { version = "1.5.2", default-features = false, features = [
     "stargate",
     "cosmwasm_1_2",
 ] }
-neutron-sdk = { package = "neutron-sdk", git = "https://github.com/neutron-org/neutron-sdk", branch = "feat/LIDO-68-query-siginig-info" }
+neutron-sdk = { package = "neutron-sdk", git = "https://github.com/neutron-org/neutron-sdk", branch = "feat/proposal-votes" }
 
 cosmos-sdk-proto = { version = "0.20.0",  default-features = false }
 cw-ownable       = { version = "0.5.1",   default-features = false }

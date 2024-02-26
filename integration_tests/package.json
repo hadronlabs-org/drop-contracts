@@ -6,6 +6,8 @@
   "scripts": {
     "test": "vitest --run",
     "test:poc-stargate": "vitest --run poc-stargate --bail 1",
+    "test:poc-provider-proposals": "vitest --run poc-provider-proposals.test --bail 1",
+    "test:poc-proposal-votes": "vitest --run poc-proposal-votes.test --bail 1",
     "test:core": "vitest --run core.test.ts --bail 1",
     "test:core:fsm": "vitest --run core.fsm --bail 1",
     "test:pump": "vitest --run pump --bail 1",
