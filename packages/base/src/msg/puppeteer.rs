@@ -152,11 +152,6 @@ pub struct BalancesAndDelegations {
     pub delegations: Delegations,
 }
 
-#[cw_serde]
-pub struct MultiBalances {
-    pub coins: Vec<cosmwasm_std::Coin>,
-}
-
 impl KVReconstruct for BalancesAndDelegations {
     fn reconstruct(
         storage_values: &[neutron_sdk::bindings::types::StorageValue],
@@ -240,6 +235,11 @@ impl KVReconstruct for BalancesAndDelegations {
             balances: Balances { coins },
         })
     }
+}
+
+#[cw_serde]
+pub struct MultiBalances {
+    pub coins: Vec<cosmwasm_std::Coin>,
 }
 
 impl KVReconstruct for MultiBalances {
