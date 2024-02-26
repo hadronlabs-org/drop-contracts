@@ -30,32 +30,32 @@ cosmwasm-std = { version = "1.5.2", default-features = false, features = [
     "stargate",
     "cosmwasm_1_2",
 ] }
-neutron-sdk = { package = "neutron-sdk", git = "https://github.com/neutron-org/neutron-sdk", branch = "feat/proposal-votes" }
+neutron-sdk = { package = "neutron-sdk", git = "https://github.com/neutron-org/neutron-sdk", branch = "main" }
 
-cosmos-sdk-proto = { version = "0.20.0",  default-features = false }
-cw-ownable       = { version = "0.5.1",   default-features = false }
-prost            = { version = "0.12.3",  default-features = false }
-prost-types      = { version = "0.12.3",  default-features = false }
-tendermint-proto = { version = "0.34.0",  default-features = false }
-cosmwasm-schema  = { version = "1.5.2",   default-features = false }
-cw-storage-plus  = { version = "1.2.0",   default-features = false }
-cw2              = { version = "1.1.2",   default-features = false }
-cw721            = { version = "0.18.0",  default-features = false }
-cw721-base       = { version = "0.18.0",  features = ["library"] }
-cw-multi-test    = { version = "0.20.0",  default-features = false }
-cw-utils         = { version = "1.0.3",   default-features = false }
-serde            = { version = "1.0.195", default-features = false }
-serde-json-wasm  = { version = "1.0.0",   default-features = false }
-sha2             = { version = "0.10.8",  default-features = false }
-bech32           = { version = "0.9.1",   default-features = false }
-thiserror        = { version = "1.0.56",  default-features = false }
-optfield         = { version = "0.3.0",   default-features = false }
-schemars         = { version = "0.8.16",  default-features = false }
-astroport        = { version = "3.6.1",   default-features = false }
+cosmos-sdk-proto = { version = "0.20.0", default-features = false }
+cw-ownable = { version = "0.5.1", default-features = false }
+prost = { version = "0.12.3", default-features = false }
+prost-types = { version = "0.12.3", default-features = false }
+tendermint-proto = { version = "0.34.0", default-features = false }
+cosmwasm-schema = { version = "1.5.2", default-features = false }
+cw-storage-plus = { version = "1.2.0", default-features = false }
+cw2 = { version = "1.1.2", default-features = false }
+cw721 = { version = "0.18.0", default-features = false }
+cw721-base = { version = "0.18.0", features = ["library"] }
+cw-multi-test = { version = "0.20.0", default-features = false }
+cw-utils = { version = "1.0.3", default-features = false }
+serde = { version = "1.0.195", default-features = false }
+serde-json-wasm = { version = "1.0.0", default-features = false }
+sha2 = { version = "0.10.8", default-features = false }
+bech32 = { version = "0.11.0", default-features = false }
+thiserror = { version = "1.0.56", default-features = false }
+optfield = { version = "0.3.0", default-features = false }
+schemars = { version = "0.8.16", default-features = false }
+astroport = { version = "3.6.1", default-features = false }
 
 lido-puppeteer-base = { path = "./packages/puppeteer-base", default-features = false }
-lido-staking-base   = { path = "./packages/base",           default-features = false }
-lido-helpers        = { path = "./packages/helpers",        default-features = false }
+lido-staking-base = { path = "./packages/base", default-features = false }
+lido-helpers = { path = "./packages/helpers", default-features = false }
 
 [profile.release]
 opt-level = 3
