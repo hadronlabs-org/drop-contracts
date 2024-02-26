@@ -1,6 +1,6 @@
 use crate::state::{CodeIds, RemoteOpts};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Uint128;
+use cosmwasm_std::{Binary, Uint128};
 use lido_staking_base::msg::token::DenomMetadata;
 
 #[cw_serde]
@@ -73,6 +73,10 @@ pub enum ExecuteMsg {
     Callback(CallbackMsg),
     UpdateConfig(Box<UpdateConfigMsg>),
     Proxy(ProxyMsg),
+    AdminExecute {
+        addr: String,
+        msg: Binary,
+    },
 }
 #[cw_serde]
 pub enum MigrateMsg {}

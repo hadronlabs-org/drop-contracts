@@ -111,6 +111,9 @@ describe('Validator set', () => {
           uptime: '0',
           tombstone: false,
           jailed_number: null,
+          init_proposal: null,
+          total_passed_proposals: 0,
+          total_voted_proposals: 0,
         },
       ]),
     );
@@ -150,6 +153,9 @@ describe('Validator set', () => {
           uptime: '0',
           tombstone: false,
           jailed_number: null,
+          init_proposal: null,
+          total_passed_proposals: 0,
+          total_voted_proposals: 0,
         },
         {
           valoper_address: 'valoper3',
@@ -161,6 +167,9 @@ describe('Validator set', () => {
           uptime: '0',
           tombstone: false,
           jailed_number: null,
+          init_proposal: null,
+          total_passed_proposals: 0,
+          total_voted_proposals: 0,
         },
       ]),
     );
@@ -168,7 +177,7 @@ describe('Validator set', () => {
 
   it('Update validator info', async () => {
     const { contractClient, account } = context;
-    const res = await contractClient.updateValidatorInfo(
+    const res = await contractClient.updateValidatorsInfo(
       account.address,
       {
         validators: [
@@ -208,6 +217,9 @@ describe('Validator set', () => {
           uptime: '0.5',
           tombstone: true,
           jailed_number: 1,
+          init_proposal: null,
+          total_passed_proposals: 0,
+          total_voted_proposals: 0,
         },
         {
           valoper_address: 'valoper3',
@@ -219,6 +231,9 @@ describe('Validator set', () => {
           uptime: '0.96',
           tombstone: false,
           jailed_number: 3,
+          init_proposal: null,
+          total_passed_proposals: 0,
+          total_voted_proposals: 0,
         },
       ]),
     );

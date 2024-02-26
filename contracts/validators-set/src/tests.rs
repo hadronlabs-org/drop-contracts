@@ -14,7 +14,7 @@ fn instantiate() {
         mock_env(),
         mock_info("admin", &[]),
         lido_staking_base::msg::validatorset::InstantiateMsg {
-            owner: "core".to_string(),
+            owner: "owner".to_string(),
             stats_contract: "stats_contract".to_string(),
         },
     )
@@ -26,8 +26,9 @@ fn instantiate() {
     assert_eq!(
         config,
         lido_staking_base::state::validatorset::Config {
-            owner: Addr::unchecked("core"),
+            owner: Addr::unchecked("owner"),
             stats_contract: Addr::unchecked("stats_contract"),
+            provider_proposals_contract: None,
         }
     );
 
@@ -36,7 +37,7 @@ fn instantiate() {
         response.events,
         vec![
             Event::new("crates.io:lido-staking__lido-validators-set-instantiate").add_attributes([
-                attr("core", "core"),
+                attr("owner", "owner"),
                 attr("stats_contract", "stats_contract")
             ])
         ]
@@ -53,6 +54,7 @@ fn query_config() {
             &lido_staking_base::state::validatorset::Config {
                 owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
+                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
             },
         )
         .unwrap();
@@ -67,7 +69,8 @@ fn query_config() {
         response,
         to_json_binary(&lido_staking_base::state::validatorset::Config {
             owner: Addr::unchecked("core"),
-            stats_contract: Addr::unchecked("stats_contract")
+            stats_contract: Addr::unchecked("stats_contract"),
+            provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract"))
         })
         .unwrap()
     );
@@ -83,6 +86,7 @@ fn update_config_wrong_owner() {
             &lido_staking_base::state::validatorset::Config {
                 owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
+                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
             },
         )
         .unwrap();
@@ -95,6 +99,7 @@ fn update_config_wrong_owner() {
             new_config: ConfigOptional {
                 owner: Some(Addr::unchecked("owner1")),
                 stats_contract: Some(Addr::unchecked("stats_contract1")),
+                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract1")),
             },
         },
     )
@@ -127,6 +132,7 @@ fn update_config_ok() {
             &lido_staking_base::state::validatorset::Config {
                 owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
+                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
             },
         )
         .unwrap();
@@ -136,9 +142,10 @@ fn update_config_ok() {
         mock_env(),
         mock_info("core", &[]),
         lido_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
-            new_config: lido_staking_base::state::validatorset::ConfigOptional {
+            new_config: ConfigOptional {
                 owner: Some(Addr::unchecked("owner1")),
                 stats_contract: Some(Addr::unchecked("stats_contract1")),
+                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract1")),
             },
         },
     )
@@ -155,7 +162,8 @@ fn update_config_ok() {
         config,
         to_json_binary(&lido_staking_base::state::validatorset::Config {
             owner: Addr::unchecked("owner1"),
-            stats_contract: Addr::unchecked("stats_contract1")
+            stats_contract: Addr::unchecked("stats_contract1"),
+            provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract1"))
         })
         .unwrap()
     );
@@ -233,6 +241,9 @@ fn update_validator_ok() {
             uptime: Decimal::zero(),
             tombstone: false,
             jailed_number: None,
+            init_proposal: None,
+            total_passed_proposals: 0,
+            total_voted_proposals: 0,
         })
         .unwrap()
     );
@@ -315,6 +326,9 @@ fn update_validators_ok() {
                 uptime: Decimal::zero(),
                 tombstone: false,
                 jailed_number: None,
+                init_proposal: None,
+                total_passed_proposals: 0,
+                total_voted_proposals: 0,
             },
             lido_staking_base::state::validatorset::ValidatorInfo {
                 valoper_address: "valoper_address2".to_string(),
@@ -326,6 +340,9 @@ fn update_validators_ok() {
                 uptime: Decimal::zero(),
                 tombstone: false,
                 jailed_number: None,
+                init_proposal: None,
+                total_passed_proposals: 0,
+                total_voted_proposals: 0,
             }
         ])
         .unwrap()
@@ -350,6 +367,7 @@ fn update_validator_info_wrong_sender() {
             &lido_staking_base::state::validatorset::Config {
                 owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
+                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
             },
         )
         .unwrap();
@@ -371,7 +389,7 @@ fn update_validator_info_wrong_sender() {
         deps.as_mut(),
         mock_env(),
         mock_info("stats_contract1", &[]),
-        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorInfo {
+        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorsInfo {
             validators: vec![lido_staking_base::msg::validatorset::ValidatorInfoUpdate {
                 valoper_address: "valoper_address".to_string(),
                 last_processed_remote_height: None,
@@ -409,6 +427,7 @@ fn update_validator_info_ok() {
             &lido_staking_base::state::validatorset::Config {
                 owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
+                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
             },
         )
         .unwrap();
@@ -431,7 +450,7 @@ fn update_validator_info_ok() {
         deps.as_mut(),
         mock_env(),
         mock_info("stats_contract", &[]),
-        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorInfo {
+        lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorsInfo {
             validators: vec![lido_staking_base::msg::validatorset::ValidatorInfoUpdate {
                 valoper_address: "valoper_address".to_string(),
                 last_processed_remote_height: Some(1234),
@@ -468,6 +487,9 @@ fn update_validator_info_ok() {
             uptime: Decimal::one(),
             tombstone: true,
             jailed_number: Some(5678),
+            init_proposal: None,
+            total_passed_proposals: 0,
+            total_voted_proposals: 0,
         })
         .unwrap()
     );

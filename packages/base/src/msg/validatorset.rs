@@ -1,6 +1,8 @@
-use crate::state::validatorset::ConfigOptional;
+use crate::state::validatorset::{Config, ConfigOptional, ValidatorInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Decimal};
+
+use crate::state::provider_proposals::ProposalInfo;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -37,19 +39,22 @@ pub enum ExecuteMsg {
     UpdateValidator {
         validator: ValidatorData,
     },
-    UpdateValidatorInfo {
+    UpdateValidatorsInfo {
         validators: Vec<ValidatorInfoUpdate>,
+    },
+    UpdateValidatorsVoting {
+        proposal: ProposalInfo,
     },
 }
 
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(crate::state::validatorset::Config)]
+    #[returns(Config)]
     Config {},
-    #[returns(crate::state::validatorset::ValidatorInfo)]
+    #[returns(ValidatorInfo)]
     Validator { valoper: Addr },
-    #[returns(Vec<crate::state::validatorset::ValidatorInfo>)]
+    #[returns(Vec<ValidatorInfo>)]
     Validators {},
 }
 

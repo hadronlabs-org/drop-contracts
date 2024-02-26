@@ -1,4 +1,4 @@
-use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Addr, Deps, Order};
+use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Addr, Attribute, Deps, Order};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use lido_helpers::answer::response;
@@ -6,6 +6,7 @@ use lido_staking_base::error::validatorset::{ContractError, ContractResult};
 use lido_staking_base::msg::validatorset::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ValidatorData, ValidatorInfoUpdate,
 };
+use lido_staking_base::state::provider_proposals::ProposalInfo;
 use lido_staking_base::state::validatorset::{
     Config, ConfigOptional, ValidatorInfo, CONFIG, VALIDATORS_SET,
 };
@@ -33,6 +34,7 @@ pub fn instantiate(
     let config = &Config {
         owner: owner.clone(),
         stats_contract: stats_contract.clone(),
+        provider_proposals_contract: None,
     };
 
     CONFIG.save(deps.storage, config)?;
@@ -40,7 +42,7 @@ pub fn instantiate(
     Ok(response(
         "instantiate",
         CONTRACT_NAME,
-        [attr("core", owner), attr("stats_contract", stats_contract)],
+        [attr("owner", owner), attr("stats_contract", stats_contract)],
     ))
 }
 
@@ -59,9 +61,9 @@ fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Binary> {
 }
 
 fn query_validator(deps: Deps<NeutronQuery>, valoper: Addr) -> ContractResult<Binary> {
-    let validators = VALIDATORS_SET.may_load(deps.storage, valoper.to_string())?;
+    let validator = VALIDATORS_SET.may_load(deps.storage, valoper.to_string())?;
 
-    Ok(to_json_binary(&validators)?)
+    Ok(to_json_binary(&validator)?)
 }
 
 fn query_validators(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
@@ -88,8 +90,11 @@ pub fn execute(
         ExecuteMsg::UpdateValidator { validator } => {
             execute_update_validator(deps, info, validator)
         }
-        ExecuteMsg::UpdateValidatorInfo { validators } => {
+        ExecuteMsg::UpdateValidatorsInfo { validators } => {
             execute_update_validators_info(deps, info, validators)
+        }
+        ExecuteMsg::UpdateValidatorsVoting { proposal } => {
+            execute_update_validators_voting(deps, info, proposal)
         }
     }
 }
@@ -103,29 +108,32 @@ fn execute_update_config(
 
     let mut state = CONFIG.load(deps.storage)?;
 
+    let mut attrs: Vec<Attribute> = Vec::new();
+
     if let Some(owner) = new_config.owner {
         if owner != state.owner {
-            state.owner = owner;
+            state.owner = owner.clone();
             cw_ownable::initialize_owner(deps.storage, deps.api, Some(state.owner.as_ref()))?;
         }
+        attrs.push(attr("owner", owner.to_string()))
     }
 
     if let Some(stats_contract) = new_config.stats_contract {
-        if stats_contract != state.stats_contract {
-            state.stats_contract = stats_contract;
-        }
+        state.stats_contract = stats_contract.clone();
+        attrs.push(attr("stats_contract", stats_contract))
+    }
+
+    if new_config.provider_proposals_contract.is_some() {
+        state.provider_proposals_contract = new_config.provider_proposals_contract.clone();
+        attrs.push(attr(
+            "provider_proposals_contract",
+            new_config.provider_proposals_contract.unwrap().to_string(),
+        ))
     }
 
     CONFIG.save(deps.storage, &state)?;
 
-    Ok(response(
-        "update_config",
-        CONTRACT_NAME,
-        [
-            attr("core", state.owner),
-            attr("stats_contract", state.stats_contract),
-        ],
-    ))
+    Ok(response("update_config", CONTRACT_NAME, Vec::<Attribute>::new()).add_attributes(attrs))
 }
 
 fn execute_update_validator(
@@ -150,6 +158,9 @@ fn execute_update_validator(
             uptime: Default::default(),
             tombstone: false,
             jailed_number: None,
+            init_proposal: None,
+            total_passed_proposals: 0,
+            total_voted_proposals: 0,
         },
     )?;
 
@@ -191,6 +202,9 @@ fn execute_update_validators(
                 uptime: Default::default(),
                 tombstone: false,
                 jailed_number: None,
+                init_proposal: None,
+                total_passed_proposals: 0,
+                total_voted_proposals: 0,
             },
         )?;
     }
@@ -251,6 +265,62 @@ fn execute_update_validators_info(
         "update_validators_info",
         CONTRACT_NAME,
         [attr("total_count", total_count.to_string())],
+    ))
+}
+
+fn execute_update_validators_voting(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    proposal: ProposalInfo,
+) -> ContractResult<Response<NeutronMsg>> {
+    let config = CONFIG.load(deps.storage)?;
+
+    ensure_eq!(
+        config.provider_proposals_contract,
+        Some(info.sender),
+        ContractError::Unauthorized {}
+    );
+
+    if proposal.is_spam {
+        return Ok(response(
+            "update_validators_info",
+            CONTRACT_NAME,
+            [attr(
+                "spam_proposal",
+                proposal.proposal.proposal_id.to_string(),
+            )],
+        ));
+    }
+
+    if let Some(votes) = proposal.votes {
+        for vote in votes {
+            let validator = VALIDATORS_SET.may_load(deps.storage, vote.voter.to_string())?;
+
+            if let Some(validator) = validator {
+                let mut validator = validator;
+
+                if validator.init_proposal.is_none() {
+                    validator.init_proposal = Some(proposal.proposal.proposal_id);
+                }
+
+                if !vote.options.is_empty() {
+                    validator.total_voted_proposals += 1;
+                }
+
+                validator.total_passed_proposals += 1;
+
+                VALIDATORS_SET.save(deps.storage, validator.valoper_address.clone(), &validator)?;
+            }
+        }
+    }
+
+    Ok(response(
+        "execute_update_validators_voting",
+        CONTRACT_NAME,
+        [attr(
+            "proposal_id",
+            proposal.proposal.proposal_id.to_string(),
+        )],
     ))
 }
 

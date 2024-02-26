@@ -116,6 +116,9 @@ export type QueryExtMsg =
       non_native_rewards_balances: {};
     }
   | {
+      fees: {};
+    }
+  | {
       unbonding_delegations: {};
     };
 

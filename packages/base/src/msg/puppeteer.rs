@@ -124,6 +124,14 @@ pub type DelegationsResponse = (Delegations, u64);
 pub type BalancesResponse = (Balances, u64);
 
 #[cw_serde]
+pub struct FeesResponse {
+    pub recv_fee: Vec<cosmwasm_std::Coin>,
+    pub ack_fee: Vec<cosmwasm_std::Coin>,
+    pub timeout_fee: Vec<cosmwasm_std::Coin>,
+    pub register_fee: cosmwasm_std::Coin,
+}
+
+#[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryExtMsg {
     #[returns(DelegationsResponse)]
@@ -132,6 +140,8 @@ pub enum QueryExtMsg {
     Balances {},
     #[returns(BalancesResponse)]
     NonNativeRewardsBalances {},
+    #[returns(FeesResponse)]
+    Fees {},
     #[returns(Vec<lido_puppeteer_base::state::UnbondingDelegation>)]
     UnbondingDelegations {},
 }

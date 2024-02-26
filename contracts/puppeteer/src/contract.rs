@@ -39,7 +39,9 @@ use lido_puppeteer_base::{
     },
 };
 use lido_staking_base::{
-    msg::puppeteer::{BalancesAndDelegations, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryExtMsg},
+    msg::puppeteer::{
+        BalancesAndDelegations, ExecuteMsg, FeesResponse, InstantiateMsg, MigrateMsg, QueryExtMsg,
+    },
     state::puppeteer::{Config, KVQueryType, DELEGATIONS_AND_BALANCE, NON_NATIVE_REWARD_BALANCES},
 };
 use neutron_sdk::interchain_queries::v045::new_register_delegator_unbonding_delegations_query_msg;
@@ -120,9 +122,21 @@ pub fn query(
                     .collect::<StdResult<Vec<_>>>()?,
             )
             .map_err(ContractError::Std),
+            QueryExtMsg::Fees {} => query_fees(deps),
         },
         _ => Puppeteer::default().query(deps, env, msg),
     }
+}
+
+fn query_fees(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+    let fees = Puppeteer::default().ibc_fee.load(deps.storage)?;
+    let register_fee = Puppeteer::default().register_fee.load(deps.storage)?;
+    Ok(to_json_binary(&FeesResponse {
+        recv_fee: fees.recv_fee,
+        ack_fee: fees.ack_fee,
+        timeout_fee: fees.timeout_fee,
+        register_fee,
+    })?)
 }
 
 fn query_delegations(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
