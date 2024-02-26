@@ -105,10 +105,6 @@ where
         storage: cw_storage_plus::Item<'a, (X, u64)>,
     ) -> NeutronResult<Response> {
         let data = query_kv_result(deps.as_ref(), query_id)?;
-        deps.api.debug(&format!(
-            "WASMDEBUG: sudo_kv_query_result: data: {:?}",
-            data
-        ));
         let height = env.block.height;
         storage.save(deps.storage, &(data, height))?;
         Ok(Response::default())

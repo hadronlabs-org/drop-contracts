@@ -357,10 +357,6 @@ fn register_balance_delegations_query(
             ReplyMsg::KvDelegationsAndBalance.to_reply_id(),
         ));
     }
-    deps.api.debug(&format!(
-        "WASMDEBUG: register_delegations_query messages:{:?} submessages:{:?}",
-        messages, submessages
-    ));
     Ok(Response::new()
         .add_messages(messages)
         .add_submessages(submessages))
@@ -1103,10 +1099,6 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
         ReplyMsg::SudoPayload => puppeteer_base.submit_tx_reply(deps, msg),
         ReplyMsg::IbcTransfer => puppeteer_base.submit_ibc_transfer_reply(deps, msg),
         ReplyMsg::KvDelegationsAndBalance => {
-            deps.api.debug(&format!(
-                "WASMDEBUG: DELEGATIONS_AND_BALANCE_REPLY_ID {:?}",
-                msg
-            ));
             puppeteer_base.register_kv_query_reply(deps, msg, KVQueryType::DelegationsAndBalance)
         }
         ReplyMsg::KvNonNativeRewardsBalances => {
