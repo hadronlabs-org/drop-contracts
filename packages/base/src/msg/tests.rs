@@ -4,7 +4,47 @@ use neutron_sdk::interchain_queries::types::KVReconstruct;
 use neutron_sdk::NeutronResult;
 use prost::Message;
 
-use super::puppeteer::BalancesAndDelegations;
+use super::puppeteer::{BalancesAndDelegations, MultiBalances};
+
+#[test]
+fn test_reconstruct_multi_balances() {
+    let coin1 = cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+        denom: "uatom".to_string(),
+        amount: "1000".to_string(),
+    };
+    let coin2 = cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+        denom: "utia".to_string(),
+        amount: "2000".to_string(),
+    };
+    let mut buf_coin1 = Vec::new();
+    coin1.encode(&mut buf_coin1).unwrap();
+    let mut buf_coin2 = Vec::new();
+    coin2.encode(&mut buf_coin2).unwrap();
+    let storage_values: Vec<StorageValue> = vec![
+        StorageValue {
+            storage_prefix: "prefix".to_string(),
+            key: Binary::from("balances".as_bytes()),
+            value: buf_coin1.into(),
+        },
+        StorageValue {
+            storage_prefix: "prefix".to_string(),
+            key: Binary::from("balances".as_bytes()),
+            value: buf_coin2.into(),
+        },
+    ];
+    let result = MultiBalances::reconstruct(&storage_values).unwrap();
+    let expected_coins = vec![
+        cosmwasm_std::Coin {
+            denom: "uatom".to_string(),
+            amount: Uint128::from(1000u128),
+        },
+        cosmwasm_std::Coin {
+            denom: "utia".to_string(),
+            amount: Uint128::from(2000u128),
+        },
+    ];
+    assert_eq!(result.coins, expected_coins);
+}
 
 #[test]
 fn test_reconstruct_balance_and_delegations_no_delegations() {
