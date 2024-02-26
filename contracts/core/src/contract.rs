@@ -380,7 +380,7 @@ fn execute_tick_transfering(
     info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let response_msg = get_received_puppeteer_response(deps.as_ref())?;
+    let _response_msg = get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut attrs = vec![attr("action", "tick_transfering")];
     FSM.go_to(deps.storage, ContractState::Staking)?;
@@ -395,7 +395,7 @@ fn execute_tick_staking(
     info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let response_msg = get_received_puppeteer_response(deps.as_ref())?;
+    let _response_msg = get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut attrs = vec![attr("action", "tick_staking")];
     let mut messages = vec![];

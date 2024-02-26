@@ -47,7 +47,7 @@ cw-utils = { version = "1.0.3", default-features = false }
 serde = { version = "1.0.195", default-features = false }
 serde-json-wasm = { version = "1.0.0", default-features = false }
 sha2 = { version = "0.10.8", default-features = false }
-bech32 = { version = "0.11.0", default-features = false }
+bech32 = { version = "0.11.0", default-features = false, features = ["alloc"] }
 thiserror = { version = "1.0.56", default-features = false }
 optfield = { version = "0.3.0", default-features = false }
 schemars = { version = "0.8.16", default-features = false }
