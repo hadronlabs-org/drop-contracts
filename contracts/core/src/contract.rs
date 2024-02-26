@@ -257,7 +257,7 @@ fn execute_tick_idle(
             .pump_address
             .clone()
             .ok_or(ContractError::PumpAddressIsNotSet {})?;
-        // process unbond if any aleready unbonded
+        // process unbond if any already unbonded
         // and claim rewards
         let transfer: Option<TransferReadyBatchMsg> = match get_unbonded_batch(deps.as_ref())? {
             Some((batch_id, batch)) => Some(TransferReadyBatchMsg {
