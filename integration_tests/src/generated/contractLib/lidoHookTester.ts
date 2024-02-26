@@ -24,6 +24,9 @@ export type ResponseAnswer =
       i_b_c_transfer: MsgIBCTransfer;
     }
   | {
+      transfer_response: MsgSendResponse;
+    }
+  | {
       unknown_response: {};
     };
 /**
@@ -168,6 +171,7 @@ export interface MsgExecResponse {
   results: number[][];
 }
 export interface MsgIBCTransfer {}
+export interface MsgSendResponse {}
 export interface RequestPacket {
   data?: Binary | null;
   destination_channel?: string | null;
