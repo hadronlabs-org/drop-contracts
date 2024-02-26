@@ -143,9 +143,8 @@ mod reply_msg {
     const OFFSET: u64 = u16::BITS as u64;
     const SUDO_PAYLOAD: u64 = 1 << OFFSET;
     const IBC_TRANSFER: u64 = 2 << OFFSET;
-    const KV_BALANCE: u64 = 3 << OFFSET;
-    const KV_DELEGATIONS: u64 = 4 << OFFSET;
-    const KV_UNBONDING_DELEGATIONS_LOWER_BOUND: u64 = 5 << OFFSET;
+    const KV_DELEGATIONS_AND_BALANCE: u64 = 3 << OFFSET;
+    const KV_UNBONDING_DELEGATIONS_LOWER_BOUND: u64 = 4 << OFFSET;
     const KV_UNBONDING_DELEGATIONS_UPPER_BOUND: u64 =
         KV_UNBONDING_DELEGATIONS_LOWER_BOUND + u16::MAX as u64;
 
@@ -153,8 +152,7 @@ mod reply_msg {
     pub enum ReplyMsg {
         SudoPayload,
         IbcTransfer,
-        KvBalance,
-        KvDelegations,
+        KvDelegationsAndBalance,
         KvUnbondingDelegations { validator_index: u16 },
     }
 
@@ -163,8 +161,7 @@ mod reply_msg {
             match self {
                 ReplyMsg::SudoPayload => SUDO_PAYLOAD,
                 ReplyMsg::IbcTransfer => IBC_TRANSFER,
-                ReplyMsg::KvBalance => KV_BALANCE,
-                ReplyMsg::KvDelegations => KV_DELEGATIONS,
+                ReplyMsg::KvDelegationsAndBalance => KV_DELEGATIONS_AND_BALANCE,
                 ReplyMsg::KvUnbondingDelegations { validator_index } => {
                     KV_UNBONDING_DELEGATIONS_LOWER_BOUND | *validator_index as u64
                 }
@@ -175,8 +172,7 @@ mod reply_msg {
             match reply_id {
                 SUDO_PAYLOAD => Self::SudoPayload,
                 IBC_TRANSFER => Self::IbcTransfer,
-                KV_BALANCE => Self::KvBalance,
-                KV_DELEGATIONS => Self::KvDelegations,
+                KV_DELEGATIONS_AND_BALANCE => Self::KvDelegationsAndBalance,
                 validator_index @ KV_UNBONDING_DELEGATIONS_LOWER_BOUND
                     ..=KV_UNBONDING_DELEGATIONS_UPPER_BOUND => Self::KvUnbondingDelegations {
                     validator_index: validator_index as u16,
@@ -194,10 +190,9 @@ mod reply_msg {
         fn enum_variant_from_reply_id() {
             assert_eq!(ReplyMsg::from_reply_id(SUDO_PAYLOAD), ReplyMsg::SudoPayload);
             assert_eq!(ReplyMsg::from_reply_id(IBC_TRANSFER), ReplyMsg::IbcTransfer);
-            assert_eq!(ReplyMsg::from_reply_id(KV_BALANCE), ReplyMsg::KvBalance);
             assert_eq!(
-                ReplyMsg::from_reply_id(KV_DELEGATIONS),
-                ReplyMsg::KvDelegations
+                ReplyMsg::from_reply_id(KV_DELEGATIONS_AND_BALANCE),
+                ReplyMsg::KvDelegationsAndBalance
             );
         }
 
@@ -205,8 +200,10 @@ mod reply_msg {
         fn enum_variant_to_reply_id() {
             assert_eq!(ReplyMsg::SudoPayload.to_reply_id(), SUDO_PAYLOAD);
             assert_eq!(ReplyMsg::IbcTransfer.to_reply_id(), IBC_TRANSFER);
-            assert_eq!(ReplyMsg::KvBalance.to_reply_id(), KV_BALANCE);
-            assert_eq!(ReplyMsg::KvDelegations.to_reply_id(), KV_DELEGATIONS);
+            assert_eq!(
+                ReplyMsg::KvDelegationsAndBalance.to_reply_id(),
+                KV_DELEGATIONS_AND_BALANCE
+            );
         }
 
         mod kv_unbonding_delegations_from_reply_id {

@@ -433,6 +433,7 @@ describe('Core', () => {
       res.puppeteer_contract,
     );
   });
+
   it('set fees for puppeteer', async () => {
     const { neutronUserAddress, factoryContractClient: contractClient } =
       context;
@@ -446,6 +447,7 @@ describe('Core', () => {
     });
     expect(res.transactionHash).toHaveLength(64);
   });
+
   it('register ICA', async () => {
     const { puppeteerContractClient, neutronUserAddress } = context;
     const res = await puppeteerContractClient.registerICA(
@@ -471,22 +473,6 @@ describe('Core', () => {
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();
     context.icaAddress = ica;
-  });
-  it('register balance ICQ', async () => {
-    const { puppeteerContractClient, neutronUserAddress } = context;
-    const res = await puppeteerContractClient.registerBalanceQuery(
-      neutronUserAddress,
-      { denom: 'stake' },
-      1.5,
-      undefined,
-      [
-        {
-          amount: '1000000',
-          denom: 'untrn',
-        },
-      ],
-    );
-    expect(res.transactionHash).toHaveLength(64);
   });
 
   it('add validators into validators set', async () => {
@@ -767,7 +753,7 @@ describe('Core', () => {
           } catch (e) {
             //
           }
-          return res && res[1] !== 0;
+          return res && res[0].coins.length !== 0;
         }, 100_000);
       });
       it('second tick goes to staking', async () => {

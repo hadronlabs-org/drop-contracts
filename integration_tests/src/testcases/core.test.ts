@@ -474,10 +474,14 @@ describe('Core', () => {
     context.icaAddress = ica;
   });
   it('register balance ICQ', async () => {
-    const { puppeteerContractClient, neutronUserAddress } = context;
-    const res = await puppeteerContractClient.registerBalanceQuery(
+    const { factoryContractClient, neutronUserAddress } = context;
+    const res = await factoryContractClient.proxy(
       neutronUserAddress,
-      { denom: 'stake' },
+      {
+        validator_set: {
+          update_validators: { validators: [] },
+        },
+      },
       1.5,
       undefined,
       [
@@ -582,12 +586,7 @@ describe('Core', () => {
       ],
     );
     expect(res.transactionHash).toHaveLength(64);
-    const newExchangeRate = parseFloat(
-      await coreContractClient.queryExchangeRate(),
-    );
-    console.log({ newExchangeRate });
     const amount = Math.floor(100_000 / context.exchangeRate).toString();
-    console.log({ amount });
     res = await coreContractClient.unbond(neutronUserAddress, 1.6, undefined, [
       {
         amount,

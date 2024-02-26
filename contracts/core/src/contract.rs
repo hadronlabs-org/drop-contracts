@@ -122,8 +122,12 @@ fn query_exchange_rate(
     let extra_amount = match FSM.get_current_state(deps.storage)? {
         ContractState::Transfering => PENDING_TRANSFER.load(deps.storage),
         ContractState::Staking => {
-            let (ica_balance, _) =
-                get_ica_balance_by_denom(deps, &config.puppeteer_contract, &config.remote_denom)?;
+            let (ica_balance, _) = get_ica_balance_by_denom(
+                deps,
+                &config.puppeteer_contract,
+                &config.remote_denom,
+                false,
+            )?;
             Ok(ica_balance)
         }
         _ => Ok(Uint128::zero()),
@@ -397,6 +401,7 @@ fn execute_tick_staking(
             deps.as_ref(),
             &config.puppeteer_contract,
             &config.remote_denom,
+            true,
         )?;
         PRE_UNBONDING_BALANCE.save(deps.storage, &pre_unbonding_balance)?;
         FSM.go_to(deps.storage, ContractState::Unbonding)?;
@@ -809,8 +814,12 @@ fn get_stake_msg<T>(
     config: &Config,
     funds: Vec<cosmwasm_std::Coin>,
 ) -> ContractResult<CosmosMsg<T>> {
-    let (balance, balance_height) =
-        get_ica_balance_by_denom(deps, &config.puppeteer_contract, &config.remote_denom)?;
+    let (balance, balance_height) = get_ica_balance_by_denom(
+        deps,
+        &config.puppeteer_contract,
+        &config.remote_denom,
+        false,
+    )?;
     ensure_ne!(balance, Uint128::zero(), ContractError::ICABalanceZero {});
     let last_ica_balance_change_height = LAST_ICA_BALANCE_CHANGE_HEIGHT.load(deps.storage)?;
     ensure!(
@@ -872,6 +881,7 @@ fn get_ica_balance_by_denom<T: CustomQuery>(
     deps: Deps<T>,
     puppeteer_contract: &str,
     remote_denom: &str,
+    can_be_zero: bool,
 ) -> ContractResult<(Uint128, u64)> {
     let (ica_balances, remote_height): lido_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
@@ -880,18 +890,20 @@ fn get_ica_balance_by_denom<T: CustomQuery>(
                 msg: lido_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
             },
         )?;
-    let balance = ica_balances
-        .coins
-        .iter()
-        .find_map(|c| {
-            if c.denom == remote_denom {
-                Some(c.amount)
-            } else {
-                None
-            }
-        })
-        .ok_or(ContractError::ICABalanceZero {})?;
-    Ok((balance, remote_height))
+    let balance = ica_balances.coins.iter().find_map(|c| {
+        if c.denom == remote_denom {
+            Some(c.amount)
+        } else {
+            None
+        }
+    });
+    Ok((
+        match can_be_zero {
+            true => balance.unwrap_or(Uint128::zero()),
+            false => balance.ok_or(ContractError::ICABalanceZero {})?,
+        },
+        remote_height,
+    ))
 }
 
 fn new_unbond(now: u64) -> lido_staking_base::state::core::UnbondBatch {

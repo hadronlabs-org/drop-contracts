@@ -19,14 +19,11 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     RegisterICA {},
     RegisterQuery {},
-    RegisterDelegatorDelegationsQuery {
+    RegisterBalanceAndDelegatorDelegationsQuery {
         validators: Vec<String>,
     },
     RegisterDelegatorUnbondingDelegationsQuery {
         validators: Vec<String>,
-    },
-    RegisterBalanceQuery {
-        denom: String,
     },
     SetFees {
         recv_fee: Uint128,
