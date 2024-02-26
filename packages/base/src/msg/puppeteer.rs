@@ -151,6 +151,11 @@ impl KVReconstruct for BalancesAndDelegations {
     fn reconstruct(
         storage_values: &[neutron_sdk::bindings::types::StorageValue],
     ) -> NeutronResult<Self> {
+        if storage_values.is_empty() {
+            return Err(NeutronError::InvalidQueryResultFormat(
+                "storage_values length is 0".into(),
+            ));
+        }
         let mut coins: Vec<cosmwasm_std::Coin> = Vec::with_capacity(storage_values.len());
         let kv = &storage_values[0];
         if kv.value.len() > 0 {
@@ -161,11 +166,6 @@ impl KVReconstruct for BalancesAndDelegations {
         let mut delegations: Vec<cosmwasm_std::Delegation> =
             Vec::with_capacity((storage_values.len() - 2) / 2);
 
-        if storage_values.is_empty() {
-            return Err(NeutronError::InvalidQueryResultFormat(
-                "storage_values length is 0".into(),
-            ));
-        }
         // first StorageValue is denom
         if storage_values[1].value.is_empty() {
             // Incoming denom cannot be empty, it should always be configured on chain.
