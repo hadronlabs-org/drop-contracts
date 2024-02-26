@@ -7,6 +7,8 @@ pub mod puppeteer;
 pub mod reward_handler;
 pub mod rewards_manager;
 pub mod strategy;
+#[cfg(test)]
+mod tests;
 pub mod token;
 pub mod validatorset;
 pub mod validatorsstats;

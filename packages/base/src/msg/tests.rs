@@ -1,9 +1,10 @@
-use super::sudo::BalancesAndDelegations;
 use cosmwasm_std::{to_json_binary, Addr, Binary, Coin, Delegation, Uint128};
 use neutron_sdk::bindings::types::StorageValue;
 use neutron_sdk::interchain_queries::types::KVReconstruct;
 use neutron_sdk::NeutronResult;
 use prost::Message;
+
+use super::puppeteer::BalancesAndDelegations;
 
 #[test]
 fn test_reconstruct_balance_and_delegations_no_delegations() {
