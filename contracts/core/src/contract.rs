@@ -316,7 +316,9 @@ fn execute_tick_idle(
                 PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
                 messages.push(transfer_msg);
             } else {
-                messages.push(get_stake_msg(deps.as_ref(), &env, config, info.funds)?);
+                let all_msgs = get_stake_msg(deps.as_ref(), &env, config, info.funds)?;
+                messages.push(all_msgs.0);
+                messages.push(all_msgs.1);
                 FSM.go_to(deps.storage, ContractState::Staking)?;
             }
         } else {
@@ -379,7 +381,9 @@ fn execute_tick_claiming(
         PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
         messages.push(transfer_msg);
     } else {
-        messages.push(get_stake_msg(deps.as_ref(), &env, config, info.funds)?);
+        let all_msgs = get_stake_msg(deps.as_ref(), &env, config, info.funds)?;
+        messages.push(all_msgs.0);
+        messages.push(all_msgs.1);
         FSM.go_to(deps.storage, ContractState::Staking)?;
     }
     attrs.push(attr("state", "unbonding"));
@@ -394,14 +398,15 @@ fn execute_tick_transfering(
 ) -> ContractResult<Response<NeutronMsg>> {
     let _response_msg = get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
-    let message = get_stake_msg(deps.as_ref(), &env, config, info.funds)?;
+    let messages = get_stake_msg(deps.as_ref(), &env, config, info.funds)?;
     FSM.go_to(deps.storage, ContractState::Staking)?;
     Ok(response(
         "execute-tick_transfering",
         CONTRACT_NAME,
         vec![attr("action", "tick_transfering"), attr("state", "staking")],
     )
-    .add_message(message))
+    .add_message(messages.0)
+    .add_message(messages.1))
 }
 
 fn execute_tick_staking(
@@ -834,15 +839,15 @@ fn get_stake_msg<T>(
     });
 
     let fee_item = vec![(
-        &config.fee_address,
+        config.fee_address.to_string(),
         cosmwasm_std::Coin {
-            denom: config.remote_denom,
+            denom: config.remote_denom.to_owned(),
             amount: fee,
         },
     )];
 
     let fee_msg = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.puppeteer_contract,
+        contract_addr: config.puppeteer_contract.to_string(),
         msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
             items: fee_item,
             timeout: Some(config.puppeteer_timeout),

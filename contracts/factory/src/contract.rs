@@ -427,6 +427,8 @@ fn execute_init(
                 idle_min_interval: core_params.idle_min_interval,
                 channel: core_params.channel,
                 owner: env.contract.address.to_string(),
+                fee: core_params.fee,
+                fee_address: core_params.fee_address,
             })?,
             funds: vec![],
             salt: Binary::from(salt),

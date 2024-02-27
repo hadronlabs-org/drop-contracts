@@ -1,6 +1,6 @@
 use crate::state::core::{Config, ConfigOptional, NonNativeRewardsItem};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Uint128;
+use cosmwasm_std::{Decimal, Uint128};
 use cw_ownable::cw_ownable_execute;
 use lido_puppeteer_base::msg::ResponseHookMsg;
 
@@ -22,6 +22,8 @@ pub struct InstantiateMsg {
     pub pump_address: Option<String>,
     pub channel: String,
     pub owner: String,
+    pub fee: Decimal,
+    pub fee_address: String,
 }
 
 #[cw_serde]
@@ -86,6 +88,8 @@ impl From<InstantiateMsg> for Config {
             pump_address: val.pump_address,
             validators_set_contract: val.validators_set_contract,
             unbond_batch_switch_time: val.unbond_batch_switch_time,
+            fee: val.fee,
+            fee_address: val.fee_address,
         }
     }
 }
