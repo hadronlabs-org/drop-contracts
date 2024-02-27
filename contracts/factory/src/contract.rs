@@ -425,6 +425,7 @@ fn execute_init(
                 unbonding_safe_period: core_params.unbonding_safe_period,
                 unbond_batch_switch_time: core_params.unbond_batch_switch_time,
                 idle_min_interval: core_params.idle_min_interval,
+                channel: core_params.channel,
                 owner: env.contract.address.to_string(),
             })?,
             funds: vec![],

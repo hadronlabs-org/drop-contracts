@@ -31,7 +31,7 @@ compile_arm64:
 	@cd artifacts && for file in *-aarch64.wasm; do cp -f "$$file" "$${file%-aarch64.wasm}.wasm"; done
 
 check_contracts:
-	@cargo install cosmwasm-check
+	@cargo install cosmwasm-check --locked
 	@cosmwasm-check --available-capabilities iterator,staking,stargate,neutron,cosmwasm_1_1,cosmwasm_1_2 artifacts/*.wasm
 
 build: schema clippy test fmt doc compile check_contracts

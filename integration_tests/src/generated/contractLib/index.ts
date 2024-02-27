@@ -34,23 +34,20 @@ export const LidoPuppeteer = _10;
 import * as _11 from './lidoRewardsManager';
 export const LidoRewardsManager = _11;
 
-import * as _12 from './lidoStargatePoc';
-export const LidoStargatePoc = _12;
+import * as _12 from './lidoStrategy';
+export const LidoStrategy = _12;
 
-import * as _13 from './lidoStrategy';
-export const LidoStrategy = _13;
+import * as _13 from './lidoToken';
+export const LidoToken = _13;
 
-import * as _14 from './lidoToken';
-export const LidoToken = _14;
+import * as _14 from './lidoValidatorsSet';
+export const LidoValidatorsSet = _14;
 
-import * as _15 from './lidoValidatorsSet';
-export const LidoValidatorsSet = _15;
+import * as _15 from './lidoValidatorsStats';
+export const LidoValidatorsStats = _15;
 
-import * as _16 from './lidoValidatorsStats';
-export const LidoValidatorsStats = _16;
+import * as _16 from './lidoWithdrawalManager';
+export const LidoWithdrawalManager = _16;
 
-import * as _17 from './lidoWithdrawalManager';
-export const LidoWithdrawalManager = _17;
-
-import * as _18 from './lidoWithdrawalVoucher';
-export const LidoWithdrawalVoucher = _18;
+import * as _17 from './lidoWithdrawalVoucher';
+export const LidoWithdrawalVoucher = _17;

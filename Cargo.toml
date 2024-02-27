@@ -2,7 +2,6 @@
 resolver = "2"
 members = [
     "contracts/astroport-exchange-handler",
-    "contracts/stargate-poc",
     "contracts/distribution",
     "contracts/withdrawal-voucher",
     "contracts/withdrawal-manager",

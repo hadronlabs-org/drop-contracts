@@ -32,3 +32,6 @@ lido-helpers = { workspace = true }
 neutron-sdk = { workspace = true }
 lido-puppeteer-base = { workspace = true }
 cw-ownable = { workspace = true }
+prost = { workspace = true }
+cosmos-sdk-proto = { workspace = true }
+cw-utils = { workspace = true }

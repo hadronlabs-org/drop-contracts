@@ -15,6 +15,7 @@ import {
   BankExtension,
   setupStakingExtension,
   setupBankExtension,
+  IndexedTx,
   SigningStargateClient,
 } from '@cosmjs/stargate';
 import { MsgTransfer } from 'cosmjs-types/ibc/applications/transfer/v1/tx';
@@ -370,6 +371,7 @@ describe('Core', () => {
         unbond_batch_switch_time: 6000,
         unbonding_safe_period: 10,
         unbonding_period: 60,
+        channel: 'channel-0',
       },
     });
     expect(res.transactionHash).toHaveLength(64);
@@ -600,6 +602,139 @@ describe('Core', () => {
       amount: String(Math.floor(500_000 / context.exchangeRate)),
     });
     context.ldDenom = ldBalance?.denom;
+  });
+
+  it('delegate tokens on gaia side', async () => {
+    const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
+      context.park.config.master_mnemonic,
+      {
+        prefix: 'cosmosvaloper',
+        hdPaths: [stringToPath("m/44'/118'/1'/0/0") as any],
+      },
+    );
+    context.validatorAddress = (await wallet.getAccounts())[0].address;
+    const res = await context.park.executeInNetwork(
+      'gaia',
+      `gaiad tx staking delegate ${context.validatorAddress} 1000000stake --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --output json`,
+    );
+    expect(res.exitCode).toBe(0);
+    const out = JSON.parse(res.out);
+    expect(out.code).toBe(0);
+    expect(out.txhash).toHaveLength(64);
+    let tx: IndexedTx | null = null;
+    await waitFor(async () => {
+      tx = await context.gaiaClient.getTx(out.txhash);
+      return tx !== null;
+    });
+    expect(tx.height).toBeGreaterThan(0);
+    expect(tx.code).toBe(0);
+  });
+  it('tokenize share on gaia side', async () => {
+    const res = await context.park.executeInNetwork(
+      'gaia',
+      `gaiad tx staking tokenize-share ${context.validatorAddress} 600000stake ${context.gaiaUserAddress} --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
+    );
+    expect(res.exitCode).toBe(0);
+    const out = JSON.parse(res.out);
+    expect(out.code).toBe(0);
+    expect(out.txhash).toHaveLength(64);
+    let tx: IndexedTx | null = null;
+    await waitFor(async () => {
+      tx = await context.gaiaClient.getTx(out.txhash);
+      return tx !== null;
+    });
+    expect(tx.height).toBeGreaterThan(0);
+    expect(tx.code).toBe(0);
+    const balances = await context.gaiaQueryClient.bank.allBalances(
+      context.gaiaUserAddress,
+    );
+    expect(
+      balances.find((a) => a.denom == `${context.validatorAddress}/1`),
+    ).toEqual({
+      denom: `${context.validatorAddress}/1`,
+      amount: '600000',
+    });
+  });
+  it('transfer tokenized share to neutron', async () => {
+    const res = await context.park.executeInNetwork(
+      'gaia',
+      `gaiad tx ibc-transfer transfer transfer channel-0 ${context.neutronUserAddress} 600000${context.validatorAddress}/1 --from ${context.gaiaUserAddress}  --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
+    );
+    expect(res.exitCode).toBe(0);
+    const out = JSON.parse(res.out);
+    expect(out.code).toBe(0);
+    expect(out.txhash).toHaveLength(64);
+    let tx: IndexedTx | null = null;
+    await waitFor(async () => {
+      tx = await context.gaiaClient.getTx(out.txhash);
+      return tx !== null;
+    });
+    expect(tx.height).toBeGreaterThan(0);
+    expect(tx.code).toBe(0);
+  });
+  it('wait for neutron to receive tokenized share', async () => {
+    const { neutronClient, neutronUserAddress } = context;
+    let balances;
+    await waitFor(async () => {
+      balances =
+        await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+          neutronUserAddress,
+        );
+      return balances.data.balances.length > 3;
+    });
+    const shareOnNeutron = balances.data.balances.find(
+      (b) => b.amount === '600000',
+    );
+    expect(shareOnNeutron).toBeDefined();
+    expect(shareOnNeutron?.amount).toBe('600000');
+    context.tokenizedDenomOnNeutron = shareOnNeutron?.denom;
+  });
+  it('bond tokenized share from unregistered validator', async () => {
+    const { coreContractClient, neutronUserAddress } = context;
+    const res = coreContractClient.bond(
+      neutronUserAddress,
+      {},
+      1.6,
+      undefined,
+      [
+        {
+          amount: '20000',
+          denom: context.tokenizedDenomOnNeutron,
+        },
+      ],
+    );
+    await expect(res).rejects.toThrowError(/Invalid denom/);
+  });
+  it('register validator', async () => {
+    const { factoryContractClient, neutronUserAddress, validatorAddress } =
+      context;
+    const res = await factoryContractClient.proxy(neutronUserAddress, {
+      validator_set: {
+        update_validator: {
+          validator: {
+            valoper_address: validatorAddress,
+            weight: 1,
+          },
+        },
+      },
+    });
+    expect(res).toBeTruthy();
+  });
+  it('bond tokenized share from registered validator', async () => {
+    const { coreContractClient, neutronUserAddress } = context;
+    const res = await coreContractClient.bond(
+      neutronUserAddress,
+      {},
+      1.6,
+      undefined,
+      [
+        {
+          amount: '20000',
+          denom: context.tokenizedDenomOnNeutron,
+        },
+      ],
+    );
+    expect(res.transactionHash).toHaveLength(64);
   });
 
   it('unbond', async () => {

@@ -1,18 +1,18 @@
 use crate::error::{ContractError, ContractResult};
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, entry_point, to_json_binary, Attribute, BankQuery, Binary,
-    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
-    Timestamp, Uint128, WasmMsg,
+    Coin, CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, QueryRequest, Response,
+    StdError, StdResult, Timestamp, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
-
 use lido_helpers::answer::response;
 use lido_puppeteer_base::msg::TransferReadyBatchMsg;
 use lido_staking_base::state::core::{
     Config, ConfigOptional, ContractState, NonNativeRewardsItem, UnbondBatch, UnbondBatchStatus,
     UnbondItem, CONFIG, FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT,
     LAST_PUPPETEER_RESPONSE, NON_NATIVE_REWARDS_CONFIG, PENDING_TRANSFER, PRE_UNBONDING_BALANCE,
-    UNBOND_BATCHES, UNBOND_BATCH_ID,
+    TOTAL_LSM_SHARES, UNBOND_BATCHES, UNBOND_BATCH_ID,
 };
 use lido_staking_base::state::validatorset::ValidatorInfo;
 use lido_staking_base::state::withdrawal_voucher::{Metadata, Trait};
@@ -25,8 +25,10 @@ use lido_staking_base::{
     state::core::LAST_IDLE_CALL,
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
+use prost::Message;
 use std::str::FromStr;
 use std::vec;
+
 const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -53,6 +55,7 @@ pub fn instantiate(
     FSM.set_initial_state(deps.storage, ContractState::Idle)?;
     LAST_IDLE_CALL.save(deps.storage, &0)?;
     LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &0)?;
+    TOTAL_LSM_SHARES.save(deps.storage, &0)?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
@@ -79,11 +82,9 @@ fn query_exchange_rate(
 ) -> ContractResult<Decimal> {
     let config = CONFIG.load(deps.storage)?;
     let ld_denom = config.ld_denom.ok_or(ContractError::LDDenomIsNotSet {})?;
-    let ld_total_supply: cosmwasm_std::SupplyResponse =
-        deps.querier
-            .query(&cosmwasm_std::QueryRequest::Bank(BankQuery::Supply {
-                denom: ld_denom,
-            }))?;
+    let ld_total_supply: cosmwasm_std::SupplyResponse = deps
+        .querier
+        .query(&QueryRequest::Bank(BankQuery::Supply { denom: ld_denom }))?;
     let ld_total_amount = ld_total_supply.amount.amount;
     if ld_total_amount.is_zero() {
         return Ok(Decimal::one());
@@ -137,8 +138,9 @@ fn query_exchange_rate(
         }
         _ => Ok(Uint128::zero()),
     }?;
+    let total_lsm_shares = Uint128::new(TOTAL_LSM_SHARES.load(deps.storage)?);
     Ok(Decimal::from_ratio(
-        delegations_amount + core_balance + extra_amount
+        delegations_amount + core_balance + extra_amount + total_lsm_shares
             - current_stake.unwrap_or(Uint128::zero())
             - unprocessed_unbonded_amount,
         ld_total_amount,
@@ -528,27 +530,14 @@ fn execute_bond(
     receiver: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
+    let Coin { amount, denom } = cw_utils::one_coin(&info)?;
+    let denom_type = check_denom::check_denom(&deps, &denom, &config)?;
 
-    let funds = info.funds;
-    ensure_ne!(
-        funds.len(),
-        0,
-        ContractError::InvalidFunds {
-            reason: "no funds".to_string()
-        }
-    );
-    ensure_eq!(
-        funds.len(),
-        1,
-        ContractError::InvalidFunds {
-            reason: "expected 1 denom".to_string()
-        }
-    );
+    if denom_type == check_denom::DenomType::LsmShare {
+        TOTAL_LSM_SHARES.update(deps.storage, |total| StdResult::Ok(total + amount.u128()))?;
+    }
+
     let mut attrs = vec![attr("action", "bond")];
-
-    let amount = funds[0].amount;
-    let denom = funds[0].denom.to_string();
-    check_denom(denom)?;
 
     let exchange_rate = query_exchange_rate(deps.as_ref(), env, Some(amount))?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
@@ -571,11 +560,6 @@ fn execute_bond(
         funds: vec![],
     })];
     Ok(response("execute-bond", CONTRACT_NAME, attrs).add_messages(msgs))
-}
-
-fn check_denom(_denom: String) -> ContractResult<()> {
-    //todo: check denom
-    Ok(())
 }
 
 fn execute_update_config(
@@ -661,6 +645,10 @@ fn execute_update_config(
         attrs.push(attr("ld_denom", &ld_denom));
         config.ld_denom = Some(ld_denom);
     }
+    if let Some(channel) = new_config.channel {
+        attrs.push(attr("channel", &channel));
+        config.channel = channel;
+    }
     CONFIG.save(deps.storage, &config)?;
 
     Ok(response("execute-update_config", CONTRACT_NAME, attrs))
@@ -673,24 +661,9 @@ fn execute_unbond(
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut attrs = vec![attr("action", "unbond")];
     let unbond_batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
-    ensure_eq!(
-        info.funds.len(),
-        1,
-        ContractError::InvalidFunds {
-            reason: "Must be one token".to_string(),
-        }
-    );
     let config = CONFIG.load(deps.storage)?;
     let ld_denom = config.ld_denom.ok_or(ContractError::LDDenomIsNotSet {})?;
-    let amount = info.funds[0].amount;
-    let denom = info.funds[0].denom.to_string();
-    ensure_eq!(
-        denom,
-        ld_denom,
-        ContractError::InvalidFunds {
-            reason: "Must be LD token".to_string(),
-        }
-    );
+    let amount = cw_utils::must_pay(&info, &ld_denom)?;
     let mut unbond_batch = UNBOND_BATCHES.load(deps.storage, unbond_batch_id)?;
     let exchange_rate = query_exchange_rate(deps.as_ref(), env, None)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
@@ -968,4 +941,89 @@ fn get_non_native_rewards_transfer_msg<T>(
         })?,
         funds: info.funds,
     })))
+}
+
+mod check_denom {
+    use super::*;
+
+    #[derive(PartialEq)]
+    pub enum DenomType {
+        Base,
+        LsmShare,
+    }
+
+    // XXX: cosmos_sdk_proto defines these structures for me,
+    // yet they don't derive serde::de::DeserializeOwned,
+    // so I have to redefine them here manually >:(
+
+    #[cw_serde]
+    struct QueryDenomTraceResponse {
+        pub denom_trace: DenomTrace,
+    }
+
+    #[cw_serde]
+    struct DenomTrace {
+        pub path: String,
+        pub base_denom: String,
+    }
+
+    fn query_denom_trace(
+        deps: &DepsMut<NeutronQuery>,
+        denom: impl Into<String>,
+    ) -> StdResult<QueryDenomTraceResponse> {
+        let denom = denom.into();
+        deps.querier
+            .query(&QueryRequest::Stargate {
+                path: "/ibc.applications.transfer.v1.Query/DenomTrace".to_string(),
+                data: cosmos_sdk_proto::ibc::applications::transfer::v1::QueryDenomTraceRequest {
+                    hash: denom.clone(),
+                }
+                    .encode_to_vec()
+                    .into(),
+            })
+            .map_err(|e| {
+                StdError::generic_err(format!(
+                    "Query denom trace for denom {denom} failed: {e}, perhaps, this is not an IBC denom?"
+                ))
+            })
+    }
+
+    // TODO: extensive unit tests
+    pub fn check_denom(
+        deps: &DepsMut<NeutronQuery>,
+        denom: &str,
+        config: &Config,
+    ) -> ContractResult<DenomType> {
+        if denom == config.base_denom {
+            return Ok(DenomType::Base);
+        }
+
+        let trace = query_denom_trace(deps, denom)?.denom_trace;
+        let (port, channel) = trace
+            .path
+            .split_once('/')
+            .ok_or(ContractError::InvalidDenom {})?;
+        if port != "transfer" && channel != config.channel {
+            return Err(ContractError::InvalidDenom {});
+        }
+
+        let (validator, _unbonding_index) = trace
+            .base_denom
+            .split_once('/')
+            .ok_or(ContractError::InvalidDenom {})?;
+        let validator_info = deps
+            .querier
+            .query_wasm_smart::<lido_staking_base::msg::validatorset::ValidatorResponse>(
+                &config.validators_set_contract,
+                &lido_staking_base::msg::validatorset::QueryMsg::Validator {
+                    valoper: validator.to_string(),
+                },
+            )?
+            .validator;
+        if validator_info.is_none() {
+            return Err(ContractError::InvalidDenom {});
+        }
+
+        Ok(DenomType::LsmShare)
+    }
 }

@@ -1,1 +1,0 @@
-# LIDO Stargate query POC

@@ -144,6 +144,7 @@ export interface InitArgs {
   core_params: CoreParams;
 }
 export interface CoreParams {
+  channel: string;
   idle_min_interval: number;
   puppeteer_timeout: number;
   unbond_batch_switch_time: number;
@@ -152,6 +153,7 @@ export interface CoreParams {
 }
 export interface ConfigOptional {
   base_denom?: string | null;
+  channel?: string | null;
   idle_min_interval?: number | null;
   ld_denom?: string | null;
   owner?: string | null;

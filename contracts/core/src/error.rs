@@ -14,8 +14,8 @@ pub enum ContractError {
     #[error("{0}")]
     OwnershipError(#[from] OwnershipError),
 
-    #[error("Invalid Funds: {reason}")]
-    InvalidFunds { reason: String },
+    #[error("{0}")]
+    PaymentError(#[from] cw_utils::PaymentError),
 
     #[error("Invalid NFT: {reason}")]
     InvalidNFT { reason: String },
@@ -37,6 +37,9 @@ pub enum ContractError {
 
     #[error("LD denom is not set")]
     LDDenomIsNotSet {},
+
+    #[error("Invalid denom")]
+    InvalidDenom {},
 
     #[error("Idle min interval is not reached")]
     IdleMinIntervalIsNotReached {},
