@@ -25,6 +25,8 @@ pub struct Config {
     pub owner: String,
     pub channel: String,
     pub ld_denom: Option<String>,
+    pub fee: Decimal,
+    pub fee_address: String,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
@@ -89,10 +91,6 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
         to: ContractState::Transfering,
     },
     Transition {
-        from: ContractState::Idle,
-        to: ContractState::Claiming,
-    },
-    Transition {
         from: ContractState::Claiming,
         to: ContractState::Transfering,
     },
@@ -123,6 +121,8 @@ pub struct NonNativeRewardsItem {
     pub denom: String,
     pub address: String,
     pub min_amount: Uint128,
+    pub fee_address: String,
+    pub fee: Decimal,
 }
 
 pub const FSM: Fsm<ContractState> = Fsm::new("machine_state", TRANSITIONS);

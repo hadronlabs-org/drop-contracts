@@ -248,8 +248,10 @@ fn execute_tick_idle(
     let mut messages = vec![];
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
         //process non-native rewards
-        if let Some(transfer_msg) = get_non_native_rewards_transfer_msg(deps.as_ref(), info, env)? {
-            messages.push(transfer_msg);
+        if let Some(transfer_msgs) = get_non_native_rewards_transfer_msg(deps.as_ref(), info, env)?
+        {
+            messages.push(transfer_msgs.0);
+            messages.push(transfer_msgs.1);
         } else {
             //return error if none
             return Err(ContractError::IdleMinIntervalIsNotReached {});
@@ -392,11 +394,14 @@ fn execute_tick_transfering(
 ) -> ContractResult<Response<NeutronMsg>> {
     let _response_msg = get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
-    let mut attrs = vec![attr("action", "tick_transfering")];
-    FSM.go_to(deps.storage, ContractState::Staking)?;
-    attrs.push(attr("state", "staking"));
     let message = get_stake_msg(deps.as_ref(), &env, config, info.funds)?;
-    Ok(response("execute-tick_transfering", CONTRACT_NAME, attrs).add_message(message))
+    FSM.go_to(deps.storage, ContractState::Staking)?;
+    Ok(response(
+        "execute-tick_transfering",
+        CONTRACT_NAME,
+        vec![attr("action", "tick_transfering"), attr("state", "staking")],
+    )
+    .add_message(message))
 }
 
 fn execute_tick_staking(
@@ -788,7 +793,7 @@ fn get_stake_msg<T>(
     env: &Env,
     config: &Config,
     funds: Vec<cosmwasm_std::Coin>,
-) -> ContractResult<CosmosMsg<T>> {
+) -> ContractResult<(CosmosMsg<T>, CosmosMsg<T>)> {
     let (balance, balance_height) = get_ica_balance_by_denom(
         deps,
         &config.puppeteer_contract,
@@ -804,12 +809,18 @@ fn get_stake_msg<T>(
             puppeteer_height: balance_height
         }
     );
+    let fee = config.fee * balance;
+    let deposit_amount = balance - fee;
+
     let to_delegate: Vec<lido_staking_base::msg::distribution::IdealDelegation> =
         deps.querier.query_wasm_smart(
             &config.strategy_contract,
-            &lido_staking_base::msg::strategy::QueryMsg::CalcDeposit { deposit: balance },
+            &lido_staking_base::msg::strategy::QueryMsg::CalcDeposit {
+                deposit: deposit_amount,
+            },
         )?;
-    Ok(CosmosMsg::Wasm(WasmMsg::Execute {
+
+    let delegate_msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_contract.to_string(),
         msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
             items: to_delegate
@@ -820,7 +831,27 @@ fn get_stake_msg<T>(
             reply_to: env.contract.address.to_string(),
         })?,
         funds,
-    }))
+    });
+
+    let fee_item = vec![(
+        &config.fee_address,
+        cosmwasm_std::Coin {
+            denom: config.remote_denom,
+            amount: fee,
+        },
+    )];
+
+    let fee_msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.puppeteer_contract,
+        msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
+            items: fee_item,
+            timeout: Some(config.puppeteer_timeout),
+            reply_to: env.contract.address.to_string(),
+        })?,
+        funds: vec![],
+    });
+
+    Ok((delegate_msg, fee_msg))
 }
 
 fn get_received_puppeteer_response(
@@ -899,10 +930,11 @@ fn get_non_native_rewards_transfer_msg<T>(
     deps: Deps<NeutronQuery>,
     info: MessageInfo,
     env: Env,
-) -> ContractResult<Option<CosmosMsg<T>>> {
+) -> ContractResult<Option<(CosmosMsg<T>, CosmosMsg<T>)>> {
     let config = CONFIG.load(deps.storage)?;
     let non_native_rewards_receivers = NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?;
     let mut items = vec![];
+    let mut fees = vec![];
     let rewards: lido_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             config.puppeteer_contract.to_string(),
@@ -920,27 +952,48 @@ fn get_non_native_rewards_transfer_msg<T>(
     for item in non_native_rewards_receivers {
         let amount = rewards_map.get(&item.denom).unwrap_or(&default_amount);
         if amount > &item.min_amount {
+            let fee = item.fee * *amount;
+            let amount = *amount - fee;
             items.push((
                 item.address,
                 cosmwasm_std::Coin {
+                    denom: item.denom.clone(),
+                    amount,
+                },
+            ));
+
+            fees.push((
+                item.fee_address,
+                cosmwasm_std::Coin {
                     denom: item.denom,
-                    amount: *amount,
+                    amount: fee,
                 },
             ));
         }
     }
-    if items.is_empty() {
+    if items.is_empty() || fees.is_empty() {
         return Ok(None);
     }
-    Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.puppeteer_contract,
+
+    let transfer_msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.puppeteer_contract.clone(),
         msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
             items,
             timeout: Some(config.puppeteer_timeout),
             reply_to: env.contract.address.to_string(),
         })?,
         funds: info.funds,
-    })))
+    });
+    let fee_msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.puppeteer_contract,
+        msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
+            items: fees,
+            timeout: Some(config.puppeteer_timeout),
+            reply_to: env.contract.address.to_string(),
+        })?,
+        funds: vec![],
+    });
+    Ok(Some((transfer_msg, fee_msg)))
 }
 
 mod check_denom {
