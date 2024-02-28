@@ -15,6 +15,7 @@ pub struct InstantiateMsg {
     pub validators_set_contract: String,
     pub base_denom: String,
     pub remote_denom: String,
+    pub lsm_redeem_threshold: u64,
     pub idle_min_interval: u64,        //seconds
     pub unbonding_period: u64,         //seconds
     pub unbonding_safe_period: u64,    //seconds
@@ -29,6 +30,8 @@ pub struct InstantiateMsg {
 pub enum QueryMsg {
     #[returns(Config)]
     Config {},
+    #[returns(String)]
+    Owner {},
     #[returns(cosmwasm_std::Decimal)]
     ExchangeRate {},
     #[returns(crate::state::core::UnbondBatch)]
@@ -39,6 +42,8 @@ pub enum QueryMsg {
     LastPuppeteerResponse {},
     #[returns(Vec<NonNativeRewardsItem>)]
     NonNativeRewardsReceivers {},
+    #[returns(Vec<(String,Uint128)>)]
+    PendingLSMShares {},
 }
 
 #[cw_ownable_execute]
@@ -78,12 +83,12 @@ impl From<InstantiateMsg> for Config {
             base_denom: val.base_denom,
             remote_denom: val.remote_denom,
             channel: val.channel,
-            owner: val.owner,
             ld_denom: None,
             idle_min_interval: val.idle_min_interval,
             unbonding_safe_period: val.unbonding_safe_period,
             unbonding_period: val.unbonding_period,
             pump_address: val.pump_address,
+            lsm_redeem_threshold: val.lsm_redeem_threshold,
             validators_set_contract: val.validators_set_contract,
             unbond_batch_switch_time: val.unbond_batch_switch_time,
         }

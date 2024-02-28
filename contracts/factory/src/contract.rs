@@ -426,6 +426,7 @@ fn execute_init(
                 unbond_batch_switch_time: core_params.unbond_batch_switch_time,
                 idle_min_interval: core_params.idle_min_interval,
                 channel: core_params.channel,
+                lsm_redeem_threshold: core_params.lsm_redeem_threshold,
                 owner: env.contract.address.to_string(),
             })?,
             funds: vec![],

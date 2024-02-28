@@ -1,9 +1,9 @@
 use crate::error::{ContractError, ContractResult};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, ensure_ne, entry_point, to_json_binary, Attribute, BankQuery, Binary,
-    Coin, CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, QueryRequest, Response,
-    StdError, StdResult, Timestamp, Uint128, WasmMsg,
+    attr, ensure, ensure_eq, ensure_ne, entry_point, to_json_binary, Addr, Attribute, BankQuery,
+    Binary, Coin, CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, QueryRequest,
+    Response, StdError, StdResult, Timestamp, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use lido_helpers::answer::response;
@@ -11,8 +11,8 @@ use lido_puppeteer_base::msg::TransferReadyBatchMsg;
 use lido_staking_base::state::core::{
     Config, ConfigOptional, ContractState, NonNativeRewardsItem, UnbondBatch, UnbondBatchStatus,
     UnbondItem, CONFIG, FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT,
-    LAST_PUPPETEER_RESPONSE, NON_NATIVE_REWARDS_CONFIG, PENDING_TRANSFER, PRE_UNBONDING_BALANCE,
-    TOTAL_LSM_SHARES, UNBOND_BATCHES, UNBOND_BATCH_ID,
+    LAST_PUPPETEER_RESPONSE, LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES,
+    PENDING_TRANSFER, PRE_UNBONDING_BALANCE, TOTAL_LSM_SHARES, UNBOND_BATCHES, UNBOND_BATCH_ID,
 };
 use lido_staking_base::state::validatorset::ValidatorInfo;
 use lido_staking_base::state::withdrawal_voucher::{Metadata, Trait};
@@ -56,6 +56,8 @@ pub fn instantiate(
     LAST_IDLE_CALL.save(deps.storage, &0)?;
     LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &0)?;
     TOTAL_LSM_SHARES.save(deps.storage, &0)?;
+    LSM_SHARES_TO_REDEEM.save(deps.storage, &vec![])?;
+    PENDING_LSM_SHARES.save(deps.storage, &vec![])?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
@@ -63,6 +65,13 @@ pub fn instantiate(
 pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     Ok(match msg {
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?)?,
+        QueryMsg::Owner {} => to_json_binary(
+            &cw_ownable::get_ownership(deps.storage)?
+                .owner
+                .unwrap_or(Addr::unchecked(""))
+                .to_string(),
+        )?,
+        QueryMsg::PendingLSMShares {} => query_pending_lsm_shares(deps)?,
         QueryMsg::ExchangeRate {} => to_json_binary(&query_exchange_rate(deps, env, None)?)?,
         QueryMsg::UnbondBatch { batch_id } => query_unbond_batch(deps, batch_id)?,
         QueryMsg::NonNativeRewardsReceivers {} => {
@@ -73,6 +82,11 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
             to_json_binary(&LAST_PUPPETEER_RESPONSE.load(deps.storage)?)?
         }
     })
+}
+
+fn query_pending_lsm_shares(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+    let shares: Vec<(String, Uint128)> = PENDING_LSM_SHARES.load(deps.storage)?;
+    to_json_binary(&shares).map_err(From::from)
 }
 
 fn query_exchange_rate(
@@ -211,6 +225,19 @@ fn execute_puppeteer_hook(
     );
     if let lido_puppeteer_base::msg::ResponseHookMsg::Success(_) = msg {
         LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &env.block.height)?;
+        if let lido_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) = &msg {
+            if let lido_puppeteer_base::msg::Transaction::IBCTransfer {
+                denom,
+                amount,
+                recipient: _,
+            } = &success_msg.transaction
+            {
+                LSM_SHARES_TO_REDEEM.update(deps.storage, |mut arr| {
+                    arr.push((denom.to_string(), Uint128::from(*amount)));
+                    StdResult::Ok(arr)
+                })?;
+            }
+        }
     } // if it's error we don't need to save the height because balance wasn't changed
     LAST_PUPPETEER_RESPONSE.save(deps.storage, &msg)?;
 
@@ -248,8 +275,14 @@ fn execute_tick_idle(
     let mut messages = vec![];
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
         //process non-native rewards
-        if let Some(transfer_msg) = get_non_native_rewards_transfer_msg(deps.as_ref(), info, env)? {
+        if let Some(transfer_msg) =
+            get_non_native_rewards_transfer_msg(deps.as_ref(), info.clone(), &env)?
+        {
             messages.push(transfer_msg);
+        } else if let Some(lsm_msg) =
+            get_pending_lsm_share_msg(deps, config, &env, info.funds.clone())?
+        {
+            messages.push(lsm_msg);
         } else {
             //return error if none
             return Err(ContractError::IdleMinIntervalIsNotReached {});
@@ -308,7 +341,7 @@ fn execute_tick_idle(
         if validators_to_claim.is_empty() {
             attrs.push(attr("validators_to_claim", "empty"));
             if let Some((transfer_msg, pending_amount)) =
-                get_transfer_pending_balance(deps.as_ref(), &env, config, info.funds.clone())?
+                get_transfer_pending_balance_msg(deps.as_ref(), &env, config, info.funds.clone())?
             {
                 FSM.go_to(deps.storage, ContractState::Transfering)?;
                 PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
@@ -371,7 +404,7 @@ fn execute_tick_claiming(
         }
     }
     if let Some((transfer_msg, pending_amount)) =
-        get_transfer_pending_balance(deps.as_ref(), &env, config, info.funds.clone())?
+        get_transfer_pending_balance_msg(deps.as_ref(), &env, config, info.funds.clone())?
     {
         FSM.go_to(deps.storage, ContractState::Transfering)?;
         PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
@@ -535,6 +568,10 @@ fn execute_bond(
 
     if denom_type == check_denom::DenomType::LsmShare {
         TOTAL_LSM_SHARES.update(deps.storage, |total| StdResult::Ok(total + amount.u128()))?;
+        PENDING_LSM_SHARES.update(deps.storage, |mut arr| {
+            arr.push((denom, amount));
+            StdResult::Ok(arr)
+        })?;
     }
 
     let mut attrs = vec![attr("action", "bond")];
@@ -746,7 +783,7 @@ fn get_unbonded_batch(deps: Deps<NeutronQuery>) -> ContractResult<Option<(u128, 
     Ok(None)
 }
 
-fn get_transfer_pending_balance<T>(
+fn get_transfer_pending_balance_msg<T>(
     deps: Deps<NeutronQuery>,
     env: &Env,
     config: &Config,
@@ -898,7 +935,7 @@ fn new_unbond(now: u64) -> lido_staking_base::state::core::UnbondBatch {
 fn get_non_native_rewards_transfer_msg<T>(
     deps: Deps<NeutronQuery>,
     info: MessageInfo,
-    env: Env,
+    env: &Env,
 ) -> ContractResult<Option<CosmosMsg<T>>> {
     let config = CONFIG.load(deps.storage)?;
     let non_native_rewards_receivers = NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?;
@@ -941,6 +978,39 @@ fn get_non_native_rewards_transfer_msg<T>(
         })?,
         funds: info.funds,
     })))
+}
+
+fn get_pending_lsm_share_msg<T, X: CustomQuery>(
+    deps: DepsMut<X>,
+    config: &Config,
+    env: &Env,
+    funds: Vec<cosmwasm_std::Coin>,
+) -> ContractResult<Option<CosmosMsg<T>>> {
+    let mut lsm_share: Option<(String, Uint128)> = None;
+    PENDING_LSM_SHARES.update(deps.storage, |mut arr| {
+        if arr.is_empty() {
+            return StdResult::Ok(arr);
+        }
+        lsm_share = Some(arr.remove(0));
+        StdResult::Ok(arr)
+    })?;
+    match lsm_share {
+        Some((denom, amount)) => Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: config.puppeteer_contract.to_string(),
+            msg: to_json_binary(
+                &lido_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+                    timeout: config.puppeteer_timeout,
+                    reply_to: env.contract.address.to_string(),
+                },
+            )?,
+            funds: {
+                let mut all_funds = vec![cosmwasm_std::Coin { denom, amount }];
+                all_funds.extend(funds);
+                all_funds
+            },
+        }))),
+        None => Ok(None),
+    }
 }
 
 mod check_denom {

@@ -22,9 +22,9 @@ pub struct Config {
     pub unbonding_safe_period: u64,    //seconds
     pub unbond_batch_switch_time: u64, //seconds
     pub pump_address: Option<String>,
-    pub owner: String,
     pub channel: String,
     pub ld_denom: Option<String>,
+    pub lsm_redeem_threshold: u64,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
@@ -65,6 +65,8 @@ pub struct UnbondBatch {
 pub const UNBOND_BATCHES: Map<u128, UnbondBatch> = Map::new("batches");
 pub const UNBOND_BATCH_ID: Item<u128> = Item::new("batches_ids");
 pub const TOTAL_LSM_SHARES: Item<u128> = Item::new("total_lsm_shares");
+pub const PENDING_LSM_SHARES: Item<Vec<(String, Uint128)>> = Item::new("pending_lsm_shares");
+pub const LSM_SHARES_TO_REDEEM: Item<Vec<(String, Uint128)>> = Item::new("lsm_shares_to_redeem");
 
 #[cw_serde]
 pub enum ContractState {
@@ -87,10 +89,6 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
     Transition {
         from: ContractState::Idle,
         to: ContractState::Transfering,
-    },
-    Transition {
-        from: ContractState::Idle,
-        to: ContractState::Claiming,
     },
     Transition {
         from: ContractState::Claiming,

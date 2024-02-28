@@ -4,6 +4,7 @@ export interface InstantiateMsg {
   base_denom: string;
   channel: string;
   idle_min_interval: number;
+  lsm_redeem_threshold: number;
   owner: string;
   pump_address?: string | null;
   puppeteer_contract: string;
@@ -149,6 +150,8 @@ export type Transaction =
       };
     };
 export type ArrayOfNonNativeRewardsItem = NonNativeRewardsItem[];
+export type String = string;
+export type ArrayOfTupleOf_StringAnd_Uint128 = [string, Uint128][];
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
@@ -214,7 +217,15 @@ export type Timestamp2 = Uint64;
 export type Uint64 = string;
 
 export interface LidoCoreSchema {
-  responses: Config | ContractState | Decimal | ResponseHookMsg | ArrayOfNonNativeRewardsItem | UnbondBatch;
+  responses:
+    | Config
+    | ContractState
+    | Decimal
+    | ResponseHookMsg
+    | ArrayOfNonNativeRewardsItem
+    | String
+    | ArrayOfTupleOf_StringAnd_Uint128
+    | UnbondBatch;
   query: UnbondBatchArgs;
   execute:
     | BondArgs
@@ -230,7 +241,7 @@ export interface Config {
   channel: string;
   idle_min_interval: number;
   ld_denom?: string | null;
-  owner: string;
+  lsm_redeem_threshold: number;
   pump_address?: string | null;
   puppeteer_contract: string;
   puppeteer_timeout: number;
@@ -339,7 +350,7 @@ export interface ConfigOptional {
   channel?: string | null;
   idle_min_interval?: number | null;
   ld_denom?: string | null;
-  owner?: string | null;
+  lsm_redeem_threshold?: number | null;
   pump_address?: string | null;
   puppeteer_contract?: string | null;
   puppeteer_timeout?: number | null;
@@ -395,6 +406,9 @@ export class Client {
   queryConfig = async(): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
+  queryOwner = async(): Promise<String> => {
+    return this.client.queryContractSmart(this.contractAddress, { owner: {} });
+  }
   queryExchangeRate = async(): Promise<Decimal> => {
     return this.client.queryContractSmart(this.contractAddress, { exchange_rate: {} });
   }
@@ -409,6 +423,9 @@ export class Client {
   }
   queryNonNativeRewardsReceivers = async(): Promise<ArrayOfNonNativeRewardsItem> => {
     return this.client.queryContractSmart(this.contractAddress, { non_native_rewards_receivers: {} });
+  }
+  queryPendingLSMShares = async(): Promise<ArrayOfTupleOf_StringAnd_Uint128> => {
+    return this.client.queryContractSmart(this.contractAddress, { pending_l_s_m_shares: {} });
   }
   bond = async(sender:string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
