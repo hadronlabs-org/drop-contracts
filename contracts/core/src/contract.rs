@@ -56,8 +56,6 @@ pub fn instantiate(
     LAST_IDLE_CALL.save(deps.storage, &0)?;
     LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &0)?;
     TOTAL_LSM_SHARES.save(deps.storage, &0)?;
-    LSM_SHARES_TO_REDEEM.save(deps.storage, &vec![])?;
-    PENDING_LSM_SHARES.save(deps.storage, &vec![])?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
@@ -85,7 +83,9 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
 }
 
 fn query_pending_lsm_shares(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let shares: Vec<(String, Uint128)> = PENDING_LSM_SHARES.load(deps.storage)?;
+    let shares: Vec<(String, Uint128)> = PENDING_LSM_SHARES
+        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+        .collect::<StdResult<Vec<_>>>()?;
     to_json_binary(&shares).map_err(From::from)
 }
 
@@ -223,19 +223,51 @@ fn execute_puppeteer_hook(
         config.puppeteer_contract,
         ContractError::Unauthorized {}
     );
+    deps.api
+        .debug(&format!("WASMDEBUG: puppeteer_hook: {:?}", msg));
     if let lido_puppeteer_base::msg::ResponseHookMsg::Success(_) = msg {
         LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &env.block.height)?;
+        deps.api.debug("height saved");
         if let lido_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) = &msg {
+            deps.api.debug(&format!(
+                "WASMDEBUG: transaction: {:?}",
+                success_msg.transaction
+            ));
             if let lido_puppeteer_base::msg::Transaction::IBCTransfer {
                 denom,
                 amount,
                 recipient: _,
             } = &success_msg.transaction
             {
-                LSM_SHARES_TO_REDEEM.update(deps.storage, |mut arr| {
-                    arr.push((denom.to_string(), Uint128::from(*amount)));
-                    StdResult::Ok(arr)
-                })?;
+                deps.api.debug(&format!("WASMDEBUG: denom: {:?}", denom));
+                deps.api.debug(&format!(
+                    "WASMDEBUG: keys: {:?}",
+                    PENDING_LSM_SHARES
+                        .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+                        .collect::<StdResult<Vec<_>>>()?
+                ));
+                let current_amount =
+                    PENDING_LSM_SHARES.may_load(deps.storage, denom.to_string())?;
+                if let Some(current_amount) = current_amount {
+                    deps.api
+                        .debug(&format!("WASMDEBUG: current_amount: {:?}", current_amount));
+                    let sent_amount = Uint128::from(*amount);
+                    LSM_SHARES_TO_REDEEM.update(deps.storage, denom.to_string(), |one| {
+                        StdResult::Ok(one.unwrap_or(Uint128::zero()) + sent_amount)
+                    })?;
+                    if current_amount == sent_amount {
+                        PENDING_LSM_SHARES.remove(deps.storage, denom.to_string());
+                    } else {
+                        PENDING_LSM_SHARES.update(
+                            deps.storage,
+                            denom.to_string(),
+                            |one| match one {
+                                Some(one) => StdResult::Ok(one - Uint128::from(*amount)),
+                                None => unreachable!("denom should be in the map"),
+                            },
+                        )?;
+                    }
+                }
             }
         }
     } // if it's error we don't need to save the height because balance wasn't changed
@@ -568,9 +600,8 @@ fn execute_bond(
 
     if denom_type == check_denom::DenomType::LsmShare {
         TOTAL_LSM_SHARES.update(deps.storage, |total| StdResult::Ok(total + amount.u128()))?;
-        PENDING_LSM_SHARES.update(deps.storage, |mut arr| {
-            arr.push((denom, amount));
-            StdResult::Ok(arr)
+        PENDING_LSM_SHARES.update(deps.storage, denom, |one| {
+            StdResult::Ok(one.unwrap_or(Uint128::zero()) + amount)
         })?;
     }
 
@@ -986,14 +1017,7 @@ fn get_pending_lsm_share_msg<T, X: CustomQuery>(
     env: &Env,
     funds: Vec<cosmwasm_std::Coin>,
 ) -> ContractResult<Option<CosmosMsg<T>>> {
-    let mut lsm_share: Option<(String, Uint128)> = None;
-    PENDING_LSM_SHARES.update(deps.storage, |mut arr| {
-        if arr.is_empty() {
-            return StdResult::Ok(arr);
-        }
-        lsm_share = Some(arr.remove(0));
-        StdResult::Ok(arr)
-    })?;
+    let lsm_share: Option<(String, Uint128)> = PENDING_LSM_SHARES.first(deps.storage)?;
     match lsm_share {
         Some((denom, amount)) => Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.puppeteer_contract.to_string(),
