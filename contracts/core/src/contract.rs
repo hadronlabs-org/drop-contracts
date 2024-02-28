@@ -793,7 +793,7 @@ fn get_transfer_pending_balance<T>(
     )))
 }
 
-fn get_stake_msg<T>(
+pub fn get_stake_msg<T>(
     deps: Deps<NeutronQuery>,
     env: &Env,
     config: &Config,
@@ -931,7 +931,7 @@ fn new_unbond(now: u64) -> lido_staking_base::state::core::UnbondBatch {
     }
 }
 
-fn get_non_native_rewards_transfer_msg<T>(
+pub fn get_non_native_rewards_transfer_msg<T>(
     deps: Deps<NeutronQuery>,
     info: MessageInfo,
     env: Env,
@@ -947,6 +947,7 @@ fn get_non_native_rewards_transfer_msg<T>(
                 msg: lido_staking_base::msg::puppeteer::QueryExtMsg::NonNativeRewardsBalances {},
             },
         )?;
+    println!("rewards {:?}", rewards);
     let rewards_map = rewards
         .0
         .coins
@@ -954,7 +955,12 @@ fn get_non_native_rewards_transfer_msg<T>(
         .map(|c| (c.denom.clone(), c.amount))
         .collect::<std::collections::HashMap<_, _>>();
     let default_amount = Uint128::zero();
+    println!(
+        "non_native_rewards_receivers {:?}",
+        non_native_rewards_receivers
+    );
     for item in non_native_rewards_receivers {
+        println!("item {:?}", item);
         let amount = rewards_map.get(&item.denom).unwrap_or(&default_amount);
         if amount > &item.min_amount {
             let fee = item.fee * *amount;
@@ -976,6 +982,7 @@ fn get_non_native_rewards_transfer_msg<T>(
             ));
         }
     }
+    println!("items {:?}, fees {:?}", items, fees);
     if items.is_empty() || fees.is_empty() {
         return Ok(None);
     }
@@ -1083,5 +1090,146 @@ mod check_denom {
         }
 
         Ok(DenomType::LsmShare)
+#[cfg(test)]
+mod tests {
+    use std::marker::PhantomData;
+
+    use cosmwasm_std::{
+        from_json,
+        testing::{mock_env, mock_info, MockApi, MockQuerier, MockStorage},
+        Coin, ContractResult, Empty, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError,
+        SystemResult, WasmQuery,
+    };
+
+    use lido_puppeteer_base::msg::QueryMsg as PuppeteerBaseQueryMsg;
+    use lido_staking_base::msg::puppeteer::{MultiBalances, QueryExtMsg};
+
+    use super::*;
+
+    pub const MOCK_PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
+
+    fn mock_dependencies<Q: Querier + Default>(
+    ) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier, NeutronQuery> {
+        let custom_querier = WasmMockQuerier::new(MockQuerier::new(&[]));
+
+        OwnedDeps {
+            storage: MockStorage::default(),
+            api: MockApi::default(),
+            querier: custom_querier,
+            custom_query_type: PhantomData,
+        }
+    }
+
+    pub struct WasmMockQuerier {
+        base: MockQuerier,
+    }
+
+    impl Querier for WasmMockQuerier {
+        fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
+            let request: QueryRequest<Empty> = match from_json(bin_request) {
+                Ok(v) => v,
+                Err(e) => {
+                    return QuerierResult::Err(SystemError::InvalidRequest {
+                        error: format!("Parsing query request: {}", e),
+                        request: bin_request.into(),
+                    });
+                }
+            };
+            self.handle_query(&request)
+        }
+    }
+
+    impl WasmMockQuerier {
+        pub fn handle_query(&self, request: &QueryRequest<Empty>) -> QuerierResult {
+            match &request {
+                QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => {
+                    if contract_addr == MOCK_PUPPETEER_CONTRACT_ADDR {
+                        let q: PuppeteerBaseQueryMsg<QueryExtMsg> = from_json(msg).unwrap();
+                        let reply = match q {
+                            PuppeteerBaseQueryMsg::Extention { msg } => match msg {
+                                QueryExtMsg::NonNativeRewardsBalances {} => {
+                                    let data = (
+                                        MultiBalances {
+                                            coins: vec![Coin {
+                                                denom: "denom".to_string(),
+                                                amount: Uint128::new(150),
+                                            }],
+                                        },
+                                        10,
+                                    );
+                                    to_json_binary(&(data.0, data.1))
+                                }
+                                _ => todo!(),
+                            },
+                            _ => todo!(),
+                        };
+                        return SystemResult::Ok(ContractResult::from(reply));
+                    }
+                    SystemResult::Err(SystemError::NoSuchContract {
+                        addr: contract_addr.to_string(),
+                    })
+                }
+                _ => self.base.handle_query(request),
+            }
+        }
+    }
+
+    impl WasmMockQuerier {
+        pub fn new(base: MockQuerier) -> WasmMockQuerier {
+            WasmMockQuerier { base }
+        }
+    }
+
+    #[test]
+    fn get_non_native_rewards_transfer_msg_success() {
+        let mut deps = mock_dependencies::<MockQuerier>();
+
+        CONFIG
+            .save(
+                deps.as_mut().storage,
+                &Config {
+                    token_contract: "token_contract".to_string(),
+                    puppeteer_contract: "puppeteer_contract".to_string(),
+                    puppeteer_timeout: 60,
+                    strategy_contract: "strategy_contract".to_string(),
+                    withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
+                    withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
+                    validators_set_contract: "validators_set_contract".to_string(),
+                    base_denom: "base_denom".to_string(),
+                    remote_denom: "remote_denom".to_string(),
+                    idle_min_interval: 1,
+                    unbonding_period: 60,
+                    unbonding_safe_period: 10,
+                    unbond_batch_switch_time: 6000,
+                    pump_address: None,
+                    owner: "owner".to_string(),
+                    ld_denom: None,
+                    fee: Decimal::from_atomics(1u32, 1).unwrap(),
+                    fee_address: "fee_address".to_string(),
+                },
+            )
+            .unwrap();
+
+        NON_NATIVE_REWARDS_CONFIG
+            .save(
+                deps.as_mut().storage,
+                &vec![NonNativeRewardsItem {
+                    address: "address".to_string(),
+                    denom: "denom".to_string(),
+                    min_amount: Uint128::new(100),
+                    fee: Decimal::from_atomics(1u32, 1).unwrap(),
+                    fee_address: "fee_address".to_string(),
+                }],
+            )
+            .unwrap();
+
+        let info = mock_info("addr0000", &[Coin::new(1000, "untrn")]);
+
+        let result: (CosmosMsg<NeutronMsg>, CosmosMsg<NeutronMsg>) =
+            get_non_native_rewards_transfer_msg(deps.as_ref(), info, mock_env())
+                .unwrap()
+                .unwrap();
+
+        println!("{:?}", result);
     }
 }
