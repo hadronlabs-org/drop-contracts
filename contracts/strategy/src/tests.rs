@@ -4,7 +4,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{
     to_json_binary, Addr, Attribute, Binary, Decimal, Deps, Empty, Env, Event, Response, StdResult,
-    Uint128,
+    Timestamp, Uint128,
 };
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
 use lido_puppeteer_base::error::ContractError as PuppeteerContractError;
@@ -95,7 +95,8 @@ fn puppeteer_query(
                     Delegations {
                         delegations: delegations_amount,
                     },
-                    0,
+                    0u64,
+                    Timestamp::default(),
                 );
                 Ok(to_json_binary(&delegations)?)
             }

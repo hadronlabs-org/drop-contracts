@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{from_json, Addr, Decimal, Uint128};
+use cosmwasm_std::{from_json, Addr, Decimal, Timestamp, Uint128};
 use std::ops::Div;
 use std::str::FromStr;
 
@@ -119,9 +119,10 @@ impl ExecuteMsg {
 #[cw_serde]
 pub struct MigrateMsg {}
 
-pub type DelegationsResponse = (Delegations, u64);
+pub type Height = u64;
 
-pub type BalancesResponse = (Balances, u64);
+pub type DelegationsResponse = (Delegations, Height, Timestamp);
+pub type BalancesResponse = (Balances, Height, Timestamp);
 
 #[cw_serde]
 pub struct FeesResponse {
