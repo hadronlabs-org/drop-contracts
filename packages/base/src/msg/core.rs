@@ -42,8 +42,10 @@ pub enum QueryMsg {
     LastPuppeteerResponse {},
     #[returns(Vec<NonNativeRewardsItem>)]
     NonNativeRewardsReceivers {},
-    #[returns(Vec<(String,Uint128)>)]
+    #[returns(Vec<(String,(String, Uint128))>)]
     PendingLSMShares {},
+    #[returns(Vec<(String,(String, Uint128))>)]
+    LSMSharesToRedeem {},
 }
 
 #[cw_ownable_execute]

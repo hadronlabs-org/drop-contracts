@@ -8,6 +8,7 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 use lido_helpers::answer::response;
 use lido_puppeteer_base::msg::TransferReadyBatchMsg;
+use lido_puppeteer_base::state::RedeemShareItem;
 use lido_staking_base::state::core::{
     Config, ConfigOptional, ContractState, NonNativeRewardsItem, UnbondBatch, UnbondBatchStatus,
     UnbondItem, CONFIG, FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT,
@@ -70,6 +71,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
                 .to_string(),
         )?,
         QueryMsg::PendingLSMShares {} => query_pending_lsm_shares(deps)?,
+        QueryMsg::LSMSharesToRedeem {} => query_lsm_shares_to_redeem(deps)?,
         QueryMsg::ExchangeRate {} => to_json_binary(&query_exchange_rate(deps, env, None)?)?,
         QueryMsg::UnbondBatch { batch_id } => query_unbond_batch(deps, batch_id)?,
         QueryMsg::NonNativeRewardsReceivers {} => {
@@ -83,7 +85,14 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
 }
 
 fn query_pending_lsm_shares(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let shares: Vec<(String, Uint128)> = PENDING_LSM_SHARES
+    let shares: Vec<(String, (String, Uint128))> = PENDING_LSM_SHARES
+        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+        .collect::<StdResult<Vec<_>>>()?;
+    to_json_binary(&shares).map_err(From::from)
+}
+
+fn query_lsm_shares_to_redeem(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+    let shares: Vec<(String, (String, Uint128))> = LSM_SHARES_TO_REDEEM
         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
         .collect::<StdResult<Vec<_>>>()?;
     to_json_binary(&shares).map_err(From::from)
@@ -226,32 +235,46 @@ fn execute_puppeteer_hook(
     if let lido_puppeteer_base::msg::ResponseHookMsg::Success(_) = msg {
         LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &env.block.height)?;
         if let lido_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) = &msg {
-            if let lido_puppeteer_base::msg::Transaction::IBCTransfer {
-                denom,
-                amount,
-                recipient: _,
-            } = &success_msg.transaction
-            {
-                let current_amount =
-                    PENDING_LSM_SHARES.may_load(deps.storage, denom.to_string())?;
-                if let Some(current_amount) = current_amount {
-                    let sent_amount = Uint128::from(*amount);
-                    LSM_SHARES_TO_REDEEM.update(deps.storage, denom.to_string(), |one| {
-                        StdResult::Ok(one.unwrap_or(Uint128::zero()) + sent_amount)
-                    })?;
-                    if current_amount == sent_amount {
-                        PENDING_LSM_SHARES.remove(deps.storage, denom.to_string());
-                    } else {
-                        PENDING_LSM_SHARES.update(
-                            deps.storage,
-                            denom.to_string(),
-                            |one| match one {
-                                Some(one) => StdResult::Ok(one - Uint128::from(*amount)),
-                                None => unreachable!("denom should be in the map"),
-                            },
-                        )?;
+            match &success_msg.transaction {
+                lido_puppeteer_base::msg::Transaction::IBCTransfer {
+                    denom,
+                    amount,
+                    recipient: _,
+                } => {
+                    let current_pending =
+                        PENDING_LSM_SHARES.may_load(deps.storage, denom.to_string())?;
+                    if let Some((remote_denom, current_amount)) = current_pending {
+                        let sent_amount = Uint128::from(*amount);
+                        LSM_SHARES_TO_REDEEM.update(deps.storage, denom.to_string(), |one| {
+                            let mut new = one.unwrap_or((remote_denom, Uint128::zero()));
+                            new.1 += sent_amount;
+                            StdResult::Ok(new)
+                        })?;
+                        if current_amount == sent_amount {
+                            PENDING_LSM_SHARES.remove(deps.storage, denom.to_string());
+                        } else {
+                            PENDING_LSM_SHARES.update(deps.storage, denom.to_string(), |one| {
+                                match one {
+                                    Some(one) => {
+                                        let mut new = one;
+                                        new.1 -= Uint128::from(*amount);
+                                        StdResult::Ok(new)
+                                    }
+                                    None => unreachable!("denom should be in the map"),
+                                }
+                            })?;
+                        }
                     }
                 }
+                lido_puppeteer_base::msg::Transaction::RedeemShares { items, .. } => {
+                    let mut sum = 0u128;
+                    for item in items {
+                        sum += item.amount.u128();
+                        LSM_SHARES_TO_REDEEM.remove(deps.storage, item.local_denom.to_string());
+                    }
+                    TOTAL_LSM_SHARES.update(deps.storage, |one| StdResult::Ok(one - sum))?;
+                }
+                _ => {}
             }
         }
     } // if it's error we don't need to save the height because balance wasn't changed
@@ -295,6 +318,10 @@ fn execute_tick_idle(
             get_non_native_rewards_transfer_msg(deps.as_ref(), info.clone(), &env)?
         {
             messages.push(transfer_msg);
+        } else if let Some(lsm_msg) =
+            get_pending_redeem_msg(deps.as_ref(), config, &env, info.funds.clone())?
+        {
+            messages.push(lsm_msg);
         } else if let Some(lsm_msg) =
             get_pending_lsm_share_msg(deps, config, &env, info.funds.clone())?
         {
@@ -582,10 +609,12 @@ fn execute_bond(
     let Coin { amount, denom } = cw_utils::one_coin(&info)?;
     let denom_type = check_denom::check_denom(&deps, &denom, &config)?;
 
-    if denom_type == check_denom::DenomType::LsmShare {
+    if let check_denom::DenomType::LsmShare(remote_denom) = denom_type {
         TOTAL_LSM_SHARES.update(deps.storage, |total| StdResult::Ok(total + amount.u128()))?;
         PENDING_LSM_SHARES.update(deps.storage, denom, |one| {
-            StdResult::Ok(one.unwrap_or(Uint128::zero()) + amount)
+            let mut new = one.unwrap_or((remote_denom, Uint128::zero()));
+            new.1 += amount;
+            StdResult::Ok(new)
         })?;
     }
 
@@ -995,15 +1024,52 @@ fn get_non_native_rewards_transfer_msg<T>(
     })))
 }
 
+fn get_pending_redeem_msg<T>(
+    deps: Deps<NeutronQuery>,
+    config: &Config,
+    env: &Env,
+    funds: Vec<cosmwasm_std::Coin>,
+) -> ContractResult<Option<CosmosMsg<T>>> {
+    if LSM_SHARES_TO_REDEEM
+        .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+        .count()
+        < config.lsm_redeem_threshold as usize
+    {
+        return Ok(None);
+    }
+    let shares_to_redeeem = LSM_SHARES_TO_REDEEM
+        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+        .collect::<StdResult<Vec<_>>>()?;
+    let items = shares_to_redeeem
+        .iter()
+        .map(|(local_denom, (denom, amount))| RedeemShareItem {
+            amount: *amount,
+            local_denom: local_denom.to_string(),
+            remote_denom: denom.to_string(),
+        })
+        .collect();
+    Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.puppeteer_contract.to_string(),
+        msg: to_json_binary(
+            &lido_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+                items,
+                timeout: Some(config.puppeteer_timeout),
+                reply_to: env.contract.address.to_string(),
+            },
+        )?,
+        funds,
+    })))
+}
+
 fn get_pending_lsm_share_msg<T, X: CustomQuery>(
     deps: DepsMut<X>,
     config: &Config,
     env: &Env,
     funds: Vec<cosmwasm_std::Coin>,
 ) -> ContractResult<Option<CosmosMsg<T>>> {
-    let lsm_share: Option<(String, Uint128)> = PENDING_LSM_SHARES.first(deps.storage)?;
+    let lsm_share: Option<(String, (String, Uint128))> = PENDING_LSM_SHARES.first(deps.storage)?;
     match lsm_share {
-        Some((denom, amount)) => Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
+        Some((denom, (_remote_denom, amount))) => Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.puppeteer_contract.to_string(),
             msg: to_json_binary(
                 &lido_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
@@ -1027,7 +1093,7 @@ mod check_denom {
     #[derive(PartialEq)]
     pub enum DenomType {
         Base,
-        LsmShare,
+        LsmShare(String),
     }
 
     // XXX: cosmos_sdk_proto defines these structures for me,
@@ -1075,7 +1141,6 @@ mod check_denom {
         if denom == config.base_denom {
             return Ok(DenomType::Base);
         }
-
         let trace = query_denom_trace(deps, denom)?.denom_trace;
         let (port, channel) = trace
             .path
@@ -1101,7 +1166,6 @@ mod check_denom {
         if validator_info.is_none() {
             return Err(ContractError::InvalidDenom {});
         }
-
-        Ok(DenomType::LsmShare)
+        Ok(DenomType::LsmShare(trace.base_denom))
     }
 }

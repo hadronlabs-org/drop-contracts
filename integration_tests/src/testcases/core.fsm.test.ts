@@ -1192,231 +1192,366 @@ describe('Core', () => {
     describe('fourth cycle (LSM-shares)', () => {
       let lsmDenoms: string[] = [];
       let oldBalanceDenoms: string[] = [];
-      describe('create LSM shares and send them to neutron', () => {
-        it('get balances', async () => {
-          const oldBalances =
-            await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
-              context.neutronUserAddress,
-            );
-          oldBalanceDenoms = oldBalances.data.balances.map((b) => b.denom);
+      let exchangeRate = '';
+      describe('prepare', () => {
+        it('get exchange rate', async () => {
+          exchangeRate = await context.coreContractClient.queryExchangeRate();
         });
-        it('delegate', async () => {
-          {
-            const res = await context.park.executeInNetwork(
-              'gaia',
-              `gaiad tx staking delegate ${context.validatorAddress} 100000stake --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --output json`,
-            );
-            expect(res.exitCode).toBe(0);
-            const out = JSON.parse(res.out);
-            expect(out.code).toBe(0);
-            expect(out.txhash).toHaveLength(64);
-            let tx: IndexedTx | null = null;
-            await waitFor(async () => {
-              tx = await context.gaiaClient.getTx(out.txhash);
-              return tx !== null;
-            });
-            expect(tx.height).toBeGreaterThan(0);
-            expect(tx.code).toBe(0);
-          }
-          {
-            const res = await context.park.executeInNetwork(
-              'gaia',
-              `gaiad tx staking delegate ${context.secondValidatorAddress} 100000stake --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --output json`,
-            );
-            expect(res.exitCode).toBe(0);
-            const out = JSON.parse(res.out);
-            expect(out.code).toBe(0);
-            expect(out.txhash).toHaveLength(64);
-            let tx: IndexedTx | null = null;
-            await waitFor(async () => {
-              tx = await context.gaiaClient.getTx(out.txhash);
-              return tx !== null;
-            });
-            expect(tx.height).toBeGreaterThan(0);
-            expect(tx.code).toBe(0);
-          }
-        });
-        it('tokenize shares', async () => {
-          {
-            const res = await context.park.executeInNetwork(
-              'gaia',
-              `gaiad tx staking tokenize-share ${context.validatorAddress} 60000stake ${context.gaiaUserAddress} --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
-            );
-            expect(res.exitCode).toBe(0);
-            const out = JSON.parse(res.out);
-            expect(out.code).toBe(0);
-            expect(out.txhash).toHaveLength(64);
-            let tx: IndexedTx | null = null;
-            await waitFor(async () => {
-              tx = await context.gaiaClient.getTx(out.txhash);
-              return tx !== null;
-            });
-            expect(tx.height).toBeGreaterThan(0);
-            expect(tx.code).toBe(0);
-            const balances = await context.gaiaQueryClient.bank.allBalances(
-              context.gaiaUserAddress,
-            );
-            expect(
-              balances.find((a) => a.denom == `${context.validatorAddress}/1`),
-            ).toEqual({
-              denom: `${context.validatorAddress}/1`,
-              amount: '60000',
-            });
-          }
-          {
-            const res = await context.park.executeInNetwork(
-              'gaia',
-              `gaiad tx staking tokenize-share ${context.secondValidatorAddress} 60000stake ${context.gaiaUserAddress} --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
-            );
-            expect(res.exitCode).toBe(0);
-            const out = JSON.parse(res.out);
-            expect(out.code).toBe(0);
-            expect(out.txhash).toHaveLength(64);
-            let tx: IndexedTx | null = null;
-            await waitFor(async () => {
-              tx = await context.gaiaClient.getTx(out.txhash);
-              return tx !== null;
-            });
-            expect(tx.height).toBeGreaterThan(0);
-            expect(tx.code).toBe(0);
-            const balances = await context.gaiaQueryClient.bank.allBalances(
-              context.gaiaUserAddress,
-            );
-            expect(
-              balances.find(
-                (a) => a.denom == `${context.secondValidatorAddress}/2`,
-              ),
-            ).toEqual({
-              denom: `${context.secondValidatorAddress}/2`,
-              amount: '60000',
-            });
-          }
-        });
-        it('transfer shares to neutron', async () => {
-          {
-            const res = await context.park.executeInNetwork(
-              'gaia',
-              `gaiad tx ibc-transfer transfer transfer channel-0 ${context.neutronUserAddress} 60000${context.validatorAddress}/1 --from ${context.gaiaUserAddress}  --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
-            );
-            expect(res.exitCode).toBe(0);
-            const out = JSON.parse(res.out);
-            expect(out.code).toBe(0);
-            expect(out.txhash).toHaveLength(64);
-            let tx: IndexedTx | null = null;
-            await waitFor(async () => {
-              tx = await context.gaiaClient.getTx(out.txhash);
-              return tx !== null;
-            });
-            expect(tx.height).toBeGreaterThan(0);
-            expect(tx.code).toBe(0);
-          }
-          {
-            const res = await context.park.executeInNetwork(
-              'gaia',
-              `gaiad tx ibc-transfer transfer transfer channel-0 ${context.neutronUserAddress} 60000${context.secondValidatorAddress}/2 --from ${context.gaiaUserAddress}  --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
-            );
-            expect(res.exitCode).toBe(0);
-            const out = JSON.parse(res.out);
-            expect(out.code).toBe(0);
-            expect(out.txhash).toHaveLength(64);
-            let tx: IndexedTx | null = null;
-            await waitFor(async () => {
-              tx = await context.gaiaClient.getTx(out.txhash);
-              return tx !== null;
-            });
-            expect(tx.height).toBeGreaterThan(0);
-            expect(tx.code).toBe(0);
-          }
-        });
-        it('wait for balances to come', async () => {
-          await waitFor(async () => {
-            const newbalances =
+        describe('create LSM shares and send them to neutron', () => {
+          it('get balances', async () => {
+            const oldBalances =
               await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
                 context.neutronUserAddress,
               );
-            const newDenoms = newbalances.data.balances.map((b) => b.denom);
-            const diff = newDenoms.filter((d) => !oldBalanceDenoms.includes(d));
-            lsmDenoms = diff;
-            return diff.length === 2;
-          }, 60_000);
+            oldBalanceDenoms = oldBalances.data.balances.map((b) => b.denom);
+          });
+          it('delegate', async () => {
+            {
+              const res = await context.park.executeInNetwork(
+                'gaia',
+                `gaiad tx staking delegate ${context.validatorAddress} 100000stake --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --output json`,
+              );
+              expect(res.exitCode).toBe(0);
+              const out = JSON.parse(res.out);
+              expect(out.code).toBe(0);
+              expect(out.txhash).toHaveLength(64);
+              let tx: IndexedTx | null = null;
+              await waitFor(async () => {
+                tx = await context.gaiaClient.getTx(out.txhash);
+                return tx !== null;
+              });
+              expect(tx.height).toBeGreaterThan(0);
+              expect(tx.code).toBe(0);
+            }
+            {
+              const res = await context.park.executeInNetwork(
+                'gaia',
+                `gaiad tx staking delegate ${context.secondValidatorAddress} 100000stake --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --output json`,
+              );
+              expect(res.exitCode).toBe(0);
+              const out = JSON.parse(res.out);
+              expect(out.code).toBe(0);
+              expect(out.txhash).toHaveLength(64);
+              let tx: IndexedTx | null = null;
+              await waitFor(async () => {
+                tx = await context.gaiaClient.getTx(out.txhash);
+                return tx !== null;
+              });
+              expect(tx.height).toBeGreaterThan(0);
+              expect(tx.code).toBe(0);
+            }
+          });
+          it('tokenize shares', async () => {
+            {
+              const res = await context.park.executeInNetwork(
+                'gaia',
+                `gaiad tx staking tokenize-share ${context.validatorAddress} 60000stake ${context.gaiaUserAddress} --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
+              );
+              expect(res.exitCode).toBe(0);
+              const out = JSON.parse(res.out);
+              expect(out.code).toBe(0);
+              expect(out.txhash).toHaveLength(64);
+              let tx: IndexedTx | null = null;
+              await waitFor(async () => {
+                tx = await context.gaiaClient.getTx(out.txhash);
+                return tx !== null;
+              });
+              expect(tx.height).toBeGreaterThan(0);
+              expect(tx.code).toBe(0);
+              const balances = await context.gaiaQueryClient.bank.allBalances(
+                context.gaiaUserAddress,
+              );
+              expect(
+                balances.find(
+                  (a) => a.denom == `${context.validatorAddress}/1`,
+                ),
+              ).toEqual({
+                denom: `${context.validatorAddress}/1`,
+                amount: '60000',
+              });
+            }
+            {
+              const res = await context.park.executeInNetwork(
+                'gaia',
+                `gaiad tx staking tokenize-share ${context.secondValidatorAddress} 60000stake ${context.gaiaUserAddress} --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
+              );
+              expect(res.exitCode).toBe(0);
+              const out = JSON.parse(res.out);
+              expect(out.code).toBe(0);
+              expect(out.txhash).toHaveLength(64);
+              let tx: IndexedTx | null = null;
+              await waitFor(async () => {
+                tx = await context.gaiaClient.getTx(out.txhash);
+                return tx !== null;
+              });
+              expect(tx.height).toBeGreaterThan(0);
+              expect(tx.code).toBe(0);
+              const balances = await context.gaiaQueryClient.bank.allBalances(
+                context.gaiaUserAddress,
+              );
+              expect(
+                balances.find(
+                  (a) => a.denom == `${context.secondValidatorAddress}/2`,
+                ),
+              ).toEqual({
+                denom: `${context.secondValidatorAddress}/2`,
+                amount: '60000',
+              });
+            }
+          });
+          it('transfer shares to neutron', async () => {
+            {
+              const res = await context.park.executeInNetwork(
+                'gaia',
+                `gaiad tx ibc-transfer transfer transfer channel-0 ${context.neutronUserAddress} 60000${context.validatorAddress}/1 --from ${context.gaiaUserAddress}  --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
+              );
+              expect(res.exitCode).toBe(0);
+              const out = JSON.parse(res.out);
+              expect(out.code).toBe(0);
+              expect(out.txhash).toHaveLength(64);
+              let tx: IndexedTx | null = null;
+              await waitFor(async () => {
+                tx = await context.gaiaClient.getTx(out.txhash);
+                return tx !== null;
+              });
+              expect(tx.height).toBeGreaterThan(0);
+              expect(tx.code).toBe(0);
+            }
+            await sleep(5_000);
+            {
+              const res = await context.park.executeInNetwork(
+                'gaia',
+                `gaiad tx ibc-transfer transfer transfer channel-0 ${context.neutronUserAddress} 60000${context.secondValidatorAddress}/2 --from ${context.gaiaUserAddress}  --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
+              );
+              expect(res.exitCode).toBe(0);
+              const out = JSON.parse(res.out);
+              expect(out.code).toBe(0);
+              expect(out.txhash).toHaveLength(64);
+              let tx: IndexedTx | null = null;
+              await waitFor(async () => {
+                tx = await context.gaiaClient.getTx(out.txhash);
+                return tx !== null;
+              });
+              expect(tx.height).toBeGreaterThan(0);
+              expect(tx.code).toBe(0);
+            }
+          });
+          it('wait for balances to come', async () => {
+            await waitFor(async () => {
+              const newbalances =
+                await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+                  context.neutronUserAddress,
+                );
+              const newDenoms = newbalances.data.balances.map((b) => b.denom);
+              const diff = newDenoms.filter(
+                (d) => !oldBalanceDenoms.includes(d),
+              );
+              lsmDenoms = diff;
+              return diff.length === 2;
+            }, 60_000);
+          });
+        });
+
+        it('bond LSM shares', async () => {
+          {
+            const { coreContractClient, neutronUserAddress } = context;
+            const res = await coreContractClient.bond(
+              neutronUserAddress,
+              {},
+              1.6,
+              undefined,
+              [
+                {
+                  amount: '60000',
+                  denom: lsmDenoms[0],
+                },
+              ],
+            );
+            expect(res.transactionHash).toHaveLength(64);
+          }
+          {
+            const { coreContractClient, neutronUserAddress } = context;
+            const res = await coreContractClient.bond(
+              neutronUserAddress,
+              {},
+              1.6,
+              undefined,
+              [
+                {
+                  amount: '60000',
+                  denom: lsmDenoms[1],
+                },
+              ],
+            );
+            expect(res.transactionHash).toHaveLength(64);
+          }
+        });
+        it('verify pending lsm shares', async () => {
+          const pending =
+            await context.coreContractClient.queryPendingLSMShares();
+          expect(pending).toHaveLength(2);
         });
       });
-      it('bond LSM shares', async () => {
-        {
-          const { coreContractClient, neutronUserAddress } = context;
-          const res = await coreContractClient.bond(
+      describe('transfering', () => {
+        it('tick', async () => {
+          const { neutronUserAddress } = context;
+          const res = await context.coreContractClient.tick(
             neutronUserAddress,
-            {},
-            1.6,
+            1.5,
             undefined,
-            [
-              {
-                amount: '60000',
-                denom: lsmDenoms[0],
-              },
-            ],
+            [],
           );
           expect(res.transactionHash).toHaveLength(64);
-        }
-        {
-          const { coreContractClient, neutronUserAddress } = context;
-          const res = await coreContractClient.bond(
+          const state = await context.coreContractClient.queryContractState();
+          expect(state).toEqual('idle');
+        });
+        it('one lsm share is gone from the contract balance', async () => {
+          const balances =
+            await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+              context.coreContractClient.contractAddress,
+            );
+          expect(
+            balances.data.balances.find((one) => one.denom === lsmDenoms[0]),
+          ).toBeFalsy();
+        });
+        it('await for pending length decrease', async () => {
+          let pending: any;
+          await waitFor(async () => {
+            try {
+              const res =
+                await context.coreContractClient.queryPendingLSMShares();
+              pending = res;
+            } catch (e) {
+              //
+            }
+            return !!pending && pending.length === 1;
+          }, 60_000);
+        });
+        it('tick', async () => {
+          const { neutronUserAddress } = context;
+          const res = await context.coreContractClient.tick(
             neutronUserAddress,
-            {},
-            1.6,
+            1.5,
             undefined,
-            [
-              {
-                amount: '60000',
-                denom: lsmDenoms[1],
-              },
-            ],
+            [],
           );
           expect(res.transactionHash).toHaveLength(64);
-        }
+          const state = await context.coreContractClient.queryContractState();
+          expect(state).toEqual('idle');
+        });
+        it('second lsm share is gone from the contract balance', async () => {
+          const balances =
+            await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+              context.coreContractClient.contractAddress,
+            );
+          expect(
+            balances.data.balances.find((one) => one.denom === lsmDenoms[1]),
+          ).toBeFalsy();
+        });
+        it('await for pending length decrease', async () => {
+          let pending: any;
+          await waitFor(async () => {
+            try {
+              const res =
+                await context.coreContractClient.queryPendingLSMShares();
+              pending = res;
+            } catch (e) {
+              //
+            }
+            return !!pending && pending.length === 0;
+          }, 60_000);
+          expect(pending).toEqual([]);
+        });
       });
-      it('verify pending lsm shares', async () => {
-        const pending =
-          await context.coreContractClient.queryPendingLSMShares();
-        expect(pending).toEqual([
-          [lsmDenoms[0], '60000'],
-          [lsmDenoms[1], '60000'],
-        ]);
-      });
-      it('tick', async () => {
-        const { neutronUserAddress } = context;
-        const res = await context.coreContractClient.tick(
-          neutronUserAddress,
-          1.5,
-          undefined,
-          [],
-        );
-        expect(res.transactionHash).toHaveLength(64);
-        const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('idle');
-      });
-      it('lsm shares are not on contract balance', async () => {
-        const balances =
-          await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
-            context.coreContractClient.contractAddress,
+      describe('redeem', () => {
+        let delegationsSum = 0;
+        it('query delegations', async () => {
+          const res: any = await context.puppeteerContractClient.queryExtention(
+            {
+              msg: {
+                delegations: {},
+              },
+            },
           );
-        expect(
-          balances.data.balances.find((one) => one.denom === lsmDenoms[0]),
-        ).toBeFalsy();
-      });
-      it('await for pending length decrease', async () => {
-        let pending: any;
-        await waitFor(async () => {
-          try {
-            const res =
-              await context.coreContractClient.queryPendingLSMShares();
-            pending = res;
-          } catch (e) {
-            //
+          for (const d of res[0].delegations) {
+            delegationsSum += parseInt(d.amount.amount);
           }
-          return !!pending && pending.length === 1;
-        }, 60_000);
-        expect(pending).toEqual([[lsmDenoms[1], '60000']]);
+        });
+        it('verify pending lsm shares to unbond', async () => {
+          const pending =
+            await context.coreContractClient.queryLSMSharesToRedeem();
+          expect(pending).toHaveLength(2);
+        });
+        it('tick', async () => {
+          const { neutronUserAddress } = context;
+          const res = await context.coreContractClient.tick(
+            neutronUserAddress,
+            1.5,
+            undefined,
+            [],
+          );
+          expect(res.transactionHash).toHaveLength(64);
+          const state = await context.coreContractClient.queryContractState();
+          expect(state).toEqual('idle');
+        });
+        it('imeediately tick again fails', async () => {
+          const { neutronUserAddress } = context;
+          await expect(
+            context.coreContractClient.tick(
+              neutronUserAddress,
+              1.5,
+              undefined,
+              [],
+            ),
+          ).rejects.toThrowError(
+            /Transaction txState is not equal to expected: Idle/,
+          );
+        });
+        it('await for pending length decrease', async () => {
+          await waitFor(async () => {
+            const pending =
+              await context.coreContractClient.queryLSMSharesToRedeem();
+            return pending.length === 0;
+          }, 30_000);
+        });
+        it('wait for delegations to come', async () => {
+          const [, currentHeight] =
+            await context.puppeteerContractClient.queryExtention({
+              msg: {
+                delegations: {},
+              },
+            });
+          await waitFor(async () => {
+            const [, nowHeight] =
+              await context.puppeteerContractClient.queryExtention({
+                msg: {
+                  delegations: {},
+                },
+              });
+            return nowHeight !== currentHeight;
+          });
+        });
+        it('query delegations', async () => {
+          const res: any = await context.puppeteerContractClient.queryExtention(
+            {
+              msg: {
+                delegations: {},
+              },
+            },
+          );
+          let newDelegationsSum = 0;
+          for (const d of res[0].delegations) {
+            newDelegationsSum += parseInt(d.amount.amount);
+          }
+          expect(newDelegationsSum - delegationsSum).toEqual(120_000);
+        });
+        it('verify exchange rate', async () => {
+          const newExchangeRate =
+            await context.coreContractClient.queryExchangeRate();
+          expect(parseFloat(newExchangeRate)).toBeGreaterThan(
+            parseFloat(exchangeRate),
+          );
+        });
       });
     });
   });

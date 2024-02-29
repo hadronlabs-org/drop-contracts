@@ -89,11 +89,9 @@ export type Transaction =
       };
     }
   | {
-      redeem_share: {
-        amount: number;
-        denom: string;
+      redeem_shares: {
         interchain_account_id: string;
-        validator: string;
+        items: RedeemShareItem[];
       };
     }
   | {
@@ -187,6 +185,11 @@ export interface RequestPacketTimeoutHeight {
   revision_height?: number | null;
   revision_number?: number | null;
   [k: string]: unknown;
+}
+export interface RedeemShareItem {
+  amount: Uint128;
+  local_denom: string;
+  remote_denom: string;
 }
 export interface TransferReadyBatchMsg {
   amount: Uint128;

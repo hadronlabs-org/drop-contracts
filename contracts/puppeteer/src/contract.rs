@@ -35,7 +35,8 @@ use lido_puppeteer_base::{
     },
     proto::MsgIBCTransfer,
     state::{
-        PuppeteerBase, ReplyMsg, TxState, TxStateStatus, UnbondingDelegation, ICA_ID, LOCAL_DENOM,
+        PuppeteerBase, RedeemShareItem, ReplyMsg, TxState, TxStateStatus, UnbondingDelegation,
+        ICA_ID, LOCAL_DENOM,
     },
 };
 use lido_staking_base::{
@@ -194,13 +195,11 @@ pub fn execute(
             timeout,
             reply_to,
         } => execute_tokenize_share(deps, info, validator, amount, timeout, reply_to),
-        ExecuteMsg::RedeemShare {
-            validator,
-            amount,
-            denom,
+        ExecuteMsg::RedeemShares {
+            items,
             timeout,
             reply_to,
-        } => execute_redeem_share(deps, info, validator, amount, denom, timeout, reply_to),
+        } => execute_redeem_shares(deps, info, items, timeout, reply_to),
         ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
             validators,
             transfer,
@@ -712,20 +711,16 @@ fn execute_tokenize_share(
     Ok(Response::default().add_submessages(vec![submsg]))
 }
 
-fn execute_redeem_share(
+fn execute_redeem_shares(
     mut deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
-    validator: String,
-    amount: Uint128,
-    denom: String,
+    items: Vec<RedeemShareItem>,
     timeout: Option<u64>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let attrs = vec![
         attr("action", "redeem_share"),
-        attr("validator", validator.clone()),
-        attr("amount", amount.to_string()),
-        attr("denom", denom.clone()),
+        attr("items", format!("{:?}", items)),
     ];
     let puppeteer_base = Puppeteer::default();
     deps.api.addr_validate(&reply_to)?;
@@ -733,25 +728,24 @@ fn execute_redeem_share(
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
     let delegator = puppeteer_base.ica.get_address(deps.storage)?;
-    let redeem_msg = MsgRedeemTokensforShares {
-        delegator_address: delegator,
-        amount: Some(ProtoCoin {
-            denom: denom.to_string(),
-            amount: amount.to_string(),
-        }),
-    };
+    let any_msgs = items
+        .iter()
+        .map(|one| MsgRedeemTokensforShares {
+            delegator_address: delegator.to_string(),
+            amount: Some(ProtoCoin {
+                denom: one.remote_denom.to_string(),
+                amount: one.amount.to_string(),
+            }),
+        })
+        .map(|msg| prepare_any_msg(msg, "/cosmos.staking.v1beta1.MsgRedeemTokensForShares"))
+        .collect::<NeutronResult<Vec<ProtobufAny>>>()?;
     let submsg = compose_submsg(
         deps.branch(),
         config,
-        vec![prepare_any_msg(
-            redeem_msg,
-            "/cosmos.staking.v1beta1.MsgRedeemTokensForShares",
-        )?],
-        Transaction::RedeemShare {
+        any_msgs,
+        Transaction::RedeemShares {
             interchain_account_id: ICA_ID.to_string(),
-            validator,
-            denom,
-            amount: amount.into(),
+            items,
         },
         timeout,
         reply_to,

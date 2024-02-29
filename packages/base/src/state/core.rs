@@ -65,8 +65,8 @@ pub struct UnbondBatch {
 pub const UNBOND_BATCHES: Map<u128, UnbondBatch> = Map::new("batches");
 pub const UNBOND_BATCH_ID: Item<u128> = Item::new("batches_ids");
 pub const TOTAL_LSM_SHARES: Item<u128> = Item::new("total_lsm_shares");
-pub const PENDING_LSM_SHARES: Map<String, Uint128> = Map::new("pending_lsm_shares");
-pub const LSM_SHARES_TO_REDEEM: Map<String, Uint128> = Map::new("lsm_shares_to_redeem");
+pub const PENDING_LSM_SHARES: Map<String, (String, Uint128)> = Map::new("pending_lsm_shares");
+pub const LSM_SHARES_TO_REDEEM: Map<String, (String, Uint128)> = Map::new("lsm_shares_to_redeem");
 
 #[cw_serde]
 pub enum ContractState {

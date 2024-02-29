@@ -26,6 +26,21 @@ export type ContractState = "idle" | "claiming" | "unbonding" | "staking" | "tra
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal = string;
+/**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint128 = string;
+export type ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128 = [string, [string, Uint128]][];
 export type ResponseHookMsg =
   | {
       success: ResponseHookSuccessMsg;
@@ -61,20 +76,6 @@ export type ResponseAnswer =
   | {
       unknown_response: {};
     };
-/**
- * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u128` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
- *
- * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
- *
- * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
- */
-export type Uint128 = string;
 /**
  * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
  *
@@ -121,11 +122,9 @@ export type Transaction =
       };
     }
   | {
-      redeem_share: {
-        amount: number;
-        denom: string;
+      redeem_shares: {
         interchain_account_id: string;
-        validator: string;
+        items: RedeemShareItem[];
       };
     }
   | {
@@ -151,7 +150,7 @@ export type Transaction =
     };
 export type ArrayOfNonNativeRewardsItem = NonNativeRewardsItem[];
 export type String = string;
-export type ArrayOfTupleOf_StringAnd_Uint128 = [string, Uint128][];
+export type ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint1281 = [string, [string, Uint128]][];
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
@@ -221,10 +220,11 @@ export interface LidoCoreSchema {
     | Config
     | ContractState
     | Decimal
+    | ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128
     | ResponseHookMsg
     | ArrayOfNonNativeRewardsItem
     | String
-    | ArrayOfTupleOf_StringAnd_Uint128
+    | ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint1281
     | UnbondBatch;
   query: UnbondBatchArgs;
   execute:
@@ -303,6 +303,11 @@ export interface RequestPacketTimeoutHeight {
   revision_height?: number | null;
   revision_number?: number | null;
   [k: string]: unknown;
+}
+export interface RedeemShareItem {
+  amount: Uint128;
+  local_denom: string;
+  remote_denom: string;
 }
 export interface TransferReadyBatchMsg {
   amount: Uint128;
@@ -424,8 +429,11 @@ export class Client {
   queryNonNativeRewardsReceivers = async(): Promise<ArrayOfNonNativeRewardsItem> => {
     return this.client.queryContractSmart(this.contractAddress, { non_native_rewards_receivers: {} });
   }
-  queryPendingLSMShares = async(): Promise<ArrayOfTupleOf_StringAnd_Uint128> => {
+  queryPendingLSMShares = async(): Promise<ArrayOfTupleOf_StringAnd_Tuple_of_String_and_Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { pending_l_s_m_shares: {} });
+  }
+  queryLSMSharesToRedeem = async(): Promise<ArrayOfTupleOf_StringAnd_Tuple_of_String_and_Uint128> => {
+    return this.client.queryContractSmart(this.contractAddress, { l_s_m_shares_to_redeem: {} });
   }
   bond = async(sender:string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

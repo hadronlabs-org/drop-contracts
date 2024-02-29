@@ -7,7 +7,10 @@ use cosmos_sdk_proto::cosmos::{
     base::v1beta1::Coin as CosmosCoin,
     staking::v1beta1::{Delegation, Validator as CosmosValidator},
 };
-use lido_puppeteer_base::msg::{ExecuteMsg as BaseExecuteMsg, TransferReadyBatchMsg};
+use lido_puppeteer_base::{
+    msg::{ExecuteMsg as BaseExecuteMsg, TransferReadyBatchMsg},
+    state::RedeemShareItem,
+};
 use neutron_sdk::{
     bindings::types::StorageValue,
     interchain_queries::v045::types::{Balances, Delegations},
@@ -71,10 +74,8 @@ pub enum ExecuteMsg {
         timeout: Option<u64>,
         reply_to: String,
     },
-    RedeemShare {
-        validator: String,
-        amount: Uint128,
-        denom: String,
+    RedeemShares {
+        items: Vec<RedeemShareItem>,
         timeout: Option<u64>,
         reply_to: String,
     },
