@@ -1119,6 +1119,8 @@ mod check_denom {
         }
 
         Ok(DenomType::LsmShare)
+    }
+}
 #[cfg(test)]
 mod tests {
     use std::marker::PhantomData;
@@ -1257,6 +1259,7 @@ mod tests {
             pump_address: None,
             owner: "owner".to_string(),
             ld_denom: None,
+            channel: "channel".to_string(),
             fee,
             fee_address: Some("fee_address".to_string()),
         }

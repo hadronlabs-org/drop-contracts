@@ -1081,6 +1081,8 @@ describe('Core', () => {
                   denom,
                   address: context.gaiaUserAddress,
                   min_amount: '10000',
+                  fee: '0',
+                  fee_address: 'fee_address',
                 })),
               },
             },
