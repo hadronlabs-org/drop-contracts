@@ -22,8 +22,8 @@ pub struct InstantiateMsg {
     pub pump_address: Option<String>,
     pub channel: String,
     pub owner: String,
-    pub fee: Decimal,
-    pub fee_address: String,
+    pub fee: Option<Decimal>,
+    pub fee_address: Option<String>,
 }
 
 #[cw_serde]

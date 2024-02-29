@@ -1,8 +1,21 @@
-import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
-import { StdFee } from "@cosmjs/amino";
+import {
+  CosmWasmClient,
+  SigningCosmWasmClient,
+  ExecuteResult,
+  InstantiateResult,
+} from '@cosmjs/cosmwasm-stargate';
+import { StdFee } from '@cosmjs/amino';
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal = string;
+
 export interface InstantiateMsg {
   base_denom: string;
-  channel: string;
+  fee?: Decimal | null;
+  fee_address?: string | null;
   idle_min_interval: number;
   owner: string;
   pump_address?: string | null;
@@ -18,13 +31,24 @@ export interface InstantiateMsg {
   withdrawal_manager_contract: string;
   withdrawal_voucher_contract: string;
 }
-export type ContractState = "idle" | "claiming" | "unbonding" | "staking" | "transfering";
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal = string;
+export type ContractState =
+  | 'idle'
+  | 'claiming'
+  | 'unbonding'
+  | 'staking'
+  | 'transfering';
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal1 = string;
 export type ResponseHookMsg =
   | {
       success: ResponseHookSuccessMsg;
@@ -149,13 +173,13 @@ export type Transaction =
       };
     };
 export type ArrayOfNonNativeRewardsItem = NonNativeRewardsItem[];
-/**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal1 = string;
-export type UnbondBatchStatus = "new" | "unbond_requested" | "unbond_failed" | "unbonding" | "unbonded" | "withdrawn";
+export type UnbondBatchStatus =
+  | 'new'
+  | 'unbond_requested'
+  | 'unbond_failed'
+  | 'unbonding'
+  | 'unbonded'
+  | 'withdrawn';
 export type PuppeteerHookArgs =
   | {
       success: ResponseHookSuccessMsg;
@@ -173,8 +197,8 @@ export type UpdateOwnershipArgs =
         new_owner: string;
       };
     }
-  | "accept_ownership"
-  | "renounce_ownership";
+  | 'accept_ownership'
+  | 'renounce_ownership';
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -214,7 +238,13 @@ export type Timestamp2 = Uint64;
 export type Uint64 = string;
 
 export interface LidoCoreSchema {
-  responses: Config | ContractState | Decimal | ResponseHookMsg | ArrayOfNonNativeRewardsItem | UnbondBatch;
+  responses:
+    | Config
+    | ContractState
+    | Decimal1
+    | ResponseHookMsg
+    | ArrayOfNonNativeRewardsItem
+    | UnbondBatch;
   query: UnbondBatchArgs;
   execute:
     | BondArgs
@@ -227,7 +257,8 @@ export interface LidoCoreSchema {
 }
 export interface Config {
   base_denom: string;
-  channel: string;
+  fee?: Decimal | null;
+  fee_address?: string | null;
   idle_min_interval: number;
   ld_denom?: string | null;
   owner: string;
@@ -307,13 +338,15 @@ export interface ResponseHookErrorMsg {
 export interface NonNativeRewardsItem {
   address: string;
   denom: string;
+  fee: Decimal;
+  fee_address: string;
   min_amount: Uint128;
 }
 export interface UnbondBatch {
   created: number;
   expected_amount: Uint128;
   expected_release: number;
-  slashing_effect?: Decimal1 | null;
+  slashing_effect?: Decimal | null;
   status: UnbondBatchStatus;
   total_amount: Uint128;
   unbond_items: UnbondItem[];
@@ -336,7 +369,8 @@ export interface UpdateConfigArgs {
 }
 export interface ConfigOptional {
   base_denom?: string | null;
-  channel?: string | null;
+  fee?: Decimal | null;
+  fee_address?: string | null;
   idle_min_interval?: number | null;
   ld_denom?: string | null;
   owner?: string | null;
@@ -361,9 +395,8 @@ export interface FakeProcessBatchArgs {
   unbonded_amount: Uint128;
 }
 
-
 function isSigningCosmWasmClient(
-  client: CosmWasmClient | SigningCosmWasmClient
+  client: CosmWasmClient | SigningCosmWasmClient,
 ): client is SigningCosmWasmClient {
   return 'execute' in client;
 }
@@ -371,12 +404,15 @@ function isSigningCosmWasmClient(
 export class Client {
   private readonly client: CosmWasmClient | SigningCosmWasmClient;
   contractAddress: string;
-  constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string) {
+  constructor(
+    client: CosmWasmClient | SigningCosmWasmClient,
+    contractAddress: string,
+  ) {
     this.client = client;
     this.contractAddress = contractAddress;
   }
   mustBeSigningClient() {
-    return new Error("This client is not a SigningCosmWasmClient");
+    return new Error('This client is not a SigningCosmWasmClient');
   }
   static async instantiate(
     client: SigningCosmWasmClient,
@@ -392,54 +428,175 @@ export class Client {
     });
     return res;
   }
-  queryConfig = async(): Promise<Config> => {
-    return this.client.queryContractSmart(this.contractAddress, { config: {} });
-  }
-  queryExchangeRate = async(): Promise<Decimal> => {
-    return this.client.queryContractSmart(this.contractAddress, { exchange_rate: {} });
-  }
-  queryUnbondBatch = async(args: UnbondBatchArgs): Promise<UnbondBatch> => {
-    return this.client.queryContractSmart(this.contractAddress, { unbond_batch: args });
-  }
-  queryContractState = async(): Promise<ContractState> => {
-    return this.client.queryContractSmart(this.contractAddress, { contract_state: {} });
-  }
-  queryLastPuppeteerResponse = async(): Promise<ResponseHookMsg> => {
-    return this.client.queryContractSmart(this.contractAddress, { last_puppeteer_response: {} });
-  }
-  queryNonNativeRewardsReceivers = async(): Promise<ArrayOfNonNativeRewardsItem> => {
-    return this.client.queryContractSmart(this.contractAddress, { non_native_rewards_receivers: {} });
-  }
-  bond = async(sender:string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { bond: args }, fee || "auto", memo, funds);
-  }
-  unbond = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { unbond: {} }, fee || "auto", memo, funds);
-  }
-  updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
-  }
-  updateNonNativeRewardsReceivers = async(sender:string, args: UpdateNonNativeRewardsReceiversArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_non_native_rewards_receivers: args }, fee || "auto", memo, funds);
-  }
-  fakeProcessBatch = async(sender:string, args: FakeProcessBatchArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { fake_process_batch: args }, fee || "auto", memo, funds);
-  }
-  tick = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { tick: {} }, fee || "auto", memo, funds);
-  }
-  puppeteerHook = async(sender:string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
-  }
-  updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
-  }
+  queryConfig = async (): Promise<Config> =>
+    this.client.queryContractSmart(this.contractAddress, { config: {} });
+  queryExchangeRate = async (): Promise<Decimal> =>
+    this.client.queryContractSmart(this.contractAddress, { exchange_rate: {} });
+  queryUnbondBatch = async (args: UnbondBatchArgs): Promise<UnbondBatch> =>
+    this.client.queryContractSmart(this.contractAddress, {
+      unbond_batch: args,
+    });
+  queryContractState = async (): Promise<ContractState> =>
+    this.client.queryContractSmart(this.contractAddress, {
+      contract_state: {},
+    });
+  queryLastPuppeteerResponse = async (): Promise<ResponseHookMsg> =>
+    this.client.queryContractSmart(this.contractAddress, {
+      last_puppeteer_response: {},
+    });
+  queryNonNativeRewardsReceivers =
+    async (): Promise<ArrayOfNonNativeRewardsItem> =>
+      this.client.queryContractSmart(this.contractAddress, {
+        non_native_rewards_receivers: {},
+      });
+  bond = async (
+    sender: string,
+    args: BondArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { bond: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  unbond = async (
+    sender: string,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { unbond: {} },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  updateConfig = async (
+    sender: string,
+    args: UpdateConfigArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_config: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  updateNonNativeRewardsReceivers = async (
+    sender: string,
+    args: UpdateNonNativeRewardsReceiversArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_non_native_rewards_receivers: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  fakeProcessBatch = async (
+    sender: string,
+    args: FakeProcessBatchArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { fake_process_batch: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  tick = async (
+    sender: string,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { tick: {} },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  puppeteerHook = async (
+    sender: string,
+    args: PuppeteerHookArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { puppeteer_hook: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  updateOwnership = async (
+    sender: string,
+    args: UpdateOwnershipArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_ownership: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
 }

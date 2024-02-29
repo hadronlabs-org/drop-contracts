@@ -51,8 +51,6 @@ fn pair_contract() -> Box<dyn Contract<Empty>> {
                         to,
                     } => {
                         if !info.funds.is_empty() {
-                            println!("received funds {:?}", info.funds);
-
                             let asset_denom = match offer_asset.info {
                                 AssetInfo::NativeToken { denom } => denom,
                                 _ => {
@@ -86,8 +84,6 @@ fn pair_contract() -> Box<dyn Contract<Empty>> {
                     }
                 }
 
-                println!("handler contract execute");
-
                 Err(StdError::generic_err("Wrong execution call"))
             },
             |_, _, _, _: Empty| Ok(Response::new()),
@@ -112,8 +108,6 @@ fn router_contract() -> Box<dyn Contract<Empty>> {
                         to,
                     } => {
                         if !info.funds.is_empty() {
-                            println!("received funds {:?}", info.funds);
-
                             return Ok(response(
                                 "router_contract_execute",
                                 "router_mock",
@@ -145,8 +139,6 @@ fn router_contract() -> Box<dyn Contract<Empty>> {
                         return Err(StdError::generic_err("Wrong execution call"));
                     }
                 }
-
-                println!("handler contract execute");
 
                 Err(StdError::generic_err("Wrong execution call"))
             },

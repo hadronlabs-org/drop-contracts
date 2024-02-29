@@ -25,8 +25,8 @@ pub struct Config {
     pub owner: String,
     pub channel: String,
     pub ld_denom: Option<String>,
-    pub fee: Decimal,
-    pub fee_address: String,
+    pub fee: Option<Decimal>,
+    pub fee_address: Option<String>,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
