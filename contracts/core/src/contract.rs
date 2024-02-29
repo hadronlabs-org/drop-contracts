@@ -223,34 +223,18 @@ fn execute_puppeteer_hook(
         config.puppeteer_contract,
         ContractError::Unauthorized {}
     );
-    deps.api
-        .debug(&format!("WASMDEBUG: puppeteer_hook: {:?}", msg));
     if let lido_puppeteer_base::msg::ResponseHookMsg::Success(_) = msg {
         LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &env.block.height)?;
-        deps.api.debug("height saved");
         if let lido_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) = &msg {
-            deps.api.debug(&format!(
-                "WASMDEBUG: transaction: {:?}",
-                success_msg.transaction
-            ));
             if let lido_puppeteer_base::msg::Transaction::IBCTransfer {
                 denom,
                 amount,
                 recipient: _,
             } = &success_msg.transaction
             {
-                deps.api.debug(&format!("WASMDEBUG: denom: {:?}", denom));
-                deps.api.debug(&format!(
-                    "WASMDEBUG: keys: {:?}",
-                    PENDING_LSM_SHARES
-                        .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-                        .collect::<StdResult<Vec<_>>>()?
-                ));
                 let current_amount =
                     PENDING_LSM_SHARES.may_load(deps.storage, denom.to_string())?;
                 if let Some(current_amount) = current_amount {
-                    deps.api
-                        .debug(&format!("WASMDEBUG: current_amount: {:?}", current_amount));
                     let sent_amount = Uint128::from(*amount);
                     LSM_SHARES_TO_REDEEM.update(deps.storage, denom.to_string(), |one| {
                         StdResult::Ok(one.unwrap_or(Uint128::zero()) + sent_amount)
