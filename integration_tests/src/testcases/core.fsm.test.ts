@@ -1317,7 +1317,7 @@ describe('Core', () => {
               expect(tx.height).toBeGreaterThan(0);
               expect(tx.code).toBe(0);
             }
-            await sleep(5_000);
+            await sleep(10_000);
             {
               const res = await context.park.executeInNetwork(
                 'gaia',
