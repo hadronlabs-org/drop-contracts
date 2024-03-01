@@ -372,6 +372,7 @@ describe('Core', () => {
         unbonding_safe_period: 10,
         unbonding_period: 60,
         channel: 'channel-0',
+        bond_limit: '100000',
       },
     });
     expect(res.transactionHash).toHaveLength(64);
@@ -535,6 +536,37 @@ describe('Core', () => {
     expect(context.exchangeRate).toEqual(1);
   });
 
+  it('bond failed as over limit', async () => {
+    const { coreContractClient, neutronUserAddress, neutronIBCDenom } = context;
+    await expect(
+      coreContractClient.bond(neutronUserAddress, {}, 1.6, undefined, [
+        {
+          amount: '500000',
+          denom: neutronIBCDenom,
+        },
+      ]),
+    ).rejects.toThrowError(/Bond limit exceeded/);
+  });
+
+  it('update limit', async () => {
+    const { factoryContractClient, neutronUserAddress } = context;
+    const res = await factoryContractClient.adminExecute(neutronUserAddress, {
+      addr: context.coreContractClient.contractAddress,
+      msg: Buffer.from(
+        JSON.stringify({
+          update_config: {
+            new_config: {
+              bond_limit: '0',
+            },
+          },
+        }),
+      ).toString('base64'),
+    });
+    expect(res.transactionHash).toHaveLength(64);
+    const config = await context.coreContractClient.queryConfig();
+    expect(config.bond_limit).toBe(null);
+  });
+
   it('bond w/o receiver', async () => {
     const {
       coreContractClient,
@@ -567,7 +599,28 @@ describe('Core', () => {
       amount: String(Math.floor(500_000 / context.exchangeRate)),
     });
   });
-
+  it('verify bonded amount', async () => {
+    const { coreContractClient } = context;
+    const bonded = await coreContractClient.queryTotalBonded();
+    expect(bonded).toEqual('500000');
+  });
+  it('reset bonded amount', async () => {
+    const { coreContractClient, neutronUserAddress } = context;
+    const res = await context.factoryContractClient.adminExecute(
+      neutronUserAddress,
+      {
+        addr: context.coreContractClient.contractAddress,
+        msg: Buffer.from(
+          JSON.stringify({
+            reset_bonded_amount: {},
+          }),
+        ).toString('base64'),
+      },
+    );
+    expect(res.transactionHash).toHaveLength(64);
+    const bonded = await coreContractClient.queryTotalBonded();
+    expect(bonded).toEqual('0');
+  });
   it('bond with receiver', async () => {
     const {
       coreContractClient,

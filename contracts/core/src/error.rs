@@ -1,4 +1,4 @@
-use cosmwasm_std::{OverflowError, StdError};
+use cosmwasm_std::{OverflowError, StdError, Uint128};
 use cw_ownable::OwnershipError;
 use neutron_sdk::NeutronError;
 use thiserror::Error;
@@ -70,6 +70,8 @@ pub enum ContractError {
         ica_height: u64,
         puppeteer_height: u64,
     },
+    #[error("Bond limit exceeded")]
+    BondLimitExceeded {},
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

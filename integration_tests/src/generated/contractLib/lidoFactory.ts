@@ -56,6 +56,20 @@ export interface DenomMetadata {
    */
   uri_hash?: string | null;
 }
+/**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint128 = string;
 export type CallbackArgs = {
   post_init: {};
 };
@@ -79,20 +93,6 @@ export type UpdateConfigArgs =
  * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
  */
 export type Addr = string;
-/**
- * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u128` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
- *
- * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
- *
- * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
- */
-export type Uint128 = string;
 export type ProxyArgs =
   | {
       validator_set: ValidatorSetMsg;
@@ -144,6 +144,7 @@ export interface InitArgs {
   core_params: CoreParams;
 }
 export interface CoreParams {
+  bond_limit?: Uint128 | null;
   channel: string;
   idle_min_interval: number;
   puppeteer_timeout: number;
@@ -153,6 +154,7 @@ export interface CoreParams {
 }
 export interface ConfigOptional {
   base_denom?: string | null;
+  bond_limit?: Uint128 | null;
   channel?: string | null;
   idle_min_interval?: number | null;
   ld_denom?: string | null;
