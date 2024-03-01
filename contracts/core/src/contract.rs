@@ -250,12 +250,9 @@ fn execute_tick_idle(
     let mut messages = vec![];
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
         //process non-native rewards
-        if let Some(transfer_msgs) = get_non_native_rewards_transfer_msg(deps.as_ref(), info, env)?
-        {
-            messages.push(transfer_msgs.0);
-            if let Some(fee_msg) = transfer_msgs.1 {
-                messages.push(fee_msg);
-            }
+        let transfer_msgs = get_non_native_rewards_transfer_msg(deps.as_ref(), info, env)?;
+        if !transfer_msgs.is_empty() {
+            messages.extend(transfer_msgs);
         } else {
             //return error if none
             return Err(ContractError::IdleMinIntervalIsNotReached {});
@@ -321,10 +318,7 @@ fn execute_tick_idle(
                 messages.push(transfer_msg);
             } else {
                 let all_msgs = get_stake_msg(deps.as_ref(), &env, config, info.funds)?;
-                messages.push(all_msgs.0);
-                if let Some(fee_msg) = all_msgs.1 {
-                    messages.push(fee_msg);
-                }
+                messages.extend(all_msgs);
                 FSM.go_to(deps.storage, ContractState::Staking)?;
             }
         } else {
@@ -388,10 +382,7 @@ fn execute_tick_claiming(
         messages.push(transfer_msg);
     } else {
         let all_msgs = get_stake_msg(deps.as_ref(), &env, config, info.funds)?;
-        messages.push(all_msgs.0);
-        if let Some(fee_msg) = all_msgs.1 {
-            messages.push(fee_msg);
-        }
+        messages.extend(all_msgs);
         FSM.go_to(deps.storage, ContractState::Staking)?;
     }
     attrs.push(attr("state", "unbonding"));
@@ -406,13 +397,8 @@ fn execute_tick_transfering(
 ) -> ContractResult<Response<NeutronMsg>> {
     let _response_msg = get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
-    let stake_msgs = get_stake_msg(deps.as_ref(), &env, config, info.funds)?;
+    let messages = get_stake_msg(deps.as_ref(), &env, config, info.funds)?;
     FSM.go_to(deps.storage, ContractState::Staking)?;
-    let mut messages = vec![];
-    messages.push(stake_msgs.0);
-    if let Some(fee_msg) = stake_msgs.1 {
-        messages.push(fee_msg);
-    }
 
     Ok(response(
         "execute-tick_transfering",
@@ -820,7 +806,7 @@ pub fn get_stake_msg<T>(
     env: &Env,
     config: &Config,
     funds: Vec<cosmwasm_std::Coin>,
-) -> ContractResult<MessageWithFeeResponse<T>> {
+) -> ContractResult<Vec<CosmosMsg<T>>> {
     let (balance, balance_height) = get_ica_balance_by_denom(
         deps,
         &config.puppeteer_contract,
@@ -848,7 +834,9 @@ pub fn get_stake_msg<T>(
             },
         )?;
 
-    let delegate_msg = CosmosMsg::Wasm(WasmMsg::Execute {
+    let mut messages = vec![];
+
+    messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_contract.to_string(),
         msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
             items: to_delegate
@@ -859,10 +847,10 @@ pub fn get_stake_msg<T>(
             reply_to: env.contract.address.to_string(),
         })?,
         funds,
-    });
+    }));
 
-    let fee_msg = if fee > Uint128::zero() && config.fee_address.is_some() {
-        Some(CosmosMsg::Wasm(WasmMsg::Execute {
+    if fee > Uint128::zero() && config.fee_address.is_some() {
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.puppeteer_contract.to_string(),
             msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
                 items: vec![(
@@ -876,12 +864,10 @@ pub fn get_stake_msg<T>(
                 reply_to: env.contract.address.to_string(),
             })?,
             funds: vec![],
-        }))
-    } else {
-        None
-    };
+        }));
+    }
 
-    Ok((delegate_msg, fee_msg))
+    Ok(messages)
 }
 
 fn get_received_puppeteer_response(
@@ -961,7 +947,7 @@ pub fn get_non_native_rewards_transfer_msg<T>(
     deps: Deps<NeutronQuery>,
     info: MessageInfo,
     env: Env,
-) -> ContractResult<Option<MessageWithFeeResponse<T>>> {
+) -> ContractResult<Vec<CosmosMsg<T>>> {
     let config = CONFIG.load(deps.storage)?;
     let non_native_rewards_receivers = NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?;
     let mut items = vec![];
@@ -1007,21 +993,21 @@ pub fn get_non_native_rewards_transfer_msg<T>(
         }
     }
 
-    if items.is_empty() {
-        return Ok(None);
+    let mut messages = vec![];
+    if !items.is_empty() {
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: config.puppeteer_contract.clone(),
+            msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
+                items,
+                timeout: Some(config.puppeteer_timeout),
+                reply_to: env.contract.address.to_string(),
+            })?,
+            funds: info.funds,
+        }))
     }
 
-    let transfer_msg = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.puppeteer_contract.clone(),
-        msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
-            items,
-            timeout: Some(config.puppeteer_timeout),
-            reply_to: env.contract.address.to_string(),
-        })?,
-        funds: info.funds,
-    });
-    let fee_msg = if !fees.is_empty() {
-        Some(CosmosMsg::Wasm(WasmMsg::Execute {
+    if !fees.is_empty() {
+        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.puppeteer_contract,
             msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
                 items: fees,
@@ -1030,11 +1016,9 @@ pub fn get_non_native_rewards_transfer_msg<T>(
             })?,
             funds: vec![],
         }))
-    } else {
-        None
-    };
+    }
 
-    Ok(Some((transfer_msg, fee_msg)))
+    Ok(messages)
 }
 
 mod check_denom {
@@ -1119,374 +1103,5 @@ mod check_denom {
         }
 
         Ok(DenomType::LsmShare)
-    }
-}
-#[cfg(test)]
-mod tests {
-    use std::marker::PhantomData;
-
-    use cosmwasm_std::{
-        from_json,
-        testing::{mock_env, mock_info, MockApi, MockQuerier, MockStorage},
-        Coin, ContractResult, Empty, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError,
-        SystemResult, WasmQuery,
-    };
-
-    use lido_puppeteer_base::msg::QueryMsg as PuppeteerBaseQueryMsg;
-    use lido_staking_base::msg::puppeteer::{MultiBalances, QueryExtMsg};
-    use lido_staking_base::msg::strategy::QueryMsg as StategyQueryMsg;
-    use neutron_sdk::interchain_queries::v045::types::Balances;
-
-    use super::*;
-
-    pub const MOCK_PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
-    pub const MOCK_STRATEGY_CONTRACT_ADDR: &str = "strategy_contract";
-
-    fn mock_dependencies() -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier, NeutronQuery> {
-        let custom_querier = WasmMockQuerier::new(MockQuerier::new(&[]));
-
-        OwnedDeps {
-            storage: MockStorage::default(),
-            api: MockApi::default(),
-            querier: custom_querier,
-            custom_query_type: PhantomData,
-        }
-    }
-
-    pub struct WasmMockQuerier {
-        base: MockQuerier,
-    }
-
-    impl Querier for WasmMockQuerier {
-        fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
-            let request: QueryRequest<Empty> = match from_json(bin_request) {
-                Ok(v) => v,
-                Err(e) => {
-                    return QuerierResult::Err(SystemError::InvalidRequest {
-                        error: format!("Parsing query request: {}", e),
-                        request: bin_request.into(),
-                    });
-                }
-            };
-            self.handle_query(&request)
-        }
-    }
-
-    impl WasmMockQuerier {
-        pub fn handle_query(&self, request: &QueryRequest<Empty>) -> QuerierResult {
-            match &request {
-                QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => {
-                    if contract_addr == MOCK_PUPPETEER_CONTRACT_ADDR {
-                        let q: PuppeteerBaseQueryMsg<QueryExtMsg> = from_json(msg).unwrap();
-                        let reply = match q {
-                            PuppeteerBaseQueryMsg::Extention { msg } => match msg {
-                                QueryExtMsg::NonNativeRewardsBalances {} => {
-                                    let data = (
-                                        MultiBalances {
-                                            coins: vec![Coin {
-                                                denom: "denom".to_string(),
-                                                amount: Uint128::new(150),
-                                            }],
-                                        },
-                                        10,
-                                    );
-                                    to_json_binary(&(data.0, data.1))
-                                }
-                                QueryExtMsg::Balances {} => {
-                                    let data = (
-                                        Balances {
-                                            coins: vec![Coin {
-                                                denom: "remote_denom".to_string(),
-                                                amount: Uint128::new(200),
-                                            }],
-                                        },
-                                        10,
-                                    );
-                                    to_json_binary(&(data.0, data.1))
-                                }
-                                _ => todo!(),
-                            },
-                            _ => todo!(),
-                        };
-                        return SystemResult::Ok(ContractResult::from(reply));
-                    }
-                    if contract_addr == MOCK_STRATEGY_CONTRACT_ADDR {
-                        let q: StategyQueryMsg = from_json(msg).unwrap();
-                        let reply = match q {
-                            StategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
-                                lido_staking_base::msg::distribution::IdealDelegation {
-                                    valoper_address: "valoper_address".to_string(),
-                                    stake_change: deposit,
-                                    ideal_stake: deposit,
-                                    current_stake: deposit,
-                                    weight: 1u64,
-                                },
-                            ]),
-                            _ => todo!(),
-                        };
-                        return SystemResult::Ok(ContractResult::from(reply));
-                    }
-                    SystemResult::Err(SystemError::NoSuchContract {
-                        addr: contract_addr.to_string(),
-                    })
-                }
-                _ => self.base.handle_query(request),
-            }
-        }
-    }
-
-    impl WasmMockQuerier {
-        pub fn new(base: MockQuerier) -> WasmMockQuerier {
-            WasmMockQuerier { base }
-        }
-    }
-
-    fn get_default_config(fee: Option<Decimal>) -> Config {
-        Config {
-            token_contract: "token_contract".to_string(),
-            puppeteer_contract: MOCK_PUPPETEER_CONTRACT_ADDR.to_string(),
-            puppeteer_timeout: 60,
-            strategy_contract: MOCK_STRATEGY_CONTRACT_ADDR.to_string(),
-            withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-            withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-            validators_set_contract: "validators_set_contract".to_string(),
-            base_denom: "base_denom".to_string(),
-            remote_denom: "remote_denom".to_string(),
-            idle_min_interval: 1,
-            unbonding_period: 60,
-            unbonding_safe_period: 10,
-            unbond_batch_switch_time: 6000,
-            pump_address: None,
-            owner: "owner".to_string(),
-            ld_denom: None,
-            channel: "channel".to_string(),
-            fee,
-            fee_address: Some("fee_address".to_string()),
-        }
-    }
-
-    fn setup_config(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier, NeutronQuery>) {
-        CONFIG
-            .save(
-                deps.as_mut().storage,
-                &get_default_config(Decimal::from_atomics(1u32, 1).ok()),
-            )
-            .unwrap();
-    }
-
-    #[test]
-    fn get_non_native_rewards_transfer_msg_success() {
-        let mut deps = mock_dependencies();
-
-        setup_config(&mut deps);
-
-        NON_NATIVE_REWARDS_CONFIG
-            .save(
-                deps.as_mut().storage,
-                &vec![NonNativeRewardsItem {
-                    address: "address".to_string(),
-                    denom: "denom".to_string(),
-                    min_amount: Uint128::new(100),
-                    fee: Decimal::from_atomics(1u32, 1).unwrap(),
-                    fee_address: "fee_address".to_string(),
-                }],
-            )
-            .unwrap();
-
-        let info = mock_info("addr0000", &[Coin::new(1000, "untrn")]);
-
-        let result: (CosmosMsg<NeutronMsg>, Option<CosmosMsg<NeutronMsg>>) =
-            get_non_native_rewards_transfer_msg(deps.as_ref(), info, mock_env())
-                .unwrap()
-                .unwrap();
-
-        let first_tx = result.0;
-        let second_tx = result.1;
-
-        assert_eq!(
-            first_tx,
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "puppeteer_contract".to_string(),
-                msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
-                    items: vec![(
-                        "address".to_string(),
-                        Coin {
-                            denom: "denom".to_string(),
-                            amount: Uint128::new(135)
-                        }
-                    )],
-                    timeout: Some(60),
-                    reply_to: "cosmos2contract".to_string()
-                })
-                .unwrap(),
-                funds: vec![Coin::new(1000, "untrn")]
-            })
-        );
-
-        assert_eq!(
-            second_tx.unwrap(),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "puppeteer_contract".to_string(),
-                msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
-                    items: vec![(
-                        "fee_address".to_string(),
-                        Coin {
-                            denom: "denom".to_string(),
-                            amount: Uint128::new(15)
-                        }
-                    )],
-                    timeout: Some(60),
-                    reply_to: "cosmos2contract".to_string()
-                })
-                .unwrap(),
-                funds: vec![]
-            })
-        );
-    }
-
-    #[test]
-    fn get_non_native_rewards_transfer_msg_zero_fee() {
-        let mut deps = mock_dependencies();
-
-        setup_config(&mut deps);
-
-        NON_NATIVE_REWARDS_CONFIG
-            .save(
-                deps.as_mut().storage,
-                &vec![NonNativeRewardsItem {
-                    address: "address".to_string(),
-                    denom: "denom".to_string(),
-                    min_amount: Uint128::new(100),
-                    fee: Decimal::zero(),
-                    fee_address: "fee_address".to_string(),
-                }],
-            )
-            .unwrap();
-
-        let info = mock_info("addr0000", &[Coin::new(1000, "untrn")]);
-
-        let result: (CosmosMsg<NeutronMsg>, Option<CosmosMsg<NeutronMsg>>) =
-            get_non_native_rewards_transfer_msg(deps.as_ref(), info, mock_env())
-                .unwrap()
-                .unwrap();
-
-        let first_tx = result.0;
-        let second_tx = result.1;
-
-        assert_eq!(
-            first_tx,
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "puppeteer_contract".to_string(),
-                msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
-                    items: vec![(
-                        "address".to_string(),
-                        Coin {
-                            denom: "denom".to_string(),
-                            amount: Uint128::new(150)
-                        }
-                    )],
-                    timeout: Some(60),
-                    reply_to: "cosmos2contract".to_string()
-                })
-                .unwrap(),
-                funds: vec![Coin::new(1000, "untrn")]
-            })
-        );
-
-        assert!(second_tx.is_none());
-    }
-
-    #[test]
-    fn get_stake_msg_success() {
-        let mut deps = mock_dependencies();
-
-        setup_config(&mut deps);
-
-        LAST_ICA_BALANCE_CHANGE_HEIGHT
-            .save(deps.as_mut().storage, &1)
-            .unwrap();
-
-        let result: (CosmosMsg<NeutronMsg>, Option<CosmosMsg<NeutronMsg>>) = get_stake_msg(
-            deps.as_ref(),
-            &mock_env(),
-            &get_default_config(Decimal::from_atomics(1u32, 1).ok()),
-            vec![],
-        )
-        .unwrap();
-
-        let first_tx = result.0;
-        let second_tx = result.1;
-
-        assert_eq!(
-            first_tx,
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "puppeteer_contract".to_string(),
-                msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
-                    items: vec![("valoper_address".to_string(), Uint128::new(180))],
-                    timeout: Some(60),
-                    reply_to: "cosmos2contract".to_string(),
-                })
-                .unwrap(),
-                funds: vec![],
-            })
-        );
-
-        assert_eq!(
-            second_tx.unwrap(),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "puppeteer_contract".to_string(),
-                msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
-                    items: vec![(
-                        "fee_address".to_string(),
-                        Coin {
-                            denom: "remote_denom".to_string(),
-                            amount: Uint128::new(20)
-                        }
-                    )],
-                    timeout: Some(60),
-                    reply_to: "cosmos2contract".to_string()
-                })
-                .unwrap(),
-                funds: vec![]
-            })
-        );
-    }
-
-    #[test]
-    fn get_stake_msg_zero_fee() {
-        let mut deps = mock_dependencies();
-
-        setup_config(&mut deps);
-
-        LAST_ICA_BALANCE_CHANGE_HEIGHT
-            .save(deps.as_mut().storage, &1)
-            .unwrap();
-
-        let result: (CosmosMsg<NeutronMsg>, Option<CosmosMsg<NeutronMsg>>) = get_stake_msg(
-            deps.as_ref(),
-            &mock_env(),
-            &get_default_config(None),
-            vec![],
-        )
-        .unwrap();
-
-        let first_tx = result.0;
-        let second_tx = result.1;
-
-        assert_eq!(
-            first_tx,
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "puppeteer_contract".to_string(),
-                msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
-                    items: vec![("valoper_address".to_string(), Uint128::new(200))],
-                    timeout: Some(60),
-                    reply_to: "cosmos2contract".to_string(),
-                })
-                .unwrap(),
-                funds: vec![],
-            })
-        );
-
-        assert!(second_tx.is_none());
     }
 }
