@@ -1,4 +1,4 @@
-use cosmwasm_std::{OverflowError, StdError, Uint128};
+use cosmwasm_std::{OverflowError, StdError};
 use cw_ownable::OwnershipError;
 use neutron_sdk::NeutronError;
 use thiserror::Error;
