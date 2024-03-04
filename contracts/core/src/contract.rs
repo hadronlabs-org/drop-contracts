@@ -245,19 +245,23 @@ fn execute_tick_idle(
     info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
+    deps.api.debug("WASMDEBUG: tick idle, start");
     let mut attrs = vec![attr("action", "tick_idle")];
     let last_idle_call = LAST_IDLE_CALL.load(deps.storage)?;
     let mut messages = vec![];
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
+        deps.api.debug("WASMDEBUG: tick idle, 1");
         //process non-native rewards
-        let transfer_msgs = get_non_native_rewards_transfer_msg(deps.as_ref(), info, env)?;
-        if !transfer_msgs.is_empty() {
-            messages.extend(transfer_msgs);
+        deps.api.debug("WASMDEBUG: tick idle, 1.1");
+        if let Some(transfer_msg) = get_non_native_rewards_transfer_msg(deps.as_ref(), info, env)? {
+            messages.push(transfer_msg);
         } else {
             //return error if none
             return Err(ContractError::IdleMinIntervalIsNotReached {});
         }
+        deps.api.debug("WASMDEBUG: tick idle, 1.2");
     } else {
+        deps.api.debug("WASMDEBUG: tick idle, 2");
         ensure!(
             !is_unbonding_time_close(
                 deps.as_ref(),
@@ -266,6 +270,7 @@ fn execute_tick_idle(
             )?,
             ContractError::UnbondingTimeIsClose {}
         );
+        deps.api.debug("WASMDEBUG: tick idle, 3");
         let pump_address = config
             .pump_address
             .clone()
@@ -282,6 +287,7 @@ fn execute_tick_idle(
             }),
             None => None,
         };
+        deps.api.debug("WASMDEBUG: tick idle, 4");
 
         let validators: Vec<ValidatorInfo> = deps.querier.query_wasm_smart(
             config.validators_set_contract.to_string(),
@@ -308,6 +314,7 @@ fn execute_tick_idle(
             .map(|d| d.validator.clone())
             .collect::<Vec<_>>();
         FSM.go_to(deps.storage, ContractState::Claiming)?;
+        deps.api.debug("WASMDEBUG: tick idle, set claiming state");
         if validators_to_claim.is_empty() {
             attrs.push(attr("validators_to_claim", "empty"));
             if let Some((transfer_msg, pending_amount)) =
@@ -317,6 +324,8 @@ fn execute_tick_idle(
                 PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
                 messages.push(transfer_msg);
             } else {
+                deps.api.debug("WASMDEBUG: tick idle, get_stake_msg");
+
                 let all_msgs = get_stake_msg(deps.as_ref(), &env, config, info.funds)?;
                 messages.extend(all_msgs);
                 FSM.go_to(deps.storage, ContractState::Staking)?;
@@ -339,6 +348,7 @@ fn execute_tick_idle(
         attrs.push(attr("state", "claiming"));
         LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
     }
+    deps.api.debug("WASMDEBUG: tick idle, 5");
     Ok(response("execute-tick_idle", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
@@ -947,11 +957,12 @@ pub fn get_non_native_rewards_transfer_msg<T>(
     deps: Deps<NeutronQuery>,
     info: MessageInfo,
     env: Env,
-) -> ContractResult<Vec<CosmosMsg<T>>> {
+) -> ContractResult<Option<CosmosMsg<T>>> {
+    deps.api
+        .debug("WASMDEBUG: get_non_native_rewards_transfer_msg, start");
     let config = CONFIG.load(deps.storage)?;
     let non_native_rewards_receivers = NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?;
     let mut items = vec![];
-    let mut fees = vec![];
     let rewards: lido_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             config.puppeteer_contract.to_string(),
@@ -959,6 +970,8 @@ pub fn get_non_native_rewards_transfer_msg<T>(
                 msg: lido_staking_base::msg::puppeteer::QueryExtMsg::NonNativeRewardsBalances {},
             },
         )?;
+    deps.api
+        .debug("WASMDEBUG: get_non_native_rewards_transfer_msg, 1");
 
     let rewards_map = rewards
         .0
@@ -967,6 +980,14 @@ pub fn get_non_native_rewards_transfer_msg<T>(
         .map(|c| (c.denom.clone(), c.amount))
         .collect::<std::collections::HashMap<_, _>>();
     let default_amount = Uint128::zero();
+
+    deps.api
+        .debug("WASMDEBUG: get_non_native_rewards_transfer_msg, 2");
+
+    deps.api.debug(&format!(
+        "WASMDEBUG: non_native_rewards_receivers: {:?}, rewards: {:?}",
+        non_native_rewards_receivers, rewards
+    ));
 
     for item in non_native_rewards_receivers {
         let amount = rewards_map.get(&item.denom).unwrap_or(&default_amount);
@@ -982,7 +1003,7 @@ pub fn get_non_native_rewards_transfer_msg<T>(
             ));
 
             if (item.fee > Decimal::zero()) && (fee > Uint128::zero()) {
-                fees.push((
+                items.push((
                     item.fee_address,
                     cosmwasm_std::Coin {
                         denom: item.denom,
@@ -993,32 +1014,27 @@ pub fn get_non_native_rewards_transfer_msg<T>(
         }
     }
 
-    let mut messages = vec![];
-    if !items.is_empty() {
-        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.puppeteer_contract.clone(),
-            msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
-                items,
-                timeout: Some(config.puppeteer_timeout),
-                reply_to: env.contract.address.to_string(),
-            })?,
-            funds: info.funds,
-        }))
+    deps.api
+        .debug("WASMDEBUG: get_non_native_rewards_transfer_msg, 3");
+
+    deps.api.debug(&format!("WASMDEBUG: items: {:?}", items));
+
+    if items.is_empty() {
+        return Ok(None);
     }
 
-    if !fees.is_empty() {
-        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.puppeteer_contract,
-            msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
-                items: fees,
-                timeout: Some(config.puppeteer_timeout),
-                reply_to: env.contract.address.to_string(),
-            })?,
-            funds: vec![],
-        }))
-    }
+    deps.api
+        .debug("WASMDEBUG: get_non_native_rewards_transfer_msg, 4");
 
-    Ok(messages)
+    Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.puppeteer_contract,
+        msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
+            items,
+            timeout: Some(config.puppeteer_timeout),
+            reply_to: env.contract.address.to_string(),
+        })?,
+        funds: info.funds,
+    })))
 }
 
 mod check_denom {

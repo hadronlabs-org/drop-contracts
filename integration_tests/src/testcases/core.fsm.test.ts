@@ -52,6 +52,7 @@ describe('Core', () => {
     contractAddress?: string;
     wallet?: DirectSecp256k1HdWallet;
     gaiaWallet?: DirectSecp256k1HdWallet;
+    gaiaWallet2?: DirectSecp256k1HdWallet;
     factoryContractClient?: InstanceType<typeof LidoFactoryClass>;
     coreContractClient?: InstanceType<typeof LidoCoreClass>;
     strategyContractClient?: InstanceType<typeof LidoStrategyClass>;
@@ -68,6 +69,7 @@ describe('Core', () => {
     client?: SigningCosmWasmClient;
     gaiaClient?: SigningStargateClient;
     gaiaUserAddress?: string;
+    gaiaUserAddress2?: string;
     gaiaQueryClient?: QueryClient & StakingExtension & BankExtension;
     neutronClient?: InstanceType<typeof NeutronClient>;
     neutronUserAddress?: string;
@@ -102,6 +104,12 @@ describe('Core', () => {
     );
     context.gaiaWallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
+      {
+        prefix: 'cosmos',
+      },
+    );
+    context.gaiaWallet2 = await DirectSecp256k1HdWallet.fromMnemonic(
+      context.park.config.wallets.demo1.mnemonic,
       {
         prefix: 'cosmos',
       },
@@ -302,6 +310,9 @@ describe('Core', () => {
     );
     context.gaiaUserAddress = (
       await context.gaiaWallet.getAccounts()
+    )[0].address;
+    context.gaiaUserAddress2 = (
+      await context.gaiaWallet2.getAccounts()
     )[0].address;
     context.neutronUserAddress = (
       await context.wallet.getAccounts()
@@ -1081,8 +1092,8 @@ describe('Core', () => {
                   denom,
                   address: context.gaiaUserAddress,
                   min_amount: '10000',
-                  fee: '0',
-                  fee_address: 'fee_address',
+                  fee: '0.1',
+                  fee_address: context.gaiaUserAddress2,
                 })),
               },
             },

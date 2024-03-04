@@ -178,49 +178,37 @@ fn get_non_native_rewards_transfer_msg_success() {
 
     let info = mock_info("addr0000", &[Coin::new(1000, "untrn")]);
 
-    let result: Vec<CosmosMsg<NeutronMsg>> =
-        get_non_native_rewards_transfer_msg(deps.as_ref(), info, mock_env()).unwrap();
-
-    let first_tx = result[0].clone();
-    let second_tx = result[1].clone();
+    let result: CosmosMsg<NeutronMsg> =
+        get_non_native_rewards_transfer_msg(deps.as_ref(), info, mock_env())
+            .unwrap()
+            .unwrap();
 
     assert_eq!(
-        first_tx,
+        result,
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "puppeteer_contract".to_string(),
             msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
-                items: vec![(
-                    "address".to_string(),
-                    Coin {
-                        denom: "denom".to_string(),
-                        amount: Uint128::new(135)
-                    }
-                )],
+                items: vec![
+                    (
+                        "address".to_string(),
+                        Coin {
+                            denom: "denom".to_string(),
+                            amount: Uint128::new(135)
+                        }
+                    ),
+                    (
+                        "fee_address".to_string(),
+                        Coin {
+                            denom: "denom".to_string(),
+                            amount: Uint128::new(15)
+                        }
+                    )
+                ],
                 timeout: Some(60),
                 reply_to: "cosmos2contract".to_string()
             })
             .unwrap(),
             funds: vec![Coin::new(1000, "untrn")]
-        })
-    );
-
-    assert_eq!(
-        second_tx,
-        CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "puppeteer_contract".to_string(),
-            msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
-                items: vec![(
-                    "fee_address".to_string(),
-                    Coin {
-                        denom: "denom".to_string(),
-                        amount: Uint128::new(15)
-                    }
-                )],
-                timeout: Some(60),
-                reply_to: "cosmos2contract".to_string()
-            })
-            .unwrap(),
-            funds: vec![]
         })
     );
 }
@@ -246,14 +234,13 @@ fn get_non_native_rewards_transfer_msg_zero_fee() {
 
     let info = mock_info("addr0000", &[Coin::new(1000, "untrn")]);
 
-    let result: Vec<CosmosMsg<NeutronMsg>> =
-        get_non_native_rewards_transfer_msg(deps.as_ref(), info, mock_env()).unwrap();
-
-    assert_eq!(result.len(), 1);
-    let first_tx: CosmosMsg<NeutronMsg> = result[0].clone();
+    let result: CosmosMsg<NeutronMsg> =
+        get_non_native_rewards_transfer_msg(deps.as_ref(), info, mock_env())
+            .unwrap()
+            .unwrap();
 
     assert_eq!(
-        first_tx,
+        result,
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "puppeteer_contract".to_string(),
             msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {

@@ -58,6 +58,10 @@ where
         status: TxStateStatus,
     ) -> NeutronResult<()> {
         let tx_state = self.tx_state.load(deps.storage).unwrap_or_default();
+        deps.api.debug(&format!(
+            "WASMDEBUG: validate_tx_state: real state: {:?} checked state: {:?}",
+            tx_state, status
+        ));
         ensure_eq!(
             tx_state.status,
             status,
