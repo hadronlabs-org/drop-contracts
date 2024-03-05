@@ -482,7 +482,6 @@ fn execute_transfer(
     deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
-    deps.api.debug("WASMDEBUG: tranexecute_transfer: 1");
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
     let ica = puppeteer_base.ica.get_address(deps.storage)?;
     let mut any_msgs = vec![];
