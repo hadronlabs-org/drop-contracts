@@ -55,7 +55,8 @@ describe('Pump-Multi', () => {
     context.park = await setupPark(
       'pumpmulti',
       ['neutron', 'gaia', 'lsm'],
-      true,
+      {},
+      { neutron: true, hermes: true },
     );
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,

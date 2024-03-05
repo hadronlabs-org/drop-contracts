@@ -27,7 +27,7 @@ describe('Distribution', () => {
   } = {};
 
   beforeAll(async () => {
-    context.park = await setupPark('distribution', ['neutron'], false);
+    context.park = await setupPark('distribution', ['neutron']);
 
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,

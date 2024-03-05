@@ -5,7 +5,10 @@ import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { waitFor } from './helpers/waitFor';
 import { sleep } from './helpers/sleep';
 import child_process from 'child_process';
-import { CosmoparkNetworkConfig } from '@neutron-org/cosmopark/lib/types';
+import {
+  CosmoparkNetworkConfig,
+  CosmoparkRelayer,
+} from '@neutron-org/cosmopark/lib/types';
 const packageJSON = require(`${__dirname}/../package.json`);
 const VERSION = (process.env.CI ? '_' : ':') + packageJSON.version;
 const ORG = process.env.CI ? 'neutronorg/lionco-contracts:' : '';
@@ -229,10 +232,10 @@ export const generateWallets = (): Promise<Record<Keys, string>> =>
     Promise.resolve({} as Record<Keys, string>),
   );
 
-type OptsType = Partial<Record<keyof typeof networkConfigs | '*', any>>;
+type NetworkOptsType = Partial<Record<keyof typeof networkConfigs | '*', any>>;
 const getNetworkConfig = (
   network: string,
-  opts: OptsType,
+  opts: NetworkOptsType = {},
 ): CosmoparkNetworkConfig => {
   let config = networkConfigs[network];
   const extOpts = opts['*'] || opts[network] || {};
@@ -246,12 +249,31 @@ const getNetworkConfig = (
   return config;
 };
 
+type RelayerOptsType = Partial<Record<keyof typeof relayersConfig, any>>;
+const getRelayerConfig = (
+  relayer: string,
+  opts: RelayerOptsType,
+): CosmoparkRelayer => {
+  relayer;
+  let config = relayersConfig[relayer] || {};
+
+  for (const [key, value] of Object.entries(opts)) {
+    if (typeof value === 'object') {
+      config = { ...config, [key]: { ...config[key], ...value } };
+    } else {
+      config = { ...config, [key]: value };
+    }
+  }
+  return config;
+};
+
 export const setupPark = async (
   context = 'lido',
   networks: string[] = [],
-  needHermes = false,
-  needNeutronRelayer = false,
-  opts?: OptsType, // Key is path to the param, value is Record of network name and value
+  opts?: NetworkOptsType, // Key is path to the param, value is Record of network name and value
+  relayers: Partial<
+    Record<keyof typeof relayersConfig, RelayerOptsType | boolean>
+  > = {},
 ): Promise<cosmopark> => {
   const wallets = await generateWallets();
   const config: CosmoparkConfig = {
@@ -273,7 +295,7 @@ export const setupPark = async (
     config.networks[network] = getNetworkConfig(network, opts);
   }
   config.relayers = [];
-  if (needHermes) {
+  if (relayers.hermes) {
     const connections = networks.reduce((connections, network, index, all) => {
       if (index === all.length - 1) {
         return connections;
@@ -284,15 +306,21 @@ export const setupPark = async (
       return connections;
     }, []);
     config.relayers.push({
-      ...relayersConfig.hermes,
+      ...getRelayerConfig(
+        'hermes',
+        relayers.hermes === true ? {} : relayers.hermes,
+      ),
       networks,
       connections: connections,
       mnemonic: wallets.hermes,
     } as any);
   }
-  if (needNeutronRelayer) {
+  if (relayers.neutron) {
     config.relayers.push({
-      ...relayersConfig.neutron,
+      ...getRelayerConfig(
+        'neutron',
+        relayers.neutron === true ? {} : relayers.neutron,
+      ),
       networks,
       mnemonic: wallets.neutronqueryrelayer,
     } as any);
@@ -306,7 +334,7 @@ export const setupPark = async (
       }),
     ),
   );
-  if (needHermes) {
+  if (relayers.hermes) {
     await awaitNeutronChannels(
       `127.0.0.1:${instance.ports['neutron'].rest}`,
       `127.0.0.1:${instance.ports['neutron'].rpc}`,

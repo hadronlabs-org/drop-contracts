@@ -51,8 +51,8 @@ describe('POC Proposal Votes', () => {
     context.park = await setupPark(
       'providerprops',
       ['neutron', 'gaia'],
-      true,
-      true,
+      {},
+      { hermes: true, neutron: true },
     );
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,

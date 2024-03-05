@@ -93,7 +93,12 @@ describe('Core', () => {
   } = { codeIds: {} };
 
   beforeAll(async () => {
-    context.park = await setupPark('corefsm', ['neutron', 'gaia'], true, true);
+    context.park = await setupPark(
+      'corefsm',
+      ['neutron', 'gaia'],
+      {},
+      { hermes: true, neutron: true },
+    );
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
       {

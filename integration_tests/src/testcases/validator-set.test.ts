@@ -25,7 +25,7 @@ describe('Validator set', () => {
   } = {};
 
   beforeAll(async () => {
-    context.park = await setupPark('validatorset', ['neutron'], false);
+    context.park = await setupPark('validatorset', ['neutron']);
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
       {
