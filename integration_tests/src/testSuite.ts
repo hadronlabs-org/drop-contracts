@@ -5,6 +5,7 @@ import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { waitFor } from './helpers/waitFor';
 import { sleep } from './helpers/sleep';
 import child_process from 'child_process';
+import { CosmoparkNetworkConfig } from '@neutron-org/cosmopark/lib/types';
 const packageJSON = require(`${__dirname}/../package.json`);
 const VERSION = (process.env.CI ? '_' : ':') + packageJSON.version;
 const ORG = process.env.CI ? 'neutronorg/lionco-contracts:' : '';
@@ -228,11 +229,29 @@ export const generateWallets = (): Promise<Record<Keys, string>> =>
     Promise.resolve({} as Record<Keys, string>),
   );
 
+type OptsType = Partial<Record<keyof typeof networkConfigs | '*', any>>;
+const getNetworkConfig = (
+  network: string,
+  opts: OptsType,
+): CosmoparkNetworkConfig => {
+  let config = networkConfigs[network];
+  const extOpts = opts['*'] || opts[network] || {};
+  for (const [key, value] of Object.entries(extOpts)) {
+    if (typeof value === 'object') {
+      config = { ...config, [key]: { ...config[key], ...value } };
+    } else {
+      config = { ...config, [key]: value };
+    }
+  }
+  return config;
+};
+
 export const setupPark = async (
   context = 'lido',
   networks: string[] = [],
   needHermes = false,
   needNeutronRelayer = false,
+  opts?: OptsType, // Key is path to the param, value is Record of network name and value
 ): Promise<cosmopark> => {
   const wallets = await generateWallets();
   const config: CosmoparkConfig = {
@@ -251,7 +270,7 @@ export const setupPark = async (
     },
   };
   for (const network of networks) {
-    config.networks[network] = networkConfigs[network];
+    config.networks[network] = getNetworkConfig(network, opts);
   }
   config.relayers = [];
   if (needHermes) {

@@ -50,6 +50,14 @@ describe('Interchain puppeteer', () => {
       ['neutron', 'gaia'],
       true,
       true,
+      {
+        '*': {
+          config_opts: {
+            'consensus.timeout_commit': '1s',
+            'consensus.timeout_propose': '1s',
+          },
+        },
+      },
     );
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
