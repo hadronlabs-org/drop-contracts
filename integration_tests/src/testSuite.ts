@@ -77,6 +77,8 @@ const networkConfigs = {
     },
     config_opts: {
       'rpc.laddr': 'tcp://0.0.0.0:26657',
+      'consensus.timeout_commit': '500ms',
+      'consensus.timeout_propose': '500ms',
     },
     app_opts: {
       'api.enable': true,
@@ -110,8 +112,8 @@ const networkConfigs = {
       'app_state.crisis.constant_fee.denom': 'untrn',
     },
     config_opts: {
-      'consensus.timeout_commit': '1s',
-      'consensus.timeout_propose': '1s',
+      'consensus.timeout_commit': '500ms',
+      'consensus.timeout_propose': '500ms',
     },
     app_opts: {
       'api.enable': 'true',

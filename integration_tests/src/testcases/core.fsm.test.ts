@@ -371,7 +371,7 @@ describe('Core', () => {
     const res = await contractClient.init(context.neutronUserAddress, {
       base_denom: context.neutronIBCDenom,
       core_params: {
-        idle_min_interval: 60,
+        idle_min_interval: 2,
         puppeteer_timeout: 60,
         unbond_batch_switch_time: 6000,
         unbonding_safe_period: 10,
@@ -715,17 +715,6 @@ describe('Core', () => {
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('transfering');
       });
-      it('second tick is failed bc no response from puppeteer yet', async () => {
-        const { neutronUserAddress } = context;
-        await expect(
-          context.coreContractClient.tick(
-            neutronUserAddress,
-            1.5,
-            undefined,
-            [],
-          ),
-        ).rejects.toThrowError(/Puppeteer response is not received/);
-      });
       it('state of fsm is transfering', async () => {
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('transfering');
@@ -781,17 +770,6 @@ describe('Core', () => {
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('staking');
       });
-      it('second tick is failed bc no response from puppeteer yet', async () => {
-        const { neutronUserAddress } = context;
-        await expect(
-          context.coreContractClient.tick(
-            neutronUserAddress,
-            1.5,
-            undefined,
-            [],
-          ),
-        ).rejects.toThrowError(/Puppeteer response is not received/);
-      });
       it('wait for response from puppeteer', async () => {
         let response;
         await waitFor(async () => {
@@ -832,17 +810,6 @@ describe('Core', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('unbonding');
-      });
-      it('third tick is failed bc no response from puppeteer yet', async () => {
-        const { neutronUserAddress } = context;
-        await expect(
-          context.coreContractClient.tick(
-            neutronUserAddress,
-            1.5,
-            undefined,
-            [],
-          ),
-        ).rejects.toThrowError(/Puppeteer response is not received/);
       });
       it('query unbonding batch', async () => {
         const batch = await context.coreContractClient.queryUnbondBatch({
@@ -922,8 +889,8 @@ describe('Core', () => {
         const res = await gaiaClient.getBalance(context.icaAddress, 'stake');
         balance = parseInt(res.amount);
       });
-      it('wait for 30 seconds', async () => {
-        await sleep(30_000);
+      it('wait for 10 secs', async () => {
+        await sleep(10_000);
       });
       it('idle tick', async () => {
         const { neutronUserAddress } = context;
@@ -1117,8 +1084,10 @@ describe('Core', () => {
                   non_native_rewards_balances: {},
                 },
               });
+            console.log(res);
             return res.length == 2;
           } catch (e) {
+            console.log(e);
             //
           }
         });

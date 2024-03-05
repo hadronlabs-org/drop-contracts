@@ -3,7 +3,7 @@ import { sleep } from './sleep';
 export const waitFor = async (
   fn: () => Promise<boolean>,
   timeout: number = 10000,
-  interval: number = 600,
+  interval: number = 300,
 ): Promise<void> => {
   const start = Date.now();
   // eslint-disable-next-line no-constant-condition
