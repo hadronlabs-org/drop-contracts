@@ -3,15 +3,16 @@ use std::marker::PhantomData;
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockQuerier, MockStorage},
-    to_json_binary, Coin, ContractResult, CosmosMsg, Decimal, Empty, OwnedDeps, Querier,
-    QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmMsg, WasmQuery,
+    to_json_binary, Coin, ContractResult, CosmosMsg, Decimal, Empty, Order, OwnedDeps, Querier,
+    QuerierResult, QueryRequest, StdResult, SystemError, SystemResult, Uint128, WasmMsg, WasmQuery,
 };
 
 use lido_puppeteer_base::msg::QueryMsg as PuppeteerBaseQueryMsg;
 use lido_staking_base::{
     msg::puppeteer::{MultiBalances, QueryExtMsg},
     state::core::{
-        Config, NonNativeRewardsItem, LAST_ICA_BALANCE_CHANGE_HEIGHT, NON_NATIVE_REWARDS_CONFIG,
+        Config, FeeItem, NonNativeRewardsItem, COLLECTED_FEES, LAST_ICA_BALANCE_CHANGE_HEIGHT,
+        NON_NATIVE_REWARDS_CONFIG,
     },
 };
 use lido_staking_base::{msg::strategy::QueryMsg as StategyQueryMsg, state::core::CONFIG};
@@ -20,7 +21,7 @@ use neutron_sdk::{
     interchain_queries::v045::types::Balances,
 };
 
-use crate::contract::{get_non_native_rewards_transfer_msg, get_stake_msg};
+use crate::contract::{get_non_native_rewards_and_fee_transfer_msg, get_stake_msg};
 
 pub const MOCK_PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
 pub const MOCK_STRATEGY_CONTRACT_ADDR: &str = "strategy_contract";
@@ -158,7 +159,7 @@ fn setup_config(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier, Neut
 }
 
 #[test]
-fn get_non_native_rewards_transfer_msg_success() {
+fn get_non_native_rewards_and_fee_transfer_msg_success() {
     let mut deps = mock_dependencies();
 
     setup_config(&mut deps);
@@ -179,7 +180,7 @@ fn get_non_native_rewards_transfer_msg_success() {
     let info = mock_info("addr0000", &[Coin::new(1000, "untrn")]);
 
     let result: CosmosMsg<NeutronMsg> =
-        get_non_native_rewards_transfer_msg(deps.as_ref(), info, mock_env())
+        get_non_native_rewards_and_fee_transfer_msg(deps.as_ref(), info, mock_env())
             .unwrap()
             .unwrap();
 
@@ -214,7 +215,7 @@ fn get_non_native_rewards_transfer_msg_success() {
 }
 
 #[test]
-fn get_non_native_rewards_transfer_msg_zero_fee() {
+fn get_non_native_rewards_and_fee_transfer_msg_zero_fee() {
     let mut deps = mock_dependencies();
 
     setup_config(&mut deps);
@@ -235,7 +236,7 @@ fn get_non_native_rewards_transfer_msg_zero_fee() {
     let info = mock_info("addr0000", &[Coin::new(1000, "untrn")]);
 
     let result: CosmosMsg<NeutronMsg> =
-        get_non_native_rewards_transfer_msg(deps.as_ref(), info, mock_env())
+        get_non_native_rewards_and_fee_transfer_msg(deps.as_ref(), info, mock_env())
             .unwrap()
             .unwrap();
 
@@ -270,19 +271,16 @@ fn get_stake_msg_success() {
         .save(deps.as_mut().storage, &1)
         .unwrap();
 
-    let result: Vec<CosmosMsg<NeutronMsg>> = get_stake_msg(
-        deps.as_ref(),
+    let stake_msg: CosmosMsg<NeutronMsg> = get_stake_msg(
+        deps.as_mut(),
         &mock_env(),
         &get_default_config(Decimal::from_atomics(1u32, 1).ok()),
         vec![],
     )
     .unwrap();
 
-    let first_tx = result[0].clone();
-    let second_tx = result[1].clone();
-
     assert_eq!(
-        first_tx,
+        stake_msg,
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "puppeteer_contract".to_string(),
             msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
@@ -295,24 +293,21 @@ fn get_stake_msg_success() {
         })
     );
 
+    let collected_fees = COLLECTED_FEES
+        .range_raw(deps.as_mut().storage, None, None, Order::Ascending)
+        .map(|item| item.map(|(_key, value)| value))
+        .collect::<StdResult<Vec<FeeItem>>>()
+        .unwrap();
+
+    println!("123: {:?}", collected_fees);
+
     assert_eq!(
-        second_tx,
-        CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "puppeteer_contract".to_string(),
-            msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
-                items: vec![(
-                    "fee_address".to_string(),
-                    Coin {
-                        denom: "remote_denom".to_string(),
-                        amount: Uint128::new(20)
-                    }
-                )],
-                timeout: Some(60),
-                reply_to: "cosmos2contract".to_string()
-            })
-            .unwrap(),
-            funds: vec![]
-        })
+        collected_fees[0],
+        FeeItem {
+            address: "fee_address".to_string(),
+            denom: "remote_denom".to_string(),
+            amount: Uint128::new(20),
+        }
     );
 }
 
@@ -326,19 +321,16 @@ fn get_stake_msg_zero_fee() {
         .save(deps.as_mut().storage, &1)
         .unwrap();
 
-    let result: Vec<CosmosMsg<NeutronMsg>> = get_stake_msg(
-        deps.as_ref(),
+    let stake_msg: CosmosMsg<NeutronMsg> = get_stake_msg(
+        deps.as_mut(),
         &mock_env(),
         &get_default_config(None),
         vec![],
     )
     .unwrap();
 
-    assert_eq!(result.len(), 1);
-    let first_tx = result[0].clone();
-
     assert_eq!(
-        first_tx,
+        stake_msg,
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "puppeteer_contract".to_string(),
             msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Delegate {

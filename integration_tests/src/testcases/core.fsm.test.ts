@@ -1168,7 +1168,12 @@ describe('Core', () => {
           context.gaiaUserAddress,
           remoteNonNativeDenoms[0],
         );
-        expect(receiverBalance.amount).toEqual('66666');
+        expect(receiverBalance.amount).toEqual('60000');
+        const feeBalance = await gaiaClient.getBalance(
+          context.gaiaUserAddress2,
+          remoteNonNativeDenoms[0],
+        );
+        expect(feeBalance.amount).toEqual('6666');
         // this one is still on ICA as amount is below min_amount
         const icaBalance = await gaiaClient.getBalance(
           context.icaAddress,
