@@ -299,8 +299,6 @@ fn get_stake_msg_success() {
         .collect::<StdResult<Vec<FeeItem>>>()
         .unwrap();
 
-    println!("123: {:?}", collected_fees);
-
     assert_eq!(
         collected_fees[0],
         FeeItem {

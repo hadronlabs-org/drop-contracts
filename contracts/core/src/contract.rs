@@ -245,14 +245,11 @@ fn execute_tick_idle(
     info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api.debug("WASMDEBUG: tick idle, start");
     let mut attrs = vec![attr("action", "tick_idle")];
     let last_idle_call = LAST_IDLE_CALL.load(deps.storage)?;
     let mut messages = vec![];
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
-        deps.api.debug("WASMDEBUG: tick idle, 1");
         //process non-native rewards
-        deps.api.debug("WASMDEBUG: tick idle, 1.1");
         if let Some(transfer_msg) =
             get_non_native_rewards_and_fee_transfer_msg(deps.as_ref(), info, env)?
         {
@@ -261,9 +258,7 @@ fn execute_tick_idle(
             //return error if none
             return Err(ContractError::IdleMinIntervalIsNotReached {});
         }
-        deps.api.debug("WASMDEBUG: tick idle, 1.2");
     } else {
-        deps.api.debug("WASMDEBUG: tick idle, 2");
         ensure!(
             !is_unbonding_time_close(
                 deps.as_ref(),
@@ -272,7 +267,6 @@ fn execute_tick_idle(
             )?,
             ContractError::UnbondingTimeIsClose {}
         );
-        deps.api.debug("WASMDEBUG: tick idle, 3");
         let pump_address = config
             .pump_address
             .clone()
@@ -289,7 +283,6 @@ fn execute_tick_idle(
             }),
             None => None,
         };
-        deps.api.debug("WASMDEBUG: tick idle, 4");
 
         let validators: Vec<ValidatorInfo> = deps.querier.query_wasm_smart(
             config.validators_set_contract.to_string(),
@@ -316,7 +309,6 @@ fn execute_tick_idle(
             .map(|d| d.validator.clone())
             .collect::<Vec<_>>();
         FSM.go_to(deps.storage, ContractState::Claiming)?;
-        deps.api.debug("WASMDEBUG: tick idle, set claiming state");
         if validators_to_claim.is_empty() {
             attrs.push(attr("validators_to_claim", "empty"));
             if let Some((transfer_msg, pending_amount)) =
@@ -326,8 +318,6 @@ fn execute_tick_idle(
                 PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
                 messages.push(transfer_msg);
             } else {
-                deps.api.debug("WASMDEBUG: tick idle, get_stake_msg");
-
                 let stake_msg = get_stake_msg(deps.branch(), &env, config, info.funds)?;
                 messages.push(stake_msg);
                 FSM.go_to(deps.storage, ContractState::Staking)?;
@@ -350,7 +340,6 @@ fn execute_tick_idle(
         attrs.push(attr("state", "claiming"));
         LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
     }
-    deps.api.debug("WASMDEBUG: tick idle, 5");
     Ok(response("execute-tick_idle", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
@@ -953,8 +942,6 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
     info: MessageInfo,
     env: Env,
 ) -> ContractResult<Option<CosmosMsg<T>>> {
-    deps.api
-        .debug("WASMDEBUG: get_non_native_rewards_transfer_msg, start");
     let config = CONFIG.load(deps.storage)?;
     let non_native_rewards_receivers = NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?;
     let mut items = vec![];
@@ -965,8 +952,6 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
                 msg: lido_staking_base::msg::puppeteer::QueryExtMsg::NonNativeRewardsBalances {},
             },
         )?;
-    deps.api
-        .debug("WASMDEBUG: get_non_native_rewards_transfer_msg, 1");
 
     let rewards_map = rewards
         .0
@@ -975,14 +960,6 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
         .map(|c| (c.denom.clone(), c.amount))
         .collect::<std::collections::HashMap<_, _>>();
     let default_amount = Uint128::zero();
-
-    deps.api
-        .debug("WASMDEBUG: get_non_native_rewards_transfer_msg, 2");
-
-    deps.api.debug(&format!(
-        "WASMDEBUG: non_native_rewards_receivers: {:?}, rewards: {:?}",
-        non_native_rewards_receivers, rewards
-    ));
 
     for item in non_native_rewards_receivers {
         let amount = rewards_map.get(&item.denom).unwrap_or(&default_amount);
@@ -1014,8 +991,6 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
         .map(|item| item.map(|(_key, value)| value))
         .collect::<StdResult<Vec<FeeItem>>>()?;
 
-    println!("WASMDEBUG: collected_fees: {:?}", collected_fees);
-
     for fee_item in collected_fees {
         items.push((
             fee_item.address,
@@ -1026,17 +1001,9 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
         ));
     }
 
-    deps.api
-        .debug("WASMDEBUG: get_non_native_rewards_transfer_msg, 3");
-
-    deps.api.debug(&format!("WASMDEBUG: items: {:?}", items));
-
     if items.is_empty() {
         return Ok(None);
     }
-
-    deps.api
-        .debug("WASMDEBUG: get_non_native_rewards_transfer_msg, 4");
 
     Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_contract,
