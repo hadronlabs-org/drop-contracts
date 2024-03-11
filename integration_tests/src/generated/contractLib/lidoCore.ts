@@ -14,11 +14,19 @@ import { StdFee } from "@cosmjs/amino";
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal = string;
 
 export interface InstantiateMsg {
   base_denom: string;
   bond_limit?: Uint128 | null;
   channel: string;
+  fee?: Decimal | null;
+  fee_address?: string | null;
   idle_min_interval: number;
   owner: string;
   pump_address?: string | null;
@@ -48,13 +56,19 @@ export interface InstantiateMsg {
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type ContractState = "idle" | "claiming" | "unbonding" | "staking" | "transfering";
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal = string;
+export type ContractState = "idle" | "claiming" | "unbonding" | "staking" | "transfering";
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal1 = string;
 export type ResponseHookMsg =
   | {
       success: ResponseHookSuccessMsg;
@@ -179,12 +193,6 @@ export type ArrayOfNonNativeRewardsItem = NonNativeRewardsItem[];
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint1281 = string;
-/**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal1 = string;
 export type UnbondBatchStatus = "new" | "unbond_requested" | "unbond_failed" | "unbonding" | "unbonded" | "withdrawn";
 export type PuppeteerHookArgs =
   | {
@@ -244,7 +252,7 @@ export type Timestamp2 = Uint64;
 export type Uint64 = string;
 
 export interface LidoCoreSchema {
-  responses: Config | ContractState | Decimal | ResponseHookMsg | ArrayOfNonNativeRewardsItem | Uint1281 | UnbondBatch;
+  responses: Config | ContractState | Decimal1 | ResponseHookMsg | ArrayOfNonNativeRewardsItem | Uint1281 | UnbondBatch;
   query: UnbondBatchArgs;
   execute:
     | BondArgs
@@ -259,6 +267,8 @@ export interface Config {
   base_denom: string;
   bond_limit?: Uint128 | null;
   channel: string;
+  fee?: Decimal | null;
+  fee_address?: string | null;
   idle_min_interval: number;
   ld_denom?: string | null;
   owner: string;
@@ -338,13 +348,15 @@ export interface ResponseHookErrorMsg {
 export interface NonNativeRewardsItem {
   address: string;
   denom: string;
+  fee: Decimal;
+  fee_address: string;
   min_amount: Uint128;
 }
 export interface UnbondBatch {
   created: number;
   expected_amount: Uint128;
   expected_release: number;
-  slashing_effect?: Decimal1 | null;
+  slashing_effect?: Decimal | null;
   status: UnbondBatchStatus;
   total_amount: Uint128;
   unbond_items: UnbondItem[];
@@ -369,6 +381,8 @@ export interface ConfigOptional {
   base_denom?: string | null;
   bond_limit?: Uint128 | null;
   channel?: string | null;
+  fee?: Decimal | null;
+  fee_address?: string | null;
   idle_min_interval?: number | null;
   ld_denom?: string | null;
   owner?: string | null;

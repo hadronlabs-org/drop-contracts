@@ -428,6 +428,8 @@ fn execute_init(
                 bond_limit: core_params.bond_limit,
                 channel: core_params.channel,
                 owner: env.contract.address.to_string(),
+                fee: None,
+                fee_address: None,
             })?,
             funds: vec![],
             salt: Binary::from(salt),
