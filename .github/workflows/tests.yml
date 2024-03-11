@@ -85,6 +85,10 @@ jobs:
         run: |
           cd integration_tests
           yarn build-images
+      - name: Remove all containers
+        run: docker rm -f $(docker ps -a -q) || true
+      - name: Remove all volumes 
+        run: docker volume rm $(docker volume ls -q) || true
       - name: Lint
         run: cd integration_tests && yarn --ignore-engines && yarn lint
       - run: make compile
