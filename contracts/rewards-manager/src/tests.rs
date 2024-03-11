@@ -39,7 +39,6 @@ fn handler_contract() -> Box<dyn Contract<Empty>> {
                 match msg {
                     HandlerExecuteMsg::Exchange {} => {
                         if !info.funds.is_empty() {
-                            println!("received funds {:?}", info.funds);
                             return Ok(response(
                                 "handler_contract_execute",
                                 "handler_mock",
@@ -55,8 +54,6 @@ fn handler_contract() -> Box<dyn Contract<Empty>> {
                         }
                     }
                 }
-
-                println!("handler contract execute");
 
                 Err(StdError::generic_err("Wrong execution call"))
             },
