@@ -48,7 +48,7 @@ pub enum ContractError {
     UnbondingTimeIsClose {},
 
     #[error("Pump address is not set")]
-    PumpAddressIsNotSet {},
+    WithdrawalManagerIcaIsNotSet {},
 
     #[error("InvalidTransaction")]
     InvalidTransaction {},

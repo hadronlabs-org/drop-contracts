@@ -233,7 +233,7 @@ fn execute_tick(
     match current_state {
         ContractState::Idle => execute_tick_idle(deps.branch(), env, info, &config),
         ContractState::Claiming => execute_tick_claiming(deps.branch(), env, info, &config),
-        ContractState::Transfering => execute_tick_transfering(deps.branch(), env, info, &config),
+        ContractState::Transfering => execute_tick_transferring(deps.branch(), env, info, &config),
         ContractState::Unbonding => execute_tick_unbonding(deps.branch(), env, info, &config),
         ContractState::Staking => execute_tick_staking(deps.branch(), env, info, &config),
     }
@@ -249,6 +249,7 @@ fn execute_tick_idle(
     let last_idle_call = LAST_IDLE_CALL.load(deps.storage)?;
     let mut messages = vec![];
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
+        //if it's too early to call the main loop then we do the background routines
         //process non-native rewards
         if let Some(transfer_msg) =
             get_non_native_rewards_and_fee_transfer_msg(deps.as_ref(), info, env)?
@@ -259,6 +260,7 @@ fn execute_tick_idle(
             return Err(ContractError::IdleMinIntervalIsNotReached {});
         }
     } else {
+        //if unbonding time is close for any of batches, we better wait for it to happen first
         ensure!(
             !is_unbonding_time_close(
                 deps.as_ref(),
@@ -267,23 +269,27 @@ fn execute_tick_idle(
             )?,
             ContractError::UnbondingTimeIsClose {}
         );
-        let pump_address = config
-            .pump_address
+        let withdrawal_manager_ica = config
+            .withdrawal_manager_ica
             .clone()
-            .ok_or(ContractError::PumpAddressIsNotSet {})?;
+            .ok_or(ContractError::WithdrawalManagerIcaIsNotSet {})?;
         // process unbond if any already unbonded
         // and claim rewards
+
+        // prepare unstaked assets transfer message
         let transfer: Option<TransferReadyBatchMsg> = match get_unbonded_batch(deps.as_ref())? {
             Some((batch_id, batch)) => Some(TransferReadyBatchMsg {
                 batch_id,
                 amount: batch
                     .unbonded_amount
                     .ok_or(ContractError::UnbondedAmountIsNotSet {})?,
-                recipient: pump_address,
+                recipient: withdrawal_manager_ica,
             }),
             None => None,
         };
 
+        // gather the list of validators to claim rewards from
+        // TODO check whether this info can be outdated?
         let validators: Vec<ValidatorInfo> = deps.querier.query_wasm_smart(
             config.validators_set_contract.to_string(),
             &lido_staking_base::msg::validatorset::QueryMsg::Validators {},
@@ -372,16 +378,20 @@ fn execute_tick_claiming(
             }
         }
         lido_puppeteer_base::msg::ResponseHookMsg::Error(err) => {
+            // TODO do something better than just stick
             attrs.push(attr("error_on_claiming", format!("{:?}", err)));
         }
     }
+    // check whether we have something pending to stake
     if let Some((transfer_msg, pending_amount)) =
         get_transfer_pending_balance(deps.as_ref(), &env, config, info.funds.clone())?
     {
+        // if yes then send it and switch to transferring state
         FSM.go_to(deps.storage, ContractState::Transfering)?;
         PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
         messages.push(transfer_msg);
     } else {
+        // if no then go directly to the staking procedure
         let stake_msg = get_stake_msg(deps.branch(), &env, config, info.funds)?;
         messages.push(stake_msg);
         FSM.go_to(deps.storage, ContractState::Staking)?;
@@ -390,12 +400,13 @@ fn execute_tick_claiming(
     Ok(response("execute-tick_claiming", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
-fn execute_tick_transfering(
+fn execute_tick_transferring(
     mut deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
+    // TODO error handling
     let _response_msg = get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let stake_msg = get_stake_msg(deps.branch(), &env, config, info.funds)?;
@@ -404,7 +415,7 @@ fn execute_tick_transfering(
     Ok(response(
         "execute-tick_transfering",
         CONTRACT_NAME,
-        vec![attr("action", "tick_transfering"), attr("state", "staking")],
+        vec![attr("action", "tick_transferring"), attr("state", "staking")],
     )
     .add_message(stake_msg))
 }
@@ -612,7 +623,7 @@ fn execute_update_config(
     }
     if let Some(pump_address) = new_config.pump_address {
         attrs.push(attr("pump_address", &pump_address));
-        config.pump_address = Some(pump_address);
+        config.withdrawal_manager_ica = Some(pump_address);
     }
     if let Some(validators_set_contract) = new_config.validators_set_contract {
         attrs.push(attr("validators_set_contract", &validators_set_contract));
@@ -815,6 +826,7 @@ pub fn get_stake_msg<T>(
         false,
     )?;
 
+    // TODO what if no rewards? is it technically possible?
     ensure_ne!(balance, Uint128::zero(), ContractError::ICABalanceZero {});
     let last_ica_balance_change_height = LAST_ICA_BALANCE_CHANGE_HEIGHT.load(deps.storage)?;
     ensure!(

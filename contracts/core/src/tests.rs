@@ -140,7 +140,7 @@ fn get_default_config(fee: Option<Decimal>) -> Config {
         unbonding_period: 60,
         unbonding_safe_period: 10,
         unbond_batch_switch_time: 6000,
-        pump_address: None,
+        withdrawal_manager_ica: None,
         owner: "owner".to_string(),
         ld_denom: None,
         channel: "channel".to_string(),

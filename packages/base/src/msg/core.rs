@@ -85,7 +85,7 @@ impl From<InstantiateMsg> for Config {
             idle_min_interval: val.idle_min_interval,
             unbonding_safe_period: val.unbonding_safe_period,
             unbonding_period: val.unbonding_period,
-            pump_address: val.pump_address,
+            withdrawal_manager_ica: val.pump_address,
             validators_set_contract: val.validators_set_contract,
             unbond_batch_switch_time: val.unbond_batch_switch_time,
             fee: val.fee,

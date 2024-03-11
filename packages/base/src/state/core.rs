@@ -21,7 +21,7 @@ pub struct Config {
     pub unbonding_period: u64,         //seconds
     pub unbonding_safe_period: u64,    //seconds
     pub unbond_batch_switch_time: u64, //seconds
-    pub pump_address: Option<String>,
+    pub withdrawal_manager_ica: Option<String>,
     pub owner: String,
     pub channel: String,
     pub ld_denom: Option<String>,
