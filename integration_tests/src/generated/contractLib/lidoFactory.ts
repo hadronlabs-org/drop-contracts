@@ -70,6 +70,12 @@ export type UpdateConfigArgs =
       puppeteer_fees: FeesMsg;
     };
 /**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal = string;
+/**
  * A human readable address.
  *
  * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
@@ -155,6 +161,8 @@ export interface CoreParams {
 export interface ConfigOptional {
   base_denom?: string | null;
   channel?: string | null;
+  fee?: Decimal | null;
+  fee_address?: string | null;
   idle_min_interval?: number | null;
   ld_denom?: string | null;
   lsm_redeem_threshold?: number | null;
@@ -189,6 +197,8 @@ export interface ValidatorData {
 export interface NonNativeRewardsItem {
   address: string;
   denom: string;
+  fee: Decimal;
+  fee_address: string;
   min_amount: Uint128;
 }
 export interface AdminExecuteArgs {

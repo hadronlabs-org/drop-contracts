@@ -1,8 +1,17 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal = string;
+
 export interface InstantiateMsg {
   base_denom: string;
   channel: string;
+  fee?: Decimal | null;
+  fee_address?: string | null;
   idle_min_interval: number;
   lsm_redeem_threshold: number;
   owner: string;
@@ -19,13 +28,19 @@ export interface InstantiateMsg {
   withdrawal_manager_contract: string;
   withdrawal_voucher_contract: string;
 }
-export type ContractState = "idle" | "claiming" | "unbonding" | "staking" | "transfering";
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal = string;
+export type ContractState = "idle" | "claiming" | "unbonding" | "staking" | "transfering";
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal1 = string;
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -151,12 +166,6 @@ export type Transaction =
 export type ArrayOfNonNativeRewardsItem = NonNativeRewardsItem[];
 export type String = string;
 export type ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint1281 = [string, [string, Uint128]][];
-/**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal1 = string;
 export type UnbondBatchStatus = "new" | "unbond_requested" | "unbond_failed" | "unbonding" | "unbonded" | "withdrawn";
 export type PuppeteerHookArgs =
   | {
@@ -219,7 +228,7 @@ export interface LidoCoreSchema {
   responses:
     | Config
     | ContractState
-    | Decimal
+    | Decimal1
     | ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128
     | ResponseHookMsg
     | ArrayOfNonNativeRewardsItem
@@ -239,6 +248,8 @@ export interface LidoCoreSchema {
 export interface Config {
   base_denom: string;
   channel: string;
+  fee?: Decimal | null;
+  fee_address?: string | null;
   idle_min_interval: number;
   ld_denom?: string | null;
   lsm_redeem_threshold: number;
@@ -323,13 +334,15 @@ export interface ResponseHookErrorMsg {
 export interface NonNativeRewardsItem {
   address: string;
   denom: string;
+  fee: Decimal;
+  fee_address: string;
   min_amount: Uint128;
 }
 export interface UnbondBatch {
   created: number;
   expected_amount: Uint128;
   expected_release: number;
-  slashing_effect?: Decimal1 | null;
+  slashing_effect?: Decimal | null;
   status: UnbondBatchStatus;
   total_amount: Uint128;
   unbond_items: UnbondItem[];
@@ -353,6 +366,8 @@ export interface UpdateConfigArgs {
 export interface ConfigOptional {
   base_denom?: string | null;
   channel?: string | null;
+  fee?: Decimal | null;
+  fee_address?: string | null;
   idle_min_interval?: number | null;
   ld_denom?: string | null;
   lsm_redeem_threshold?: number | null;

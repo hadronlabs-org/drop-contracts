@@ -25,6 +25,8 @@ pub struct Config {
     pub channel: String,
     pub ld_denom: Option<String>,
     pub lsm_redeem_threshold: u64,
+    pub fee: Option<Decimal>,
+    pub fee_address: Option<String>,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
@@ -121,6 +123,15 @@ pub struct NonNativeRewardsItem {
     pub denom: String,
     pub address: String,
     pub min_amount: Uint128,
+    pub fee_address: String,
+    pub fee: Decimal,
+}
+
+#[cw_serde]
+pub struct FeeItem {
+    pub address: String,
+    pub denom: String,
+    pub amount: Uint128,
 }
 
 pub const FSM: Fsm<ContractState> = Fsm::new("machine_state", TRANSITIONS);
@@ -128,6 +139,7 @@ pub const LAST_IDLE_CALL: Item<u64> = Item::new("last_tick");
 pub const LAST_ICA_BALANCE_CHANGE_HEIGHT: Item<u64> = Item::new("last_ica_balance_change_height");
 pub const LAST_PUPPETEER_RESPONSE: Item<lido_puppeteer_base::msg::ResponseHookMsg> =
     Item::new("last_puppeteer_response");
+pub const COLLECTED_FEES: Map<String, FeeItem> = Map::new("collected_fees");
 pub const FAILED_BATCH_ID: Item<u128> = Item::new("failed_batch_id");
 pub const PRE_UNBONDING_BALANCE: Item<Uint128> = Item::new("pre_unbonding_balance");
 pub const PENDING_TRANSFER: Item<Uint128> = Item::new("pending_transfer");
