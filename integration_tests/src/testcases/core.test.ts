@@ -21,7 +21,10 @@ import {
 import { MsgTransfer } from 'cosmjs-types/ibc/applications/transfer/v1/tx';
 import { join } from 'path';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
-import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
+import {
+  SigningCosmWasmClient,
+  instantiate2Address,
+} from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import {
   AccountData,
@@ -29,7 +32,7 @@ import {
   DirectSecp256k1HdWallet,
 } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
-import { awaitBlocks, setupPark } from '../testSuite';
+import { awaitBlocks, generateWallets, setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
@@ -37,10 +40,11 @@ import {
   ResponseHookMsg,
   UnbondBatch,
 } from 'drop-ts-client/lib/contractLib/dropCore';
-import { stringToPath } from '@cosmjs/crypto';
+import { sha256, stringToPath } from '@cosmjs/crypto';
 import { sleep } from '../helpers/sleep';
 import { waitForTx } from '../helpers/waitForTx';
 import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
+import { ContractSalt } from '../helpers/salt';
 
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
@@ -52,12 +56,16 @@ const DropWithdrawalVoucherClass = DropWithdrawalVoucher.Client;
 const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
 const DropRewardsManagerClass = DropRewardsManager.Client;
 
-const UNBONDING_TIME = 360;
+const UNBONDING_TIME = 180;
 
 describe('Core', () => {
+  let factoryContractBinary: Uint8Array;
+  let pumpContractBinary: Uint8Array;
+
   const context: {
     park?: Cosmopark;
     contractAddress?: string;
+    pumpContractAddress?: string;
     wallet?: DirectSecp256k1HdWallet;
     gaiaWallet?: DirectSecp256k1HdWallet;
     gaiaWallet2?: DirectSecp256k1HdWallet;
@@ -107,6 +115,40 @@ describe('Core', () => {
   } = { codeIds: {} };
 
   beforeAll(async (t) => {
+    const wallets = await generateWallets();
+    context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
+      wallets.demowallet1,
+      {
+        prefix: 'neutron',
+      },
+    );
+    context.account = (await context.wallet.getAccounts())[0];
+    context.neutronUserAddress = (
+      await context.wallet.getAccounts()
+    )[0].address;
+
+    factoryContractBinary = fs.readFileSync(
+      join(__dirname, '../../../artifacts/drop_factory.wasm'),
+    );
+    const factoryCodeChecksum = sha256(factoryContractBinary);
+    context.contractAddress = instantiate2Address(
+      factoryCodeChecksum,
+      context.account.address,
+      new Uint8Array([ContractSalt]),
+      'neutron',
+    );
+
+    pumpContractBinary = fs.readFileSync(
+      join(__dirname, '../../../artifacts/drop_pump.wasm'),
+    );
+    const pumpCodeChecksum = sha256(pumpContractBinary);
+    context.pumpContractAddress = instantiate2Address(
+      pumpCodeChecksum,
+      context.neutronUserAddress,
+      new Uint8Array([ContractSalt]),
+      'neutron',
+    );
+
     context.park = await setupPark(
       t,
       ['neutron', 'gaia'],
@@ -125,12 +167,7 @@ describe('Core', () => {
           },
         },
       },
-    );
-    context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
-      context.park.config.wallets.demowallet1.mnemonic,
-      {
-        prefix: 'neutron',
-      },
+      wallets,
     );
     context.gaiaWallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
@@ -144,7 +181,6 @@ describe('Core', () => {
         prefix: 'cosmos',
       },
     );
-    context.account = (await context.wallet.getAccounts())[0];
     context.neutronClient = new NeutronClient({
       apiURL: `http://127.0.0.1:${context.park.ports.neutron.rest}`,
       rpcURL: `127.0.0.1:${context.park.ports.neutron.rpc}`,
@@ -184,7 +220,7 @@ describe('Core', () => {
   });
 
   afterAll(async () => {
-    await context.park.stop();
+    // await context.park.stop();
   });
 
   it('transfer tokens to neutron', async () => {
@@ -366,14 +402,16 @@ describe('Core', () => {
 
     const res = await client.upload(
       account.address,
-      fs.readFileSync(join(__dirname, '../../../artifacts/drop_factory.wasm')),
+      factoryContractBinary,
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
-    const instantiateRes = await DropFactory.Client.instantiate(
+
+    const instantiateRes = await DropFactory.Client.instantiate2(
       client,
       account.address,
       res.codeId,
+      ContractSalt,
       {
         sdk_version: process.env.SDK_VERSION || '0.46.0',
         code_ids: {
@@ -429,8 +467,8 @@ describe('Core', () => {
       'auto',
       [],
     );
-    expect(instantiateRes.contractAddress).toHaveLength(66);
-    context.contractAddress = instantiateRes.contractAddress;
+    expect(instantiateRes.contractAddress).toEqual(context.contractAddress);
+
     context.factoryContractClient = new DropFactory.Client(
       client,
       context.contractAddress,
@@ -1017,15 +1055,16 @@ describe('Core', () => {
         const { client, account, neutronUserAddress } = context;
         const resUpload = await client.upload(
           account.address,
-          fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+          pumpContractBinary,
           1.5,
         );
         expect(resUpload.codeId).toBeGreaterThan(0);
         const { codeId } = resUpload;
-        const res = await DropPump.Client.instantiate(
+        const res = await DropPump.Client.instantiate2(
           client,
           neutronUserAddress,
           codeId,
+          ContractSalt,
           {
             connection_id: 'connection-0',
             local_denom: 'untrn',
@@ -1044,10 +1083,10 @@ describe('Core', () => {
           1.5,
           [],
         );
-        expect(res.contractAddress).toHaveLength(66);
+        expect(res.contractAddress).toEqual(context.pumpContractAddress);
         context.pumpContractClient = new DropPump.Client(
           client,
-          res.contractAddress,
+          context.pumpContractAddress,
         );
         await context.pumpContractClient.registerICA(
           neutronUserAddress,

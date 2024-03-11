@@ -9,12 +9,15 @@ import {
 } from '@cosmjs/stargate';
 import { join } from 'path';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
-import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
+import {
+  SigningCosmWasmClient,
+  instantiate2Address,
+} from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
-import { setupPark } from '../testSuite';
-import { stringToPath } from '@cosmjs/crypto';
+import { generateWallets, setupPark } from '../testSuite';
+import { sha256, stringToPath } from '@cosmjs/crypto';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
@@ -22,10 +25,12 @@ import { ValidatorState } from 'drop-ts-client/lib/contractLib/dropValidatorsSta
 import { AuthzExtension } from '@cosmjs/stargate/build/modules/authz/queries';
 import { pubkeyToAddress } from '@cosmjs/amino';
 import { SlashingExtension } from '@cosmjs/stargate/build/modules';
+import { ContractSalt } from '../helpers/salt';
 
 const StatsClass = DropValidatorsStats.Client;
 
 describe('Validators stats', () => {
+  let contractBinary: Uint8Array;
   const context: {
     park?: Cosmopark;
     contractAddress?: string;
@@ -48,26 +53,46 @@ describe('Validators stats', () => {
   } = {};
 
   beforeAll(async (t) => {
-    context.park = await setupPark(
-      t,
-      ['neutron', 'gaia'],
-      {},
-      { neutron: true, hermes: true },
-    );
+    const wallets = await generateWallets();
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
-      context.park.config.wallets.demowallet1.mnemonic,
+      wallets.demowallet1,
       {
         prefix: 'neutron',
       },
     );
+    context.account = (await context.wallet.getAccounts())[0];
 
+    contractBinary = fs.readFileSync(
+      join(__dirname, '../../../artifacts/drop_validators_stats.wasm'),
+    );
+    const validatorsStatsChecksum = sha256(contractBinary);
+    context.contractAddress = instantiate2Address(
+      validatorsStatsChecksum,
+      context.account.address,
+      new Uint8Array([ContractSalt]),
+      'neutron',
+    );
+
+    context.park = await setupPark(
+      t,
+      ['neutron', 'gaia'],
+      {},
+      {
+        coordinator: {
+          environment: {
+            VALIDATOR_STATS_CONTRACT_ADDRESS: context.contractAddress,
+          },
+        },
+        hermes: true,
+      },
+      wallets,
+    );
     context.gaiaWallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
       {
         prefix: 'cosmos',
       },
     );
-    context.account = (await context.wallet.getAccounts())[0];
     context.neutronClient = new NeutronClient({
       apiURL: `http://127.0.0.1:${context.park.ports.neutron.rest}`,
       rpcURL: `127.0.0.1:${context.park.ports.neutron.rpc}`,
@@ -137,23 +162,20 @@ describe('Validators stats', () => {
   });
 
   afterAll(async () => {
-    await context.park.stop();
+    // await context.park.stop();
   });
 
   it('instantiate', async () => {
     const { client, account } = context;
-    const res = await client.upload(
-      account.address,
-      fs.readFileSync(
-        join(__dirname, '../../../artifacts/drop_validators_stats.wasm'),
-      ),
-      1.5,
-    );
+
+    const res = await client.upload(account.address, contractBinary, 1.5);
     expect(res.codeId).toBeGreaterThan(0);
-    const instantiateRes = await DropValidatorsStats.Client.instantiate(
+
+    const instantiateRes = await DropValidatorsStats.Client.instantiate2(
       client,
       account.address,
       res.codeId,
+      ContractSalt,
       {
         connection_id: 'connection-0',
         port_id: 'transfer',
@@ -166,8 +188,8 @@ describe('Validators stats', () => {
       'auto',
       [],
     );
-    expect(instantiateRes.contractAddress).toHaveLength(66);
-    context.contractAddress = instantiateRes.contractAddress;
+    expect(instantiateRes.contractAddress).toEqual(context.contractAddress);
+
     context.contractClient = new DropValidatorsStats.Client(
       client,
       context.contractAddress,

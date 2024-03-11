@@ -78,6 +78,17 @@ fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
     to_json_binary(&config)
 }
 
+fn query_query_ids(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
+    to_json_binary(&QueryIds {
+        signing_info_id: SIGNING_INFO_QUERY_ID
+            .may_load(deps.storage)?
+            .map(|x| x.to_string()),
+        validator_profile_id: VALIDATOR_PROFILE_QUERY_ID
+            .may_load(deps.storage)?
+            .map(|x| x.to_string()),
+    })
+}
+
 fn query_state(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
     let validators: StdResult<Vec<_>> = STATE_MAP
         .range_raw(deps.storage, None, None, Order::Ascending)

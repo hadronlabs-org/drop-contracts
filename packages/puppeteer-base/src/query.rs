@@ -33,6 +33,10 @@ where
                 "Unsupported query message: {:?}",
                 msg
             )))),
+            QueryMsg::KVQueryIds {} => Err(ContractError::Std(StdError::generic_err(format!(
+                "Unsupported query message: {:?}",
+                msg
+            )))),
         }
     }
 

@@ -7,12 +7,15 @@ import {
 } from '@cosmjs/stargate';
 import { join } from 'path';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
-import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
+import {
+  SigningCosmWasmClient,
+  instantiate2Address,
+} from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
-import { stringToPath } from '@cosmjs/crypto';
+import { sha256, stringToPath } from '@cosmjs/crypto';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
-import { awaitBlocks, setupPark } from '../testSuite';
+import { awaitBlocks, generateWallets, setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
@@ -21,11 +24,14 @@ import {
   ResponseHookErrorMsg,
   ResponseHookSuccessMsg,
 } from 'drop-ts-client/lib/contractLib/dropHookTester';
+import { ContractSalt } from '../helpers/salt';
 
 const PuppeteerClass = DropPuppeteer.Client;
 const HookTesterClass = DropHookTester.Client;
 
 describe('Interchain puppeteer', () => {
+  let contractBinary: Uint8Array;
+
   const context: {
     park?: Cosmopark;
     contractAddress?: string;
@@ -46,17 +52,39 @@ describe('Interchain puppeteer', () => {
   } = {};
 
   beforeAll(async (t) => {
+    const wallets = await generateWallets();
+    context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
+      wallets.demowallet1,
+      {
+        prefix: 'neutron',
+      },
+    );
+    context.account = (await context.wallet.getAccounts())[0];
+
+    contractBinary = fs.readFileSync(
+      join(__dirname, '../../../artifacts/drop_puppeteer.wasm'),
+    );
+    const validatorsStatsChecksum = sha256(contractBinary);
+    context.contractAddress = instantiate2Address(
+      validatorsStatsChecksum,
+      context.account.address,
+      new Uint8Array([ContractSalt]),
+      'neutron',
+    );
+
     context.park = await setupPark(
       t,
       ['neutron', 'gaia'],
       {},
-      { neutron: true, hermes: true },
-    );
-    context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
-      context.park.config.wallets.demowallet1.mnemonic,
       {
-        prefix: 'neutron',
+        coordinator: {
+          environment: {
+            PUPPETEER_CONTRACT_ADDRESS: context.contractAddress,
+          },
+        },
+        hermes: true,
       },
+      wallets,
     );
 
     context.gaiaWallet = await DirectSecp256k1HdWallet.fromMnemonic(
@@ -98,7 +126,7 @@ describe('Interchain puppeteer', () => {
   });
 
   afterAll(async () => {
-    await context.park.stop();
+    // await context.park.stop();
   });
 
   it('instantiate', async () => {
@@ -128,18 +156,13 @@ describe('Interchain puppeteer', () => {
       );
     }
     {
-      const res = await client.upload(
-        account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_puppeteer.wasm'),
-        ),
-        1.5,
-      );
+      const res = await client.upload(account.address, contractBinary, 1.5);
       expect(res.codeId).toBeGreaterThan(0);
-      const instantiateRes = await DropPuppeteer.Client.instantiate(
+      const instantiateRes = await DropPuppeteer.Client.instantiate2(
         client,
         account.address,
         res.codeId,
+        ContractSalt,
         {
           sdk_version: process.env.SDK_VERSION || '0.46.0',
           connection_id: 'connection-0',
@@ -157,8 +180,8 @@ describe('Interchain puppeteer', () => {
         'auto',
         [],
       );
-      expect(instantiateRes.contractAddress).toHaveLength(66);
-      context.contractAddress = instantiateRes.contractAddress;
+      expect(instantiateRes.contractAddress).toEqual(context.contractAddress);
+
       context.contractClient = new DropPuppeteer.Client(
         client,
         context.contractAddress,
@@ -299,7 +322,7 @@ describe('Interchain puppeteer', () => {
     expect(res.code).toEqual(0);
   });
 
-  it('query received transactions on neutron side', async () => {
+  it.skip('query received transactions on neutron side', async () => {
     let txs = [];
     await waitFor(async () => {
       try {

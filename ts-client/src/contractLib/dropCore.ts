@@ -1,5 +1,10 @@
-import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
-import { StdFee } from "@cosmjs/amino";
+import {
+  CosmWasmClient,
+  SigningCosmWasmClient,
+  ExecuteResult,
+  InstantiateResult,
+} from '@cosmjs/cosmwasm-stargate';
+import { StdFee } from '@cosmjs/amino';
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -31,14 +36,14 @@ export type Decimal = string;
  */
 export type Addr = string;
 export type ContractState =
-  | "idle"
-  | "l_s_m_transfer"
-  | "l_s_m_redeem"
-  | "non_native_rewards_transfer"
-  | "claiming"
-  | "unbonding"
-  | "staking_rewards"
-  | "staking_bond";
+  | 'idle'
+  | 'l_s_m_transfer'
+  | 'l_s_m_redeem'
+  | 'non_native_rewards_transfer'
+  | 'claiming'
+  | 'unbonding'
+  | 'staking_rewards'
+  | 'staking_bond';
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -59,7 +64,10 @@ export type Uint1281 = string;
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal1 = string;
-export type ArrayOfTupleOfStringAndTupleOfStringAndUint128 = [string, [string, Uint128]][];
+export type ArrayOfTupleOfStringAndTupleOfStringAndUint128 = [
+  string,
+  [string, Uint128],
+][];
 export type ResponseHookMsg =
   | {
       success: ResponseHookSuccessMsg;
@@ -177,7 +185,7 @@ export type Transaction =
         interchain_account_id: string;
       };
     };
-export type IBCTransferReason = "l_s_m_share" | "stake";
+export type IBCTransferReason = 'l_s_m_share' | 'stake';
 export type ArrayOfNonNativeRewardsItem = NonNativeRewardsItem[];
 export type String = string;
 /**
@@ -190,7 +198,10 @@ export type PauseInfoResponse =
   | {
       unpaused: {};
     };
-export type ArrayOfTupleOfStringAndTupleOfStringAndUint1281 = [string, [string, Uint128]][];
+export type ArrayOfTupleOfStringAndTupleOfStringAndUint1281 = [
+  string,
+  [string, Uint128],
+][];
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -206,14 +217,14 @@ export type ArrayOfTupleOfStringAndTupleOfStringAndUint1281 = [string, [string, 
  */
 export type Uint1282 = string;
 export type UnbondBatchStatus =
-  | "new"
-  | "unbond_requested"
-  | "unbond_failed"
-  | "unbonding"
-  | "withdrawing"
-  | "withdrawn"
-  | "withdrawing_emergency"
-  | "withdrawn_emergency";
+  | 'new'
+  | 'unbond_requested'
+  | 'unbond_failed'
+  | 'unbonding'
+  | 'withdrawing'
+  | 'withdrawn'
+  | 'withdrawing_emergency'
+  | 'withdrawn_emergency';
 export type PuppeteerHookArgs =
   | {
       success: ResponseHookSuccessMsg;
@@ -249,8 +260,8 @@ export type UpdateOwnershipArgs =
         new_owner: string;
       };
     }
-  | "accept_ownership"
-  | "renounce_ownership";
+  | 'accept_ownership'
+  | 'renounce_ownership';
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -518,9 +529,8 @@ export interface InstantiateMsg {
   withdrawal_voucher_contract: string;
 }
 
-
 function isSigningCosmWasmClient(
-  client: CosmWasmClient | SigningCosmWasmClient
+  client: CosmWasmClient | SigningCosmWasmClient,
 ): client is SigningCosmWasmClient {
   return 'execute' in client;
 }
@@ -528,12 +538,15 @@ function isSigningCosmWasmClient(
 export class Client {
   private readonly client: CosmWasmClient | SigningCosmWasmClient;
   contractAddress: string;
-  constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string) {
+  constructor(
+    client: CosmWasmClient | SigningCosmWasmClient,
+    contractAddress: string,
+  ) {
     this.client = client;
     this.contractAddress = contractAddress;
   }
   mustBeSigningClient() {
-    return new Error("This client is not a SigningCosmWasmClient");
+    return new Error('This client is not a SigningCosmWasmClient');
   }
   static async instantiate(
     client: SigningCosmWasmClient,
@@ -559,96 +572,309 @@ export class Client {
     fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
   ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
-    });
+    const res = await client.instantiate2(
+      sender,
+      codeId,
+      new Uint8Array([salt]),
+      initMsg,
+      label,
+      fees,
+      {
+        ...(initCoins && initCoins.length && { funds: initCoins }),
+      },
+    );
     return res;
   }
-  queryConfig = async(): Promise<Config> => {
+  queryConfig = async (): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
-  }
-  queryOwner = async(): Promise<String> => {
+  };
+  queryOwner = async (): Promise<String> => {
     return this.client.queryContractSmart(this.contractAddress, { owner: {} });
-  }
-  queryExchangeRate = async(): Promise<Decimal> => {
-    return this.client.queryContractSmart(this.contractAddress, { exchange_rate: {} });
-  }
-  queryCurrentUnbondBatch = async(): Promise<Uint128> => {
-    return this.client.queryContractSmart(this.contractAddress, { current_unbond_batch: {} });
-  }
-  queryUnbondBatch = async(args: UnbondBatchArgs): Promise<UnbondBatch> => {
-    return this.client.queryContractSmart(this.contractAddress, { unbond_batch: args });
-  }
-  queryContractState = async(): Promise<ContractState> => {
-    return this.client.queryContractSmart(this.contractAddress, { contract_state: {} });
-  }
-  queryLastPuppeteerResponse = async(): Promise<LastPuppeteerResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { last_puppeteer_response: {} });
-  }
-  queryLastStakerResponse = async(): Promise<LastStakerResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { last_staker_response: {} });
-  }
-  queryNonNativeRewardsReceivers = async(): Promise<ArrayOfNonNativeRewardsItem> => {
-    return this.client.queryContractSmart(this.contractAddress, { non_native_rewards_receivers: {} });
-  }
-  queryPendingLSMShares = async(): Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128> => {
-    return this.client.queryContractSmart(this.contractAddress, { pending_l_s_m_shares: {} });
-  }
-  queryLSMSharesToRedeem = async(): Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128> => {
-    return this.client.queryContractSmart(this.contractAddress, { l_s_m_shares_to_redeem: {} });
-  }
-  queryTotalBonded = async(): Promise<Uint128> => {
-    return this.client.queryContractSmart(this.contractAddress, { total_bonded: {} });
-  }
-  queryPauseInfo = async(): Promise<PauseInfoResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
-  }
-  bond = async(sender:string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { bond: args }, fee || "auto", memo, funds);
-  }
-  unbond = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { unbond: {} }, fee || "auto", memo, funds);
-  }
-  updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
-  }
-  updateNonNativeRewardsReceivers = async(sender:string, args: UpdateNonNativeRewardsReceiversArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_non_native_rewards_receivers: args }, fee || "auto", memo, funds);
-  }
-  tick = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { tick: {} }, fee || "auto", memo, funds);
-  }
-  puppeteerHook = async(sender:string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
-  }
-  stakerHook = async(sender:string, args: StakerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { staker_hook: args }, fee || "auto", memo, funds);
-  }
-  resetBondedAmount = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { reset_bonded_amount: {} }, fee || "auto", memo, funds);
-  }
-  processEmergencyBatch = async(sender:string, args: ProcessEmergencyBatchArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { process_emergency_batch: args }, fee || "auto", memo, funds);
-  }
-  pause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { pause: {} }, fee || "auto", memo, funds);
-  }
-  unpause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { unpause: {} }, fee || "auto", memo, funds);
-  }
-  updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
-  }
+  };
+  queryExchangeRate = async (): Promise<Decimal> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      exchange_rate: {},
+    });
+  };
+  queryCurrentUnbondBatch = async (): Promise<Uint128> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      current_unbond_batch: {},
+    });
+  };
+  queryUnbondBatch = async (args: UnbondBatchArgs): Promise<UnbondBatch> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      unbond_batch: args,
+    });
+  };
+  queryContractState = async (): Promise<ContractState> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      contract_state: {},
+    });
+  };
+  queryLastPuppeteerResponse = async (): Promise<LastPuppeteerResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      last_puppeteer_response: {},
+    });
+  };
+  queryLastStakerResponse = async (): Promise<LastStakerResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      last_staker_response: {},
+    });
+  };
+  queryNonNativeRewardsReceivers =
+    async (): Promise<ArrayOfNonNativeRewardsItem> => {
+      return this.client.queryContractSmart(this.contractAddress, {
+        non_native_rewards_receivers: {},
+      });
+    };
+  queryPendingLSMShares =
+    async (): Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128> => {
+      return this.client.queryContractSmart(this.contractAddress, {
+        pending_l_s_m_shares: {},
+      });
+    };
+  queryLSMSharesToRedeem =
+    async (): Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128> => {
+      return this.client.queryContractSmart(this.contractAddress, {
+        l_s_m_shares_to_redeem: {},
+      });
+    };
+  queryTotalBonded = async (): Promise<Uint128> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      total_bonded: {},
+    });
+  };
+  queryPuppeteerResponseReceived = async (): Promise<Boolean> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      puppeteer_response_received: {},
+    });
+  };
+  queryPauseInfo = async (): Promise<PauseInfoResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      pause_info: {},
+    });
+  };
+  bond = async (
+    sender: string,
+    args: BondArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { bond: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  unbond = async (
+    sender: string,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { unbond: {} },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  updateConfig = async (
+    sender: string,
+    args: UpdateConfigArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_config: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  updateNonNativeRewardsReceivers = async (
+    sender: string,
+    args: UpdateNonNativeRewardsReceiversArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_non_native_rewards_receivers: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  tick = async (
+    sender: string,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { tick: {} },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  puppeteerHook = async (
+    sender: string,
+    args: PuppeteerHookArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { puppeteer_hook: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  stakerHook = async (
+    sender: string,
+    args: StakerHookArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { staker_hook: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  resetBondedAmount = async (
+    sender: string,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { reset_bonded_amount: {} },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  processEmergencyBatch = async (
+    sender: string,
+    args: ProcessEmergencyBatchArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { process_emergency_batch: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  pause = async (
+    sender: string,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { pause: {} },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  unpause = async (
+    sender: string,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { unpause: {} },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  updateOwnership = async (
+    sender: string,
+    args: UpdateOwnershipArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_ownership: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
 }

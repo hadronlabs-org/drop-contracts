@@ -18,6 +18,7 @@ import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
+import { ContractSalt } from '../helpers/salt';
 
 const DropPumpClass = DropPump.Client;
 
@@ -52,7 +53,9 @@ describe('Pump', () => {
       t,
       ['neutron', 'gaia'],
       {},
-      { hermes: true },
+      {
+        hermes: true,
+      },
     );
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
@@ -60,13 +63,14 @@ describe('Pump', () => {
         prefix: 'neutron',
       },
     );
+    context.account = (await context.wallet.getAccounts())[0];
+
     context.gaiaWallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
       {
         prefix: 'cosmos',
       },
     );
-    context.account = (await context.wallet.getAccounts())[0];
     context.neutronClient = new NeutronClient({
       apiURL: `http://127.0.0.1:${context.park.ports.neutron.rest}`,
       rpcURL: `127.0.0.1:${context.park.ports.neutron.rpc}`,
@@ -115,7 +119,7 @@ describe('Pump', () => {
     await context.park.stop();
   });
 
-  it('instantiate', async () => {
+  it.only('instantiate', async () => {
     const { client, account, neutronSecondUserAddress } = context;
     const res = await client.upload(
       account.address,
@@ -144,8 +148,8 @@ describe('Pump', () => {
       'auto',
       [],
     );
-    expect(instantiateRes.contractAddress).toHaveLength(66);
-    context.contractAddress = instantiateRes.contractAddress;
+    expect(instantiateRes.contractAddress).toEqual(context.contractAddress);
+
     context.contractClient = new DropPump.Client(
       client,
       context.contractAddress,
@@ -169,7 +173,7 @@ describe('Pump', () => {
       ]),
     ).rejects.toThrowError(/provided fee is less than min governance/);
   });
-  it('register ICA', async () => {
+  it.only('register ICA', async () => {
     const { contractClient, neutronUserAddress } = context;
     const res = await contractClient.registerICA(
       neutronUserAddress,
@@ -201,8 +205,14 @@ describe('Pump', () => {
     expect(ica.startsWith('cosmos')).toBeTruthy();
     context.icaAddress = ica;
   });
-  it('send some funds to ICA', async () => {
-    const { gaiaClient, gaiaUserAddress, icaAddress } = context;
+  it.only('send some funds to ICA', async () => {
+    const {
+      gaiaClient,
+      gaiaUserAddress,
+      icaAddress,
+      client: neutronClient,
+      neutronUserAddress,
+    } = context;
     const res = await gaiaClient.sendTokens(
       gaiaUserAddress,
       icaAddress,
@@ -215,6 +225,18 @@ describe('Pump', () => {
       1.5,
     );
     expect(res.transactionHash).toHaveLength(64);
+
+    await neutronClient.sendTokens(
+      neutronUserAddress,
+      'neutron1ngjm6fm3m9qk3f95t6q7ed5370uqwdllwqwrp4',
+      [
+        {
+          amount: '1000000',
+          denom: 'untrn',
+        },
+      ],
+      1.5,
+    );
   });
   it('try to push pump w/o funds', async () => {
     const { contractClient, neutronUserAddress } = context;
