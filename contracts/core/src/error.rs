@@ -65,7 +65,7 @@ pub enum ContractError {
     #[error("Non Native rewards denom not found {denom}")]
     NonNativeRewardsDenomNotFound { denom: String },
 
-    #[error("Puppereer balance is outdated: ICA balance height {ica_height}, puppeteer balance height {puppeteer_height}")]
+    #[error("Puppeteer balance is outdated: ICA balance height {ica_height}, puppeteer balance height {puppeteer_height}")]
     PuppeteerBalanceOutdated {
         ica_height: u64,
         puppeteer_height: u64,

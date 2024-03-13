@@ -9,10 +9,10 @@ use cw2::set_contract_version;
 use lido_helpers::answer::response;
 use lido_puppeteer_base::msg::TransferReadyBatchMsg;
 use lido_staking_base::state::core::{
-    Config, ConfigOptional, ContractState, FeeItem, NonNativeRewardsItem, UnbondBatch,
-    UnbondBatchStatus, UnbondItem, COLLECTED_FEES, CONFIG, FAILED_BATCH_ID, FSM,
+    unbond_batches_map, Config, ConfigOptional, ContractState, FeeItem, NonNativeRewardsItem,
+    UnbondBatch, UnbondBatchStatus, UnbondItem, COLLECTED_FEES, CONFIG, FAILED_BATCH_ID, FSM,
     LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_PUPPETEER_RESPONSE, NON_NATIVE_REWARDS_CONFIG,
-    PENDING_TRANSFER, PRE_UNBONDING_BALANCE, TOTAL_LSM_SHARES, UNBOND_BATCHES, UNBOND_BATCH_ID,
+    PENDING_TRANSFER, PRE_UNBONDING_BALANCE, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
 };
 use lido_staking_base::state::validatorset::ValidatorInfo;
 use lido_staking_base::state::withdrawal_voucher::{Metadata, Trait};
@@ -26,7 +26,6 @@ use lido_staking_base::{
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 use prost::Message;
-use std::str::FromStr;
 use std::vec;
 
 pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
@@ -53,7 +52,7 @@ pub fn instantiate(
     CONFIG.save(deps.storage, &msg.into())?;
     //an empty unbonding batch added as it's ready to be used on unbond action
     UNBOND_BATCH_ID.save(deps.storage, &0)?;
-    UNBOND_BATCHES.save(deps.storage, 0, &new_unbond(env.block.time.seconds()))?;
+    unbond_batches_map().save(deps.storage, 0, &new_unbond(env.block.time.seconds()))?;
     FSM.set_initial_state(deps.storage, ContractState::Idle)?;
     LAST_IDLE_CALL.save(deps.storage, &0)?;
     LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &0)?;
@@ -107,20 +106,20 @@ fn query_exchange_rate(
         .sum();
     let mut batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
     let mut unprocessed_unbonded_amount = Uint128::zero();
-    let batch = UNBOND_BATCHES.load(deps.storage, batch_id)?;
+    let batch = unbond_batches_map().load(deps.storage, batch_id)?;
     if batch.status == UnbondBatchStatus::New {
         unprocessed_unbonded_amount += batch.total_amount;
     }
     if batch_id > 0 {
         batch_id -= 1;
-        let batch = UNBOND_BATCHES.load(deps.storage, batch_id)?;
+        let batch = unbond_batches_map().load(deps.storage, batch_id)?;
         if batch.status == UnbondBatchStatus::UnbondRequested {
             unprocessed_unbonded_amount += batch.total_amount;
         }
     }
     let failed_batch_id = FAILED_BATCH_ID.may_load(deps.storage)?;
     if let Some(failed_batch_id) = failed_batch_id {
-        let failed_batch = UNBOND_BATCHES.load(deps.storage, failed_batch_id)?;
+        let failed_batch = unbond_batches_map().load(deps.storage, failed_batch_id)?;
         unprocessed_unbonded_amount += failed_batch.total_amount;
     }
     let core_balance = deps
@@ -130,7 +129,9 @@ fn query_exchange_rate(
     let extra_amount = match FSM.get_current_state(deps.storage)? {
         ContractState::Transfering => PENDING_TRANSFER.load(deps.storage),
         ContractState::Staking => {
-            let (ica_balance, _) = get_ica_balance_by_denom(
+            // FIXME: this ICA balance should be fresh in order to guarantee correct
+            //        exchange rate calculation
+            let (ica_balance, _, _) = get_ica_balance_by_denom(
                 deps,
                 &config.puppeteer_contract,
                 &config.remote_denom,
@@ -150,7 +151,7 @@ fn query_exchange_rate(
 }
 
 fn query_unbond_batch(deps: Deps<NeutronQuery>, batch_id: Uint128) -> StdResult<Binary> {
-    to_json_binary(&UNBOND_BATCHES.load(deps.storage, batch_id.into())?)
+    to_json_binary(&unbond_batches_map().load(deps.storage, batch_id.u128())?)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -175,10 +176,6 @@ pub fn execute(
         ExecuteMsg::UpdateNonNativeRewardsReceivers { items } => {
             execute_set_non_native_rewards_receivers(deps, env, info, items)
         }
-        ExecuteMsg::FakeProcessBatch {
-            batch_id,
-            unbonded_amount,
-        } => execute_fake_process_batch(deps, env, info, batch_id, unbonded_amount),
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::PuppeteerHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
     }
@@ -248,6 +245,7 @@ fn execute_tick_idle(
     let mut attrs = vec![attr("action", "tick_idle")];
     let last_idle_call = LAST_IDLE_CALL.load(deps.storage)?;
     let mut messages = vec![];
+
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
         //process non-native rewards
         if let Some(transfer_msg) =
@@ -262,8 +260,8 @@ fn execute_tick_idle(
         ensure!(
             !is_unbonding_time_close(
                 deps.as_ref(),
-                &env.block.time.seconds(),
-                &config.unbonding_safe_period
+                env.block.time.seconds(),
+                config.unbonding_safe_period
             )?,
             ContractError::UnbondingTimeIsClose {}
         );
@@ -271,16 +269,62 @@ fn execute_tick_idle(
             .pump_address
             .clone()
             .ok_or(ContractError::PumpAddressIsNotSet {})?;
+
+        // detect already unbonded batch, if there is one
+        let unbonding_batches = unbond_batches_map()
+            .idx
+            .status
+            .prefix(UnbondBatchStatus::Unbonding as u8)
+            .range(deps.storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<_>>>()?;
+        if !unbonding_batches.is_empty() {
+            let (id, mut unbonding_batch) = unbonding_batches
+                .into_iter()
+                // we only need the oldest Unbonding batch
+                .min_by_key(|(_, batch)| batch.expected_release)
+                // this `unwrap()` is safe to call since in this branch
+                // `unbonding_batches` is not empty
+                .unwrap();
+            let (balance, _local_height, ica_balance_local_time) = get_ica_balance_by_denom(
+                deps.as_ref(),
+                &config.puppeteer_contract,
+                &config.remote_denom,
+                true,
+            )?;
+
+            if unbonding_batch.expected_release <= env.block.time.seconds()
+                && unbonding_batch.expected_release < ica_balance_local_time
+            {
+                let (unbonded_amount, slashing_effect) =
+                    if balance < unbonding_batch.expected_amount {
+                        (
+                            balance,
+                            Decimal::from_ratio(balance, unbonding_batch.expected_amount),
+                        )
+                    } else {
+                        (unbonding_batch.expected_amount, Decimal::one())
+                    };
+                unbonding_batch.unbonded_amount = Some(unbonded_amount);
+                unbonding_batch.slashing_effect = Some(slashing_effect);
+                unbonding_batch.status = UnbondBatchStatus::Unbonded;
+                unbond_batches_map().save(deps.storage, id, &unbonding_batch)?;
+            }
+        }
+
         // process unbond if any already unbonded
         // and claim rewards
         let transfer: Option<TransferReadyBatchMsg> = match get_unbonded_batch(deps.as_ref())? {
-            Some((batch_id, batch)) => Some(TransferReadyBatchMsg {
-                batch_id,
-                amount: batch
-                    .unbonded_amount
-                    .ok_or(ContractError::UnbondedAmountIsNotSet {})?,
-                recipient: pump_address,
-            }),
+            Some((batch_id, mut batch)) => {
+                batch.status = UnbondBatchStatus::Withdrawing;
+                unbond_batches_map().save(deps.storage, batch_id, &batch)?;
+                Some(TransferReadyBatchMsg {
+                    batch_id,
+                    amount: batch
+                        .unbonded_amount
+                        .ok_or(ContractError::UnbondedAmountIsNotSet {})?,
+                    recipient: pump_address,
+                })
+            }
             None => None,
         };
 
@@ -289,7 +333,7 @@ fn execute_tick_idle(
             &lido_staking_base::msg::validatorset::QueryMsg::Validators {},
         )?;
 
-        let (delegations, _) = deps
+        let (delegations, _, _) = deps
             .querier
             .query_wasm_smart::<lido_staking_base::msg::puppeteer::DelegationsResponse>(
             config.puppeteer_contract.to_string(),
@@ -308,6 +352,7 @@ fn execute_tick_idle(
             .filter(|d| validators_map.get(&d.validator).map_or(false, |_| true))
             .map(|d| d.validator.clone())
             .collect::<Vec<_>>();
+        // XXX: maybe this state transition should only happen if `!validators_to_claim.is_empty()`?
         FSM.go_to(deps.storage, ContractState::Claiming)?;
         if validators_to_claim.is_empty() {
             attrs.push(attr("validators_to_claim", "empty"));
@@ -325,17 +370,17 @@ fn execute_tick_idle(
         } else {
             attrs.push(attr("validators_to_claim", validators_to_claim.join(",")));
             messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.puppeteer_contract.to_string(),
-            msg: to_json_binary(
-                &lido_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
-                    validators: validators_to_claim,
-                    transfer,
-                    timeout: Some(config.puppeteer_timeout),
-                    reply_to: env.contract.address.to_string(),
-                },
-            )?,
-            funds: info.funds,
-        }));
+                contract_addr: config.puppeteer_contract.clone(),
+                msg: to_json_binary(
+                    &lido_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
+                        validators: validators_to_claim,
+                        transfer,
+                        timeout: Some(config.puppeteer_timeout),
+                        reply_to: env.contract.address.to_string(),
+                    },
+                )?,
+                funds: info.funds,
+            }));
         }
         attrs.push(attr("state", "claiming"));
         LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
@@ -361,11 +406,12 @@ fn execute_tick_claiming(
                     ..
                 } => {
                     if let Some(transfer) = transfer {
-                        let mut batch = UNBOND_BATCHES.load(deps.storage, transfer.batch_id)?;
+                        let mut batch =
+                            unbond_batches_map().load(deps.storage, transfer.batch_id)?;
                         batch.status = UnbondBatchStatus::Withdrawn;
                         attrs.push(attr("batch_id", transfer.batch_id.to_string()));
                         attrs.push(attr("unbond_batch_status", "withdrawn"));
-                        UNBOND_BATCHES.save(deps.storage, transfer.batch_id, &batch)?;
+                        unbond_batches_map().save(deps.storage, transfer.batch_id, &batch)?;
                     }
                 }
                 _ => return Err(ContractError::InvalidTransaction {}),
@@ -422,13 +468,13 @@ fn execute_tick_staking(
     let batch_id = FAILED_BATCH_ID
         .may_load(deps.storage)?
         .unwrap_or(UNBOND_BATCH_ID.load(deps.storage)?);
-    let mut unbond = UNBOND_BATCHES.load(deps.storage, batch_id)?;
+    let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
     if (Timestamp::from_seconds(unbond.created).plus_seconds(config.unbond_batch_switch_time)
         > env.block.time)
         && !unbond.unbond_items.is_empty()
         && !unbond.total_amount.is_zero()
     {
-        let (pre_unbonding_balance, _) = get_ica_balance_by_denom(
+        let (pre_unbonding_balance, _, _) = get_ica_balance_by_denom(
             deps.as_ref(),
             &config.puppeteer_contract,
             &config.remote_denom,
@@ -458,9 +504,9 @@ fn execute_tick_staking(
             funds: info.funds,
         }));
         unbond.status = UnbondBatchStatus::UnbondRequested;
-        UNBOND_BATCHES.save(deps.storage, batch_id, &unbond)?;
+        unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
         UNBOND_BATCH_ID.save(deps.storage, &(batch_id + 1))?;
-        UNBOND_BATCHES.save(
+        unbond_batches_map().save(
             deps.storage,
             batch_id + 1,
             &new_unbond(env.block.time.seconds()),
@@ -486,10 +532,10 @@ fn execute_tick_unbonding(
                 lido_puppeteer_base::msg::Transaction::Undelegate { batch_id, .. } => {
                     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
                     attrs.push(attr("batch_id", batch_id.to_string()));
-                    let mut unbond = UNBOND_BATCHES.load(deps.storage, batch_id)?;
+                    let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
                     unbond.status = UnbondBatchStatus::Unbonding;
                     unbond.expected_release = env.block.time.seconds() + config.unbonding_period;
-                    UNBOND_BATCHES.save(deps.storage, batch_id, &unbond)?;
+                    unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
                     FAILED_BATCH_ID.remove(deps.storage);
                     attrs.push(attr("unbonding", "success"));
                 }
@@ -499,9 +545,9 @@ fn execute_tick_unbonding(
         lido_puppeteer_base::msg::ResponseHookMsg::Error(response) => match response.transaction {
             lido_puppeteer_base::msg::Transaction::Undelegate { batch_id, .. } => {
                 attrs.push(attr("batch_id", batch_id.to_string()));
-                let mut unbond = UNBOND_BATCHES.load(deps.storage, batch_id)?;
+                let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
                 unbond.status = UnbondBatchStatus::UnbondFailed;
-                UNBOND_BATCHES.save(deps.storage, batch_id, &unbond)?;
+                unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
                 FAILED_BATCH_ID.save(deps.storage, &batch_id)?;
                 attrs.push(attr("unbonding", "failed"));
             }
@@ -510,27 +556,6 @@ fn execute_tick_unbonding(
     }
     FSM.go_to(deps.storage, ContractState::Idle)?;
     Ok(response("execute-tick_unbonding", CONTRACT_NAME, attrs))
-}
-
-fn execute_fake_process_batch(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    _info: MessageInfo,
-    batch_id: Uint128,
-    unbonded_amount: Uint128,
-) -> ContractResult<Response<NeutronMsg>> {
-    let mut attrs = vec![attr("action", "fake_process_batch")];
-    let mut unbond_batch = UNBOND_BATCHES.load(deps.storage, batch_id.into())?;
-    unbond_batch.unbonded_amount = Some(unbonded_amount);
-    unbond_batch.status = UnbondBatchStatus::Unbonded;
-    unbond_batch.slashing_effect = Some(
-        Decimal::from_str(&unbonded_amount.to_string())?
-            / Decimal::from_str(&unbond_batch.expected_amount.to_string())?,
-    );
-    UNBOND_BATCHES.save(deps.storage, batch_id.into(), &unbond_batch)?;
-    attrs.push(attr("batch_id", batch_id.to_string()));
-    attrs.push(attr("unbonded_amount", unbonded_amount.to_string()));
-    Ok(response("execute-fake_process_batch", CONTRACT_NAME, attrs))
 }
 
 fn execute_bond(
@@ -683,7 +708,7 @@ fn execute_unbond(
     let config = CONFIG.load(deps.storage)?;
     let ld_denom = config.ld_denom.ok_or(ContractError::LDDenomIsNotSet {})?;
     let amount = cw_utils::must_pay(&info, &ld_denom)?;
-    let mut unbond_batch = UNBOND_BATCHES.load(deps.storage, unbond_batch_id)?;
+    let mut unbond_batch = unbond_batches_map().load(deps.storage, unbond_batch_id)?;
     let exchange_rate = query_exchange_rate(deps.as_ref(), env, None)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
     let expected_amount = amount * exchange_rate;
@@ -696,7 +721,7 @@ fn execute_unbond(
     unbond_batch.expected_amount += expected_amount;
 
     attrs.push(attr("expected_amount", expected_amount.to_string()));
-    UNBOND_BATCHES.save(deps.storage, unbond_batch_id, &unbond_batch)?;
+    unbond_batches_map().save(deps.storage, unbond_batch_id, &unbond_batch)?;
     let extension = Some(Metadata {
         description: Some("Withdrawal voucher".into()),
         name: "LDV voucher".to_string(),
@@ -758,7 +783,7 @@ fn get_unbonded_batch(deps: Deps<NeutronQuery>) -> ContractResult<Option<(u128, 
     if batch_id == 0 {
         return Ok(None);
     }
-    let batch = UNBOND_BATCHES.load(deps.storage, batch_id - 1)?;
+    let batch = unbond_batches_map().load(deps.storage, batch_id - 1)?;
     if batch.status == UnbondBatchStatus::Unbonded {
         return Ok(Some((batch_id - 1, batch)));
     }
@@ -808,7 +833,7 @@ pub fn get_stake_msg<T>(
     config: &Config,
     funds: Vec<cosmwasm_std::Coin>,
 ) -> ContractResult<CosmosMsg<T>> {
-    let (balance, balance_height) = get_ica_balance_by_denom(
+    let (balance, balance_height, _) = get_ica_balance_by_denom(
         deps.as_ref(),
         &config.puppeteer_contract,
         &config.remote_denom,
@@ -874,19 +899,14 @@ fn get_received_puppeteer_response(
 
 fn is_unbonding_time_close(
     deps: Deps<NeutronQuery>,
-    now: &u64,
-    safe_period: &u64,
+    now: u64,
+    safe_period: u64,
 ) -> ContractResult<bool> {
     let mut unbond_batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
     while unbond_batch_id > 0 {
-        let unbond_batch = UNBOND_BATCHES.load(deps.storage, unbond_batch_id)?;
-        if unbond_batch.status == UnbondBatchStatus::Unbonding
-            && (now - unbond_batch.expected_release < *safe_period)
-        {
-            return Ok(true);
-        }
-        if unbond_batch.status == UnbondBatchStatus::Unbonded {
-            return Ok(false);
+        let unbond_batch = unbond_batches_map().load(deps.storage, unbond_batch_id)?;
+        if unbond_batch.status == UnbondBatchStatus::Unbonding {
+            return Ok(now - unbond_batch.expected_release < safe_period);
         }
         unbond_batch_id -= 1;
     }
@@ -898,8 +918,8 @@ fn get_ica_balance_by_denom<T: CustomQuery>(
     puppeteer_contract: &str,
     remote_denom: &str,
     can_be_zero: bool,
-) -> ContractResult<(Uint128, u64)> {
-    let (ica_balances, remote_height): lido_staking_base::msg::puppeteer::BalancesResponse =
+) -> ContractResult<(Uint128, u64, u64)> {
+    let (ica_balances, local_height, local_time): lido_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             puppeteer_contract.to_string(),
             &lido_puppeteer_base::msg::QueryMsg::Extention {
@@ -919,12 +939,13 @@ fn get_ica_balance_by_denom<T: CustomQuery>(
             true => balance.unwrap_or(Uint128::zero()),
             false => balance.ok_or(ContractError::ICABalanceZero {})?,
         },
-        remote_height,
+        local_height,
+        local_time.seconds(),
     ))
 }
 
-fn new_unbond(now: u64) -> lido_staking_base::state::core::UnbondBatch {
-    lido_staking_base::state::core::UnbondBatch {
+fn new_unbond(now: u64) -> UnbondBatch {
+    UnbondBatch {
         total_amount: Uint128::zero(),
         expected_amount: Uint128::zero(),
         unbond_items: vec![],
