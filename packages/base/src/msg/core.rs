@@ -20,6 +20,7 @@ pub struct InstantiateMsg {
     pub unbonding_period: u64,         //seconds
     pub unbonding_safe_period: u64,    //seconds
     pub unbond_batch_switch_time: u64, //seconds
+    pub bond_limit: Option<Uint128>,
     pub pump_address: Option<String>,
     pub channel: String,
     pub owner: String,
@@ -48,6 +49,8 @@ pub enum QueryMsg {
     PendingLSMShares {},
     #[returns(Vec<(String,(String, Uint128))>)]
     LSMSharesToRedeem {},
+    #[returns(Uint128)]
+    TotalBonded {},
 }
 
 #[cw_ownable_execute]
@@ -60,6 +63,7 @@ pub enum ExecuteMsg {
     UpdateNonNativeRewardsReceivers { items: Vec<NonNativeRewardsItem> },
     Tick {},
     PuppeteerHook(Box<ResponseHookMsg>),
+    ResetBondedAmount {},
 }
 
 #[cw_serde]
@@ -85,6 +89,7 @@ impl From<InstantiateMsg> for Config {
             lsm_redeem_threshold: val.lsm_redeem_threshold,
             validators_set_contract: val.validators_set_contract,
             unbond_batch_switch_time: val.unbond_batch_switch_time,
+            bond_limit: val.bond_limit,
             fee: val.fee,
             fee_address: val.fee_address,
         }

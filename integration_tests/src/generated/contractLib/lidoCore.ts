@@ -1,6 +1,20 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
 /**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint128 = string;
+/**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
@@ -9,6 +23,7 @@ export type Decimal = string;
 
 export interface InstantiateMsg {
   base_denom: string;
+  bond_limit?: Uint128 | null;
   channel: string;
   fee?: Decimal | null;
   fee_address?: string | null;
@@ -29,19 +44,6 @@ export interface InstantiateMsg {
   withdrawal_voucher_contract: string;
 }
 /**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal = string;
-export type ContractState = "idle" | "claiming" | "unbonding" | "staking" | "transfering";
-/**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal1 = string;
-/**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
  * # Examples
@@ -55,6 +57,19 @@ export type Decimal1 = string;
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal = string;
+export type ContractState = "idle" | "claiming" | "unbonding" | "staking" | "transfering";
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal1 = string;
 export type ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128 = [string, [string, Uint128]][];
 export type ResponseHookMsg =
   | {
@@ -166,6 +181,20 @@ export type Transaction =
 export type ArrayOfNonNativeRewardsItem = NonNativeRewardsItem[];
 export type String = string;
 export type ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint1281 = [string, [string, Uint128]][];
+/**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint1281 = string;
 export type UnbondBatchStatus =
   | "new"
   | "unbond_requested"
@@ -241,6 +270,7 @@ export interface LidoCoreSchema {
     | ArrayOfNonNativeRewardsItem
     | String
     | ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint1281
+    | Uint1281
     | UnbondBatch;
   query: UnbondBatchArgs;
   execute: BondArgs | UpdateConfigArgs | UpdateNonNativeRewardsReceiversArgs | PuppeteerHookArgs | UpdateOwnershipArgs;
@@ -248,6 +278,7 @@ export interface LidoCoreSchema {
 }
 export interface Config {
   base_denom: string;
+  bond_limit?: Uint128 | null;
   channel: string;
   fee?: Decimal | null;
   fee_address?: string | null;
@@ -366,6 +397,7 @@ export interface UpdateConfigArgs {
 }
 export interface ConfigOptional {
   base_denom?: string | null;
+  bond_limit?: Uint128 | null;
   channel?: string | null;
   fee?: Decimal | null;
   fee_address?: string | null;
@@ -447,6 +479,9 @@ export class Client {
   queryLSMSharesToRedeem = async(): Promise<ArrayOfTupleOf_StringAnd_Tuple_of_String_and_Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { l_s_m_shares_to_redeem: {} });
   }
+  queryTotalBonded = async(): Promise<Uint128> => {
+    return this.client.queryContractSmart(this.contractAddress, { total_bonded: {} });
+  }
   bond = async(sender:string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { bond: args }, fee || "auto", memo, funds);
@@ -470,6 +505,10 @@ export class Client {
   puppeteerHook = async(sender:string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
+  }
+  resetBondedAmount = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { reset_bonded_amount: {} }, fee || "auto", memo, funds);
   }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

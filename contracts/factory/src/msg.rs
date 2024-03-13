@@ -26,6 +26,7 @@ pub struct CoreParams {
     pub unbond_batch_switch_time: u64,
     pub lsm_redeem_threshold: u64,
     pub channel: String,
+    pub bond_limit: Option<Uint128>,
 }
 
 #[cw_serde]

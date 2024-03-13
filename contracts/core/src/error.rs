@@ -70,6 +70,8 @@ pub enum ContractError {
         ica_height: u64,
         puppeteer_height: u64,
     },
+    #[error("Bond limit exceeded")]
+    BondLimitExceeded {},
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;
