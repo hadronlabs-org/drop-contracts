@@ -11,7 +11,7 @@ on:
     inputs:
       toolchain:
         description: 'Default Rust Toolchain'
-        default: "1.73.0"
+        default: "1.75.0"
         required: true
         type: string
       target:
@@ -31,7 +31,7 @@ on:
         type: string
 
 env:
-  TOOLCHAIN: ${{ inputs.toolchain || '1.73.0' }}
+  TOOLCHAIN: ${{ inputs.toolchain || '1.75.0' }}
   TARGET: ${{ inputs.target || 'wasm32-unknown-unknown' }}
   REF: ${{ github.event_name == 'push' && github.ref || inputs.branch || 'main' }}
   ID: ${{ inputs.id || 'scheduled' }}
@@ -46,7 +46,7 @@ jobs:
           ref: ${{ env.REF }}
           fetch-depth: 0
       - name: Save SHA
-        run: echo "sha=$(/usr/bin/git log -1 --format='%H')" >> $GITHUB_ENV 
+        run: echo "sha=$(/usr/bin/git log -1 --format='%H')" >> $GITHUB_ENV
       - name: Check input type
         run: |
           if git show-ref --quiet --heads $REF; then

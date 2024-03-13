@@ -1,13 +1,13 @@
 use crate::error::{ContractError, ContractResult};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, ensure_ne, entry_point, to_json_binary, Addr, Attribute, BankQuery,
-    Binary, Coin, CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order,
-    QueryRequest, Response, StdError, StdResult, Timestamp, Uint128, WasmMsg,
+    attr, ensure, ensure_eq, entry_point, to_json_binary, Addr, Attribute, BankQuery, Binary, Coin,
+    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest,
+    Response, StdError, StdResult, Timestamp, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
-use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchMsg};
+use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
 use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::state::core::{
     unbond_batches_map, Config, ConfigOptional, ContractState, FeeItem, NonNativeRewardsItem,
@@ -380,75 +380,112 @@ fn execute_tick_idle(
             return Err(ContractError::IdleMinIntervalIsNotReached {});
         }
     } else {
-        ensure!(
-            !is_unbonding_time_close(
-                deps.as_ref(),
-                env.block.time.seconds(),
-                config.unbonding_safe_period
-            )?,
-            ContractError::UnbondingTimeIsClose {}
-        );
-        let pump_address = config
-            .pump_address
-            .clone()
-            .ok_or(ContractError::PumpAddressIsNotSet {})?;
-
-        // detect already unbonded batch, if there is one
         let unbonding_batches = unbond_batches_map()
             .idx
             .status
             .prefix(UnbondBatchStatus::Unbonding as u8)
             .range(deps.storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<_>>>()?;
-        if !unbonding_batches.is_empty() {
-            let (id, mut unbonding_batch) = unbonding_batches
-                .into_iter()
-                // we only need the oldest Unbonding batch
-                .min_by_key(|(_, batch)| batch.expected_release)
-                // this `unwrap()` is safe to call since in this branch
-                // `unbonding_batches` is not empty
-                .unwrap();
-            let (balance, _local_height, ica_balance_local_time) = get_ica_balance_by_denom(
-                deps.as_ref(),
-                &config.puppeteer_contract,
-                &config.remote_denom,
-                true,
-            )?;
+        ensure!(
+            !is_unbonding_time_close(
+                &unbonding_batches,
+                env.block.time.seconds(),
+                config.unbonding_safe_period
+            ),
+            ContractError::UnbondingTimeIsClose {}
+        );
 
-            if unbonding_batch.expected_release <= env.block.time.seconds()
-                && unbonding_batch.expected_release < ica_balance_local_time
-            {
+        let pump_address = config
+            .pump_address
+            .clone()
+            .ok_or(ContractError::PumpAddressIsNotSet {})?;
+        let (ica_balance, _local_height, ica_balance_local_time) = get_ica_balance_by_denom(
+            deps.as_ref(),
+            &config.puppeteer_contract,
+            &config.remote_denom,
+            true,
+        )?;
+
+        let unbonded_batches = if !unbonding_batches.is_empty() {
+            unbonding_batches
+                .into_iter()
+                .filter(|(_id, batch)| {
+                    batch.expected_release <= env.block.time.seconds()
+                        && batch.expected_release < ica_balance_local_time
+                })
+                .collect::<Vec<_>>()
+        } else {
+            vec![]
+        };
+
+        let transfer: Option<TransferReadyBatchesMsg> = match unbonded_batches.len() {
+            0 => None, // we have nothing to do
+            1 => {
+                let (id, mut unbonding_batch) = unbonded_batches
+                    .into_iter()
+                    // `.next().unwrap()` is safe to call since in this match arm
+                    // `unbonding_batches` always has only 1 item
+                    .next()
+                    .unwrap();
+
                 let (unbonded_amount, slashing_effect) =
-                    if balance < unbonding_batch.expected_amount {
+                    if ica_balance < unbonding_batch.expected_amount {
                         (
-                            balance,
-                            Decimal::from_ratio(balance, unbonding_batch.expected_amount),
+                            ica_balance,
+                            Decimal::from_ratio(ica_balance, unbonding_batch.expected_amount),
                         )
                     } else {
                         (unbonding_batch.expected_amount, Decimal::one())
                     };
                 unbonding_batch.unbonded_amount = Some(unbonded_amount);
                 unbonding_batch.slashing_effect = Some(slashing_effect);
-                unbonding_batch.status = UnbondBatchStatus::Unbonded;
+                unbonding_batch.status = UnbondBatchStatus::Withdrawing;
                 unbond_batches_map().save(deps.storage, id, &unbonding_batch)?;
-            }
-        }
-
-        // process unbond if any already unbonded
-        // and claim rewards
-        let transfer: Option<TransferReadyBatchMsg> = match get_unbonded_batch(deps.as_ref())? {
-            Some((batch_id, mut batch)) => {
-                batch.status = UnbondBatchStatus::Withdrawing;
-                unbond_batches_map().save(deps.storage, batch_id, &batch)?;
-                Some(TransferReadyBatchMsg {
-                    batch_id,
-                    amount: batch
-                        .unbonded_amount
-                        .ok_or(ContractError::UnbondedAmountIsNotSet {})?,
+                Some(TransferReadyBatchesMsg {
+                    batch_ids: vec![id],
+                    emergency: false,
+                    amount: unbonded_amount,
                     recipient: pump_address,
                 })
             }
-            None => None,
+            _ => {
+                let total_expected_amount: Uint128 = unbonded_batches
+                    .iter()
+                    .map(|(_id, batch)| batch.expected_amount)
+                    .sum();
+                let (emergency, recipient, amount) = if ica_balance < total_expected_amount {
+                    (
+                        true,
+                        config
+                            .emergency_address
+                            .clone()
+                            .ok_or(ContractError::EmergencyAddressIsNotSet {})?,
+                        ica_balance,
+                    )
+                } else {
+                    (false, pump_address, total_expected_amount)
+                };
+                let mut batch_ids = vec![];
+                for (id, mut batch) in unbonded_batches {
+                    batch_ids.push(id);
+                    if emergency {
+                        batch.unbonded_amount = None;
+                        batch.slashing_effect = None;
+                        batch.status = UnbondBatchStatus::WithdrawingEmergency;
+                    } else {
+                        batch.unbonded_amount = Some(batch.expected_amount);
+                        batch.slashing_effect = Some(Decimal::one());
+                        batch.status = UnbondBatchStatus::Withdrawing;
+                    }
+                    unbond_batches_map().save(deps.storage, id, &batch)?;
+                }
+                Some(TransferReadyBatchesMsg {
+                    batch_ids,
+                    emergency,
+                    amount,
+                    recipient,
+                })
+            }
         };
 
         let validators: Vec<ValidatorInfo> = deps.querier.query_wasm_smart(
@@ -485,8 +522,8 @@ fn execute_tick_idle(
                 FSM.go_to(deps.storage, ContractState::Transfering)?;
                 PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
                 messages.push(transfer_msg);
-            } else {
-                let stake_msg = get_stake_msg(deps.branch(), &env, config, info.funds)?;
+            } else if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, info.funds)?
+            {
                 messages.push(stake_msg);
                 FSM.go_to(deps.storage, ContractState::Staking)?;
             }
@@ -529,12 +566,18 @@ fn execute_tick_claiming(
                     ..
                 } => {
                     if let Some(transfer) = transfer {
-                        let mut batch =
-                            unbond_batches_map().load(deps.storage, transfer.batch_id)?;
-                        batch.status = UnbondBatchStatus::Withdrawn;
-                        attrs.push(attr("batch_id", transfer.batch_id.to_string()));
-                        attrs.push(attr("unbond_batch_status", "withdrawn"));
-                        unbond_batches_map().save(deps.storage, transfer.batch_id, &batch)?;
+                        for id in transfer.batch_ids {
+                            let mut batch = unbond_batches_map().load(deps.storage, id)?;
+                            attrs.push(attr("batch_id", id.to_string()));
+                            if transfer.emergency {
+                                batch.status = UnbondBatchStatus::WithdrawnEmergency;
+                                attrs.push(attr("unbond_batch_status", "withdrawn_emergency"));
+                            } else {
+                                batch.status = UnbondBatchStatus::Withdrawn;
+                                attrs.push(attr("unbond_batch_status", "withdrawn"));
+                            }
+                            unbond_batches_map().save(deps.storage, id, &batch)?;
+                        }
                     }
                 }
                 _ => return Err(ContractError::InvalidTransaction {}),
@@ -550,10 +593,11 @@ fn execute_tick_claiming(
         FSM.go_to(deps.storage, ContractState::Transfering)?;
         PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
         messages.push(transfer_msg);
-    } else {
-        let stake_msg = get_stake_msg(deps.branch(), &env, config, info.funds)?;
+    } else if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, info.funds)? {
         messages.push(stake_msg);
         FSM.go_to(deps.storage, ContractState::Staking)?;
+    } else {
+        FSM.go_to(deps.storage, ContractState::Idle)?;
     }
     attrs.push(attr("state", "unbonding"));
     Ok(response("execute-tick_claiming", CONTRACT_NAME, attrs).add_messages(messages))
@@ -567,15 +611,24 @@ fn execute_tick_transfering(
 ) -> ContractResult<Response<NeutronMsg>> {
     let _response_msg = get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
-    let stake_msg = get_stake_msg(deps.branch(), &env, config, info.funds)?;
-    FSM.go_to(deps.storage, ContractState::Staking)?;
 
-    Ok(response(
+    let mut response = response(
         "execute-tick_transfering",
         CONTRACT_NAME,
-        vec![attr("action", "tick_transfering"), attr("state", "staking")],
-    )
-    .add_message(stake_msg))
+        vec![attr("action", "tick_transfering")],
+    );
+
+    if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, info.funds)? {
+        response = response
+            .add_message(stake_msg)
+            .add_attribute("state", "staking");
+        FSM.go_to(deps.storage, ContractState::Staking)?;
+    } else {
+        response = response.add_attribute("state", "idle");
+        FSM.go_to(deps.storage, ContractState::Idle)?;
+    }
+
+    Ok(response)
 }
 
 fn execute_tick_staking(
@@ -839,6 +892,14 @@ fn execute_update_config(
         attrs.push(attr("fee_address", &fee_address));
         config.fee_address = Some(fee_address);
     }
+    if let Some(emergency_address) = new_config.emergency_address {
+        attrs.push(attr("emergency_address", &emergency_address));
+        config.emergency_address = Some(emergency_address);
+    }
+    if let Some(min_stake_amount) = new_config.min_stake_amount {
+        attrs.push(attr("min_stake_amount", min_stake_amount));
+        config.min_stake_amount = min_stake_amount;
+    }
 
     CONFIG.save(deps.storage, &config)?;
 
@@ -916,7 +977,7 @@ fn execute_unbond(
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.token_contract,
             msg: to_json_binary(&TokenExecuteMsg::Burn {})?,
-            funds: vec![cosmwasm_std::Coin {
+            funds: vec![Coin {
                 denom: ld_denom,
                 amount,
             }],
@@ -925,23 +986,11 @@ fn execute_unbond(
     Ok(response("execute-unbond", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
-fn get_unbonded_batch(deps: Deps<NeutronQuery>) -> ContractResult<Option<(u128, UnbondBatch)>> {
-    let batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
-    if batch_id == 0 {
-        return Ok(None);
-    }
-    let batch = unbond_batches_map().load(deps.storage, batch_id - 1)?;
-    if batch.status == UnbondBatchStatus::Unbonded {
-        return Ok(Some((batch_id - 1, batch)));
-    }
-    Ok(None)
-}
-
 fn get_transfer_pending_balance_msg<T>(
     deps: Deps<NeutronQuery>,
     env: &Env,
     config: &Config,
-    funds: Vec<cosmwasm_std::Coin>,
+    funds: Vec<Coin>,
 ) -> ContractResult<Option<(CosmosMsg<T>, Uint128)>> {
     let pending_amount = deps
         .querier
@@ -953,7 +1002,7 @@ fn get_transfer_pending_balance_msg<T>(
     if pending_amount.is_zero() {
         return Ok(None);
     }
-    let mut all_funds = vec![cosmwasm_std::Coin {
+    let mut all_funds = vec![Coin {
         denom: config.base_denom.to_string(),
         amount: pending_amount,
     }];
@@ -979,16 +1028,19 @@ pub fn get_stake_msg<T>(
     deps: DepsMut<NeutronQuery>,
     env: &Env,
     config: &Config,
-    funds: Vec<cosmwasm_std::Coin>,
-) -> ContractResult<CosmosMsg<T>> {
+    funds: Vec<Coin>,
+) -> ContractResult<Option<CosmosMsg<T>>> {
     let (balance, balance_height, _) = get_ica_balance_by_denom(
         deps.as_ref(),
         &config.puppeteer_contract,
         &config.remote_denom,
-        false,
+        true,
     )?;
 
-    ensure_ne!(balance, Uint128::zero(), ContractError::ICABalanceZero {});
+    if balance < config.min_stake_amount {
+        return Ok(None);
+    }
+
     let last_ica_balance_change_height = LAST_ICA_BALANCE_CHANGE_HEIGHT.load(deps.storage)?;
     ensure!(
         last_ica_balance_change_height <= balance_height,
@@ -1023,7 +1075,7 @@ pub fn get_stake_msg<T>(
         })?;
     };
 
-    Ok(CosmosMsg::Wasm(WasmMsg::Execute {
+    Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_contract.to_string(),
         msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
             items: to_delegate
@@ -1034,7 +1086,7 @@ pub fn get_stake_msg<T>(
             reply_to: env.contract.address.to_string(),
         })?,
         funds,
-    }))
+    })))
 }
 
 fn get_received_puppeteer_response(
@@ -1046,19 +1098,17 @@ fn get_received_puppeteer_response(
 }
 
 fn is_unbonding_time_close(
-    deps: Deps<NeutronQuery>,
+    unbonding_batches: &[(u128, UnbondBatch)],
     now: u64,
     safe_period: u64,
-) -> ContractResult<bool> {
-    let mut unbond_batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
-    while unbond_batch_id > 0 {
-        let unbond_batch = unbond_batches_map().load(deps.storage, unbond_batch_id)?;
-        if unbond_batch.status == UnbondBatchStatus::Unbonding {
-            return Ok(now - unbond_batch.expected_release < safe_period);
+) -> bool {
+    for (_id, unbond_batch) in unbonding_batches {
+        let expected = unbond_batch.expected_release;
+        if (now < expected) && (now > expected - safe_period) {
+            return true;
         }
-        unbond_batch_id -= 1;
     }
-    Ok(false)
+    false
 }
 
 fn get_ica_balance_by_denom<T: CustomQuery>(

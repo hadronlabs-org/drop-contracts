@@ -25,10 +25,12 @@ export interface InstantiateMsg {
   base_denom: string;
   bond_limit?: Uint128 | null;
   channel: string;
+  emergency_address?: string | null;
   fee?: Decimal | null;
   fee_address?: string | null;
   idle_min_interval: number;
   lsm_redeem_threshold: number;
+  min_stake_amount: Uint128;
   owner: string;
   pump_address?: string | null;
   puppeteer_contract: string;
@@ -161,7 +163,7 @@ export type Transaction =
       claim_rewards_and_optionaly_transfer: {
         denom: string;
         interchain_account_id: string;
-        transfer?: TransferReadyBatchMsg | null;
+        transfer?: TransferReadyBatchesMsg | null;
         validators: string[];
       };
     }
@@ -169,6 +171,7 @@ export type Transaction =
       i_b_c_transfer: {
         amount: number;
         denom: string;
+        reason: IBCTransferReason;
         recipient: string;
       };
     }
@@ -178,6 +181,7 @@ export type Transaction =
         items: [string, Coin][];
       };
     };
+export type IBCTransferReason = "l_s_m_share" | "stake";
 export type ArrayOfNonNativeRewardsItem = NonNativeRewardsItem[];
 export type String = string;
 export type ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint1281 = [string, [string, Uint128]][];
@@ -200,9 +204,10 @@ export type UnbondBatchStatus =
   | "unbond_requested"
   | "unbond_failed"
   | "unbonding"
-  | "unbonded"
   | "withdrawing"
-  | "withdrawn";
+  | "withdrawn"
+  | "withdrawing_emergency"
+  | "withdrawn_emergency";
 export type PuppeteerHookArgs =
   | {
       success: ResponseHookSuccessMsg;
@@ -280,11 +285,13 @@ export interface Config {
   base_denom: string;
   bond_limit?: Uint128 | null;
   channel: string;
+  emergency_address?: string | null;
   fee?: Decimal | null;
   fee_address?: string | null;
   idle_min_interval: number;
   ld_denom?: string | null;
   lsm_redeem_threshold: number;
+  min_stake_amount: Uint128;
   pump_address?: string | null;
   puppeteer_contract: string;
   puppeteer_timeout: number;
@@ -352,9 +359,10 @@ export interface RedeemShareItem {
   local_denom: string;
   remote_denom: string;
 }
-export interface TransferReadyBatchMsg {
+export interface TransferReadyBatchesMsg {
   amount: Uint128;
-  batch_id: number;
+  batch_ids: number[];
+  emergency: boolean;
   recipient: string;
 }
 export interface ResponseHookErrorMsg {
@@ -399,11 +407,13 @@ export interface ConfigOptional {
   base_denom?: string | null;
   bond_limit?: Uint128 | null;
   channel?: string | null;
+  emergency_address?: string | null;
   fee?: Decimal | null;
   fee_address?: string | null;
   idle_min_interval?: number | null;
   ld_denom?: string | null;
   lsm_redeem_threshold?: number | null;
+  min_stake_amount?: Uint128 | null;
   pump_address?: string | null;
   puppeteer_contract?: string | null;
   puppeteer_timeout?: number | null;

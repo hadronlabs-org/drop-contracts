@@ -29,6 +29,7 @@ pub struct CoreParams {
     pub lsm_redeem_threshold: u64,
     pub channel: String,
     pub bond_limit: Option<Uint128>,
+    pub min_stake_amount: Uint128,
 }
 
 #[cw_serde]

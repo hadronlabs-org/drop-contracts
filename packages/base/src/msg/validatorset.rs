@@ -1,9 +1,10 @@
-use crate::state::validatorset::{Config, ConfigOptional, ValidatorInfo};
+use crate::state::{
+    provider_proposals::ProposalInfo,
+    validatorset::{ConfigOptional, ValidatorInfo},
+};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Decimal;
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
-
-use crate::state::provider_proposals::ProposalInfo;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -58,7 +59,7 @@ pub struct ValidatorResponse {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(Config)]
+    #[returns(crate::state::validatorset::Config)]
     Config {},
     #[returns(ValidatorResponse)]
     Validator { valoper: String },

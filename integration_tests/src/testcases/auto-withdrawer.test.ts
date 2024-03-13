@@ -412,6 +412,7 @@ describe('Auto withdrawer', () => {
         unbonding_period: UNBONDING_TIME,
         channel: 'channel-0',
         lsm_redeem_threshold: 10,
+        min_stake_amount: '2',
       },
     });
     expect(res.transactionHash).toHaveLength(64);
