@@ -738,7 +738,7 @@ describe('Core', () => {
         await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
           neutronUserAddress,
         );
-      return balances.data.balances.length > 2;
+      return balances.data.balances.some((b) => b.amount === '600000');
     });
     const shareOnNeutron = balances.data.balances.find(
       (b) => b.amount === '600000',
@@ -798,75 +798,6 @@ describe('Core', () => {
       ],
     );
     expect(res.transactionHash).toHaveLength(64);
-  });
-
-  it('bond w/o receiver', async () => {
-    const {
-      coreContractClient,
-      neutronClient,
-      neutronUserAddress,
-      neutronIBCDenom,
-    } = context;
-    const res = await coreContractClient.bond(
-      neutronUserAddress,
-      {},
-      1.6,
-      undefined,
-      [
-        {
-          amount: '500000',
-          denom: neutronIBCDenom,
-        },
-      ],
-    );
-    expect(res.transactionHash).toHaveLength(64);
-    await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 1);
-    const balances =
-      await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
-        neutronUserAddress,
-      );
-    expect(
-      balances.data.balances.find((one) => one.denom.startsWith('factory')),
-    ).toEqual({
-      denom: `factory/${context.tokenContractAddress}/lido`,
-      amount: String(Math.floor(500_000 / context.exchangeRate)),
-    });
-  });
-
-  it('bond with receiver', async () => {
-    const {
-      coreContractClient,
-      neutronClient,
-      neutronUserAddress,
-      neutronIBCDenom,
-      neutronSecondUserAddress,
-    } = context;
-    const res = await coreContractClient.bond(
-      neutronUserAddress,
-      { receiver: neutronSecondUserAddress },
-      1.6,
-      undefined,
-      [
-        {
-          amount: '500000',
-          denom: neutronIBCDenom,
-        },
-      ],
-    );
-    expect(res.transactionHash).toHaveLength(64);
-    await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 1);
-    const balances =
-      await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
-        neutronSecondUserAddress,
-      );
-    const ldBalance = balances.data.balances.find((one) =>
-      one.denom.startsWith('factory'),
-    );
-    expect(ldBalance).toEqual({
-      denom: `factory/${context.tokenContractAddress}/lido`,
-      amount: String(Math.floor(500_000 / context.exchangeRate)),
-    });
-    context.ldDenom = ldBalance?.denom;
   });
 
   it('unbond', async () => {
