@@ -1,6 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Decimal, Uint128};
-use cw_storage_plus::{Item, Map};
+use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use lido_helpers::fsm::{Fsm, Transition};
 use optfield::optfield;
 
@@ -39,12 +39,14 @@ pub struct UnbondItem {
 }
 
 #[cw_serde]
+#[derive(Copy)]
 pub enum UnbondBatchStatus {
     New,
     UnbondRequested,
     UnbondFailed,
     Unbonding,
     Unbonded,
+    Withdrawing,
     Withdrawn,
 }
 
@@ -64,7 +66,26 @@ pub struct UnbondBatch {
     pub created: u64,
 }
 
-pub const UNBOND_BATCHES: Map<u128, UnbondBatch> = Map::new("batches");
+pub struct UnbondBatchIndexes<'a> {
+    pub status: MultiIndex<'a, u8, UnbondBatch, u128>,
+}
+
+impl<'a> IndexList<UnbondBatch> for UnbondBatchIndexes<'a> {
+    fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<UnbondBatch>> + '_> {
+        let v: Vec<&dyn Index<UnbondBatch>> = vec![&self.status];
+        Box::new(v.into_iter())
+    }
+}
+
+pub fn unbond_batches_map<'a>() -> IndexedMap<'a, u128, UnbondBatch, UnbondBatchIndexes<'a>> {
+    IndexedMap::new(
+        "batches",
+        UnbondBatchIndexes {
+            status: MultiIndex::new(|_pk, b| b.status as u8, "batches", "batches__status"),
+        },
+    )
+}
+
 pub const UNBOND_BATCH_ID: Item<u128> = Item::new("batches_ids");
 pub const TOTAL_LSM_SHARES: Item<u128> = Item::new("total_lsm_shares");
 pub const PENDING_LSM_SHARES: Map<String, (String, Uint128)> = Map::new("pending_lsm_shares");

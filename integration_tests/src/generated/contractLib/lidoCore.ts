@@ -166,7 +166,14 @@ export type Transaction =
 export type ArrayOfNonNativeRewardsItem = NonNativeRewardsItem[];
 export type String = string;
 export type ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint1281 = [string, [string, Uint128]][];
-export type UnbondBatchStatus = "new" | "unbond_requested" | "unbond_failed" | "unbonding" | "unbonded" | "withdrawn";
+export type UnbondBatchStatus =
+  | "new"
+  | "unbond_requested"
+  | "unbond_failed"
+  | "unbonding"
+  | "unbonded"
+  | "withdrawing"
+  | "withdrawn";
 export type PuppeteerHookArgs =
   | {
       success: ResponseHookSuccessMsg;
@@ -236,13 +243,7 @@ export interface LidoCoreSchema {
     | ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint1281
     | UnbondBatch;
   query: UnbondBatchArgs;
-  execute:
-    | BondArgs
-    | UpdateConfigArgs
-    | UpdateNonNativeRewardsReceiversArgs
-    | FakeProcessBatchArgs
-    | PuppeteerHookArgs
-    | UpdateOwnershipArgs;
+  execute: BondArgs | UpdateConfigArgs | UpdateNonNativeRewardsReceiversArgs | PuppeteerHookArgs | UpdateOwnershipArgs;
   [k: string]: unknown;
 }
 export interface Config {
@@ -387,10 +388,6 @@ export interface ConfigOptional {
 export interface UpdateNonNativeRewardsReceiversArgs {
   items: NonNativeRewardsItem[];
 }
-export interface FakeProcessBatchArgs {
-  batch_id: Uint128;
-  unbonded_amount: Uint128;
-}
 
 
 function isSigningCosmWasmClient(
@@ -465,10 +462,6 @@ export class Client {
   updateNonNativeRewardsReceivers = async(sender:string, args: UpdateNonNativeRewardsReceiversArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_non_native_rewards_receivers: args }, fee || "auto", memo, funds);
-  }
-  fakeProcessBatch = async(sender:string, args: FakeProcessBatchArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { fake_process_batch: args }, fee || "auto", memo, funds);
   }
   tick = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

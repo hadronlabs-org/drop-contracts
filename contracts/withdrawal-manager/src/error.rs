@@ -19,8 +19,8 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized {},
 
-    #[error("Batch is not unbonded yet")]
-    BatchIsNotUnbonded {},
+    #[error("Batch is not withdrawn yet")]
+    BatchIsNotWithdrawn {},
 
     #[error("Missing unbonded amount in batch")]
     BatchAmountIsEmpty {},

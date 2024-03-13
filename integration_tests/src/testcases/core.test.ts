@@ -1,6 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import {
-  LidoAutoWithdrawer,
   LidoCore,
   LidoFactory,
   LidoPump,
@@ -15,22 +14,31 @@ import {
   BankExtension,
   setupStakingExtension,
   setupBankExtension,
-  IndexedTx,
   SigningStargateClient,
+  IndexedTx,
 } from '@cosmjs/stargate';
 import { MsgTransfer } from 'cosmjs-types/ibc/applications/transfer/v1/tx';
 import { join } from 'path';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
-import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
+import {
+  AccountData,
+  Coin,
+  DirectSecp256k1HdWallet,
+} from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
 import { awaitBlocks, setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import { UnbondBatch } from '../generated/contractLib/lidoCore';
+import {
+  ResponseHookMsg,
+  ResponseHookSuccessMsg,
+  UnbondBatch,
+} from '../generated/contractLib/lidoCore';
 import { stringToPath } from '@cosmjs/crypto';
+import { sleep } from '../helpers/sleep';
 
 const LidoFactoryClass = LidoFactory.Client;
 const LidoCoreClass = LidoCore.Client;
@@ -39,7 +47,6 @@ const LidoPuppeteerClass = LidoPuppeteer.Client;
 const LidoStrategyClass = LidoStrategy.Client;
 const LidoWithdrawalVoucherClass = LidoWithdrawalVoucher.Client;
 const LidoWithdrawalManagerClass = LidoWithdrawalManager.Client;
-const LidoAutoWithdrawerClass = LidoAutoWithdrawer.Client;
 
 describe('Core', () => {
   const context: {
@@ -47,6 +54,7 @@ describe('Core', () => {
     contractAddress?: string;
     wallet?: DirectSecp256k1HdWallet;
     gaiaWallet?: DirectSecp256k1HdWallet;
+    gaiaWallet2?: DirectSecp256k1HdWallet;
     factoryContractClient?: InstanceType<typeof LidoFactoryClass>;
     coreContractClient?: InstanceType<typeof LidoCoreClass>;
     strategyContractClient?: InstanceType<typeof LidoStrategyClass>;
@@ -58,12 +66,12 @@ describe('Core', () => {
     withdrawalManagerContractClient?: InstanceType<
       typeof LidoWithdrawalManagerClass
     >;
-    autoWithdrawerContractClient?: InstanceType<typeof LidoAutoWithdrawerClass>;
     account?: AccountData;
     icaAddress?: string;
     client?: SigningCosmWasmClient;
     gaiaClient?: SigningStargateClient;
     gaiaUserAddress?: string;
+    gaiaUserAddress2?: string;
     gaiaQueryClient?: QueryClient & StakingExtension & BankExtension;
     neutronClient?: InstanceType<typeof NeutronClient>;
     neutronUserAddress?: string;
@@ -89,7 +97,13 @@ describe('Core', () => {
   } = { codeIds: {} };
 
   beforeAll(async () => {
-    context.park = await setupPark('core', ['neutron', 'gaia'], true);
+    context.park = await setupPark(
+      'core',
+      ['neutron', 'gaia'],
+      true,
+      true,
+      true,
+    );
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
       {
@@ -98,6 +112,12 @@ describe('Core', () => {
     );
     context.gaiaWallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
+      {
+        prefix: 'cosmos',
+      },
+    );
+    context.gaiaWallet2 = await DirectSecp256k1HdWallet.fromMnemonic(
+      context.park.config.wallets.demo1.mnemonic,
       {
         prefix: 'cosmos',
       },
@@ -130,7 +150,6 @@ describe('Core', () => {
       setupStakingExtension,
       setupBankExtension,
     );
-
     const secondWallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demo2.mnemonic,
       {
@@ -148,6 +167,7 @@ describe('Core', () => {
 
   it('instantiate', async () => {
     const { client, account } = context;
+    context.codeIds = {};
 
     {
       const res = await client.upload(
@@ -244,6 +264,7 @@ describe('Core', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.rewardsManager = res.codeId;
     }
+
     const res = await client.upload(
       account.address,
       fs.readFileSync(join(__dirname, '../../../artifacts/lido_factory.wasm')),
@@ -297,6 +318,9 @@ describe('Core', () => {
     );
     context.gaiaUserAddress = (
       await context.gaiaWallet.getAccounts()
+    )[0].address;
+    context.gaiaUserAddress2 = (
+      await context.gaiaWallet2.getAccounts()
     )[0].address;
     context.neutronUserAddress = (
       await context.wallet.getAccounts()
@@ -366,11 +390,11 @@ describe('Core', () => {
     const res = await contractClient.init(context.neutronUserAddress, {
       base_denom: context.neutronIBCDenom,
       core_params: {
-        idle_min_interval: 1,
+        idle_min_interval: 60,
         puppeteer_timeout: 60,
-        unbond_batch_switch_time: 6000,
+        unbond_batch_switch_time: 240,
         unbonding_safe_period: 10,
-        unbonding_period: 60,
+        unbonding_period: 360,
         channel: 'channel-0',
         lsm_redeem_threshold: 2,
       },
@@ -437,9 +461,11 @@ describe('Core', () => {
       res.puppeteer_contract,
     );
   });
+
   it('set fees for puppeteer', async () => {
-    const { neutronUserAddress, factoryContractClient } = context;
-    const res = await factoryContractClient.updateConfig(neutronUserAddress, {
+    const { neutronUserAddress, factoryContractClient: contractClient } =
+      context;
+    const res = await contractClient.updateConfig(neutronUserAddress, {
       puppeteer_fees: {
         timeout_fee: '20000',
         ack_fee: '10000',
@@ -507,102 +533,12 @@ describe('Core', () => {
     expect(ica.startsWith('cosmos')).toBeTruthy();
     context.icaAddress = ica;
   });
-  it('register balance ICQ', async () => {
-    const { factoryContractClient, neutronUserAddress } = context;
-    const res = await factoryContractClient.proxy(
-      neutronUserAddress,
-      {
-        validator_set: {
-          update_validators: { validators: [] },
-        },
-      },
-      1.5,
-      undefined,
-      [
-        {
-          amount: '1000000',
-          denom: 'untrn',
-        },
-      ],
-    );
-    expect(res.transactionHash).toHaveLength(64);
-  });
-
   it('query exchange rate', async () => {
     const { coreContractClient } = context;
     context.exchangeRate = parseFloat(
       await coreContractClient.queryExchangeRate(),
     );
     expect(context.exchangeRate).toEqual(1);
-  });
-
-  it('bond w/o receiver', async () => {
-    const {
-      coreContractClient,
-      neutronClient,
-      neutronUserAddress,
-      neutronIBCDenom,
-    } = context;
-    const res = await coreContractClient.bond(
-      neutronUserAddress,
-      {},
-      1.6,
-      undefined,
-      [
-        {
-          amount: '500000',
-          denom: neutronIBCDenom,
-        },
-      ],
-    );
-    expect(res.transactionHash).toHaveLength(64);
-    await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 1);
-    const balances =
-      await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
-        neutronUserAddress,
-      );
-    expect(
-      balances.data.balances.find((one) => one.denom.startsWith('factory')),
-    ).toEqual({
-      denom: `factory/${context.tokenContractAddress}/lido`,
-      amount: String(Math.floor(500_000 / context.exchangeRate)),
-    });
-  });
-
-  it('bond with receiver', async () => {
-    const {
-      coreContractClient,
-      neutronClient,
-      neutronUserAddress,
-      neutronIBCDenom,
-      neutronSecondUserAddress,
-    } = context;
-    const res = await coreContractClient.bond(
-      neutronUserAddress,
-      { receiver: neutronSecondUserAddress },
-      1.6,
-      undefined,
-      [
-        {
-          amount: '500000',
-          denom: neutronIBCDenom,
-        },
-      ],
-    );
-    expect(res.transactionHash).toHaveLength(64);
-    await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 1);
-    const balances =
-      await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
-        neutronSecondUserAddress,
-      );
-    const ldBalance = balances.data.balances.find((one) =>
-      one.denom.startsWith('factory'),
-    );
-    expect(ldBalance).toEqual({
-      denom: `factory/${context.tokenContractAddress}/lido`,
-      amount: String(Math.floor(500_000 / context.exchangeRate)),
-    });
-    context.ldDenom = ldBalance?.denom;
   });
 
   it('delegate tokens on gaia side', async () => {
@@ -681,7 +617,7 @@ describe('Core', () => {
         await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
           neutronUserAddress,
         );
-      return balances.data.balances.length > 3;
+      return balances.data.balances.length > 2;
     });
     const shareOnNeutron = balances.data.balances.find(
       (b) => b.amount === '600000',
@@ -706,23 +642,50 @@ describe('Core', () => {
     );
     await expect(res).rejects.toThrowError(/Invalid denom/);
   });
-  it('register validator', async () => {
-    const { factoryContractClient, neutronUserAddress, validatorAddress } =
-      context;
-    const res = await factoryContractClient.proxy(neutronUserAddress, {
-      validator_set: {
-        update_validator: {
-          validator: {
-            valoper_address: validatorAddress,
-            weight: 1,
+  it('add validators into validators set', async () => {
+    const {
+      neutronUserAddress,
+      factoryContractClient,
+      validatorAddress,
+      secondValidatorAddress,
+    } = context;
+    const res = await factoryContractClient.proxy(
+      neutronUserAddress,
+      {
+        validator_set: {
+          update_validators: {
+            validators: [
+              {
+                valoper_address: validatorAddress,
+                weight: 1,
+              },
+              {
+                valoper_address: secondValidatorAddress,
+                weight: 1,
+              },
+            ],
           },
         },
       },
-    });
-    expect(res).toBeTruthy();
+      1.5,
+      undefined,
+      [
+        {
+          amount: '1000000',
+          denom: 'untrn',
+        },
+      ],
+    );
+    expect(res.transactionHash).toHaveLength(64);
   });
-  it('bond tokenized share from registered validator', async () => {
-    const { coreContractClient, neutronUserAddress } = context;
+
+  it('bond w/o receiver', async () => {
+    const {
+      coreContractClient,
+      neutronClient,
+      neutronUserAddress,
+      neutronIBCDenom,
+    } = context;
     const res = await coreContractClient.bond(
       neutronUserAddress,
       {},
@@ -730,33 +693,78 @@ describe('Core', () => {
       undefined,
       [
         {
-          amount: '20000',
-          denom: context.tokenizedDenomOnNeutron,
+          amount: '500000',
+          denom: neutronIBCDenom,
         },
       ],
     );
     expect(res.transactionHash).toHaveLength(64);
+    await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 1);
+    const balances =
+      await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+        neutronUserAddress,
+      );
+    expect(
+      balances.data.balances.find((one) => one.denom.startsWith('factory')),
+    ).toEqual({
+      denom: `factory/${context.tokenContractAddress}/lido`,
+      amount: String(Math.floor(500_000 / context.exchangeRate)),
+    });
+  });
+
+  it('bond with receiver', async () => {
+    const {
+      coreContractClient,
+      neutronClient,
+      neutronUserAddress,
+      neutronIBCDenom,
+      neutronSecondUserAddress,
+    } = context;
+    const res = await coreContractClient.bond(
+      neutronUserAddress,
+      { receiver: neutronSecondUserAddress },
+      1.6,
+      undefined,
+      [
+        {
+          amount: '500000',
+          denom: neutronIBCDenom,
+        },
+      ],
+    );
+    expect(res.transactionHash).toHaveLength(64);
+    await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 1);
+    const balances =
+      await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+        neutronSecondUserAddress,
+      );
+    const ldBalance = balances.data.balances.find((one) =>
+      one.denom.startsWith('factory'),
+    );
+    expect(ldBalance).toEqual({
+      denom: `factory/${context.tokenContractAddress}/lido`,
+      amount: String(Math.floor(500_000 / context.exchangeRate)),
+    });
+    context.ldDenom = ldBalance?.denom;
   });
 
   it('unbond', async () => {
     const { coreContractClient, neutronUserAddress, ldDenom } = context;
-
     let res = await coreContractClient.unbond(
       neutronUserAddress,
       1.6,
       undefined,
       [
         {
-          amount: Math.floor(300_000 / context.exchangeRate).toString(),
+          amount: Math.floor(200_000 / context.exchangeRate).toString(),
           denom: ldDenom,
         },
       ],
     );
     expect(res.transactionHash).toHaveLength(64);
-    const amount = Math.floor(100_000 / context.exchangeRate).toString();
     res = await coreContractClient.unbond(neutronUserAddress, 1.6, undefined, [
       {
-        amount,
+        amount: Math.floor(300_000 / context.exchangeRate).toString(),
         denom: ldDenom,
       },
     ]);
@@ -774,17 +782,17 @@ describe('Core', () => {
       created: expect.any(Number),
       expected_release: 0,
       status: 'new',
-      total_amount: '400000',
-      expected_amount: '400000',
+      total_amount: '500000',
+      expected_amount: '500000',
       unbond_items: [
         {
-          amount: '300000',
-          expected_amount: '300000',
+          amount: '200000',
+          expected_amount: '200000',
           sender: neutronUserAddress,
         },
         {
-          amount: '100000',
-          expected_amount: '100000',
+          amount: '300000',
+          expected_amount: '300000',
           sender: neutronUserAddress,
         },
       ],
@@ -792,246 +800,949 @@ describe('Core', () => {
       withdrawed_amount: null,
     });
   });
-
-  it('validate NFT', async () => {
-    const { withdrawalVoucherContractClient, neutronUserAddress } = context;
-    const vouchers = await withdrawalVoucherContractClient.queryTokens({
-      owner: context.neutronUserAddress,
-    });
-    expect(vouchers.tokens.length).toBe(2);
-    expect(vouchers.tokens[0]).toBe(`0_${neutronUserAddress}_1`);
-    let tokenId = vouchers.tokens[0];
-    let voucher = await withdrawalVoucherContractClient.queryNftInfo({
-      token_id: tokenId,
-    });
-    expect(voucher).toBeTruthy();
-    expect(voucher).toMatchObject({
-      extension: {
-        amount: '300000',
-        attributes: [
-          {
-            display_type: null,
-            trait_type: 'unbond_batch_id',
-            value: '0',
-          },
-          {
-            display_type: null,
-            trait_type: 'received_amount',
-            value: '300000',
-          },
-          {
-            display_type: null,
-            trait_type: 'expected_amount',
-            value: '300000',
-          },
-          {
-            display_type: null,
-            trait_type: 'exchange_rate',
-            value: '1',
-          },
-        ],
-        batch_id: '0',
-        description: 'Withdrawal voucher',
-        expected_amount: '300000',
-        name: 'LDV voucher',
-      },
-      token_uri: null,
-    });
-    expect(vouchers.tokens[1]).toBe(`0_${neutronUserAddress}_2`);
-    tokenId = vouchers.tokens[1];
-    voucher = await withdrawalVoucherContractClient.queryNftInfo({
-      token_id: tokenId,
-    });
-    expect(voucher).toBeTruthy();
-    expect(voucher).toMatchObject({
-      extension: {
-        amount: '100000',
-        attributes: [
-          {
-            display_type: null,
-            trait_type: 'unbond_batch_id',
-            value: '0',
-          },
-          {
-            display_type: null,
-            trait_type: 'received_amount',
-            value: '100000',
-          },
-          {
-            display_type: null,
-            trait_type: 'expected_amount',
-            value: '100000',
-          },
-          {
-            display_type: null,
-            trait_type: 'exchange_rate',
-            value: '1',
-          },
-        ],
-        batch_id: '0',
-        description: 'Withdrawal voucher',
-        expected_amount: '100000',
-        name: 'LDV voucher',
-      },
-      token_uri: null,
-    });
-  });
-
-  it('try to withdraw before unbonded', async () => {
-    const { withdrawalVoucherContractClient, neutronUserAddress } = context;
-    const tokenId = `0_${neutronUserAddress}_1`;
-    await expect(
-      withdrawalVoucherContractClient.sendNft(neutronUserAddress, {
-        token_id: tokenId,
-        contract: context.withdrawalManagerContractClient.contractAddress,
-        msg: Buffer.from(
-          JSON.stringify({
-            withdraw: {},
-          }),
-        ).toString('base64'),
-      }),
-    ).rejects.toThrowError(/is not unbonded yet/);
-  });
-
-  it('update batch status', async () => {
-    const { coreContractClient, neutronUserAddress } = context;
-    await coreContractClient.fakeProcessBatch(neutronUserAddress, {
-      batch_id: '0',
-      unbonded_amount: '200000',
-    });
-  });
-
-  it('validate unbonding batch', async () => {
-    const { coreContractClient, neutronUserAddress } = context;
-    const batch = await coreContractClient.queryUnbondBatch({
-      batch_id: '0',
-    });
-    expect(batch).toBeTruthy();
-    expect(batch).toEqual<UnbondBatch>({
-      slashing_effect: '0.5',
-      status: 'unbonded',
-      created: expect.any(Number),
-      expected_release: 0,
-      total_amount: '400000',
-      expected_amount: '400000',
-      unbond_items: [
-        {
-          amount: '300000',
-          expected_amount: '300000',
-          sender: neutronUserAddress,
-        },
-        {
-          amount: '100000',
-          expected_amount: '100000',
-          sender: neutronUserAddress,
-        },
-      ],
-      unbonded_amount: '200000',
-      withdrawed_amount: null,
-    });
-  });
-
-  it('withdraw with non funded withdrawal manager', async () => {
-    const {
-      withdrawalVoucherContractClient: voucherContractClient,
-      neutronUserAddress,
-    } = context;
-    const tokenId = `0_${neutronUserAddress}_1`;
-    await expect(
-      voucherContractClient.sendNft(neutronUserAddress, {
-        token_id: tokenId,
-        contract: context.withdrawalManagerContractClient.contractAddress,
-        msg: Buffer.from(
-          JSON.stringify({
-            withdraw: {},
-          }),
-        ).toString('base64'),
-      }),
-    ).rejects.toThrowError(/spendable balance {2}is smaller/);
-  });
-
-  it('fund withdrawal manager', async () => {
-    const {
-      withdrawalManagerContractClient,
-      neutronUserAddress,
-      neutronIBCDenom,
-    } = context;
-    const res = await context.client.sendTokens(
-      neutronUserAddress,
-      withdrawalManagerContractClient.contractAddress,
-      [{ amount: '200000', denom: neutronIBCDenom }],
-      1.6,
-      undefined,
-    );
-    expect(res.code).toEqual(0);
-  });
-
-  it('withdraw', async () => {
-    const {
-      withdrawalVoucherContractClient: voucherContractClient,
-      neutronUserAddress,
-      neutronClient,
-      neutronIBCDenom,
-    } = context;
-    const balanceBefore = parseInt(
-      (
-        await neutronClient.CosmosBankV1Beta1.query.queryBalance(
+  describe('state machine', () => {
+    const ica: { balance?: number } = {};
+    describe('prepare', () => {
+      it('get ICA balance', async () => {
+        const { gaiaClient } = context;
+        const res = await gaiaClient.getBalance(context.icaAddress, 'stake');
+        ica.balance = parseInt(res.amount);
+        expect(ica.balance).toEqual(0);
+      });
+      it('deploy pump', async () => {
+        const { client, account, neutronUserAddress } = context;
+        const resUpload = await client.upload(
+          account.address,
+          fs.readFileSync(join(__dirname, '../../../artifacts/lido_pump.wasm')),
+          1.5,
+        );
+        expect(resUpload.codeId).toBeGreaterThan(0);
+        const { codeId } = resUpload;
+        const res = await LidoPump.Client.instantiate(
+          client,
           neutronUserAddress,
-          { denom: neutronIBCDenom },
-        )
-      ).data.balance.amount,
-    );
-    const tokenId = `0_${neutronUserAddress}_1`;
-    const res = await voucherContractClient.sendNft(neutronUserAddress, {
-      token_id: tokenId,
-      contract: context.withdrawalManagerContractClient.contractAddress,
-      msg: Buffer.from(
-        JSON.stringify({
-          withdraw: {},
-        }),
-      ).toString('base64'),
-    });
-    expect(res.transactionHash).toHaveLength(64);
-    const balance = await neutronClient.CosmosBankV1Beta1.query.queryBalance(
-      neutronUserAddress,
-      { denom: neutronIBCDenom },
-    );
-    expect(parseInt(balance.data.balance.amount) - balanceBefore).toBe(150000);
-  });
-  it('withdraw to custom receiver', async () => {
-    const {
-      withdrawalVoucherContractClient: voucherContractClient,
-      neutronUserAddress,
-      neutronSecondUserAddress,
-      neutronClient,
-      neutronIBCDenom,
-    } = context;
-    const balanceBefore = parseInt(
-      (
-        await neutronClient.CosmosBankV1Beta1.query.queryBalance(
-          neutronSecondUserAddress,
-          { denom: neutronIBCDenom },
-        )
-      ).data.balance.amount,
-    );
-    expect(balanceBefore).toEqual(0);
-    const tokenId = `0_${neutronUserAddress}_2`;
-    const res = await voucherContractClient.sendNft(neutronUserAddress, {
-      token_id: tokenId,
-      contract: context.withdrawalManagerContractClient.contractAddress,
-      msg: Buffer.from(
-        JSON.stringify({
-          withdraw: {
-            receiver: neutronSecondUserAddress,
+          codeId,
+          {
+            connection_id: 'connection-0',
+            ibc_fees: {
+              timeout_fee: '10000',
+              ack_fee: '10000',
+              recv_fee: '0',
+              register_fee: '1000000',
+            },
+            local_denom: 'untrn',
+            timeout: {
+              local: 60,
+              remote: 60,
+            },
+            dest_address:
+              context.withdrawalManagerContractClient.contractAddress,
+            dest_port: 'transfer',
+            dest_channel: 'channel-0',
+            refundee: neutronUserAddress,
+            owner: account.address,
           },
-        }),
-      ).toString('base64'),
+          'Lido-staking-pump',
+          [],
+          1.5,
+        );
+        expect(res.contractAddress).toHaveLength(66);
+        context.pumpContractClient = new LidoPump.Client(
+          client,
+          res.contractAddress,
+        );
+        await context.pumpContractClient.registerICA(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        let ica = '';
+        await waitFor(async () => {
+          const res = await context.pumpContractClient.queryIca();
+          switch (res) {
+            case 'none':
+            case 'in_progress':
+            case 'timeout':
+              return false;
+            default:
+              ica = res.registered.ica_address;
+              return true;
+          }
+        }, 50_000);
+        expect(ica).toHaveLength(65);
+        expect(ica.startsWith('cosmos')).toBeTruthy();
+        const resFactory = await context.factoryContractClient.updateConfig(
+          neutronUserAddress,
+          {
+            core: {
+              pump_address: ica,
+            },
+          },
+        );
+        expect(resFactory.transactionHash).toHaveLength(64);
+      });
+      it('get machine state', async () => {
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
     });
-    expect(res.transactionHash).toHaveLength(64);
-    const balance = await neutronClient.CosmosBankV1Beta1.query.queryBalance(
-      neutronSecondUserAddress,
-      { denom: neutronIBCDenom },
-    );
-    expect(parseInt(balance.data.balance.amount)).toBe(50000);
+    describe('first cycle', () => {
+      it('tick', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('transfering');
+      });
+      it('second tick is failed bc no response from puppeteer yet', async () => {
+        const { neutronUserAddress } = context;
+        await expect(
+          context.coreContractClient.tick(
+            neutronUserAddress,
+            1.5,
+            undefined,
+            [],
+          ),
+        ).rejects.toThrowError(/Puppeteer response is not received/);
+      });
+      it('state of fsm is transfering', async () => {
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('transfering');
+      });
+      it('wait for response from puppeteer', async () => {
+        let response;
+        await waitFor(async () => {
+          try {
+            response =
+              await context.coreContractClient.queryLastPuppeteerResponse();
+          } catch (e) {
+            //
+          }
+          return !!response;
+        }, 100_000);
+      });
+      it('get ICA increased balance', async () => {
+        const { gaiaClient } = context;
+        const res = await gaiaClient.getBalance(context.icaAddress, 'stake');
+        const balance = parseInt(res.amount);
+        expect(balance - 1000000).toEqual(ica.balance);
+        ica.balance = balance;
+      });
+      it('wait for balances to come', async () => {
+        let res;
+        await waitFor(async () => {
+          try {
+            res = await context.puppeteerContractClient.queryExtention({
+              msg: {
+                balances: {},
+              },
+            });
+          } catch (e) {
+            //
+          }
+          return res && res[0].coins.length !== 0;
+        }, 100_000);
+      });
+      it('second tick goes to staking', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('staking');
+      });
+      it('second tick is failed bc no response from puppeteer yet', async () => {
+        const { neutronUserAddress } = context;
+        await expect(
+          context.coreContractClient.tick(
+            neutronUserAddress,
+            1.5,
+            undefined,
+            [],
+          ),
+        ).rejects.toThrowError(/Puppeteer response is not received/);
+      });
+      it('wait for response from puppeteer', async () => {
+        let response;
+        await waitFor(async () => {
+          try {
+            response =
+              await context.coreContractClient.queryLastPuppeteerResponse();
+          } catch (e) {
+            //
+          }
+          return !!response;
+        }, 100_000);
+      });
+      it('query strategy contract to see delegations', async () => {
+        await waitFor(async () => {
+          try {
+            await context.strategyContractClient.queryCalcWithdraw({
+              withdraw: '500000',
+            });
+            return true;
+          } catch (e) {
+            return false;
+          }
+        }, 100_000);
+      });
+      it('third tick goes to unbonding', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('unbonding');
+      });
+      it('third tick is failed bc no response from puppeteer yet', async () => {
+        const { neutronUserAddress } = context;
+        await expect(
+          context.coreContractClient.tick(
+            neutronUserAddress,
+            1.5,
+            undefined,
+            [],
+          ),
+        ).rejects.toThrowError(/Puppeteer response is not received/);
+      });
+      it('query unbonding batch', async () => {
+        const batch = await context.coreContractClient.queryUnbondBatch({
+          batch_id: '0',
+        });
+        expect(batch).toBeTruthy();
+        expect(batch).toEqual<UnbondBatch>({
+          slashing_effect: null,
+          status: 'unbond_requested',
+          created: expect.any(Number),
+          expected_release: 0,
+          total_amount: '500000',
+          expected_amount: '500000',
+          unbond_items: [
+            {
+              amount: '200000',
+              expected_amount: '200000',
+              sender: context.neutronUserAddress,
+            },
+            {
+              amount: '300000',
+              expected_amount: '300000',
+              sender: context.neutronUserAddress,
+            },
+          ],
+          unbonded_amount: null,
+          withdrawed_amount: null,
+        });
+      });
+      it('wait for response from puppeteer', async () => {
+        let response;
+        await waitFor(async () => {
+          try {
+            response =
+              await context.coreContractClient.queryLastPuppeteerResponse();
+          } catch (e) {
+            //
+          }
+          return !!response;
+        }, 100_000);
+      });
+      it('next tick goes to idle', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+      it('verify that unbonding batch is in unbonding state', async () => {
+        const batch = await context.coreContractClient.queryUnbondBatch({
+          batch_id: '0',
+        });
+        expect(batch).toBeTruthy();
+        expect(batch).toEqual<UnbondBatch>({
+          slashing_effect: null,
+          status: 'unbonding',
+          created: expect.any(Number),
+          expected_release: expect.any(Number),
+          total_amount: '500000',
+          expected_amount: '500000',
+          unbond_items: [
+            {
+              amount: '200000',
+              expected_amount: '200000',
+              sender: context.neutronUserAddress,
+            },
+            {
+              amount: '300000',
+              expected_amount: '300000',
+              sender: context.neutronUserAddress,
+            },
+          ],
+          unbonded_amount: null,
+          withdrawed_amount: null,
+        });
+      });
+    });
+    describe('second cycle', () => {
+      let balance = 0;
+      it('get ICA balance', async () => {
+        const { gaiaClient } = context;
+        const res = await gaiaClient.getBalance(context.icaAddress, 'stake');
+        balance = parseInt(res.amount);
+      });
+      it('wait for 30 seconds', async () => {
+        await sleep(30_000);
+      });
+      it('idle tick', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('claiming');
+      });
+      it('wait for response from puppeteer', async () => {
+        let response;
+        await waitFor(async () => {
+          try {
+            response =
+              await context.coreContractClient.queryLastPuppeteerResponse();
+          } catch (e) {
+            //
+          }
+          return !!response;
+        }, 100_000);
+      });
+      it('get ICA balance', async () => {
+        const { gaiaClient } = context;
+        const res = await gaiaClient.getBalance(context.icaAddress, 'stake');
+        const newBalance = parseInt(res.amount);
+        expect(newBalance).toBeGreaterThan(balance);
+      });
+      it('wait for balance to update', async () => {
+        const [, currentHeight] =
+          (await context.puppeteerContractClient.queryExtention({
+            msg: {
+              balances: {},
+            },
+          })) as any;
+        await waitFor(async () => {
+          const [, nowHeight] =
+            (await context.puppeteerContractClient.queryExtention({
+              msg: {
+                balances: {},
+              },
+            })) as any;
+          return nowHeight !== currentHeight;
+        }, 30_000);
+      });
+      it('next tick goes to staking', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('staking');
+      });
+      it('wait for response from puppeteer', async () => {
+        let response;
+        await waitFor(async () => {
+          try {
+            response =
+              await context.coreContractClient.queryLastPuppeteerResponse();
+          } catch (e) {
+            //
+          }
+          return !!response;
+        }, 100_000);
+      });
+      it('next tick goes to idle', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+    });
+    describe('third cycle', () => {
+      let remoteNonNativeDenoms: string[] = [];
+      it('generate two new tokenfactory tokens and send them to the remote zone', async () => {
+        const { neutronUserAddress } = context;
+        await context.park.executeInNetwork(
+          'neutron',
+          `neutrond tx tokenfactory create-denom test1 --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
+        );
+        await sleep(5_000);
+        await context.park.executeInNetwork(
+          'neutron',
+          `neutrond tx tokenfactory create-denom test2 --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
+        );
+        await sleep(5_000);
+        const denoms =
+          await context.neutronClient.OsmosisTokenfactoryV1Beta1.query.queryDenomsFromCreator(
+            neutronUserAddress,
+          );
+        expect(denoms.data.denoms.length).toEqual(2);
+        await context.park.executeInNetwork(
+          'neutron',
+          `neutrond tx tokenfactory mint 1000000${denoms.data.denoms[0]} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
+        );
+        await sleep(5_000);
+        await context.park.executeInNetwork(
+          'neutron',
+          `neutrond tx tokenfactory mint 1000000${denoms.data.denoms[1]} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
+        );
+        await sleep(5_000);
+        const balances =
+          await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+            neutronUserAddress,
+          );
+        const tokenFactoryDenoms = balances.data.balances.filter((b) =>
+          b.denom.startsWith('factory/'),
+        );
+        await context.park.executeInNetwork(
+          'neutron',
+          `neutrond tx ibc-transfer transfer transfer channel-0 ${context.icaAddress} 66666${tokenFactoryDenoms[0].denom} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
+        );
+        await sleep(5_000);
+        await context.park.executeInNetwork(
+          'neutron',
+          `neutrond tx ibc-transfer transfer transfer channel-0 ${context.icaAddress} 2222${tokenFactoryDenoms[1].denom} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
+        );
+        await sleep(5_000);
+      });
+      it('wait for balances to come', async () => {
+        let res: readonly Coin[] = [];
+        await waitFor(async () => {
+          res = await context.gaiaClient.getAllBalances(context.icaAddress);
+          return (
+            res.some((b) => b.amount === '66666') &&
+            res.some((b) => b.amount === '2222')
+          );
+        }, 30_000);
+        remoteNonNativeDenoms = [
+          res.find((b) => b.amount === '66666').denom,
+          res.find((b) => b.amount === '2222').denom,
+        ];
+      });
+      it('setup non-native receivers', async () => {
+        const { factoryContractClient, neutronUserAddress } = context;
+        const res = await factoryContractClient.proxy(
+          neutronUserAddress,
+          {
+            core: {
+              update_non_native_rewards_receivers: {
+                items: remoteNonNativeDenoms.map((denom) => ({
+                  denom,
+                  address: context.gaiaUserAddress,
+                  min_amount: '10000',
+                  fee: '0.1',
+                  fee_address: context.gaiaUserAddress2,
+                })),
+              },
+            },
+          },
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+      });
+      it('update idle interval', async () => {
+        const { factoryContractClient, neutronUserAddress } = context;
+        const res = await factoryContractClient.updateConfig(
+          neutronUserAddress,
+          {
+            core: {
+              idle_min_interval: 10000,
+            },
+          },
+        );
+        expect(res.transactionHash).toHaveLength(64);
+      });
+      it('wait for non-native balances to come', async () => {
+        await waitFor(async () => {
+          try {
+            const res: any =
+              await context.puppeteerContractClient.queryExtention({
+                msg: {
+                  non_native_rewards_balances: {},
+                },
+              });
+            return res[0].coins.length == 2;
+          } catch (e) {
+            //
+          }
+        });
+      });
+      it('tick', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+      it('wait for the response from puppeteer', async () => {
+        let response: ResponseHookMsg;
+        await waitFor(async () => {
+          try {
+            response =
+              await context.coreContractClient.queryLastPuppeteerResponse();
+          } catch (e) {
+            //
+          }
+          return !!response;
+        }, 30_000);
+        expect(response).toBeTruthy();
+        expect<ResponseHookMsg>(response).toHaveProperty('success');
+      });
+      it('check balances', async () => {
+        const { gaiaClient } = context;
+        const receiverBalance = await gaiaClient.getBalance(
+          context.gaiaUserAddress,
+          remoteNonNativeDenoms[0],
+        );
+        expect(receiverBalance.amount).toEqual('60000');
+        const feeBalance = await gaiaClient.getBalance(
+          context.gaiaUserAddress2,
+          remoteNonNativeDenoms[0],
+        );
+        expect(feeBalance.amount).toEqual('6666');
+        // this one is still on ICA as amount is below min_amount
+        const icaBalance = await gaiaClient.getBalance(
+          context.icaAddress,
+          remoteNonNativeDenoms[1],
+        );
+        expect(icaBalance.amount).toEqual('2222');
+      });
+      it('wait for balances to update', async () => {
+        await waitFor(async () => {
+          const res: any = await context.puppeteerContractClient.queryExtention(
+            {
+              msg: {
+                non_native_rewards_balances: {},
+              },
+            },
+          );
+          return res[0].coins.length === 1;
+        });
+      }, 30_000);
+      it('tick should fail', async () => {
+        const { neutronUserAddress } = context;
+        await expect(
+          context.coreContractClient.tick(
+            neutronUserAddress,
+            1.5,
+            undefined,
+            [],
+          ),
+        ).rejects.toThrowError(/Idle min interval is not reached/);
+      });
+    });
+
+    describe('fourth cycle', () => {
+      let previousResponse: ResponseHookSuccessMsg;
+
+      it('validate NFT', async () => {
+        const { withdrawalVoucherContractClient, neutronUserAddress } = context;
+        const vouchers = await withdrawalVoucherContractClient.queryTokens({
+          owner: context.neutronUserAddress,
+        });
+        expect(vouchers.tokens.length).toBe(2);
+        expect(vouchers.tokens[0]).toBe(`0_${neutronUserAddress}_1`);
+        let tokenId = vouchers.tokens[0];
+        let voucher = await withdrawalVoucherContractClient.queryNftInfo({
+          token_id: tokenId,
+        });
+        expect(voucher).toBeTruthy();
+        expect(voucher).toMatchObject({
+          extension: {
+            amount: '200000',
+            attributes: [
+              {
+                display_type: null,
+                trait_type: 'unbond_batch_id',
+                value: '0',
+              },
+              {
+                display_type: null,
+                trait_type: 'received_amount',
+                value: '200000',
+              },
+              {
+                display_type: null,
+                trait_type: 'expected_amount',
+                value: '200000',
+              },
+              {
+                display_type: null,
+                trait_type: 'exchange_rate',
+                value: '1',
+              },
+            ],
+            batch_id: '0',
+            description: 'Withdrawal voucher',
+            expected_amount: '200000',
+            name: 'LDV voucher',
+          },
+          token_uri: null,
+        });
+        expect(vouchers.tokens[1]).toBe(`0_${neutronUserAddress}_2`);
+        tokenId = vouchers.tokens[1];
+        voucher = await withdrawalVoucherContractClient.queryNftInfo({
+          token_id: tokenId,
+        });
+        expect(voucher).toBeTruthy();
+        expect(voucher).toMatchObject({
+          extension: {
+            amount: '300000',
+            attributes: [
+              {
+                display_type: null,
+                trait_type: 'unbond_batch_id',
+                value: '0',
+              },
+              {
+                display_type: null,
+                trait_type: 'received_amount',
+                value: '300000',
+              },
+              {
+                display_type: null,
+                trait_type: 'expected_amount',
+                value: '300000',
+              },
+              {
+                display_type: null,
+                trait_type: 'exchange_rate',
+                value: '1',
+              },
+            ],
+            batch_id: '0',
+            description: 'Withdrawal voucher',
+            expected_amount: '300000',
+            name: 'LDV voucher',
+          },
+          token_uri: null,
+        });
+      });
+      it('bond tokenized share from registered validator', async () => {
+        const { coreContractClient, neutronUserAddress } = context;
+        const res = await coreContractClient.bond(
+          neutronUserAddress,
+          {},
+          1.6,
+          undefined,
+          [
+            {
+              amount: '20000',
+              denom: context.tokenizedDenomOnNeutron,
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+      });
+      it('try to withdraw before withdrawn', async () => {
+        const { withdrawalVoucherContractClient, neutronUserAddress } = context;
+        const tokenId = `0_${neutronUserAddress}_1`;
+        await expect(
+          withdrawalVoucherContractClient.sendNft(neutronUserAddress, {
+            token_id: tokenId,
+            contract: context.withdrawalManagerContractClient.contractAddress,
+            msg: Buffer.from(
+              JSON.stringify({
+                withdraw: {},
+              }),
+            ).toString('base64'),
+          }),
+        ).rejects.toThrowError(/is not withdrawn yet/);
+      });
+      it('update idle interval', async () => {
+        const { factoryContractClient, neutronUserAddress } = context;
+        const res = await factoryContractClient.updateConfig(
+          neutronUserAddress,
+          {
+            core: {
+              idle_min_interval: 10,
+            },
+          },
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        await sleep(10 * 1000);
+      });
+      it('wait until unbonding period is finished', async () => {
+        const batchInfo = await context.coreContractClient.queryUnbondBatch({
+          batch_id: '0',
+        });
+        const currentTime = Math.floor(Date.now() / 1000);
+        if (batchInfo.expected_release > currentTime) {
+          const diffMs = (batchInfo.expected_release - currentTime + 1) * 1000;
+          await sleep(diffMs);
+        }
+      });
+      it('wait until fresh ICA balance is delivered', async () => {
+        const batchInfo = await context.coreContractClient.queryUnbondBatch({
+          batch_id: '0',
+        });
+        await waitFor(async () => {
+          const icaTs = Math.floor(
+            (
+              (await context.puppeteerContractClient.queryExtention({
+                msg: {
+                  balances: {},
+                },
+              })) as any
+            )[2] / 1e9,
+          );
+          return icaTs > batchInfo.expected_release;
+        }, 50_000);
+      });
+      it('tick', async () => {
+        const { coreContractClient, neutronUserAddress } = context;
+        previousResponse = (
+          (await coreContractClient.queryLastPuppeteerResponse()) as {
+            success: ResponseHookSuccessMsg;
+          }
+        ).success;
+        await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('claiming');
+      });
+      it('wait for the response from puppeteer', async () => {
+        let response: ResponseHookMsg;
+        await waitFor(async () => {
+          try {
+            response =
+              await context.coreContractClient.queryLastPuppeteerResponse();
+          } catch (e) {
+            //
+          }
+          return (
+            (response as { success: ResponseHookSuccessMsg }).success
+              .request_id > previousResponse.request_id
+          );
+        }, 30_000);
+      });
+      it('wait for balance to update', async () => {
+        const [, currentHeight] =
+          (await context.puppeteerContractClient.queryExtention({
+            msg: {
+              balances: {},
+            },
+          })) as any;
+        await waitFor(async () => {
+          const [, nowHeight] =
+            (await context.puppeteerContractClient.queryExtention({
+              msg: {
+                balances: {},
+              },
+            })) as any;
+          return nowHeight !== currentHeight;
+        }, 30_000);
+      });
+      it('tick', async () => {
+        const { coreContractClient, neutronUserAddress } = context;
+        await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('staking');
+      });
+      it('validate unbonding batch', async () => {
+        const { coreContractClient, neutronUserAddress } = context;
+        const batch = await coreContractClient.queryUnbondBatch({
+          batch_id: '0',
+        });
+        expect(batch).toEqual<UnbondBatch>({
+          slashing_effect: '1',
+          status: 'withdrawn',
+          created: expect.any(Number),
+          expected_release: expect.any(Number),
+          total_amount: '500000',
+          expected_amount: '500000',
+          unbond_items: [
+            {
+              amount: '200000',
+              expected_amount: '200000',
+              sender: neutronUserAddress,
+            },
+            {
+              amount: '300000',
+              expected_amount: '300000',
+              sender: neutronUserAddress,
+            },
+          ],
+          unbonded_amount: '500000',
+          withdrawed_amount: null,
+        });
+      });
+      it('withdraw with non funded withdrawal manager', async () => {
+        const {
+          withdrawalVoucherContractClient: voucherContractClient,
+          neutronUserAddress,
+        } = context;
+        const tokenId = `0_${neutronUserAddress}_1`;
+        await expect(
+          voucherContractClient.sendNft(neutronUserAddress, {
+            token_id: tokenId,
+            contract: context.withdrawalManagerContractClient.contractAddress,
+            msg: Buffer.from(
+              JSON.stringify({
+                withdraw: {},
+              }),
+            ).toString('base64'),
+          }),
+        ).rejects.toThrowError(/spendable balance {2}is smaller/);
+      });
+      it('fund withdrawal manager', async () => {
+        const { pumpContractClient, neutronUserAddress } = context;
+        await pumpContractClient.push(
+          neutronUserAddress,
+          {
+            coins: [{ amount: '500000', denom: 'stake' }],
+          },
+          1.5,
+          undefined,
+          [{ amount: '20000', denom: 'untrn' }],
+        );
+        await waitFor(async () => {
+          const balances =
+            await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+              context.withdrawalManagerContractClient.contractAddress,
+            );
+          return balances.data.balances.length > 0;
+        }, 20_000);
+      });
+      it('withdraw', async () => {
+        const {
+          withdrawalVoucherContractClient: voucherContractClient,
+          neutronUserAddress,
+          neutronClient,
+          neutronIBCDenom,
+        } = context;
+        const balanceBefore = parseInt(
+          (
+            await neutronClient.CosmosBankV1Beta1.query.queryBalance(
+              neutronUserAddress,
+              { denom: neutronIBCDenom },
+            )
+          ).data.balance.amount,
+        );
+        const tokenId = `0_${neutronUserAddress}_1`;
+        const res = await voucherContractClient.sendNft(neutronUserAddress, {
+          token_id: tokenId,
+          contract: context.withdrawalManagerContractClient.contractAddress,
+          msg: Buffer.from(
+            JSON.stringify({
+              withdraw: {},
+            }),
+          ).toString('base64'),
+        });
+        expect(res.transactionHash).toHaveLength(64);
+        const balance =
+          await neutronClient.CosmosBankV1Beta1.query.queryBalance(
+            neutronUserAddress,
+            { denom: neutronIBCDenom },
+          );
+        expect(parseInt(balance.data.balance.amount) - balanceBefore).toBe(
+          200000,
+        );
+      });
+      it('withdraw to custom receiver', async () => {
+        const {
+          withdrawalVoucherContractClient: voucherContractClient,
+          neutronUserAddress,
+          neutronSecondUserAddress,
+          neutronClient,
+          neutronIBCDenom,
+        } = context;
+        const balanceBefore = parseInt(
+          (
+            await neutronClient.CosmosBankV1Beta1.query.queryBalance(
+              neutronSecondUserAddress,
+              { denom: neutronIBCDenom },
+            )
+          ).data.balance.amount,
+        );
+        expect(balanceBefore).toEqual(0);
+        const tokenId = `0_${neutronUserAddress}_2`;
+        const res = await voucherContractClient.sendNft(neutronUserAddress, {
+          token_id: tokenId,
+          contract: context.withdrawalManagerContractClient.contractAddress,
+          msg: Buffer.from(
+            JSON.stringify({
+              withdraw: {
+                receiver: neutronSecondUserAddress,
+              },
+            }),
+          ).toString('base64'),
+        });
+        expect(res.transactionHash).toHaveLength(64);
+        const balance =
+          await neutronClient.CosmosBankV1Beta1.query.queryBalance(
+            neutronSecondUserAddress,
+            { denom: neutronIBCDenom },
+          );
+        expect(parseInt(balance.data.balance.amount)).toBe(300000);
+      });
+    });
   });
 });

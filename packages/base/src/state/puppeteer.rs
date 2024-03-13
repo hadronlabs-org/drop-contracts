@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::Addr;
+use cosmwasm_std::{Addr, Timestamp};
 use cw_storage_plus::Item;
 use lido_puppeteer_base::state::BaseConfig;
 
@@ -38,8 +38,8 @@ pub enum KVQueryType {
     NonNativeRewardsBalances,
 }
 
-pub const NON_NATIVE_REWARD_BALANCES: Item<(MultiBalances, u64)> =
+pub const NON_NATIVE_REWARD_BALANCES: Item<(MultiBalances, u64, Timestamp)> =
     Item::new("non_native_reward_balances");
 
-pub const DELEGATIONS_AND_BALANCE: Item<(BalancesAndDelegations, u64)> =
+pub const DELEGATIONS_AND_BALANCE: Item<(BalancesAndDelegations, u64, Timestamp)> =
     Item::new("delegations_and_balance");

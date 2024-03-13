@@ -4,7 +4,8 @@ use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockQuerier, MockStorage},
     to_json_binary, Coin, ContractResult, CosmosMsg, Decimal, Empty, Order, OwnedDeps, Querier,
-    QuerierResult, QueryRequest, StdResult, SystemError, SystemResult, Uint128, WasmMsg, WasmQuery,
+    QuerierResult, QueryRequest, StdResult, SystemError, SystemResult, Timestamp, Uint128, WasmMsg,
+    WasmQuery,
 };
 
 use lido_puppeteer_base::msg::QueryMsg as PuppeteerBaseQueryMsg;
@@ -72,9 +73,10 @@ impl WasmMockQuerier {
                                             amount: Uint128::new(150),
                                         }],
                                     },
-                                    10,
+                                    10u64,
+                                    Timestamp::from_nanos(20),
                                 );
-                                to_json_binary(&(data.0, data.1))
+                                to_json_binary(&data)
                             }
                             QueryExtMsg::Balances {} => {
                                 let data = (
@@ -84,9 +86,10 @@ impl WasmMockQuerier {
                                             amount: Uint128::new(200),
                                         }],
                                     },
-                                    10,
+                                    10u64,
+                                    Timestamp::from_nanos(20),
                                 );
-                                to_json_binary(&(data.0, data.1))
+                                to_json_binary(&data)
                             }
                             _ => todo!(),
                         },
