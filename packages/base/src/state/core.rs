@@ -25,6 +25,7 @@ pub struct Config {
     pub owner: String,
     pub channel: String,
     pub ld_denom: Option<String>,
+    pub bond_limit: Option<Uint128>,
     pub fee: Option<Decimal>,
     pub fee_address: Option<String>,
 }
@@ -165,3 +166,4 @@ pub const PENDING_TRANSFER: Item<Uint128> = Item::new("pending_transfer");
 // Vec<(denom, address for pumping)>
 pub const NON_NATIVE_REWARDS_CONFIG: Item<Vec<NonNativeRewardsItem>> =
     Item::new("non_native_rewards_config");
+pub const BONDED_AMOUNT: Item<Uint128> = Item::new("bonded_amount");

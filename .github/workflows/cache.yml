@@ -20,6 +20,8 @@ jobs:
         run: docker ps -q | grep -q . && docker stop $(docker ps -q) -t0 || echo "No containers to stop"
       - name: Remove old containers
         run: docker ps -a -q | grep -q . && docker rm $(docker ps -a -q) || echo "No containers to remove"
+      - name: Remove all volumes
+        run: docker volume ls -q | grep -q . && docker volume rm $(docker volume ls -q) || echo "No volumes to remove"
       - name: Delete old images
         run: docker system prune --volumes --all --force
   job2:

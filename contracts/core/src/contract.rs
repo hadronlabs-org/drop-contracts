@@ -10,9 +10,10 @@ use lido_helpers::answer::response;
 use lido_puppeteer_base::msg::TransferReadyBatchMsg;
 use lido_staking_base::state::core::{
     unbond_batches_map, Config, ConfigOptional, ContractState, FeeItem, NonNativeRewardsItem,
-    UnbondBatch, UnbondBatchStatus, UnbondItem, COLLECTED_FEES, CONFIG, FAILED_BATCH_ID, FSM,
-    LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_PUPPETEER_RESPONSE, NON_NATIVE_REWARDS_CONFIG,
-    PENDING_TRANSFER, PRE_UNBONDING_BALANCE, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+    UnbondBatch, UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, COLLECTED_FEES, CONFIG,
+    FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_PUPPETEER_RESPONSE,
+    NON_NATIVE_REWARDS_CONFIG, PENDING_TRANSFER, PRE_UNBONDING_BALANCE, TOTAL_LSM_SHARES,
+    UNBOND_BATCH_ID,
 };
 use lido_staking_base::state::validatorset::ValidatorInfo;
 use lido_staking_base::state::withdrawal_voucher::{Metadata, Trait};
@@ -57,6 +58,7 @@ pub fn instantiate(
     LAST_IDLE_CALL.save(deps.storage, &0)?;
     LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &0)?;
     TOTAL_LSM_SHARES.save(deps.storage, &0)?;
+    BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
@@ -64,6 +66,7 @@ pub fn instantiate(
 pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     Ok(match msg {
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?)?,
+        QueryMsg::TotalBonded {} => to_json_binary(&BONDED_AMOUNT.load(deps.storage)?)?,
         QueryMsg::ExchangeRate {} => to_json_binary(&query_exchange_rate(deps, env, None)?)?,
         QueryMsg::UnbondBatch { batch_id } => query_unbond_batch(deps, batch_id)?,
         QueryMsg::NonNativeRewardsReceivers {} => {
@@ -173,12 +176,27 @@ pub fn execute(
                 [],
             ))
         }
+        ExecuteMsg::ResetBondedAmount {} => execute_reset_bonded_amount(deps, env, info),
         ExecuteMsg::UpdateNonNativeRewardsReceivers { items } => {
             execute_set_non_native_rewards_receivers(deps, env, info, items)
         }
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::PuppeteerHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
     }
+}
+
+fn execute_reset_bonded_amount(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    info: MessageInfo,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+    BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
+    Ok(response(
+        "execute-reset_bond_limit",
+        CONTRACT_NAME,
+        vec![attr("action", "reset_bond_limit")],
+    ))
 }
 
 fn execute_set_non_native_rewards_receivers(
@@ -566,6 +584,12 @@ fn execute_bond(
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let Coin { amount, denom } = cw_utils::one_coin(&info)?;
+    if let Some(bond_limit) = config.bond_limit {
+        if BONDED_AMOUNT.load(deps.storage)? + amount > bond_limit {
+            return Err(ContractError::BondLimitExceeded {});
+        }
+    }
+    BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total + amount))?;
     let denom_type = check_denom::check_denom(&deps, &denom, &config)?;
 
     if denom_type == check_denom::DenomType::LsmShare {
@@ -675,6 +699,16 @@ fn execute_update_config(
             unbond_batch_switch_time.to_string(),
         ));
         config.unbond_batch_switch_time = unbond_batch_switch_time;
+    }
+    if let Some(bond_limit) = new_config.bond_limit {
+        attrs.push(attr("bond_limit", bond_limit.to_string()));
+        config.bond_limit = {
+            if bond_limit.is_zero() {
+                None
+            } else {
+                Some(bond_limit)
+            }
+        };
     }
     if let Some(ld_denom) = new_config.ld_denom {
         attrs.push(attr("ld_denom", &ld_denom));

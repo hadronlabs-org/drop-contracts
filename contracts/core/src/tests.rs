@@ -149,6 +149,7 @@ fn get_default_config(fee: Option<Decimal>) -> Config {
         channel: "channel".to_string(),
         fee,
         fee_address: Some("fee_address".to_string()),
+        bond_limit: None,
     }
 }
 
