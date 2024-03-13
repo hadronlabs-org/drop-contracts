@@ -149,8 +149,8 @@ fn execute_receive_nft_withdraw(
     )?;
     ensure_eq!(
         unbond_batch.status,
-        UnbondBatchStatus::Unbonded,
-        ContractError::BatchIsNotUnbonded {}
+        UnbondBatchStatus::Withdrawn,
+        ContractError::BatchIsNotWithdrawn {}
     );
     let slashing_effect = unbond_batch
         .slashing_effect

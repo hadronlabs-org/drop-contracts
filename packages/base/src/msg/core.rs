@@ -49,21 +49,11 @@ pub enum QueryMsg {
 #[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
-    Bond {
-        receiver: Option<String>,
-    },
+    Bond { receiver: Option<String> },
     Unbond {},
     //permissioned
-    UpdateConfig {
-        new_config: Box<ConfigOptional>,
-    },
-    UpdateNonNativeRewardsReceivers {
-        items: Vec<NonNativeRewardsItem>,
-    },
-    FakeProcessBatch {
-        batch_id: Uint128,
-        unbonded_amount: Uint128,
-    },
+    UpdateConfig { new_config: Box<ConfigOptional> },
+    UpdateNonNativeRewardsReceivers { items: Vec<NonNativeRewardsItem> },
     Tick {},
     PuppeteerHook(Box<ResponseHookMsg>),
     ResetBondedAmount {},

@@ -16,7 +16,7 @@ use cosmos_sdk_proto::cosmos::{
 };
 use cosmwasm_std::{
     attr, ensure_eq, entry_point, to_json_binary, Addr, CosmosMsg, Deps, Order, Reply, StdError,
-    SubMsg, Uint128, WasmMsg,
+    SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
@@ -98,6 +98,7 @@ pub fn instantiate(
                 },
             },
             0,
+            Timestamp::default(),
         ),
     )?;
     Puppeteer::default().instantiate(deps, config)
@@ -141,16 +142,16 @@ fn query_fees(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
 
 fn query_delegations(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let data = DELEGATIONS_AND_BALANCE.load(deps.storage)?;
-    to_json_binary(&(data.0.delegations, data.1)).map_err(ContractError::Std)
+    to_json_binary(&(data.0.delegations, data.1, data.2)).map_err(ContractError::Std)
 }
 
 fn query_balances(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let data = DELEGATIONS_AND_BALANCE.load(deps.storage)?;
-    to_json_binary(&(data.0.balances, data.1)).map_err(ContractError::Std)
+    to_json_binary(&(data.0.balances, data.1, data.2)).map_err(ContractError::Std)
 }
 fn query_non_native_rewards_balances(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let data = NON_NATIVE_REWARD_BALANCES.load(deps.storage)?;
-    to_json_binary(&(data.0, data.1)).map_err(ContractError::Std)
+    to_json_binary(&(data.0, data.1, data.2)).map_err(ContractError::Std)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

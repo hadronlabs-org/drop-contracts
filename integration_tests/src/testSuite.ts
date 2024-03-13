@@ -4,7 +4,6 @@ import { StargateClient } from '@cosmjs/stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { waitFor } from './helpers/waitFor';
 import { sleep } from './helpers/sleep';
-import child_process from 'child_process';
 const packageJSON = require(`${__dirname}/../package.json`);
 const VERSION = (process.env.CI ? '_' : ':') + packageJSON.version;
 const ORG = process.env.CI ? 'neutronorg/lionco-contracts:' : '';
@@ -68,6 +67,7 @@ const networkConfigs = {
       'app_state.slashing.params.downtime_jail_duration': '10s',
       'app_state.slashing.params.signed_blocks_window': '10',
       'app_state.staking.params.validator_bond_factor': '10',
+      'app_state.staking.params.unbonding_time': '1814400s',
       'app_state.mint.minter.inflation': '0.9',
       'app_state.mint.params.inflation_max': '0.95',
       'app_state.mint.params.inflation_min': '0.5',
@@ -131,10 +131,12 @@ const relayersConfig = {
     balance: '1000000000',
     binary: 'hermes',
     config: {
+      'chains.0.gas_multiplier': 1.2,
       'chains.0.trusting_period': '112h0m0s',
       'chains.0.unbonding_period': '336h0m0s',
       'chains.1.gas_multiplier': 1.2,
-      'chains.0.gas_multiplier': 1.2,
+      'chains.1.trusting_period': '168h0m0s',
+      'chains.1.unbonding_period': '504h0m0s',
     },
     image: `${ORG}hermes-test${VERSION}`,
     log_level: 'trace',
@@ -231,7 +233,15 @@ export const setupPark = async (
   networks: string[] = [],
   needHermes = false,
   needNeutronRelayer = false,
+  needShortUnbondingPeriod = false,
 ): Promise<cosmopark> => {
+  if (needShortUnbondingPeriod) {
+    networkConfigs['gaia'].genesis_opts[
+      'app_state.staking.params.unbonding_time'
+    ] = '360s';
+    relayersConfig['hermes'].config['chains.1.trusting_period'] = '2m0s';
+    relayersConfig['hermes'].config['chains.1.unbonding_period'] = '6m0s';
+  }
   const wallets = await generateWallets();
   const config: CosmoparkConfig = {
     context,
@@ -290,11 +300,6 @@ export const setupPark = async (
       `127.0.0.1:${instance.ports['neutron'].rest}`,
       `127.0.0.1:${instance.ports['neutron'].rpc}`,
     ).catch((e) => {
-      console.log(
-        child_process
-          .execSync('docker logs corefsm-relayer_hermes0-1')
-          .toString(),
-      );
       console.log(`Failed to await neutron channels: ${e}`);
       throw e;
     });

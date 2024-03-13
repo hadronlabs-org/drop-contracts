@@ -6,7 +6,7 @@ use cosmos_sdk_proto::cosmos::{
     bank::v1beta1::MsgSend,
     tx::v1beta1::{TxBody, TxRaw},
 };
-use cosmwasm_std::{Binary, DepsMut, Env, Response, StdError};
+use cosmwasm_std::{Binary, DepsMut, Env, Response, StdError, Timestamp};
 use cw_storage_plus::Index;
 use neutron_sdk::{
     bindings::{
@@ -102,11 +102,12 @@ where
         deps: DepsMut<NeutronQuery>,
         env: Env,
         query_id: u64,
-        storage: cw_storage_plus::Item<'a, (X, u64)>,
+        storage: cw_storage_plus::Item<'a, (X, u64, Timestamp)>,
     ) -> NeutronResult<Response> {
         let data = query_kv_result(deps.as_ref(), query_id)?;
         let height = env.block.height;
-        storage.save(deps.storage, &(data, height))?;
+        let timestamp = env.block.time;
+        storage.save(deps.storage, &(data, height, timestamp))?;
         Ok(Response::default())
     }
 
