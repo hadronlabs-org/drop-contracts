@@ -234,7 +234,7 @@ fn execute_init(
     let mut attrs = vec![
         attr("action", "init"),
         attr("base_denom", &base_denom),
-        attr("sdk_version", config.sdk_version),
+        attr("sdk_version", config.sdk_version.to_string()),
     ];
 
     let token_contract_checksum = get_code_checksum(deps.as_ref(), config.code_ids.token_code_id)?;
@@ -397,6 +397,7 @@ fn execute_init(
                 connection_id: config.remote_opts.connection_id.to_string(),
                 port_id: config.remote_opts.port_id.to_string(),
                 transfer_channel_id: config.remote_opts.transfer_channel_id.to_string(),
+                sdk_version: config.sdk_version.to_string(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),

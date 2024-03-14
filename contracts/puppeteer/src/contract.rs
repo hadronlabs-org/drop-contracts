@@ -88,6 +88,7 @@ pub fn instantiate(
         allowed_senders,
         proxy_address: None,
         transfer_channel_id: msg.transfer_channel_id,
+        sdk_version: msg.sdk_version,
     };
     DELEGATIONS_AND_BALANCE.save(
         deps.storage,
@@ -820,6 +821,7 @@ pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResul
         } => puppeteer_base.sudo_tx_query_result(deps, env, query_id, height, data),
         SudoMsg::KVQueryResult { query_id } => {
             let query_type = puppeteer_base.kv_queries.load(deps.storage, query_id)?;
+            let config = puppeteer_base.config.load(deps.storage)?;
             deps.api
                 .debug(&format!("WASMDEBUG: KVQueryResult type {:?}", query_type));
             match query_type {
@@ -827,12 +829,14 @@ pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResul
                     deps,
                     env,
                     query_id,
+                    &config.sdk_version,
                     DELEGATIONS_AND_BALANCE,
                 ),
                 KVQueryType::NonNativeRewardsBalances => puppeteer_base.sudo_kv_query_result(
                     deps,
                     env,
                     query_id,
+                    &config.sdk_version,
                     NON_NATIVE_REWARD_BALANCES,
                 ),
                 KVQueryType::UnbondingDelegations => {

@@ -15,6 +15,7 @@ pub struct Config {
     pub allowed_senders: Vec<Addr>,
     pub proxy_address: Option<Addr>,
     pub transfer_channel_id: String,
+    pub sdk_version: String,
 }
 
 impl BaseConfig for Config {

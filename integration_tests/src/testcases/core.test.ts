@@ -276,6 +276,7 @@ describe('Core', () => {
       account.address,
       res.codeId,
       {
+        sdk_version: process.env.SDK_VERSION || '0.46.0',
         code_ids: {
           core_code_id: context.codeIds.core,
           token_code_id: context.codeIds.token,

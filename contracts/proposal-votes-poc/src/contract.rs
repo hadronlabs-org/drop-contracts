@@ -18,10 +18,10 @@ use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::{NeutronQuery, QueryRegisteredQueryResultResponse};
 use neutron_sdk::interchain_queries::queries::get_raw_interchain_query_result;
 use neutron_sdk::interchain_queries::types::KVReconstruct;
-use neutron_sdk::interchain_queries::v045::register_queries::{
-    new_register_gov_proposal_votes_query_msg, update_register_gov_proposal_votes_query_msg,
-};
 use neutron_sdk::interchain_queries::v045::types::GovernmentProposalVotes;
+use neutron_sdk::interchain_queries::v047::register_queries::{
+    new_register_gov_proposals_voters_votes_query_msg, update_gov_proposal_votes_query_msg,
+};
 use neutron_sdk::sudo::msg::SudoMsg;
 
 use crate::error::{ContractError, ContractResult};
@@ -253,11 +253,10 @@ fn update_votes_interchain_query(
     active_proposals: Vec<u64>,
     voters: Vec<String>,
 ) -> ContractResult<SubMsg<NeutronMsg>> {
-    let msg = update_register_gov_proposal_votes_query_msg(
+    let msg = update_gov_proposal_votes_query_msg(
         query_id,
         active_proposals.to_owned(),
         voters.to_owned(),
-        None,
         None,
     )?;
 
@@ -269,7 +268,7 @@ fn register_votes_interchain_query(
     active_proposals: Vec<u64>,
     voters: Vec<String>,
 ) -> ContractResult<SubMsg<NeutronMsg>> {
-    let msg = new_register_gov_proposal_votes_query_msg(
+    let msg = new_register_gov_proposals_voters_votes_query_msg(
         config.connection_id.to_string(),
         active_proposals,
         voters,

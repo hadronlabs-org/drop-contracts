@@ -26,7 +26,7 @@ pub fn version_to_u32(version: &str) -> StdResult<u32> {
     Ok(numeric_version)
 }
 
-pub fn u32_version_to_string(v: u32) -> String {
+pub fn u32_to_version_string(v: u32) -> String {
     format!("{}.{}.{}", (v >> 20) & 1023, (v >> 10) & 1023, v & 1023)
 }
 
@@ -40,7 +40,7 @@ fn test_version_to_u32() {
     assert_eq!(version_to_u32("0.0.0").unwrap(), 0);
     assert!(version_to_u32("0.0").is_err());
     assert_eq!(
-        u32_version_to_string(version_to_u32("1.200.120").unwrap()),
+        u32_to_version_string(version_to_u32("1.200.120").unwrap()),
         "1.200.120"
     );
 }
