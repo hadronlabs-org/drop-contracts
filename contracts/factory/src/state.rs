@@ -28,9 +28,9 @@ pub struct RemoteOpts {
 pub struct Config {
     pub code_ids: CodeIds,
     pub remote_opts: RemoteOpts,
-    pub owner: String,
     pub salt: String,
     pub subdenom: String,
+    pub sdk_version: String,
     pub token_metadata: DenomMetadata,
 }
 
