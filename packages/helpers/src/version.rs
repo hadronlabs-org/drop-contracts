@@ -13,7 +13,7 @@ pub fn version_to_u32(version: &str) -> StdResult<u32> {
 
     for (i, part) in parts.iter().rev().enumerate() {
         let num: u32 = part.parse().map_err(|_| {
-            StdError::parse_err(version, &format!("Invalid number in version: {}", part))
+            StdError::parse_err(version, format!("Invalid number in version: {}", part))
         })?;
         if num >= 1024 {
             return StdResult::Err(StdError::parse_err(
