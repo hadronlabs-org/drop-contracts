@@ -1,6 +1,6 @@
 use cosmwasm_std::{to_json_binary, Addr, Binary, Coin, Delegation, Uint128};
+use lido_puppeteer_base::r#trait::PuppeteerReconstruct;
 use neutron_sdk::bindings::types::StorageValue;
-use neutron_sdk::interchain_queries::types::KVReconstruct;
 use neutron_sdk::NeutronResult;
 use prost::Message;
 
@@ -32,7 +32,7 @@ fn test_reconstruct_multi_balances() {
             value: buf_coin2.into(),
         },
     ];
-    let result = MultiBalances::reconstruct(&storage_values).unwrap();
+    let result = MultiBalances::reconstruct(&storage_values, "0.0.1").unwrap();
     let expected_coins = vec![
         cosmwasm_std::Coin {
             denom: "uatom".to_string(),
@@ -67,7 +67,7 @@ fn test_reconstruct_balance_and_delegations_no_delegations() {
         },
     ];
     let result: NeutronResult<BalancesAndDelegations> =
-        BalancesAndDelegations::reconstruct(&storage_values);
+        BalancesAndDelegations::reconstruct(&storage_values, "0.0.1");
     match result {
         Ok(balances_and_delegations) => {
             let expected_coins = vec![cosmwasm_std::Coin {
@@ -144,7 +144,7 @@ fn test_reconstruct_balance_and_delegations_with_delegations() {
     });
 
     let result: NeutronResult<BalancesAndDelegations> =
-        BalancesAndDelegations::reconstruct(&storage_values);
+        PuppeteerReconstruct::reconstruct(&storage_values, "0.0.1");
     match result {
         Ok(balances_and_delegations) => {
             let expected_coins = vec![cosmwasm_std::Coin {
