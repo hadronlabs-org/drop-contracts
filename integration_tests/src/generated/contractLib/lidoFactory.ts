@@ -153,6 +153,7 @@ export interface CoreParams {
   bond_limit?: Uint128 | null;
   channel: string;
   idle_min_interval: number;
+  lsm_redeem_threshold: number;
   puppeteer_timeout: number;
   unbond_batch_switch_time: number;
   unbonding_period: number;
@@ -166,7 +167,7 @@ export interface ConfigOptional {
   fee_address?: string | null;
   idle_min_interval?: number | null;
   ld_denom?: string | null;
-  owner?: string | null;
+  lsm_redeem_threshold?: number | null;
   pump_address?: string | null;
   puppeteer_contract?: string | null;
   puppeteer_timeout?: number | null;

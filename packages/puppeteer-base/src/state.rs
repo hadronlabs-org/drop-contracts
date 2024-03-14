@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::Coin;
+use cosmwasm_std::{Coin, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, UniqueIndex};
 use lido_helpers::ica::Ica;
 use neutron_sdk::{bindings::msg::IbcFee, interchain_queries::v045::types::UnbondingEntry};
@@ -121,6 +121,13 @@ pub struct UnbondingDelegation {
     pub query_id: u64,
     pub unbonding_delegations: Vec<UnbondingEntry>,
     pub last_updated_height: u64,
+}
+
+#[cw_serde]
+pub struct RedeemShareItem {
+    pub amount: Uint128,
+    pub remote_denom: String,
+    pub local_denom: String,
 }
 
 pub struct UnbondingDelegationIndexes<'a> {

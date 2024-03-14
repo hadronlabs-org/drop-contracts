@@ -1,7 +1,10 @@
-use crate::proto::{
-    MsgBeginRedelegateResponse, MsgDelegateResponse, MsgExecResponse, MsgIBCTransfer,
-    MsgRedeemTokensforSharesResponse, MsgSendResponse, MsgTokenizeSharesResponse,
-    MsgUndelegateResponse,
+use crate::{
+    proto::{
+        MsgBeginRedelegateResponse, MsgDelegateResponse, MsgExecResponse, MsgIBCTransfer,
+        MsgRedeemTokensforSharesResponse, MsgSendResponse, MsgTokenizeSharesResponse,
+        MsgUndelegateResponse,
+    },
+    state::RedeemShareItem,
 };
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Empty, Uint128};
@@ -126,11 +129,9 @@ pub enum Transaction {
         denom: String,
         amount: u128,
     },
-    RedeemShare {
+    RedeemShares {
         interchain_account_id: String,
-        validator: String,
-        denom: String,
-        amount: u128,
+        items: Vec<RedeemShareItem>,
     },
     ClaimRewardsAndOptionalyTransfer {
         interchain_account_id: String,

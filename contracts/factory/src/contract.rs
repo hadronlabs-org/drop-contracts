@@ -427,6 +427,7 @@ fn execute_init(
                 idle_min_interval: core_params.idle_min_interval,
                 bond_limit: core_params.bond_limit,
                 channel: core_params.channel,
+                lsm_redeem_threshold: core_params.lsm_redeem_threshold,
                 owner: env.contract.address.to_string(),
                 fee: None,
                 fee_address: None,

@@ -28,6 +28,7 @@ export interface InstantiateMsg {
   fee?: Decimal | null;
   fee_address?: string | null;
   idle_min_interval: number;
+  lsm_redeem_threshold: number;
   owner: string;
   pump_address?: string | null;
   puppeteer_contract: string;
@@ -69,6 +70,7 @@ export type ContractState = "idle" | "claiming" | "unbonding" | "staking" | "tra
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal1 = string;
+export type ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128 = [string, [string, Uint128]][];
 export type ResponseHookMsg =
   | {
       success: ResponseHookSuccessMsg;
@@ -150,11 +152,9 @@ export type Transaction =
       };
     }
   | {
-      redeem_share: {
-        amount: number;
-        denom: string;
+      redeem_shares: {
         interchain_account_id: string;
-        validator: string;
+        items: RedeemShareItem[];
       };
     }
   | {
@@ -179,6 +179,8 @@ export type Transaction =
       };
     };
 export type ArrayOfNonNativeRewardsItem = NonNativeRewardsItem[];
+export type String = string;
+export type ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint1281 = [string, [string, Uint128]][];
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -259,7 +261,17 @@ export type Timestamp2 = Uint64;
 export type Uint64 = string;
 
 export interface LidoCoreSchema {
-  responses: Config | ContractState | Decimal1 | ResponseHookMsg | ArrayOfNonNativeRewardsItem | Uint1281 | UnbondBatch;
+  responses:
+    | Config
+    | ContractState
+    | Decimal1
+    | ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128
+    | ResponseHookMsg
+    | ArrayOfNonNativeRewardsItem
+    | String
+    | ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint1281
+    | Uint1281
+    | UnbondBatch;
   query: UnbondBatchArgs;
   execute: BondArgs | UpdateConfigArgs | UpdateNonNativeRewardsReceiversArgs | PuppeteerHookArgs | UpdateOwnershipArgs;
   [k: string]: unknown;
@@ -272,7 +284,7 @@ export interface Config {
   fee_address?: string | null;
   idle_min_interval: number;
   ld_denom?: string | null;
-  owner: string;
+  lsm_redeem_threshold: number;
   pump_address?: string | null;
   puppeteer_contract: string;
   puppeteer_timeout: number;
@@ -335,6 +347,11 @@ export interface RequestPacketTimeoutHeight {
   revision_number?: number | null;
   [k: string]: unknown;
 }
+export interface RedeemShareItem {
+  amount: Uint128;
+  local_denom: string;
+  remote_denom: string;
+}
 export interface TransferReadyBatchMsg {
   amount: Uint128;
   batch_id: number;
@@ -386,7 +403,7 @@ export interface ConfigOptional {
   fee_address?: string | null;
   idle_min_interval?: number | null;
   ld_denom?: string | null;
-  owner?: string | null;
+  lsm_redeem_threshold?: number | null;
   pump_address?: string | null;
   puppeteer_contract?: string | null;
   puppeteer_timeout?: number | null;
@@ -438,6 +455,9 @@ export class Client {
   queryConfig = async(): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
+  queryOwner = async(): Promise<String> => {
+    return this.client.queryContractSmart(this.contractAddress, { owner: {} });
+  }
   queryExchangeRate = async(): Promise<Decimal> => {
     return this.client.queryContractSmart(this.contractAddress, { exchange_rate: {} });
   }
@@ -452,6 +472,12 @@ export class Client {
   }
   queryNonNativeRewardsReceivers = async(): Promise<ArrayOfNonNativeRewardsItem> => {
     return this.client.queryContractSmart(this.contractAddress, { non_native_rewards_receivers: {} });
+  }
+  queryPendingLSMShares = async(): Promise<ArrayOfTupleOf_StringAnd_Tuple_of_String_and_Uint128> => {
+    return this.client.queryContractSmart(this.contractAddress, { pending_l_s_m_shares: {} });
+  }
+  queryLSMSharesToRedeem = async(): Promise<ArrayOfTupleOf_StringAnd_Tuple_of_String_and_Uint128> => {
+    return this.client.queryContractSmart(this.contractAddress, { l_s_m_shares_to_redeem: {} });
   }
   queryTotalBonded = async(): Promise<Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { total_bonded: {} });

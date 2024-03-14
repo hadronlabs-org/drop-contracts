@@ -144,11 +144,11 @@ fn get_default_config(fee: Option<Decimal>) -> Config {
         unbonding_safe_period: 10,
         unbond_batch_switch_time: 6000,
         pump_address: None,
-        owner: "owner".to_string(),
         ld_denom: None,
         channel: "channel".to_string(),
         fee,
         fee_address: Some("fee_address".to_string()),
+        lsm_redeem_threshold: 10u64,
         bond_limit: None,
     }
 }
@@ -184,7 +184,7 @@ fn get_non_native_rewards_and_fee_transfer_msg_success() {
     let info = mock_info("addr0000", &[Coin::new(1000, "untrn")]);
 
     let result: CosmosMsg<NeutronMsg> =
-        get_non_native_rewards_and_fee_transfer_msg(deps.as_ref(), info, mock_env())
+        get_non_native_rewards_and_fee_transfer_msg(deps.as_ref(), info, &mock_env())
             .unwrap()
             .unwrap();
 
@@ -240,7 +240,7 @@ fn get_non_native_rewards_and_fee_transfer_msg_zero_fee() {
     let info = mock_info("addr0000", &[Coin::new(1000, "untrn")]);
 
     let result: CosmosMsg<NeutronMsg> =
-        get_non_native_rewards_and_fee_transfer_msg(deps.as_ref(), info, mock_env())
+        get_non_native_rewards_and_fee_transfer_msg(deps.as_ref(), info, &mock_env())
             .unwrap()
             .unwrap();
 

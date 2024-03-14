@@ -3,7 +3,10 @@ use cosmwasm_std::{
     Response, StdResult, Uint128, WasmMsg,
 };
 use lido_helpers::answer::response;
-use lido_puppeteer_base::msg::{ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg};
+use lido_puppeteer_base::{
+    msg::{ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg},
+    state::RedeemShareItem,
+};
 use lido_staking_base::{
     msg::hook_tester::{ExecuteMsg, InstantiateMsg, QueryMsg},
     state::hook_tester::{Config, ANSWERS, CONFIG, ERRORS},
@@ -252,10 +255,12 @@ fn execute_redeem_share(
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_addr,
         msg: to_json_binary(
-            &lido_staking_base::msg::puppeteer::ExecuteMsg::RedeemShare {
-                validator,
-                amount,
-                denom,
+            &lido_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+                items: vec![RedeemShareItem {
+                    remote_denom: denom,
+                    amount,
+                    local_denom: "some".to_string(),
+                }],
                 timeout,
                 reply_to: env.contract.address.to_string(),
             },

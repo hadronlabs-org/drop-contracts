@@ -62,11 +62,9 @@ export type Transaction =
       };
     }
   | {
-      redeem_share: {
-        amount: number;
-        denom: string;
+      redeem_shares: {
         interchain_account_id: string;
-        validator: string;
+        items: RedeemShareItem[];
       };
     }
   | {
@@ -134,7 +132,7 @@ export interface LidoPuppeteerSchema {
     | UndelegateArgs
     | RedelegateArgs
     | TokenizeShareArgs
-    | RedeemShareArgs
+    | RedeemSharesArgs
     | IBCTransferArgs
     | TransferArgs
     | ClaimRewardsAndOptionalyTransferArgs;
@@ -144,6 +142,11 @@ export interface ConfigResponse {
   connection_id: string;
   owner: string;
   update_period: number;
+}
+export interface RedeemShareItem {
+  amount: Uint128;
+  local_denom: string;
+  remote_denom: string;
 }
 export interface TransferReadyBatchMsg {
   amount: Uint128;
@@ -197,12 +200,10 @@ export interface TokenizeShareArgs {
   timeout?: number | null;
   validator: string;
 }
-export interface RedeemShareArgs {
-  amount: Uint128;
-  denom: string;
+export interface RedeemSharesArgs {
+  items: RedeemShareItem[];
   reply_to: string;
   timeout?: number | null;
-  validator: string;
 }
 export interface IBCTransferArgs {
   reply_to: string;
@@ -303,9 +304,9 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { tokenize_share: args }, fee || "auto", memo, funds);
   }
-  redeemShare = async(sender:string, args: RedeemShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  redeemShares = async(sender:string, args: RedeemSharesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { redeem_share: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { redeem_shares: args }, fee || "auto", memo, funds);
   }
   iBCTransfer = async(sender:string, args: IBCTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

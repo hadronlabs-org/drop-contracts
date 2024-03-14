@@ -22,9 +22,9 @@ pub struct Config {
     pub unbonding_safe_period: u64,    //seconds
     pub unbond_batch_switch_time: u64, //seconds
     pub pump_address: Option<String>,
-    pub owner: String,
     pub channel: String,
     pub ld_denom: Option<String>,
+    pub lsm_redeem_threshold: u64,
     pub bond_limit: Option<Uint128>,
     pub fee: Option<Decimal>,
     pub fee_address: Option<String>,
@@ -89,6 +89,8 @@ pub fn unbond_batches_map<'a>() -> IndexedMap<'a, u128, UnbondBatch, UnbondBatch
 
 pub const UNBOND_BATCH_ID: Item<u128> = Item::new("batches_ids");
 pub const TOTAL_LSM_SHARES: Item<u128> = Item::new("total_lsm_shares");
+pub const PENDING_LSM_SHARES: Map<String, (String, Uint128)> = Map::new("pending_lsm_shares");
+pub const LSM_SHARES_TO_REDEEM: Map<String, (String, Uint128)> = Map::new("lsm_shares_to_redeem");
 
 #[cw_serde]
 pub enum ContractState {
