@@ -1,7 +1,8 @@
 use cosmwasm_std::{to_json_binary, Addr, Binary, Coin, Delegation, Uint128};
 use lido_puppeteer_base::r#trait::PuppeteerReconstruct;
-use neutron_sdk::bindings::types::StorageValue;
+use neutron_sdk::interchain_queries::v047::helpers::create_account_denom_balance_key;
 use neutron_sdk::NeutronResult;
+use neutron_sdk::{bindings::types::StorageValue, interchain_queries::helpers::decode_and_convert};
 use prost::Message;
 
 use super::puppeteer::{BalancesAndDelegations, MultiBalances};
@@ -20,15 +21,25 @@ fn test_reconstruct_multi_balances() {
     coin1.encode(&mut buf_coin1).unwrap();
     let mut buf_coin2 = Vec::new();
     coin2.encode(&mut buf_coin2).unwrap();
+    let key_atom = create_account_denom_balance_key(
+        decode_and_convert("cosmos1hdga6p84cpc6gulk9ruxy5w0vpfx9dv83ku59r").unwrap(),
+        "uatom",
+    )
+    .unwrap();
+    let key_tia = create_account_denom_balance_key(
+        decode_and_convert("cosmos1hdga6p84cpc6gulk9ruxy5w0vpfx9dv83ku59r").unwrap(),
+        "utia",
+    )
+    .unwrap();
     let storage_values: Vec<StorageValue> = vec![
         StorageValue {
             storage_prefix: "prefix".to_string(),
-            key: Binary::from("balances".as_bytes()),
+            key: Binary::from(key_atom),
             value: buf_coin1.into(),
         },
         StorageValue {
             storage_prefix: "prefix".to_string(),
-            key: Binary::from("balances".as_bytes()),
+            key: Binary::from(key_tia),
             value: buf_coin2.into(),
         },
     ];
@@ -54,14 +65,19 @@ fn test_reconstruct_balance_and_delegations_no_delegations() {
     };
     let mut buf_coin = Vec::new();
     coin.encode(&mut buf_coin).unwrap();
+    let key = create_account_denom_balance_key(
+        decode_and_convert("cosmos1hdga6p84cpc6gulk9ruxy5w0vpfx9dv83ku59r").unwrap(),
+        "uatom",
+    )
+    .unwrap();
     let storage_values: Vec<StorageValue> = vec![
         StorageValue {
-            storage_prefix: "prefix".to_string(),
-            key: Binary::from("balances".as_bytes()),
+            storage_prefix: "".to_string(),
+            key: Binary::from(key),
             value: buf_coin.into(),
         },
         StorageValue {
-            storage_prefix: "prefix".to_string(),
+            storage_prefix: "".to_string(),
             key: Binary::from("denom".as_bytes()),
             value: to_json_binary(&"uatom".to_string()).unwrap(),
         },
@@ -96,10 +112,15 @@ fn test_reconstruct_balance_and_delegations_with_delegations() {
     };
     let mut buf_coin = Vec::new();
     coin.encode(&mut buf_coin).unwrap();
+    let key = create_account_denom_balance_key(
+        decode_and_convert("cosmos1hdga6p84cpc6gulk9ruxy5w0vpfx9dv83ku59r").unwrap(),
+        "uatom",
+    )
+    .unwrap();
     let mut storage_values: Vec<StorageValue> = vec![
         StorageValue {
             storage_prefix: "prefix".to_string(),
-            key: Binary::from("balances".as_bytes()),
+            key: Binary::from(key),
             value: buf_coin.into(),
         },
         StorageValue {

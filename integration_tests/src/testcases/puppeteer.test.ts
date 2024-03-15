@@ -139,6 +139,7 @@ describe('Interchain puppeteer', () => {
         account.address,
         res.codeId,
         {
+          sdk_version: process.env.SDK_VERSION || '0.46.0',
           connection_id: 'connection-0',
           port_id: 'transfer',
           update_period: 10,
