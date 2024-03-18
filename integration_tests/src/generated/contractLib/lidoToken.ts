@@ -1,6 +1,11 @@
-import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
-import { StdFee } from "@cosmjs/amino";
-import { Coin } from "@cosmjs/amino";
+import {
+  CosmWasmClient,
+  SigningCosmWasmClient,
+  ExecuteResult,
+  InstantiateResult,
+} from '@cosmjs/cosmwasm-stargate';
+import { StdFee } from '@cosmjs/amino';
+import { Coin } from '@cosmjs/amino';
 export interface InstantiateMsg {
   core_address: string;
   owner: string;
@@ -98,10 +103,10 @@ export type UpdateOwnershipArgs =
         new_owner: string;
       };
     }
-  | "accept_ownership"
-  | "renounce_ownership";
+  | 'accept_ownership'
+  | 'renounce_ownership';
 
-export interface LidoTokenSchema {
+export interface DropTokenSchema {
   responses: ConfigResponse | OwnershipFor_String;
   execute: MintArgs | SetTokenMetadataArgs | UpdateOwnershipArgs;
   [k: string]: unknown;
@@ -165,9 +170,8 @@ export interface DenomMetadata {
   uri_hash?: string | null;
 }
 
-
 function isSigningCosmWasmClient(
-  client: CosmWasmClient | SigningCosmWasmClient
+  client: CosmWasmClient | SigningCosmWasmClient,
 ): client is SigningCosmWasmClient {
   return 'execute' in client;
 }
@@ -175,12 +179,15 @@ function isSigningCosmWasmClient(
 export class Client {
   private readonly client: CosmWasmClient | SigningCosmWasmClient;
   contractAddress: string;
-  constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string) {
+  constructor(
+    client: CosmWasmClient | SigningCosmWasmClient,
+    contractAddress: string,
+  ) {
     this.client = client;
     this.contractAddress = contractAddress;
   }
   mustBeSigningClient() {
-    return new Error("This client is not a SigningCosmWasmClient");
+    return new Error('This client is not a SigningCosmWasmClient');
   }
   static async instantiate(
     client: SigningCosmWasmClient,
@@ -196,26 +203,83 @@ export class Client {
     });
     return res;
   }
-  queryConfig = async(): Promise<ConfigResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { config: {} });
-  }
-  queryOwnership = async(): Promise<Ownership_for_String> => {
-    return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
-  }
-  mint = async(sender:string, args: MintArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { mint: args }, fee || "auto", memo, funds);
-  }
-  burn = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { burn: {} }, fee || "auto", memo, funds);
-  }
-  setTokenMetadata = async(sender:string, args: SetTokenMetadataArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { set_token_metadata: args }, fee || "auto", memo, funds);
-  }
-  updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
-  }
+  queryConfig = async (): Promise<ConfigResponse> =>
+    this.client.queryContractSmart(this.contractAddress, { config: {} });
+  queryOwnership = async (): Promise<Ownership_for_String> =>
+    this.client.queryContractSmart(this.contractAddress, { ownership: {} });
+  mint = async (
+    sender: string,
+    args: MintArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { mint: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  burn = async (
+    sender: string,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { burn: {} },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  setTokenMetadata = async (
+    sender: string,
+    args: SetTokenMetadataArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { set_token_metadata: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  updateOwnership = async (
+    sender: string,
+    args: UpdateOwnershipArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_ownership: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
 }

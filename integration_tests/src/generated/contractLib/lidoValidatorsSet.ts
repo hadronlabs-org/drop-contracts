@@ -1,5 +1,10 @@
-import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
-import { StdFee } from "@cosmjs/amino";
+import {
+  CosmWasmClient,
+  SigningCosmWasmClient,
+  ExecuteResult,
+  InstantiateResult,
+} from '@cosmjs/cosmwasm-stargate';
+import { StdFee } from '@cosmjs/amino';
 export interface InstantiateMsg {
   owner: string;
   stats_contract: string;
@@ -82,11 +87,15 @@ export type UpdateOwnershipArgs =
         new_owner: string;
       };
     }
-  | "accept_ownership"
-  | "renounce_ownership";
+  | 'accept_ownership'
+  | 'renounce_ownership';
 
-export interface LidoValidatorsSetSchema {
-  responses: Config | OwnershipFor_String | ValidatorResponse | ArrayOfValidatorInfo;
+export interface DropValidatorsSetSchema {
+  responses:
+    | Config
+    | OwnershipFor_String
+    | ValidatorResponse
+    | ArrayOfValidatorInfo;
   query: ValidatorArgs;
   execute:
     | UpdateConfigArgs
@@ -226,9 +235,8 @@ export interface WeightedVoteOption {
   [k: string]: unknown;
 }
 
-
 function isSigningCosmWasmClient(
-  client: CosmWasmClient | SigningCosmWasmClient
+  client: CosmWasmClient | SigningCosmWasmClient,
 ): client is SigningCosmWasmClient {
   return 'execute' in client;
 }
@@ -236,12 +244,15 @@ function isSigningCosmWasmClient(
 export class Client {
   private readonly client: CosmWasmClient | SigningCosmWasmClient;
   contractAddress: string;
-  constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string) {
+  constructor(
+    client: CosmWasmClient | SigningCosmWasmClient,
+    contractAddress: string,
+  ) {
     this.client = client;
     this.contractAddress = contractAddress;
   }
   mustBeSigningClient() {
-    return new Error("This client is not a SigningCosmWasmClient");
+    return new Error('This client is not a SigningCosmWasmClient');
   }
   static async instantiate(
     client: SigningCosmWasmClient,
@@ -257,40 +268,136 @@ export class Client {
     });
     return res;
   }
-  queryConfig = async(): Promise<Config> => {
+  queryConfig = async (): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
-  }
-  queryValidator = async(args: ValidatorArgs): Promise<ValidatorResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { validator: args });
-  }
-  queryValidators = async(): Promise<ArrayOfValidatorInfo> => {
-    return this.client.queryContractSmart(this.contractAddress, { validators: {} });
-  }
-  queryOwnership = async(): Promise<Ownership_for_String> => {
-    return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
-  }
-  updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
-  }
-  updateValidators = async(sender:string, args: UpdateValidatorsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_validators: args }, fee || "auto", memo, funds);
-  }
-  updateValidator = async(sender:string, args: UpdateValidatorArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_validator: args }, fee || "auto", memo, funds);
-  }
-  updateValidatorsInfo = async(sender:string, args: UpdateValidatorsInfoArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_validators_info: args }, fee || "auto", memo, funds);
-  }
-  updateValidatorsVoting = async(sender:string, args: UpdateValidatorsVotingArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_validators_voting: args }, fee || "auto", memo, funds);
-  }
-  updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
-  }
+  };
+  queryValidator = async (args: ValidatorArgs): Promise<ValidatorResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      validator: args,
+    });
+  };
+  queryValidators = async (): Promise<ArrayOfValidatorInfo> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      validators: {},
+    });
+  };
+  queryOwnership = async (): Promise<Ownership_for_String> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      ownership: {},
+    });
+  };
+  updateConfig = async (
+    sender: string,
+    args: UpdateConfigArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_config: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  updateValidators = async (
+    sender: string,
+    args: UpdateValidatorsArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_validators: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  updateValidator = async (
+    sender: string,
+    args: UpdateValidatorArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_validator: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  updateValidatorsInfo = async (
+    sender: string,
+    args: UpdateValidatorsInfoArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_validators_info: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  updateValidatorsVoting = async (
+    sender: string,
+    args: UpdateValidatorsVotingArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_validators_voting: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  updateOwnership = async (
+    sender: string,
+    args: UpdateOwnershipArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_ownership: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
 }

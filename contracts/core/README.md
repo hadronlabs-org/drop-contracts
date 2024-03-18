@@ -1,1 +1,1 @@
-# LIDO Staking Core
+# DROP Staking Core

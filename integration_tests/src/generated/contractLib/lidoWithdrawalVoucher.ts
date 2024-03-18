@@ -1,6 +1,11 @@
-import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
-import { StdFee } from "@cosmjs/amino";
-import { Coin } from "@cosmjs/amino";
+import {
+  CosmWasmClient,
+  SigningCosmWasmClient,
+  ExecuteResult,
+  InstantiateResult,
+} from '@cosmjs/cosmwasm-stargate';
+import { StdFee } from '@cosmjs/amino';
+import { Coin } from '@cosmjs/amino';
 export interface InstantiateMsg {
   /**
    * The minter is the only one who can create new NFTs. This is designed for a base NFT that is controlled by an external program or contract. You will likely replace this with custom logic in custom NFTs
@@ -83,10 +88,10 @@ export type UpdateOwnershipArgs =
         new_owner: string;
       };
     }
-  | "accept_ownership"
-  | "renounce_ownership";
+  | 'accept_ownership'
+  | 'renounce_ownership';
 
-export interface LidoWithdrawalVoucherSchema {
+export interface DropWithdrawalVoucherSchema {
   responses:
     | AllNftInfoResponseFor_Empty
     | OperatorsResponse
@@ -363,9 +368,8 @@ export interface ExtensionArgs1 {
   msg: Empty;
 }
 
-
 function isSigningCosmWasmClient(
-  client: CosmWasmClient | SigningCosmWasmClient
+  client: CosmWasmClient | SigningCosmWasmClient,
 ): client is SigningCosmWasmClient {
   return 'execute' in client;
 }
@@ -373,12 +377,15 @@ function isSigningCosmWasmClient(
 export class Client {
   private readonly client: CosmWasmClient | SigningCosmWasmClient;
   contractAddress: string;
-  constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string) {
+  constructor(
+    client: CosmWasmClient | SigningCosmWasmClient,
+    contractAddress: string,
+  ) {
     this.client = client;
     this.contractAddress = contractAddress;
   }
   mustBeSigningClient() {
-    return new Error("This client is not a SigningCosmWasmClient");
+    return new Error('This client is not a SigningCosmWasmClient');
   }
   static async instantiate(
     client: SigningCosmWasmClient,
@@ -394,86 +401,268 @@ export class Client {
     });
     return res;
   }
-  queryOwnerOf = async(args: OwnerOfArgs): Promise<OwnerOfResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { owner_of: args });
-  }
-  queryApproval = async(args: ApprovalArgs): Promise<ApprovalResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { approval: args });
-  }
-  queryApprovals = async(args: ApprovalsArgs): Promise<ApprovalsResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { approvals: args });
-  }
-  queryOperator = async(args: OperatorArgs): Promise<OperatorResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { operator: args });
-  }
-  queryAllOperators = async(args: AllOperatorsArgs): Promise<OperatorsResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { all_operators: args });
-  }
-  queryNumTokens = async(): Promise<NumTokensResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { num_tokens: {} });
-  }
-  queryContractInfo = async(): Promise<ContractInfoResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { contract_info: {} });
-  }
-  queryNftInfo = async(args: NftInfoArgs): Promise<NftInfoResponse_for_Empty> => {
-    return this.client.queryContractSmart(this.contractAddress, { nft_info: args });
-  }
-  queryAllNftInfo = async(args: AllNftInfoArgs): Promise<AllNftInfoResponse_for_Empty> => {
-    return this.client.queryContractSmart(this.contractAddress, { all_nft_info: args });
-  }
-  queryTokens = async(args: TokensArgs): Promise<TokensResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { tokens: args });
-  }
-  queryAllTokens = async(args: AllTokensArgs): Promise<TokensResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { all_tokens: args });
-  }
-  queryMinter = async(): Promise<MinterResponse> => {
+  queryOwnerOf = async (args: OwnerOfArgs): Promise<OwnerOfResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      owner_of: args,
+    });
+  };
+  queryApproval = async (args: ApprovalArgs): Promise<ApprovalResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      approval: args,
+    });
+  };
+  queryApprovals = async (args: ApprovalsArgs): Promise<ApprovalsResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      approvals: args,
+    });
+  };
+  queryOperator = async (args: OperatorArgs): Promise<OperatorResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      operator: args,
+    });
+  };
+  queryAllOperators = async (
+    args: AllOperatorsArgs,
+  ): Promise<OperatorsResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      all_operators: args,
+    });
+  };
+  queryNumTokens = async (): Promise<NumTokensResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      num_tokens: {},
+    });
+  };
+  queryContractInfo = async (): Promise<ContractInfoResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      contract_info: {},
+    });
+  };
+  queryNftInfo = async (
+    args: NftInfoArgs,
+  ): Promise<NftInfoResponse_for_Empty> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      nft_info: args,
+    });
+  };
+  queryAllNftInfo = async (
+    args: AllNftInfoArgs,
+  ): Promise<AllNftInfoResponse_for_Empty> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      all_nft_info: args,
+    });
+  };
+  queryTokens = async (args: TokensArgs): Promise<TokensResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      tokens: args,
+    });
+  };
+  queryAllTokens = async (args: AllTokensArgs): Promise<TokensResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      all_tokens: args,
+    });
+  };
+  queryMinter = async (): Promise<MinterResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { minter: {} });
-  }
-  queryExtension = async(args: ExtensionArgs): Promise<Null> => {
-    return this.client.queryContractSmart(this.contractAddress, { extension: args });
-  }
-  queryOwnership = async(): Promise<Ownership_for_String> => {
-    return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
-  }
-  transferNft = async(sender:string, args: TransferNftArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { transfer_nft: args }, fee || "auto", memo, funds);
-  }
-  sendNft = async(sender:string, args: SendNftArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { send_nft: args }, fee || "auto", memo, funds);
-  }
-  approve = async(sender:string, args: ApproveArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { approve: args }, fee || "auto", memo, funds);
-  }
-  revoke = async(sender:string, args: RevokeArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { revoke: args }, fee || "auto", memo, funds);
-  }
-  approveAll = async(sender:string, args: ApproveAllArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { approve_all: args }, fee || "auto", memo, funds);
-  }
-  revokeAll = async(sender:string, args: RevokeAllArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { revoke_all: args }, fee || "auto", memo, funds);
-  }
-  mint = async(sender:string, args: MintArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { mint: args }, fee || "auto", memo, funds);
-  }
-  burn = async(sender:string, args: BurnArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { burn: args }, fee || "auto", memo, funds);
-  }
-  extension = async(sender:string, args: ExtensionArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { extension: args }, fee || "auto", memo, funds);
-  }
-  updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
-  }
+  };
+  queryExtension = async (args: ExtensionArgs): Promise<Null> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      extension: args,
+    });
+  };
+  queryOwnership = async (): Promise<Ownership_for_String> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      ownership: {},
+    });
+  };
+  transferNft = async (
+    sender: string,
+    args: TransferNftArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { transfer_nft: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  sendNft = async (
+    sender: string,
+    args: SendNftArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { send_nft: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  approve = async (
+    sender: string,
+    args: ApproveArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { approve: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  revoke = async (
+    sender: string,
+    args: RevokeArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { revoke: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  approveAll = async (
+    sender: string,
+    args: ApproveAllArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { approve_all: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  revokeAll = async (
+    sender: string,
+    args: RevokeAllArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { revoke_all: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  mint = async (
+    sender: string,
+    args: MintArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { mint: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  burn = async (
+    sender: string,
+    args: BurnArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { burn: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  extension = async (
+    sender: string,
+    args: ExtensionArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { extension: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  updateOwnership = async (
+    sender: string,
+    args: UpdateOwnershipArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_ownership: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
 }

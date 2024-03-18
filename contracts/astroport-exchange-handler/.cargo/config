@@ -1,2 +1,2 @@
 [alias]
-schema = "run --bin lido-astroport-exchange-handler-schema"
+schema = "run --bin drop-astroport-exchange-handler-schema"

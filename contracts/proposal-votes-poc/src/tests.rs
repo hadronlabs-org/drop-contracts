@@ -22,7 +22,7 @@ fn instantiate() {
         deps.as_mut(),
         mock_env(),
         mock_info("admin", &[]),
-        lido_staking_base::msg::proposal_votes::InstantiateMsg {
+        drop_staking_base::msg::proposal_votes::InstantiateMsg {
             connection_id: "connection-0".to_string(),
             port_id: "transfer".to_string(),
             update_period: 100,
@@ -32,12 +32,12 @@ fn instantiate() {
     )
     .unwrap();
 
-    let config = lido_staking_base::state::proposal_votes::CONFIG
+    let config = drop_staking_base::state::proposal_votes::CONFIG
         .load(deps.as_ref().storage)
         .unwrap();
     assert_eq!(
         config,
-        lido_staking_base::state::proposal_votes::Config {
+        drop_staking_base::state::proposal_votes::Config {
             connection_id: "connection-0".to_string(),
             port_id: "transfer".to_string(),
             update_period: 100,
@@ -50,7 +50,7 @@ fn instantiate() {
     assert_eq!(
         response.events,
         vec![
-            Event::new("crates.io:lido-staking__lido-proposal-votes-poc-instantiate")
+            Event::new("crates.io:drop-staking__drop-proposal-votes-poc-instantiate")
                 .add_attributes([
                     attr("connection_id", "connection-0"),
                     attr("port_id", "transfer"),
@@ -66,10 +66,10 @@ fn instantiate() {
 #[test]
 fn query_config() {
     let mut deps = mock_dependencies::<MockQuerier>();
-    lido_staking_base::state::proposal_votes::CONFIG
+    drop_staking_base::state::proposal_votes::CONFIG
         .save(
             deps.as_mut().storage,
-            &lido_staking_base::state::proposal_votes::Config {
+            &drop_staking_base::state::proposal_votes::Config {
                 connection_id: "connection-0".to_string(),
                 port_id: "transfer".to_string(),
                 update_period: 100,
@@ -82,12 +82,12 @@ fn query_config() {
     let response = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        lido_staking_base::msg::proposal_votes::QueryMsg::Config {},
+        drop_staking_base::msg::proposal_votes::QueryMsg::Config {},
     )
     .unwrap();
     assert_eq!(
         response,
-        to_json_binary(&lido_staking_base::state::proposal_votes::Config {
+        to_json_binary(&drop_staking_base::state::proposal_votes::Config {
             connection_id: "connection-0".to_string(),
             port_id: "transfer".to_string(),
             update_period: 100,
@@ -102,10 +102,10 @@ fn query_config() {
 fn update_config_wrong_owner() {
     let mut deps = mock_dependencies::<MockQuerier>();
 
-    lido_staking_base::state::proposal_votes::CONFIG
+    drop_staking_base::state::proposal_votes::CONFIG
         .save(
             deps.as_mut().storage,
-            &lido_staking_base::state::proposal_votes::Config {
+            &drop_staking_base::state::proposal_votes::Config {
                 connection_id: "connection-0".to_string(),
                 port_id: "transfer".to_string(),
                 update_period: 100,
@@ -119,8 +119,8 @@ fn update_config_wrong_owner() {
         deps.as_mut(),
         mock_env(),
         mock_info("core1", &[]),
-        lido_staking_base::msg::proposal_votes::ExecuteMsg::UpdateConfig {
-            new_config: lido_staking_base::state::proposal_votes::ConfigOptional {
+        drop_staking_base::msg::proposal_votes::ExecuteMsg::UpdateConfig {
+            new_config: drop_staking_base::state::proposal_votes::ConfigOptional {
                 connection_id: Some("connection-0".to_string()),
                 port_id: Some("transfer".to_string()),
                 update_period: Some(100),
@@ -152,10 +152,10 @@ fn update_config_ok() {
         Some(Addr::unchecked("core").as_ref()),
     );
 
-    lido_staking_base::state::proposal_votes::CONFIG
+    drop_staking_base::state::proposal_votes::CONFIG
         .save(
             deps.as_mut().storage,
-            &lido_staking_base::state::proposal_votes::Config {
+            &drop_staking_base::state::proposal_votes::Config {
                 connection_id: "connection-0".to_string(),
                 port_id: "transfer".to_string(),
                 update_period: 100,
@@ -169,8 +169,8 @@ fn update_config_ok() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        lido_staking_base::msg::proposal_votes::ExecuteMsg::UpdateConfig {
-            new_config: lido_staking_base::state::proposal_votes::ConfigOptional {
+        drop_staking_base::msg::proposal_votes::ExecuteMsg::UpdateConfig {
+            new_config: drop_staking_base::state::proposal_votes::ConfigOptional {
                 connection_id: Some("connection-1".to_string()),
                 port_id: Some("transfer1".to_string()),
                 update_period: Some(200),
@@ -184,13 +184,13 @@ fn update_config_ok() {
     let config = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        lido_staking_base::msg::proposal_votes::QueryMsg::Config {},
+        drop_staking_base::msg::proposal_votes::QueryMsg::Config {},
     )
     .unwrap();
 
     assert_eq!(
         config,
-        to_json_binary(&lido_staking_base::state::proposal_votes::Config {
+        to_json_binary(&drop_staking_base::state::proposal_votes::Config {
             connection_id: "connection-1".to_string(),
             port_id: "transfer1".to_string(),
             update_period: 200,
@@ -209,7 +209,7 @@ fn update_voters_list_wrong_owner() {
         deps.as_mut(),
         mock_env(),
         mock_info("core1", &[]),
-        lido_staking_base::msg::proposal_votes::ExecuteMsg::UpdateVotersList {
+        drop_staking_base::msg::proposal_votes::ExecuteMsg::UpdateVotersList {
             voters: vec!["voter1".to_string(), "voter2".to_string()],
         },
     )
@@ -240,14 +240,14 @@ fn update_voters_list_ok() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        lido_staking_base::msg::proposal_votes::ExecuteMsg::UpdateVotersList {
+        drop_staking_base::msg::proposal_votes::ExecuteMsg::UpdateVotersList {
             voters: vec!["voter1".to_string(), "voter2".to_string()],
         },
     )
     .unwrap();
     assert_eq!(response.messages.len(), 0);
 
-    let voters = lido_staking_base::state::proposal_votes::VOTERS
+    let voters = drop_staking_base::state::proposal_votes::VOTERS
         .load(deps.as_mut().storage)
         .unwrap();
 
@@ -258,10 +258,10 @@ fn update_voters_list_ok() {
 fn update_active_proposals_wrong_owner() {
     let mut deps = mock_dependencies::<MockQuerier>();
 
-    lido_staking_base::state::proposal_votes::CONFIG
+    drop_staking_base::state::proposal_votes::CONFIG
         .save(
             deps.as_mut().storage,
-            &lido_staking_base::state::proposal_votes::Config {
+            &drop_staking_base::state::proposal_votes::Config {
                 connection_id: "connection-0".to_string(),
                 port_id: "transfer".to_string(),
                 update_period: 100,
@@ -275,7 +275,7 @@ fn update_active_proposals_wrong_owner() {
         deps.as_mut(),
         mock_env(),
         mock_info("wrong_provider_proposals_address", &[]),
-        lido_staking_base::msg::proposal_votes::ExecuteMsg::UpdateActiveProposals {
+        drop_staking_base::msg::proposal_votes::ExecuteMsg::UpdateActiveProposals {
             active_proposals: vec![1],
         },
     )
@@ -288,10 +288,10 @@ fn update_active_proposals_wrong_owner() {
 fn update_active_proposals_ok() {
     let mut deps = mock_dependencies::<MockQuerier>();
 
-    lido_staking_base::state::proposal_votes::CONFIG
+    drop_staking_base::state::proposal_votes::CONFIG
         .save(
             deps.as_mut().storage,
-            &lido_staking_base::state::proposal_votes::Config {
+            &drop_staking_base::state::proposal_votes::Config {
                 connection_id: "connection-0".to_string(),
                 port_id: "transfer".to_string(),
                 update_period: 100,
@@ -301,11 +301,11 @@ fn update_active_proposals_ok() {
         )
         .unwrap();
 
-    lido_staking_base::state::proposal_votes::QUERY_ID
+    drop_staking_base::state::proposal_votes::QUERY_ID
         .save(deps.as_mut().storage, &1)
         .unwrap();
 
-    lido_staking_base::state::proposal_votes::VOTERS
+    drop_staking_base::state::proposal_votes::VOTERS
         .save(
             deps.as_mut().storage,
             &vec![
@@ -319,13 +319,13 @@ fn update_active_proposals_ok() {
         deps.as_mut(),
         mock_env(),
         mock_info("provider_proposals", &[]),
-        lido_staking_base::msg::proposal_votes::ExecuteMsg::UpdateActiveProposals {
+        drop_staking_base::msg::proposal_votes::ExecuteMsg::UpdateActiveProposals {
             active_proposals: vec![1, 2],
         },
     )
     .unwrap();
 
-    let active_proposals = lido_staking_base::state::proposal_votes::ACTIVE_PROPOSALS
+    let active_proposals = drop_staking_base::state::proposal_votes::ACTIVE_PROPOSALS
         .may_load(deps.as_mut().storage)
         .unwrap()
         .unwrap();

@@ -1,5 +1,10 @@
-import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
-import { StdFee } from "@cosmjs/amino";
+import {
+  CosmWasmClient,
+  SigningCosmWasmClient,
+  ExecuteResult,
+  InstantiateResult,
+} from '@cosmjs/cosmwasm-stargate';
+import { StdFee } from '@cosmjs/amino';
 export interface InstantiateMsg {}
 export type ResponseAnswer =
   | {
@@ -125,7 +130,7 @@ export type PuppeteerHookArgs =
       error: ResponseHookErrorMsg;
     };
 
-export interface LidoHookTesterSchema {
+export interface DropHookTesterSchema {
   responses: ArrayOfResponseHookSuccessMsg | ArrayOfResponseHookErrorMsg;
   execute:
     | SetConfigArgs
@@ -233,9 +238,8 @@ export interface RedeemShareArgs {
   validator: string;
 }
 
-
 function isSigningCosmWasmClient(
-  client: CosmWasmClient | SigningCosmWasmClient
+  client: CosmWasmClient | SigningCosmWasmClient,
 ): client is SigningCosmWasmClient {
   return 'execute' in client;
 }
@@ -243,12 +247,15 @@ function isSigningCosmWasmClient(
 export class Client {
   private readonly client: CosmWasmClient | SigningCosmWasmClient;
   contractAddress: string;
-  constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string) {
+  constructor(
+    client: CosmWasmClient | SigningCosmWasmClient,
+    contractAddress: string,
+  ) {
     this.client = client;
     this.contractAddress = contractAddress;
   }
   mustBeSigningClient() {
-    return new Error("This client is not a SigningCosmWasmClient");
+    return new Error('This client is not a SigningCosmWasmClient');
   }
   static async instantiate(
     client: SigningCosmWasmClient,
@@ -264,38 +271,141 @@ export class Client {
     });
     return res;
   }
-  queryAnswers = async(): Promise<ArrayOfResponseHookSuccessMsg> => {
-    return this.client.queryContractSmart(this.contractAddress, { answers: {} });
-  }
-  queryErrors = async(): Promise<ArrayOfResponseHookErrorMsg> => {
-    return this.client.queryContractSmart(this.contractAddress, { errors: {} });
-  }
-  setConfig = async(sender:string, args: SetConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { set_config: args }, fee || "auto", memo, funds);
-  }
-  delegate = async(sender:string, args: DelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { delegate: args }, fee || "auto", memo, funds);
-  }
-  undelegate = async(sender:string, args: UndelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { undelegate: args }, fee || "auto", memo, funds);
-  }
-  redelegate = async(sender:string, args: RedelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { redelegate: args }, fee || "auto", memo, funds);
-  }
-  tokenizeShare = async(sender:string, args: TokenizeShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { tokenize_share: args }, fee || "auto", memo, funds);
-  }
-  redeemShare = async(sender:string, args: RedeemShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { redeem_share: args }, fee || "auto", memo, funds);
-  }
-  puppeteerHook = async(sender:string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
-  }
+  queryAnswers = async (): Promise<ArrayOfResponseHookSuccessMsg> =>
+    this.client.queryContractSmart(this.contractAddress, { answers: {} });
+  queryErrors = async (): Promise<ArrayOfResponseHookErrorMsg> =>
+    this.client.queryContractSmart(this.contractAddress, { errors: {} });
+  setConfig = async (
+    sender: string,
+    args: SetConfigArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { set_config: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  delegate = async (
+    sender: string,
+    args: DelegateArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { delegate: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  undelegate = async (
+    sender: string,
+    args: UndelegateArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { undelegate: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  redelegate = async (
+    sender: string,
+    args: RedelegateArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { redelegate: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  tokenizeShare = async (
+    sender: string,
+    args: TokenizeShareArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { tokenize_share: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  redeemShare = async (
+    sender: string,
+    args: RedeemShareArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { redeem_share: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  puppeteerHook = async (
+    sender: string,
+    args: PuppeteerHookArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { puppeteer_hook: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
 }

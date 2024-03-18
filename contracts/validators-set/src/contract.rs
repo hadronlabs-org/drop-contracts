@@ -2,20 +2,20 @@ use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Attribute, Deps
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use cw_ownable::{get_ownership, update_ownership};
-use lido_helpers::answer::response;
-use lido_staking_base::error::validatorset::{ContractError, ContractResult};
-use lido_staking_base::msg::validatorset::{
+use drop_helpers::answer::response;
+use drop_staking_base::error::validatorset::{ContractError, ContractResult};
+use drop_staking_base::msg::validatorset::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ValidatorData, ValidatorInfoUpdate,
     ValidatorResponse,
 };
-use lido_staking_base::state::provider_proposals::ProposalInfo;
-use lido_staking_base::state::validatorset::{
+use drop_staking_base::state::provider_proposals::ProposalInfo;
+use drop_staking_base::state::validatorset::{
     Config, ConfigOptional, ValidatorInfo, CONFIG, VALIDATORS_SET,
 };
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
 
-const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
+const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 

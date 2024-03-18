@@ -1,2 +1,2 @@
-# LIDO Rewards manager
+# DROP Rewards manager
 

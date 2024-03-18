@@ -7,7 +7,7 @@ use cosmwasm_std::Coin;
 pub enum QueryMsg {
     #[returns(crate::state::pump::Config)]
     Config {},
-    #[returns(lido_helpers::ica::IcaState)]
+    #[returns(drop_helpers::ica::IcaState)]
     Ica {},
 }
 

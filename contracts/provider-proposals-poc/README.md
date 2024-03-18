@@ -1,4 +1,4 @@
-# LIDO Provider chain proposal and votes processing (POC)
+# DROP Provider chain proposal and votes processing (POC)
 
 ** This is POC contract. **
 

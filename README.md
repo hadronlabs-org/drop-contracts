@@ -1,1 +1,1 @@
-# LIDO on Cosmos
+# DROP on Cosmos

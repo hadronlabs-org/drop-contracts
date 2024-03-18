@@ -1,8 +1,5 @@
 use cosmwasm_schema::write_api;
-use lido_staking_base::msg::{
-    rewards_manager::QueryMsg,
-    rewards_manager::{ExecuteMsg, InstantiateMsg, MigrateMsg},
-};
+use drop_staking_base::msg::core::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 
 fn main() {
     write_api! {

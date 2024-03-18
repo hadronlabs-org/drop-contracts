@@ -5,12 +5,12 @@ use cosmwasm_std::{
 use std::ops::Sub;
 
 use cw2::set_contract_version;
-use lido_helpers::answer::response;
-use lido_staking_base::error::distribution::{ContractError, ContractResult};
-use lido_staking_base::msg::distribution::{Delegation, IdealDelegation, InstantiateMsg, QueryMsg};
+use drop_helpers::answer::response;
+use drop_staking_base::error::distribution::{ContractError, ContractResult};
+use drop_staking_base::msg::distribution::{Delegation, IdealDelegation, InstantiateMsg, QueryMsg};
 use neutron_sdk::bindings::msg::NeutronMsg;
 
-const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
+const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]

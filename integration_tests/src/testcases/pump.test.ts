@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { LidoPump } from '../generated/contractLib';
+import { DropPump } from '../generated/contractLib';
 import {
   QueryClient,
   StakingExtension,
@@ -19,7 +19,7 @@ import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
 
-const LidoPumpClass = LidoPump.Client;
+const DropPumpClass = DropPump.Client;
 
 describe('Pump', () => {
   const context: {
@@ -27,7 +27,7 @@ describe('Pump', () => {
     contractAddress?: string;
     wallet?: DirectSecp256k1HdWallet;
     gaiaWallet?: DirectSecp256k1HdWallet;
-    contractClient?: InstanceType<typeof LidoPumpClass>;
+    contractClient?: InstanceType<typeof DropPumpClass>;
     account?: AccountData;
     icaAddress?: string;
     client?: SigningCosmWasmClient;
@@ -114,11 +114,11 @@ describe('Pump', () => {
     const { client, account, neutronSecondUserAddress } = context;
     const res = await client.upload(
       account.address,
-      fs.readFileSync(join(__dirname, '../../../artifacts/lido_pump.wasm')),
+      fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
-    const instantiateRes = await LidoPump.Client.instantiate(
+    const instantiateRes = await DropPump.Client.instantiate(
       client,
       account.address,
       res.codeId,
@@ -147,7 +147,7 @@ describe('Pump', () => {
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
     context.contractAddress = instantiateRes.contractAddress;
-    context.contractClient = new LidoPump.Client(
+    context.contractClient = new DropPump.Client(
       client,
       context.contractAddress,
     );

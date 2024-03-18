@@ -1,2 +1,2 @@
 [alias]
-schema = "run --bin lido-strategy-schema"
+schema = "run --bin drop-strategy-schema"

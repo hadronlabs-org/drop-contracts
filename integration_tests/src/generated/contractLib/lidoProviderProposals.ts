@@ -1,5 +1,10 @@
-import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
-import { StdFee } from "@cosmjs/amino";
+import {
+  CosmWasmClient,
+  SigningCosmWasmClient,
+  ExecuteResult,
+  InstantiateResult,
+} from '@cosmjs/cosmwasm-stargate';
+import { StdFee } from '@cosmjs/amino';
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
@@ -39,7 +44,7 @@ export type Decimal = string;
 export type Uint128 = string;
 export type ArrayOfProposalInfo = ProposalInfo1[];
 
-export interface LidoProviderProposalsSchema {
+export interface DropProviderProposalsSchema {
   responses: Config | ProposalInfo | ArrayOfProposalInfo | Metrics;
   query: GetProposalArgs;
   execute: UpdateConfigArgs | UpdateProposalVotesArgs;
@@ -137,9 +142,8 @@ export interface UpdateProposalVotesArgs {
   votes: ProposalVote[];
 }
 
-
 function isSigningCosmWasmClient(
-  client: CosmWasmClient | SigningCosmWasmClient
+  client: CosmWasmClient | SigningCosmWasmClient,
 ): client is SigningCosmWasmClient {
   return 'execute' in client;
 }
@@ -147,12 +151,15 @@ function isSigningCosmWasmClient(
 export class Client {
   private readonly client: CosmWasmClient | SigningCosmWasmClient;
   contractAddress: string;
-  constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string) {
+  constructor(
+    client: CosmWasmClient | SigningCosmWasmClient,
+    contractAddress: string,
+  ) {
     this.client = client;
     this.contractAddress = contractAddress;
   }
   mustBeSigningClient() {
-    return new Error("This client is not a SigningCosmWasmClient");
+    return new Error('This client is not a SigningCosmWasmClient');
   }
   static async instantiate(
     client: SigningCosmWasmClient,
@@ -168,24 +175,60 @@ export class Client {
     });
     return res;
   }
-  queryConfig = async(): Promise<Config> => {
+  queryConfig = async (): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
-  }
-  queryGetProposal = async(args: GetProposalArgs): Promise<ProposalInfo> => {
-    return this.client.queryContractSmart(this.contractAddress, { get_proposal: args });
-  }
-  queryGetProposals = async(): Promise<ArrayOfProposalInfo> => {
-    return this.client.queryContractSmart(this.contractAddress, { get_proposals: {} });
-  }
-  queryMetrics = async(): Promise<Metrics> => {
-    return this.client.queryContractSmart(this.contractAddress, { metrics: {} });
-  }
-  updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
-  }
-  updateProposalVotes = async(sender:string, args: UpdateProposalVotesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_proposal_votes: args }, fee || "auto", memo, funds);
-  }
+  };
+  queryGetProposal = async (args: GetProposalArgs): Promise<ProposalInfo> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      get_proposal: args,
+    });
+  };
+  queryGetProposals = async (): Promise<ArrayOfProposalInfo> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      get_proposals: {},
+    });
+  };
+  queryMetrics = async (): Promise<Metrics> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      metrics: {},
+    });
+  };
+  updateConfig = async (
+    sender: string,
+    args: UpdateConfigArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_config: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  updateProposalVotes = async (
+    sender: string,
+    args: UpdateProposalVotesArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_proposal_votes: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
 }

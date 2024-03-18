@@ -7,14 +7,14 @@ use cosmwasm_std::{
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
-use lido_helpers::answer::{attr_coin, response};
-use lido_staking_base::error::astroport_exchange_handler::{ContractError, ContractResult};
-use lido_staking_base::msg::astroport_exchange_handler::{
+use drop_helpers::answer::{attr_coin, response};
+use drop_staking_base::error::astroport_exchange_handler::{ContractError, ContractResult};
+use drop_staking_base::msg::astroport_exchange_handler::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
-use lido_staking_base::state::astroport_exchange_handler::{Config, CONFIG, SWAP_OPERATIONS};
+use drop_staking_base::state::astroport_exchange_handler::{Config, CONFIG, SWAP_OPERATIONS};
 
-const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
+const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]

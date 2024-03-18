@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { LidoPump } from '../generated/contractLib';
+import { DropPump } from '../generated/contractLib';
 import {
   QueryClient,
   StakingExtension,
@@ -19,7 +19,7 @@ import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
 
-const LidoPumpClass = LidoPump.Client;
+const DropPumpClass = DropPump.Client;
 
 describe('Pump-Multi', () => {
   const context: {
@@ -27,8 +27,8 @@ describe('Pump-Multi', () => {
     contractAddress?: string;
     wallet?: DirectSecp256k1HdWallet;
     gaiaWallet?: DirectSecp256k1HdWallet;
-    contractClientGaia?: InstanceType<typeof LidoPumpClass>;
-    contractClientLSM?: InstanceType<typeof LidoPumpClass>;
+    contractClientGaia?: InstanceType<typeof DropPumpClass>;
+    contractClientLSM?: InstanceType<typeof DropPumpClass>;
     account?: AccountData;
     icaAddressGaia?: string;
     icaAddressLsm?: string;
@@ -129,12 +129,12 @@ describe('Pump-Multi', () => {
     const { client, account, neutronSecondUserAddress } = context;
     const res = await client.upload(
       account.address,
-      fs.readFileSync(join(__dirname, '../../../artifacts/lido_pump.wasm')),
+      fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
       1.5,
     );
     {
       expect(res.codeId).toBeGreaterThan(0);
-      const instantiateRes = await LidoPump.Client.instantiate(
+      const instantiateRes = await DropPump.Client.instantiate(
         client,
         account.address,
         res.codeId,
@@ -160,14 +160,14 @@ describe('Pump-Multi', () => {
       );
       expect(instantiateRes.contractAddress).toHaveLength(66);
       context.contractAddress = instantiateRes.contractAddress;
-      context.contractClientGaia = new LidoPump.Client(
+      context.contractClientGaia = new DropPump.Client(
         client,
         context.contractAddress,
       );
     }
     {
       expect(res.codeId).toBeGreaterThan(0);
-      const instantiateRes = await LidoPump.Client.instantiate(
+      const instantiateRes = await DropPump.Client.instantiate(
         client,
         account.address,
         res.codeId,
@@ -193,7 +193,7 @@ describe('Pump-Multi', () => {
       );
       expect(instantiateRes.contractAddress).toHaveLength(66);
       context.contractAddress = instantiateRes.contractAddress;
-      context.contractClientLSM = new LidoPump.Client(
+      context.contractClientLSM = new DropPump.Client(
         client,
         context.contractAddress,
       );

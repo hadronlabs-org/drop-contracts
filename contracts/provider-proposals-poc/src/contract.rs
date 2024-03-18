@@ -6,14 +6,14 @@ use cosmwasm_std::{
     DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult, SubMsg, Uint128, WasmMsg,
 };
 
-use lido_helpers::answer::response;
-use lido_helpers::query_id::get_query_id;
-use lido_staking_base::msg::proposal_votes::ExecuteMsg as ProposalVotesExecuteMsg;
-use lido_staking_base::msg::provider_proposals::{
+use drop_helpers::answer::response;
+use drop_helpers::query_id::get_query_id;
+use drop_staking_base::msg::proposal_votes::ExecuteMsg as ProposalVotesExecuteMsg;
+use drop_staking_base::msg::provider_proposals::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
-use lido_staking_base::msg::validatorset::ExecuteMsg as ValidatorSetExecuteMsg;
-use lido_staking_base::state::provider_proposals::{
+use drop_staking_base::msg::validatorset::ExecuteMsg as ValidatorSetExecuteMsg;
+use drop_staking_base::state::provider_proposals::{
     Config, ConfigOptional, Metrics, ProposalInfo, CONFIG, PROPOSALS, PROPOSALS_REPLY_ID,
     PROPOSALS_VOTES, QUERY_ID,
 };
@@ -29,7 +29,7 @@ use neutron_sdk::sudo::msg::SudoMsg;
 
 use crate::error::{ContractError, ContractResult};
 
-const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
+const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 

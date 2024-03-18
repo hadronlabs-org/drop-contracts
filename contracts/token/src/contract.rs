@@ -4,8 +4,8 @@ use cosmwasm_std::{
     attr, ensure_eq, ensure_ne, entry_point, to_json_binary, Binary, CosmosMsg, Deps, DepsMut, Env,
     MessageInfo, Reply, Response, SubMsg, Uint128,
 };
-use lido_helpers::answer::{attr_coin, response};
-use lido_staking_base::{
+use drop_helpers::answer::{attr_coin, response};
+use drop_staking_base::{
     msg::token::{ConfigResponse, DenomMetadata, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     state::token::{CORE_ADDRESS, DENOM, TOKEN_METADATA},
 };

@@ -1,1 +1,1 @@
-# LIDO Puppeteer base pakcage
+# DROP Puppeteer base pakcage

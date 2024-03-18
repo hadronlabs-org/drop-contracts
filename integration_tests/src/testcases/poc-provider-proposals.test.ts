@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { LidoProviderProposalsPoc } from '../generated/contractLib';
+import { DropProviderProposalsPoc } from '../generated/contractLib';
 import {
   QueryClient,
   StakingExtension,
@@ -19,9 +19,9 @@ import fs from 'fs';
 import { stringToPath } from '@cosmjs/crypto';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import { ProposalInfo1 } from '../generated/contractLib/lidoProviderProposals';
+import { ProposalInfo1 } from '../generated/contractLib/dropProviderProposals';
 
-const LidoProviderProposalsClass = LidoProviderProposalsPoc.Client;
+const DropProviderProposalsClass = DropProviderProposalsPoc.Client;
 
 describe('POC Provider Proposals', () => {
   const context: {
@@ -29,7 +29,7 @@ describe('POC Provider Proposals', () => {
     contractAddress?: string;
     wallet?: DirectSecp256k1HdWallet;
     gaiaWallet?: DirectSecp256k1HdWallet;
-    contractClient?: InstanceType<typeof LidoProviderProposalsClass>;
+    contractClient?: InstanceType<typeof DropProviderProposalsClass>;
     account?: AccountData;
     client?: SigningCosmWasmClient;
     gaiaClient?: SigningCosmWasmClient;
@@ -101,13 +101,13 @@ describe('POC Provider Proposals', () => {
     const res = await client.upload(
       account.address,
       fs.readFileSync(
-        join(__dirname, '../../../artifacts/lido_provider_proposals_poc.wasm'),
+        join(__dirname, '../../../artifacts/drop_provider_proposals_poc.wasm'),
       ),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
 
-    const instantiateRes = await LidoProviderProposalsPoc.Client.instantiate(
+    const instantiateRes = await DropProviderProposalsPoc.Client.instantiate(
       client,
       account.address,
       res.codeId,
@@ -132,7 +132,7 @@ describe('POC Provider Proposals', () => {
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
     context.contractAddress = instantiateRes.contractAddress;
-    context.contractClient = new LidoProviderProposalsPoc.Client(
+    context.contractClient = new DropProviderProposalsPoc.Client(
       client,
       context.contractAddress,
     );

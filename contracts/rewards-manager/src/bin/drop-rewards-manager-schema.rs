@@ -1,6 +1,7 @@
 use cosmwasm_schema::write_api;
-use lido_staking_base::msg::withdrawal_voucher::{
-    ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
+use drop_staking_base::msg::{
+    rewards_manager::QueryMsg,
+    rewards_manager::{ExecuteMsg, InstantiateMsg, MigrateMsg},
 };
 
 fn main() {

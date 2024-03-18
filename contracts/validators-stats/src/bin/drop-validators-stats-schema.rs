@@ -1,8 +1,6 @@
 use cosmwasm_schema::write_api;
-use lido_staking_base::msg::{
-    astroport_exchange_handler::QueryMsg,
-    astroport_exchange_handler::{ExecuteMsg, InstantiateMsg, MigrateMsg},
-};
+
+use drop_staking_base::msg::validatorsstats::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 
 fn main() {
     write_api! {

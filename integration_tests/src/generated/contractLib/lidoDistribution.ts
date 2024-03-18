@@ -1,6 +1,11 @@
-import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
-import { StdFee } from "@cosmjs/amino";
-import { Coin } from "@cosmjs/amino";
+import {
+  CosmWasmClient,
+  SigningCosmWasmClient,
+  ExecuteResult,
+  InstantiateResult,
+} from '@cosmjs/cosmwasm-stargate';
+import { StdFee } from '@cosmjs/amino';
+import { Coin } from '@cosmjs/amino';
 export interface InstantiateMsg {}
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
@@ -19,7 +24,7 @@ export type Uint128 = string;
 export type ArrayOfIdealDelegation = IdealDelegation[];
 export type ArrayOfIdealDelegation1 = IdealDelegation[];
 
-export interface LidoDistributionSchema {
+export interface DropDistributionSchema {
   responses: ArrayOfIdealDelegation | ArrayOfIdealDelegation1;
   query: CalcDepositArgs | CalcWithdrawArgs;
   [k: string]: unknown;
@@ -45,9 +50,8 @@ export interface CalcWithdrawArgs {
   withdraw: Uint128;
 }
 
-
 function isSigningCosmWasmClient(
-  client: CosmWasmClient | SigningCosmWasmClient
+  client: CosmWasmClient | SigningCosmWasmClient,
 ): client is SigningCosmWasmClient {
   return 'execute' in client;
 }
@@ -55,12 +59,15 @@ function isSigningCosmWasmClient(
 export class Client {
   private readonly client: CosmWasmClient | SigningCosmWasmClient;
   contractAddress: string;
-  constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string) {
+  constructor(
+    client: CosmWasmClient | SigningCosmWasmClient,
+    contractAddress: string,
+  ) {
     this.client = client;
     this.contractAddress = contractAddress;
   }
   mustBeSigningClient() {
-    return new Error("This client is not a SigningCosmWasmClient");
+    return new Error('This client is not a SigningCosmWasmClient');
   }
   static async instantiate(
     client: SigningCosmWasmClient,
@@ -76,10 +83,18 @@ export class Client {
     });
     return res;
   }
-  queryCalcDeposit = async(args: CalcDepositArgs): Promise<ArrayOfIdealDelegation> => {
-    return this.client.queryContractSmart(this.contractAddress, { calc_deposit: args });
-  }
-  queryCalcWithdraw = async(args: CalcWithdrawArgs): Promise<ArrayOfIdealDelegation> => {
-    return this.client.queryContractSmart(this.contractAddress, { calc_withdraw: args });
-  }
+  queryCalcDeposit = async (
+    args: CalcDepositArgs,
+  ): Promise<ArrayOfIdealDelegation> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      calc_deposit: args,
+    });
+  };
+  queryCalcWithdraw = async (
+    args: CalcWithdrawArgs,
+  ): Promise<ArrayOfIdealDelegation> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      calc_withdraw: args,
+    });
+  };
 }

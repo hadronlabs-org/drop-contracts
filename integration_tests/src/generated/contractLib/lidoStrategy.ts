@@ -1,6 +1,11 @@
-import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
-import { StdFee } from "@cosmjs/amino";
-import { Coin } from "@cosmjs/amino";
+import {
+  CosmWasmClient,
+  SigningCosmWasmClient,
+  ExecuteResult,
+  InstantiateResult,
+} from '@cosmjs/cosmwasm-stargate';
+import { StdFee } from '@cosmjs/amino';
+import { Coin } from '@cosmjs/amino';
 export interface InstantiateMsg {
   core_address: string;
   denom: string;
@@ -25,7 +30,7 @@ export type Uint128 = string;
 export type ArrayOfIdealDelegation = IdealDelegation[];
 export type ArrayOfIdealDelegation1 = IdealDelegation[];
 
-export interface LidoStrategySchema {
+export interface DropStrategySchema {
   responses: ArrayOfIdealDelegation | ArrayOfIdealDelegation1 | ConfigResponse;
   query: CalcDepositArgs | CalcWithdrawArgs;
   execute: UpdateConfigArgs;
@@ -59,9 +64,8 @@ export interface UpdateConfigArgs {
   validator_set_address?: string | null;
 }
 
-
 function isSigningCosmWasmClient(
-  client: CosmWasmClient | SigningCosmWasmClient
+  client: CosmWasmClient | SigningCosmWasmClient,
 ): client is SigningCosmWasmClient {
   return 'execute' in client;
 }
@@ -69,12 +73,15 @@ function isSigningCosmWasmClient(
 export class Client {
   private readonly client: CosmWasmClient | SigningCosmWasmClient;
   contractAddress: string;
-  constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string) {
+  constructor(
+    client: CosmWasmClient | SigningCosmWasmClient,
+    contractAddress: string,
+  ) {
     this.client = client;
     this.contractAddress = contractAddress;
   }
   mustBeSigningClient() {
-    return new Error("This client is not a SigningCosmWasmClient");
+    return new Error('This client is not a SigningCosmWasmClient');
   }
   static async instantiate(
     client: SigningCosmWasmClient,
@@ -90,17 +97,40 @@ export class Client {
     });
     return res;
   }
-  queryConfig = async(): Promise<ConfigResponse> => {
+  queryConfig = async (): Promise<ConfigResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
-  }
-  queryCalcDeposit = async(args: CalcDepositArgs): Promise<ArrayOfIdealDelegation> => {
-    return this.client.queryContractSmart(this.contractAddress, { calc_deposit: args });
-  }
-  queryCalcWithdraw = async(args: CalcWithdrawArgs): Promise<ArrayOfIdealDelegation> => {
-    return this.client.queryContractSmart(this.contractAddress, { calc_withdraw: args });
-  }
-  updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
-  }
+  };
+  queryCalcDeposit = async (
+    args: CalcDepositArgs,
+  ): Promise<ArrayOfIdealDelegation> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      calc_deposit: args,
+    });
+  };
+  queryCalcWithdraw = async (
+    args: CalcWithdrawArgs,
+  ): Promise<ArrayOfIdealDelegation> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      calc_withdraw: args,
+    });
+  };
+  updateConfig = async (
+    sender: string,
+    args: UpdateConfigArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_config: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
 }

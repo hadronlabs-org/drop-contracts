@@ -1,1 +1,1 @@
-# LIDO Interchain puppeteer with Authz support
+# DROP Interchain puppeteer with Authz support

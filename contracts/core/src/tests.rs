@@ -8,15 +8,15 @@ use cosmwasm_std::{
     WasmQuery,
 };
 
-use lido_puppeteer_base::msg::QueryMsg as PuppeteerBaseQueryMsg;
-use lido_staking_base::{
+use drop_puppeteer_base::msg::QueryMsg as PuppeteerBaseQueryMsg;
+use drop_staking_base::{
     msg::puppeteer::{MultiBalances, QueryExtMsg},
     state::core::{
         Config, FeeItem, NonNativeRewardsItem, COLLECTED_FEES, LAST_ICA_BALANCE_CHANGE_HEIGHT,
         NON_NATIVE_REWARDS_CONFIG,
     },
 };
-use lido_staking_base::{msg::strategy::QueryMsg as StategyQueryMsg, state::core::CONFIG};
+use drop_staking_base::{msg::strategy::QueryMsg as StategyQueryMsg, state::core::CONFIG};
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     interchain_queries::v045::types::Balances,
@@ -101,7 +101,7 @@ impl WasmMockQuerier {
                     let q: StategyQueryMsg = from_json(msg).unwrap();
                     let reply = match q {
                         StategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
-                            lido_staking_base::msg::distribution::IdealDelegation {
+                            drop_staking_base::msg::distribution::IdealDelegation {
                                 valoper_address: "valoper_address".to_string(),
                                 stake_change: deposit,
                                 ideal_stake: deposit,
@@ -192,7 +192,7 @@ fn get_non_native_rewards_and_fee_transfer_msg_success() {
         result,
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "puppeteer_contract".to_string(),
-            msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
+            msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
                 items: vec![
                     (
                         "address".to_string(),
@@ -248,7 +248,7 @@ fn get_non_native_rewards_and_fee_transfer_msg_zero_fee() {
         result,
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "puppeteer_contract".to_string(),
-            msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
+            msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
                 items: vec![(
                     "address".to_string(),
                     Coin {
@@ -287,7 +287,7 @@ fn get_stake_msg_success() {
         stake_msg,
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "puppeteer_contract".to_string(),
-            msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
+            msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
                 items: vec![("valoper_address".to_string(), Uint128::new(180))],
                 timeout: Some(60),
                 reply_to: "cosmos2contract".to_string(),
@@ -335,7 +335,7 @@ fn get_stake_msg_zero_fee() {
         stake_msg,
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "puppeteer_contract".to_string(),
-            msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
+            msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
                 items: vec![("valoper_address".to_string(), Uint128::new(200))],
                 timeout: Some(60),
                 reply_to: "cosmos2contract".to_string(),
