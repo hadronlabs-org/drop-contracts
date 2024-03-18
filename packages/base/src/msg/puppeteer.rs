@@ -1,6 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{from_json, Addr, Decimal, Timestamp, Uint128};
-use lido_helpers::version::version_to_u32;
+use drop_helpers::version::version_to_u32;
 use std::ops::Div;
 use std::str::FromStr;
 

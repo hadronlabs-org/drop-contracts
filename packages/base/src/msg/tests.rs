@@ -1,5 +1,5 @@
 use cosmwasm_std::{to_json_binary, Addr, Binary, Coin, Delegation, Uint128};
-use lido_puppeteer_base::r#trait::PuppeteerReconstruct;
+use drop_puppeteer_base::r#trait::PuppeteerReconstruct;
 use neutron_sdk::interchain_queries::v047::helpers::create_account_denom_balance_key;
 use neutron_sdk::NeutronResult;
 use neutron_sdk::{bindings::types::StorageValue, interchain_queries::helpers::decode_and_convert};
