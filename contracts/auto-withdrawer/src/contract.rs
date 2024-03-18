@@ -16,7 +16,7 @@ use cosmwasm_std::{
     Env, Event, MessageInfo, Order, Reply, Response, SubMsg, WasmMsg,
 };
 use cw_storage_plus::Bound;
-use lido_helpers::answer::response;
+use drop_helpers::answer::response;
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 
 pub const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
@@ -98,7 +98,7 @@ fn execute_bond_with_ld_assets(
 
     let msg = WasmMsg::Execute {
         contract_addr: CORE_ADDRESS.load(deps.storage)?.into_string(),
-        msg: to_json_binary(&lido_staking_base::msg::core::ExecuteMsg::Unbond {})?,
+        msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::Unbond {})?,
         funds: vec![ld_asset],
     };
 
@@ -131,7 +131,7 @@ fn execute_bond_with_nft(
     let msg = WasmMsg::Execute {
         contract_addr: withdrawal_voucher.into_string(),
         msg: to_json_binary(
-            &lido_staking_base::msg::withdrawal_voucher::ExecuteMsg::TransferNft {
+            &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::TransferNft {
                 recipient: env.contract.address.into_string(),
                 token_id,
             },
@@ -157,7 +157,7 @@ fn execute_unbond(
     let nft_msg: CosmosMsg<NeutronMsg> = WasmMsg::Execute {
         contract_addr: withdrawal_voucher.into_string(),
         msg: to_json_binary(
-            &lido_staking_base::msg::withdrawal_voucher::ExecuteMsg::TransferNft {
+            &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::TransferNft {
                 recipient: info.sender.to_string(),
                 token_id,
             },
@@ -190,11 +190,11 @@ fn execute_withdraw(
     let withdraw_msg: CosmosMsg<NeutronMsg> = WasmMsg::Execute {
         contract_addr: withdrawal_voucher.into_string(),
         msg: to_json_binary(
-            &lido_staking_base::msg::withdrawal_voucher::ExecuteMsg::SendNft {
+            &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::SendNft {
                 contract: withdrawal_manager.into_string(),
                 token_id,
                 msg: to_json_binary(
-                    &lido_staking_base::msg::withdrawal_manager::ReceiveNftMsg::Withdraw {
+                    &drop_staking_base::msg::withdrawal_manager::ReceiveNftMsg::Withdraw {
                         receiver: Some(bonding.bonder.into_string()),
                     },
                 )?,

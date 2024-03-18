@@ -20,14 +20,14 @@ use cosmwasm_std::{
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
-use lido_helpers::{
+use drop_helpers::{
     answer::response,
     icq::{
         new_delegations_and_balance_query_msg, new_multiple_balances_query_msg,
         update_balance_and_delegations_query_msg, update_multiple_balances_query_msg,
     },
 };
-use lido_puppeteer_base::{
+use drop_puppeteer_base::{
     error::{ContractError, ContractResult},
     msg::{
         QueryMsg, ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg, ResponseHookMsg,
@@ -39,7 +39,7 @@ use lido_puppeteer_base::{
         ICA_ID, LOCAL_DENOM,
     },
 };
-use lido_staking_base::{
+use drop_staking_base::{
     msg::puppeteer::{
         BalancesAndDelegations, ExecuteMsg, FeesResponse, InstantiateMsg, MigrateMsg, QueryExtMsg,
     },
@@ -61,7 +61,7 @@ use std::{str::FromStr, vec};
 
 pub type Puppeteer<'a> = PuppeteerBase<'a, Config, KVQueryType>;
 
-const CONTRACT_NAME: &str = concat!("crates.io:lido-neutron-contracts__", env!("CARGO_PKG_NAME"));
+const CONTRACT_NAME: &str = concat!("crates.io:drop-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
 
@@ -939,12 +939,12 @@ fn get_answers_from_msg_data(
         let answer = match item.msg_type.as_str() {
             "/cosmos.staking.v1beta1.MsgDelegate" => {
                 let _out: MsgDelegateResponse = decode_message_response(&item.data)?;
-                ResponseAnswer::DelegateResponse(lido_puppeteer_base::proto::MsgDelegateResponse {})
+                ResponseAnswer::DelegateResponse(drop_puppeteer_base::proto::MsgDelegateResponse {})
             }
             "/cosmos.staking.v1beta1.MsgUndelegate" => {
                 let out: MsgUndelegateResponse = decode_message_response(&item.data)?;
                 ResponseAnswer::UndelegateResponse(
-                    lido_puppeteer_base::proto::MsgUndelegateResponse {
+                    drop_puppeteer_base::proto::MsgUndelegateResponse {
                         completion_time: out.completion_time.map(|t| t.into()),
                     },
                 )
@@ -952,7 +952,7 @@ fn get_answers_from_msg_data(
             "/cosmos.staking.v1beta1.MsgTokenizeShares" => {
                 let out: MsgTokenizeSharesResponse = decode_message_response(&item.data)?;
                 ResponseAnswer::TokenizeSharesResponse(
-                    lido_puppeteer_base::proto::MsgTokenizeSharesResponse {
+                    drop_puppeteer_base::proto::MsgTokenizeSharesResponse {
                         amount: out.amount.map(convert_coin).transpose()?,
                     },
                 )
@@ -960,7 +960,7 @@ fn get_answers_from_msg_data(
             "/cosmos.staking.v1beta1.MsgBeginRedelegate" => {
                 let out: MsgBeginRedelegateResponse = decode_message_response(&item.data)?;
                 ResponseAnswer::BeginRedelegateResponse(
-                    lido_puppeteer_base::proto::MsgBeginRedelegateResponse {
+                    drop_puppeteer_base::proto::MsgBeginRedelegateResponse {
                         completion_time: out.completion_time.map(|t| t.into()),
                     },
                 )
@@ -968,14 +968,14 @@ fn get_answers_from_msg_data(
             "/cosmos.staking.v1beta1.MsgRedeemTokensForShares" => {
                 let out: MsgRedeemTokensforSharesResponse = decode_message_response(&item.data)?;
                 ResponseAnswer::RedeemTokensforSharesResponse(
-                    lido_puppeteer_base::proto::MsgRedeemTokensforSharesResponse {
+                    drop_puppeteer_base::proto::MsgRedeemTokensforSharesResponse {
                         amount: out.amount.map(convert_coin).transpose()?,
                     },
                 )
             }
             "/cosmos.bank.v1beta1.MsgSend" => {
                 let _out: MsgSendResponse = decode_message_response(&item.data)?;
-                ResponseAnswer::TransferResponse(lido_puppeteer_base::proto::MsgSendResponse {})
+                ResponseAnswer::TransferResponse(drop_puppeteer_base::proto::MsgSendResponse {})
             }
             _ => {
                 deps.api.debug(

@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { LidoPuppeteer, LidoHookTester } from '../generated/contractLib';
+import { DropPuppeteer, DropHookTester } from '../generated/contractLib';
 import {
   QueryClient,
   StakingExtension,
@@ -20,10 +20,10 @@ import {
   ResponseAnswer,
   ResponseHookErrorMsg,
   ResponseHookSuccessMsg,
-} from '../generated/contractLib/lidoHookTester';
+} from '../generated/contractLib/dropHookTester';
 
-const PuppeteerClass = LidoPuppeteer.Client;
-const HookTesterClass = LidoHookTester.Client;
+const PuppeteerClass = DropPuppeteer.Client;
+const HookTesterClass = DropHookTester.Client;
 
 describe('Interchain puppeteer', () => {
   const context: {
@@ -105,12 +105,12 @@ describe('Interchain puppeteer', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
-          join(__dirname, '../../../artifacts/lido_hook_tester.wasm'),
+          join(__dirname, '../../../artifacts/drop_hook_tester.wasm'),
         ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
-      const instantiateRes = await LidoHookTester.Client.instantiate(
+      const instantiateRes = await DropHookTester.Client.instantiate(
         client,
         account.address,
         res.codeId,
@@ -120,7 +120,7 @@ describe('Interchain puppeteer', () => {
         'auto',
       );
       expect(instantiateRes.contractAddress).toHaveLength(66);
-      context.hookContractClient = new LidoHookTester.Client(
+      context.hookContractClient = new DropHookTester.Client(
         client,
         instantiateRes.contractAddress,
       );
@@ -129,12 +129,12 @@ describe('Interchain puppeteer', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
-          join(__dirname, '../../../artifacts/lido_puppeteer.wasm'),
+          join(__dirname, '../../../artifacts/drop_puppeteer.wasm'),
         ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
-      const instantiateRes = await LidoPuppeteer.Client.instantiate(
+      const instantiateRes = await DropPuppeteer.Client.instantiate(
         client,
         account.address,
         res.codeId,
@@ -154,7 +154,7 @@ describe('Interchain puppeteer', () => {
       );
       expect(instantiateRes.contractAddress).toHaveLength(66);
       context.contractAddress = instantiateRes.contractAddress;
-      context.contractClient = new LidoPuppeteer.Client(
+      context.contractClient = new DropPuppeteer.Client(
         client,
         context.contractAddress,
       );

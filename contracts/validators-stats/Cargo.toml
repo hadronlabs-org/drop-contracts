@@ -2,7 +2,7 @@
 authors = ["Albert Andrejev <albert.andrejev@gmail.com>"]
 description = "Contract to facilitate base interchain features with authz module usage"
 edition = "2021"
-name = "lido-validators-stats"
+name = "drop-validators-stats"
 version = "1.0.0"
 
 exclude = [
@@ -31,5 +31,5 @@ cw-ownable        = { workspace = true }
 cw2               = { workspace = true }
 serde-json-wasm   = { workspace = true }
 sha2              = { workspace = true }
-lido-staking-base = { workspace = true }
-lido-helpers      = { workspace = true }
+drop-staking-base = { workspace = true }
+drop-helpers      = { workspace = true }

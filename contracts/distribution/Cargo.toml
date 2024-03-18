@@ -2,7 +2,7 @@
 authors = ["Albert Andrejev <albert.andrejev@gmail.com>"]
 description = "Contract to support staking distribution"
 edition = "2021"
-name = "lido-distribution"
+name = "drop-distribution"
 version = "1.0.0"
 
 exclude = [
@@ -27,5 +27,5 @@ cosmwasm-schema   = { workspace = true }
 cosmwasm-std      = { workspace = true }
 cw2               = { workspace = true }
 neutron-sdk       = { workspace = true }
-lido-staking-base = { workspace = true }
-lido-helpers      = { workspace = true }
+drop-staking-base = { workspace = true }
+drop-helpers      = { workspace = true }

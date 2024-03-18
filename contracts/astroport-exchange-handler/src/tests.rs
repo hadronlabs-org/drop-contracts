@@ -9,11 +9,11 @@ use cosmwasm_std::{
     StdResult, Uint128,
 };
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
-use lido_helpers::answer::response;
-use lido_staking_base::msg::astroport_exchange_handler::{
+use drop_helpers::answer::response;
+use drop_staking_base::msg::astroport_exchange_handler::{
     ConfigResponse, ExecuteMsg, InstantiateMsg,
 };
-use lido_staking_base::msg::rewards_manager::QueryMsg;
+use drop_staking_base::msg::rewards_manager::QueryMsg;
 
 const CORE_CONTRACT_ADDR: &str = "core_contract";
 const OWNER_CONTRACT_ADDR: &str = "owner_contract";
@@ -227,7 +227,7 @@ fn test_initialization() {
     assert_eq!(
         res.events,
         vec![Event::new(
-            "crates.io:lido-staking__lido-astroport-exchange-handler-instantiate".to_string()
+            "crates.io:drop-staking__drop-astroport-exchange-handler-instantiate".to_string()
         )
         .add_attributes(vec![
             Attribute::new("owner".to_string(), OWNER_CONTRACT_ADDR.to_string()),
@@ -602,7 +602,7 @@ fn test_config_update() {
 
     assert_eq!(
         ty,
-        "wasm-crates.io:lido-staking__lido-astroport-exchange-handler-config_update".to_string()
+        "wasm-crates.io:drop-staking__drop-astroport-exchange-handler-config_update".to_string()
     );
 
     let attrs = res.events[1].attributes[1..].to_vec();

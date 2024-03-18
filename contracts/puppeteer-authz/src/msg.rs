@@ -1,7 +1,7 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128};
 
-use lido_puppeteer_base::msg::ExecuteMsg as BaseExecuteMsg;
+use drop_puppeteer_base::msg::ExecuteMsg as BaseExecuteMsg;
 
 #[cw_serde]
 pub struct InstantiateMsg {

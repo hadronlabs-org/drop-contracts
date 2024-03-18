@@ -1,6 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cw_storage_plus::Item;
-use lido_staking_base::msg::token::DenomMetadata;
+use drop_staking_base::msg::token::DenomMetadata;
 
 #[cw_serde]
 pub struct CodeIds {

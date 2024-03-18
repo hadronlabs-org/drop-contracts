@@ -2,7 +2,7 @@
 authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>"]
 description = "Contract to support staking core"
 edition = "2021"
-name = "lido-core"
+name = "drop-core"
 version = "1.0.0"
 
 exclude = [
@@ -27,10 +27,10 @@ cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
 cw2 = { workspace = true }
 thiserror = { workspace = true }
-lido-staking-base = { workspace = true }
-lido-helpers = { workspace = true }
+drop-staking-base = { workspace = true }
+drop-helpers = { workspace = true }
 neutron-sdk = { workspace = true }
-lido-puppeteer-base = { workspace = true }
+drop-puppeteer-base = { workspace = true }
 cw-ownable = { workspace = true }
 prost = { workspace = true }
 cosmos-sdk-proto = { workspace = true }

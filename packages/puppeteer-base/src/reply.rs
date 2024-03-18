@@ -1,6 +1,6 @@
 use crate::state::{BaseConfig, PuppeteerBase, TxState, TxStateStatus};
 use cosmwasm_std::{attr, DepsMut, Reply, Response, StdError, StdResult};
-use lido_helpers::{answer::response, query_id::get_query_id};
+use drop_helpers::{answer::response, query_id::get_query_id};
 use neutron_sdk::bindings::msg::{MsgIbcTransferResponse, MsgSubmitTxResponse};
 use serde::{de::DeserializeOwned, Serialize};
 

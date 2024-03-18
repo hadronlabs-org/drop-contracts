@@ -1,1 +1,1 @@
-# LIDO Interchain puppeteer
+# DROP Interchain puppeteer

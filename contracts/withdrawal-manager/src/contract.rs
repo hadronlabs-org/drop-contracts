@@ -4,8 +4,8 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw721::NftInfoResponse;
-use lido_helpers::answer::response;
-use lido_staking_base::{
+use drop_helpers::answer::response;
+use drop_staking_base::{
     msg::{
         withdrawal_manager::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveNftMsg},
         withdrawal_voucher::Extension,
@@ -18,7 +18,7 @@ use lido_staking_base::{
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 
 use crate::error::{ContractError, ContractResult};
-const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
+const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -127,7 +127,7 @@ fn execute_receive_nft_withdraw(
     );
     let voucher: NftInfoResponse<Extension> = deps.querier.query_wasm_smart(
         config.withdrawal_voucher_contract,
-        &lido_staking_base::msg::withdrawal_voucher::QueryMsg::NftInfo { token_id },
+        &drop_staking_base::msg::withdrawal_voucher::QueryMsg::NftInfo { token_id },
     )?;
     let voucher_extention = voucher.extension.ok_or_else(|| ContractError::InvalidNFT {
         reason: "extension is not set".to_string(),
@@ -143,7 +143,7 @@ fn execute_receive_nft_withdraw(
 
     let unbond_batch: UnbondBatch = deps.querier.query_wasm_smart(
         &config.core_contract,
-        &lido_staking_base::msg::core::QueryMsg::UnbondBatch {
+        &drop_staking_base::msg::core::QueryMsg::UnbondBatch {
             batch_id: batch_id.into(),
         },
     )?;

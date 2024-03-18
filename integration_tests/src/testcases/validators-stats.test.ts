@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { LidoValidatorsStats } from '../generated/contractLib';
+import { DropValidatorsStats } from '../generated/contractLib';
 import {
   QueryClient,
   StakingExtension,
@@ -18,14 +18,14 @@ import { stringToPath } from '@cosmjs/crypto';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import { ValidatorState } from '../generated/contractLib/lidoValidatorsStats';
+import { ValidatorState } from '../generated/contractLib/dropValidatorsStats';
 
 import { AuthzExtension } from '@cosmjs/stargate/build/modules/authz/queries';
 
 import { pubkeyToAddress } from '@cosmjs/amino';
 import { SlashingExtension } from '@cosmjs/stargate/build/modules';
 
-const StatsClass = LidoValidatorsStats.Client;
+const StatsClass = DropValidatorsStats.Client;
 
 describe('Validators stats', () => {
   const context: {
@@ -147,12 +147,12 @@ describe('Validators stats', () => {
     const res = await client.upload(
       account.address,
       fs.readFileSync(
-        join(__dirname, '../../../artifacts/lido_validators_stats.wasm'),
+        join(__dirname, '../../../artifacts/drop_validators_stats.wasm'),
       ),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
-    const instantiateRes = await LidoValidatorsStats.Client.instantiate(
+    const instantiateRes = await DropValidatorsStats.Client.instantiate(
       client,
       account.address,
       res.codeId,
@@ -170,7 +170,7 @@ describe('Validators stats', () => {
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
     context.contractAddress = instantiateRes.contractAddress;
-    context.contractClient = new LidoValidatorsStats.Client(
+    context.contractClient = new DropValidatorsStats.Client(
       client,
       context.contractAddress,
     );

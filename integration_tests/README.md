@@ -1,6 +1,6 @@
 # integration-tests
 
-This repository contains tests for Lido on Cosmos implementation.
+This repository contains tests for Drop on Cosmos implementation.
 
 ## How to run
 

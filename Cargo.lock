@@ -609,6 +609,324 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-astroport-exchange-handler"
+version = "1.0.0"
+dependencies = [
+ "astroport",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-multi-test",
+ "cw-ownable",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-staking-base",
+]
+
+[[package]]
+name = "drop-auto-withdrawer"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "thiserror",
+]
+
+[[package]]
+name = "drop-core"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-puppeteer-base",
+ "drop-staking-base",
+ "neutron-sdk",
+ "prost",
+ "thiserror",
+]
+
+[[package]]
+name = "drop-distribution"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+]
+
+[[package]]
+name = "drop-factory"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-puppeteer-base",
+ "drop-staking-base",
+ "neutron-sdk",
+ "thiserror",
+]
+
+[[package]]
+name = "drop-helpers"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus 1.2.0",
+ "neutron-sdk",
+ "serde",
+ "serde-json-wasm 1.0.1",
+ "thiserror",
+]
+
+[[package]]
+name = "drop-hook-tester"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "drop-helpers",
+ "drop-puppeteer-base",
+ "drop-staking-base",
+ "neutron-sdk",
+ "thiserror",
+]
+
+[[package]]
+name = "drop-proposal-votes-poc"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-multi-test",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "prost",
+ "prost-types",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.1",
+ "tendermint-proto",
+ "thiserror",
+]
+
+[[package]]
+name = "drop-provider-proposals-poc"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-multi-test",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "prost",
+ "prost-types",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.1",
+ "tendermint-proto",
+ "thiserror",
+]
+
+[[package]]
+name = "drop-pump"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-utils 1.0.3",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "prost",
+ "serde-json-wasm 1.0.1",
+ "thiserror",
+]
+
+[[package]]
+name = "drop-puppeteer"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-puppeteer-base",
+ "drop-staking-base",
+ "neutron-sdk",
+ "prost",
+ "prost-types",
+ "tendermint-proto",
+]
+
+[[package]]
+name = "drop-puppeteer-base"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "drop-helpers",
+ "neutron-sdk",
+ "prost",
+ "prost-types",
+ "schemars",
+ "serde",
+ "serde-json-wasm 1.0.1",
+ "thiserror",
+]
+
+[[package]]
+name = "drop-rewards-manager"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-multi-test",
+ "cw-ownable",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-staking-base",
+]
+
+[[package]]
+name = "drop-staking-base"
+version = "1.0.0"
+dependencies = [
+ "astroport",
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw721 0.18.0",
+ "cw721-base 0.18.0",
+ "drop-helpers",
+ "drop-puppeteer-base",
+ "neutron-sdk",
+ "optfield",
+ "prost",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "drop-strategy"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-multi-test",
+ "cw-ownable",
+ "cw2 1.1.2",
+ "drop-distribution",
+ "drop-helpers",
+ "drop-puppeteer-base",
+ "drop-staking-base",
+ "neutron-sdk",
+]
+
+[[package]]
+name = "drop-token"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "thiserror",
+]
+
+[[package]]
+name = "drop-validators-set"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+]
+
+[[package]]
+name = "drop-validators-stats"
+version = "1.0.0"
+dependencies = [
+ "bech32 0.11.0",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "serde-json-wasm 1.0.1",
+ "sha2 0.10.8",
+]
+
+[[package]]
+name = "drop-withdrawal-manager"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw2 1.1.2",
+ "cw721 0.18.0",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "thiserror",
+]
+
+[[package]]
+name = "drop-withdrawal-voucher"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw2 1.1.2",
+ "cw721-base 0.18.0",
+ "drop-staking-base",
+]
+
+[[package]]
 name = "dyn-clone"
 version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -808,324 +1126,6 @@ name = "libc"
 version = "0.2.153"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
-
-[[package]]
-name = "lido-astroport-exchange-handler"
-version = "1.0.0"
-dependencies = [
- "astroport",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-multi-test",
- "cw-ownable",
- "cw2 1.1.2",
- "lido-helpers",
- "lido-staking-base",
-]
-
-[[package]]
-name = "lido-auto-withdrawer"
-version = "1.0.0"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-storage-plus 1.2.0",
- "cw2 1.1.2",
- "lido-helpers",
- "lido-staking-base",
- "neutron-sdk",
- "thiserror",
-]
-
-[[package]]
-name = "lido-core"
-version = "1.0.0"
-dependencies = [
- "cosmos-sdk-proto",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-ownable",
- "cw-utils 1.0.3",
- "cw2 1.1.2",
- "lido-helpers",
- "lido-puppeteer-base",
- "lido-staking-base",
- "neutron-sdk",
- "prost",
- "thiserror",
-]
-
-[[package]]
-name = "lido-distribution"
-version = "1.0.0"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw2 1.1.2",
- "lido-helpers",
- "lido-staking-base",
- "neutron-sdk",
-]
-
-[[package]]
-name = "lido-factory"
-version = "1.0.0"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-ownable",
- "cw-storage-plus 1.2.0",
- "cw2 1.1.2",
- "lido-helpers",
- "lido-puppeteer-base",
- "lido-staking-base",
- "neutron-sdk",
- "thiserror",
-]
-
-[[package]]
-name = "lido-helpers"
-version = "1.0.0"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-storage-plus 1.2.0",
- "neutron-sdk",
- "serde",
- "serde-json-wasm 1.0.1",
- "thiserror",
-]
-
-[[package]]
-name = "lido-hook-tester"
-version = "1.0.0"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "lido-helpers",
- "lido-puppeteer-base",
- "lido-staking-base",
- "neutron-sdk",
- "thiserror",
-]
-
-[[package]]
-name = "lido-proposal-votes-poc"
-version = "1.0.0"
-dependencies = [
- "cosmos-sdk-proto",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-multi-test",
- "cw-ownable",
- "cw-storage-plus 1.2.0",
- "cw2 1.1.2",
- "lido-helpers",
- "lido-staking-base",
- "neutron-sdk",
- "prost",
- "prost-types",
- "schemars",
- "serde",
- "serde-json-wasm 1.0.1",
- "tendermint-proto",
- "thiserror",
-]
-
-[[package]]
-name = "lido-provider-proposals-poc"
-version = "1.0.0"
-dependencies = [
- "cosmos-sdk-proto",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-multi-test",
- "cw-ownable",
- "cw-storage-plus 1.2.0",
- "cw2 1.1.2",
- "lido-helpers",
- "lido-staking-base",
- "neutron-sdk",
- "prost",
- "prost-types",
- "schemars",
- "serde",
- "serde-json-wasm 1.0.1",
- "tendermint-proto",
- "thiserror",
-]
-
-[[package]]
-name = "lido-pump"
-version = "1.0.0"
-dependencies = [
- "cosmos-sdk-proto",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-utils 1.0.3",
- "lido-helpers",
- "lido-staking-base",
- "neutron-sdk",
- "prost",
- "serde-json-wasm 1.0.1",
- "thiserror",
-]
-
-[[package]]
-name = "lido-puppeteer"
-version = "1.0.0"
-dependencies = [
- "cosmos-sdk-proto",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw2 1.1.2",
- "lido-helpers",
- "lido-puppeteer-base",
- "lido-staking-base",
- "neutron-sdk",
- "prost",
- "prost-types",
- "tendermint-proto",
-]
-
-[[package]]
-name = "lido-puppeteer-base"
-version = "1.0.0"
-dependencies = [
- "cosmos-sdk-proto",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-ownable",
- "cw-storage-plus 1.2.0",
- "lido-helpers",
- "neutron-sdk",
- "prost",
- "prost-types",
- "schemars",
- "serde",
- "serde-json-wasm 1.0.1",
- "thiserror",
-]
-
-[[package]]
-name = "lido-rewards-manager"
-version = "1.0.0"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-multi-test",
- "cw-ownable",
- "cw2 1.1.2",
- "lido-helpers",
- "lido-staking-base",
-]
-
-[[package]]
-name = "lido-staking-base"
-version = "1.0.0"
-dependencies = [
- "astroport",
- "cosmos-sdk-proto",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-ownable",
- "cw-storage-plus 1.2.0",
- "cw721 0.18.0",
- "cw721-base 0.18.0",
- "lido-helpers",
- "lido-puppeteer-base",
- "neutron-sdk",
- "optfield",
- "prost",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "lido-strategy"
-version = "1.0.0"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-multi-test",
- "cw-ownable",
- "cw2 1.1.2",
- "lido-distribution",
- "lido-helpers",
- "lido-puppeteer-base",
- "lido-staking-base",
- "neutron-sdk",
-]
-
-[[package]]
-name = "lido-token"
-version = "1.0.0"
-dependencies = [
- "cosmos-sdk-proto",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-ownable",
- "cw-utils 1.0.3",
- "cw2 1.1.2",
- "lido-helpers",
- "lido-staking-base",
- "neutron-sdk",
- "thiserror",
-]
-
-[[package]]
-name = "lido-validators-set"
-version = "1.0.0"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-ownable",
- "cw2 1.1.2",
- "lido-helpers",
- "lido-staking-base",
- "neutron-sdk",
-]
-
-[[package]]
-name = "lido-validators-stats"
-version = "1.0.0"
-dependencies = [
- "bech32 0.11.0",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-ownable",
- "cw2 1.1.2",
- "lido-helpers",
- "lido-staking-base",
- "neutron-sdk",
- "serde-json-wasm 1.0.1",
- "sha2 0.10.8",
-]
-
-[[package]]
-name = "lido-withdrawal-manager"
-version = "1.0.0"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw2 1.1.2",
- "cw721 0.18.0",
- "lido-helpers",
- "lido-staking-base",
- "neutron-sdk",
- "thiserror",
-]
-
-[[package]]
-name = "lido-withdrawal-voucher"
-version = "1.0.0"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw2 1.1.2",
- "cw721-base 0.18.0",
- "lido-staking-base",
-]
 
 [[package]]
 name = "neutron-sdk"

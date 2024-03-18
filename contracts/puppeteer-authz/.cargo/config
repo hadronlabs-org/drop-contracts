@@ -1,2 +1,2 @@
 [alias]
-schema = "run --bin lido-puppeteer-authz-schema"
+schema = "run --bin drop-puppeteer-authz-schema"

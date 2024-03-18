@@ -1,2 +1,2 @@
 [alias]
-schema = "run --bin lido-withdrawal-voucher-schema"
+schema = "run --bin drop-withdrawal-voucher-schema"

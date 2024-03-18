@@ -10,7 +10,7 @@ use cosmwasm_std::{
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
-use lido_helpers::answer::response;
+use drop_helpers::answer::response;
 use neutron_sdk::{
     bindings::{
         msg::{IbcFee, NeutronMsg},
@@ -23,7 +23,7 @@ use neutron_sdk::{
     NeutronError, NeutronResult,
 };
 
-use lido_puppeteer_base::{
+use drop_puppeteer_base::{
     error::ContractResult,
     msg::{QueryMsg, ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg, Transaction},
     state::{IcaState, PuppeteerBase, State, TxState, TxStateStatus, ICA_ID},
@@ -38,7 +38,7 @@ use crate::{
 
 pub type Puppeteer<'a> = PuppeteerBase<'a, Config>;
 
-const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
+const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
 
@@ -456,8 +456,8 @@ fn sudo_response(
         let answer = match item.msg_type.as_str() {
             "/cosmos.authz.v1beta1.MsgExecResponse" => {
                 let out: MsgExecResponse = decode_message_response(&item.data)?;
-                lido_puppeteer_base::msg::ResponseAnswer::AuthzExecResponse(
-                    lido_puppeteer_base::proto::MsgExecResponse {
+                drop_puppeteer_base::msg::ResponseAnswer::AuthzExecResponse(
+                    drop_puppeteer_base::proto::MsgExecResponse {
                         results: out.results,
                     },
                 )
@@ -466,7 +466,7 @@ fn sudo_response(
                 deps.api.debug(
                     format!("This type of acknowledgement is not implemented: {item:?}").as_str(),
                 );
-                lido_puppeteer_base::msg::ResponseAnswer::UnknownResponse {}
+                drop_puppeteer_base::msg::ResponseAnswer::UnknownResponse {}
             }
         };
         msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {

@@ -2,7 +2,7 @@
 authors = []
 description = "Contract to implement staking strategies"
 edition = "2021"
-name = "lido-strategy"
+name = "drop-strategy"
 version = "1.0.0"
 
 exclude = [
@@ -28,10 +28,10 @@ cosmwasm-std        = { workspace = true }
 cw-ownable          = { workspace = true }
 cw2                 = { workspace = true }
 neutron-sdk         = { workspace = true }
-lido-staking-base   = { workspace = true }
-lido-helpers        = { workspace = true }
-lido-puppeteer-base = { workspace = true }
+drop-staking-base   = { workspace = true }
+drop-helpers        = { workspace = true }
+drop-puppeteer-base = { workspace = true }
 
 [dev-dependencies]
 cw-multi-test     = { workspace = true }
-lido-distribution = { path = "../distribution", default-features = false }
+drop-distribution = { path = "../distribution", default-features = false }

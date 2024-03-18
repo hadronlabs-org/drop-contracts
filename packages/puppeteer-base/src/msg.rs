@@ -45,7 +45,7 @@ where
 {
     #[returns(crate::state::ConfigResponse)]
     Config {},
-    #[returns(lido_helpers::ica::IcaState)]
+    #[returns(drop_helpers::ica::IcaState)]
     Ica {},
     #[returns(Vec<Transaction>)]
     Transactions {},

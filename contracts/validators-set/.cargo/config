@@ -1,2 +1,2 @@
 [alias]
-schema = "run --bin lido-validators-set-schema"
+schema = "run --bin drop-validators-set-schema"

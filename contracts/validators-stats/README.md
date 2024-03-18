@@ -1,1 +1,1 @@
-# LIDO Validators stats
+# DROP Validators stats

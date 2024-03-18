@@ -2,12 +2,12 @@ use cosmwasm_std::{
     attr, entry_point, to_json_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
     Response, StdResult, Uint128, WasmMsg,
 };
-use lido_helpers::answer::response;
-use lido_puppeteer_base::{
+use drop_helpers::answer::response;
+use drop_puppeteer_base::{
     msg::{ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg},
     state::RedeemShareItem,
 };
-use lido_staking_base::{
+use drop_staking_base::{
     msg::hook_tester::{ExecuteMsg, InstantiateMsg, QueryMsg},
     state::hook_tester::{Config, ANSWERS, CONFIG, ERRORS},
 };
@@ -144,7 +144,7 @@ fn execute_delegate(
     ];
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_addr,
-        msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
+        msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
             items: vec![(validator, amount)],
             timeout,
             reply_to: env.contract.address.to_string(),
@@ -169,7 +169,7 @@ fn execute_undelegate(
     ];
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_addr,
-        msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
+        msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
             items: vec![(validator, amount)],
             timeout,
             batch_id: 0,
@@ -197,7 +197,7 @@ fn execute_redelegate(
     ];
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_addr,
-        msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Redelegate {
+        msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Redelegate {
             validator_from,
             validator_to,
             amount,
@@ -225,7 +225,7 @@ fn execute_tokenize_share(
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_addr,
         msg: to_json_binary(
-            &lido_staking_base::msg::puppeteer::ExecuteMsg::TokenizeShare {
+            &drop_staking_base::msg::puppeteer::ExecuteMsg::TokenizeShare {
                 validator,
                 amount,
                 timeout,
@@ -255,7 +255,7 @@ fn execute_redeem_share(
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_addr,
         msg: to_json_binary(
-            &lido_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+            &drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
                 items: vec![RedeemShareItem {
                     remote_denom: denom,
                     amount,

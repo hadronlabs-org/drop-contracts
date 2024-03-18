@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { LidoDistribution } from '../generated/contractLib';
+import { DropDistribution } from '../generated/contractLib';
 
 import { join } from 'path';
 
@@ -11,9 +11,9 @@ import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import { IdealDelegation } from '../generated/contractLib/lidoDistribution';
+import { IdealDelegation } from '../generated/contractLib/dropDistribution';
 
-const SetClass = LidoDistribution.Client;
+const SetClass = DropDistribution.Client;
 
 describe('Distribution', () => {
   const context: {
@@ -61,12 +61,12 @@ describe('Distribution', () => {
     const res = await client.upload(
       account.address,
       fs.readFileSync(
-        join(__dirname, '../../../artifacts/lido_distribution.wasm'),
+        join(__dirname, '../../../artifacts/drop_distribution.wasm'),
       ),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
-    const instantiateRes = await LidoDistribution.Client.instantiate(
+    const instantiateRes = await DropDistribution.Client.instantiate(
       client,
       account.address,
       res.codeId,
@@ -77,7 +77,7 @@ describe('Distribution', () => {
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
     context.contractAddress = instantiateRes.contractAddress;
-    context.contractClient = new LidoDistribution.Client(
+    context.contractClient = new DropDistribution.Client(
       client,
       context.contractAddress,
     );

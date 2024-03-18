@@ -1,13 +1,13 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import {
-  LidoAutoWithdrawer,
-  LidoCore,
-  LidoFactory,
-  LidoPump,
-  LidoPuppeteer,
-  LidoStrategy,
-  LidoWithdrawalManager,
-  LidoWithdrawalVoucher,
+  DropAutoWithdrawer,
+  DropCore,
+  DropFactory,
+  DropPump,
+  DropPuppeteer,
+  DropStrategy,
+  DropWithdrawalManager,
+  DropWithdrawalVoucher,
 } from '../generated/contractLib';
 import {
   QueryClient,
@@ -35,18 +35,18 @@ import { waitFor } from '../helpers/waitFor';
 import {
   ResponseHookMsg,
   ResponseHookSuccessMsg,
-} from '../generated/contractLib/lidoCore';
+} from '../generated/contractLib/dropCore';
 import { stringToPath } from '@cosmjs/crypto';
 import { sleep } from '../helpers/sleep';
 
-const LidoFactoryClass = LidoFactory.Client;
-const LidoCoreClass = LidoCore.Client;
-const LidoPumpClass = LidoPump.Client;
-const LidoPuppeteerClass = LidoPuppeteer.Client;
-const LidoStrategyClass = LidoStrategy.Client;
-const LidoWithdrawalVoucherClass = LidoWithdrawalVoucher.Client;
-const LidoWithdrawalManagerClass = LidoWithdrawalManager.Client;
-const LidoAutoWithdrawerClass = LidoAutoWithdrawer.Client;
+const DropFactoryClass = DropFactory.Client;
+const DropCoreClass = DropCore.Client;
+const DropPumpClass = DropPump.Client;
+const DropPuppeteerClass = DropPuppeteer.Client;
+const DropStrategyClass = DropStrategy.Client;
+const DropWithdrawalVoucherClass = DropWithdrawalVoucher.Client;
+const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
+const DropAutoWithdrawerClass = DropAutoWithdrawer.Client;
 
 describe('Auto withdrawer', () => {
   const context: {
@@ -55,18 +55,18 @@ describe('Auto withdrawer', () => {
     wallet?: DirectSecp256k1HdWallet;
     gaiaWallet?: DirectSecp256k1HdWallet;
     gaiaWallet2?: DirectSecp256k1HdWallet;
-    factoryContractClient?: InstanceType<typeof LidoFactoryClass>;
-    coreContractClient?: InstanceType<typeof LidoCoreClass>;
-    strategyContractClient?: InstanceType<typeof LidoStrategyClass>;
-    pumpContractClient?: InstanceType<typeof LidoPumpClass>;
-    puppeteerContractClient?: InstanceType<typeof LidoPuppeteerClass>;
+    factoryContractClient?: InstanceType<typeof DropFactoryClass>;
+    coreContractClient?: InstanceType<typeof DropCoreClass>;
+    strategyContractClient?: InstanceType<typeof DropStrategyClass>;
+    pumpContractClient?: InstanceType<typeof DropPumpClass>;
+    puppeteerContractClient?: InstanceType<typeof DropPuppeteerClass>;
     withdrawalVoucherContractClient?: InstanceType<
-      typeof LidoWithdrawalVoucherClass
+      typeof DropWithdrawalVoucherClass
     >;
     withdrawalManagerContractClient?: InstanceType<
-      typeof LidoWithdrawalManagerClass
+      typeof DropWithdrawalManagerClass
     >;
-    autoWithdrawerContractClient?: InstanceType<typeof LidoAutoWithdrawerClass>;
+    autoWithdrawerContractClient?: InstanceType<typeof DropAutoWithdrawerClass>;
     account?: AccountData;
     icaAddress?: string;
     client?: SigningCosmWasmClient;
@@ -173,7 +173,7 @@ describe('Auto withdrawer', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/lido_core.wasm')),
+        fs.readFileSync(join(__dirname, '../../../artifacts/drop_core.wasm')),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -182,7 +182,7 @@ describe('Auto withdrawer', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/lido_token.wasm')),
+        fs.readFileSync(join(__dirname, '../../../artifacts/drop_token.wasm')),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -192,7 +192,7 @@ describe('Auto withdrawer', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
-          join(__dirname, '../../../artifacts/lido_withdrawal_voucher.wasm'),
+          join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
         ),
         1.5,
       );
@@ -203,7 +203,7 @@ describe('Auto withdrawer', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
-          join(__dirname, '../../../artifacts/lido_withdrawal_manager.wasm'),
+          join(__dirname, '../../../artifacts/drop_withdrawal_manager.wasm'),
         ),
         1.5,
       );
@@ -214,7 +214,7 @@ describe('Auto withdrawer', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
-          join(__dirname, '../../../artifacts/lido_strategy.wasm'),
+          join(__dirname, '../../../artifacts/drop_strategy.wasm'),
         ),
         1.5,
       );
@@ -225,7 +225,7 @@ describe('Auto withdrawer', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
-          join(__dirname, '../../../artifacts/lido_distribution.wasm'),
+          join(__dirname, '../../../artifacts/drop_distribution.wasm'),
         ),
         1.5,
       );
@@ -236,7 +236,7 @@ describe('Auto withdrawer', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
-          join(__dirname, '../../../artifacts/lido_validators_set.wasm'),
+          join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
         ),
         1.5,
       );
@@ -247,7 +247,7 @@ describe('Auto withdrawer', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
-          join(__dirname, '../../../artifacts/lido_puppeteer.wasm'),
+          join(__dirname, '../../../artifacts/drop_puppeteer.wasm'),
         ),
         1.5,
       );
@@ -258,7 +258,7 @@ describe('Auto withdrawer', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
-          join(__dirname, '../../../artifacts/lido_rewards_manager.wasm'),
+          join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
         ),
         1.5,
       );
@@ -268,11 +268,11 @@ describe('Auto withdrawer', () => {
 
     const res = await client.upload(
       account.address,
-      fs.readFileSync(join(__dirname, '../../../artifacts/lido_factory.wasm')),
+      fs.readFileSync(join(__dirname, '../../../artifacts/drop_factory.wasm')),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
-    const instantiateRes = await LidoFactory.Client.instantiate(
+    const instantiateRes = await DropFactory.Client.instantiate(
       client,
       account.address,
       res.codeId,
@@ -297,24 +297,24 @@ describe('Auto withdrawer', () => {
           update_period: 2,
         },
         salt: 'salt',
-        subdenom: 'lido',
+        subdenom: 'drop',
         token_metadata: {
-          description: 'Lido token',
-          display: 'lido',
+          description: 'Drop token',
+          display: 'drop',
           exponent: 6,
-          name: 'Lido liquid staking token',
-          symbol: 'LIDO',
+          name: 'Drop liquid staking token',
+          symbol: 'DROP',
           uri: null,
           uri_hash: null,
         },
       },
-      'Lido-staking-factory',
+      'drop-staking-factory',
       [],
       'auto',
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
     context.contractAddress = instantiateRes.contractAddress;
-    context.factoryContractClient = new LidoFactory.Client(
+    context.factoryContractClient = new DropFactory.Client(
       client,
       context.contractAddress,
     );
@@ -413,56 +413,56 @@ describe('Auto withdrawer', () => {
         res.token_contract,
       );
     expect(tokenContractInfo.data.contract_info.label).toBe(
-      'LIDO-staking-token',
+      'drop-staking-token',
     );
     const coreContractInfo =
       await neutronClient.CosmwasmWasmV1.query.queryContractInfo(
         res.core_contract,
       );
-    expect(coreContractInfo.data.contract_info.label).toBe('LIDO-staking-core');
+    expect(coreContractInfo.data.contract_info.label).toBe('drop-staking-core');
     const withdrawalVoucherContractInfo =
       await neutronClient.CosmwasmWasmV1.query.queryContractInfo(
         res.withdrawal_voucher_contract,
       );
     expect(withdrawalVoucherContractInfo.data.contract_info.label).toBe(
-      'LIDO-staking-withdrawal-voucher',
+      'drop-staking-withdrawal-voucher',
     );
     const withdrawalManagerContractInfo =
       await neutronClient.CosmwasmWasmV1.query.queryContractInfo(
         res.withdrawal_manager_contract,
       );
     expect(withdrawalManagerContractInfo.data.contract_info.label).toBe(
-      'LIDO-staking-withdrawal-manager',
+      'drop-staking-withdrawal-manager',
     );
     const puppeteerContractInfo =
       await neutronClient.CosmwasmWasmV1.query.queryContractInfo(
         res.puppeteer_contract,
       );
     expect(puppeteerContractInfo.data.contract_info.label).toBe(
-      'LIDO-staking-puppeteer',
+      'drop-staking-puppeteer',
     );
-    context.coreContractClient = new LidoCore.Client(
+    context.coreContractClient = new DropCore.Client(
       context.client,
       res.core_contract,
     );
-    context.withdrawalVoucherContractClient = new LidoWithdrawalVoucher.Client(
+    context.withdrawalVoucherContractClient = new DropWithdrawalVoucher.Client(
       context.client,
       res.withdrawal_voucher_contract,
     );
-    context.withdrawalManagerContractClient = new LidoWithdrawalManager.Client(
+    context.withdrawalManagerContractClient = new DropWithdrawalManager.Client(
       context.client,
       res.withdrawal_manager_contract,
     );
-    context.strategyContractClient = new LidoStrategy.Client(
+    context.strategyContractClient = new DropStrategy.Client(
       context.client,
       res.strategy_contract,
     );
     context.tokenContractAddress = res.token_contract;
-    context.puppeteerContractClient = new LidoPuppeteer.Client(
+    context.puppeteerContractClient = new DropPuppeteer.Client(
       context.client,
       res.puppeteer_contract,
     );
-    context.ldDenom = `factory/${context.tokenContractAddress}/lido`;
+    context.ldDenom = `factory/${context.tokenContractAddress}/drop`;
   });
 
   it('set fees for puppeteer', async () => {
@@ -585,12 +585,12 @@ describe('Auto withdrawer', () => {
     const res = await client.upload(
       account.address,
       fs.readFileSync(
-        join(__dirname, '../../../artifacts/lido_auto_withdrawer.wasm'),
+        join(__dirname, '../../../artifacts/drop_auto_withdrawer.wasm'),
       ),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
-    const instantiateRes = await LidoAutoWithdrawer.Client.instantiate(
+    const instantiateRes = await DropAutoWithdrawer.Client.instantiate(
       client,
       account.address,
       res.codeId,
@@ -602,12 +602,12 @@ describe('Auto withdrawer', () => {
           context.withdrawalManagerContractClient.contractAddress,
         ld_token: ldDenom,
       },
-      'Lido-auto-withdrawer',
+      'drop-auto-withdrawer',
       [],
       'auto',
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
-    context.autoWithdrawerContractClient = new LidoAutoWithdrawer.Client(
+    context.autoWithdrawerContractClient = new DropAutoWithdrawer.Client(
       client,
       instantiateRes.contractAddress,
     );
@@ -752,12 +752,12 @@ describe('Auto withdrawer', () => {
         const { client, account, neutronUserAddress } = context;
         const resUpload = await client.upload(
           account.address,
-          fs.readFileSync(join(__dirname, '../../../artifacts/lido_pump.wasm')),
+          fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
           1.5,
         );
         expect(resUpload.codeId).toBeGreaterThan(0);
         const { codeId } = resUpload;
-        const res = await LidoPump.Client.instantiate(
+        const res = await DropPump.Client.instantiate(
           client,
           neutronUserAddress,
           codeId,
@@ -781,12 +781,12 @@ describe('Auto withdrawer', () => {
             refundee: neutronUserAddress,
             owner: account.address,
           },
-          'Lido-staking-pump',
+          'drop-staking-pump',
           [],
           1.5,
         );
         expect(res.contractAddress).toHaveLength(66);
-        context.pumpContractClient = new LidoPump.Client(
+        context.pumpContractClient = new DropPump.Client(
           client,
           res.contractAddress,
         );

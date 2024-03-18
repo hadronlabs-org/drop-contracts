@@ -11,8 +11,8 @@ use cosmwasm_std::{
     Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
-use lido_helpers::answer::response;
-use lido_staking_base::{
+use drop_helpers::answer::response;
+use drop_staking_base::{
     msg::core::{ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg},
     msg::distribution::InstantiateMsg as DistributionInstantiateMsg,
     msg::puppeteer::InstantiateMsg as PuppeteerInstantiateMsg,
@@ -31,7 +31,7 @@ use neutron_sdk::{
     NeutronResult,
 };
 
-const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
+const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -132,19 +132,19 @@ fn execute_update_config(
     match msg {
         UpdateConfigMsg::Core(msg) => messages.push(get_proxied_message(
             state.core_contract,
-            lido_staking_base::msg::core::ExecuteMsg::UpdateConfig {
+            drop_staking_base::msg::core::ExecuteMsg::UpdateConfig {
                 new_config: Box::new(*msg),
             },
             info.funds,
         )?),
         UpdateConfigMsg::ValidatorsSet(new_config) => messages.push(get_proxied_message(
             state.validators_set_contract,
-            lido_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig { new_config },
+            drop_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig { new_config },
             info.funds,
         )?),
         UpdateConfigMsg::PuppeteerFees(fees) => messages.push(get_proxied_message(
             state.puppeteer_contract,
-            lido_puppeteer_base::msg::ExecuteMsg::SetFees {
+            drop_puppeteer_base::msg::ExecuteMsg::SetFees {
                 recv_fee: fees.recv_fee,
                 ack_fee: fees.ack_fee,
                 timeout_fee: fees.timeout_fee,
@@ -171,20 +171,20 @@ fn execute_proxy_msg(
             ValidatorSetMsg::UpdateValidators { validators } => {
                 messages.push(get_proxied_message(
                     state.validators_set_contract,
-                    lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
+                    drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
                         validators: validators.clone(),
                     },
                     vec![],
                 )?);
                 messages.push(get_proxied_message(
                     state.puppeteer_contract,
-                    lido_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: validators.iter().map(|v| {v.valoper_address.to_string()}).collect() },
+                    drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: validators.iter().map(|v| {v.valoper_address.to_string()}).collect() },
                     info.funds,
                 )?)
             }
             ValidatorSetMsg::UpdateValidator { validator } => messages.push(get_proxied_message(
                 state.validators_set_contract,
-                lido_staking_base::msg::validatorset::ExecuteMsg::UpdateValidator { validator },
+                drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidator { validator },
                 info.funds,
             )?),
         },
@@ -192,7 +192,7 @@ fn execute_proxy_msg(
             crate::msg::CoreMsg::UpdateNonNativeRewardsReceivers { items } => {
                 messages.push(get_proxied_message(
                     state.core_contract,
-                    lido_staking_base::msg::core::ExecuteMsg::UpdateNonNativeRewardsReceivers {
+                    drop_staking_base::msg::core::ExecuteMsg::UpdateNonNativeRewardsReceivers {
                         items: items.clone(),
                     },
                     vec![],
@@ -200,7 +200,7 @@ fn execute_proxy_msg(
                 messages.push(
                     get_proxied_message(
                         state.puppeteer_contract,
-                        lido_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
+                        drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
                             denoms: items.iter().map(|one|{one.denom.to_string()}).collect() }, info.funds)?
                 );
             }
@@ -450,7 +450,7 @@ fn execute_init(
             code_id: config.code_ids.withdrawal_voucher_code_id,
             label: get_contract_label("withdrawal-voucher"),
             msg: to_json_binary(&WithdrawalVoucherInstantiateMsg {
-                name: "Lido Voucher".to_string(),
+                name: "Drop Voucher".to_string(),
                 symbol: "LDOV".to_string(),
                 minter: core_contract.to_string(),
             })?,
@@ -503,9 +503,9 @@ fn execute_post_init(
     let core_update_msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: state.core_contract,
         msg: to_json_binary(&CoreExecuteMsg::UpdateConfig {
-            new_config: Box::new(lido_staking_base::state::core::ConfigOptional {
+            new_config: Box::new(drop_staking_base::state::core::ConfigOptional {
                 ld_denom: Some(token_config.denom),
-                ..lido_staking_base::state::core::ConfigOptional::default()
+                ..drop_staking_base::state::core::ConfigOptional::default()
             }),
         })?,
         funds: vec![],
@@ -519,5 +519,5 @@ fn get_code_checksum(deps: Deps, code_id: u64) -> NeutronResult<HexBinary> {
 }
 
 fn get_contract_label(base: &str) -> String {
-    format!("LIDO-staking-{}", base)
+    format!("drop-staking-{}", base)
 }

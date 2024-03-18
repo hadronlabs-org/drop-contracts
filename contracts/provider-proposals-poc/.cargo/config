@@ -1,2 +1,2 @@
 [alias]
-schema = "run --bin lido-provider-proposals-poc-schema"
+schema = "run --bin drop-provider-proposals-poc-schema"

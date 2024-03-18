@@ -2,7 +2,7 @@ use crate::state::{CodeIds, RemoteOpts};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Binary, Uint128};
 use cw_ownable::cw_ownable_execute;
-use lido_staking_base::msg::token::DenomMetadata;
+use drop_staking_base::msg::token::DenomMetadata;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -41,8 +41,8 @@ pub struct FeesMsg {
 
 #[cw_serde]
 pub enum UpdateConfigMsg {
-    Core(Box<lido_staking_base::state::core::ConfigOptional>),
-    ValidatorsSet(lido_staking_base::state::validatorset::ConfigOptional),
+    Core(Box<drop_staking_base::state::core::ConfigOptional>),
+    ValidatorsSet(drop_staking_base::state::validatorset::ConfigOptional),
     PuppeteerFees(FeesMsg),
 }
 
@@ -55,17 +55,17 @@ pub enum ProxyMsg {
 #[cw_serde]
 pub enum CoreMsg {
     UpdateNonNativeRewardsReceivers {
-        items: Vec<lido_staking_base::state::core::NonNativeRewardsItem>,
+        items: Vec<drop_staking_base::state::core::NonNativeRewardsItem>,
     },
 }
 
 #[cw_serde]
 pub enum ValidatorSetMsg {
     UpdateValidators {
-        validators: Vec<lido_staking_base::msg::validatorset::ValidatorData>,
+        validators: Vec<drop_staking_base::msg::validatorset::ValidatorData>,
     },
     UpdateValidator {
-        validator: lido_staking_base::msg::validatorset::ValidatorData,
+        validator: drop_staking_base::msg::validatorset::ValidatorData,
     },
 }
 

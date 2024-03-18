@@ -4,7 +4,7 @@ authors = [
 ]
 description = "Contract to implement astroport exchange handler"
 edition = "2021"
-name = "lido-astroport-exchange-handler"
+name = "drop-astroport-exchange-handler"
 version = "1.0.0"
 
 exclude = [
@@ -30,8 +30,8 @@ cosmwasm-std      = { workspace = true }
 cw-ownable        = { workspace = true }
 cw2               = { workspace = true }
 astroport         = { workspace = true }
-lido-staking-base = { workspace = true }
-lido-helpers      = { workspace = true }
+drop-staking-base = { workspace = true }
+drop-helpers      = { workspace = true }
 
 [dev-dependencies]
 cw-multi-test = { workspace = true }
