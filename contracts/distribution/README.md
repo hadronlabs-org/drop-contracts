@@ -1,1 +1,1 @@
-# LIDO Staking distribution
+# DROP Staking distribution

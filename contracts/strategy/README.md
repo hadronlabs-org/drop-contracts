@@ -1,1 +1,1 @@
-# LIDO Strategy
+# DROP Strategy

@@ -2,7 +2,7 @@
 authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>"]
 description = "Contract to handle withdraval vouchers"
 edition = "2021"
-name = "lido-withdrawal-voucher"
+name = "drop-withdrawal-voucher"
 version = "1.0.0"
 
 exclude = [
@@ -27,4 +27,4 @@ cosmwasm-schema   = { workspace = true }
 cosmwasm-std      = { workspace = true }
 cw2               = { workspace = true }
 cw721-base        = { workspace = true }
-lido-staking-base = { workspace = true }
+drop-staking-base = { workspace = true }

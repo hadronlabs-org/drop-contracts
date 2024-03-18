@@ -7,7 +7,7 @@ use cosmos_sdk_proto::cosmos::{
     base::v1beta1::Coin as CosmosCoin,
     staking::v1beta1::{Delegation, Validator as CosmosValidator},
 };
-use lido_puppeteer_base::{
+use drop_puppeteer_base::{
     msg::{ExecuteMsg as BaseExecuteMsg, TransferReadyBatchMsg},
     state::RedeemShareItem,
 };
@@ -144,7 +144,7 @@ pub enum QueryExtMsg {
     NonNativeRewardsBalances {},
     #[returns(FeesResponse)]
     Fees {},
-    #[returns(Vec<lido_puppeteer_base::state::UnbondingDelegation>)]
+    #[returns(Vec<drop_puppeteer_base::state::UnbondingDelegation>)]
     UnbondingDelegations {},
 }
 

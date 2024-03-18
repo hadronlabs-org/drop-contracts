@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { LidoValidatorsSet } from '../generated/contractLib';
+import { DropValidatorsSet } from '../generated/contractLib';
 
 import { join } from 'path';
 
@@ -11,7 +11,7 @@ import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 
-const SetClass = LidoValidatorsSet.Client;
+const SetClass = DropValidatorsSet.Client;
 
 describe('Validator set', () => {
   const context: {
@@ -58,12 +58,12 @@ describe('Validator set', () => {
     const res = await client.upload(
       account.address,
       fs.readFileSync(
-        join(__dirname, '../../../artifacts/lido_validators_set.wasm'),
+        join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
       ),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
-    const instantiateRes = await LidoValidatorsSet.Client.instantiate(
+    const instantiateRes = await DropValidatorsSet.Client.instantiate(
       client,
       account.address,
       res.codeId,
@@ -77,7 +77,7 @@ describe('Validator set', () => {
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
     context.contractAddress = instantiateRes.contractAddress;
-    context.contractClient = new LidoValidatorsSet.Client(
+    context.contractClient = new DropValidatorsSet.Client(
       client,
       context.contractAddress,
     );

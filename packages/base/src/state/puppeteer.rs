@@ -1,7 +1,7 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Timestamp};
 use cw_storage_plus::Item;
-use lido_puppeteer_base::state::BaseConfig;
+use drop_puppeteer_base::state::BaseConfig;
 
 use crate::msg::puppeteer::{BalancesAndDelegations, MultiBalances};
 

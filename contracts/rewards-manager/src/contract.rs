@@ -1,16 +1,16 @@
 use cosmwasm_std::{attr, entry_point, to_json_binary, Attribute, CosmosMsg, Deps, Order, WasmMsg};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
-use lido_helpers::answer::response;
-use lido_staking_base::error::rewards_manager::ContractResult;
-use lido_staking_base::msg::rewards_manager::{
+use drop_helpers::answer::response;
+use drop_staking_base::error::rewards_manager::ContractResult;
+use drop_staking_base::msg::rewards_manager::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
-use lido_staking_base::state::rewards_manager::{HandlerConfig, CORE_ADDRESS, REWARDS_HANDLERS};
+use drop_staking_base::state::rewards_manager::{HandlerConfig, CORE_ADDRESS, REWARDS_HANDLERS};
 
-use lido_staking_base::msg::reward_handler::HandlerExecuteMsg;
+use drop_staking_base::msg::reward_handler::HandlerExecuteMsg;
 
-const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
+const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]

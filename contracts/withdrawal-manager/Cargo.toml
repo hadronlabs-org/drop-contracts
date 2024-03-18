@@ -2,7 +2,7 @@
 authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>"]
 description = "Contract to handle withdraval actions"
 edition = "2021"
-name = "lido-withdrawal-manager"
+name = "drop-withdrawal-manager"
 version = "1.0.0"
 
 exclude = [
@@ -28,6 +28,6 @@ cosmwasm-schema     = { workspace = true }
 cosmwasm-std        = { workspace = true }
 cw2                 = { workspace = true }
 cw721               = { workspace = true }
-lido-staking-base   = { workspace = true }
-lido-helpers        = { workspace = true }
+drop-staking-base   = { workspace = true }
+drop-helpers        = { workspace = true }
 thiserror           = { workspace = true }

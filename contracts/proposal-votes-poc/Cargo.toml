@@ -2,7 +2,7 @@
 authors = ["Albert Andrejev <albert.andrejev@gmail.com>"]
 description = "Contract to control proposals voting process"
 edition = "2021"
-name = "lido-proposal-votes-poc"
+name = "drop-proposal-votes-poc"
 version = "1.0.0"
 
 exclude = [
@@ -39,8 +39,8 @@ serde = { workspace = true }
 serde-json-wasm = { workspace = true }
 
 neutron-sdk = { workspace = true }
-lido-staking-base = { workspace = true }
-lido-helpers = { workspace = true }
+drop-staking-base = { workspace = true }
+drop-helpers = { workspace = true }
 
 [dev-dependencies]
 cw-multi-test = { workspace = true }

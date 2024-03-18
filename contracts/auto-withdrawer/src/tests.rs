@@ -54,7 +54,7 @@ fn instantiate() {
     assert_eq!(
         response.events,
         vec![
-            Event::new("lido-auto-withdrawer-instantiate").add_attributes([
+            Event::new("drop-auto-withdrawer-instantiate").add_attributes([
                 attr("core_address", "core"),
                 attr("withdrawal_voucher", "withdrawal_voucher"),
                 attr("withdrawal_manager", "withdrawal_manager"),

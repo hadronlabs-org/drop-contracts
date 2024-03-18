@@ -1,2 +1,2 @@
 [alias]
-schema = "run --bin lido-pump-schema"
+schema = "run --bin drop-pump-schema"

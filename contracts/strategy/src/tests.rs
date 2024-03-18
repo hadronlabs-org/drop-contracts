@@ -7,14 +7,14 @@ use cosmwasm_std::{
     Timestamp, Uint128,
 };
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
-use lido_puppeteer_base::error::ContractError as PuppeteerContractError;
-use lido_puppeteer_base::msg::QueryMsg as PuppeteerQueryMsg;
-use lido_staking_base::error::distribution::ContractError as DistributionContractError;
-use lido_staking_base::error::validatorset::ContractError as ValidatorSetContractError;
-use lido_staking_base::msg::distribution::IdealDelegation;
-use lido_staking_base::msg::strategy::QueryMsg;
-use lido_staking_base::msg::validatorset::QueryMsg as ValidatorSetQueryMsg;
-use lido_staking_base::msg::{
+use drop_puppeteer_base::error::ContractError as PuppeteerContractError;
+use drop_puppeteer_base::msg::QueryMsg as PuppeteerQueryMsg;
+use drop_staking_base::error::distribution::ContractError as DistributionContractError;
+use drop_staking_base::error::validatorset::ContractError as ValidatorSetContractError;
+use drop_staking_base::msg::distribution::IdealDelegation;
+use drop_staking_base::msg::strategy::QueryMsg;
+use drop_staking_base::msg::validatorset::QueryMsg as ValidatorSetQueryMsg;
+use drop_staking_base::msg::{
     distribution::QueryMsg as DistributionQueryMsg, strategy::InstantiateMsg,
 };
 use neutron_sdk::interchain_queries::v045::types::Delegations;
@@ -55,7 +55,7 @@ fn distribution_contract() -> Box<dyn Contract<Empty>> {
     > = ContractWrapper::new(
         |_, _, _, _: EmptyMsg| Ok(Response::new()),
         |_, _, _, _: EmptyMsg| Ok(Response::new()),
-        lido_distribution::contract::query,
+        drop_distribution::contract::query,
     );
     Box::new(contract)
 }
@@ -64,21 +64,21 @@ fn instantiate_distribution_contract(app: &mut App) -> Addr {
     instantiate_contract(
         app,
         distribution_contract,
-        "lido distribution contract".to_string(),
+        "drop distribution contract".to_string(),
     )
 }
 
 fn puppeteer_query(
     _deps: Deps,
     _env: Env,
-    msg: PuppeteerQueryMsg<lido_staking_base::msg::puppeteer::QueryExtMsg>,
+    msg: PuppeteerQueryMsg<drop_staking_base::msg::puppeteer::QueryExtMsg>,
 ) -> StdResult<Binary> {
     match msg {
         PuppeteerQueryMsg::Config {} => todo!(),
         PuppeteerQueryMsg::Ica {} => todo!(),
         PuppeteerQueryMsg::Transactions {} => todo!(),
         PuppeteerQueryMsg::Extention { msg } => match msg {
-            lido_staking_base::msg::puppeteer::QueryExtMsg::Delegations {} => {
+            drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {} => {
                 let mut delegations_amount: Vec<cosmwasm_std::Delegation> = Vec::new();
                 for i in 0..3 {
                     let delegation = cosmwasm_std::Delegation {
@@ -109,7 +109,7 @@ fn puppeteer_contract() -> Box<dyn Contract<Empty>> {
     let contract: ContractWrapper<
         EmptyMsg,
         EmptyMsg,
-        PuppeteerQueryMsg<lido_staking_base::msg::puppeteer::QueryExtMsg>,
+        PuppeteerQueryMsg<drop_staking_base::msg::puppeteer::QueryExtMsg>,
         PuppeteerContractError,
         PuppeteerContractError,
         cosmwasm_std::StdError,
@@ -125,7 +125,7 @@ fn instantiate_puppeteer_contract(app: &mut App) -> Addr {
     instantiate_contract(
         app,
         puppeteer_contract,
-        "lido puppeteeer contract".to_string(),
+        "drop puppeteeer contract".to_string(),
     )
 }
 
@@ -137,7 +137,7 @@ fn validator_set_query(_deps: Deps, _env: Env, msg: ValidatorSetQueryMsg) -> Std
         ValidatorSetQueryMsg::Validators {} => {
             let mut validators = Vec::new();
             for i in 0..3 {
-                let validator = lido_staking_base::state::validatorset::ValidatorInfo {
+                let validator = drop_staking_base::state::validatorset::ValidatorInfo {
                     valoper_address: format!("valoper{}", i),
                     weight: 100,
                     last_processed_remote_height: None,
@@ -178,7 +178,7 @@ fn instantiate_validator_set_contract(app: &mut App) -> Addr {
     instantiate_contract(
         app,
         validator_set_contract,
-        "lido validator set contract".to_string(),
+        "drop validator set contract".to_string(),
     )
 }
 
@@ -224,7 +224,7 @@ fn test_initialization() {
     assert_eq!(
         res.events,
         vec![
-            Event::new("crates.io:lido-staking__lido-strategy-instantiate".to_string())
+            Event::new("crates.io:drop-staking__drop-strategy-instantiate".to_string())
                 .add_attributes(vec![
                     Attribute::new("core_address".to_string(), CORE_CONTRACT_ADDR.to_string()),
                     Attribute::new(
@@ -266,14 +266,14 @@ fn test_config_query() {
         },
     );
 
-    let config: lido_staking_base::msg::strategy::ConfigResponse = app
+    let config: drop_staking_base::msg::strategy::ConfigResponse = app
         .wrap()
         .query_wasm_smart(strategy_contract.clone(), &QueryMsg::Config {})
         .unwrap();
 
     assert_eq!(
         config,
-        lido_staking_base::msg::strategy::ConfigResponse {
+        drop_staking_base::msg::strategy::ConfigResponse {
             core_address: CORE_CONTRACT_ADDR.to_string(),
             distribution_address: distribution_contract.to_string(),
             puppeteer_address: puppeteer_contract.to_string(),
@@ -304,7 +304,7 @@ fn test_ideal_deposit_calculation() {
         },
     );
 
-    let ideal_deposit: Vec<lido_staking_base::msg::distribution::IdealDelegation> = app
+    let ideal_deposit: Vec<drop_staking_base::msg::distribution::IdealDelegation> = app
         .wrap()
         .query_wasm_smart(
             strategy_contract,
@@ -363,7 +363,7 @@ fn test_ideal_withdraw_calculation() {
         },
     );
 
-    let ideal_deposit: Vec<lido_staking_base::msg::distribution::IdealDelegation> = app
+    let ideal_deposit: Vec<drop_staking_base::msg::distribution::IdealDelegation> = app
         .wrap()
         .query_wasm_smart(
             strategy_contract,

@@ -229,7 +229,7 @@ export const generateWallets = (): Promise<Record<Keys, string>> =>
   );
 
 export const setupPark = async (
-  context = 'lido',
+  context = 'drop',
   networks: string[] = [],
   needHermes = false,
   needNeutronRelayer = false,

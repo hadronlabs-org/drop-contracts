@@ -3,16 +3,16 @@ use std::collections::HashMap;
 use cosmwasm_std::{attr, entry_point, to_json_binary, Attribute, Deps, Uint128};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
-use lido_helpers::answer::response;
-use lido_staking_base::msg::strategy::{
+use drop_helpers::answer::response;
+use drop_staking_base::msg::strategy::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
-use lido_staking_base::state::strategy::{
+use drop_staking_base::state::strategy::{
     CORE_ADDRESS, DENOM, DISTRIBUTION_ADDRESS, PUPPETEER_ADDRESS, VALIDATOR_SET_ADDRESS,
 };
 use neutron_sdk::NeutronResult;
 
-const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
+const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -79,13 +79,13 @@ fn query_config(deps: Deps, _env: Env) -> NeutronResult<Binary> {
 pub fn query_calc_deposit(deps: Deps, deposit: Uint128) -> NeutronResult<Binary> {
     let distribution_address = DISTRIBUTION_ADDRESS.load(deps.storage)?.into_string();
 
-    let delegations: Vec<lido_staking_base::msg::distribution::Delegation> =
+    let delegations: Vec<drop_staking_base::msg::distribution::Delegation> =
         prepare_delegation_data(deps)?;
 
-    let ideal_deposit: Vec<lido_staking_base::msg::distribution::IdealDelegation> =
+    let ideal_deposit: Vec<drop_staking_base::msg::distribution::IdealDelegation> =
         deps.querier.query_wasm_smart(
             distribution_address,
-            &lido_staking_base::msg::distribution::QueryMsg::CalcDeposit {
+            &drop_staking_base::msg::distribution::QueryMsg::CalcDeposit {
                 deposit,
                 delegations,
             },
@@ -97,13 +97,13 @@ pub fn query_calc_deposit(deps: Deps, deposit: Uint128) -> NeutronResult<Binary>
 pub fn query_calc_withdraw(deps: Deps, withdraw: Uint128) -> NeutronResult<Binary> {
     let distribution_address = DISTRIBUTION_ADDRESS.load(deps.storage)?.into_string();
 
-    let delegations: Vec<lido_staking_base::msg::distribution::Delegation> =
+    let delegations: Vec<drop_staking_base::msg::distribution::Delegation> =
         prepare_delegation_data(deps)?;
 
-    let ideal_deposit: Vec<lido_staking_base::msg::distribution::IdealDelegation> =
+    let ideal_deposit: Vec<drop_staking_base::msg::distribution::IdealDelegation> =
         deps.querier.query_wasm_smart(
             distribution_address,
-            &lido_staking_base::msg::distribution::QueryMsg::CalcWithdraw {
+            &drop_staking_base::msg::distribution::QueryMsg::CalcWithdraw {
                 withdraw,
                 delegations,
             },
@@ -114,25 +114,25 @@ pub fn query_calc_withdraw(deps: Deps, withdraw: Uint128) -> NeutronResult<Binar
 
 fn prepare_delegation_data(
     deps: Deps,
-) -> NeutronResult<Vec<lido_staking_base::msg::distribution::Delegation>> {
+) -> NeutronResult<Vec<drop_staking_base::msg::distribution::Delegation>> {
     let puppeteer_address = PUPPETEER_ADDRESS.load(deps.storage)?.into_string();
     let validator_set_address = VALIDATOR_SET_ADDRESS.load(deps.storage)?.into_string();
     let denom = DENOM.load(deps.storage)?;
-    let account_delegations: lido_staking_base::msg::puppeteer::DelegationsResponse =
+    let account_delegations: drop_staking_base::msg::puppeteer::DelegationsResponse =
         deps.querier.query_wasm_smart(
             &puppeteer_address,
-            &lido_puppeteer_base::msg::QueryMsg::Extention {
-                msg: lido_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+            &drop_puppeteer_base::msg::QueryMsg::Extention {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
         )?;
 
-    let validator_set: Vec<lido_staking_base::state::validatorset::ValidatorInfo> =
+    let validator_set: Vec<drop_staking_base::state::validatorset::ValidatorInfo> =
         deps.querier.query_wasm_smart(
             &validator_set_address,
-            &lido_staking_base::msg::validatorset::QueryMsg::Validators {},
+            &drop_staking_base::msg::validatorset::QueryMsg::Validators {},
         )?;
 
-    let mut delegations: Vec<lido_staking_base::msg::distribution::Delegation> = Vec::new();
+    let mut delegations: Vec<drop_staking_base::msg::distribution::Delegation> = Vec::new();
     let delegation_validator_map: HashMap<_, _> = account_delegations
         .0
         .delegations
@@ -147,7 +147,7 @@ fn prepare_delegation_data(
             .copied()
             .unwrap_or_default();
 
-        let delegation = lido_staking_base::msg::distribution::Delegation {
+        let delegation = drop_staking_base::msg::distribution::Delegation {
             valoper_address: validator.valoper_address.clone(),
             stake: validator_denom_delegation,
             weight: validator.weight,

@@ -1,7 +1,7 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Coin, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, UniqueIndex};
-use lido_helpers::ica::Ica;
+use drop_helpers::ica::Ica;
 use neutron_sdk::{bindings::msg::IbcFee, interchain_queries::v045::types::UnbondingEntry};
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -143,7 +143,7 @@ impl<'a> IndexList<UnbondingDelegation> for UnbondingDelegationIndexes<'a> {
 
 pub type Recipient = str;
 pub const LOCAL_DENOM: &str = "untrn";
-pub const ICA_ID: &str = "LIDO";
+pub const ICA_ID: &str = "DROP";
 
 pub use reply_msg::ReplyMsg;
 mod reply_msg {

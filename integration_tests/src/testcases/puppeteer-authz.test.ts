@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-//import { LidoPuppeteerAuthz } from '../generated/contractLib';
+//import { DropPuppeteerAuthz } from '../generated/contractLib';
 import {
   QueryClient,
   StakingExtension,
@@ -20,12 +20,12 @@ import { waitFor } from '../helpers/waitFor';
 import {
   DelegationsResponse,
   Transfer,
-} from '../generated/contractLib/lidoPuppeteerAuthz';
+} from '../generated/contractLib/dropPuppeteerAuthz';
 
 import { grantAuthzPermission } from '../helpers/utils';
 import { AuthzExtension } from '@cosmjs/stargate/build/modules/authz/queries';
 
-//const PuppeteerClass = LidoPuppeteerAuthz.Client;
+//const PuppeteerClass = DropPuppeteerAuthz.Client;
 
 describe.skip('Interchain puppeteer with AuthZ support', () => {
   const context: {
@@ -103,12 +103,12 @@ describe.skip('Interchain puppeteer with AuthZ support', () => {
     const res = await client.upload(
       account.address,
       fs.readFileSync(
-        join(__dirname, '../../../artifacts/lido_puppeteer_authz.wasm'),
+        join(__dirname, '../../../artifacts/drop_puppeteer_authz.wasm'),
       ),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
-    const instantiateRes = await LidoPuppeteerAuthz.Client.instantiate(
+    const instantiateRes = await DropPuppeteerAuthz.Client.instantiate(
       client,
       account.address,
       res.codeId,
@@ -126,7 +126,7 @@ describe.skip('Interchain puppeteer with AuthZ support', () => {
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
     context.contractAddress = instantiateRes.contractAddress;
-    context.contractClient = new LidoPuppeteerAuthz.Client(
+    context.contractClient = new DropPuppeteerAuthz.Client(
       client,
       context.contractAddress,
     );
@@ -305,7 +305,7 @@ describe.skip('Interchain puppeteer with AuthZ support', () => {
     expect(res).toEqual([
       {
         delegate: {
-          interchain_account_id: 'LIDO',
+          interchain_account_id: 'DROP',
           validator: context.firstValidatorAddress,
           denom: 'stake',
           amount: '100000',
@@ -360,7 +360,7 @@ describe.skip('Interchain puppeteer with AuthZ support', () => {
     expect(res).toEqual([
       {
         delegate: {
-          interchain_account_id: 'LIDO',
+          interchain_account_id: 'DROP',
           validator: context.firstValidatorAddress,
           denom: 'stake',
           amount: '100000',
@@ -368,7 +368,7 @@ describe.skip('Interchain puppeteer with AuthZ support', () => {
       },
       {
         undelegate: {
-          interchain_account_id: 'LIDO',
+          interchain_account_id: 'DROP',
           validator: context.firstValidatorAddress,
           denom: 'stake',
           amount: '1000',
@@ -423,7 +423,7 @@ describe.skip('Interchain puppeteer with AuthZ support', () => {
     expect(res).toEqual([
       {
         delegate: {
-          interchain_account_id: 'LIDO',
+          interchain_account_id: 'DROP',
           validator: context.firstValidatorAddress,
           denom: 'stake',
           amount: '100000',
@@ -431,7 +431,7 @@ describe.skip('Interchain puppeteer with AuthZ support', () => {
       },
       {
         undelegate: {
-          interchain_account_id: 'LIDO',
+          interchain_account_id: 'DROP',
           validator: context.firstValidatorAddress,
           denom: 'stake',
           amount: '1000',
@@ -439,7 +439,7 @@ describe.skip('Interchain puppeteer with AuthZ support', () => {
       },
       {
         redelegate: {
-          interchain_account_id: 'LIDO',
+          interchain_account_id: 'DROP',
           validator_from: context.firstValidatorAddress,
           validator_to: context.secondValidatorAddress,
           denom: 'stake',
@@ -494,7 +494,7 @@ describe.skip('Interchain puppeteer with AuthZ support', () => {
     expect(res).toEqual([
       {
         delegate: {
-          interchain_account_id: 'LIDO',
+          interchain_account_id: 'DROP',
           validator: context.firstValidatorAddress,
           denom: 'stake',
           amount: '100000',
@@ -502,7 +502,7 @@ describe.skip('Interchain puppeteer with AuthZ support', () => {
       },
       {
         undelegate: {
-          interchain_account_id: 'LIDO',
+          interchain_account_id: 'DROP',
           validator: context.firstValidatorAddress,
           denom: 'stake',
           amount: '1000',
@@ -510,7 +510,7 @@ describe.skip('Interchain puppeteer with AuthZ support', () => {
       },
       {
         redelegate: {
-          interchain_account_id: 'LIDO',
+          interchain_account_id: 'DROP',
           validator_from: context.firstValidatorAddress,
           validator_to: context.secondValidatorAddress,
           denom: 'stake',
@@ -519,7 +519,7 @@ describe.skip('Interchain puppeteer with AuthZ support', () => {
       },
       {
         withdraw_reward: {
-          interchain_account_id: 'LIDO',
+          interchain_account_id: 'DROP',
           validator: context.firstValidatorAddress,
         },
       },

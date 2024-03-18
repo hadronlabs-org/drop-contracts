@@ -1,6 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Addr;
-use lido_puppeteer_base::state::BaseConfig;
+use drop_puppeteer_base::state::BaseConfig;
 
 #[cw_serde]
 pub struct Config {
@@ -31,10 +31,10 @@ impl BaseConfig for Config {
 pub enum QueryMsg {
     #[returns(Config)]
     Config {},
-    #[returns(lido_puppeteer_base::state::State)]
+    #[returns(drop_puppeteer_base::state::State)]
     State {},
-    #[returns(Vec<lido_puppeteer_base::state::Transfer>)]
+    #[returns(Vec<drop_puppeteer_base::state::Transfer>)]
     InterchainTransactions {},
-    #[returns(lido_puppeteer_base::msg::DelegationsResponse)]
+    #[returns(drop_puppeteer_base::msg::DelegationsResponse)]
     Delegations {},
 }

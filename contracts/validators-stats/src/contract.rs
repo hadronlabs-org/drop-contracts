@@ -2,9 +2,9 @@ use bech32::{encode, Bech32, Hrp};
 use cosmwasm_std::{entry_point, to_json_binary, Decimal, Deps, Order, Reply, StdError, SubMsg};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
-use lido_helpers::query_id::get_query_id;
-use lido_staking_base::msg::validatorsstats::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
-use lido_staking_base::state::validatorsstats::{
+use drop_helpers::query_id::get_query_id;
+use drop_staking_base::msg::validatorsstats::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
+use drop_staking_base::state::validatorsstats::{
     Config, MissedBlocks, ValidatorMissedBlocksForPeriod, ValidatorState, CONFIG, MISSED_BLOCKS,
     SIGNING_INFO_QUERY_ID, SIGNING_INFO_REPLY_ID, STATE_MAP, VALCONS_TO_VALOPER,
     VALIDATOR_PROFILE_QUERY_ID, VALIDATOR_PROFILE_REPLY_ID,
@@ -24,7 +24,7 @@ use neutron_sdk::{
 };
 use sha2::{Digest, Sha256};
 
-const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
+const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]

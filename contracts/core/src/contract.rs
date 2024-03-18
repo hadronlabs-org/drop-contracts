@@ -6,19 +6,19 @@ use cosmwasm_std::{
     QueryRequest, Response, StdError, StdResult, Timestamp, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
-use lido_helpers::answer::response;
-use lido_puppeteer_base::msg::TransferReadyBatchMsg;
-use lido_puppeteer_base::state::RedeemShareItem;
-use lido_staking_base::state::core::{
+use drop_helpers::answer::response;
+use drop_puppeteer_base::msg::TransferReadyBatchMsg;
+use drop_puppeteer_base::state::RedeemShareItem;
+use drop_staking_base::state::core::{
     unbond_batches_map, Config, ConfigOptional, ContractState, FeeItem, NonNativeRewardsItem,
     UnbondBatch, UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, COLLECTED_FEES, CONFIG,
     FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_PUPPETEER_RESPONSE,
     LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, PENDING_TRANSFER,
     PRE_UNBONDING_BALANCE, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
 };
-use lido_staking_base::state::validatorset::ValidatorInfo;
-use lido_staking_base::state::withdrawal_voucher::{Metadata, Trait};
-use lido_staking_base::{
+use drop_staking_base::state::validatorset::ValidatorInfo;
+use drop_staking_base::state::withdrawal_voucher::{Metadata, Trait};
+use drop_staking_base::{
     msg::{
         core::{ExecuteMsg, InstantiateMsg, QueryMsg},
         token::ExecuteMsg as TokenExecuteMsg,
@@ -32,7 +32,7 @@ use std::vec;
 
 pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
 
-const CONTRACT_NAME: &str = concat!("crates.io:lido-staking__", env!("CARGO_PKG_NAME"));
+const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -118,10 +118,10 @@ fn query_exchange_rate(
     }
     let delegations = deps
         .querier
-        .query_wasm_smart::<lido_staking_base::msg::puppeteer::DelegationsResponse>(
+        .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
             config.puppeteer_contract.to_string(),
-            &lido_puppeteer_base::msg::QueryMsg::Extention {
-                msg: lido_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+            &drop_puppeteer_base::msg::QueryMsg::Extention {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
         )?;
     let delegations_amount: Uint128 = delegations
@@ -241,7 +241,7 @@ fn execute_puppeteer_hook(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
-    msg: lido_puppeteer_base::msg::ResponseHookMsg,
+    msg: drop_puppeteer_base::msg::ResponseHookMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     ensure_eq!(
@@ -249,11 +249,11 @@ fn execute_puppeteer_hook(
         config.puppeteer_contract,
         ContractError::Unauthorized {}
     );
-    if let lido_puppeteer_base::msg::ResponseHookMsg::Success(_) = msg {
+    if let drop_puppeteer_base::msg::ResponseHookMsg::Success(_) = msg {
         LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &env.block.height)?;
-        if let lido_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) = &msg {
+        if let drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) = &msg {
             match &success_msg.transaction {
-                lido_puppeteer_base::msg::Transaction::IBCTransfer {
+                drop_puppeteer_base::msg::Transaction::IBCTransfer {
                     denom,
                     amount,
                     recipient: _,
@@ -283,7 +283,7 @@ fn execute_puppeteer_hook(
                         }
                     }
                 }
-                lido_puppeteer_base::msg::Transaction::RedeemShares { items, .. } => {
+                drop_puppeteer_base::msg::Transaction::RedeemShares { items, .. } => {
                     let mut sum = 0u128;
                     for item in items {
                         sum += item.amount.u128();
@@ -422,15 +422,15 @@ fn execute_tick_idle(
 
         let validators: Vec<ValidatorInfo> = deps.querier.query_wasm_smart(
             config.validators_set_contract.to_string(),
-            &lido_staking_base::msg::validatorset::QueryMsg::Validators {},
+            &drop_staking_base::msg::validatorset::QueryMsg::Validators {},
         )?;
 
         let (delegations, _, _) = deps
             .querier
-            .query_wasm_smart::<lido_staking_base::msg::puppeteer::DelegationsResponse>(
+            .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
             config.puppeteer_contract.to_string(),
-            &lido_puppeteer_base::msg::QueryMsg::Extention {
-                msg: lido_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+            &drop_puppeteer_base::msg::QueryMsg::Extention {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
         )?;
 
@@ -464,7 +464,7 @@ fn execute_tick_idle(
             messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: config.puppeteer_contract.clone(),
                 msg: to_json_binary(
-                    &lido_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
+                    &drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
                         validators: validators_to_claim,
                         transfer,
                         timeout: Some(config.puppeteer_timeout),
@@ -491,9 +491,9 @@ fn execute_tick_claiming(
     let mut attrs = vec![attr("action", "tick_claiming")];
     let mut messages = vec![];
     match response_msg {
-        lido_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) => {
+        drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) => {
             match success_msg.transaction {
-                lido_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
+                drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
                     transfer,
                     ..
                 } => {
@@ -509,7 +509,7 @@ fn execute_tick_claiming(
                 _ => return Err(ContractError::InvalidTransaction {}),
             }
         }
-        lido_puppeteer_base::msg::ResponseHookMsg::Error(err) => {
+        drop_puppeteer_base::msg::ResponseHookMsg::Error(err) => {
             attrs.push(attr("error_on_claiming", format!("{:?}", err)));
         }
     }
@@ -575,16 +575,16 @@ fn execute_tick_staking(
         PRE_UNBONDING_BALANCE.save(deps.storage, &pre_unbonding_balance)?;
         FSM.go_to(deps.storage, ContractState::Unbonding)?;
         attrs.push(attr("state", "unbonding"));
-        let undelegations: Vec<lido_staking_base::msg::distribution::IdealDelegation> =
+        let undelegations: Vec<drop_staking_base::msg::distribution::IdealDelegation> =
             deps.querier.query_wasm_smart(
                 config.strategy_contract.to_string(),
-                &lido_staking_base::msg::strategy::QueryMsg::CalcWithdraw {
+                &drop_staking_base::msg::strategy::QueryMsg::CalcWithdraw {
                     withdraw: unbond.total_amount,
                 },
             )?;
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.puppeteer_contract.to_string(),
-            msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
+            msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
                 items: undelegations
                     .iter()
                     .map(|d| (d.valoper_address.clone(), d.stake_change))
@@ -619,9 +619,9 @@ fn execute_tick_unbonding(
     let res = get_received_puppeteer_response(deps.as_ref())?;
     let mut attrs = vec![attr("action", "tick_unbonding")];
     match res {
-        lido_puppeteer_base::msg::ResponseHookMsg::Success(response) => {
+        drop_puppeteer_base::msg::ResponseHookMsg::Success(response) => {
             match response.transaction {
-                lido_puppeteer_base::msg::Transaction::Undelegate { batch_id, .. } => {
+                drop_puppeteer_base::msg::Transaction::Undelegate { batch_id, .. } => {
                     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
                     attrs.push(attr("batch_id", batch_id.to_string()));
                     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
@@ -634,8 +634,8 @@ fn execute_tick_unbonding(
                 _ => return Err(ContractError::InvalidTransaction {}),
             }
         }
-        lido_puppeteer_base::msg::ResponseHookMsg::Error(response) => match response.transaction {
-            lido_puppeteer_base::msg::Transaction::Undelegate { batch_id, .. } => {
+        drop_puppeteer_base::msg::ResponseHookMsg::Error(response) => match response.transaction {
+            drop_puppeteer_base::msg::Transaction::Undelegate { batch_id, .. } => {
                 attrs.push(attr("batch_id", batch_id.to_string()));
                 let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
                 unbond.status = UnbondBatchStatus::UnbondFailed;
@@ -929,7 +929,7 @@ fn get_transfer_pending_balance_msg<T>(
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.puppeteer_contract.to_string(),
             msg: to_json_binary(
-                &lido_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+                &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
                     timeout: config.puppeteer_timeout,
                     reply_to: env.contract.address.to_string(),
                 },
@@ -965,10 +965,10 @@ pub fn get_stake_msg<T>(
     let fee = config.fee.unwrap_or(Decimal::zero()) * balance;
     let deposit_amount = balance - fee;
 
-    let to_delegate: Vec<lido_staking_base::msg::distribution::IdealDelegation> =
+    let to_delegate: Vec<drop_staking_base::msg::distribution::IdealDelegation> =
         deps.querier.query_wasm_smart(
             &config.strategy_contract,
-            &lido_staking_base::msg::strategy::QueryMsg::CalcDeposit {
+            &drop_staking_base::msg::strategy::QueryMsg::CalcDeposit {
                 deposit: deposit_amount,
             },
         )?;
@@ -990,7 +990,7 @@ pub fn get_stake_msg<T>(
 
     Ok(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_contract.to_string(),
-        msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
+        msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
             items: to_delegate
                 .iter()
                 .map(|d| (d.valoper_address.to_string(), d.stake_change))
@@ -1004,7 +1004,7 @@ pub fn get_stake_msg<T>(
 
 fn get_received_puppeteer_response(
     deps: Deps<NeutronQuery>,
-) -> ContractResult<lido_puppeteer_base::msg::ResponseHookMsg> {
+) -> ContractResult<drop_puppeteer_base::msg::ResponseHookMsg> {
     LAST_PUPPETEER_RESPONSE
         .load(deps.storage)
         .map_err(|_| ContractError::PuppeteerResponseIsNotReceived {})
@@ -1032,11 +1032,11 @@ fn get_ica_balance_by_denom<T: CustomQuery>(
     remote_denom: &str,
     can_be_zero: bool,
 ) -> ContractResult<(Uint128, u64, u64)> {
-    let (ica_balances, local_height, local_time): lido_staking_base::msg::puppeteer::BalancesResponse =
+    let (ica_balances, local_height, local_time): drop_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             puppeteer_contract.to_string(),
-            &lido_puppeteer_base::msg::QueryMsg::Extention {
-                msg: lido_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
+            &drop_puppeteer_base::msg::QueryMsg::Extention {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
             },
         )?;
 
@@ -1079,11 +1079,11 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
     let config = CONFIG.load(deps.storage)?;
     let non_native_rewards_receivers = NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?;
     let mut items = vec![];
-    let rewards: lido_staking_base::msg::puppeteer::BalancesResponse =
+    let rewards: drop_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             config.puppeteer_contract.to_string(),
-            &lido_puppeteer_base::msg::QueryMsg::Extention {
-                msg: lido_staking_base::msg::puppeteer::QueryExtMsg::NonNativeRewardsBalances {},
+            &drop_puppeteer_base::msg::QueryMsg::Extention {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::NonNativeRewardsBalances {},
             },
         )?;
 
@@ -1141,7 +1141,7 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
 
     Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_contract,
-        msg: to_json_binary(&lido_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
+        msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
             items,
             timeout: Some(config.puppeteer_timeout),
             reply_to: env.contract.address.to_string(),
@@ -1177,7 +1177,7 @@ fn get_pending_redeem_msg<T>(
     Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_contract.to_string(),
         msg: to_json_binary(
-            &lido_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+            &drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
                 items,
                 timeout: Some(config.puppeteer_timeout),
                 reply_to: env.contract.address.to_string(),
@@ -1198,7 +1198,7 @@ fn get_pending_lsm_share_msg<T, X: CustomQuery>(
         Some((denom, (_remote_denom, amount))) => Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.puppeteer_contract.to_string(),
             msg: to_json_binary(
-                &lido_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+                &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
                     timeout: config.puppeteer_timeout,
                     reply_to: env.contract.address.to_string(),
                 },
@@ -1282,9 +1282,9 @@ mod check_denom {
             .ok_or(ContractError::InvalidDenom {})?;
         let validator_info = deps
             .querier
-            .query_wasm_smart::<lido_staking_base::msg::validatorset::ValidatorResponse>(
+            .query_wasm_smart::<drop_staking_base::msg::validatorset::ValidatorResponse>(
                 &config.validators_set_contract,
-                &lido_staking_base::msg::validatorset::QueryMsg::Validator {
+                &drop_staking_base::msg::validatorset::QueryMsg::Validator {
                     valoper: validator.to_string(),
                 },
             )?

@@ -1,2 +1,2 @@
 [alias]
-schema = "run --bin lido-token-schema"
+schema = "run --bin drop-token-schema"

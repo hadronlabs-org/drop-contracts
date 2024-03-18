@@ -22,7 +22,7 @@ fn instantiate() {
         deps.as_mut(),
         mock_env(),
         mock_info("admin", &[]),
-        lido_staking_base::msg::provider_proposals::InstantiateMsg {
+        drop_staking_base::msg::provider_proposals::InstantiateMsg {
             connection_id: "connection-0".to_string(),
             port_id: "transfer".to_string(),
             update_period: 100,
@@ -35,12 +35,12 @@ fn instantiate() {
     )
     .unwrap();
 
-    let config = lido_staking_base::state::provider_proposals::CONFIG
+    let config = drop_staking_base::state::provider_proposals::CONFIG
         .load(deps.as_ref().storage)
         .unwrap();
     assert_eq!(
         config,
-        lido_staking_base::state::provider_proposals::Config {
+        drop_staking_base::state::provider_proposals::Config {
             connection_id: "connection-0".to_string(),
             port_id: "transfer".to_string(),
             update_period: 100,
@@ -90,7 +90,7 @@ fn instantiate() {
     assert_eq!(
         response.events,
         vec![
-            Event::new("crates.io:lido-staking__lido-provider-proposals-poc-instantiate")
+            Event::new("crates.io:drop-staking__drop-provider-proposals-poc-instantiate")
                 .add_attributes([
                     attr("connection_id", "connection-0"),
                     attr("port_id", "transfer"),
@@ -110,10 +110,10 @@ fn instantiate() {
 fn query_config() {
     let mut deps: OwnedDeps<cosmwasm_std::MemoryStorage, MockApi, MockQuerier, NeutronQuery> =
         mock_dependencies::<MockQuerier>();
-    lido_staking_base::state::provider_proposals::CONFIG
+    drop_staking_base::state::provider_proposals::CONFIG
         .save(
             deps.as_mut().storage,
-            &lido_staking_base::state::provider_proposals::Config {
+            &drop_staking_base::state::provider_proposals::Config {
                 connection_id: "connection-0".to_string(),
                 port_id: "transfer".to_string(),
                 update_period: 100,
@@ -130,12 +130,12 @@ fn query_config() {
     let response = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        lido_staking_base::msg::provider_proposals::QueryMsg::Config {},
+        drop_staking_base::msg::provider_proposals::QueryMsg::Config {},
     )
     .unwrap();
     assert_eq!(
         response,
-        to_json_binary(&lido_staking_base::state::provider_proposals::Config {
+        to_json_binary(&drop_staking_base::state::provider_proposals::Config {
             connection_id: "connection-0".to_string(),
             port_id: "transfer".to_string(),
             update_period: 100,
@@ -154,10 +154,10 @@ fn query_config() {
 fn update_config_wrong_owner() {
     let mut deps = mock_dependencies::<MockQuerier>();
 
-    lido_staking_base::state::provider_proposals::CONFIG
+    drop_staking_base::state::provider_proposals::CONFIG
         .save(
             deps.as_mut().storage,
-            &lido_staking_base::state::provider_proposals::Config {
+            &drop_staking_base::state::provider_proposals::Config {
                 connection_id: "connection-0".to_string(),
                 port_id: "transfer".to_string(),
                 update_period: 100,
@@ -175,8 +175,8 @@ fn update_config_wrong_owner() {
         deps.as_mut(),
         mock_env(),
         mock_info("core1", &[]),
-        lido_staking_base::msg::provider_proposals::ExecuteMsg::UpdateConfig {
-            new_config: lido_staking_base::state::provider_proposals::ConfigOptional {
+        drop_staking_base::msg::provider_proposals::ExecuteMsg::UpdateConfig {
+            new_config: drop_staking_base::state::provider_proposals::ConfigOptional {
                 connection_id: Some("connection-0".to_string()),
                 port_id: Some("transfer".to_string()),
                 update_period: Some(100),
@@ -212,10 +212,10 @@ fn update_config_ok() {
         Some(Addr::unchecked("core").as_ref()),
     );
 
-    lido_staking_base::state::provider_proposals::CONFIG
+    drop_staking_base::state::provider_proposals::CONFIG
         .save(
             deps.as_mut().storage,
-            &lido_staking_base::state::provider_proposals::Config {
+            &drop_staking_base::state::provider_proposals::Config {
                 connection_id: "connection-0".to_string(),
                 port_id: "transfer".to_string(),
                 update_period: 100,
@@ -233,8 +233,8 @@ fn update_config_ok() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        lido_staking_base::msg::provider_proposals::ExecuteMsg::UpdateConfig {
-            new_config: lido_staking_base::state::provider_proposals::ConfigOptional {
+        drop_staking_base::msg::provider_proposals::ExecuteMsg::UpdateConfig {
+            new_config: drop_staking_base::state::provider_proposals::ConfigOptional {
                 connection_id: Some("connection-1".to_string()),
                 port_id: Some("transfer1".to_string()),
                 update_period: Some(200),
@@ -253,12 +253,12 @@ fn update_config_ok() {
     let config = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        lido_staking_base::msg::provider_proposals::QueryMsg::Config {},
+        drop_staking_base::msg::provider_proposals::QueryMsg::Config {},
     )
     .unwrap();
     assert_eq!(
         config,
-        to_json_binary(&lido_staking_base::state::provider_proposals::Config {
+        to_json_binary(&drop_staking_base::state::provider_proposals::Config {
             connection_id: "connection-1".to_string(),
             port_id: "transfer1".to_string(),
             update_period: 200,
@@ -277,10 +277,10 @@ fn update_config_ok() {
 fn update_votes_wrong_sender_address() {
     let mut deps = mock_dependencies::<MockQuerier>();
 
-    lido_staking_base::state::provider_proposals::CONFIG
+    drop_staking_base::state::provider_proposals::CONFIG
         .save(
             deps.as_mut().storage,
-            &lido_staking_base::state::provider_proposals::Config {
+            &drop_staking_base::state::provider_proposals::Config {
                 connection_id: "connection-0".to_string(),
                 port_id: "transfer".to_string(),
                 update_period: 100,
@@ -298,7 +298,7 @@ fn update_votes_wrong_sender_address() {
         deps.as_mut(),
         mock_env(),
         mock_info("proposal_votes_1", &[]),
-        lido_staking_base::msg::provider_proposals::ExecuteMsg::UpdateProposalVotes {
+        drop_staking_base::msg::provider_proposals::ExecuteMsg::UpdateProposalVotes {
             votes: vec![neutron_sdk::interchain_queries::v045::types::ProposalVote {
                 proposal_id: 1,
                 voter: "voter".to_string(),
@@ -315,10 +315,10 @@ fn update_votes_wrong_sender_address() {
 fn update_votes_ok() {
     let mut deps = mock_dependencies::<MockQuerier>();
 
-    lido_staking_base::state::provider_proposals::CONFIG
+    drop_staking_base::state::provider_proposals::CONFIG
         .save(
             deps.as_mut().storage,
-            &lido_staking_base::state::provider_proposals::Config {
+            &drop_staking_base::state::provider_proposals::Config {
                 connection_id: "connection-0".to_string(),
                 port_id: "transfer".to_string(),
                 update_period: 100,
@@ -336,7 +336,7 @@ fn update_votes_ok() {
         deps.as_mut(),
         mock_env(),
         mock_info("proposal_votes", &[]),
-        lido_staking_base::msg::provider_proposals::ExecuteMsg::UpdateProposalVotes {
+        drop_staking_base::msg::provider_proposals::ExecuteMsg::UpdateProposalVotes {
             votes: vec![neutron_sdk::interchain_queries::v045::types::ProposalVote {
                 proposal_id: 1,
                 voter: "voter".to_string(),
@@ -350,14 +350,14 @@ fn update_votes_ok() {
     let validator = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        lido_staking_base::msg::provider_proposals::QueryMsg::GetProposals {},
+        drop_staking_base::msg::provider_proposals::QueryMsg::GetProposals {},
     )
     .unwrap();
 
     assert_eq!(
         validator,
         to_json_binary(&Vec::<
-            lido_staking_base::state::provider_proposals::ProposalInfo,
+            drop_staking_base::state::provider_proposals::ProposalInfo,
         >::new())
         .unwrap()
     );
@@ -367,10 +367,10 @@ fn update_votes_ok() {
 fn update_votes_with_data() {
     let mut deps = mock_dependencies::<MockQuerier>();
 
-    lido_staking_base::state::provider_proposals::CONFIG
+    drop_staking_base::state::provider_proposals::CONFIG
         .save(
             deps.as_mut().storage,
-            &lido_staking_base::state::provider_proposals::Config {
+            &drop_staking_base::state::provider_proposals::Config {
                 connection_id: "connection-0".to_string(),
                 port_id: "transfer".to_string(),
                 update_period: 100,
@@ -384,7 +384,7 @@ fn update_votes_with_data() {
         )
         .unwrap();
 
-    lido_staking_base::state::provider_proposals::PROPOSALS
+    drop_staking_base::state::provider_proposals::PROPOSALS
         .save(
             deps.as_mut().storage,
             1u64,
@@ -406,7 +406,7 @@ fn update_votes_with_data() {
         deps.as_mut(),
         mock_env(),
         mock_info("proposal_votes", &[]),
-        lido_staking_base::msg::provider_proposals::ExecuteMsg::UpdateProposalVotes {
+        drop_staking_base::msg::provider_proposals::ExecuteMsg::UpdateProposalVotes {
             votes: vec![neutron_sdk::interchain_queries::v045::types::ProposalVote {
                 proposal_id: 1,
                 voter: "voter".to_string(),
@@ -425,14 +425,14 @@ fn update_votes_with_data() {
     let validator = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        lido_staking_base::msg::provider_proposals::QueryMsg::GetProposals {},
+        drop_staking_base::msg::provider_proposals::QueryMsg::GetProposals {},
     )
     .unwrap();
 
     assert_eq!(
         validator,
         to_json_binary(&vec![
-            lido_staking_base::state::provider_proposals::ProposalInfo {
+            drop_staking_base::state::provider_proposals::ProposalInfo {
                 proposal: neutron_sdk::interchain_queries::v045::types::Proposal {
                     proposal_id: 1,
                     proposal_type: Some("proposal_type".to_string()),

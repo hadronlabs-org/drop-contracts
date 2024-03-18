@@ -1,1 +1,1 @@
-# LIDO Validators set contract
+# DROP Validators set contract

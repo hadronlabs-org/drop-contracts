@@ -1,1 +1,1 @@
-# LIDO Withdrawal Voucher
+# DROP Withdrawal Voucher

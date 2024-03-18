@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import {
-  LidoProviderProposalsPoc,
-  LidoProposalVotesPoc,
+  DropProviderProposalsPoc,
+  DropProposalVotesPoc,
 } from '../generated/contractLib';
 import {
   QueryClient,
@@ -22,10 +22,10 @@ import fs from 'fs';
 import { stringToPath } from '@cosmjs/crypto';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import { ProposalInfo1 } from '../generated/contractLib/lidoProviderProposals';
+import { ProposalInfo1 } from '../generated/contractLib/dropProviderProposals';
 
-const LidoProviderProposalsClass = LidoProviderProposalsPoc.Client;
-const LidoProposalVotesClass = LidoProposalVotesPoc.Client;
+const DropProviderProposalsClass = DropProviderProposalsPoc.Client;
+const DropProposalVotesClass = DropProposalVotesPoc.Client;
 
 describe('POC Proposal Votes', () => {
   const context: {
@@ -34,8 +34,8 @@ describe('POC Proposal Votes', () => {
     votesContractAddress?: string;
     wallet?: DirectSecp256k1HdWallet;
     gaiaWallet?: DirectSecp256k1HdWallet;
-    propsContractClient?: InstanceType<typeof LidoProviderProposalsClass>;
-    votesContractClient?: InstanceType<typeof LidoProposalVotesClass>;
+    propsContractClient?: InstanceType<typeof DropProviderProposalsClass>;
+    votesContractClient?: InstanceType<typeof DropProposalVotesClass>;
     account?: AccountData;
     client?: SigningCosmWasmClient;
     gaiaClient?: SigningCosmWasmClient;
@@ -107,14 +107,14 @@ describe('POC Proposal Votes', () => {
     const propsRes = await client.upload(
       account.address,
       fs.readFileSync(
-        join(__dirname, '../../../artifacts/lido_provider_proposals_poc.wasm'),
+        join(__dirname, '../../../artifacts/drop_provider_proposals_poc.wasm'),
       ),
       1.5,
     );
     expect(propsRes.codeId).toBeGreaterThan(0);
 
     const instantiatePropsRes =
-      await LidoProviderProposalsPoc.Client.instantiate(
+      await DropProviderProposalsPoc.Client.instantiate(
         client,
         account.address,
         propsRes.codeId,
@@ -139,7 +139,7 @@ describe('POC Proposal Votes', () => {
       );
     expect(instantiatePropsRes.contractAddress).toHaveLength(66);
     context.propsContractAddress = instantiatePropsRes.contractAddress;
-    context.propsContractClient = new LidoProviderProposalsPoc.Client(
+    context.propsContractClient = new DropProviderProposalsPoc.Client(
       client,
       context.propsContractAddress,
     );
@@ -147,13 +147,13 @@ describe('POC Proposal Votes', () => {
     const votesRes = await client.upload(
       account.address,
       fs.readFileSync(
-        join(__dirname, '../../../artifacts/lido_proposal_votes_poc.wasm'),
+        join(__dirname, '../../../artifacts/drop_proposal_votes_poc.wasm'),
       ),
       1.5,
     );
     expect(votesRes.codeId).toBeGreaterThan(0);
 
-    const instantiateVotesRes = await LidoProposalVotesPoc.Client.instantiate(
+    const instantiateVotesRes = await DropProposalVotesPoc.Client.instantiate(
       client,
       account.address,
       votesRes.codeId,
@@ -175,7 +175,7 @@ describe('POC Proposal Votes', () => {
     );
     expect(instantiateVotesRes.contractAddress).toHaveLength(66);
     context.votesContractAddress = instantiateVotesRes.contractAddress;
-    context.votesContractClient = new LidoProposalVotesPoc.Client(
+    context.votesContractClient = new DropProposalVotesPoc.Client(
       client,
       context.votesContractAddress,
     );

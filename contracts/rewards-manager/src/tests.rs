@@ -5,11 +5,11 @@ use cosmwasm_std::{
     attr, coins, to_json_binary, Addr, Attribute, Coin, Empty, Event, Response, StdError, Uint128,
 };
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
-use lido_helpers::answer::{attr_coin, response};
-use lido_staking_base::msg::reward_handler::HandlerExecuteMsg;
-use lido_staking_base::msg::rewards_manager::QueryMsg;
-use lido_staking_base::msg::rewards_manager::{ExecuteMsg, InstantiateMsg};
-use lido_staking_base::state::rewards_manager::HandlerConfig;
+use drop_helpers::answer::{attr_coin, response};
+use drop_staking_base::msg::reward_handler::HandlerExecuteMsg;
+use drop_staking_base::msg::rewards_manager::QueryMsg;
+use drop_staking_base::msg::rewards_manager::{ExecuteMsg, InstantiateMsg};
+use drop_staking_base::state::rewards_manager::HandlerConfig;
 
 const CORE_CONTRACT_ADDR: &str = "core_contract";
 
@@ -64,7 +64,7 @@ fn handler_contract() -> Box<dyn Contract<Empty>> {
 }
 
 fn instantiate_handler_contract(app: &mut App) -> Addr {
-    instantiate_contract(app, handler_contract, "lido handler contract".to_string())
+    instantiate_contract(app, handler_contract, "drop handler contract".to_string())
 }
 
 fn rewards_manager_contract() -> Box<dyn Contract<Empty>> {
@@ -122,7 +122,7 @@ fn test_initialization() {
     assert_eq!(
         res.events,
         vec![
-            Event::new("crates.io:lido-staking__lido-rewards-manager-instantiate".to_string())
+            Event::new("crates.io:drop-staking__drop-rewards-manager-instantiate".to_string())
                 .add_attributes(vec![Attribute::new(
                     "core_address".to_string(),
                     CORE_CONTRACT_ADDR.to_string()
@@ -145,14 +145,14 @@ fn test_config_query() {
         },
     );
 
-    let config: lido_staking_base::msg::rewards_manager::ConfigResponse = app
+    let config: drop_staking_base::msg::rewards_manager::ConfigResponse = app
         .wrap()
         .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::Config {})
         .unwrap();
 
     assert_eq!(
         config,
-        lido_staking_base::msg::rewards_manager::ConfigResponse {
+        drop_staking_base::msg::rewards_manager::ConfigResponse {
             core_address: CORE_CONTRACT_ADDR.to_string(),
         }
     );
@@ -217,7 +217,7 @@ fn test_add_remove_handler() {
 
     assert_eq!(
         ty,
-        "wasm-crates.io:lido-staking__lido-rewards-manager-add_handler".to_string()
+        "wasm-crates.io:drop-staking__drop-rewards-manager-add_handler".to_string()
     );
 
     let attrs = res.events[1].attributes[1..].to_vec();
@@ -263,7 +263,7 @@ fn test_add_remove_handler() {
 
     assert_eq!(
         ty,
-        "wasm-crates.io:lido-staking__lido-rewards-manager-remove_handler".to_string()
+        "wasm-crates.io:drop-staking__drop-rewards-manager-remove_handler".to_string()
     );
 
     let attrs = res.events[1].attributes[1..].to_vec();

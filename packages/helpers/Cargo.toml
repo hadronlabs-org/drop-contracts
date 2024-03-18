@@ -1,8 +1,8 @@
 [package]
 authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>"]
-description = "Package for Lido Puppeteer Base"
+description = "Package for Drop Puppeteer Base"
 edition = "2021"
-name = "lido-helpers"
+name = "drop-helpers"
 version = "1.0.0"
 
 exclude = [

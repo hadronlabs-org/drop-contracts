@@ -1,2 +1,2 @@
 [alias]
-schema = "run --bin lido-core-schema"
+schema = "run --bin drop-core-schema"

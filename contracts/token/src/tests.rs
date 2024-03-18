@@ -12,8 +12,8 @@ use cosmwasm_std::{
     to_json_binary, Addr, Binary, ContractResult, CosmosMsg, Event, Querier, QuerierResult,
     QueryRequest, Reply, ReplyOn, SubMsgResult, SystemError, Uint128,
 };
-use lido_helpers::testing::mock_dependencies;
-use lido_staking_base::{
+use drop_helpers::testing::mock_dependencies;
+use drop_staking_base::{
     msg::token::{ConfigResponse, DenomMetadata, ExecuteMsg, InstantiateMsg, QueryMsg},
     state::token::{CORE_ADDRESS, DENOM, TOKEN_METADATA},
 };
@@ -74,7 +74,7 @@ fn instantiate() {
     );
     assert_eq!(
         response.events,
-        vec![Event::new("lido-token-instantiate")
+        vec![Event::new("drop-token-instantiate")
             .add_attributes([attr("core_address", "core"), attr("subdenom", "subdenom")])]
     );
     assert!(response.attributes.is_empty());
@@ -196,7 +196,7 @@ fn reply() {
     };
     assert_eq!(
         response.events,
-        vec![Event::new("lido-token-reply-create-denom")
+        vec![Event::new("drop-token-reply-create-denom")
             .add_attributes([attr("denom", "factory/subdenom")])]
     );
     assert!(response.attributes.is_empty());
@@ -257,7 +257,7 @@ fn mint() {
     );
     assert_eq!(
         response.events,
-        vec![Event::new("lido-token-execute-mint")
+        vec![Event::new("drop-token-execute-mint")
             .add_attributes([attr("amount", "220denom"), attr("receiver", "receiver")])]
     );
     assert!(response.attributes.is_empty());
@@ -385,7 +385,7 @@ fn burn() {
     );
     assert_eq!(
         response.events,
-        vec![Event::new("lido-token-execute-burn").add_attributes([attr("amount", "140denom")])]
+        vec![Event::new("drop-token-execute-burn").add_attributes([attr("amount", "140denom")])]
     );
     assert!(response.attributes.is_empty());
 }
