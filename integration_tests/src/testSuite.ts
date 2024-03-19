@@ -89,8 +89,6 @@ const networkConfigs = {
     },
     config_opts: {
       'rpc.laddr': 'tcp://0.0.0.0:26657',
-      'consensus.timeout_commit': '1000ms',
-      'consensus.timeout_propose': '1000ms',
     },
     app_opts: {
       'api.enable': true,
