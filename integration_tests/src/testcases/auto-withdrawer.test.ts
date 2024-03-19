@@ -47,6 +47,7 @@ const DropStrategyClass = DropStrategy.Client;
 const DropWithdrawalVoucherClass = DropWithdrawalVoucher.Client;
 const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
 const DropAutoWithdrawerClass = DropAutoWithdrawer.Client;
+const UNBONDING_TIME = 360;
 
 describe('Auto withdrawer', () => {
   const context: {
@@ -97,13 +98,26 @@ describe('Auto withdrawer', () => {
     ldDenom?: string;
   } = { codeIds: {} };
 
-  beforeAll(async () => {
+  beforeAll(async (t) => {
     context.park = await setupPark(
-      'autowithdrawer',
+      t,
       ['neutron', 'gaia'],
-      true,
-      true,
-      true,
+      {
+        gaia: {
+          genesis_opts: {
+            'app_state.staking.params.unbonding_time': `${UNBONDING_TIME}s`,
+          },
+        },
+      },
+      {
+        neutron: true,
+        hermes: {
+          config: {
+            'chains.1.trusting_period': '2m0s',
+            'chains.1.unbonding_period': `${UNBONDING_TIME}s`,
+          },
+        },
+      },
     );
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
@@ -169,7 +183,6 @@ describe('Auto withdrawer', () => {
   it('instantiate', async () => {
     const { client, account } = context;
     context.codeIds = {};
-
     {
       const res = await client.upload(
         account.address,
@@ -392,11 +405,11 @@ describe('Auto withdrawer', () => {
     const res = await contractClient.init(context.neutronUserAddress, {
       base_denom: context.neutronIBCDenom,
       core_params: {
-        idle_min_interval: 60,
+        idle_min_interval: 40,
         puppeteer_timeout: 60,
         unbond_batch_switch_time: 240,
         unbonding_safe_period: 10,
-        unbonding_period: 360,
+        unbonding_period: UNBONDING_TIME,
         channel: 'channel-0',
         lsm_redeem_threshold: 10,
       },
@@ -870,6 +883,7 @@ describe('Auto withdrawer', () => {
       });
       it('wait for balances to come', async () => {
         let res;
+        let height = 0;
         await waitFor(async () => {
           try {
             res = await context.puppeteerContractClient.queryExtention({
@@ -877,10 +891,14 @@ describe('Auto withdrawer', () => {
                 balances: {},
               },
             });
+            if (height === 0) {
+              height = res[1];
+              return false;
+            }
           } catch (e) {
             //
           }
-          return res && res[0].coins.length !== 0;
+          return res && res[0].coins.length !== 0 && res[1] !== height;
         }, 100_000);
       });
       it('second tick goes to staking', async () => {
@@ -942,15 +960,18 @@ describe('Auto withdrawer', () => {
         expect(state).toEqual('unbonding');
       });
       it('wait for response from puppeteer', async () => {
-        let response;
+        let response: ResponseHookMsg;
         await waitFor(async () => {
           try {
             response =
               await context.coreContractClient.queryLastPuppeteerResponse();
           } catch (e) {
-            //
+            return false;
           }
-          return !!response;
+          if ('error' in response) {
+            throw new Error(response.error.details);
+          }
+          return response && 'success' in response;
         }, 100_000);
       });
       it('next tick goes to idle', async () => {
@@ -1251,7 +1272,7 @@ describe('Auto withdrawer', () => {
         expect(res.transactionHash).toHaveLength(64);
         await sleep(10 * 1000);
       });
-      it('wait until unbonding period is finished', async () => {
+      it(`wait until unbonding period is finished`, async () => {
         const batchInfo = await context.coreContractClient.queryUnbondBatch({
           batch_id: '0',
         });
@@ -1261,20 +1282,24 @@ describe('Auto withdrawer', () => {
           await sleep(diffMs);
         }
       });
+      it('wait for ICA balance', async () => {
+        const { gaiaClient } = context;
+        await waitFor(async () => {
+          const res = await gaiaClient.getBalance(context.icaAddress, 'stake');
+          return parseInt(res.amount) > 0;
+        }, 60_000);
+      });
       it('wait until fresh ICA balance is delivered', async () => {
         const batchInfo = await context.coreContractClient.queryUnbondBatch({
           batch_id: '0',
         });
         await waitFor(async () => {
-          const icaTs = Math.floor(
-            (
-              (await context.puppeteerContractClient.queryExtention({
-                msg: {
-                  balances: {},
-                },
-              })) as any
-            )[2] / 1e9,
-          );
+          const res = (await context.puppeteerContractClient.queryExtention({
+            msg: {
+              balances: {},
+            },
+          })) as any;
+          const icaTs = Math.floor(res[2] / 1e9);
           return icaTs > batchInfo.expected_release;
         }, 50_000);
       });
@@ -1296,12 +1321,14 @@ describe('Auto withdrawer', () => {
             response =
               await context.coreContractClient.queryLastPuppeteerResponse();
           } catch (e) {
-            //
+            return false;
           }
-          return (
-            (response as { success: ResponseHookSuccessMsg }).success
-              .request_id > previousResponse.request_id
-          );
+          if (!response || !('success' in response)) {
+            throw new Error(
+              ('error' in response && response.error.details) || 'no response',
+            );
+          }
+          return response.success.request_id > previousResponse.request_id;
         }, 30_000);
       });
       it('wait for balance to update', async () => {

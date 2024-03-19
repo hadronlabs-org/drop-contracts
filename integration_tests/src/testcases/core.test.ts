@@ -47,6 +47,7 @@ const DropPuppeteerClass = DropPuppeteer.Client;
 const DropStrategyClass = DropStrategy.Client;
 const DropWithdrawalVoucherClass = DropWithdrawalVoucher.Client;
 const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
+const UNBONDING_TIME = 360;
 
 describe('Core', () => {
   const context: {
@@ -96,13 +97,26 @@ describe('Core', () => {
     ldDenom?: string;
   } = { codeIds: {} };
 
-  beforeAll(async () => {
+  beforeAll(async (t) => {
     context.park = await setupPark(
-      'core',
+      t,
       ['neutron', 'gaia'],
-      true,
-      true,
-      true,
+      {
+        gaia: {
+          genesis_opts: {
+            'app_state.staking.params.unbonding_time': `${UNBONDING_TIME}s`,
+          },
+        },
+      },
+      {
+        neutron: true,
+        hermes: {
+          config: {
+            'chains.1.trusting_period': '2m0s',
+            'chains.1.unbonding_period': `${UNBONDING_TIME}s`,
+          },
+        },
+      },
     );
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
@@ -391,7 +405,7 @@ describe('Core', () => {
     const res = await contractClient.init(context.neutronUserAddress, {
       base_denom: context.neutronIBCDenom,
       core_params: {
-        idle_min_interval: 60,
+        idle_min_interval: 40,
         puppeteer_timeout: 60,
         unbond_batch_switch_time: 240,
         unbonding_safe_period: 10,
@@ -1941,10 +1955,11 @@ describe('Core', () => {
             response =
               await context.coreContractClient.queryLastPuppeteerResponse();
           } catch (e) {
-            //
+            return false;
           }
+          if (!response || !('success' in response)) return false;
           return (
-            (response as { success: ResponseHookSuccessMsg }).success
+            (response as { success?: ResponseHookSuccessMsg }).success
               .request_id > previousResponse.request_id
           );
         }, 30_000);

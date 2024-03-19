@@ -47,8 +47,13 @@ describe('Pump', () => {
     neutronIBCDenom?: string;
   } = {};
 
-  beforeAll(async () => {
-    context.park = await setupPark('pump', ['neutron', 'gaia'], true);
+  beforeAll(async (t) => {
+    context.park = await setupPark(
+      t,
+      ['neutron', 'gaia'],
+      {},
+      { hermes: true },
+    );
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
       {
