@@ -17,6 +17,7 @@
     "test:validator-set": "vitest --run validator-set.test --bail 1",
     "test:distribution": "vitest --run distribution.test --bail 1",
     "test:auto-withdrawer": "vitest --run auto-withdrawer.test --bail 1",
+    "test:debug": "vitest --inspect-brk --bail 1 --threads false --run core.test.ts",
     "watch": "vitest",
     "build-ts-client": "ts-node ./src/rebuild-client.ts",
     "build-lsm-image": "./dockerfiles/lsm/build.sh",

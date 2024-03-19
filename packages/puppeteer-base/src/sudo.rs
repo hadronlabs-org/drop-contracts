@@ -104,6 +104,10 @@ where
         storage: cw_storage_plus::Item<'a, (X, u64, Timestamp)>,
     ) -> NeutronResult<Response> {
         let registered_query_result = get_raw_interchain_query_result(deps.as_ref(), query_id)?;
+        deps.api.debug(&format!(
+            "WASMDEBUG: sudo_kv_query_result: registered_query_result: {:?}",
+            registered_query_result
+        ));
         let data =
             PuppeteerReconstruct::reconstruct(&registered_query_result.result.kv_results, version)?;
 

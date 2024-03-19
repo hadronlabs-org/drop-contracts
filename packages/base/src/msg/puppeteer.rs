@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use cosmos_sdk_proto::cosmos::{
     base::v1beta1::Coin as CosmosCoin,
-    staking::v1beta1::{Delegation, Validator as CosmosValidator},
+    staking::v1beta1::{Delegation, Params, Validator as CosmosValidator},
 };
 use drop_puppeteer_base::{
     msg::{ExecuteMsg as BaseExecuteMsg, TransferReadyBatchMsg},
@@ -165,6 +165,7 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
         storage_values: &[neutron_sdk::bindings::types::StorageValue],
         version: &str,
     ) -> NeutronResult<Self> {
+        let version = version_to_u32(version)?;
         if storage_values.is_empty() {
             return Err(NeutronError::InvalidQueryResultFormat(
                 "storage_values length is 0".into(),
@@ -174,7 +175,7 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
         let kv = &storage_values[0];
         if kv.value.len() > 0 {
             let (_, denom) = deconstruct_account_denom_balance_key(kv.key.to_vec())?;
-            let amount: Uint128 = match version_to_u32(version)? {
+            let amount: Uint128 = match version {
                 ver if ver >= version_to_u32("0.47.0")? => {
                     // Directly parse Uint128 from the string obtained from kv.value
                     Uint128::from_str(&String::from_utf8(kv.value.to_vec()).map_err(|_| {
@@ -191,65 +192,68 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
         }
         let mut delegations: Vec<cosmwasm_std::Delegation> =
             Vec::with_capacity((storage_values.len() - 2) / 2);
-
         // first StorageValue is denom
-        if storage_values[1].value.is_empty() {
-            // Incoming denom cannot be empty, it should always be configured on chain.
-            // If we receive empty denom, that means incoming data structure is corrupted
-            // and we cannot build `cosmwasm_std::Delegation`'s using this data.
-            return Err(NeutronError::InvalidQueryResultFormat(
-                "denom is empty".into(),
-            ));
-        }
-        let denom: String = from_json(&storage_values[1].value)?;
-        // the rest are delegations and validators alternately
-        for chunk in storage_values[2..].chunks(2) {
-            if chunk[0].value.is_empty() {
-                // Incoming delegation can actually be empty, this just means that delegation
-                // is not present on remote chain, which is to be expected. So, if it doesn't
-                // exist, we can safely skip this and following chunk.
-                continue;
-            }
-            let delegation_sdk: Delegation = Delegation::decode(chunk[0].value.as_slice())?;
-
-            let mut delegation_std = cosmwasm_std::Delegation {
-                delegator: Addr::unchecked(delegation_sdk.delegator_address.as_str()),
-                validator: delegation_sdk.validator_address,
-                amount: Default::default(),
+        if !storage_values[1].value.is_empty() {
+            let denom = match version {
+                ver if ver >= version_to_u32("0.47.0")? => {
+                    // Parse as Params and get bond_denom
+                    Params::decode(storage_values[1].value.as_slice())?.bond_denom
+                }
+                // For versions below "0.47.0", parse as string
+                _ => from_json(&storage_values[1].value)?,
             };
+            for chunk in storage_values[2..].chunks(2) {
+                if chunk[0].value.is_empty() {
+                    // Incoming delegation can actually be empty, this just means that delegation
+                    // is not present on remote chain, which is to be expected. So, if it doesn't
+                    // exist, we can safely skip this and following chunk.
+                    continue;
+                }
+                let delegation_sdk: Delegation = Delegation::decode(chunk[0].value.as_slice())?;
 
-            if chunk[1].value.is_empty() {
-                // At this point, incoming validator cannot be empty, that would be invalid,
-                // because delegation is already defined, so, building `cosmwasm_std::Delegation`
-                // from this data is impossible, incoming data is corrupted.post
-                return Err(NeutronError::InvalidQueryResultFormat(
-                    "validator is empty".into(),
-                ));
+                let mut delegation_std = cosmwasm_std::Delegation {
+                    delegator: Addr::unchecked(delegation_sdk.delegator_address.as_str()),
+                    validator: delegation_sdk.validator_address,
+                    amount: Default::default(),
+                };
+
+                if chunk[1].value.is_empty() {
+                    // At this point, incoming validator cannot be empty, that would be invalid,
+                    // because delegation is already defined, so, building `cosmwasm_std::Delegation`
+                    // from this data is impossible, incoming data is corrupted.post
+                    return Err(NeutronError::InvalidQueryResultFormat(
+                        "validator is empty".into(),
+                    ));
+                }
+                let validator: CosmosValidator =
+                    CosmosValidator::decode(chunk[1].value.as_slice())?;
+
+                let delegation_shares = Decimal::from_atomics(
+                    Uint128::from_str(&delegation_sdk.shares)?,
+                    DECIMAL_PLACES,
+                )?;
+
+                let delegator_shares = Decimal::from_atomics(
+                    Uint128::from_str(&validator.delegator_shares)?,
+                    DECIMAL_PLACES,
+                )?;
+
+                let validator_tokens =
+                    Decimal::from_atomics(Uint128::from_str(&validator.tokens)?, 0)?;
+
+                // https://github.com/cosmos/cosmos-sdk/blob/35ae2c4c72d4aeb33447d5a7af23ca47f786606e/x/staking/keeper/querier.go#L463
+                // delegated_tokens = quotient(delegation.shares * validator.tokens / validator.total_shares);
+                let delegated_tokens = delegation_shares
+                    .checked_mul(validator_tokens)?
+                    .div(delegator_shares)
+                    .atomics()
+                    .u128()
+                    .div(DECIMAL_FRACTIONAL);
+
+                delegation_std.amount = cosmwasm_std::Coin::new(delegated_tokens, &denom);
+
+                delegations.push(delegation_std);
             }
-            let validator: CosmosValidator = CosmosValidator::decode(chunk[1].value.as_slice())?;
-
-            let delegation_shares =
-                Decimal::from_atomics(Uint128::from_str(&delegation_sdk.shares)?, DECIMAL_PLACES)?;
-
-            let delegator_shares = Decimal::from_atomics(
-                Uint128::from_str(&validator.delegator_shares)?,
-                DECIMAL_PLACES,
-            )?;
-
-            let validator_tokens = Decimal::from_atomics(Uint128::from_str(&validator.tokens)?, 0)?;
-
-            // https://github.com/cosmos/cosmos-sdk/blob/35ae2c4c72d4aeb33447d5a7af23ca47f786606e/x/staking/keeper/querier.go#L463
-            // delegated_tokens = quotient(delegation.shares * validator.tokens / validator.total_shares);
-            let delegated_tokens = delegation_shares
-                .checked_mul(validator_tokens)?
-                .div(delegator_shares)
-                .atomics()
-                .u128()
-                .div(DECIMAL_FRACTIONAL);
-
-            delegation_std.amount = cosmwasm_std::Coin::new(delegated_tokens, &denom);
-
-            delegations.push(delegation_std);
         }
         Ok(BalancesAndDelegations {
             delegations: Delegations { delegations },

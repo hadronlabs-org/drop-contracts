@@ -15,7 +15,8 @@ gaiad query staking validators --output json | jq -r '.validators | .[] | .opera
     KEY_NAME=${ADDR_TO_NAME_MAP["$KEY_ADDRESS"]}
 
     if [ -n "$KEY_NAME" ]; then
-        gaiad tx staking validator-bond "$VAL_ADDRESS" --from "$KEY_NAME" --chain-id testgaia --home=/opt --keyring-backend=test --broadcast-mode=block -y >> /opt/gaiad.log 2>&1  
+        gaiad tx staking validator-bond "$VAL_ADDRESS" --from "$KEY_NAME" --chain-id testgaia --home=/opt --keyring-backend=test -y >> /opt/gaiad.log 2>&1  
+        sleep 2
     else
         echo "No key name found for address: $KEY_ADDRESS"
     fi

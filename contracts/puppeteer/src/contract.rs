@@ -357,6 +357,7 @@ fn register_balance_delegations_query(
                 ica.to_string(),
                 config.remote_denom.to_string(),
                 validators.clone(),
+                config.sdk_version.as_str(),
             )?); //no need to handle reply as nothing to update in the query
         }
     }
@@ -368,6 +369,7 @@ fn register_balance_delegations_query(
                 config.remote_denom.clone(),
                 validators.clone(),
                 config.update_period,
+                config.sdk_version.as_str(),
             )?,
             ReplyMsg::KvDelegationsAndBalance.to_reply_id(),
         ));
