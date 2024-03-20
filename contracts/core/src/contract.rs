@@ -12,7 +12,7 @@ use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::state::core::{
     unbond_batches_map, Config, ConfigOptional, ContractState, FeeItem, NonNativeRewardsItem,
     UnbondBatch, UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, COLLECTED_FEES, CONFIG,
-    FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_PUPPETEER_RESPONSE,
+    EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_PUPPETEER_RESPONSE,
     LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, PENDING_TRANSFER,
     PRE_UNBONDING_BALANCE, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
 };
@@ -64,7 +64,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResult<Binary> {
+pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     Ok(match msg {
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?)?,
         QueryMsg::Owner {} => to_json_binary(
@@ -76,7 +76,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::PendingLSMShares {} => query_pending_lsm_shares(deps)?,
         QueryMsg::LSMSharesToRedeem {} => query_lsm_shares_to_redeem(deps)?,
         QueryMsg::TotalBonded {} => to_json_binary(&BONDED_AMOUNT.load(deps.storage)?)?,
-        QueryMsg::ExchangeRate {} => to_json_binary(&query_exchange_rate(deps, env, None)?)?,
+        QueryMsg::ExchangeRate {} => to_json_binary(&query_exchange_rate(deps)?)?,
         QueryMsg::UnbondBatch { batch_id } => query_unbond_batch(deps, batch_id)?,
         QueryMsg::NonNativeRewardsReceivers {} => {
             to_json_binary(&NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?)?
@@ -102,8 +102,13 @@ fn query_lsm_shares_to_redeem(deps: Deps<NeutronQuery>) -> ContractResult<Binary
     to_json_binary(&shares).map_err(From::from)
 }
 
-fn query_exchange_rate(
-    deps: Deps<NeutronQuery>,
+fn query_exchange_rate(deps: Deps<NeutronQuery>) -> ContractResult<Decimal> {
+    let (exchange_rate, _height) = EXCHANGE_RATE.load(deps.storage)?;
+    Ok(exchange_rate)
+}
+
+fn update_exchange_rate(
+    deps: DepsMut<NeutronQuery>,
     env: Env,
     current_stake: Option<Uint128>,
 ) -> ContractResult<Decimal> {
@@ -152,28 +157,15 @@ fn query_exchange_rate(
         .querier
         .query_balance(env.contract.address.to_string(), config.base_denom)?
         .amount;
-    let extra_amount = match FSM.get_current_state(deps.storage)? {
-        ContractState::Transfering => PENDING_TRANSFER.load(deps.storage),
-        ContractState::Staking => {
-            // FIXME: this ICA balance should be fresh in order to guarantee correct
-            //        exchange rate calculation
-            let (ica_balance, _, _) = get_ica_balance_by_denom(
-                deps,
-                &config.puppeteer_contract,
-                &config.remote_denom,
-                false,
-            )?;
-            Ok(ica_balance)
-        }
-        _ => Ok(Uint128::zero()),
-    }?;
     let total_lsm_shares = Uint128::new(TOTAL_LSM_SHARES.load(deps.storage)?);
-    Ok(Decimal::from_ratio(
-        delegations_amount + core_balance + extra_amount + total_lsm_shares
+    let exchange_rate = Decimal::from_ratio(
+        delegations_amount + core_balance + total_lsm_shares
             - current_stake.unwrap_or(Uint128::zero())
             - unprocessed_unbonded_amount,
         ld_total_amount,
-    )) // arithmetic operations order is important here as we don't want to overflow
+    );
+    EXCHANGE_RATE.save(deps.storage, &(exchange_rate, env.block.height))?;
+    Ok(exchange_rate) // arithmetic operations order is important here as we don't want to overflow
 }
 
 fn query_unbond_batch(deps: Deps<NeutronQuery>, batch_id: Uint128) -> StdResult<Binary> {
@@ -329,7 +321,7 @@ fn execute_tick_idle(
     let mut attrs = vec![attr("action", "tick_idle")];
     let last_idle_call = LAST_IDLE_CALL.load(deps.storage)?;
     let mut messages = vec![];
-
+    update_exchange_rate(deps.branch(), env.clone(), None)?;
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
         //process non-native rewards
         if let Some(transfer_msg) =
@@ -651,7 +643,7 @@ fn execute_tick_unbonding(
 }
 
 fn execute_bond(
-    deps: DepsMut<NeutronQuery>,
+    mut deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
     receiver: Option<String>,
@@ -677,7 +669,7 @@ fn execute_bond(
 
     let mut attrs = vec![attr("action", "bond")];
 
-    let exchange_rate = query_exchange_rate(deps.as_ref(), env, Some(amount))?;
+    let exchange_rate = update_exchange_rate(deps.branch(), env, Some(amount))?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
 
     let issue_amount = amount * (Decimal::one() / exchange_rate);
@@ -812,7 +804,7 @@ fn execute_update_config(
 }
 
 fn execute_unbond(
-    deps: DepsMut<NeutronQuery>,
+    mut deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
@@ -822,7 +814,7 @@ fn execute_unbond(
     let ld_denom = config.ld_denom.ok_or(ContractError::LDDenomIsNotSet {})?;
     let amount = cw_utils::must_pay(&info, &ld_denom)?;
     let mut unbond_batch = unbond_batches_map().load(deps.storage, unbond_batch_id)?;
-    let exchange_rate = query_exchange_rate(deps.as_ref(), env, None)?;
+    let exchange_rate = update_exchange_rate(deps.branch(), env, None)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
     let expected_amount = amount * exchange_rate;
     unbond_batch.unbond_items.push(UnbondItem {
