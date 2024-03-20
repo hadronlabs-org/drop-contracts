@@ -102,9 +102,8 @@ fn query_lsm_shares_to_redeem(deps: Deps<NeutronQuery>) -> ContractResult<Binary
     to_json_binary(&shares).map_err(From::from)
 }
 
-fn query_exchange_rate(deps: Deps<NeutronQuery>) -> ContractResult<Decimal> {
-    let (exchange_rate, _height) = EXCHANGE_RATE.load(deps.storage)?;
-    Ok(exchange_rate)
+fn query_exchange_rate(deps: Deps<NeutronQuery>) -> ContractResult<(Decimal, u64)> {
+    EXCHANGE_RATE.load(deps.storage).map_err(From::from)
 }
 
 fn update_exchange_rate(

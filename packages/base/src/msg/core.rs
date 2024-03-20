@@ -35,7 +35,7 @@ pub enum QueryMsg {
     Config {},
     #[returns(String)]
     Owner {},
-    #[returns(cosmwasm_std::Decimal)]
+    #[returns((cosmwasm_std::Decimal, u64))]
     ExchangeRate {},
     #[returns(crate::state::core::UnbondBatch)]
     UnbondBatch { batch_id: Uint128 },

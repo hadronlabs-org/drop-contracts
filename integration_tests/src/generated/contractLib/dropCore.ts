@@ -65,11 +65,10 @@ export type Uint128 = string;
 export type Decimal = string;
 export type ContractState = "idle" | "claiming" | "unbonding" | "staking" | "transfering";
 /**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ * @minItems 2
+ * @maxItems 2
  */
-export type Decimal1 = string;
+export type TupleOf_DecimalAndUint64 = [Decimal, number];
 export type ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128 = [string, [string, Uint128]][];
 export type ResponseHookMsg =
   | {
@@ -264,7 +263,7 @@ export interface DropCoreSchema {
   responses:
     | Config
     | ContractState
-    | Decimal1
+    | TupleOf_DecimalAndUint64
     | ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128
     | ResponseHookMsg
     | ArrayOfNonNativeRewardsItem
@@ -458,7 +457,7 @@ export class Client {
   queryOwner = async(): Promise<String> => {
     return this.client.queryContractSmart(this.contractAddress, { owner: {} });
   }
-  queryExchangeRate = async(): Promise<Decimal> => {
+  queryExchangeRate = async(): Promise<TupleOf_DecimalAnd_uint64> => {
     return this.client.queryContractSmart(this.contractAddress, { exchange_rate: {} });
   }
   queryUnbondBatch = async(args: UnbondBatchArgs): Promise<UnbondBatch> => {
