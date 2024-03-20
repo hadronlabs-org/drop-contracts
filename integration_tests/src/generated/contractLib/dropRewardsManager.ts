@@ -2,7 +2,7 @@ import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
 export interface InstantiateMsg {
-  core_address: string;
+  owner: string;
 }
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
@@ -19,14 +19,24 @@ export interface InstantiateMsg {
  */
 export type Uint128 = string;
 export type ArrayOfHandlerConfig = HandlerConfig[];
+/**
+ * Information about if the contract is currently paused.
+ */
+export type PauseInfoResponse =
+  | {
+      paused: {};
+    }
+  | {
+      unpaused: {};
+    };
 
 export interface DropRewardsManagerSchema {
-  responses: ConfigResponse | ArrayOfHandlerConfig;
+  responses: ConfigResponse | ArrayOfHandlerConfig | PauseInfoResponse;
   execute: UpdateConfigArgs | AddHandlerArgs | RemoveHandlerArgs;
   [k: string]: unknown;
 }
 export interface ConfigResponse {
-  core_address: string;
+  owner: string;
 }
 export interface HandlerConfig {
   address: string;
@@ -34,7 +44,7 @@ export interface HandlerConfig {
   min_rewards: Uint128;
 }
 export interface UpdateConfigArgs {
-  core_address?: string | null;
+  owner?: string | null;
 }
 export interface AddHandlerArgs {
   config: HandlerConfig;
@@ -80,6 +90,9 @@ export class Client {
   queryHandlers = async(): Promise<ArrayOfHandlerConfig> => {
     return this.client.queryContractSmart(this.contractAddress, { handlers: {} });
   }
+  queryPauseInfo = async(): Promise<PauseInfoResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
+  }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
@@ -95,5 +108,13 @@ export class Client {
   exchangeRewards = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { exchange_rewards: {} }, fee || "auto", memo, funds);
+  }
+  pause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { pause: {} }, fee || "auto", memo, funds);
+  }
+  unpause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { unpause: {} }, fee || "auto", memo, funds);
   }
 }

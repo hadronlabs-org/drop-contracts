@@ -26,6 +26,7 @@ library = []
 neutron-sdk         = { workspace = true }
 cosmwasm-schema     = { workspace = true }
 cosmwasm-std        = { workspace = true }
+cw-ownable          = { workspace = true }
 cw2                 = { workspace = true }
 cw721               = { workspace = true }
 drop-staking-base   = { workspace = true }

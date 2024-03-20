@@ -1,6 +1,11 @@
-import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
-import { StdFee } from "@cosmjs/amino";
-import { Coin } from "@cosmjs/amino";
+import {
+  CosmWasmClient,
+  SigningCosmWasmClient,
+  ExecuteResult,
+  InstantiateResult,
+} from '@cosmjs/cosmwasm-stargate';
+import { StdFee } from '@cosmjs/amino';
+import { Coin } from '@cosmjs/amino';
 export interface InstantiateMsg {
   code_ids: CodeIds;
   remote_opts: RemoteOpts;
@@ -57,6 +62,16 @@ export interface DenomMetadata {
    */
   uri_hash?: string | null;
 }
+/**
+ * Information about if the contract is currently paused.
+ */
+export type PauseInfoResponse1 =
+  | {
+      paused: {};
+    }
+  | {
+      unpaused: {};
+    };
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -118,11 +133,18 @@ export type ValidatorSetMsg =
         validator: ValidatorData;
       };
     };
-export type CoreMsg = {
-  update_non_native_rewards_receivers: {
-    items: NonNativeRewardsItem[];
-  };
-};
+export type CoreMsg =
+  | {
+      update_non_native_rewards_receivers: {
+        items: NonNativeRewardsItem[];
+      };
+    }
+  | {
+      pause: {};
+    }
+  | {
+      unpause: {};
+    };
 /**
  * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
  *
@@ -139,8 +161,8 @@ export type UpdateOwnershipArgs =
         new_owner: string;
       };
     }
-  | "accept_ownership"
-  | "renounce_ownership";
+  | 'accept_ownership'
+  | 'renounce_ownership';
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -180,9 +202,19 @@ export type Timestamp = Uint64;
 export type Uint64 = string;
 
 export interface DropFactorySchema {
-  responses: State;
-  execute: InitArgs | CallbackArgs | UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
+  responses: PauseInfoResponse | State;
+  execute:
+    | InitArgs
+    | CallbackArgs
+    | UpdateConfigArgs
+    | ProxyArgs
+    | AdminExecuteArgs;
   [k: string]: unknown;
+}
+export interface PauseInfoResponse {
+  core: PauseInfoResponse1;
+  rewards_manager: PauseInfoResponse1;
+  withdrawal_manager: PauseInfoResponse1;
 }
 export interface State {
   core_contract: string;
@@ -261,9 +293,8 @@ export interface AdminExecuteArgs {
   msg: Binary;
 }
 
-
 function isSigningCosmWasmClient(
-  client: CosmWasmClient | SigningCosmWasmClient
+  client: CosmWasmClient | SigningCosmWasmClient,
 ): client is SigningCosmWasmClient {
   return 'execute' in client;
 }
@@ -271,12 +302,15 @@ function isSigningCosmWasmClient(
 export class Client {
   private readonly client: CosmWasmClient | SigningCosmWasmClient;
   contractAddress: string;
-  constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string) {
+  constructor(
+    client: CosmWasmClient | SigningCosmWasmClient,
+    contractAddress: string,
+  ) {
     this.client = client;
     this.contractAddress = contractAddress;
   }
   mustBeSigningClient() {
-    return new Error("This client is not a SigningCosmWasmClient");
+    return new Error('This client is not a SigningCosmWasmClient');
   }
   static async instantiate(
     client: SigningCosmWasmClient,
@@ -292,31 +326,139 @@ export class Client {
     });
     return res;
   }
-  queryState = async(): Promise<State> => {
-    return this.client.queryContractSmart(this.contractAddress, { state: {} });
-  }
-  init = async(sender:string, args: InitArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { init: args }, fee || "auto", memo, funds);
-  }
-  callback = async(sender:string, args: CallbackArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { callback: args }, fee || "auto", memo, funds);
-  }
-  updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
-  }
-  proxy = async(sender:string, args: ProxyArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { proxy: args }, fee || "auto", memo, funds);
-  }
-  adminExecute = async(sender:string, args: AdminExecuteArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { admin_execute: args }, fee || "auto", memo, funds);
-  }
-  updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
-  }
+  queryState = async (): Promise<State> =>
+    this.client.queryContractSmart(this.contractAddress, { state: {} });
+  queryPauseInfo = async (): Promise<PauseInfoResponse> =>
+    this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
+  init = async (
+    sender: string,
+    args: InitArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { init: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  callback = async (
+    sender: string,
+    args: CallbackArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { callback: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  updateConfig = async (
+    sender: string,
+    args: UpdateConfigArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { update_config: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  proxy = async (
+    sender: string,
+    args: ProxyArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { proxy: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  adminExecute = async (
+    sender: string,
+    args: AdminExecuteArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { admin_execute: args },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  pause = async (
+    sender: string,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { pause: {} },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  unpause = async (
+    sender: string,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      { unpause: {} },
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
 }

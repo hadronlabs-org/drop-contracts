@@ -122,6 +122,16 @@ export type QueryExtMsg =
   | {
       unbonding_delegations: {};
     };
+/**
+ * A human readable address.
+ *
+ * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
+ *
+ * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
+ *
+ * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
+ */
+export type Addr = string;
 
 export interface DropPuppeteerSchema {
   responses: ConfigResponse | Binary | IcaState | ArrayOfTransaction;
@@ -138,7 +148,8 @@ export interface DropPuppeteerSchema {
     | RedeemSharesArgs
     | IBCTransferArgs
     | TransferArgs
-    | ClaimRewardsAndOptionalyTransferArgs;
+    | ClaimRewardsAndOptionalyTransferArgs
+    | UpdateConfigArgs;
   [k: string]: unknown;
 }
 export interface ConfigResponse {
@@ -224,6 +235,19 @@ export interface ClaimRewardsAndOptionalyTransferArgs {
   timeout?: number | null;
   transfer?: TransferReadyBatchesMsg | null;
   validators: string[];
+}
+export interface UpdateConfigArgs {
+  new_config: ConfigOptional;
+}
+export interface ConfigOptional {
+  allowed_senders?: Addr[] | null;
+  connection_id?: string | null;
+  owner?: Addr | null;
+  port_id?: string | null;
+  proxy_address?: Addr | null;
+  remote_denom?: string | null;
+  transfer_channel_id?: string | null;
+  update_period?: number | null;
 }
 
 
@@ -324,5 +348,9 @@ export class Client {
   claimRewardsAndOptionalyTransfer = async(sender:string, args: ClaimRewardsAndOptionalyTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { claim_rewards_and_optionaly_transfer: args }, fee || "auto", memo, funds);
+  }
+  updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
   }
 }

@@ -15,8 +15,8 @@ use cosmos_sdk_proto::cosmos::{
     staking::v1beta1::{MsgDelegate, MsgUndelegate},
 };
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, to_json_binary, Addr, CosmosMsg, Deps, Order, Reply, StdError,
-    SubMsg, Timestamp, Uint128, WasmMsg,
+    attr, ensure_eq, entry_point, to_json_binary, Addr, Attribute, CosmosMsg, Deps, Order, Reply,
+    StdError, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
@@ -43,7 +43,9 @@ use drop_staking_base::{
     msg::puppeteer::{
         BalancesAndDelegations, ExecuteMsg, FeesResponse, InstantiateMsg, MigrateMsg, QueryExtMsg,
     },
-    state::puppeteer::{Config, KVQueryType, DELEGATIONS_AND_BALANCE, NON_NATIVE_REWARD_BALANCES},
+    state::puppeteer::{
+        Config, ConfigOptional, KVQueryType, DELEGATIONS_AND_BALANCE, NON_NATIVE_REWARD_BALANCES,
+    },
 };
 use neutron_sdk::interchain_queries::v045::new_register_delegator_unbonding_delegations_query_msg;
 use neutron_sdk::{
@@ -74,6 +76,7 @@ pub fn instantiate(
 ) -> NeutronResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let owner = deps.api.addr_validate(&msg.owner)?;
+
     let allowed_senders = msg
         .allowed_senders
         .iter()
@@ -229,8 +232,65 @@ pub fn execute(
             timeout,
             reply_to,
         } => execute_transfer(deps, info, items, timeout, reply_to),
+        ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
         _ => puppeteer_base.execute(deps, env, info, msg.to_base_enum()),
     }
+}
+
+fn execute_update_config(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    new_config: ConfigOptional,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    let puppeteer_base = Puppeteer::default();
+    let mut config = puppeteer_base.config.load(deps.storage)?;
+
+    let mut attrs: Vec<Attribute> = Vec::new();
+    if let Some(owner) = new_config.owner {
+        config.owner = owner.clone();
+        attrs.push(attr("owner", owner))
+    }
+
+    if let Some(proxy_address) = new_config.proxy_address {
+        config.proxy_address = Some(proxy_address.clone());
+        attrs.push(attr("proxy_address", proxy_address))
+    }
+
+    if let Some(remote_denom) = new_config.remote_denom {
+        config.remote_denom = remote_denom.clone();
+        attrs.push(attr("remote_denom", remote_denom))
+    }
+
+    if let Some(connection_id) = new_config.connection_id {
+        config.connection_id = connection_id.clone();
+        attrs.push(attr("connection_id", connection_id))
+    }
+
+    if let Some(port_id) = new_config.port_id {
+        config.port_id = port_id.clone();
+        attrs.push(attr("port_id", port_id))
+    }
+
+    if let Some(update_period) = new_config.update_period {
+        config.update_period = update_period;
+        attrs.push(attr("update_period", update_period.to_string()))
+    }
+
+    if let Some(allowed_senders) = new_config.allowed_senders {
+        config.allowed_senders = allowed_senders.clone();
+        attrs.push(attr("allowed_senders", allowed_senders.len().to_string()))
+    }
+
+    if let Some(transfer_channel_id) = new_config.transfer_channel_id {
+        config.transfer_channel_id = transfer_channel_id.clone();
+        attrs.push(attr("transfer_channel_id", transfer_channel_id.to_string()))
+    }
+
+    puppeteer_base.update_config(deps.into_empty(), &config)?;
+
+    Ok(response("config_update", CONTRACT_NAME, attrs))
 }
 
 fn execute_ibc_transfer(
@@ -302,7 +362,7 @@ fn register_non_native_rewards_balances_query(
     ));
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.storage)?;
-    ensure_eq!(config.owner, info.sender, ContractError::Unauthorized {});
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let kv_queries = puppeteer_base
         .kv_queries
         .range(deps.storage, None, None, Order::Ascending)
@@ -346,7 +406,7 @@ fn register_balance_delegations_query(
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.storage)?;
-    ensure_eq!(config.owner, info.sender, ContractError::Unauthorized {});
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let kv_queries = puppeteer_base
         .kv_queries
         .range(deps.storage, None, None, Order::Ascending)
@@ -390,7 +450,7 @@ fn register_unbonding_delegations_query(
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.storage)?;
-    ensure_eq!(config.owner, info.sender, ContractError::Unauthorized {});
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     cosmwasm_std::ensure!(
         validators.len() < u16::MAX as usize,

@@ -22,6 +22,7 @@ members = [
     "contracts/auto-withdrawer",
     "packages/base",
     "packages/helpers",
+    "packages/macros",
 ]
 
 [workspace.dependencies]
@@ -55,6 +56,7 @@ astroport = { version = "3.6.1", default-features = false }
 drop-puppeteer-base = { path = "./packages/puppeteer-base", default-features = false }
 drop-staking-base = { path = "./packages/base", default-features = false }
 drop-helpers = { path = "./packages/helpers", default-features = false }
+drop-macros = { path = "./packages/macros", default-features = false }
 
 [profile.release]
 opt-level = 3

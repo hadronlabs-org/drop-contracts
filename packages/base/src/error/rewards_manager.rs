@@ -1,5 +1,6 @@
 use cosmwasm_std::StdError;
 use cw_ownable::OwnershipError;
+use drop_helpers::pause::PauseError;
 use neutron_sdk::NeutronError;
 use thiserror::Error;
 
@@ -16,6 +17,9 @@ pub enum ContractError {
 
     #[error("unauthorized")]
     Unauthorized,
+
+    #[error(transparent)]
+    PauseError(#[from] PauseError),
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

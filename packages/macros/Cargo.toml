@@ -1,0 +1,19 @@
+[package]
+authors = ["Albert Andrejev <albert.andrejev@gmail.com>"]
+description = "Package for Drop Puppeteer Base"
+edition = "2021"
+name = "drop-macros"
+version = "1.0.0"
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2     = "1.0"
+quote           = "1.0"
+syn             = {version = "1.0", features = ["derive"]}
+cosmwasm-schema = {workspace = true}
+cosmwasm-std    = {workspace = true}
