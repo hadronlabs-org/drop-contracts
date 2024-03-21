@@ -552,7 +552,7 @@ describe('Core', () => {
   it('query exchange rate', async () => {
     const { coreContractClient } = context;
     context.exchangeRate = parseFloat(
-      (await coreContractClient.queryExchangeRate())[0],
+      await coreContractClient.queryExchangeRate(),
     );
     expect(context.exchangeRate).toEqual(1);
   });
@@ -1456,9 +1456,7 @@ describe('Core', () => {
       let exchangeRate = '';
       describe('prepare', () => {
         it('get exchange rate', async () => {
-          exchangeRate = (
-            await context.coreContractClient.queryExchangeRate()
-          )[0];
+          exchangeRate = await context.coreContractClient.queryExchangeRate();
         });
         describe('create LSM shares and send them to neutron', () => {
           it('get balances', async () => {
@@ -1773,9 +1771,8 @@ describe('Core', () => {
           expect(newDelegationsSum - delegationsSum).toEqual(120_000);
         });
         it('verify exchange rate', async () => {
-          const newExchangeRate = (
-            await context.coreContractClient.queryExchangeRate()
-          )[0];
+          const newExchangeRate =
+            await context.coreContractClient.queryExchangeRate();
           expect(parseFloat(newExchangeRate)).toBeGreaterThan(
             parseFloat(exchangeRate),
           );

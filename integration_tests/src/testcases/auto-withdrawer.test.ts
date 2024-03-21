@@ -521,7 +521,7 @@ describe('Auto withdrawer', () => {
   it('query exchange rate', async () => {
     const { coreContractClient } = context;
     context.exchangeRate = parseFloat(
-      (await coreContractClient.queryExchangeRate())[0],
+      await coreContractClient.queryExchangeRate(),
     );
     expect(context.exchangeRate).toEqual(1);
   });
