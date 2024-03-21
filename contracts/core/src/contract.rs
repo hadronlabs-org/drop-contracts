@@ -7,7 +7,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
-use drop_puppeteer_base::msg::TransferReadyBatchMsg;
+use drop_puppeteer_base::msg::{ResponseHookErrorMsg, TransferReadyBatchMsg};
 use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::state::core::{
     unbond_batches_map, Config, ConfigOptional, ContractState, FeeItem, NonNativeRewardsItem,
@@ -553,7 +553,10 @@ fn execute_tick_staking(
     info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let _response_msg = get_received_puppeteer_response(deps.as_ref())?;
+    let response_msg = get_received_puppeteer_response(deps.as_ref())?;
+    if let drop_puppeteer_base::msg::ResponseHookMsg::Error(..) = response_msg {
+        return Err(ContractError::PreviousStakingWasFailed {});
+    }
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut attrs = vec![attr("action", "tick_staking")];
     let mut messages = vec![];
