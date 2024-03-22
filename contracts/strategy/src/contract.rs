@@ -120,7 +120,7 @@ fn prepare_delegation_data(
     let denom = DENOM.load(deps.storage)?;
     let account_delegations: drop_staking_base::msg::puppeteer::DelegationsResponse =
         deps.querier.query_wasm_smart(
-            &puppeteer_address,
+            puppeteer_address,
             &drop_puppeteer_base::msg::QueryMsg::Extention {
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
@@ -128,7 +128,7 @@ fn prepare_delegation_data(
 
     let validator_set: Vec<drop_staking_base::state::validatorset::ValidatorInfo> =
         deps.querier.query_wasm_smart(
-            &validator_set_address,
+            validator_set_address,
             &drop_staking_base::msg::validatorset::QueryMsg::Validators {},
         )?;
 

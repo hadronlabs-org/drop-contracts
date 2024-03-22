@@ -245,8 +245,7 @@ fn compose_msg<T: prost::Message>(
     timeout: Option<u64>,
 ) -> NeutronResult<NeutronMsg> {
     let connection_id = config.connection_id.to_string();
-    let mut buf = Vec::new();
-    buf.reserve(in_msg.encoded_len());
+    let mut buf = Vec::with_capacity(in_msg.encoded_len());
     if let Err(e) = in_msg.encode(&mut buf) {
         return Err(NeutronError::Std(StdError::generic_err(format!(
             "Encode error: {e}"

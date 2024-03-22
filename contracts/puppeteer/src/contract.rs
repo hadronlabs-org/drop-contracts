@@ -255,7 +255,7 @@ fn execute_ibc_transfer(
             reason: "Only one coin is allowed".to_string()
         }
     );
-    let coin = message_funds.get(0).ok_or(ContractError::InvalidFunds {
+    let coin = message_funds.first().ok_or(ContractError::InvalidFunds {
         reason: "No funds".to_string(),
     })?;
     let ica_address = puppeteer_base.ica.get_address(deps.storage)?;
@@ -761,8 +761,7 @@ fn execute_redeem_shares(
 }
 
 fn prepare_any_msg<T: prost::Message>(msg: T, type_url: &str) -> NeutronResult<ProtobufAny> {
-    let mut buf = Vec::new();
-    buf.reserve(msg.encoded_len());
+    let mut buf = Vec::with_capacity(msg.encoded_len());
 
     if let Err(e) = msg.encode(&mut buf) {
         return Err(NeutronError::Std(StdError::generic_err(format!(
