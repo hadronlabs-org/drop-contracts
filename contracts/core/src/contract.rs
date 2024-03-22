@@ -12,7 +12,7 @@ use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::state::core::{
     unbond_batches_map, Config, ConfigOptional, ContractState, FeeItem, NonNativeRewardsItem,
     UnbondBatch, UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, COLLECTED_FEES, CONFIG,
-    FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_PUPPETEER_RESPONSE,
+    EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_PUPPETEER_RESPONSE,
     LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, PENDING_TRANSFER,
     PRE_UNBONDING_BALANCE, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
 };
@@ -107,6 +107,13 @@ fn query_exchange_rate(
     env: Env,
     current_stake: Option<Uint128>,
 ) -> ContractResult<Decimal> {
+    let fsm_state = FSM.get_current_state(deps.storage)?;
+    if fsm_state != ContractState::Idle {
+        return Ok(EXCHANGE_RATE
+            .load(deps.storage)
+            .unwrap_or((Decimal::one(), 0))
+            .0);
+    }
     let config = CONFIG.load(deps.storage)?;
     let ld_denom = config.ld_denom.ok_or(ContractError::LDDenomIsNotSet {})?;
     let ld_total_supply: cosmwasm_std::SupplyResponse = deps
@@ -152,28 +159,24 @@ fn query_exchange_rate(
         .querier
         .query_balance(env.contract.address.to_string(), config.base_denom)?
         .amount;
-    let extra_amount = match FSM.get_current_state(deps.storage)? {
-        ContractState::Transfering => PENDING_TRANSFER.load(deps.storage),
-        ContractState::Staking => {
-            // FIXME: this ICA balance should be fresh in order to guarantee correct
-            //        exchange rate calculation
-            let (ica_balance, _, _) = get_ica_balance_by_denom(
-                deps,
-                &config.puppeteer_contract,
-                &config.remote_denom,
-                false,
-            )?;
-            Ok(ica_balance)
-        }
-        _ => Ok(Uint128::zero()),
-    }?;
     let total_lsm_shares = Uint128::new(TOTAL_LSM_SHARES.load(deps.storage)?);
-    Ok(Decimal::from_ratio(
-        delegations_amount + core_balance + extra_amount + total_lsm_shares
+    let exchange_rate = Decimal::from_ratio(
+        delegations_amount + core_balance + total_lsm_shares
             - current_stake.unwrap_or(Uint128::zero())
             - unprocessed_unbonded_amount,
         ld_total_amount,
-    )) // arithmetic operations order is important here as we don't want to overflow
+    );
+    Ok(exchange_rate) // arithmetic operations order is important here as we don't want to overflow
+}
+
+fn cache_exchange_rate(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    current_stake: Option<Uint128>,
+) -> ContractResult<()> {
+    let exchange_rate = query_exchange_rate(deps.as_ref(), env.clone(), current_stake)?;
+    EXCHANGE_RATE.save(deps.storage, &(exchange_rate, env.block.height))?;
+    Ok(())
 }
 
 fn query_unbond_batch(deps: Deps<NeutronQuery>, batch_id: Uint128) -> StdResult<Binary> {
@@ -329,7 +332,7 @@ fn execute_tick_idle(
     let mut attrs = vec![attr("action", "tick_idle")];
     let last_idle_call = LAST_IDLE_CALL.load(deps.storage)?;
     let mut messages = vec![];
-
+    cache_exchange_rate(deps.branch(), env.clone(), None)?;
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
         //process non-native rewards
         if let Some(transfer_msg) =
