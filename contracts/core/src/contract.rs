@@ -313,7 +313,7 @@ fn execute_puppeteer_hook(
                 // IBC transfer for LSM shares and pending stake
                 FSM.go_to(deps.storage, ContractState::Idle)?
             }
-            drop_puppeteer_base::msg::Transaction::IBCTransfer { reason, .. } => { 
+            drop_puppeteer_base::msg::Transaction::IBCTransfer { reason, .. } => {
                 if reason == IBCTransferReason::LSMShare {
                     FSM.go_to(deps.storage, ContractState::Idle)?;
                 }
