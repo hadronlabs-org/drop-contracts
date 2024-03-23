@@ -199,6 +199,7 @@ describe('Interchain puppeteer', () => {
       port_id: 'transfer',
       update_period: 10,
       remote_denom: 'stake',
+      sdk_version: '0.46.0',
       owner: account.address,
       allowed_senders: [context.hookContractClient.contractAddress],
       proxy_address: null,
