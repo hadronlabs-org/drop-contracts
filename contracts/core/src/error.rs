@@ -72,6 +72,8 @@ pub enum ContractError {
     },
     #[error("Bond limit exceeded")]
     BondLimitExceeded {},
+    #[error("Previous staking was failed")]
+    PreviousStakingWasFailed {},
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

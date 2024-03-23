@@ -9,7 +9,7 @@ use cosmos_sdk_proto::cosmos::{
     staking::v1beta1::{Delegation, Params, Validator as CosmosValidator},
 };
 use drop_puppeteer_base::{
-    msg::{ExecuteMsg as BaseExecuteMsg, TransferReadyBatchMsg},
+    msg::{ExecuteMsg as BaseExecuteMsg, IBCTransferReason, TransferReadyBatchMsg},
     r#trait::PuppeteerReconstruct,
     state::RedeemShareItem,
 };
@@ -87,6 +87,7 @@ pub enum ExecuteMsg {
     },
     IBCTransfer {
         timeout: u64,
+        reason: IBCTransferReason,
         reply_to: String,
     },
     Transfer {

@@ -30,8 +30,8 @@ use drop_helpers::{
 use drop_puppeteer_base::{
     error::{ContractError, ContractResult},
     msg::{
-        QueryMsg, ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg, ResponseHookMsg,
-        ResponseHookSuccessMsg, Transaction, TransferReadyBatchMsg,
+        IBCTransferReason, QueryMsg, ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg,
+        ResponseHookMsg, ResponseHookSuccessMsg, Transaction, TransferReadyBatchMsg,
     },
     proto::MsgIBCTransfer,
     state::{
@@ -219,9 +219,11 @@ pub fn execute(
         ExecuteMsg::RegisterNonNativeRewardsBalancesQuery { denoms } => {
             register_non_native_rewards_balances_query(deps, info, denoms)
         }
-        ExecuteMsg::IBCTransfer { timeout, reply_to } => {
-            execute_ibc_transfer(deps, env, info, timeout, reply_to)
-        }
+        ExecuteMsg::IBCTransfer {
+            timeout,
+            reply_to,
+            reason,
+        } => execute_ibc_transfer(deps, env, info, reason, timeout, reply_to),
         ExecuteMsg::Transfer {
             items,
             timeout,
@@ -235,6 +237,7 @@ fn execute_ibc_transfer(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
+    reason: IBCTransferReason,
     timeout: u64,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
@@ -279,6 +282,7 @@ fn execute_ibc_transfer(
         Transaction::IBCTransfer {
             denom: coin.denom.to_string(),
             amount: coin.amount.into(),
+            reason,
             recipient: ica_address,
         },
         reply_to,
