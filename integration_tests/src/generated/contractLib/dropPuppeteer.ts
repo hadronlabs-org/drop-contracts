@@ -246,6 +246,7 @@ export interface ConfigOptional {
   port_id?: string | null;
   proxy_address?: Addr | null;
   remote_denom?: string | null;
+  sdk_version?: string | null;
   transfer_channel_id?: string | null;
   update_period?: number | null;
 }

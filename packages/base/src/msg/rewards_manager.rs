@@ -1,4 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+#[allow(unused_imports)]
 use drop_helpers::pause::PauseInfoResponse;
 use drop_macros::{pausable, pausable_query};
 

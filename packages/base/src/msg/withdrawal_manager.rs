@@ -1,5 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cw721::Cw721ReceiveMsg;
+#[allow(unused_imports)]
 use drop_helpers::pause::PauseInfoResponse;
 use drop_macros::{pausable, pausable_query};
 

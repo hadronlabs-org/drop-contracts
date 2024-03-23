@@ -2,6 +2,7 @@ use crate::state::core::{Config, ConfigOptional, NonNativeRewardsItem};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Decimal, Uint128};
 use cw_ownable::cw_ownable_execute;
+#[allow(unused_imports)]
 use drop_helpers::pause::PauseInfoResponse;
 use drop_macros::{pausable, pausable_query};
 use drop_puppeteer_base::msg::ResponseHookMsg;
