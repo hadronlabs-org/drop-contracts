@@ -50,6 +50,9 @@ pub enum ContractError {
     #[error("Pump address is not set")]
     PumpAddressIsNotSet {},
 
+    #[error("Emergency address is not set")]
+    EmergencyAddressIsNotSet {},
+
     #[error("InvalidTransaction")]
     InvalidTransaction {},
 

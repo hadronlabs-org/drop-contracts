@@ -72,7 +72,7 @@ export type Transaction =
       claim_rewards_and_optionaly_transfer: {
         denom: string;
         interchain_account_id: string;
-        transfer?: TransferReadyBatchMsg | null;
+        transfer?: TransferReadyBatchesMsg | null;
         validators: string[];
       };
     }
@@ -80,6 +80,7 @@ export type Transaction =
       i_b_c_transfer: {
         amount: number;
         denom: string;
+        reason: IBCTransferReason;
         recipient: string;
       };
     }
@@ -103,6 +104,7 @@ export type Transaction =
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
+export type IBCTransferReason = "l_s_m_share" | "stake";
 export type ArrayOfTransaction = Transaction[];
 export type QueryExtMsg =
   | {
@@ -149,9 +151,10 @@ export interface RedeemShareItem {
   local_denom: string;
   remote_denom: string;
 }
-export interface TransferReadyBatchMsg {
+export interface TransferReadyBatchesMsg {
   amount: Uint128;
-  batch_id: number;
+  batch_ids: number[];
+  emergency: boolean;
   recipient: string;
 }
 export interface Coin {
@@ -207,6 +210,7 @@ export interface RedeemSharesArgs {
   timeout?: number | null;
 }
 export interface IBCTransferArgs {
+  reason: IBCTransferReason;
   reply_to: string;
   timeout: number;
 }
@@ -218,7 +222,7 @@ export interface TransferArgs {
 export interface ClaimRewardsAndOptionalyTransferArgs {
   reply_to: string;
   timeout?: number | null;
-  transfer?: TransferReadyBatchMsg | null;
+  transfer?: TransferReadyBatchesMsg | null;
   validators: string[];
 }
 

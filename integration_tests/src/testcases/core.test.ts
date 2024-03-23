@@ -413,6 +413,7 @@ describe('Core', () => {
         channel: 'channel-0',
         lsm_redeem_threshold: 2,
         bond_limit: '100000',
+        min_stake_amount: '2',
       },
     });
     expect(res.transactionHash).toHaveLength(64);

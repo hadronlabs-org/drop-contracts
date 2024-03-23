@@ -31,7 +31,7 @@ use drop_puppeteer_base::{
     error::{ContractError, ContractResult},
     msg::{
         IBCTransferReason, QueryMsg, ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg,
-        ResponseHookMsg, ResponseHookSuccessMsg, Transaction, TransferReadyBatchMsg,
+        ResponseHookMsg, ResponseHookSuccessMsg, Transaction, TransferReadyBatchesMsg,
     },
     proto::MsgIBCTransfer,
     state::{
@@ -530,7 +530,7 @@ fn execute_claim_rewards_and_optionaly_transfer(
     mut deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
     validators: Vec<String>,
-    transfer: Option<TransferReadyBatchMsg>,
+    transfer: Option<TransferReadyBatchesMsg>,
     timeout: Option<u64>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {

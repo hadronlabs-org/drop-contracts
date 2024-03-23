@@ -441,6 +441,8 @@ fn execute_init(
                 owner: env.contract.address.to_string(),
                 fee: None,
                 fee_address: None,
+                emergency_address: None,
+                min_stake_amount: core_params.min_stake_amount,
             })?,
             funds: vec![],
             salt: Binary::from(salt),

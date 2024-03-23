@@ -98,7 +98,7 @@ export type Transaction =
       claim_rewards_and_optionaly_transfer: {
         denom: string;
         interchain_account_id: string;
-        transfer?: TransferReadyBatchMsg | null;
+        transfer?: TransferReadyBatchesMsg | null;
         validators: string[];
       };
     }
@@ -106,6 +106,7 @@ export type Transaction =
       i_b_c_transfer: {
         amount: number;
         denom: string;
+        reason: IBCTransferReason;
         recipient: string;
       };
     }
@@ -115,6 +116,7 @@ export type Transaction =
         items: [string, Coin][];
       };
     };
+export type IBCTransferReason = "l_s_m_share" | "stake";
 export type ArrayOfResponseHookSuccessMsg = ResponseHookSuccessMsg[];
 export type ArrayOfResponseHookErrorMsg = ResponseHookErrorMsg[];
 export type PuppeteerHookArgs =
@@ -191,9 +193,10 @@ export interface RedeemShareItem {
   local_denom: string;
   remote_denom: string;
 }
-export interface TransferReadyBatchMsg {
+export interface TransferReadyBatchesMsg {
   amount: Uint128;
-  batch_id: number;
+  batch_ids: number[];
+  emergency: boolean;
   recipient: string;
 }
 export interface ResponseHookErrorMsg {

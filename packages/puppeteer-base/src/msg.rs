@@ -54,8 +54,9 @@ where
 }
 
 #[cw_serde]
-pub struct TransferReadyBatchMsg {
-    pub batch_id: u128,
+pub struct TransferReadyBatchesMsg {
+    pub batch_ids: Vec<u128>,
+    pub emergency: bool,
     pub amount: Uint128,
     pub recipient: String,
 }
@@ -137,7 +138,7 @@ pub enum Transaction {
         interchain_account_id: String,
         validators: Vec<String>,
         denom: String,
-        transfer: Option<TransferReadyBatchMsg>,
+        transfer: Option<TransferReadyBatchesMsg>,
     },
     IBCTransfer {
         denom: String,

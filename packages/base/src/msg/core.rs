@@ -26,6 +26,8 @@ pub struct InstantiateMsg {
     pub owner: String,
     pub fee: Option<Decimal>,
     pub fee_address: Option<String>,
+    pub emergency_address: Option<String>,
+    pub min_stake_amount: Uint128,
 }
 
 #[cw_serde]
@@ -89,9 +91,15 @@ impl From<InstantiateMsg> for Config {
             lsm_redeem_threshold: val.lsm_redeem_threshold,
             validators_set_contract: val.validators_set_contract,
             unbond_batch_switch_time: val.unbond_batch_switch_time,
-            bond_limit: val.bond_limit,
+            bond_limit: match val.bond_limit {
+                None => None,
+                Some(limit) if limit.is_zero() => None,
+                Some(limit) => Some(limit),
+            },
             fee: val.fee,
             fee_address: val.fee_address,
+            emergency_address: val.emergency_address,
+            min_stake_amount: val.min_stake_amount,
         }
     }
 }
