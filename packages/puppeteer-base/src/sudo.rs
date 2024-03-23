@@ -1,5 +1,6 @@
 use crate::{
     msg::OpenAckVersion,
+    r#trait::PuppeteerReconstruct,
     state::{BaseConfig, PuppeteerBase, Transfer},
 };
 use cosmos_sdk_proto::cosmos::{
@@ -14,7 +15,8 @@ use neutron_sdk::{
         types::Height,
     },
     interchain_queries::{
-        get_registered_query, query_kv_result,
+        get_registered_query,
+        queries::get_raw_interchain_query_result,
         types::QueryType,
         v045::{queries::query_unbonding_delegations, types::COSMOS_SDK_TRANSFER_MSG_URL},
     },
@@ -92,19 +94,23 @@ where
     }
 
     pub fn sudo_kv_query_result<
-        X: neutron_sdk::interchain_queries::types::KVReconstruct
-            + std::fmt::Debug
-            + Serialize
-            + Clone
-            + DeserializeOwned,
+        X: PuppeteerReconstruct + std::fmt::Debug + Serialize + Clone + DeserializeOwned,
     >(
         &self,
         deps: DepsMut<NeutronQuery>,
         env: Env,
         query_id: u64,
+        version: &str,
         storage: cw_storage_plus::Item<'a, (X, u64, Timestamp)>,
     ) -> NeutronResult<Response> {
-        let data = query_kv_result(deps.as_ref(), query_id)?;
+        let registered_query_result = get_raw_interchain_query_result(deps.as_ref(), query_id)?;
+        deps.api.debug(&format!(
+            "WASMDEBUG: sudo_kv_query_result: registered_query_result: {:?}",
+            registered_query_result
+        ));
+        let data =
+            PuppeteerReconstruct::reconstruct(&registered_query_result.result.kv_results, version)?;
+
         let height = env.block.height;
         let timestamp = env.block.time;
         storage.save(deps.storage, &(data, height, timestamp))?;

@@ -6,6 +6,7 @@ export interface InstantiateMsg {
   owner: string;
   port_id: string;
   remote_denom: string;
+  sdk_version: string;
   transfer_channel_id: string;
   update_period: number;
 }

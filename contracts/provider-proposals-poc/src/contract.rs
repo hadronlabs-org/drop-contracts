@@ -22,7 +22,7 @@ use neutron_sdk::bindings::query::{NeutronQuery, QueryRegisteredQueryResultRespo
 use neutron_sdk::interchain_queries::queries::get_raw_interchain_query_result;
 use neutron_sdk::interchain_queries::types::KVReconstruct;
 use neutron_sdk::interchain_queries::v045::register_queries::{
-    new_register_gov_proposal_query_msg, update_register_gov_proposal_query_msg,
+    new_register_gov_proposals_query_msg, update_gov_proposals_query_msg,
 };
 use neutron_sdk::interchain_queries::v045::types::{GovernmentProposal, Proposal, ProposalVote};
 use neutron_sdk::sudo::msg::SudoMsg;
@@ -64,7 +64,7 @@ pub fn instantiate(
     let initial_proposals: Vec<u64> =
         (msg.init_proposal..msg.init_proposal + msg.proposals_prefetch).collect();
 
-    let reg_msg = new_register_gov_proposal_query_msg(
+    let reg_msg = new_register_gov_proposals_query_msg(
         msg.connection_id.to_string(),
         initial_proposals.clone(),
         msg.update_period,
@@ -326,10 +326,9 @@ fn sudo_proposals_query(
                         ..first_proposal.proposal_id + config.proposals_prefetch)
                         .collect();
 
-                    let reg_msg = CosmosMsg::Custom(update_register_gov_proposal_query_msg(
+                    let reg_msg = CosmosMsg::Custom(update_gov_proposals_query_msg(
                         query_id,
                         new_proposals.to_owned(),
-                        None,
                         None,
                     )?);
 

@@ -57,8 +57,8 @@ pub fn instantiate(
             salt: msg.salt.to_string(),
             code_ids: msg.code_ids,
             remote_opts: msg.remote_opts,
-            owner: info.sender.to_string(),
             subdenom: msg.subdenom.to_string(),
+            sdk_version: msg.sdk_version,
             token_metadata: msg.token_metadata,
         },
     )?;
@@ -88,6 +88,14 @@ pub fn execute(
         ExecuteMsg::Callback(msg) => match msg {
             CallbackMsg::PostInit {} => execute_post_init(deps, env, info),
         },
+        ExecuteMsg::UpdateOwnership(action) => {
+            cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
+            Ok(response::<(&str, &str), _>(
+                "execute-update-ownership",
+                CONTRACT_NAME,
+                [],
+            ))
+        }
         ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, env, info, *msg),
         ExecuteMsg::Proxy(msg) => execute_proxy_msg(deps, env, info, msg),
         ExecuteMsg::AdminExecute { addr, msg } => execute_admin_execute(deps, env, info, addr, msg),
@@ -216,16 +224,17 @@ fn get_proxied_message<T: cosmwasm_schema::serde::Serialize>(
 fn execute_init(
     deps: DepsMut,
     env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     base_denom: String,
     core_params: CoreParams,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let canonical_self_address = deps.api.addr_canonicalize(env.contract.address.as_str())?;
     let mut attrs = vec![
         attr("action", "init"),
-        attr("owner", config.owner),
         attr("base_denom", &base_denom),
+        attr("sdk_version", config.sdk_version.to_string()),
     ];
 
     let token_contract_checksum = get_code_checksum(deps.as_ref(), config.code_ids.token_code_id)?;
@@ -388,6 +397,7 @@ fn execute_init(
                 connection_id: config.remote_opts.connection_id.to_string(),
                 port_id: config.remote_opts.port_id.to_string(),
                 transfer_channel_id: config.remote_opts.transfer_channel_id.to_string(),
+                sdk_version: config.sdk_version.to_string(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),

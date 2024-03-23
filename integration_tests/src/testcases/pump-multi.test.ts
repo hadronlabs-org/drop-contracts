@@ -51,11 +51,12 @@ describe('Pump-Multi', () => {
     lsmIBCDenom?: string;
   } = {};
 
-  beforeAll(async () => {
+  beforeAll(async (t) => {
     context.park = await setupPark(
-      'pumpmulti',
+      t,
       ['neutron', 'gaia', 'lsm'],
-      true,
+      {},
+      { hermes: true },
     );
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,

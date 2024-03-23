@@ -30,8 +30,8 @@ use drop_helpers::{
 use drop_puppeteer_base::{
     error::{ContractError, ContractResult},
     msg::{
-        QueryMsg, ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg, ResponseHookMsg,
-        ResponseHookSuccessMsg, Transaction, TransferReadyBatchMsg,
+        IBCTransferReason, QueryMsg, ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg,
+        ResponseHookMsg, ResponseHookSuccessMsg, Transaction, TransferReadyBatchMsg,
     },
     proto::MsgIBCTransfer,
     state::{
@@ -88,6 +88,7 @@ pub fn instantiate(
         allowed_senders,
         proxy_address: None,
         transfer_channel_id: msg.transfer_channel_id,
+        sdk_version: msg.sdk_version,
     };
     DELEGATIONS_AND_BALANCE.save(
         deps.storage,
@@ -218,9 +219,11 @@ pub fn execute(
         ExecuteMsg::RegisterNonNativeRewardsBalancesQuery { denoms } => {
             register_non_native_rewards_balances_query(deps, info, denoms)
         }
-        ExecuteMsg::IBCTransfer { timeout, reply_to } => {
-            execute_ibc_transfer(deps, env, info, timeout, reply_to)
-        }
+        ExecuteMsg::IBCTransfer {
+            timeout,
+            reply_to,
+            reason,
+        } => execute_ibc_transfer(deps, env, info, reason, timeout, reply_to),
         ExecuteMsg::Transfer {
             items,
             timeout,
@@ -234,6 +237,7 @@ fn execute_ibc_transfer(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
+    reason: IBCTransferReason,
     timeout: u64,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
@@ -254,7 +258,7 @@ fn execute_ibc_transfer(
             reason: "Only one coin is allowed".to_string()
         }
     );
-    let coin = message_funds.get(0).ok_or(ContractError::InvalidFunds {
+    let coin = message_funds.first().ok_or(ContractError::InvalidFunds {
         reason: "No funds".to_string(),
     })?;
     let ica_address = puppeteer_base.ica.get_address(deps.storage)?;
@@ -278,6 +282,7 @@ fn execute_ibc_transfer(
         Transaction::IBCTransfer {
             denom: coin.denom.to_string(),
             amount: coin.amount.into(),
+            reason,
             recipient: ica_address,
         },
         reply_to,
@@ -356,6 +361,7 @@ fn register_balance_delegations_query(
                 ica.to_string(),
                 config.remote_denom.to_string(),
                 validators.clone(),
+                config.sdk_version.as_str(),
             )?); //no need to handle reply as nothing to update in the query
         }
     }
@@ -367,6 +373,7 @@ fn register_balance_delegations_query(
                 config.remote_denom.clone(),
                 validators.clone(),
                 config.update_period,
+                config.sdk_version.as_str(),
             )?,
             ReplyMsg::KvDelegationsAndBalance.to_reply_id(),
         ));
@@ -758,8 +765,7 @@ fn execute_redeem_shares(
 }
 
 fn prepare_any_msg<T: prost::Message>(msg: T, type_url: &str) -> NeutronResult<ProtobufAny> {
-    let mut buf = Vec::new();
-    buf.reserve(msg.encoded_len());
+    let mut buf = Vec::with_capacity(msg.encoded_len());
 
     if let Err(e) = msg.encode(&mut buf) {
         return Err(NeutronError::Std(StdError::generic_err(format!(
@@ -820,6 +826,7 @@ pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResul
         } => puppeteer_base.sudo_tx_query_result(deps, env, query_id, height, data),
         SudoMsg::KVQueryResult { query_id } => {
             let query_type = puppeteer_base.kv_queries.load(deps.storage, query_id)?;
+            let config = puppeteer_base.config.load(deps.storage)?;
             deps.api
                 .debug(&format!("WASMDEBUG: KVQueryResult type {:?}", query_type));
             match query_type {
@@ -827,12 +834,14 @@ pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResul
                     deps,
                     env,
                     query_id,
+                    &config.sdk_version,
                     DELEGATIONS_AND_BALANCE,
                 ),
                 KVQueryType::NonNativeRewardsBalances => puppeteer_base.sudo_kv_query_result(
                     deps,
                     env,
                     query_id,
+                    &config.sdk_version,
                     NON_NATIVE_REWARD_BALANCES,
                 ),
                 KVQueryType::UnbondingDelegations => {

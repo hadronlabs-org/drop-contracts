@@ -19,7 +19,7 @@ import fs from 'fs';
 import { stringToPath } from '@cosmjs/crypto';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import { ProposalInfo1 } from '../generated/contractLib/dropProviderProposals';
+import { ProposalInfo1 } from '../generated/contractLib/dropProviderProposalsPoc';
 
 const DropProviderProposalsClass = DropProviderProposalsPoc.Client;
 
@@ -41,12 +41,12 @@ describe('POC Provider Proposals', () => {
     secondValidatorAddress?: string;
   } = {};
 
-  beforeAll(async () => {
+  beforeAll(async (t) => {
     context.park = await setupPark(
-      'providerprops',
+      t,
       ['neutron', 'gaia'],
-      true,
-      true,
+      {},
+      { hermes: true, neutron: true },
     );
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,

@@ -143,9 +143,16 @@ pub enum Transaction {
         denom: String,
         amount: u128,
         recipient: String,
+        reason: IBCTransferReason,
     },
     Transfer {
         interchain_account_id: String,
         items: Vec<(String, cosmwasm_std::Coin)>,
     },
+}
+
+#[cw_serde]
+pub enum IBCTransferReason {
+    LSMShare,
+    Stake,
 }

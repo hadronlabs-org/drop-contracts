@@ -24,8 +24,8 @@ describe('Validator set', () => {
     neutronClient?: InstanceType<typeof NeutronClient>;
   } = {};
 
-  beforeAll(async () => {
-    context.park = await setupPark('validatorset', ['neutron'], false);
+  beforeAll(async (t) => {
+    context.park = await setupPark(t, ['neutron']);
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
       {

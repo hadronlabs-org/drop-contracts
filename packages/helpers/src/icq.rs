@@ -11,9 +11,12 @@ use neutron_sdk::{
             },
             types::{BANK_STORE_KEY, KEY_BOND_DENOM, PARAMS_STORE_KEY, STAKING_STORE_KEY},
         },
+        v047::types::STAKING_PARAMS_KEY,
     },
     NeutronResult,
 };
+
+use crate::version::version_to_u32;
 
 pub fn new_multiple_balances_query_msg(
     connection_id: String,
@@ -42,8 +45,9 @@ pub fn new_delegations_and_balance_query_msg(
     denom: String,
     validators: Vec<String>,
     update_period: u64,
+    sdk_version: &str,
 ) -> NeutronResult<NeutronMsg> {
-    let keys = get_balance_and_delegations_keys(delegator, denom, validators)?;
+    let keys = get_balance_and_delegations_keys(delegator, denom, validators, sdk_version)?;
     NeutronMsg::register_interchain_query(QueryPayload::KV(keys), connection_id, update_period)
 }
 
@@ -52,8 +56,9 @@ pub fn update_balance_and_delegations_query_msg(
     delegator: String,
     denom: String,
     validators: Vec<String>,
+    sdk_version: &str,
 ) -> NeutronResult<NeutronMsg> {
-    let keys = get_balance_and_delegations_keys(delegator, denom, validators)?;
+    let keys = get_balance_and_delegations_keys(delegator, denom, validators, sdk_version)?;
     NeutronMsg::update_interchain_query(query_id, Some(keys), None, None)
 }
 
@@ -77,6 +82,7 @@ pub fn get_balance_and_delegations_keys(
     delegator: String,
     denom: String,
     validators: Vec<String>,
+    sdk_version: &str,
 ) -> NeutronResult<Vec<KVKey>> {
     let delegator_addr = decode_and_convert(&delegator)?;
     let balance_key = create_account_denom_balance_key(&delegator_addr, denom)?;
@@ -93,10 +99,17 @@ pub fn get_balance_and_delegations_keys(
     });
 
     // create KV key to get BondDenom from staking module params
-    keys.push(KVKey {
-        path: PARAMS_STORE_KEY.to_string(),
-        key: Binary(create_params_store_key(STAKING_STORE_KEY, KEY_BOND_DENOM)),
-    });
+    if version_to_u32(sdk_version)? < version_to_u32("0.47.0")? {
+        keys.push(KVKey {
+            path: PARAMS_STORE_KEY.to_string(),
+            key: Binary(create_params_store_key(STAKING_STORE_KEY, KEY_BOND_DENOM)),
+        });
+    } else {
+        keys.push(KVKey {
+            path: STAKING_STORE_KEY.to_string(),
+            key: Binary(vec![STAKING_PARAMS_KEY]),
+        });
+    }
 
     for v in validators {
         let val_addr = decode_and_convert(&v)?;

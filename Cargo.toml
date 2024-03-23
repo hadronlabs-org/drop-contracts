@@ -36,7 +36,7 @@ cw-ownable = { version = "0.5.1", default-features = false }
 prost = { version = "0.12.3", default-features = false }
 prost-types = { version = "0.12.3", default-features = false }
 tendermint-proto = { version = "0.34.0", default-features = false }
-cosmwasm-schema = { version = "1.5.2", default-features = false }
+cosmwasm-schema = { version = "1.5.3", default-features = false }
 cw-storage-plus = { version = "1.2.0", default-features = false }
 cw2 = { version = "1.1.2", default-features = false }
 cw721 = { version = "0.18.0", default-features = false }

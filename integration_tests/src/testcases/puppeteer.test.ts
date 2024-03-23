@@ -44,12 +44,12 @@ describe('Interchain puppeteer', () => {
     tokenizedDenom?: string;
   } = {};
 
-  beforeAll(async () => {
+  beforeAll(async (t) => {
     context.park = await setupPark(
-      'puppeteer',
+      t,
       ['neutron', 'gaia'],
-      true,
-      true,
+      {},
+      { neutron: true, hermes: true },
     );
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
@@ -139,6 +139,7 @@ describe('Interchain puppeteer', () => {
         account.address,
         res.codeId,
         {
+          sdk_version: process.env.SDK_VERSION || '0.46.0',
           connection_id: 'connection-0',
           port_id: 'transfer',
           update_period: 10,
