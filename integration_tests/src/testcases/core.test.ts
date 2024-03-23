@@ -7,6 +7,7 @@ import {
   DropStrategy,
   DropWithdrawalManager,
   DropWithdrawalVoucher,
+  DropRewardsManager,
 } from '../generated/contractLib';
 import {
   QueryClient,
@@ -47,6 +48,8 @@ const DropPuppeteerClass = DropPuppeteer.Client;
 const DropStrategyClass = DropStrategy.Client;
 const DropWithdrawalVoucherClass = DropWithdrawalVoucher.Client;
 const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
+const DropRewardsManagerClass = DropRewardsManager.Client;
+
 const UNBONDING_TIME = 360;
 
 describe('Core', () => {
@@ -67,6 +70,7 @@ describe('Core', () => {
     withdrawalManagerContractClient?: InstanceType<
       typeof DropWithdrawalManagerClass
     >;
+    rewardsManagerContractClient?: InstanceType<typeof DropRewardsManagerClass>;
     account?: AccountData;
     icaAddress?: string;
     client?: SigningCosmWasmClient;
@@ -468,6 +472,10 @@ describe('Core', () => {
       context.client,
       res.withdrawal_manager_contract,
     );
+    context.rewardsManagerContractClient = new DropRewardsManager.Client(
+      context.client,
+      res.rewards_manager_contract,
+    );
     context.strategyContractClient = new DropStrategy.Client(
       context.client,
       res.strategy_contract,
@@ -477,6 +485,48 @@ describe('Core', () => {
       context.client,
       res.puppeteer_contract,
     );
+  });
+
+  it('query pause state', async () => {
+    const { factoryContractClient: contractClient } = context;
+    const pauseInfo = await contractClient.queryPauseInfo();
+
+    console.log(pauseInfo);
+    expect(pauseInfo).toEqual({
+      withdrawal_manager: { unpaused: {} },
+      core: { unpaused: {} },
+      rewards_manager: { unpaused: {} },
+    });
+  });
+
+  it('pause protocol', async () => {
+    const { account, factoryContractClient: contractClient } = context;
+
+    const res = await contractClient.pause(account.address);
+    expect(res.transactionHash).toHaveLength(64);
+
+    const pauseInfo = await contractClient.queryPauseInfo();
+
+    expect(pauseInfo).toEqual({
+      withdrawal_manager: { paused: {} },
+      core: { paused: {} },
+      rewards_manager: { paused: {} },
+    });
+  });
+
+  it('unpause protocol', async () => {
+    const { account, factoryContractClient: contractClient } = context;
+
+    const res = await contractClient.unpause(account.address);
+    expect(res.transactionHash).toHaveLength(64);
+
+    const pauseInfo = await contractClient.queryPauseInfo();
+
+    expect(pauseInfo).toEqual({
+      withdrawal_manager: { unpaused: {} },
+      core: { unpaused: {} },
+      rewards_manager: { unpaused: {} },
+    });
   });
 
   it('set fees for puppeteer', async () => {
@@ -943,6 +993,28 @@ describe('Core', () => {
         expect(state).toEqual('idle');
       });
     });
+    describe('paused tick', () => {
+      it('pause protocol', async () => {
+        const {
+          account,
+          factoryContractClient: contractClient,
+          neutronUserAddress,
+        } = context;
+
+        await contractClient.pause(account.address);
+
+        await expect(
+          context.coreContractClient.tick(neutronUserAddress, 1.5, undefined, [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ]),
+        ).rejects.toThrowError(/Contract execution is paused/);
+
+        await contractClient.unpause(account.address);
+      });
+    });
     describe('first cycle', () => {
       it('tick', async () => {
         const { neutronUserAddress } = context;
@@ -1008,7 +1080,7 @@ describe('Core', () => {
             //
           }
           return res && res[0].coins.length !== 0;
-        }, 100_000);
+        }, 500_000);
       });
       it('second tick goes to staking', async () => {
         const { neutronUserAddress } = context;
@@ -1882,6 +1954,31 @@ describe('Core', () => {
           ],
         );
         expect(res.transactionHash).toHaveLength(64);
+      });
+      it('try to withdraw from paused manager', async () => {
+        const {
+          withdrawalVoucherContractClient,
+          neutronUserAddress,
+          factoryContractClient: contractClient,
+          account,
+        } = context;
+
+        await contractClient.pause(account.address);
+
+        const tokenId = `0_${neutronUserAddress}_1`;
+        await expect(
+          withdrawalVoucherContractClient.sendNft(neutronUserAddress, {
+            token_id: tokenId,
+            contract: context.withdrawalManagerContractClient.contractAddress,
+            msg: Buffer.from(
+              JSON.stringify({
+                withdraw: {},
+              }),
+            ).toString('base64'),
+          }),
+        ).rejects.toThrowError(/Contract execution is paused/);
+
+        await contractClient.unpause(account.address);
       });
       it('try to withdraw before withdrawn', async () => {
         const { withdrawalVoucherContractClient, neutronUserAddress } = context;

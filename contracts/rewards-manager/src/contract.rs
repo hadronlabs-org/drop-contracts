@@ -2,11 +2,12 @@ use cosmwasm_std::{attr, entry_point, to_json_binary, Attribute, CosmosMsg, Deps
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
+use drop_helpers::pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse};
 use drop_staking_base::error::rewards_manager::ContractResult;
 use drop_staking_base::msg::rewards_manager::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
-use drop_staking_base::state::rewards_manager::{HandlerConfig, CORE_ADDRESS, REWARDS_HANDLERS};
+use drop_staking_base::state::rewards_manager::{HandlerConfig, REWARDS_HANDLERS};
 
 use drop_staking_base::msg::reward_handler::HandlerExecuteMsg;
 
@@ -21,14 +22,13 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let core = deps.api.addr_validate(&msg.core_address)?;
-    cw_ownable::initialize_owner(deps.storage, deps.api, Some(core.as_ref()))?;
-    CORE_ADDRESS.save(deps.storage, &core)?;
+    let owner = deps.api.addr_validate(&msg.owner)?;
+    cw_ownable::initialize_owner(deps.storage, deps.api, Some(owner.as_ref()))?;
 
     Ok(response(
         "instantiate",
         CONTRACT_NAME,
-        [attr("core_address", msg.core_address)],
+        [attr("owner", msg.owner)],
     ))
 }
 
@@ -37,13 +37,27 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => query_config(deps, env),
         QueryMsg::Handlers {} => query_handlers(deps, env),
+        QueryMsg::PauseInfo {} => query_pause_info(deps),
     }
 }
 
 fn query_config(deps: Deps, _env: Env) -> StdResult<Binary> {
-    let core_address = CORE_ADDRESS.load(deps.storage)?.into_string();
+    let owner = cw_ownable::get_ownership(deps.storage)?;
 
-    to_json_binary(&ConfigResponse { core_address })
+    to_json_binary(&ConfigResponse {
+        owner: owner
+            .owner
+            .map(|addr| addr.into_string())
+            .unwrap_or_default(),
+    })
+}
+
+fn query_pause_info(deps: Deps) -> StdResult<Binary> {
+    if is_paused(deps.storage) {
+        to_json_binary(&PauseInfoResponse::Paused {})
+    } else {
+        to_json_binary(&PauseInfoResponse::Unpaused {})
+    }
 }
 
 fn query_handlers(deps: Deps, _env: Env) -> StdResult<Binary> {
@@ -65,26 +79,51 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response> {
     match msg {
-        ExecuteMsg::UpdateConfig { core_address } => exec_update_config(deps, info, core_address),
+        ExecuteMsg::UpdateConfig { owner } => exec_update_config(deps, info, owner),
         ExecuteMsg::AddHandler { config } => exec_add_handler(deps, info, config),
         ExecuteMsg::RemoveHandler { denom } => exec_remove_handler(deps, info, denom),
         ExecuteMsg::ExchangeRewards {} => exec_exchange_rewards(deps, env, info),
+        ExecuteMsg::Pause {} => exec_pause(deps, info),
+        ExecuteMsg::Unpause {} => exec_unpause(deps, info),
     }
+}
+
+fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    set_pause(deps.storage)?;
+
+    Ok(response(
+        "exec_pause",
+        CONTRACT_NAME,
+        Vec::<Attribute>::new(),
+    ))
+}
+
+fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    unpause(deps.storage)?;
+
+    Ok(response(
+        "exec_unpause",
+        CONTRACT_NAME,
+        Vec::<Attribute>::new(),
+    ))
 }
 
 fn exec_update_config(
     deps: DepsMut,
     info: MessageInfo,
-    core_address: Option<String>,
+    owner: Option<String>,
 ) -> ContractResult<Response> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     let mut attrs: Vec<Attribute> = Vec::new();
-    if let Some(core_address) = core_address {
-        let core_address = deps.api.addr_validate(&core_address)?;
-        CORE_ADDRESS.save(deps.storage, &core_address)?;
-        cw_ownable::initialize_owner(deps.storage, deps.api, Some(core_address.as_ref()))?;
-        attrs.push(attr("core_address", core_address))
+    if let Some(owner) = owner {
+        let owner = deps.api.addr_validate(&owner)?;
+        cw_ownable::initialize_owner(deps.storage, deps.api, Some(owner.as_ref()))?;
+        attrs.push(attr("owner", owner))
     }
 
     Ok(response("config_update", CONTRACT_NAME, attrs))
@@ -127,6 +166,8 @@ fn exec_remove_handler(
 }
 
 fn exec_exchange_rewards(deps: DepsMut, env: Env, _info: MessageInfo) -> ContractResult<Response> {
+    assert_paused(deps.storage)?;
+
     let balances = deps.querier.query_all_balances(env.contract.address)?;
 
     let mut messages: Vec<CosmosMsg> = Vec::new();

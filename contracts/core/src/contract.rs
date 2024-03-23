@@ -7,6 +7,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
+use drop_helpers::pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse};
 use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
 use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::state::core::{
@@ -84,6 +85,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::LastPuppeteerResponse {} => {
             to_json_binary(&LAST_PUPPETEER_RESPONSE.load(deps.storage)?)?
         }
+        QueryMsg::PauseInfo {} => query_pause_info(deps)?,
     })
 }
 
@@ -92,6 +94,14 @@ fn query_pending_lsm_shares(deps: Deps<NeutronQuery>) -> ContractResult<Binary> 
         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
         .collect::<StdResult<Vec<_>>>()?;
     to_json_binary(&shares).map_err(From::from)
+}
+
+fn query_pause_info(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+    if is_paused(deps.storage) {
+        to_json_binary(&PauseInfoResponse::Paused {}).map_err(From::from)
+    } else {
+        to_json_binary(&PauseInfoResponse::Unpaused {}).map_err(From::from)
+    }
 }
 
 fn query_lsm_shares_to_redeem(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
@@ -207,7 +217,39 @@ pub fn execute(
         }
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::PuppeteerHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
+        ExecuteMsg::Pause {} => exec_pause(deps, info),
+        ExecuteMsg::Unpause {} => exec_unpause(deps, info),
     }
+}
+
+fn exec_pause(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    set_pause(deps.storage)?;
+
+    Ok(response(
+        "exec_pause",
+        CONTRACT_NAME,
+        Vec::<Attribute>::new(),
+    ))
+}
+
+fn exec_unpause(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    unpause(deps.storage)?;
+
+    Ok(response(
+        "exec_unpause",
+        CONTRACT_NAME,
+        Vec::<Attribute>::new(),
+    ))
 }
 
 fn execute_reset_bonded_amount(
@@ -340,6 +382,8 @@ fn execute_tick(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
+    assert_paused(deps.storage)?;
+
     let current_state = FSM.get_current_state(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
     match current_state {

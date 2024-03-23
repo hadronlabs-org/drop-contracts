@@ -2,9 +2,11 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Timestamp};
 use cw_storage_plus::Item;
 use drop_puppeteer_base::state::BaseConfig;
+use optfield::optfield;
 
 use crate::msg::puppeteer::{BalancesAndDelegations, MultiBalances};
 
+#[optfield(pub ConfigOptional, attrs)]
 #[cw_serde]
 pub struct Config {
     pub connection_id: String,

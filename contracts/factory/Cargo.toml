@@ -31,5 +31,6 @@ thiserror           = { workspace = true }
 drop-staking-base   = { workspace = true }
 drop-puppeteer-base = { workspace = true }
 drop-helpers        = { workspace = true }
+drop-macros         = { workspace = true }
 neutron-sdk         = { workspace = true }
 cw-ownable          = { workspace = true }

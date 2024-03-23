@@ -1,4 +1,5 @@
 use cosmwasm_std::{OverflowError, StdError};
+use cw_ownable::OwnershipError;
 use neutron_sdk::NeutronError;
 use thiserror::Error;
 
@@ -27,6 +28,9 @@ pub enum ContractError {
 
     #[error("Invalid funds: {reason}")]
     InvalidFunds { reason: String },
+
+    #[error("{0}")]
+    OwnershipError(#[from] OwnershipError),
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

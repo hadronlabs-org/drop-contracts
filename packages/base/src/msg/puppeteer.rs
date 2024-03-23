@@ -23,6 +23,8 @@ use neutron_sdk::{
 use neutron_sdk::{NeutronError, NeutronResult};
 use prost::Message;
 
+use crate::state::puppeteer::ConfigOptional;
+
 pub const DECIMAL_PLACES: u32 = 18;
 const DECIMAL_FRACTIONAL: u128 = 10u128.pow(DECIMAL_PLACES);
 #[cw_serde]
@@ -100,6 +102,9 @@ pub enum ExecuteMsg {
         transfer: Option<TransferReadyBatchesMsg>,
         timeout: Option<u64>,
         reply_to: String,
+    },
+    UpdateConfig {
+        new_config: ConfigOptional,
     },
 }
 
