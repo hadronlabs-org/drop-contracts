@@ -1,9 +1,9 @@
 use crate::error::{ContractError, ContractResult};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, ensure_ne, entry_point, to_json_binary, Addr, Attribute, BankQuery,
-    Binary, Coin, ContractResult, CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo,
-    Order, QueryRequest, Response, StdError, StdResult, Timestamp, Uint128, WasmMsg,
+    attr, ensure, ensure_eq, entry_point, to_json_binary, Addr, Attribute, BankQuery, Binary, Coin,
+    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest,
+    Response, StdError, StdResult, Timestamp, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
@@ -457,11 +457,12 @@ fn execute_tick_idle(
                 FSM.go_to(deps.storage, ContractState::Transfering)?;
                 PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
                 messages.push(transfer_msg);
-            } else if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, info.funds)?
-            {
+            } else if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
                 messages.push(stake_msg);
                 FSM.go_to(deps.storage, ContractState::Staking)?;
-            } else if let Some(unbond_message) = get_unbonding_msg(deps, &env, config, &info)? {
+            } else if let Some(unbond_message) =
+                get_unbonding_msg(deps.branch(), &env, config, &info)?
+            {
                 messages.push(unbond_message);
                 FSM.go_to(deps.storage, ContractState::Unbonding)?;
             } else {
@@ -527,17 +528,16 @@ fn execute_tick_claiming(
         FSM.go_to(deps.storage, ContractState::Transfering)?;
         PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
         messages.push(transfer_msg);
+    } else if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
+        messages.push(stake_msg);
+        FSM.go_to(deps.storage, ContractState::Staking)?;
+    } else if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info)? {
+        messages.push(unbond_message);
+        FSM.go_to(deps.storage, ContractState::Unbonding)?;
     } else {
-        if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, info.funds)? {
-            messages.push(stake_msg);
-            FSM.go_to(deps.storage, ContractState::Staking)?;
-        } else if let Some(unbond_message) = get_unbonding_msg(deps, &env, config, &info)? {
-            messages.push(unbond_message);
-            FSM.go_to(deps.storage, ContractState::Unbonding)?;
-        } else {
-            FSM.go_to(deps.storage, ContractState::Idle)?;
-        }
+        FSM.go_to(deps.storage, ContractState::Idle)?;
     }
+
     attrs.push(attr("state", "unbonding"));
     Ok(response("execute-tick_claiming", CONTRACT_NAME, attrs).add_messages(messages))
 }
@@ -551,10 +551,10 @@ fn execute_tick_transfering(
     let _response_msg = get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut messages = vec![];
-    if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, info.funds)? {
+    if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
         messages.push(stake_msg);
         FSM.go_to(deps.storage, ContractState::Staking)?;
-    } else if let Some(unbond_message) = get_unbonding_msg(deps, &env, config, &info)? {
+    } else if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info)? {
         messages.push(unbond_message);
         FSM.go_to(deps.storage, ContractState::Unbonding)?;
     } else {
@@ -569,7 +569,7 @@ fn execute_tick_transfering(
 }
 
 fn execute_tick_staking(
-    deps: DepsMut<NeutronQuery>,
+    mut deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
     config: &Config,
@@ -578,7 +578,7 @@ fn execute_tick_staking(
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut attrs = vec![attr("action", "tick_staking")];
     let mut messages = vec![];
-    let unbond_message = get_unbonding_msg(deps, &env, &config, &info)?;
+    let unbond_message = get_unbonding_msg(deps.branch(), &env, &config, &info)?;
     if let Some(unbond_message) = unbond_message {
         messages.push(unbond_message);
         FSM.go_to(deps.storage, ContractState::Unbonding)?;
@@ -924,8 +924,9 @@ pub fn get_stake_msg<T>(
     deps: DepsMut<NeutronQuery>,
     env: &Env,
     config: &Config,
-    funds: Vec<cosmwasm_std::Coin>,
+    info: &MessageInfo,
 ) -> ContractResult<Option<CosmosMsg<T>>> {
+    let funds = info.funds.clone();
     let (balance, balance_height, _) = get_ica_balance_by_denom(
         deps.as_ref(),
         &config.puppeteer_contract,
@@ -990,6 +991,7 @@ fn get_unbonding_msg<T>(
     config: &Config,
     info: &MessageInfo,
 ) -> ContractResult<Option<CosmosMsg<T>>> {
+    let funds = info.funds.clone();
     let batch_id = FAILED_BATCH_ID
         .may_load(deps.storage)?
         .unwrap_or(UNBOND_BATCH_ID.load(deps.storage)?);
@@ -1032,7 +1034,7 @@ fn get_unbonding_msg<T>(
                 timeout: Some(config.puppeteer_timeout),
                 reply_to: env.contract.address.to_string(),
             })?,
-            funds: info.funds,
+            funds,
         })))
     } else {
         Ok(None)
