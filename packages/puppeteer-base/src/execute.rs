@@ -52,6 +52,15 @@ where
         }
     }
 
+    pub fn update_config(&self, deps: DepsMut, config: &T) -> NeutronResult<Response> {
+        deps.api.debug("WASMDEBUG: update config");
+
+        cw_ownable::initialize_owner(deps.storage, deps.api, Some(config.owner()))?;
+
+        self.config.save(deps.storage, config)?;
+        Ok(Response::default())
+    }
+
     pub fn validate_tx_state<C: CustomQuery>(
         &self,
         deps: Deps<C>,

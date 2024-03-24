@@ -1,5 +1,6 @@
 use cosmwasm_std::{OverflowError, StdError};
 use cw_ownable::OwnershipError;
+use drop_helpers::pause::PauseError;
 use neutron_sdk::NeutronError;
 use thiserror::Error;
 
@@ -50,6 +51,9 @@ pub enum ContractError {
     #[error("Pump address is not set")]
     PumpAddressIsNotSet {},
 
+    #[error("Emergency address is not set")]
+    EmergencyAddressIsNotSet {},
+
     #[error("InvalidTransaction")]
     InvalidTransaction {},
 
@@ -72,6 +76,12 @@ pub enum ContractError {
     },
     #[error("Bond limit exceeded")]
     BondLimitExceeded {},
+
+    #[error("Previous staking was failed")]
+    PreviousStakingWasFailed {},
+
+    #[error(transparent)]
+    PauseError(#[from] PauseError),
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

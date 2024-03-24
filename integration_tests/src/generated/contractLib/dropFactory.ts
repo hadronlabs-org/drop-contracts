@@ -58,6 +58,16 @@ export interface DenomMetadata {
   uri_hash?: string | null;
 }
 /**
+ * Information about if the contract is currently paused.
+ */
+export type PauseInfoResponse1 =
+  | {
+      paused: {};
+    }
+  | {
+      unpaused: {};
+    };
+/**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
  * # Examples
@@ -118,11 +128,18 @@ export type ValidatorSetMsg =
         validator: ValidatorData;
       };
     };
-export type CoreMsg = {
-  update_non_native_rewards_receivers: {
-    items: NonNativeRewardsItem[];
-  };
-};
+export type CoreMsg =
+  | {
+      update_non_native_rewards_receivers: {
+        items: NonNativeRewardsItem[];
+      };
+    }
+  | {
+      pause: {};
+    }
+  | {
+      unpause: {};
+    };
 /**
  * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
  *
@@ -180,9 +197,14 @@ export type Timestamp = Uint64;
 export type Uint64 = string;
 
 export interface DropFactorySchema {
-  responses: State;
+  responses: PauseInfoResponse | State;
   execute: InitArgs | CallbackArgs | UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
   [k: string]: unknown;
+}
+export interface PauseInfoResponse {
+  core: PauseInfoResponse1;
+  rewards_manager: PauseInfoResponse1;
+  withdrawal_manager: PauseInfoResponse1;
 }
 export interface State {
   core_contract: string;
@@ -204,6 +226,7 @@ export interface CoreParams {
   channel: string;
   idle_min_interval: number;
   lsm_redeem_threshold: number;
+  min_stake_amount: Uint128;
   puppeteer_timeout: number;
   unbond_batch_switch_time: number;
   unbonding_period: number;
@@ -213,11 +236,13 @@ export interface ConfigOptional {
   base_denom?: string | null;
   bond_limit?: Uint128 | null;
   channel?: string | null;
+  emergency_address?: string | null;
   fee?: Decimal | null;
   fee_address?: string | null;
   idle_min_interval?: number | null;
   ld_denom?: string | null;
   lsm_redeem_threshold?: number | null;
+  min_stake_amount?: Uint128 | null;
   pump_address?: string | null;
   puppeteer_contract?: string | null;
   puppeteer_timeout?: number | null;
@@ -292,6 +317,9 @@ export class Client {
   queryState = async(): Promise<State> => {
     return this.client.queryContractSmart(this.contractAddress, { state: {} });
   }
+  queryPauseInfo = async(): Promise<PauseInfoResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
+  }
   init = async(sender:string, args: InitArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { init: args }, fee || "auto", memo, funds);
@@ -315,5 +343,13 @@ export class Client {
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
+  }
+  pause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { pause: {} }, fee || "auto", memo, funds);
+  }
+  unpause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { unpause: {} }, fee || "auto", memo, funds);
   }
 }

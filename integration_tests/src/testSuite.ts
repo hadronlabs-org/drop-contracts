@@ -74,10 +74,12 @@ const networkConfigs = {
     trace: true,
     validators: 2,
     commands: redefinedParams.commands,
-    validators_balance: '1000000000',
+    validators_balance: ['1900000000', '100000000'],
     genesis_opts: redefinedParams.genesisOpts || {
       'app_state.slashing.params.downtime_jail_duration': '10s',
       'app_state.slashing.params.signed_blocks_window': '10',
+      'app_state.slashing.params.min_signed_per_window': '0.9',
+      'app_state.slashing.params.slash_fraction_downtime': '0.1',
       'app_state.staking.params.validator_bond_factor': '10',
       'app_state.staking.params.unbonding_time': '1814400s',
       'app_state.mint.minter.inflation': '0.9',

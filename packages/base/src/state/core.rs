@@ -28,6 +28,8 @@ pub struct Config {
     pub bond_limit: Option<Uint128>,
     pub fee: Option<Decimal>,
     pub fee_address: Option<String>,
+    pub emergency_address: Option<String>,
+    pub min_stake_amount: Uint128,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
@@ -46,9 +48,10 @@ pub enum UnbondBatchStatus {
     UnbondRequested,
     UnbondFailed,
     Unbonding,
-    Unbonded,
     Withdrawing,
     Withdrawn,
+    WithdrawingEmergency,
+    WithdrawnEmergency,
 }
 
 #[cw_serde]
@@ -136,6 +139,14 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
     },
     Transition {
         from: ContractState::Unbonding,
+        to: ContractState::Idle,
+    },
+    Transition {
+        from: ContractState::Transfering,
+        to: ContractState::Idle,
+    },
+    Transition {
+        from: ContractState::Claiming,
         to: ContractState::Idle,
     },
 ];

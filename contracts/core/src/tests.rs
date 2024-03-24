@@ -150,6 +150,8 @@ fn get_default_config(fee: Option<Decimal>) -> Config {
         fee_address: Some("fee_address".to_string()),
         lsm_redeem_threshold: 10u64,
         bond_limit: None,
+        emergency_address: None,
+        min_stake_amount: Uint128::new(100),
     }
 }
 
@@ -284,6 +286,7 @@ fn get_stake_msg_success() {
             funds: vec![Coin::new(200, "untrn")],
         },
     )
+    .unwrap()
     .unwrap();
 
     assert_eq!(
@@ -335,6 +338,7 @@ fn get_stake_msg_zero_fee() {
             funds: vec![Coin::new(200, "untrn")],
         },
     )
+    .unwrap()
     .unwrap();
 
     assert_eq!(

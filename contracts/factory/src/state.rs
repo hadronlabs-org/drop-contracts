@@ -47,5 +47,12 @@ pub struct State {
     pub rewards_manager_contract: String,
 }
 
+#[cw_serde]
+pub struct PauseInfoResponse {
+    pub withdrawal_manager: drop_helpers::pause::PauseInfoResponse,
+    pub core: drop_helpers::pause::PauseInfoResponse,
+    pub rewards_manager: drop_helpers::pause::PauseInfoResponse,
+}
+
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const STATE: Item<State> = Item::new("state");

@@ -3,7 +3,6 @@ use neutron_sdk::bindings::query::NeutronQuery;
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::state::ConfigResponse;
 use crate::{
     error::{ContractError, ContractResult},
     msg::QueryMsg,
@@ -39,11 +38,7 @@ where
 
     fn query_config(&self, deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
         let config: T = self.config.load(deps.storage)?;
-        Ok(to_json_binary(&ConfigResponse {
-            owner: config.owner().to_string(),
-            connection_id: config.connection_id(),
-            update_period: config.update_period(),
-        })?)
+        Ok(to_json_binary(&config)?)
     }
 
     fn query_transactions(&self, deps: Deps<NeutronQuery>) -> ContractResult<Binary> {

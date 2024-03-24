@@ -1,8 +1,7 @@
+use crate::state::provider_proposals::ConfigOptional;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Decimal;
 use neutron_sdk::interchain_queries::v045::types::ProposalVote;
-
-use crate::state::provider_proposals::{Config, ConfigOptional, Metrics, ProposalInfo};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -25,13 +24,13 @@ pub enum ExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(Config)]
+    #[returns(crate::state::provider_proposals::Config)]
     Config {},
-    #[returns(ProposalInfo)]
+    #[returns(crate::state::provider_proposals::ProposalInfo)]
     GetProposal { proposal_id: u64 },
-    #[returns(Vec<ProposalInfo>)]
+    #[returns(Vec<crate::state::provider_proposals::ProposalInfo>)]
     GetProposals {},
-    #[returns(Metrics)]
+    #[returns(crate::state::provider_proposals::Metrics)]
     Metrics {},
 }
 

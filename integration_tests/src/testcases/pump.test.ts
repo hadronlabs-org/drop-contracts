@@ -289,6 +289,13 @@ describe('Pump', () => {
   });
   it('check balance on pump', async () => {
     const { neutronClient, contractAddress } = context;
+    await waitFor(async () => {
+      const res =
+        await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+          contractAddress,
+        );
+      return res.data.balances.length > 0;
+    });
     const res =
       await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
         contractAddress,

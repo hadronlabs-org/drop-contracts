@@ -6,12 +6,13 @@ use cosmwasm_std::{
 };
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
 use drop_helpers::answer::{attr_coin, response};
+use drop_helpers::pause::PauseInfoResponse;
 use drop_staking_base::msg::reward_handler::HandlerExecuteMsg;
 use drop_staking_base::msg::rewards_manager::QueryMsg;
 use drop_staking_base::msg::rewards_manager::{ExecuteMsg, InstantiateMsg};
 use drop_staking_base::state::rewards_manager::HandlerConfig;
 
-const CORE_CONTRACT_ADDR: &str = "core_contract";
+const OWNER_ADDR: &str = "owner_address";
 
 const SENDER_ADDR: &str = "sender";
 
@@ -23,7 +24,7 @@ fn instantiate_contract(
     let contract_id = app.store_code(contract());
     app.instantiate_contract(
         contract_id,
-        Addr::unchecked(CORE_CONTRACT_ADDR),
+        Addr::unchecked(OWNER_ADDR),
         &Empty {},
         &[],
         label,
@@ -113,10 +114,10 @@ fn mock_app() -> App {
 fn test_initialization() {
     let mut deps = mock_dependencies();
     let msg = InstantiateMsg {
-        core_address: CORE_CONTRACT_ADDR.to_string(),
+        owner: OWNER_ADDR.to_string(),
     };
 
-    let info = mock_info(CORE_CONTRACT_ADDR, &[]);
+    let info = mock_info(OWNER_ADDR, &[]);
     let res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
 
     assert_eq!(
@@ -124,8 +125,8 @@ fn test_initialization() {
         vec![
             Event::new("crates.io:drop-staking__drop-rewards-manager-instantiate".to_string())
                 .add_attributes(vec![Attribute::new(
-                    "core_address".to_string(),
-                    CORE_CONTRACT_ADDR.to_string()
+                    "owner".to_string(),
+                    OWNER_ADDR.to_string()
                 ),])
         ]
     );
@@ -141,7 +142,7 @@ fn test_config_query() {
         &mut app,
         rewards_manager_code_id,
         InstantiateMsg {
-            core_address: CORE_CONTRACT_ADDR.to_string(),
+            owner: OWNER_ADDR.to_string(),
         },
     );
 
@@ -153,7 +154,7 @@ fn test_config_query() {
     assert_eq!(
         config,
         drop_staking_base::msg::rewards_manager::ConfigResponse {
-            core_address: CORE_CONTRACT_ADDR.to_string(),
+            owner: OWNER_ADDR.to_string(),
         }
     );
 }
@@ -168,7 +169,7 @@ fn test_handlers_query() {
         &mut app,
         rewards_manager_code_id,
         InstantiateMsg {
-            core_address: CORE_CONTRACT_ADDR.to_string(),
+            owner: OWNER_ADDR.to_string(),
         },
     );
 
@@ -178,6 +179,156 @@ fn test_handlers_query() {
         .unwrap();
 
     assert_eq!(handlers, vec![]);
+}
+
+#[test]
+fn test_pause_query() {
+    let mut app = mock_app();
+
+    let rewards_manager_code_id = app.store_code(rewards_manager_contract());
+
+    let rewards_manager_contract = instantiate_rewards_manager_contract(
+        &mut app,
+        rewards_manager_code_id,
+        InstantiateMsg {
+            owner: OWNER_ADDR.to_string(),
+        },
+    );
+
+    let pause_info: PauseInfoResponse = app
+        .wrap()
+        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::PauseInfo {})
+        .unwrap();
+
+    assert_eq!(pause_info, PauseInfoResponse::Unpaused {});
+}
+
+#[test]
+fn test_pause_handler_not_owner_error() {
+    let mut app = mock_app();
+
+    let rewards_manager_code_id = app.store_code(rewards_manager_contract());
+
+    let rewards_manager_contract = instantiate_rewards_manager_contract(
+        &mut app,
+        rewards_manager_code_id,
+        InstantiateMsg {
+            owner: OWNER_ADDR.to_string(),
+        },
+    );
+
+    let error = app
+        .execute_contract(
+            Addr::unchecked("WrongOwner"),
+            rewards_manager_contract.clone(),
+            &ExecuteMsg::Pause {},
+            &[],
+        )
+        .unwrap_err();
+
+    let chain: Vec<_> = error.chain().collect();
+
+    assert_eq!(
+        chain[1].to_string(),
+        "Caller is not the contract's current owner",
+    );
+}
+
+#[test]
+fn test_pause_handler() {
+    let mut app = mock_app();
+
+    let rewards_manager_code_id = app.store_code(rewards_manager_contract());
+
+    let rewards_manager_contract = instantiate_rewards_manager_contract(
+        &mut app,
+        rewards_manager_code_id,
+        InstantiateMsg {
+            owner: OWNER_ADDR.to_string(),
+        },
+    );
+
+    let res = app
+        .execute_contract(
+            Addr::unchecked(OWNER_ADDR),
+            rewards_manager_contract.clone(),
+            &ExecuteMsg::Pause {},
+            &[],
+        )
+        .unwrap();
+
+    let ty = res.events[1].ty.clone();
+
+    assert_eq!(
+        ty,
+        "wasm-crates.io:drop-staking__drop-rewards-manager-exec_pause".to_string()
+    );
+
+    let pause_info: PauseInfoResponse = app
+        .wrap()
+        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::PauseInfo {})
+        .unwrap();
+
+    assert_eq!(pause_info, PauseInfoResponse::Paused {});
+
+    let _res = app
+        .execute_contract(
+            Addr::unchecked(OWNER_ADDR),
+            rewards_manager_contract.clone(),
+            &ExecuteMsg::Unpause {},
+            &[],
+        )
+        .unwrap();
+
+    let pause_info: PauseInfoResponse = app
+        .wrap()
+        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::PauseInfo {})
+        .unwrap();
+
+    assert_eq!(pause_info, PauseInfoResponse::Unpaused {});
+}
+
+#[test]
+fn test_paused_error() {
+    let mut app = mock_app();
+
+    let rewards_manager_code_id = app.store_code(rewards_manager_contract());
+
+    let rewards_manager_contract = instantiate_rewards_manager_contract(
+        &mut app,
+        rewards_manager_code_id,
+        InstantiateMsg {
+            owner: OWNER_ADDR.to_string(),
+        },
+    );
+
+    let _res = app
+        .execute_contract(
+            Addr::unchecked(OWNER_ADDR),
+            rewards_manager_contract.clone(),
+            &ExecuteMsg::Pause {},
+            &[],
+        )
+        .unwrap();
+
+    let pause_info: PauseInfoResponse = app
+        .wrap()
+        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::PauseInfo {})
+        .unwrap();
+
+    assert_eq!(pause_info, PauseInfoResponse::Paused {});
+
+    let unwrapped_err = app
+        .execute_contract(
+            Addr::unchecked(OWNER_ADDR),
+            rewards_manager_contract.clone(),
+            &ExecuteMsg::ExchangeRewards {},
+            &[],
+        )
+        .unwrap_err();
+
+    let chain: Vec<_> = unwrapped_err.chain().collect();
+    assert_eq!(chain[1].to_string(), "Contract execution is paused",);
 }
 
 #[test]
@@ -192,7 +343,7 @@ fn test_add_remove_handler() {
         &mut app,
         rewards_manager_code_id,
         InstantiateMsg {
-            core_address: CORE_CONTRACT_ADDR.to_string(),
+            owner: OWNER_ADDR.to_string(),
         },
     );
 
@@ -204,7 +355,7 @@ fn test_add_remove_handler() {
 
     let res = app
         .execute_contract(
-            Addr::unchecked(CORE_CONTRACT_ADDR),
+            Addr::unchecked(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::AddHandler {
                 config: handler_config.clone(),
@@ -250,7 +401,7 @@ fn test_add_remove_handler() {
 
     let res = app
         .execute_contract(
-            Addr::unchecked(CORE_CONTRACT_ADDR),
+            Addr::unchecked(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::RemoveHandler {
                 denom: handler_config.denom.clone(),
@@ -298,7 +449,7 @@ fn test_handler_call() {
         &mut app,
         rewards_manager_code_id,
         InstantiateMsg {
-            core_address: CORE_CONTRACT_ADDR.to_string(),
+            owner: OWNER_ADDR.to_string(),
         },
     );
 
@@ -315,7 +466,7 @@ fn test_handler_call() {
 
     let _res = app
         .execute_contract(
-            Addr::unchecked(CORE_CONTRACT_ADDR),
+            Addr::unchecked(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::AddHandler {
                 config: handler_config.clone(),
@@ -326,7 +477,7 @@ fn test_handler_call() {
 
     let res = app
         .execute_contract(
-            Addr::unchecked(CORE_CONTRACT_ADDR),
+            Addr::unchecked(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::ExchangeRewards {},
             &[],
@@ -363,7 +514,7 @@ fn test_two_handlers_call() {
         &mut app,
         rewards_manager_code_id,
         InstantiateMsg {
-            core_address: CORE_CONTRACT_ADDR.to_string(),
+            owner: OWNER_ADDR.to_string(),
         },
     );
 
@@ -395,7 +546,7 @@ fn test_two_handlers_call() {
 
     let _res = app
         .execute_contract(
-            Addr::unchecked(CORE_CONTRACT_ADDR),
+            Addr::unchecked(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::AddHandler {
                 config: ueth_handler_config.clone(),
@@ -406,7 +557,7 @@ fn test_two_handlers_call() {
 
     let _res = app
         .execute_contract(
-            Addr::unchecked(CORE_CONTRACT_ADDR),
+            Addr::unchecked(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::AddHandler {
                 config: untrn_handler_config.clone(),
@@ -417,7 +568,7 @@ fn test_two_handlers_call() {
 
     let res = app
         .execute_contract(
-            Addr::unchecked(CORE_CONTRACT_ADDR),
+            Addr::unchecked(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::ExchangeRewards {},
             &[],

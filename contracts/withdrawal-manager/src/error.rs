@@ -1,4 +1,6 @@
 use cosmwasm_std::{OverflowError, StdError};
+use cw_ownable::OwnershipError;
+use drop_helpers::pause::PauseError;
 use neutron_sdk::NeutronError;
 use thiserror::Error;
 
@@ -27,6 +29,12 @@ pub enum ContractError {
 
     #[error("Slashing effect is not set")]
     BatchSlashingEffectIsEmpty {},
+
+    #[error("{0}")]
+    OwnershipError(#[from] OwnershipError),
+
+    #[error(transparent)]
+    PauseError(#[from] PauseError),
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

@@ -7,23 +7,30 @@ use crate::{
     state::{Config, State, CONFIG, STATE},
 };
 use cosmwasm_std::{
-    attr, entry_point, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg,
-    Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, WasmMsg,
+    attr, entry_point, instantiate2_address, to_json_binary, Attribute, Binary, CodeInfoResponse,
+    CosmosMsg, Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
 use drop_staking_base::{
-    msg::core::{ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg},
+    msg::core::{
+        ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg,
+        QueryMsg as CoreQueryMsg,
+    },
     msg::distribution::InstantiateMsg as DistributionInstantiateMsg,
     msg::puppeteer::InstantiateMsg as PuppeteerInstantiateMsg,
-    msg::rewards_manager::InstantiateMsg as RewardsMangerInstantiateMsg,
+    msg::rewards_manager::{
+        InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg,
+    },
     msg::strategy::InstantiateMsg as StrategyInstantiateMsg,
     msg::token::{
         ConfigResponse as TokenConfigResponse, InstantiateMsg as TokenInstantiateMsg,
         QueryMsg as TokenQueryMsg,
     },
     msg::validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
-    msg::withdrawal_manager::InstantiateMsg as WithdrawalManagerInstantiateMsg,
+    msg::withdrawal_manager::{
+        InstantiateMsg as WithdrawalManagerInstantiateMsg, QueryMsg as WithdrawalManagerQueryMsg,
+    },
     msg::withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
 };
 use neutron_sdk::{
@@ -70,7 +77,27 @@ pub fn instantiate(
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::State {} => to_json_binary(&STATE.load(deps.storage)?),
+        QueryMsg::PauseInfo {} => query_pause_info(deps),
     }
+}
+
+fn query_pause_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
+    let state = STATE.load(deps.storage)?;
+
+    to_json_binary(&crate::state::PauseInfoResponse {
+        core: deps
+            .querier
+            .query_wasm_smart(state.core_contract, &CoreQueryMsg::PauseInfo {})?,
+        withdrawal_manager: deps.querier.query_wasm_smart(
+            state.withdrawal_manager_contract,
+            &WithdrawalManagerQueryMsg::PauseInfo {},
+        )?,
+        rewards_manager: deps.querier.query_wasm_smart(
+            state.rewards_manager_contract,
+            &RewardsQueryMsg::PauseInfo {},
+        )?,
+    })
+    .map_err(From::from)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -99,7 +126,61 @@ pub fn execute(
         ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, env, info, *msg),
         ExecuteMsg::Proxy(msg) => execute_proxy_msg(deps, env, info, msg),
         ExecuteMsg::AdminExecute { addr, msg } => execute_admin_execute(deps, env, info, addr, msg),
+        ExecuteMsg::Pause {} => exec_pause(deps, info),
+        ExecuteMsg::Unpause {} => exec_unpause(deps, info),
     }
+}
+
+fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    let state = STATE.load(deps.storage)?;
+
+    let messages = vec![
+        get_proxied_message(
+            state.core_contract,
+            drop_staking_base::msg::core::ExecuteMsg::Pause {},
+            vec![],
+        )?,
+        get_proxied_message(
+            state.withdrawal_manager_contract,
+            drop_staking_base::msg::withdrawal_manager::ExecuteMsg::Pause {},
+            vec![],
+        )?,
+        get_proxied_message(
+            state.rewards_manager_contract,
+            drop_staking_base::msg::rewards_manager::ExecuteMsg::Pause {},
+            vec![],
+        )?,
+    ];
+
+    Ok(response("execute-pause", CONTRACT_NAME, Vec::<Attribute>::new()).add_messages(messages))
+}
+
+fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    let state = STATE.load(deps.storage)?;
+
+    let messages = vec![
+        get_proxied_message(
+            state.core_contract,
+            drop_staking_base::msg::core::ExecuteMsg::Unpause {},
+            vec![],
+        )?,
+        get_proxied_message(
+            state.rewards_manager_contract,
+            drop_staking_base::msg::rewards_manager::ExecuteMsg::Unpause {},
+            vec![],
+        )?,
+        get_proxied_message(
+            state.withdrawal_manager_contract,
+            drop_staking_base::msg::withdrawal_manager::ExecuteMsg::Unpause {},
+            vec![],
+        )?,
+    ];
+
+    Ok(response("execute-unpause", CONTRACT_NAME, Vec::<Attribute>::new()).add_messages(messages))
 }
 
 fn execute_admin_execute(
@@ -203,6 +284,20 @@ fn execute_proxy_msg(
                         drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
                             denoms: items.iter().map(|one|{one.denom.to_string()}).collect() }, info.funds)?
                 );
+            }
+            crate::msg::CoreMsg::Pause {} => {
+                messages.push(get_proxied_message(
+                    state.core_contract,
+                    drop_staking_base::msg::core::ExecuteMsg::Pause {},
+                    vec![],
+                )?);
+            }
+            crate::msg::CoreMsg::Unpause {} => {
+                messages.push(get_proxied_message(
+                    state.core_contract,
+                    drop_staking_base::msg::core::ExecuteMsg::Unpause {},
+                    vec![],
+                )?);
             }
         },
     }
@@ -441,6 +536,8 @@ fn execute_init(
                 owner: env.contract.address.to_string(),
                 fee: None,
                 fee_address: None,
+                emergency_address: None,
+                min_stake_amount: core_params.min_stake_amount,
             })?,
             funds: vec![],
             salt: Binary::from(salt),
@@ -475,7 +572,7 @@ fn execute_init(
             code_id: config.code_ids.rewards_manager_code_id,
             label: get_contract_label("rewards manager"),
             msg: to_json_binary(&RewardsMangerInstantiateMsg {
-                core_address: core_contract.to_string(),
+                owner: env.contract.address.to_string(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),

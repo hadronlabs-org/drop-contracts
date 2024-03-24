@@ -6,7 +6,9 @@ test:
 	@cargo test
 
 clippy:
+	@rustup target add wasm32-unknown-unknown
 	@cargo clippy --all --all-targets -- -D warnings
+	@cargo clippy --lib --target wasm32-unknown-unknown -- -D warnings
 
 fmt:
 	@cargo fmt -- --check
@@ -19,7 +21,7 @@ compile:
 		--mount type=volume,source="$(notdir $(CURDIR))_cache",target=/target \
 		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
 		--platform linux/amd64 \
-		cosmwasm/workspace-optimizer:0.15.0
+		cosmwasm/workspace-optimizer:0.15.1
 	@sudo chown -R $(shell id -u):$(shell id -g) artifacts
 
 compile_arm64:
@@ -27,7 +29,7 @@ compile_arm64:
 		--mount type=volume,source="$(notdir $(CURDIR))_cache",target=/target \
 		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
 		--platform linux/arm64 \
-		cosmwasm/workspace-optimizer-arm64:0.15.0
+		cosmwasm/workspace-optimizer-arm64:0.15.1
 	@cd artifacts && for file in *-aarch64.wasm; do cp -f "$$file" "$${file%-aarch64.wasm}.wasm"; done
 
 check_contracts:

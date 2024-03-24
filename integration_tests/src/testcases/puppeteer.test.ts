@@ -143,7 +143,7 @@ describe('Interchain puppeteer', () => {
           connection_id: 'connection-0',
           port_id: 'transfer',
           update_period: 10,
-          remote_denom: 'stake',
+          remote_denom: 'wrong',
           owner: account.address,
           transfer_channel_id: 'channel-0',
           allowed_senders: [context.hookContractClient.contractAddress],
@@ -159,6 +159,52 @@ describe('Interchain puppeteer', () => {
         context.contractAddress,
       );
     }
+  });
+
+  it('query configuration data', async () => {
+    const { contractClient, account } = context;
+    const config = await contractClient.queryConfig();
+
+    expect(config).toEqual({
+      connection_id: 'connection-0',
+      port_id: 'transfer',
+      update_period: 10,
+      remote_denom: 'wrong',
+      sdk_version: '0.46.0',
+      owner: account.address,
+      allowed_senders: [context.hookContractClient.contractAddress],
+      proxy_address: null,
+      transfer_channel_id: 'channel-0',
+    });
+  });
+
+  it('update configuration data', async () => {
+    const { contractClient, account } = context;
+
+    const res = await contractClient.updateConfig(
+      account.address,
+      {
+        new_config: {
+          remote_denom: 'stake',
+        },
+      },
+      1.5,
+    );
+    expect(res.transactionHash).toBeTruthy();
+
+    const config = await contractClient.queryConfig();
+
+    expect(config).toEqual({
+      connection_id: 'connection-0',
+      port_id: 'transfer',
+      update_period: 10,
+      remote_denom: 'stake',
+      sdk_version: '0.46.0',
+      owner: account.address,
+      allowed_senders: [context.hookContractClient.contractAddress],
+      proxy_address: null,
+      transfer_channel_id: 'channel-0',
+    });
   });
 
   it('set puppeteer address into hook tester', async () => {

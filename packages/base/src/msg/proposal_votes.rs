@@ -1,6 +1,5 @@
+use crate::state::proposal_votes::ConfigOptional;
 use cosmwasm_schema::{cw_serde, QueryResponses};
-
-use crate::state::proposal_votes::{Config, ConfigOptional, Metrics};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -21,9 +20,9 @@ pub enum ExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(Config)]
+    #[returns(crate::state::proposal_votes::Config)]
     Config {},
-    #[returns(Metrics)]
+    #[returns(crate::state::proposal_votes::Metrics)]
     Metrics {},
 }
 

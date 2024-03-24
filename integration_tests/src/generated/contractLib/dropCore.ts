@@ -25,10 +25,12 @@ export interface InstantiateMsg {
   base_denom: string;
   bond_limit?: Uint128 | null;
   channel: string;
+  emergency_address?: string | null;
   fee?: Decimal | null;
   fee_address?: string | null;
   idle_min_interval: number;
   lsm_redeem_threshold: number;
+  min_stake_amount: Uint128;
   owner: string;
   pump_address?: string | null;
   puppeteer_contract: string;
@@ -161,7 +163,7 @@ export type Transaction =
       claim_rewards_and_optionaly_transfer: {
         denom: string;
         interchain_account_id: string;
-        transfer?: TransferReadyBatchMsg | null;
+        transfer?: TransferReadyBatchesMsg | null;
         validators: string[];
       };
     }
@@ -169,6 +171,7 @@ export type Transaction =
       i_b_c_transfer: {
         amount: number;
         denom: string;
+        reason: IBCTransferReason;
         recipient: string;
       };
     }
@@ -178,8 +181,19 @@ export type Transaction =
         items: [string, Coin][];
       };
     };
+export type IBCTransferReason = "l_s_m_share" | "stake";
 export type ArrayOfNonNativeRewardsItem = NonNativeRewardsItem[];
 export type String = string;
+/**
+ * Information about if the contract is currently paused.
+ */
+export type PauseInfoResponse =
+  | {
+      paused: {};
+    }
+  | {
+      unpaused: {};
+    };
 export type ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint1281 = [string, [string, Uint128]][];
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
@@ -200,9 +214,10 @@ export type UnbondBatchStatus =
   | "unbond_requested"
   | "unbond_failed"
   | "unbonding"
-  | "unbonded"
   | "withdrawing"
-  | "withdrawn";
+  | "withdrawn"
+  | "withdrawing_emergency"
+  | "withdrawn_emergency";
 export type PuppeteerHookArgs =
   | {
       success: ResponseHookSuccessMsg;
@@ -269,6 +284,7 @@ export interface DropCoreSchema {
     | ResponseHookMsg
     | ArrayOfNonNativeRewardsItem
     | String
+    | PauseInfoResponse
     | ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint1281
     | Uint1281
     | UnbondBatch;
@@ -280,11 +296,13 @@ export interface Config {
   base_denom: string;
   bond_limit?: Uint128 | null;
   channel: string;
+  emergency_address?: string | null;
   fee?: Decimal | null;
   fee_address?: string | null;
   idle_min_interval: number;
   ld_denom?: string | null;
   lsm_redeem_threshold: number;
+  min_stake_amount: Uint128;
   pump_address?: string | null;
   puppeteer_contract: string;
   puppeteer_timeout: number;
@@ -352,9 +370,10 @@ export interface RedeemShareItem {
   local_denom: string;
   remote_denom: string;
 }
-export interface TransferReadyBatchMsg {
+export interface TransferReadyBatchesMsg {
   amount: Uint128;
-  batch_id: number;
+  batch_ids: number[];
+  emergency: boolean;
   recipient: string;
 }
 export interface ResponseHookErrorMsg {
@@ -399,11 +418,13 @@ export interface ConfigOptional {
   base_denom?: string | null;
   bond_limit?: Uint128 | null;
   channel?: string | null;
+  emergency_address?: string | null;
   fee?: Decimal | null;
   fee_address?: string | null;
   idle_min_interval?: number | null;
   ld_denom?: string | null;
   lsm_redeem_threshold?: number | null;
+  min_stake_amount?: Uint128 | null;
   pump_address?: string | null;
   puppeteer_contract?: string | null;
   puppeteer_timeout?: number | null;
@@ -482,6 +503,9 @@ export class Client {
   queryTotalBonded = async(): Promise<Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { total_bonded: {} });
   }
+  queryPauseInfo = async(): Promise<PauseInfoResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
+  }
   bond = async(sender:string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { bond: args }, fee || "auto", memo, funds);
@@ -509,6 +533,14 @@ export class Client {
   resetBondedAmount = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { reset_bonded_amount: {} }, fee || "auto", memo, funds);
+  }
+  pause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { pause: {} }, fee || "auto", memo, funds);
+  }
+  unpause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { unpause: {} }, fee || "auto", memo, funds);
   }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

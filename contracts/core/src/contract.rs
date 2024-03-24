@@ -7,7 +7,8 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
-use drop_puppeteer_base::msg::TransferReadyBatchMsg;
+use drop_helpers::pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse};
+use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
 use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::state::core::{
     unbond_batches_map, Config, ConfigOptional, ContractState, FeeItem, NonNativeRewardsItem,
@@ -28,7 +29,6 @@ use drop_staking_base::{
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 use prost::Message;
-use std::vec;
 
 pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
 
@@ -85,6 +85,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::LastPuppeteerResponse {} => {
             to_json_binary(&LAST_PUPPETEER_RESPONSE.load(deps.storage)?)?
         }
+        QueryMsg::PauseInfo {} => query_pause_info(deps)?,
     })
 }
 
@@ -93,6 +94,14 @@ fn query_pending_lsm_shares(deps: Deps<NeutronQuery>) -> ContractResult<Binary> 
         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
         .collect::<StdResult<Vec<_>>>()?;
     to_json_binary(&shares).map_err(From::from)
+}
+
+fn query_pause_info(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+    if is_paused(deps.storage) {
+        to_json_binary(&PauseInfoResponse::Paused {}).map_err(From::from)
+    } else {
+        to_json_binary(&PauseInfoResponse::Unpaused {}).map_err(From::from)
+    }
 }
 
 fn query_lsm_shares_to_redeem(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
@@ -208,7 +217,39 @@ pub fn execute(
         }
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::PuppeteerHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
+        ExecuteMsg::Pause {} => exec_pause(deps, info),
+        ExecuteMsg::Unpause {} => exec_unpause(deps, info),
     }
+}
+
+fn exec_pause(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    set_pause(deps.storage)?;
+
+    Ok(response(
+        "exec_pause",
+        CONTRACT_NAME,
+        Vec::<Attribute>::new(),
+    ))
+}
+
+fn exec_unpause(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    unpause(deps.storage)?;
+
+    Ok(response(
+        "exec_unpause",
+        CONTRACT_NAME,
+        Vec::<Attribute>::new(),
+    ))
 }
 
 fn execute_reset_bonded_amount(
@@ -252,52 +293,81 @@ fn execute_puppeteer_hook(
         config.puppeteer_contract,
         ContractError::Unauthorized {}
     );
-    if let drop_puppeteer_base::msg::ResponseHookMsg::Success(_) = msg {
-        LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &env.block.height)?;
-        if let drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) = &msg {
-            match &success_msg.transaction {
-                drop_puppeteer_base::msg::Transaction::IBCTransfer {
-                    denom,
-                    amount,
-                    recipient: _,
-                } => {
-                    let current_pending =
-                        PENDING_LSM_SHARES.may_load(deps.storage, denom.to_string())?;
-                    if let Some((remote_denom, current_amount)) = current_pending {
-                        let sent_amount = Uint128::from(*amount);
-                        LSM_SHARES_TO_REDEEM.update(deps.storage, denom.to_string(), |one| {
-                            let mut new = one.unwrap_or((remote_denom, Uint128::zero()));
-                            new.1 += sent_amount;
-                            StdResult::Ok(new)
-                        })?;
-                        if current_amount == sent_amount {
-                            PENDING_LSM_SHARES.remove(deps.storage, denom.to_string());
-                        } else {
-                            PENDING_LSM_SHARES.update(deps.storage, denom.to_string(), |one| {
-                                match one {
-                                    Some(one) => {
-                                        let mut new = one;
-                                        new.1 -= Uint128::from(*amount);
+    match msg.clone() {
+        drop_puppeteer_base::msg::ResponseHookMsg::Success(_) => {
+            LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &env.block.height)?;
+            if let drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) = &msg {
+                match &success_msg.transaction {
+                    drop_puppeteer_base::msg::Transaction::IBCTransfer {
+                        denom,
+                        amount,
+                        reason,
+                        recipient: _,
+                    } => {
+                        if *reason == IBCTransferReason::LSMShare {
+                            let current_pending =
+                                PENDING_LSM_SHARES.may_load(deps.storage, denom.to_string())?;
+                            if let Some((remote_denom, current_amount)) = current_pending {
+                                let sent_amount = Uint128::from(*amount);
+                                LSM_SHARES_TO_REDEEM.update(
+                                    deps.storage,
+                                    denom.to_string(),
+                                    |one| {
+                                        let mut new =
+                                            one.unwrap_or((remote_denom, Uint128::zero()));
+                                        new.1 += sent_amount;
                                         StdResult::Ok(new)
-                                    }
-                                    None => unreachable!("denom should be in the map"),
+                                    },
+                                )?;
+                                if current_amount == sent_amount {
+                                    PENDING_LSM_SHARES.remove(deps.storage, denom.to_string());
+                                } else {
+                                    PENDING_LSM_SHARES.update(
+                                        deps.storage,
+                                        denom.to_string(),
+                                        |one| match one {
+                                            Some(one) => {
+                                                let mut new = one;
+                                                new.1 -= Uint128::from(*amount);
+                                                StdResult::Ok(new)
+                                            }
+                                            None => unreachable!("denom should be in the map"),
+                                        },
+                                    )?;
                                 }
-                            })?;
+                            }
                         }
                     }
-                }
-                drop_puppeteer_base::msg::Transaction::RedeemShares { items, .. } => {
-                    let mut sum = 0u128;
-                    for item in items {
-                        sum += item.amount.u128();
-                        LSM_SHARES_TO_REDEEM.remove(deps.storage, item.local_denom.to_string());
+                    drop_puppeteer_base::msg::Transaction::RedeemShares { items, .. } => {
+                        let mut sum = 0u128;
+                        for item in items {
+                            sum += item.amount.u128();
+                            LSM_SHARES_TO_REDEEM.remove(deps.storage, item.local_denom.to_string());
+                        }
+                        TOTAL_LSM_SHARES.update(deps.storage, |one| StdResult::Ok(one - sum))?;
                     }
-                    TOTAL_LSM_SHARES.update(deps.storage, |one| StdResult::Ok(one - sum))?;
+                    _ => {}
                 }
+            }
+        }
+        drop_puppeteer_base::msg::ResponseHookMsg::Error(err_msg) => {
+            match err_msg.transaction {
+                drop_puppeteer_base::msg::Transaction::Transfer { .. } // this one is for transfering non-native rewards
+                | drop_puppeteer_base::msg::Transaction::RedeemShares { .. }
+                | drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer { .. } => { // this goes to idle and then ruled in tick_idle
+                // IBC transfer for LSM shares and pending stake
+                FSM.go_to(deps.storage, ContractState::Idle)?
+            }
+            drop_puppeteer_base::msg::Transaction::IBCTransfer { reason, .. } => {
+                if reason == IBCTransferReason::LSMShare {
+                    FSM.go_to(deps.storage, ContractState::Idle)?;
+                }
+            }
                 _ => {}
             }
         }
-    } // if it's error we don't need to save the height because balance wasn't changed
+    }
+
     LAST_PUPPETEER_RESPONSE.save(deps.storage, &msg)?;
 
     Ok(response(
@@ -312,6 +382,8 @@ fn execute_tick(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
+    assert_paused(deps.storage)?;
+
     let current_state = FSM.get_current_state(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
     match current_state {
@@ -352,75 +424,112 @@ fn execute_tick_idle(
             return Err(ContractError::IdleMinIntervalIsNotReached {});
         }
     } else {
-        ensure!(
-            !is_unbonding_time_close(
-                deps.as_ref(),
-                env.block.time.seconds(),
-                config.unbonding_safe_period
-            )?,
-            ContractError::UnbondingTimeIsClose {}
-        );
-        let pump_address = config
-            .pump_address
-            .clone()
-            .ok_or(ContractError::PumpAddressIsNotSet {})?;
-
-        // detect already unbonded batch, if there is one
         let unbonding_batches = unbond_batches_map()
             .idx
             .status
             .prefix(UnbondBatchStatus::Unbonding as u8)
             .range(deps.storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<_>>>()?;
-        if !unbonding_batches.is_empty() {
-            let (id, mut unbonding_batch) = unbonding_batches
-                .into_iter()
-                // we only need the oldest Unbonding batch
-                .min_by_key(|(_, batch)| batch.expected_release)
-                // this `unwrap()` is safe to call since in this branch
-                // `unbonding_batches` is not empty
-                .unwrap();
-            let (balance, _local_height, ica_balance_local_time) = get_ica_balance_by_denom(
-                deps.as_ref(),
-                &config.puppeteer_contract,
-                &config.remote_denom,
-                true,
-            )?;
+        ensure!(
+            !is_unbonding_time_close(
+                &unbonding_batches,
+                env.block.time.seconds(),
+                config.unbonding_safe_period
+            ),
+            ContractError::UnbondingTimeIsClose {}
+        );
 
-            if unbonding_batch.expected_release <= env.block.time.seconds()
-                && unbonding_batch.expected_release < ica_balance_local_time
-            {
+        let pump_address = config
+            .pump_address
+            .clone()
+            .ok_or(ContractError::PumpAddressIsNotSet {})?;
+        let (ica_balance, _local_height, ica_balance_local_time) = get_ica_balance_by_denom(
+            deps.as_ref(),
+            &config.puppeteer_contract,
+            &config.remote_denom,
+            true,
+        )?;
+
+        let unbonded_batches = if !unbonding_batches.is_empty() {
+            unbonding_batches
+                .into_iter()
+                .filter(|(_id, batch)| {
+                    batch.expected_release <= env.block.time.seconds()
+                        && batch.expected_release < ica_balance_local_time
+                })
+                .collect::<Vec<_>>()
+        } else {
+            vec![]
+        };
+
+        let transfer: Option<TransferReadyBatchesMsg> = match unbonded_batches.len() {
+            0 => None, // we have nothing to do
+            1 => {
+                let (id, mut unbonding_batch) = unbonded_batches
+                    .into_iter()
+                    // `.next().unwrap()` is safe to call since in this match arm
+                    // `unbonding_batches` always has only 1 item
+                    .next()
+                    .unwrap();
+
                 let (unbonded_amount, slashing_effect) =
-                    if balance < unbonding_batch.expected_amount {
+                    if ica_balance < unbonding_batch.expected_amount {
                         (
-                            balance,
-                            Decimal::from_ratio(balance, unbonding_batch.expected_amount),
+                            ica_balance,
+                            Decimal::from_ratio(ica_balance, unbonding_batch.expected_amount),
                         )
                     } else {
                         (unbonding_batch.expected_amount, Decimal::one())
                     };
                 unbonding_batch.unbonded_amount = Some(unbonded_amount);
                 unbonding_batch.slashing_effect = Some(slashing_effect);
-                unbonding_batch.status = UnbondBatchStatus::Unbonded;
+                unbonding_batch.status = UnbondBatchStatus::Withdrawing;
                 unbond_batches_map().save(deps.storage, id, &unbonding_batch)?;
-            }
-        }
-
-        // process unbond if any already unbonded
-        // and claim rewards
-        let transfer: Option<TransferReadyBatchMsg> = match get_unbonded_batch(deps.as_ref())? {
-            Some((batch_id, mut batch)) => {
-                batch.status = UnbondBatchStatus::Withdrawing;
-                unbond_batches_map().save(deps.storage, batch_id, &batch)?;
-                Some(TransferReadyBatchMsg {
-                    batch_id,
-                    amount: batch
-                        .unbonded_amount
-                        .ok_or(ContractError::UnbondedAmountIsNotSet {})?,
+                Some(TransferReadyBatchesMsg {
+                    batch_ids: vec![id],
+                    emergency: false,
+                    amount: unbonded_amount,
                     recipient: pump_address,
                 })
             }
-            None => None,
+            _ => {
+                let total_expected_amount: Uint128 = unbonded_batches
+                    .iter()
+                    .map(|(_id, batch)| batch.expected_amount)
+                    .sum();
+                let (emergency, recipient, amount) = if ica_balance < total_expected_amount {
+                    (
+                        true,
+                        config
+                            .emergency_address
+                            .clone()
+                            .ok_or(ContractError::EmergencyAddressIsNotSet {})?,
+                        ica_balance,
+                    )
+                } else {
+                    (false, pump_address, total_expected_amount)
+                };
+                let mut batch_ids = vec![];
+                for (id, mut batch) in unbonded_batches {
+                    batch_ids.push(id);
+                    if emergency {
+                        batch.unbonded_amount = None;
+                        batch.slashing_effect = None;
+                        batch.status = UnbondBatchStatus::WithdrawingEmergency;
+                    } else {
+                        batch.unbonded_amount = Some(batch.expected_amount);
+                        batch.slashing_effect = Some(Decimal::one());
+                        batch.status = UnbondBatchStatus::Withdrawing;
+                    }
+                    unbond_batches_map().save(deps.storage, id, &batch)?;
+                }
+                Some(TransferReadyBatchesMsg {
+                    batch_ids,
+                    emergency,
+                    amount,
+                    recipient,
+                })
+            }
         };
 
         let validators: Vec<ValidatorInfo> = deps.querier.query_wasm_smart(
@@ -507,12 +616,18 @@ fn execute_tick_claiming(
                     ..
                 } => {
                     if let Some(transfer) = transfer {
-                        let mut batch =
-                            unbond_batches_map().load(deps.storage, transfer.batch_id)?;
-                        batch.status = UnbondBatchStatus::Withdrawn;
-                        attrs.push(attr("batch_id", transfer.batch_id.to_string()));
-                        attrs.push(attr("unbond_batch_status", "withdrawn"));
-                        unbond_batches_map().save(deps.storage, transfer.batch_id, &batch)?;
+                        for id in transfer.batch_ids {
+                            let mut batch = unbond_batches_map().load(deps.storage, id)?;
+                            attrs.push(attr("batch_id", id.to_string()));
+                            if transfer.emergency {
+                                batch.status = UnbondBatchStatus::WithdrawnEmergency;
+                                attrs.push(attr("unbond_batch_status", "withdrawn_emergency"));
+                            } else {
+                                batch.status = UnbondBatchStatus::Withdrawn;
+                                attrs.push(attr("unbond_batch_status", "withdrawn"));
+                            }
+                            unbond_batches_map().save(deps.storage, id, &batch)?;
+                        }
                     }
                 }
                 _ => return Err(ContractError::InvalidTransaction {}),
@@ -551,21 +666,20 @@ fn execute_tick_transfering(
     let _response_msg = get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut messages = vec![];
+    let mut attrs = vec![];
     if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
         messages.push(stake_msg);
         FSM.go_to(deps.storage, ContractState::Staking)?;
+        attrs.push(attr("state", "staking"));
     } else if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info)? {
         messages.push(unbond_message);
         FSM.go_to(deps.storage, ContractState::Unbonding)?;
+        attrs.push(attr("state", "unbonding"));
     } else {
         FSM.go_to(deps.storage, ContractState::Idle)?;
+        attrs.push(attr("state", "idle"));
     }
-    Ok(response(
-        "execute-tick_transfering",
-        CONTRACT_NAME,
-        vec![attr("action", "tick_transfering")],
-    )
-    .add_messages(messages))
+    Ok(response("execute-tick_transfering", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 fn execute_tick_staking(
@@ -574,7 +688,10 @@ fn execute_tick_staking(
     info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let _response_msg = get_received_puppeteer_response(deps.as_ref())?;
+    let response_msg = get_received_puppeteer_response(deps.as_ref())?;
+    if let drop_puppeteer_base::msg::ResponseHookMsg::Error(..) = response_msg {
+        return Err(ContractError::PreviousStakingWasFailed {});
+    }
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut attrs = vec![attr("action", "tick_staking")];
     let mut messages = vec![];
@@ -785,6 +902,14 @@ fn execute_update_config(
         attrs.push(attr("fee_address", &fee_address));
         config.fee_address = Some(fee_address);
     }
+    if let Some(emergency_address) = new_config.emergency_address {
+        attrs.push(attr("emergency_address", &emergency_address));
+        config.emergency_address = Some(emergency_address);
+    }
+    if let Some(min_stake_amount) = new_config.min_stake_amount {
+        attrs.push(attr("min_stake_amount", min_stake_amount));
+        config.min_stake_amount = min_stake_amount;
+    }
 
     CONFIG.save(deps.storage, &config)?;
 
@@ -862,7 +987,7 @@ fn execute_unbond(
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.token_contract,
             msg: to_json_binary(&TokenExecuteMsg::Burn {})?,
-            funds: vec![cosmwasm_std::Coin {
+            funds: vec![Coin {
                 denom: ld_denom,
                 amount,
             }],
@@ -871,23 +996,11 @@ fn execute_unbond(
     Ok(response("execute-unbond", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
-fn get_unbonded_batch(deps: Deps<NeutronQuery>) -> ContractResult<Option<(u128, UnbondBatch)>> {
-    let batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
-    if batch_id == 0 {
-        return Ok(None);
-    }
-    let batch = unbond_batches_map().load(deps.storage, batch_id - 1)?;
-    if batch.status == UnbondBatchStatus::Unbonded {
-        return Ok(Some((batch_id - 1, batch)));
-    }
-    Ok(None)
-}
-
 fn get_transfer_pending_balance_msg<T>(
     deps: Deps<NeutronQuery>,
     env: &Env,
     config: &Config,
-    funds: Vec<cosmwasm_std::Coin>,
+    funds: Vec<Coin>,
 ) -> ContractResult<Option<(CosmosMsg<T>, Uint128)>> {
     let pending_amount = deps
         .querier
@@ -899,7 +1012,7 @@ fn get_transfer_pending_balance_msg<T>(
     if pending_amount.is_zero() {
         return Ok(None);
     }
-    let mut all_funds = vec![cosmwasm_std::Coin {
+    let mut all_funds = vec![Coin {
         denom: config.base_denom.to_string(),
         amount: pending_amount,
     }];
@@ -910,6 +1023,7 @@ fn get_transfer_pending_balance_msg<T>(
             contract_addr: config.puppeteer_contract.to_string(),
             msg: to_json_binary(
                 &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+                    reason: IBCTransferReason::Stake,
                     timeout: config.puppeteer_timeout,
                     reply_to: env.contract.address.to_string(),
                 },
@@ -931,12 +1045,13 @@ pub fn get_stake_msg<T>(
         deps.as_ref(),
         &config.puppeteer_contract,
         &config.remote_denom,
-        false,
+        true,
     )?;
 
-    if balance.is_zero() {
+    if balance < config.min_stake_amount {
         return Ok(None);
     }
+
     let last_ica_balance_change_height = LAST_ICA_BALANCE_CHANGE_HEIGHT.load(deps.storage)?;
     ensure!(
         last_ica_balance_change_height <= balance_height,
@@ -1050,19 +1165,17 @@ fn get_received_puppeteer_response(
 }
 
 fn is_unbonding_time_close(
-    deps: Deps<NeutronQuery>,
+    unbonding_batches: &[(u128, UnbondBatch)],
     now: u64,
     safe_period: u64,
-) -> ContractResult<bool> {
-    let mut unbond_batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
-    while unbond_batch_id > 0 {
-        let unbond_batch = unbond_batches_map().load(deps.storage, unbond_batch_id)?;
-        if unbond_batch.status == UnbondBatchStatus::Unbonding {
-            return Ok(now - unbond_batch.expected_release < safe_period);
+) -> bool {
+    for (_id, unbond_batch) in unbonding_batches {
+        let expected = unbond_batch.expected_release;
+        if (now < expected) && (now > expected - safe_period) {
+            return true;
         }
-        unbond_batch_id -= 1;
     }
-    Ok(false)
+    false
 }
 
 fn get_ica_balance_by_denom<T: CustomQuery>(
@@ -1238,6 +1351,7 @@ fn get_pending_lsm_share_msg<T, X: CustomQuery>(
             contract_addr: config.puppeteer_contract.to_string(),
             msg: to_json_binary(
                 &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+                    reason: IBCTransferReason::LSMShare,
                     timeout: config.puppeteer_timeout,
                     reply_to: env.contract.address.to_string(),
                 },

@@ -9,7 +9,7 @@ use cosmos_sdk_proto::cosmos::{
     staking::v1beta1::{Delegation, Params, Validator as CosmosValidator},
 };
 use drop_puppeteer_base::{
-    msg::{ExecuteMsg as BaseExecuteMsg, TransferReadyBatchMsg},
+    msg::{ExecuteMsg as BaseExecuteMsg, IBCTransferReason, TransferReadyBatchesMsg},
     r#trait::PuppeteerReconstruct,
     state::RedeemShareItem,
 };
@@ -22,6 +22,8 @@ use neutron_sdk::{
 };
 use neutron_sdk::{NeutronError, NeutronResult};
 use prost::Message;
+
+use crate::state::puppeteer::ConfigOptional;
 
 pub const DECIMAL_PLACES: u32 = 18;
 const DECIMAL_FRACTIONAL: u128 = 10u128.pow(DECIMAL_PLACES);
@@ -87,6 +89,7 @@ pub enum ExecuteMsg {
     },
     IBCTransfer {
         timeout: u64,
+        reason: IBCTransferReason,
         reply_to: String,
     },
     Transfer {
@@ -96,9 +99,12 @@ pub enum ExecuteMsg {
     },
     ClaimRewardsAndOptionalyTransfer {
         validators: Vec<String>,
-        transfer: Option<TransferReadyBatchMsg>,
+        transfer: Option<TransferReadyBatchesMsg>,
         timeout: Option<u64>,
         reply_to: String,
+    },
+    UpdateConfig {
+        new_config: ConfigOptional,
     },
 }
 

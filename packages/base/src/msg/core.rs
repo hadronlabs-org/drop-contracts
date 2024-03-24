@@ -2,6 +2,9 @@ use crate::state::core::{Config, ConfigOptional, NonNativeRewardsItem};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Decimal, Uint128};
 use cw_ownable::cw_ownable_execute;
+#[allow(unused_imports)]
+use drop_helpers::pause::PauseInfoResponse;
+use drop_macros::{pausable, pausable_query};
 use drop_puppeteer_base::msg::ResponseHookMsg;
 
 #[cw_serde]
@@ -26,8 +29,11 @@ pub struct InstantiateMsg {
     pub owner: String,
     pub fee: Option<Decimal>,
     pub fee_address: Option<String>,
+    pub emergency_address: Option<String>,
+    pub min_stake_amount: Uint128,
 }
 
+#[pausable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
@@ -53,6 +59,7 @@ pub enum QueryMsg {
     TotalBonded {},
 }
 
+#[pausable]
 #[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
@@ -89,9 +96,15 @@ impl From<InstantiateMsg> for Config {
             lsm_redeem_threshold: val.lsm_redeem_threshold,
             validators_set_contract: val.validators_set_contract,
             unbond_batch_switch_time: val.unbond_batch_switch_time,
-            bond_limit: val.bond_limit,
+            bond_limit: match val.bond_limit {
+                None => None,
+                Some(limit) if limit.is_zero() => None,
+                Some(limit) => Some(limit),
+            },
             fee: val.fee,
             fee_address: val.fee_address,
+            emergency_address: val.emergency_address,
+            min_stake_amount: val.min_stake_amount,
         }
     }
 }
