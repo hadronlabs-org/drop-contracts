@@ -490,8 +490,6 @@ describe('Core', () => {
   it('query pause state', async () => {
     const { factoryContractClient: contractClient } = context;
     const pauseInfo = await contractClient.queryPauseInfo();
-
-    console.log(pauseInfo);
     expect(pauseInfo).toEqual({
       withdrawal_manager: { unpaused: {} },
       core: { unpaused: {} },

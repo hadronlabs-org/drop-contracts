@@ -566,10 +566,16 @@ fn execute_tick_idle(
                 FSM.go_to(deps.storage, ContractState::Transfering)?;
                 PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
                 messages.push(transfer_msg);
-            } else if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, info.funds)?
-            {
+            } else if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
                 messages.push(stake_msg);
                 FSM.go_to(deps.storage, ContractState::Staking)?;
+            } else if let Some(unbond_message) =
+                get_unbonding_msg(deps.branch(), &env, config, &info)?
+            {
+                messages.push(unbond_message);
+                FSM.go_to(deps.storage, ContractState::Unbonding)?;
+            } else {
+                FSM.go_to(deps.storage, ContractState::Idle)?;
             }
         } else {
             attrs.push(attr("validators_to_claim", validators_to_claim.join(",")));
@@ -637,12 +643,16 @@ fn execute_tick_claiming(
         FSM.go_to(deps.storage, ContractState::Transfering)?;
         PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
         messages.push(transfer_msg);
-    } else if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, info.funds)? {
+    } else if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
         messages.push(stake_msg);
         FSM.go_to(deps.storage, ContractState::Staking)?;
+    } else if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info)? {
+        messages.push(unbond_message);
+        FSM.go_to(deps.storage, ContractState::Unbonding)?;
     } else {
         FSM.go_to(deps.storage, ContractState::Idle)?;
     }
+
     attrs.push(attr("state", "unbonding"));
     Ok(response("execute-tick_claiming", CONTRACT_NAME, attrs).add_messages(messages))
 }
@@ -655,28 +665,25 @@ fn execute_tick_transfering(
 ) -> ContractResult<Response<NeutronMsg>> {
     let _response_msg = get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
-
-    let mut response = response(
-        "execute-tick_transfering",
-        CONTRACT_NAME,
-        vec![attr("action", "tick_transfering")],
-    );
-
-    if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, info.funds)? {
-        response = response
-            .add_message(stake_msg)
-            .add_attribute("state", "staking");
+    let mut messages = vec![];
+    let mut attrs = vec![];
+    if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
+        messages.push(stake_msg);
         FSM.go_to(deps.storage, ContractState::Staking)?;
+        attrs.push(attr("state", "staking"));
+    } else if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info)? {
+        messages.push(unbond_message);
+        FSM.go_to(deps.storage, ContractState::Unbonding)?;
+        attrs.push(attr("state", "unbonding"));
     } else {
-        response = response.add_attribute("state", "idle");
         FSM.go_to(deps.storage, ContractState::Idle)?;
+        attrs.push(attr("state", "idle"));
     }
-
-    Ok(response)
+    Ok(response("execute-tick_transfering", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 fn execute_tick_staking(
-    deps: DepsMut<NeutronQuery>,
+    mut deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
     config: &Config,
@@ -688,52 +695,11 @@ fn execute_tick_staking(
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut attrs = vec![attr("action", "tick_staking")];
     let mut messages = vec![];
-    let batch_id = FAILED_BATCH_ID
-        .may_load(deps.storage)?
-        .unwrap_or(UNBOND_BATCH_ID.load(deps.storage)?);
-    let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
-    if (Timestamp::from_seconds(unbond.created).plus_seconds(config.unbond_batch_switch_time)
-        > env.block.time)
-        && !unbond.unbond_items.is_empty()
-        && !unbond.total_amount.is_zero()
-    {
-        let (pre_unbonding_balance, _, _) = get_ica_balance_by_denom(
-            deps.as_ref(),
-            &config.puppeteer_contract,
-            &config.remote_denom,
-            true,
-        )?;
-        PRE_UNBONDING_BALANCE.save(deps.storage, &pre_unbonding_balance)?;
+    let unbond_message = get_unbonding_msg(deps.branch(), &env, config, &info)?;
+    if let Some(unbond_message) = unbond_message {
+        messages.push(unbond_message);
         FSM.go_to(deps.storage, ContractState::Unbonding)?;
         attrs.push(attr("state", "unbonding"));
-        let undelegations: Vec<drop_staking_base::msg::distribution::IdealDelegation> =
-            deps.querier.query_wasm_smart(
-                config.strategy_contract.to_string(),
-                &drop_staking_base::msg::strategy::QueryMsg::CalcWithdraw {
-                    withdraw: unbond.total_amount,
-                },
-            )?;
-        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.puppeteer_contract.to_string(),
-            msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
-                items: undelegations
-                    .iter()
-                    .map(|d| (d.valoper_address.clone(), d.stake_change))
-                    .collect::<Vec<_>>(),
-                batch_id,
-                timeout: Some(config.puppeteer_timeout),
-                reply_to: env.contract.address.to_string(),
-            })?,
-            funds: info.funds,
-        }));
-        unbond.status = UnbondBatchStatus::UnbondRequested;
-        unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
-        UNBOND_BATCH_ID.save(deps.storage, &(batch_id + 1))?;
-        unbond_batches_map().save(
-            deps.storage,
-            batch_id + 1,
-            &new_unbond(env.block.time.seconds()),
-        )?;
     } else {
         FSM.go_to(deps.storage, ContractState::Idle)?;
         attrs.push(attr("state", "idle"));
@@ -1072,8 +1038,9 @@ pub fn get_stake_msg<T>(
     deps: DepsMut<NeutronQuery>,
     env: &Env,
     config: &Config,
-    funds: Vec<Coin>,
+    info: &MessageInfo,
 ) -> ContractResult<Option<CosmosMsg<T>>> {
+    let funds = info.funds.clone();
     let (balance, balance_height, _) = get_ica_balance_by_denom(
         deps.as_ref(),
         &config.puppeteer_contract,
@@ -1131,6 +1098,62 @@ pub fn get_stake_msg<T>(
         })?,
         funds,
     })))
+}
+
+fn get_unbonding_msg<T>(
+    deps: DepsMut<NeutronQuery>,
+    env: &Env,
+    config: &Config,
+    info: &MessageInfo,
+) -> ContractResult<Option<CosmosMsg<T>>> {
+    let funds = info.funds.clone();
+    let batch_id = FAILED_BATCH_ID
+        .may_load(deps.storage)?
+        .unwrap_or(UNBOND_BATCH_ID.load(deps.storage)?);
+    let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
+    if (Timestamp::from_seconds(unbond.created).plus_seconds(config.unbond_batch_switch_time)
+        > env.block.time)
+        && !unbond.unbond_items.is_empty()
+        && !unbond.total_amount.is_zero()
+    {
+        let (pre_unbonding_balance, _, _) = get_ica_balance_by_denom(
+            deps.as_ref(),
+            &config.puppeteer_contract,
+            &config.remote_denom,
+            true,
+        )?;
+        PRE_UNBONDING_BALANCE.save(deps.storage, &pre_unbonding_balance)?;
+        let undelegations: Vec<drop_staking_base::msg::distribution::IdealDelegation> =
+            deps.querier.query_wasm_smart(
+                config.strategy_contract.to_string(),
+                &drop_staking_base::msg::strategy::QueryMsg::CalcWithdraw {
+                    withdraw: unbond.total_amount,
+                },
+            )?;
+        unbond.status = UnbondBatchStatus::UnbondRequested;
+        unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
+        UNBOND_BATCH_ID.save(deps.storage, &(batch_id + 1))?;
+        unbond_batches_map().save(
+            deps.storage,
+            batch_id + 1,
+            &new_unbond(env.block.time.seconds()),
+        )?;
+        Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: config.puppeteer_contract.to_string(),
+            msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
+                items: undelegations
+                    .iter()
+                    .map(|d| (d.valoper_address.clone(), d.stake_change))
+                    .collect::<Vec<_>>(),
+                batch_id,
+                timeout: Some(config.puppeteer_timeout),
+                reply_to: env.contract.address.to_string(),
+            })?,
+            funds,
+        })))
+    } else {
+        Ok(None)
+    }
 }
 
 fn get_received_puppeteer_response(

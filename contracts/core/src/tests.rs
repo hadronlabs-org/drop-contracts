@@ -3,9 +3,9 @@ use std::marker::PhantomData;
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockQuerier, MockStorage},
-    to_json_binary, Coin, ContractResult, CosmosMsg, Decimal, Empty, Order, OwnedDeps, Querier,
-    QuerierResult, QueryRequest, StdResult, SystemError, SystemResult, Timestamp, Uint128, WasmMsg,
-    WasmQuery,
+    to_json_binary, Addr, Coin, ContractResult, CosmosMsg, Decimal, Empty, MessageInfo, Order,
+    OwnedDeps, Querier, QuerierResult, QueryRequest, StdResult, SystemError, SystemResult,
+    Timestamp, Uint128, WasmMsg, WasmQuery,
 };
 
 use drop_puppeteer_base::msg::QueryMsg as PuppeteerBaseQueryMsg;
@@ -281,7 +281,10 @@ fn get_stake_msg_success() {
         deps.as_mut(),
         &mock_env(),
         &get_default_config(Decimal::from_atomics(1u32, 1).ok()),
-        vec![],
+        &MessageInfo {
+            sender: Addr::unchecked("addr0000"),
+            funds: vec![Coin::new(200, "untrn")],
+        },
     )
     .unwrap()
     .unwrap();
@@ -296,7 +299,7 @@ fn get_stake_msg_success() {
                 reply_to: "cosmos2contract".to_string(),
             })
             .unwrap(),
-            funds: vec![],
+            funds: vec![Coin::new(200, "untrn")],
         })
     );
 
@@ -330,7 +333,10 @@ fn get_stake_msg_zero_fee() {
         deps.as_mut(),
         &mock_env(),
         &get_default_config(None),
-        vec![],
+        &MessageInfo {
+            sender: Addr::unchecked("addr0000"),
+            funds: vec![Coin::new(200, "untrn")],
+        },
     )
     .unwrap()
     .unwrap();
@@ -345,7 +351,7 @@ fn get_stake_msg_zero_fee() {
                 reply_to: "cosmos2contract".to_string(),
             })
             .unwrap(),
-            funds: vec![],
+            funds: vec![Coin::new(200, "untrn")],
         })
     );
 }
