@@ -578,7 +578,7 @@ fn execute_tick_staking(
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut attrs = vec![attr("action", "tick_staking")];
     let mut messages = vec![];
-    let unbond_message = get_unbonding_msg(deps.branch(), &env, &config, &info)?;
+    let unbond_message = get_unbonding_msg(deps.branch(), &env, config, &info)?;
     if let Some(unbond_message) = unbond_message {
         messages.push(unbond_message);
         FSM.go_to(deps.storage, ContractState::Unbonding)?;
