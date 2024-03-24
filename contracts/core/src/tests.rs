@@ -277,7 +277,7 @@ fn get_stake_msg_success() {
         .save(deps.as_mut().storage, &1)
         .unwrap();
 
-    let stake_msg: Option<CosmosMsg<NeutronMsg>> = get_stake_msg(
+    let stake_msg: CosmosMsg<NeutronMsg> = get_stake_msg(
         deps.as_mut(),
         &mock_env(),
         &get_default_config(Decimal::from_atomics(1u32, 1).ok()),
@@ -291,7 +291,7 @@ fn get_stake_msg_success() {
 
     assert_eq!(
         stake_msg,
-        Some(CosmosMsg::Wasm(WasmMsg::Execute {
+        CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "puppeteer_contract".to_string(),
             msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
                 items: vec![("valoper_address".to_string(), Uint128::new(180))],
@@ -300,7 +300,7 @@ fn get_stake_msg_success() {
             })
             .unwrap(),
             funds: vec![Coin::new(200, "untrn")],
-        }))
+        })
     );
 
     let collected_fees = COLLECTED_FEES
@@ -329,7 +329,7 @@ fn get_stake_msg_zero_fee() {
         .save(deps.as_mut().storage, &1)
         .unwrap();
 
-    let stake_msg: Option<CosmosMsg<NeutronMsg>> = get_stake_msg(
+    let stake_msg: CosmosMsg<NeutronMsg> = get_stake_msg(
         deps.as_mut(),
         &mock_env(),
         &get_default_config(None),
@@ -343,7 +343,7 @@ fn get_stake_msg_zero_fee() {
 
     assert_eq!(
         stake_msg,
-        Some(CosmosMsg::Wasm(WasmMsg::Execute {
+        CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "puppeteer_contract".to_string(),
             msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
                 items: vec![("valoper_address".to_string(), Uint128::new(200))],
@@ -352,6 +352,6 @@ fn get_stake_msg_zero_fee() {
             })
             .unwrap(),
             funds: vec![Coin::new(200, "untrn")],
-        }))
+        })
     );
 }
