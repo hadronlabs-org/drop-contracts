@@ -149,6 +149,8 @@ fn get_default_config(fee: Option<Decimal>) -> Config {
         fee,
         fee_address: Some("fee_address".to_string()),
         lsm_redeem_threshold: 10u64,
+        lsm_min_bond_amount: Uint128::one(),
+        lsm_redeem_maximum_interval: 10_000_000_000,
         bond_limit: None,
         emergency_address: None,
         min_stake_amount: Uint128::new(100),

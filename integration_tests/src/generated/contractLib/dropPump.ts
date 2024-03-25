@@ -1,42 +1,6 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
 /**
- * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u128` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
- *
- * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
- *
- * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
- */
-export type Uint128 = string;
-
-export interface InstantiateMsg {
-  connection_id: string;
-  dest_address?: string | null;
-  dest_channel?: string | null;
-  dest_port?: string | null;
-  ibc_fees: IBCFees;
-  local_denom: string;
-  owner?: string | null;
-  refundee?: string | null;
-  timeout: PumpTimeout;
-}
-export interface IBCFees {
-  ack_fee: Uint128;
-  recv_fee: Uint128;
-  register_fee: Uint128;
-  timeout_fee: Uint128;
-}
-export interface PumpTimeout {
-  local?: number | null;
-  remote: number;
-}
-/**
  * A human readable address.
  *
  * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
@@ -71,6 +35,7 @@ export type IcaState =
 export interface DropPumpSchema {
   responses: Config | IcaState;
   execute: PushArgs | UpdateConfigArgs;
+  instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
 export interface Config {
@@ -116,6 +81,17 @@ export interface UpdateConfigMsg {
   refundee?: string | null;
   timeout?: PumpTimeout | null;
 }
+export interface InstantiateMsg {
+  connection_id: string;
+  dest_address?: string | null;
+  dest_channel?: string | null;
+  dest_port?: string | null;
+  ibc_fees: IBCFees;
+  local_denom: string;
+  owner?: string | null;
+  refundee?: string | null;
+  timeout: PumpTimeout;
+}
 
 
 function isSigningCosmWasmClient(
@@ -140,8 +116,8 @@ export class Client {
     codeId: number,
     initMsg: InstantiateMsg,
     label: string,
+    fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
-    fees?: StdFee | 'auto' | number,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
       ...(initCoins && initCoins.length && { funds: initCoins }),

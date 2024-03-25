@@ -1,42 +1,6 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
-export interface InstantiateMsg {
-  core_address: string;
-  owner: string;
-  subdenom: string;
-  token_metadata: DenomMetadata;
-}
-export interface DenomMetadata {
-  /**
-   * Even longer description, example: "The native staking token of the Cosmos Hub"
-   */
-  description: string;
-  /**
-   * Lowercase moniker to be displayed in clients, example: "atom"
-   */
-  display: string;
-  /**
-   * Number of decimals
-   */
-  exponent: number;
-  /**
-   * Descriptive token name, example: "Cosmos Hub Atom"
-   */
-  name: string;
-  /**
-   * Symbol to be displayed on exchanges, example: "ATOM"
-   */
-  symbol: string;
-  /**
-   * URI to a document that contains additional information
-   */
-  uri?: string | null;
-  /**
-   * SHA256 hash of a document pointed by URI
-   */
-  uri_hash?: string | null;
-}
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -104,6 +68,7 @@ export type UpdateOwnershipArgs =
 export interface DropTokenSchema {
   responses: ConfigResponse | OwnershipFor_String;
   execute: MintArgs | SetTokenMetadataArgs | UpdateOwnershipArgs;
+  instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
 export interface ConfigResponse {
@@ -164,6 +129,12 @@ export interface DenomMetadata {
    */
   uri_hash?: string | null;
 }
+export interface InstantiateMsg {
+  core_address: string;
+  owner: string;
+  subdenom: string;
+  token_metadata: DenomMetadata;
+}
 
 
 function isSigningCosmWasmClient(
@@ -188,8 +159,8 @@ export class Client {
     codeId: number,
     initMsg: InstantiateMsg,
     label: string,
+    fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
-    fees?: StdFee | 'auto' | number,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
       ...(initCoins && initCoins.length && { funds: initCoins }),
@@ -199,7 +170,7 @@ export class Client {
   queryConfig = async(): Promise<ConfigResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
-  queryOwnership = async(): Promise<Ownership_for_String> => {
+  queryOwnership = async(): Promise<OwnershipFor_String> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
   }
   mint = async(sender:string, args: MintArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {

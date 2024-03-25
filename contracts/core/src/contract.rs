@@ -13,9 +13,9 @@ use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::state::core::{
     unbond_batches_map, Config, ConfigOptional, ContractState, FeeItem, NonNativeRewardsItem,
     UnbondBatch, UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, COLLECTED_FEES, CONFIG,
-    EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_PUPPETEER_RESPONSE,
-    LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, PENDING_TRANSFER,
-    PRE_UNBONDING_BALANCE, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+    EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_LSM_REDEEM,
+    LAST_PUPPETEER_RESPONSE, LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES,
+    PENDING_TRANSFER, PRE_UNBONDING_BALANCE, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
 };
 use drop_staking_base::state::validatorset::ValidatorInfo;
 use drop_staking_base::state::withdrawal_voucher::{Metadata, Trait};
@@ -60,6 +60,7 @@ pub fn instantiate(
     LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &0)?;
     TOTAL_LSM_SHARES.save(deps.storage, &0)?;
     BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
+    LAST_LSM_REDEEM.save(deps.storage, &0)?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
@@ -345,6 +346,7 @@ fn execute_puppeteer_hook(
                             LSM_SHARES_TO_REDEEM.remove(deps.storage, item.local_denom.to_string());
                         }
                         TOTAL_LSM_SHARES.update(deps.storage, |one| StdResult::Ok(one - sum))?;
+                        LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
                     }
                     _ => {}
                 }
@@ -416,7 +418,7 @@ fn execute_tick_idle(
         {
             messages.push(lsm_msg);
         } else if let Some(lsm_msg) =
-            get_pending_lsm_share_msg(deps, config, &env, info.funds.clone())?
+            get_pending_lsm_share_msg(deps.branch(), config, &env, info.funds.clone())?
         {
             messages.push(lsm_msg);
         } else {
@@ -764,6 +766,12 @@ fn execute_bond(
     let denom_type = check_denom::check_denom(&deps, &denom, &config)?;
 
     if let check_denom::DenomType::LsmShare(remote_denom) = denom_type {
+        if amount < config.lsm_min_bond_amount {
+            return Err(ContractError::LSMBondAmountIsBelowMinimum {
+                min_stake_amount: config.lsm_min_bond_amount,
+                bond_amount: amount,
+            });
+        }
         TOTAL_LSM_SHARES.update(deps.storage, |total| StdResult::Ok(total + amount.u128()))?;
         PENDING_LSM_SHARES.update(deps.storage, denom, |one| {
             let mut new = one.unwrap_or((remote_denom, Uint128::zero()));
@@ -875,6 +883,24 @@ fn execute_update_config(
             unbond_batch_switch_time.to_string(),
         ));
         config.unbond_batch_switch_time = unbond_batch_switch_time;
+    }
+    if let Some(lsm_min_bond_amount) = new_config.lsm_min_bond_amount {
+        attrs.push(attr("lsm_min_bond_amount", lsm_min_bond_amount.to_string()));
+        config.lsm_min_bond_amount = lsm_min_bond_amount;
+    }
+    if let Some(lsm_redeem_maximum_interval) = new_config.lsm_redeem_maximum_interval {
+        attrs.push(attr(
+            "lsm_redeem_maximum_interval",
+            lsm_redeem_maximum_interval.to_string(),
+        ));
+        config.lsm_redeem_maximum_interval = lsm_redeem_maximum_interval;
+    }
+    if let Some(lsm_redeem_threshold) = new_config.lsm_redeem_threshold {
+        attrs.push(attr(
+            "lsm_redeem_threshold",
+            lsm_redeem_threshold.to_string(),
+        ));
+        config.lsm_redeem_threshold = lsm_redeem_threshold;
     }
     if let Some(bond_limit) = new_config.bond_limit {
         attrs.push(attr("bond_limit", bond_limit.to_string()));
@@ -1308,10 +1334,14 @@ fn get_pending_redeem_msg<T>(
     env: &Env,
     funds: Vec<cosmwasm_std::Coin>,
 ) -> ContractResult<Option<CosmosMsg<T>>> {
-    if LSM_SHARES_TO_REDEEM
+    let pending_lsm_shares_count = LSM_SHARES_TO_REDEEM
         .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .count()
-        < config.lsm_redeem_threshold as usize
+        .count();
+    let last_lsm_redeem = LAST_LSM_REDEEM.load(deps.storage)?;
+    let lsm_redeem_threshold = config.lsm_redeem_threshold as usize;
+    if pending_lsm_shares_count == 0
+        || ((pending_lsm_shares_count < lsm_redeem_threshold)
+            || (last_lsm_redeem + config.lsm_redeem_maximum_interval > env.block.time.seconds()))
     {
         return Ok(None);
     }

@@ -1,62 +1,6 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
-export interface InstantiateMsg {
-  code_ids: CodeIds;
-  remote_opts: RemoteOpts;
-  salt: string;
-  sdk_version: string;
-  subdenom: string;
-  token_metadata: DenomMetadata;
-}
-export interface CodeIds {
-  core_code_id: number;
-  distribution_code_id: number;
-  puppeteer_code_id: number;
-  rewards_manager_code_id: number;
-  strategy_code_id: number;
-  token_code_id: number;
-  validators_set_code_id: number;
-  withdrawal_manager_code_id: number;
-  withdrawal_voucher_code_id: number;
-}
-export interface RemoteOpts {
-  connection_id: string;
-  denom: string;
-  port_id: string;
-  transfer_channel_id: string;
-  update_period: number;
-}
-export interface DenomMetadata {
-  /**
-   * Even longer description, example: "The native staking token of the Cosmos Hub"
-   */
-  description: string;
-  /**
-   * Lowercase moniker to be displayed in clients, example: "atom"
-   */
-  display: string;
-  /**
-   * Number of decimals
-   */
-  exponent: number;
-  /**
-   * Descriptive token name, example: "Cosmos Hub Atom"
-   */
-  name: string;
-  /**
-   * Symbol to be displayed on exchanges, example: "ATOM"
-   */
-  symbol: string;
-  /**
-   * URI to a document that contains additional information
-   */
-  uri?: string | null;
-  /**
-   * SHA256 hash of a document pointed by URI
-   */
-  uri_hash?: string | null;
-}
 /**
  * Information about if the contract is currently paused.
  */
@@ -199,6 +143,7 @@ export type Uint64 = string;
 export interface DropFactorySchema {
   responses: PauseInfoResponse | State;
   execute: InitArgs | CallbackArgs | UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
+  instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
 export interface PauseInfoResponse {
@@ -225,6 +170,8 @@ export interface CoreParams {
   bond_limit?: Uint128 | null;
   channel: string;
   idle_min_interval: number;
+  lsm_min_bond_amount: Uint128;
+  lsm_redeem_max_interval: number;
   lsm_redeem_threshold: number;
   min_stake_amount: Uint128;
   puppeteer_timeout: number;
@@ -241,6 +188,8 @@ export interface ConfigOptional {
   fee_address?: string | null;
   idle_min_interval?: number | null;
   ld_denom?: string | null;
+  lsm_min_bond_amount?: Uint128 | null;
+  lsm_redeem_maximum_interval?: number | null;
   lsm_redeem_threshold?: number | null;
   min_stake_amount?: Uint128 | null;
   pump_address?: string | null;
@@ -282,6 +231,62 @@ export interface AdminExecuteArgs {
   addr: string;
   msg: Binary;
 }
+export interface InstantiateMsg {
+  code_ids: CodeIds;
+  remote_opts: RemoteOpts;
+  salt: string;
+  sdk_version: string;
+  subdenom: string;
+  token_metadata: DenomMetadata;
+}
+export interface CodeIds {
+  core_code_id: number;
+  distribution_code_id: number;
+  puppeteer_code_id: number;
+  rewards_manager_code_id: number;
+  strategy_code_id: number;
+  token_code_id: number;
+  validators_set_code_id: number;
+  withdrawal_manager_code_id: number;
+  withdrawal_voucher_code_id: number;
+}
+export interface RemoteOpts {
+  connection_id: string;
+  denom: string;
+  port_id: string;
+  transfer_channel_id: string;
+  update_period: number;
+}
+export interface DenomMetadata {
+  /**
+   * Even longer description, example: "The native staking token of the Cosmos Hub"
+   */
+  description: string;
+  /**
+   * Lowercase moniker to be displayed in clients, example: "atom"
+   */
+  display: string;
+  /**
+   * Number of decimals
+   */
+  exponent: number;
+  /**
+   * Descriptive token name, example: "Cosmos Hub Atom"
+   */
+  name: string;
+  /**
+   * Symbol to be displayed on exchanges, example: "ATOM"
+   */
+  symbol: string;
+  /**
+   * URI to a document that contains additional information
+   */
+  uri?: string | null;
+  /**
+   * SHA256 hash of a document pointed by URI
+   */
+  uri_hash?: string | null;
+}
 
 
 function isSigningCosmWasmClient(
@@ -306,8 +311,8 @@ export class Client {
     codeId: number,
     initMsg: InstantiateMsg,
     label: string,
+    fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
-    fees?: StdFee | 'auto' | number,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
       ...(initCoins && initCoins.length && { funds: initCoins }),

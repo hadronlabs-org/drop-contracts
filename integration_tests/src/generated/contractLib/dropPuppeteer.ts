@@ -1,15 +1,5 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
-export interface InstantiateMsg {
-  allowed_senders: string[];
-  connection_id: string;
-  owner: string;
-  port_id: string;
-  remote_denom: string;
-  sdk_version: string;
-  transfer_channel_id: string;
-  update_period: number;
-}
 /**
  * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
  *
@@ -150,6 +140,7 @@ export interface DropPuppeteerSchema {
     | TransferArgs
     | ClaimRewardsAndOptionalyTransferArgs
     | UpdateConfigArgs;
+  instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
 export interface ConfigResponse {
@@ -250,6 +241,16 @@ export interface ConfigOptional {
   transfer_channel_id?: string | null;
   update_period?: number | null;
 }
+export interface InstantiateMsg {
+  allowed_senders: string[];
+  connection_id: string;
+  owner: string;
+  port_id: string;
+  remote_denom: string;
+  sdk_version: string;
+  transfer_channel_id: string;
+  update_period: number;
+}
 
 
 function isSigningCosmWasmClient(
@@ -274,8 +275,8 @@ export class Client {
     codeId: number,
     initMsg: InstantiateMsg,
     label: string,
+    fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
-    fees?: StdFee | 'auto' | number,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
       ...(initCoins && initCoins.length && { funds: initCoins }),

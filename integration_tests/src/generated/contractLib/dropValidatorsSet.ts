@@ -1,9 +1,5 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
-export interface InstantiateMsg {
-  owner: string;
-  stats_contract: string;
-}
 /**
  * A human readable address.
  *
@@ -95,6 +91,7 @@ export interface DropValidatorsSetSchema {
     | UpdateValidatorsInfoArgs
     | UpdateValidatorsVotingArgs
     | UpdateOwnershipArgs;
+  instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
 export interface Config {
@@ -225,6 +222,10 @@ export interface WeightedVoteOption {
   weight: string;
   [k: string]: unknown;
 }
+export interface InstantiateMsg {
+  owner: string;
+  stats_contract: string;
+}
 
 
 function isSigningCosmWasmClient(
@@ -249,8 +250,8 @@ export class Client {
     codeId: number,
     initMsg: InstantiateMsg,
     label: string,
+    fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
-    fees?: StdFee | 'auto' | number,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
       ...(initCoins && initCoins.length && { funds: initCoins }),
@@ -266,7 +267,7 @@ export class Client {
   queryValidators = async(): Promise<ArrayOfValidatorInfo> => {
     return this.client.queryContractSmart(this.contractAddress, { validators: {} });
   }
-  queryOwnership = async(): Promise<Ownership_for_String> => {
+  queryOwnership = async(): Promise<OwnershipFor_String> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
   }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {

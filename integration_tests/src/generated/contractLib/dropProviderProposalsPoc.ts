@@ -6,23 +6,6 @@ import { StdFee } from "@cosmjs/amino";
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal = string;
-
-export interface InstantiateMsg {
-  connection_id: string;
-  core_address: string;
-  init_proposal: number;
-  port_id: string;
-  proposals_prefetch: number;
-  update_period: number;
-  validators_set_address: string;
-  veto_spam_threshold: Decimal;
-}
-/**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal = string;
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -43,6 +26,7 @@ export interface DropProviderProposalsPocSchema {
   responses: Config | ProposalInfo | ArrayOfProposalInfo | Metrics;
   query: GetProposalArgs;
   execute: UpdateConfigArgs | UpdateProposalVotesArgs;
+  instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
 export interface Config {
@@ -136,6 +120,16 @@ export interface ConfigOptional {
 export interface UpdateProposalVotesArgs {
   votes: ProposalVote[];
 }
+export interface InstantiateMsg {
+  connection_id: string;
+  core_address: string;
+  init_proposal: number;
+  port_id: string;
+  proposals_prefetch: number;
+  update_period: number;
+  validators_set_address: string;
+  veto_spam_threshold: Decimal;
+}
 
 
 function isSigningCosmWasmClient(
@@ -160,8 +154,8 @@ export class Client {
     codeId: number,
     initMsg: InstantiateMsg,
     label: string,
+    fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
-    fees?: StdFee | 'auto' | number,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
       ...(initCoins && initCoins.length && { funds: initCoins }),

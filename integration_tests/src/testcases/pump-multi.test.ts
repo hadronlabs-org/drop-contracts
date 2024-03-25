@@ -156,8 +156,8 @@ describe('Pump-Multi', () => {
           owner: account.address,
         },
         'label',
-        [],
         'auto',
+        [],
       );
       expect(instantiateRes.contractAddress).toHaveLength(66);
       context.contractAddress = instantiateRes.contractAddress;
@@ -189,8 +189,8 @@ describe('Pump-Multi', () => {
           owner: account.address,
         },
         'label',
-        [],
         'auto',
+        [],
       );
       expect(instantiateRes.contractAddress).toHaveLength(66);
       context.contractAddress = instantiateRes.contractAddress;

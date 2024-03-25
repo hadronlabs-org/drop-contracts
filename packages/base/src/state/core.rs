@@ -24,7 +24,9 @@ pub struct Config {
     pub pump_address: Option<String>,
     pub channel: String,
     pub ld_denom: Option<String>,
+    pub lsm_min_bond_amount: Uint128,
     pub lsm_redeem_threshold: u64,
+    pub lsm_redeem_maximum_interval: u64, //seconds
     pub bond_limit: Option<Uint128>,
     pub fee: Option<Decimal>,
     pub fee_address: Option<String>,
@@ -180,5 +182,5 @@ pub const PENDING_TRANSFER: Item<Uint128> = Item::new("pending_transfer");
 pub const NON_NATIVE_REWARDS_CONFIG: Item<Vec<NonNativeRewardsItem>> =
     Item::new("non_native_rewards_config");
 pub const BONDED_AMOUNT: Item<Uint128> = Item::new("bonded_amount");
-
+pub const LAST_LSM_REDEEM: Item<u64> = Item::new("last_lsm_redeem");
 pub const EXCHANGE_RATE: Item<(Decimal, u64)> = Item::new("exchange_rate");

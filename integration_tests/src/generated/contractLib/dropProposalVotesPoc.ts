@@ -1,16 +1,10 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
-export interface InstantiateMsg {
-  connection_id: string;
-  core_address: string;
-  port_id: string;
-  provider_proposals_address: string;
-  update_period: number;
-}
 export interface DropProposalVotesPocSchema {
   responses: Config | Metrics;
   execute: UpdateConfigArgs | UpdateActiveProposalsArgs | UpdateVotersListArgs;
+  instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
 export interface Config {
@@ -39,6 +33,13 @@ export interface UpdateActiveProposalsArgs {
 export interface UpdateVotersListArgs {
   voters: string[];
 }
+export interface InstantiateMsg {
+  connection_id: string;
+  core_address: string;
+  port_id: string;
+  provider_proposals_address: string;
+  update_period: number;
+}
 
 
 function isSigningCosmWasmClient(
@@ -63,8 +64,8 @@ export class Client {
     codeId: number,
     initMsg: InstantiateMsg,
     label: string,
+    fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
-    fees?: StdFee | 'auto' | number,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
       ...(initCoins && initCoins.length && { funds: initCoins }),

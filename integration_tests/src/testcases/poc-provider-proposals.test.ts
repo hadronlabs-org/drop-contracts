@@ -122,13 +122,13 @@ describe('POC Provider Proposals', () => {
         veto_spam_threshold: '0.5',
       },
       'label',
+      'auto',
       [
         {
           amount: '10000000',
           denom: 'untrn',
         },
       ],
-      'auto',
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
     context.contractAddress = instantiateRes.contractAddress;
