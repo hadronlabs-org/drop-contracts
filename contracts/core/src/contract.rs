@@ -37,7 +37,7 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    deps: DepsMut,
+    deps: DepsMut<NeutronQuery>,
     env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
@@ -846,6 +846,10 @@ fn execute_update_config(
     if let Some(pump_address) = new_config.pump_address {
         attrs.push(attr("pump_address", &pump_address));
         config.pump_address = Some(pump_address);
+    }
+    if let Some(remote_denom) = new_config.remote_denom {
+        attrs.push(attr("remote_denom", &remote_denom));
+        config.remote_denom = remote_denom;
     }
     if let Some(validators_set_contract) = new_config.validators_set_contract {
         attrs.push(attr("validators_set_contract", &validators_set_contract));
