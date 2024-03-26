@@ -318,8 +318,8 @@ describe('Core Slashing', () => {
         },
       },
       'drop-staking-factory',
-      [],
       'auto',
+      [],
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
     context.contractAddress = instantiateRes.contractAddress;
@@ -406,6 +406,8 @@ describe('Core Slashing', () => {
         unbonding_period: 360,
         channel: 'channel-0',
         lsm_redeem_threshold: 2,
+        lsm_min_bond_amount: '1',
+        lsm_redeem_max_interval: 60_000,
         bond_limit: '0',
         min_stake_amount: '2',
       },
@@ -558,8 +560,8 @@ describe('Core Slashing', () => {
         owner: account.address,
       },
       'Drop-staking-pump',
-      [],
       1.5,
+      [],
     );
     expect(res.contractAddress).toHaveLength(66);
     context.pumpContractClient = new DropPump.Client(

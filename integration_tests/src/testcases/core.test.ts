@@ -326,8 +326,8 @@ describe('Core', () => {
         },
       },
       'drop-staking-factory',
-      [],
       'auto',
+      [],
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
     context.contractAddress = instantiateRes.contractAddress;
@@ -416,6 +416,8 @@ describe('Core', () => {
         unbonding_period: 360,
         channel: 'channel-0',
         lsm_redeem_threshold: 2,
+        lsm_min_bond_amount: '1000',
+        lsm_redeem_max_interval: 60_000,
         bond_limit: '100000',
         min_stake_amount: '2',
       },
@@ -942,8 +944,8 @@ describe('Core', () => {
             owner: account.address,
           },
           'drop-staking-pump',
-          [],
           1.5,
+          [],
         );
         expect(res.contractAddress).toHaveLength(66);
         context.pumpContractClient = new DropPump.Client(

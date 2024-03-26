@@ -1,13 +1,6 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
-export interface InstantiateMsg {
-  core_address: string;
-  denom: string;
-  distribution_address: string;
-  puppeteer_address: string;
-  validator_set_address: string;
-}
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -29,6 +22,7 @@ export interface DropStrategySchema {
   responses: ArrayOfIdealDelegation | ArrayOfIdealDelegation1 | ConfigResponse;
   query: CalcDepositArgs | CalcWithdrawArgs;
   execute: UpdateConfigArgs;
+  instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
 export interface IdealDelegation {
@@ -58,6 +52,13 @@ export interface UpdateConfigArgs {
   puppeteer_address?: string | null;
   validator_set_address?: string | null;
 }
+export interface InstantiateMsg {
+  core_address: string;
+  denom: string;
+  distribution_address: string;
+  puppeteer_address: string;
+  validator_set_address: string;
+}
 
 
 function isSigningCosmWasmClient(
@@ -82,8 +83,8 @@ export class Client {
     codeId: number,
     initMsg: InstantiateMsg,
     label: string,
+    fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
-    fees?: StdFee | 'auto' | number,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
       ...(initCoins && initCoins.length && { funds: initCoins }),

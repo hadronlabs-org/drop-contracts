@@ -1,20 +1,6 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
-export interface InstantiateMsg {
-  /**
-   * The minter is the only one who can create new NFTs. This is designed for a base NFT that is controlled by an external program or contract. You will likely replace this with custom logic in custom NFTs
-   */
-  minter: string;
-  /**
-   * Name of the NFT contract
-   */
-  name: string;
-  /**
-   * Symbol of the NFT contract
-   */
-  symbol: string;
-}
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -124,6 +110,7 @@ export interface DropWithdrawalVoucherSchema {
     | BurnArgs
     | ExtensionArgs1
     | UpdateOwnershipArgs;
+  instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
 export interface AllNftInfoResponseFor_Empty {
@@ -362,6 +349,20 @@ export interface BurnArgs {
 export interface ExtensionArgs1 {
   msg: Empty;
 }
+export interface InstantiateMsg {
+  /**
+   * The minter is the only one who can create new NFTs. This is designed for a base NFT that is controlled by an external program or contract. You will likely replace this with custom logic in custom NFTs
+   */
+  minter: string;
+  /**
+   * Name of the NFT contract
+   */
+  name: string;
+  /**
+   * Symbol of the NFT contract
+   */
+  symbol: string;
+}
 
 
 function isSigningCosmWasmClient(
@@ -386,8 +387,8 @@ export class Client {
     codeId: number,
     initMsg: InstantiateMsg,
     label: string,
+    fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
-    fees?: StdFee | 'auto' | number,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
       ...(initCoins && initCoins.length && { funds: initCoins }),
@@ -415,10 +416,10 @@ export class Client {
   queryContractInfo = async(): Promise<ContractInfoResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { contract_info: {} });
   }
-  queryNftInfo = async(args: NftInfoArgs): Promise<NftInfoResponse_for_Empty> => {
+  queryNftInfo = async(args: NftInfoArgs): Promise<NftInfoResponseFor_Empty> => {
     return this.client.queryContractSmart(this.contractAddress, { nft_info: args });
   }
-  queryAllNftInfo = async(args: AllNftInfoArgs): Promise<AllNftInfoResponse_for_Empty> => {
+  queryAllNftInfo = async(args: AllNftInfoArgs): Promise<AllNftInfoResponseFor_Empty> => {
     return this.client.queryContractSmart(this.contractAddress, { all_nft_info: args });
   }
   queryTokens = async(args: TokensArgs): Promise<TokensResponse> => {
@@ -433,7 +434,7 @@ export class Client {
   queryExtension = async(args: ExtensionArgs): Promise<Null> => {
     return this.client.queryContractSmart(this.contractAddress, { extension: args });
   }
-  queryOwnership = async(): Promise<Ownership_for_String> => {
+  queryOwnership = async(): Promise<OwnershipFor_String> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
   }
   transferNft = async(sender:string, args: TransferNftArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {

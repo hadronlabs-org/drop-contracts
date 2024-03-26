@@ -20,51 +20,6 @@ export type Uint128 = string;
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal = string;
-
-export interface InstantiateMsg {
-  base_denom: string;
-  bond_limit?: Uint128 | null;
-  channel: string;
-  emergency_address?: string | null;
-  fee?: Decimal | null;
-  fee_address?: string | null;
-  idle_min_interval: number;
-  lsm_redeem_threshold: number;
-  min_stake_amount: Uint128;
-  owner: string;
-  pump_address?: string | null;
-  puppeteer_contract: string;
-  puppeteer_timeout: number;
-  remote_denom: string;
-  strategy_contract: string;
-  token_contract: string;
-  unbond_batch_switch_time: number;
-  unbonding_period: number;
-  unbonding_safe_period: number;
-  validators_set_contract: string;
-  withdrawal_manager_contract: string;
-  withdrawal_voucher_contract: string;
-}
-/**
- * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u128` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
- *
- * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
- *
- * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
- */
-export type Uint128 = string;
-/**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal = string;
 export type ContractState = "idle" | "claiming" | "unbonding" | "staking" | "transfering";
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
@@ -290,6 +245,7 @@ export interface DropCoreSchema {
     | UnbondBatch;
   query: UnbondBatchArgs;
   execute: BondArgs | UpdateConfigArgs | UpdateNonNativeRewardsReceiversArgs | PuppeteerHookArgs | UpdateOwnershipArgs;
+  instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
 export interface Config {
@@ -301,6 +257,8 @@ export interface Config {
   fee_address?: string | null;
   idle_min_interval: number;
   ld_denom?: string | null;
+  lsm_min_bond_amount: Uint128;
+  lsm_redeem_maximum_interval: number;
   lsm_redeem_threshold: number;
   min_stake_amount: Uint128;
   pump_address?: string | null;
@@ -423,6 +381,8 @@ export interface ConfigOptional {
   fee_address?: string | null;
   idle_min_interval?: number | null;
   ld_denom?: string | null;
+  lsm_min_bond_amount?: Uint128 | null;
+  lsm_redeem_maximum_interval?: number | null;
   lsm_redeem_threshold?: number | null;
   min_stake_amount?: Uint128 | null;
   pump_address?: string | null;
@@ -440,6 +400,32 @@ export interface ConfigOptional {
 }
 export interface UpdateNonNativeRewardsReceiversArgs {
   items: NonNativeRewardsItem[];
+}
+export interface InstantiateMsg {
+  base_denom: string;
+  bond_limit?: Uint128 | null;
+  channel: string;
+  emergency_address?: string | null;
+  fee?: Decimal | null;
+  fee_address?: string | null;
+  idle_min_interval: number;
+  lsm_min_bond_amount: Uint128;
+  lsm_redeem_max_interval: number;
+  lsm_redeem_threshold: number;
+  min_stake_amount: Uint128;
+  owner: string;
+  pump_address?: string | null;
+  puppeteer_contract: string;
+  puppeteer_timeout: number;
+  remote_denom: string;
+  strategy_contract: string;
+  token_contract: string;
+  unbond_batch_switch_time: number;
+  unbonding_period: number;
+  unbonding_safe_period: number;
+  validators_set_contract: string;
+  withdrawal_manager_contract: string;
+  withdrawal_voucher_contract: string;
 }
 
 
@@ -465,8 +451,8 @@ export class Client {
     codeId: number,
     initMsg: InstantiateMsg,
     label: string,
+    fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
-    fees?: StdFee | 'auto' | number,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
       ...(initCoins && initCoins.length && { funds: initCoins }),
@@ -494,10 +480,10 @@ export class Client {
   queryNonNativeRewardsReceivers = async(): Promise<ArrayOfNonNativeRewardsItem> => {
     return this.client.queryContractSmart(this.contractAddress, { non_native_rewards_receivers: {} });
   }
-  queryPendingLSMShares = async(): Promise<ArrayOfTupleOf_StringAnd_Tuple_of_String_and_Uint128> => {
+  queryPendingLSMShares = async(): Promise<ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { pending_l_s_m_shares: {} });
   }
-  queryLSMSharesToRedeem = async(): Promise<ArrayOfTupleOf_StringAnd_Tuple_of_String_and_Uint128> => {
+  queryLSMSharesToRedeem = async(): Promise<ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { l_s_m_shares_to_redeem: {} });
   }
   queryTotalBonded = async(): Promise<Uint128> => {

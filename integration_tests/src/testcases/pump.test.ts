@@ -147,8 +147,8 @@ describe('Pump', () => {
         owner: account.address,
       },
       'label',
-      [],
       'auto',
+      [],
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
     context.contractAddress = instantiateRes.contractAddress;

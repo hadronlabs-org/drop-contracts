@@ -1,9 +1,6 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
-export interface InstantiateMsg {
-  owner: string;
-}
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -33,6 +30,7 @@ export type PauseInfoResponse =
 export interface DropRewardsManagerSchema {
   responses: ConfigResponse | ArrayOfHandlerConfig | PauseInfoResponse;
   execute: UpdateConfigArgs | AddHandlerArgs | RemoveHandlerArgs;
+  instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
 export interface ConfigResponse {
@@ -51,6 +49,9 @@ export interface AddHandlerArgs {
 }
 export interface RemoveHandlerArgs {
   denom: string;
+}
+export interface InstantiateMsg {
+  owner: string;
 }
 
 
@@ -76,8 +77,8 @@ export class Client {
     codeId: number,
     initMsg: InstantiateMsg,
     label: string,
+    fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
-    fees?: StdFee | 'auto' | number,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
       ...(initCoins && initCoins.length && { funds: initCoins }),

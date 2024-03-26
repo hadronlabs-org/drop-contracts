@@ -1,12 +1,6 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
-export interface InstantiateMsg {
-  base_denom: string;
-  core_contract: string;
-  owner: string;
-  voucher_contract: string;
-}
 /**
  * Information about if the contract is currently paused.
  */
@@ -21,6 +15,7 @@ export type PauseInfoResponse =
 export interface DropWithdrawalManagerSchema {
   responses: Config | PauseInfoResponse;
   execute: UpdateConfigArgs | ReceiveNftArgs;
+  instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
 export interface Config {
@@ -44,7 +39,13 @@ export interface ReceiveNftArgs {
   properties?: {
     [k: string]: unknown;
   };
-  additionalProperties?: false;
+  additionalProperties?: never;
+}
+export interface InstantiateMsg {
+  base_denom: string;
+  core_contract: string;
+  owner: string;
+  voucher_contract: string;
 }
 
 
@@ -70,8 +71,8 @@ export class Client {
     codeId: number,
     initMsg: InstantiateMsg,
     label: string,
+    fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
-    fees?: StdFee | 'auto' | number,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
       ...(initCoins && initCoins.length && { funds: initCoins }),

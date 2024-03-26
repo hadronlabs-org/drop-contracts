@@ -322,8 +322,8 @@ describe('Auto withdrawer', () => {
         },
       },
       'drop-staking-factory',
-      [],
       'auto',
+      [],
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
     context.contractAddress = instantiateRes.contractAddress;
@@ -412,6 +412,8 @@ describe('Auto withdrawer', () => {
         unbonding_period: UNBONDING_TIME,
         channel: 'channel-0',
         lsm_redeem_threshold: 10,
+        lsm_redeem_max_interval: 60_000,
+        lsm_min_bond_amount: '1',
         min_stake_amount: '2',
       },
     });
@@ -617,8 +619,8 @@ describe('Auto withdrawer', () => {
         ld_token: ldDenom,
       },
       'drop-auto-withdrawer',
-      [],
       'auto',
+      [],
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
     context.autoWithdrawerContractClient = new DropAutoWithdrawer.Client(
@@ -796,8 +798,8 @@ describe('Auto withdrawer', () => {
             owner: account.address,
           },
           'drop-staking-pump',
-          [],
           1.5,
+          [],
         );
         expect(res.contractAddress).toHaveLength(66);
         context.pumpContractClient = new DropPump.Client(

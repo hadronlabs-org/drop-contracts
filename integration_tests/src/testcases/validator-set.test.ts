@@ -72,8 +72,8 @@ describe('Validator set', () => {
         stats_contract: account.address,
       },
       'label',
-      [],
       'auto',
+      [],
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
     context.contractAddress = instantiateRes.contractAddress;

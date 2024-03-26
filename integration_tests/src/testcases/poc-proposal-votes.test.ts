@@ -132,13 +132,13 @@ describe('POC Proposal Votes', () => {
           veto_spam_threshold: '0.5',
         },
         'label',
+        'auto',
         [
           {
             amount: '10000000',
             denom: 'untrn',
           },
         ],
-        'auto',
       );
     expect(instantiatePropsRes.contractAddress).toHaveLength(66);
     context.propsContractAddress = instantiatePropsRes.contractAddress;
@@ -168,13 +168,13 @@ describe('POC Proposal Votes', () => {
         provider_proposals_address: context.propsContractAddress,
       },
       'label',
+      'auto',
       [
         {
           amount: '10000000',
           denom: 'untrn',
         },
       ],
-      'auto',
     );
     expect(instantiateVotesRes.contractAddress).toHaveLength(66);
     context.votesContractAddress = instantiateVotesRes.contractAddress;

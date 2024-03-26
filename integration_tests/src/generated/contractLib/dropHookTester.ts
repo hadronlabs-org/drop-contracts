@@ -1,6 +1,5 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
-export interface InstantiateMsg {}
 export type ResponseAnswer =
   | {
       delegate_response: MsgDelegateResponse;
@@ -137,6 +136,7 @@ export interface DropHookTesterSchema {
     | TokenizeShareArgs
     | RedeemShareArgs
     | PuppeteerHookArgs;
+  instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
 export interface ResponseHookSuccessMsg {
@@ -235,6 +235,7 @@ export interface RedeemShareArgs {
   timeout?: number | null;
   validator: string;
 }
+export interface InstantiateMsg {}
 
 
 function isSigningCosmWasmClient(
@@ -259,8 +260,8 @@ export class Client {
     codeId: number,
     initMsg: InstantiateMsg,
     label: string,
+    fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
-    fees?: StdFee | 'auto' | number,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
       ...(initCoins && initCoins.length && { funds: initCoins }),

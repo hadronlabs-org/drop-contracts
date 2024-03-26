@@ -116,8 +116,8 @@ describe('Interchain puppeteer', () => {
         res.codeId,
         {},
         'label',
-        [],
         'auto',
+        [],
       );
       expect(instantiateRes.contractAddress).toHaveLength(66);
       context.hookContractClient = new DropHookTester.Client(
@@ -149,8 +149,8 @@ describe('Interchain puppeteer', () => {
           allowed_senders: [context.hookContractClient.contractAddress],
         },
         'label',
-        [],
         'auto',
+        [],
       );
       expect(instantiateRes.contractAddress).toHaveLength(66);
       context.contractAddress = instantiateRes.contractAddress;
