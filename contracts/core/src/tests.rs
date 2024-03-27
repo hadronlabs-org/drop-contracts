@@ -1,14 +1,19 @@
+use std::str::FromStr;
+
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockStorage},
     to_json_binary, Addr, Coin, CosmosMsg, Decimal, Event, MessageInfo, Order, OwnedDeps, Response,
-    StdResult, Timestamp, Uint128, WasmMsg,
+    StdResult, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
 use drop_staking_base::{
     msg::strategy::QueryMsg as StategyQueryMsg,
-    state::core::{BONDED_AMOUNT, CONFIG},
+    state::core::{
+        ContractState, BONDED_AMOUNT, CONFIG, FSM, LAST_IDLE_CALL, LAST_LSM_REDEEM,
+        TOTAL_LSM_SHARES,
+    },
 };
 use drop_staking_base::{
     msg::{core::InstantiateMsg, puppeteer::MultiBalances},
@@ -468,4 +473,172 @@ fn test_execute_reset_bonded_amount() {
     );
     let amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
     assert_eq!(amount, Uint128::zero());
+}
+
+#[test]
+fn test_execute_tick_idle_non_native_rewards() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&(
+                MultiBalances {
+                    coins: vec![
+                        Coin {
+                            denom: "non_native_denom_1".to_string(),
+                            amount: Uint128::new(200),
+                        },
+                        Coin {
+                            denom: "non_native_denom_2".to_string(),
+                            amount: Uint128::new(200),
+                        },
+                        Coin {
+                            denom: "non_native_denom_3".to_string(),
+                            amount: Uint128::new(200),
+                        },
+                        Coin {
+                            denom: "non_native_denom_4".to_string(),
+                            amount: Uint128::new(99),
+                        },
+                    ],
+                },
+                10u64,
+                Timestamp::from_nanos(20),
+            ))
+            .unwrap()
+        });
+
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                token_contract: "token_contract".to_string(),
+                puppeteer_contract: "puppeteer_contract".to_string(),
+                puppeteer_timeout: 60,
+                strategy_contract: "strategy_contract".to_string(),
+                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
+                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
+                validators_set_contract: "validators_set_contract".to_string(),
+                base_denom: "base_denom".to_string(),
+                remote_denom: "remote_denom".to_string(),
+                idle_min_interval: 1000,
+                unbonding_period: 60,
+                unbonding_safe_period: 10,
+                unbond_batch_switch_time: 6000,
+                pump_address: Some("pump_address".to_string()),
+                ld_denom: Some("ld_denom".to_string()),
+                channel: "channel".to_string(),
+                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                fee_address: Some("fee_address".to_string()),
+                lsm_redeem_threshold: 10u64,
+                lsm_min_bond_amount: Uint128::one(),
+                lsm_redeem_maximum_interval: 10_000_000_000,
+                bond_limit: None,
+                emergency_address: None,
+                min_stake_amount: Uint128::new(100),
+            },
+        )
+        .unwrap();
+    NON_NATIVE_REWARDS_CONFIG
+        .save(
+            deps.as_mut().storage,
+            &vec![
+                NonNativeRewardsItem {
+                    denom: "non_native_denom_1".to_string(),
+                    address: "non_native_denom_receiver_1".to_string(),
+                    min_amount: Uint128::new(100),
+                    fee_address: "non_native_denom_fee_receiver_1".to_string(),
+                    fee: Decimal::from_str("0.1").unwrap(),
+                },
+                NonNativeRewardsItem {
+                    denom: "non_native_denom_2".to_string(),
+                    address: "non_native_denom_receiver_2".to_string(),
+                    min_amount: Uint128::new(100),
+                    fee_address: "non_native_denom_fee_receiver_2".to_string(),
+                    fee: Decimal::from_str("1").unwrap(),
+                },
+                NonNativeRewardsItem {
+                    denom: "non_native_denom_3".to_string(),
+                    address: "non_native_denom_receiver_3".to_string(),
+                    min_amount: Uint128::new(100),
+                    fee_address: "non_native_denom_fee_receiver_3".to_string(),
+                    fee: Decimal::from_str("0").unwrap(),
+                },
+                NonNativeRewardsItem {
+                    denom: "non_native_denom_4".to_string(),
+                    address: "non_native_denom_receiver_4".to_string(),
+                    min_amount: Uint128::new(100),
+                    fee_address: "non_native_denom_fee_receiver_4".to_string(),
+                    fee: Decimal::from_str("0").unwrap(),
+                },
+            ],
+        )
+        .unwrap();
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+        .unwrap();
+    LAST_IDLE_CALL.save(deps.as_mut().storage, &0).unwrap();
+    LAST_ICA_BALANCE_CHANGE_HEIGHT
+        .save(deps.as_mut().storage, &0)
+        .unwrap();
+    TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
+    BONDED_AMOUNT
+        .save(deps.as_mut().storage, &Uint128::zero())
+        .unwrap();
+    LAST_LSM_REDEEM.save(deps.as_mut().storage, &0).unwrap();
+    let mut env = mock_env();
+    env.block.time = Timestamp::from_seconds(100);
+    let res = execute(
+        deps.as_mut(),
+        env,
+        mock_info("admin", &[]),
+        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+    )
+    .unwrap();
+
+    assert_eq!(
+        res,
+        Response::new()
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-core-execute-tick_idle")
+                    .add_attributes(vec![("action", "tick_idle"),])
+            )
+            .add_submessages(vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "puppeteer_contract".to_string(),
+                msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
+                    items: vec![
+                        (
+                            "non_native_denom_receiver_1".to_string(),
+                            cosmwasm_std::Coin {
+                                denom: "non_native_denom_1".to_string(),
+                                amount: Uint128::from(180u128),
+                            },
+                        ),
+                        (
+                            "non_native_denom_fee_receiver_1".to_string(),
+                            cosmwasm_std::Coin {
+                                denom: "non_native_denom_1".to_string(),
+                                amount: Uint128::from(20u128),
+                            },
+                        ),
+                        (
+                            "non_native_denom_fee_receiver_2".to_string(),
+                            cosmwasm_std::Coin {
+                                denom: "non_native_denom_2".to_string(),
+                                amount: Uint128::from(200u128),
+                            },
+                        ),
+                        (
+                            "non_native_denom_receiver_3".to_string(),
+                            cosmwasm_std::Coin {
+                                denom: "non_native_denom_3".to_string(),
+                                amount: Uint128::from(200u128),
+                            },
+                        ),
+                    ],
+                    timeout: Some(60),
+                    reply_to: "cosmos2contract".to_string(),
+                })
+                .unwrap(),
+                funds: vec![]
+            }))])
+    );
 }

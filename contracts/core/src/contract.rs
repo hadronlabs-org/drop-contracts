@@ -1282,14 +1282,15 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
         if amount > &item.min_amount {
             let fee = item.fee * *amount;
             let amount = *amount - fee;
-            items.push((
-                item.address,
-                cosmwasm_std::Coin {
-                    denom: item.denom.clone(),
-                    amount,
-                },
-            ));
-
+            if !amount.is_zero() {
+                items.push((
+                    item.address,
+                    cosmwasm_std::Coin {
+                        denom: item.denom.clone(),
+                        amount,
+                    },
+                ));
+            }
             if (item.fee > Decimal::zero()) && (fee > Uint128::zero()) {
                 items.push((
                     item.fee_address,
