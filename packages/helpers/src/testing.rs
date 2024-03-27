@@ -36,12 +36,15 @@ pub fn mock_dependencies(
     }
 }
 
+type WasmFn = dyn Fn(&Binary) -> Binary;
+type CustomFn = dyn Fn(&QueryRequest<NeutronQuery>) -> Binary;
+
 pub struct WasmMockQuerier {
     base: MockQuerier<NeutronQuery>,
     query_responses: HashMap<u64, Binary>,
     registered_queries: HashMap<u64, Binary>,
-    wasm_query_responses: RefCell<HashMap<String, Vec<Box<dyn Fn(&Binary) -> Binary>>>>, // fml
-    custom_query_responses: RefCell<Vec<Box<dyn Fn(&QueryRequest<NeutronQuery>) -> Binary>>>, // fml
+    wasm_query_responses: RefCell<HashMap<String, Vec<Box<WasmFn>>>>, // fml
+    custom_query_responses: RefCell<Vec<Box<CustomFn>>>,              // fml
 }
 
 impl Querier for WasmMockQuerier {
@@ -90,21 +93,18 @@ impl WasmMockQuerier {
                     SystemResult::Ok(ContractResult::Ok(response(request)))
                 }
             },
-            QueryRequest::Wasm(wasm_query) => match wasm_query {
-                cosmwasm_std::WasmQuery::Smart { contract_addr, msg } => {
-                    let mut wasm_query_responses = self.wasm_query_responses.borrow_mut();
-                    let responses = match wasm_query_responses.get_mut(contract_addr) {
-                        None => Err(SystemError::NoSuchContract {
-                            addr: contract_addr.to_string(),
-                        }),
-                        Some(responses) => Ok(responses),
-                    }
-                    .unwrap();
-                    let response = responses.remove(0);
-                    SystemResult::Ok(ContractResult::Ok(response(msg)))
+            QueryRequest::Wasm(cosmwasm_std::WasmQuery::Smart { contract_addr, msg }) => {
+                let mut wasm_query_responses = self.wasm_query_responses.borrow_mut();
+                let responses = match wasm_query_responses.get_mut(contract_addr) {
+                    None => Err(SystemError::NoSuchContract {
+                        addr: contract_addr.to_string(),
+                    }),
+                    Some(responses) => Ok(responses),
                 }
-                _ => self.base.handle_query(request),
-            },
+                .unwrap();
+                let response = responses.remove(0);
+                SystemResult::Ok(ContractResult::Ok(response(msg)))
+            }
             _ => self.base.handle_query(request),
         }
     }
@@ -122,7 +122,7 @@ impl WasmMockQuerier {
         let mut wasm_responses = self.wasm_query_responses.borrow_mut();
         let response_funcs = wasm_responses
             .entry(contract_address.to_string())
-            .or_insert_with(Vec::new);
+            .or_default();
 
         response_funcs.push(Box::new(response_func));
     }
