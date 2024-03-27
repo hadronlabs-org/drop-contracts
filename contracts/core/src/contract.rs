@@ -60,6 +60,7 @@ pub fn instantiate(
     LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &0)?;
     TOTAL_LSM_SHARES.save(deps.storage, &0)?;
     BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
+    NON_NATIVE_REWARDS_CONFIG.save(deps.storage, &vec![])?;
     LAST_LSM_REDEEM.save(deps.storage, &0)?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
@@ -1260,6 +1261,9 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
 ) -> ContractResult<Option<CosmosMsg<T>>> {
     let config = CONFIG.load(deps.storage)?;
     let non_native_rewards_receivers = NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?;
+    if non_native_rewards_receivers.is_empty() {
+        return Ok(None);
+    }
     let mut items = vec![];
     let rewards: drop_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
@@ -1382,21 +1386,26 @@ fn get_pending_lsm_share_msg<T, X: CustomQuery>(
 ) -> ContractResult<Option<CosmosMsg<T>>> {
     let lsm_share: Option<(String, (String, Uint128))> = PENDING_LSM_SHARES.first(deps.storage)?;
     match lsm_share {
-        Some((denom, (_remote_denom, amount))) => Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.puppeteer_contract.to_string(),
-            msg: to_json_binary(
-                &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
-                    reason: IBCTransferReason::LSMShare,
-                    timeout: config.puppeteer_timeout,
-                    reply_to: env.contract.address.to_string(),
+        Some((local_denom, (_remote_denom, amount))) => {
+            Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: config.puppeteer_contract.to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+                        reason: IBCTransferReason::LSMShare,
+                        timeout: config.puppeteer_timeout,
+                        reply_to: env.contract.address.to_string(),
+                    },
+                )?,
+                funds: {
+                    let mut all_funds = vec![cosmwasm_std::Coin {
+                        denom: local_denom,
+                        amount,
+                    }];
+                    all_funds.extend(funds);
+                    all_funds
                 },
-            )?,
-            funds: {
-                let mut all_funds = vec![cosmwasm_std::Coin { denom, amount }];
-                all_funds.extend(funds);
-                all_funds
-            },
-        }))),
+            })))
+        }
         None => Ok(None),
     }
 }

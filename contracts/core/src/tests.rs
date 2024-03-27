@@ -12,7 +12,7 @@ use drop_staking_base::{
     msg::strategy::QueryMsg as StategyQueryMsg,
     state::core::{
         ContractState, BONDED_AMOUNT, CONFIG, FSM, LAST_IDLE_CALL, LAST_LSM_REDEEM,
-        TOTAL_LSM_SHARES,
+        PENDING_LSM_SHARES, TOTAL_LSM_SHARES,
     },
 };
 use drop_staking_base::{
@@ -639,6 +639,92 @@ fn test_execute_tick_idle_non_native_rewards() {
                 })
                 .unwrap(),
                 funds: vec![]
+            }))])
+    );
+}
+
+#[test]
+fn test_execute_tick_idle_get_pending_lsm_shares_transfer() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                token_contract: "token_contract".to_string(),
+                puppeteer_contract: "puppeteer_contract".to_string(),
+                puppeteer_timeout: 60,
+                strategy_contract: "strategy_contract".to_string(),
+                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
+                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
+                validators_set_contract: "validators_set_contract".to_string(),
+                base_denom: "base_denom".to_string(),
+                remote_denom: "remote_denom".to_string(),
+                idle_min_interval: 1000,
+                unbonding_period: 60,
+                unbonding_safe_period: 10,
+                unbond_batch_switch_time: 6000,
+                pump_address: Some("pump_address".to_string()),
+                ld_denom: Some("ld_denom".to_string()),
+                channel: "channel".to_string(),
+                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                fee_address: Some("fee_address".to_string()),
+                lsm_redeem_threshold: 10u64,
+                lsm_min_bond_amount: Uint128::one(),
+                lsm_redeem_maximum_interval: 10_000_000_000,
+                bond_limit: None,
+                emergency_address: None,
+                min_stake_amount: Uint128::new(100),
+            },
+        )
+        .unwrap();
+    NON_NATIVE_REWARDS_CONFIG
+        .save(deps.as_mut().storage, &vec![])
+        .unwrap();
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+        .unwrap();
+    LAST_IDLE_CALL.save(deps.as_mut().storage, &0).unwrap();
+    LAST_ICA_BALANCE_CHANGE_HEIGHT
+        .save(deps.as_mut().storage, &0)
+        .unwrap();
+    TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
+    BONDED_AMOUNT
+        .save(deps.as_mut().storage, &Uint128::zero())
+        .unwrap();
+    LAST_LSM_REDEEM.save(deps.as_mut().storage, &0).unwrap();
+    PENDING_LSM_SHARES
+        .save(
+            deps.as_mut().storage,
+            "remote_denom".to_string(),
+            &("local_denom".to_string(), Uint128::from(100u128)),
+        )
+        .unwrap();
+    let mut env = mock_env();
+    env.block.time = Timestamp::from_seconds(100);
+    let res = execute(
+        deps.as_mut(),
+        env,
+        mock_info("admin", &[]),
+        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new()
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-core-execute-tick_idle")
+                    .add_attribute("action", "tick_idle")
+            )
+            .add_submessages(vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "puppeteer_contract".to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+                        timeout: 60,
+                        reason: drop_puppeteer_base::msg::IBCTransferReason::LSMShare,
+                        reply_to: "cosmos2contract".to_string(),
+                    }
+                )
+                .unwrap(),
+                funds: vec![Coin::new(100, "remote_denom")],
             }))])
     );
 }
