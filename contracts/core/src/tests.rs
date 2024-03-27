@@ -1,20 +1,14 @@
-use std::marker::PhantomData;
-
 use cosmwasm_std::{
     from_json,
-    testing::{mock_env, mock_info, MockApi, MockQuerier, MockStorage},
-    to_json_binary, Addr, Coin, ContractResult, CosmosMsg, Decimal, Empty, MessageInfo, Order,
-    OwnedDeps, Querier, QuerierResult, QueryRequest, StdResult, SystemError, SystemResult,
-    Timestamp, Uint128, WasmMsg, WasmQuery,
+    testing::{mock_env, mock_info, MockApi, MockStorage},
+    to_json_binary, Addr, Coin, CosmosMsg, Decimal, MessageInfo, Order, OwnedDeps, StdResult,
+    Timestamp, Uint128, WasmMsg,
 };
 
-use drop_puppeteer_base::msg::QueryMsg as PuppeteerBaseQueryMsg;
+use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
 use drop_staking_base::{msg::strategy::QueryMsg as StategyQueryMsg, state::core::CONFIG};
 use drop_staking_base::{
-    msg::{
-        core::InstantiateMsg,
-        puppeteer::{MultiBalances, QueryExtMsg},
-    },
+    msg::{core::InstantiateMsg, puppeteer::MultiBalances},
     state::core::{
         Config, ConfigOptional, FeeItem, NonNativeRewardsItem, COLLECTED_FEES,
         LAST_ICA_BALANCE_CHANGE_HEIGHT, NON_NATIVE_REWARDS_CONFIG,
@@ -29,99 +23,6 @@ use crate::contract::{get_non_native_rewards_and_fee_transfer_msg, get_stake_msg
 
 pub const MOCK_PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
 pub const MOCK_STRATEGY_CONTRACT_ADDR: &str = "strategy_contract";
-
-fn mock_dependencies<Q: Querier + Default>() -> OwnedDeps<MockStorage, MockApi, Q, NeutronQuery> {
-    OwnedDeps {
-        storage: MockStorage::default(),
-        api: MockApi::default(),
-        querier: Q::default(),
-        custom_query_type: PhantomData::<NeutronQuery>,
-    }
-}
-
-pub struct WasmMockQuerier {
-    base: MockQuerier,
-}
-
-impl Querier for WasmMockQuerier {
-    fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
-        let request: QueryRequest<Empty> = match from_json(bin_request) {
-            Ok(v) => v,
-            Err(e) => {
-                return QuerierResult::Err(SystemError::InvalidRequest {
-                    error: format!("Parsing query request: {}", e),
-                    request: bin_request.into(),
-                });
-            }
-        };
-        self.handle_query(&request)
-    }
-}
-
-impl WasmMockQuerier {
-    pub fn handle_query(&self, request: &QueryRequest<Empty>) -> QuerierResult {
-        match &request {
-            QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => {
-                if contract_addr == MOCK_PUPPETEER_CONTRACT_ADDR {
-                    let q: PuppeteerBaseQueryMsg<QueryExtMsg> = from_json(msg).unwrap();
-                    let reply = match q {
-                        PuppeteerBaseQueryMsg::Extention { msg } => match msg {
-                            QueryExtMsg::NonNativeRewardsBalances {} => {
-                                let data = (
-                                    MultiBalances {
-                                        coins: vec![Coin {
-                                            denom: "denom".to_string(),
-                                            amount: Uint128::new(150),
-                                        }],
-                                    },
-                                    10u64,
-                                    Timestamp::from_nanos(20),
-                                );
-                                to_json_binary(&data)
-                            }
-                            QueryExtMsg::Balances {} => {
-                                let data = (
-                                    Balances {
-                                        coins: vec![Coin {
-                                            denom: "remote_denom".to_string(),
-                                            amount: Uint128::new(200),
-                                        }],
-                                    },
-                                    10u64,
-                                    Timestamp::from_nanos(20),
-                                );
-                                to_json_binary(&data)
-                            }
-                            _ => todo!(),
-                        },
-                        _ => todo!(),
-                    };
-                    return SystemResult::Ok(ContractResult::from(reply));
-                }
-                if contract_addr == MOCK_STRATEGY_CONTRACT_ADDR {
-                    let q: StategyQueryMsg = from_json(msg).unwrap();
-                    let reply = match q {
-                        StategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
-                            drop_staking_base::msg::distribution::IdealDelegation {
-                                valoper_address: "valoper_address".to_string(),
-                                stake_change: deposit,
-                                ideal_stake: deposit,
-                                current_stake: deposit,
-                                weight: 1u64,
-                            },
-                        ]),
-                        _ => todo!(),
-                    };
-                    return SystemResult::Ok(ContractResult::from(reply));
-                }
-                SystemResult::Err(SystemError::NoSuchContract {
-                    addr: contract_addr.to_string(),
-                })
-            }
-            _ => self.base.handle_query(request),
-        }
-    }
-}
 
 fn get_default_config(fee: Option<Decimal>) -> Config {
     Config {
@@ -152,7 +53,7 @@ fn get_default_config(fee: Option<Decimal>) -> Config {
     }
 }
 
-fn setup_config(deps: &mut OwnedDeps<MockStorage, MockApi, MockQuerier, NeutronQuery>) {
+fn setup_config(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier, NeutronQuery>) {
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -163,9 +64,22 @@ fn setup_config(deps: &mut OwnedDeps<MockStorage, MockApi, MockQuerier, NeutronQ
 
 #[test]
 fn get_non_native_rewards_and_fee_transfer_msg_success() {
-    let mut deps = mock_dependencies::<MockQuerier>();
-
+    let mut deps = mock_dependencies(&[]);
     setup_config(&mut deps);
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_msg: &_| {
+            to_json_binary(&(
+                MultiBalances {
+                    coins: vec![Coin {
+                        denom: "denom".to_string(),
+                        amount: Uint128::new(150),
+                    }],
+                },
+                10u64,
+                Timestamp::from_nanos(20),
+            ))
+            .unwrap()
+        });
 
     NON_NATIVE_REWARDS_CONFIG
         .save(
@@ -219,8 +133,21 @@ fn get_non_native_rewards_and_fee_transfer_msg_success() {
 
 #[test]
 fn get_non_native_rewards_and_fee_transfer_msg_zero_fee() {
-    let mut deps = mock_dependencies();
-
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_msg: &_| {
+            to_json_binary(&(
+                MultiBalances {
+                    coins: vec![Coin {
+                        denom: "denom".to_string(),
+                        amount: Uint128::new(150),
+                    }],
+                },
+                10u64,
+                Timestamp::from_nanos(20),
+            ))
+            .unwrap()
+        });
     setup_config(&mut deps);
 
     NON_NATIVE_REWARDS_CONFIG
@@ -266,13 +193,42 @@ fn get_non_native_rewards_and_fee_transfer_msg_zero_fee() {
 
 #[test]
 fn get_stake_msg_success() {
-    let mut deps = mock_dependencies();
-
+    let mut deps = mock_dependencies(&[]);
     setup_config(&mut deps);
-
     LAST_ICA_BALANCE_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &1)
         .unwrap();
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_msg: &_| {
+            to_json_binary(&(
+                Balances {
+                    coins: vec![Coin {
+                        denom: "remote_denom".to_string(),
+                        amount: Uint128::new(200),
+                    }],
+                },
+                10u64,
+                Timestamp::from_nanos(20),
+            ))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("strategy_contract", |msg| {
+            let q: StategyQueryMsg = from_json(msg).unwrap();
+            match q {
+                StategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
+                    drop_staking_base::msg::distribution::IdealDelegation {
+                        valoper_address: "valoper_address".to_string(),
+                        stake_change: deposit,
+                        ideal_stake: deposit,
+                        current_stake: deposit,
+                        weight: 1u64,
+                    },
+                ])
+                .unwrap(),
+                _ => unimplemented!(),
+            }
+        });
 
     let stake_msg: CosmosMsg<NeutronMsg> = get_stake_msg(
         deps.as_mut(),
@@ -318,10 +274,39 @@ fn get_stake_msg_success() {
 
 #[test]
 fn get_stake_msg_zero_fee() {
-    let mut deps = mock_dependencies();
-
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_msg: &_| {
+            to_json_binary(&(
+                Balances {
+                    coins: vec![Coin {
+                        denom: "remote_denom".to_string(),
+                        amount: Uint128::new(200),
+                    }],
+                },
+                10u64,
+                Timestamp::from_nanos(20),
+            ))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("strategy_contract", |msg| {
+            let q: StategyQueryMsg = from_json(msg).unwrap();
+            match q {
+                StategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
+                    drop_staking_base::msg::distribution::IdealDelegation {
+                        valoper_address: "valoper_address".to_string(),
+                        stake_change: deposit,
+                        ideal_stake: deposit,
+                        current_stake: deposit,
+                        weight: 1u64,
+                    },
+                ])
+                .unwrap(),
+                _ => unimplemented!(),
+            }
+        });
     setup_config(&mut deps);
-
     LAST_ICA_BALANCE_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &1)
         .unwrap();
@@ -337,7 +322,6 @@ fn get_stake_msg_zero_fee() {
     )
     .unwrap()
     .unwrap();
-
     assert_eq!(
         stake_msg,
         CosmosMsg::Wasm(WasmMsg::Execute {
@@ -355,7 +339,7 @@ fn get_stake_msg_zero_fee() {
 
 #[test]
 fn test_update_config() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
     let env = mock_env();
     let info = mock_info("admin", &[]);
     let mut deps_mut = deps.as_mut();
