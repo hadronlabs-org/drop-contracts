@@ -1,12 +1,15 @@
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockStorage},
-    to_json_binary, Addr, Coin, CosmosMsg, Decimal, MessageInfo, Order, OwnedDeps, StdResult,
-    Timestamp, Uint128, WasmMsg,
+    to_json_binary, Addr, Coin, CosmosMsg, Decimal, Event, MessageInfo, Order, OwnedDeps, Response,
+    StdResult, Timestamp, Uint128, WasmMsg,
 };
 
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
-use drop_staking_base::{msg::strategy::QueryMsg as StategyQueryMsg, state::core::CONFIG};
+use drop_staking_base::{
+    msg::strategy::QueryMsg as StategyQueryMsg,
+    state::core::{BONDED_AMOUNT, CONFIG},
+};
 use drop_staking_base::{
     msg::{core::InstantiateMsg, puppeteer::MultiBalances},
     state::core::{
@@ -19,7 +22,7 @@ use neutron_sdk::{
     interchain_queries::v045::types::Balances,
 };
 
-use crate::contract::{get_non_native_rewards_and_fee_transfer_msg, get_stake_msg};
+use crate::contract::{execute, get_non_native_rewards_and_fee_transfer_msg, get_stake_msg};
 
 pub const MOCK_PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
 pub const MOCK_STRATEGY_CONTRACT_ADDR: &str = "strategy_contract";
@@ -440,4 +443,29 @@ fn test_update_config() {
     assert!(res.is_ok());
     let config = CONFIG.load(deps.as_ref().storage).unwrap();
     assert_eq!(config, expected_config);
+}
+
+#[test]
+fn test_execute_reset_bonded_amount() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap();
+    BONDED_AMOUNT
+        .save(deps.as_mut().storage, &Uint128::one())
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("admin", &[]),
+        drop_staking_base::msg::core::ExecuteMsg::ResetBondedAmount {},
+    );
+    assert_eq!(
+        res,
+        Ok(Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-core-execute-reset_bond_limit")
+                .add_attributes(vec![("action", "reset_bond_limit"),])
+        ))
+    );
+    let amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
+    assert_eq!(amount, Uint128::zero());
 }
