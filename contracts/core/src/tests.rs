@@ -1127,17 +1127,16 @@ fn test_tick_idle_claim_wo_unbond() {
             )
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "puppeteer_contract".to_string(),
-                msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer { 
+                msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
                     validators: vec!["valoper_address".to_string()], 
-                    transfer: None, 
-                    timeout: Some(60), 
+                    transfer: None,
+                    timeout: Some(60),
                     reply_to: "cosmos2contract".to_string() 
                 }).unwrap(),
                 funds: vec![Coin::new(1000, "untrn")],
             })))
     );
 }
-
 
 #[test]
 fn test_tick_idle_claim_with_unbond_transfer() {
@@ -1272,12 +1271,12 @@ fn test_tick_idle_claim_with_unbond_transfer() {
         .add_event(Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(vec![
             ("action", "tick_idle" ), ("validators_to_claim",  "valoper_address"), ("state",  "claiming")
         ]))
-        .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute { 
+        .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "puppeteer_contract".to_string(), 
-            msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer { 
+            msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
                 validators: vec!["valoper_address".to_string()], 
                 transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg{ batch_ids: vec![0u128], emergency: false, amount: Uint128::from(200u128), recipient: "pump_address".to_string() }), 
-                timeout: Some(60), 
+                timeout: Some(60),
                 reply_to: "cosmos2contract".to_string() 
             }).unwrap(), funds: vec![Coin::new(1000, "untrn")] })))
     );
