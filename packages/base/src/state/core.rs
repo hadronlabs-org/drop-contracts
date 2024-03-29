@@ -113,6 +113,14 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
     },
     Transition {
         from: ContractState::Idle,
+        to: ContractState::Unbonding,
+    },
+    Transition {
+        from: ContractState::Idle,
+        to: ContractState::Claiming,
+    },
+    Transition {
+        from: ContractState::Idle,
         to: ContractState::Staking,
     },
     Transition {

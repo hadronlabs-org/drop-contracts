@@ -3,7 +3,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, entry_point, to_json_binary, Addr, Attribute, BankQuery, Binary, Coin,
     CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest,
-    Response, StdError, StdResult, Timestamp, Uint128, WasmMsg,
+    Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
@@ -579,7 +579,6 @@ fn execute_tick_idle(
                 FSM.go_to(deps.storage, ContractState::Unbonding)?;
                 attrs.push(attr("state", "unbonding"));
             } else {
-                FSM.go_to(deps.storage, ContractState::Idle)?;
                 attrs.push(attr("state", "idle"));
             }
         } else {
@@ -1145,8 +1144,7 @@ fn get_unbonding_msg<T>(
         .may_load(deps.storage)?
         .unwrap_or(UNBOND_BATCH_ID.load(deps.storage)?);
     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
-    if (Timestamp::from_seconds(unbond.created).plus_seconds(config.unbond_batch_switch_time)
-        > env.block.time)
+    if (unbond.created + config.unbond_batch_switch_time < env.block.time.seconds())
         && !unbond.unbond_items.is_empty()
         && !unbond.total_amount.is_zero()
     {
