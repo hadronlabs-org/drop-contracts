@@ -97,11 +97,24 @@ impl WasmMockQuerier {
                 let mut wasm_query_responses = self.wasm_query_responses.borrow_mut();
                 let responses = match wasm_query_responses.get_mut(contract_addr) {
                     None => Err(SystemError::UnsupportedRequest {
-                        kind: format!("Wasm contract {} query is not mocked", contract_addr),
+                        kind: format!(
+                            "Wasm contract {} query is not mocked. Query {}",
+                            contract_addr,
+                            String::from_utf8(msg.0.clone()).unwrap()
+                        ),
                     }),
                     Some(responses) => Ok(responses),
                 }
                 .unwrap();
+                if responses.len() == 0 {
+                    return SystemResult::Err(SystemError::UnsupportedRequest {
+                        kind: format!(
+                            "Wasm contract {} query is not mocked. Query {}",
+                            contract_addr,
+                            String::from_utf8(msg.0.clone()).unwrap()
+                        ),
+                    });
+                }
                 let response = responses.remove(0);
                 SystemResult::Ok(ContractResult::Ok(response(msg)))
             }
