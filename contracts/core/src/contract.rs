@@ -559,8 +559,6 @@ fn execute_tick_idle(
             .filter(|d| validators_map.get(&d.validator).map_or(false, |_| true))
             .map(|d| d.validator.clone())
             .collect::<Vec<_>>();
-        // XXX: maybe this state transition should only happen if `!validators_to_claim.is_empty()`?
-        FSM.go_to(deps.storage, ContractState::Claiming)?;
         if validators_to_claim.is_empty() {
             attrs.push(attr("validators_to_claim", "empty"));
             if let Some((transfer_msg, pending_amount)) =
@@ -569,16 +567,20 @@ fn execute_tick_idle(
                 FSM.go_to(deps.storage, ContractState::Transfering)?;
                 PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
                 messages.push(transfer_msg);
+                attrs.push(attr("state", "transfering"));
             } else if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
                 messages.push(stake_msg);
                 FSM.go_to(deps.storage, ContractState::Staking)?;
+                attrs.push(attr("state", "staking"));
             } else if let Some(unbond_message) =
                 get_unbonding_msg(deps.branch(), &env, config, &info)?
             {
                 messages.push(unbond_message);
                 FSM.go_to(deps.storage, ContractState::Unbonding)?;
+                attrs.push(attr("state", "unbonding"));
             } else {
                 FSM.go_to(deps.storage, ContractState::Idle)?;
+                attrs.push(attr("state", "idle"));
             }
         } else {
             attrs.push(attr("validators_to_claim", validators_to_claim.join(",")));
@@ -594,8 +596,9 @@ fn execute_tick_idle(
                 )?,
                 funds: info.funds,
             }));
+            FSM.go_to(deps.storage, ContractState::Claiming)?;
+            attrs.push(attr("state", "claiming"));
         }
-        attrs.push(attr("state", "claiming"));
         LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
     }
     Ok(response("execute-tick_idle", CONTRACT_NAME, attrs).add_messages(messages))
