@@ -106,7 +106,7 @@ impl WasmMockQuerier {
                     Some(responses) => Ok(responses),
                 }
                 .unwrap();
-                if responses.len() == 0 {
+                if responses.is_empty() {
                     return SystemResult::Err(SystemError::UnsupportedRequest {
                         kind: format!(
                             "Wasm contract {} query is not mocked. Query {}",
