@@ -648,17 +648,20 @@ fn execute_tick_claiming(
         FSM.go_to(deps.storage, ContractState::Transfering)?;
         PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
         messages.push(transfer_msg);
+        attrs.push(attr("state", "transfering"));
     } else if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
         messages.push(stake_msg);
         FSM.go_to(deps.storage, ContractState::Staking)?;
+        attrs.push(attr("state", "staking"));
     } else if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info)? {
         messages.push(unbond_message);
         FSM.go_to(deps.storage, ContractState::Unbonding)?;
+        attrs.push(attr("state", "unbonding"));
     } else {
         FSM.go_to(deps.storage, ContractState::Idle)?;
+        attrs.push(attr("state", "idle"));
     }
 
-    attrs.push(attr("state", "unbonding"));
     Ok(response("execute-tick_claiming", CONTRACT_NAME, attrs).add_messages(messages))
 }
 

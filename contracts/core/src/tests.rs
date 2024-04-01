@@ -1868,7 +1868,7 @@ fn test_tick_claiming_wo_transfer_unbonded_transfer_for_stake() {
         Response::new()
             .add_event(
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_claiming")
-                    .add_attributes(vec![("action", "tick_claiming"), ("state", "unbonding")])
+                    .add_attributes(vec![("action", "tick_claiming"), ("state", "transfering")])
             )
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "puppeteer_contract".to_string(),
@@ -2002,7 +2002,7 @@ fn test_tick_claiming_with_transfer_unbonded_transfer_for_stake() {
                         ("action", "tick_claiming"),
                         ("batch_id", "0"),
                         ("unbond_batch_status", "withdrawn"),
-                        ("state", "unbonding")
+                        ("state", "transfering")
                     ])
             )
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
@@ -2023,6 +2023,125 @@ fn test_tick_claiming_with_transfer_unbonded_transfer_for_stake() {
     );
     let batch = unbond_batches_map().load(deps.as_mut().storage, 0).unwrap();
     assert_eq!(batch.status, UnbondBatchStatus::Withdrawn);
+}
+
+#[test]
+fn test_tick_claiming_wo_transfer_stake() {
+    // no unbonded batch, no pending transfer for stake, some balance in ICA to stake
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&(
+                Balances {
+                    coins: vec![Coin {
+                        denom: "remote_denom".to_string(),
+                        amount: Uint128::new(200),
+                    }],
+                },
+                10u64,
+                Timestamp::from_seconds(90001),
+            ))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("strategy_contract", |msg| {
+            let q: StategyQueryMsg = from_json(msg).unwrap();
+            match q {
+                StategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
+                    drop_staking_base::msg::distribution::IdealDelegation {
+                        valoper_address: "valoper_address".to_string(),
+                        stake_change: deposit,
+                        ideal_stake: deposit,
+                        current_stake: deposit,
+                        weight: 1u64,
+                    },
+                ])
+                .unwrap(),
+                _ => unimplemented!(),
+            }
+        });
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                token_contract: "token_contract".to_string(),
+                puppeteer_contract: "puppeteer_contract".to_string(),
+                puppeteer_timeout: 60,
+                strategy_contract: "strategy_contract".to_string(),
+                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
+                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
+                validators_set_contract: "validators_set_contract".to_string(),
+                base_denom: "base_denom".to_string(),
+                remote_denom: "remote_denom".to_string(),
+                idle_min_interval: 1000,
+                unbonding_period: 60,
+                unbonding_safe_period: 100,
+                unbond_batch_switch_time: 600,
+                pump_address: Some("pump_address".to_string()),
+                ld_denom: Some("ld_denom".to_string()),
+                channel: "channel".to_string(),
+                fee: None,
+                fee_address: None,
+                lsm_redeem_threshold: 3u64,
+                lsm_min_bond_amount: Uint128::one(),
+                lsm_redeem_maximum_interval: 100,
+                bond_limit: None,
+                emergency_address: None,
+                min_stake_amount: Uint128::new(100),
+            },
+        )
+        .unwrap();
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+        .unwrap();
+    FSM.go_to(deps.as_mut().storage, ContractState::Claiming)
+        .unwrap();
+    LAST_PUPPETEER_RESPONSE
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::msg::ResponseHookMsg::Success(
+                drop_puppeteer_base::msg::ResponseHookSuccessMsg {
+                    request_id: 0u64,
+                    request: null_request_packet(),
+                    transaction:
+                        drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
+                            interchain_account_id: "ica".to_string(),
+                            validators: vec!["valoper_address".to_string()],
+                            denom: "remote_denom".to_string(),
+                            transfer: None,
+                        },
+                    answers: vec![],
+                },
+            ),
+        )
+        .unwrap();
+    LAST_ICA_BALANCE_CHANGE_HEIGHT
+        .save(deps.as_mut().storage, &0)
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("admin", &[Coin::new(1000, "untrn")]),
+        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new()
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-core-execute-tick_claiming")
+                    .add_attributes(vec![("action", "tick_claiming"), ("state", "staking")])
+            )
+            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "puppeteer_contract".to_string(),
+                msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
+                    items: vec![("valoper_address".to_string(), Uint128::from(200u128))],
+                    timeout: Some(60u64),
+                    reply_to: "cosmos2contract".to_string()
+                })
+                .unwrap(),
+                funds: vec![Coin::new(1000u128, "untrn")],
+            })))
+    );
 }
 
 fn null_request_packet() -> RequestPacket {
