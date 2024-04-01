@@ -1730,3 +1730,54 @@ fn test_tick_idle_unbonding() {
             })))
     );
 }
+
+#[test]
+fn test_tick_claiming_no_puppeteer_response() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                token_contract: "token_contract".to_string(),
+                puppeteer_contract: "puppeteer_contract".to_string(),
+                puppeteer_timeout: 60,
+                strategy_contract: "strategy_contract".to_string(),
+                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
+                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
+                validators_set_contract: "validators_set_contract".to_string(),
+                base_denom: "base_denom".to_string(),
+                remote_denom: "remote_denom".to_string(),
+                idle_min_interval: 1000,
+                unbonding_period: 60,
+                unbonding_safe_period: 100,
+                unbond_batch_switch_time: 600,
+                pump_address: Some("pump_address".to_string()),
+                ld_denom: Some("ld_denom".to_string()),
+                channel: "channel".to_string(),
+                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                fee_address: Some("fee_address".to_string()),
+                lsm_redeem_threshold: 3u64,
+                lsm_min_bond_amount: Uint128::one(),
+                lsm_redeem_maximum_interval: 100,
+                bond_limit: None,
+                emergency_address: None,
+                min_stake_amount: Uint128::new(100),
+            },
+        )
+        .unwrap();
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+        .unwrap();
+    FSM.go_to(deps.as_mut().storage, ContractState::Claiming)
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("admin", &[Coin::new(1000, "untrn")]),
+        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+    );
+    assert!(res.is_err());
+    assert_eq!(
+        res,
+        Err(crate::error::ContractError::PuppeteerResponseIsNotReceived {})
+    );
+}
