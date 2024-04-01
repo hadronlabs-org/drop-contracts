@@ -1649,7 +1649,7 @@ fn test_tick_idle_unbonding() {
                 idle_min_interval: 1000,
                 unbonding_period: 60,
                 unbonding_safe_period: 100,
-                unbond_batch_switch_time: 600,
+                unbond_batch_switch_time: 6000,
                 pump_address: Some("pump_address".to_string()),
                 ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
@@ -2209,7 +2209,7 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                 idle_min_interval: 1000,
                 unbonding_period: 60,
                 unbonding_safe_period: 100,
-                unbond_batch_switch_time: 600,
+                unbond_batch_switch_time: 6000,
                 pump_address: Some("pump_address".to_string()),
                 ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
@@ -2269,9 +2269,11 @@ fn test_tick_claiming_wo_transfer_unbonding() {
             },
         )
         .unwrap();
+    let mut env = mock_env();
+    env.block.time = Timestamp::from_seconds(100000);
     let res = execute(
         deps.as_mut(),
-        mock_env(),
+        env,
         mock_info("admin", &[Coin::new(1000, "untrn")]),
         drop_staking_base::msg::core::ExecuteMsg::Tick {},
     )
@@ -2301,6 +2303,135 @@ fn test_tick_claiming_wo_transfer_unbonding() {
     assert_eq!(new_batch.status, UnbondBatchStatus::New);
     let old_batch = unbond_batches_map().load(deps.as_mut().storage, 0).unwrap();
     assert_eq!(old_batch.status, UnbondBatchStatus::UnbondRequested);
+}
+
+#[test]
+fn test_tick_claiming_wo_idle() {
+    // no unbonded batch, no pending transfer for stake, no balance on ICA, and no unbond batch to switch so we go to idle
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&(
+                Balances {
+                    coins: vec![Coin {
+                        denom: "remote_denom".to_string(),
+                        amount: Uint128::zero(),
+                    }],
+                },
+                10u64,
+                Timestamp::from_seconds(90001),
+            ))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("strategy_contract", |msg| {
+            let q: StategyQueryMsg = from_json(msg).unwrap();
+            match q {
+                StategyQueryMsg::CalcWithdraw { withdraw } => to_json_binary(&vec![
+                    drop_staking_base::msg::distribution::IdealDelegation {
+                        valoper_address: "valoper_address".to_string(),
+                        stake_change: withdraw,
+                        ideal_stake: withdraw,
+                        current_stake: withdraw,
+                        weight: 1u64,
+                    },
+                ])
+                .unwrap(),
+                _ => unimplemented!(),
+            }
+        });
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                token_contract: "token_contract".to_string(),
+                puppeteer_contract: "puppeteer_contract".to_string(),
+                puppeteer_timeout: 60,
+                strategy_contract: "strategy_contract".to_string(),
+                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
+                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
+                validators_set_contract: "validators_set_contract".to_string(),
+                base_denom: "base_denom".to_string(),
+                remote_denom: "remote_denom".to_string(),
+                idle_min_interval: 1000,
+                unbonding_period: 60,
+                unbonding_safe_period: 100,
+                unbond_batch_switch_time: 60000,
+                pump_address: Some("pump_address".to_string()),
+                ld_denom: Some("ld_denom".to_string()),
+                channel: "channel".to_string(),
+                fee: None,
+                fee_address: None,
+                lsm_redeem_threshold: 3u64,
+                lsm_min_bond_amount: Uint128::one(),
+                lsm_redeem_maximum_interval: 100,
+                bond_limit: None,
+                emergency_address: None,
+                min_stake_amount: Uint128::new(100),
+            },
+        )
+        .unwrap();
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+        .unwrap();
+    FSM.go_to(deps.as_mut().storage, ContractState::Claiming)
+        .unwrap();
+    LAST_PUPPETEER_RESPONSE
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::msg::ResponseHookMsg::Success(
+                drop_puppeteer_base::msg::ResponseHookSuccessMsg {
+                    request_id: 0u64,
+                    request: null_request_packet(),
+                    transaction:
+                        drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
+                            interchain_account_id: "ica".to_string(),
+                            validators: vec!["valoper_address".to_string()],
+                            denom: "remote_denom".to_string(),
+                            transfer: None,
+                        },
+                    answers: vec![],
+                },
+            ),
+        )
+        .unwrap();
+    UNBOND_BATCH_ID.save(deps.as_mut().storage, &0u128).unwrap();
+    unbond_batches_map()
+        .save(
+            deps.as_mut().storage,
+            0,
+            &UnbondBatch {
+                total_amount: Uint128::from(1000u128),
+                expected_amount: Uint128::from(1000u128),
+                unbond_items: vec![UnbondItem {
+                    amount: Uint128::from(1000u128),
+                    sender: "some_sender".to_string(),
+                    expected_amount: Uint128::from(1000u128),
+                }],
+                status: UnbondBatchStatus::New,
+                expected_release: 0,
+                slashing_effect: None,
+                unbonded_amount: None,
+                withdrawed_amount: None,
+                created: 0,
+            },
+        )
+        .unwrap();
+    let mut env = mock_env();
+    env.block.time = Timestamp::from_seconds(1000);
+    let res = execute(
+        deps.as_mut(),
+        env,
+        mock_info("admin", &[Coin::new(1000, "untrn")]),
+        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-core-execute-tick_claiming")
+                .add_attributes(vec![("action", "tick_claiming"), ("state", "idle")])
+        )
+    );
 }
 
 fn null_request_packet() -> RequestPacket {
