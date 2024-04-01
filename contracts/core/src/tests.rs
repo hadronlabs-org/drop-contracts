@@ -4,7 +4,7 @@ use cosmwasm_std::{
     to_json_binary, Addr, Coin, CosmosMsg, Decimal, Event, MessageInfo, Order, OwnedDeps, Response,
     StdResult, SubMsg, Timestamp, Uint128, WasmMsg,
 };
-use std::str::FromStr;
+use std::{str::FromStr, vec};
 
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
 use drop_puppeteer_base::state::RedeemShareItem;
@@ -12,8 +12,8 @@ use drop_staking_base::{
     msg::strategy::QueryMsg as StategyQueryMsg,
     state::core::{
         unbond_batches_map, ContractState, UnbondBatch, UnbondBatchStatus, UnbondItem,
-        BONDED_AMOUNT, CONFIG, FSM, LAST_IDLE_CALL, LAST_LSM_REDEEM, LSM_SHARES_TO_REDEEM,
-        PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+        BONDED_AMOUNT, CONFIG, FSM, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE,
+        LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
     },
 };
 use drop_staking_base::{
@@ -26,6 +26,7 @@ use drop_staking_base::{
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     interchain_queries::v045::types::Balances,
+    sudo::msg::RequestPacket,
 };
 
 use crate::contract::{execute, get_non_native_rewards_and_fee_transfer_msg, get_stake_msg};
@@ -1780,4 +1781,122 @@ fn test_tick_claiming_no_puppeteer_response() {
         res,
         Err(crate::error::ContractError::PuppeteerResponseIsNotReceived {})
     );
+}
+
+#[test]
+fn test_tick_claiming_wo_transfer_unbonded_transfer_for_stake() {
+    // basically we don't have unbonded amount on ICA so there was no transfer with claiming action,
+    // but we have some just bonded amount, so we should transfer it to puppeteer and to ICA respectively
+    let mut deps = mock_dependencies(&[Coin::new(1000u128, "base_denom".to_string())]);
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&(
+                Balances {
+                    coins: vec![Coin {
+                        denom: "remote_denom".to_string(),
+                        amount: Uint128::new(200),
+                    }],
+                },
+                10u64,
+                Timestamp::from_seconds(90001),
+            ))
+            .unwrap()
+        });
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                token_contract: "token_contract".to_string(),
+                puppeteer_contract: "puppeteer_contract".to_string(),
+                puppeteer_timeout: 60,
+                strategy_contract: "strategy_contract".to_string(),
+                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
+                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
+                validators_set_contract: "validators_set_contract".to_string(),
+                base_denom: "base_denom".to_string(),
+                remote_denom: "remote_denom".to_string(),
+                idle_min_interval: 1000,
+                unbonding_period: 60,
+                unbonding_safe_period: 100,
+                unbond_batch_switch_time: 600,
+                pump_address: Some("pump_address".to_string()),
+                ld_denom: Some("ld_denom".to_string()),
+                channel: "channel".to_string(),
+                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                fee_address: Some("fee_address".to_string()),
+                lsm_redeem_threshold: 3u64,
+                lsm_min_bond_amount: Uint128::one(),
+                lsm_redeem_maximum_interval: 100,
+                bond_limit: None,
+                emergency_address: None,
+                min_stake_amount: Uint128::new(100),
+            },
+        )
+        .unwrap();
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+        .unwrap();
+    FSM.go_to(deps.as_mut().storage, ContractState::Claiming)
+        .unwrap();
+    LAST_PUPPETEER_RESPONSE
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::msg::ResponseHookMsg::Success(
+                drop_puppeteer_base::msg::ResponseHookSuccessMsg {
+                    request_id: 0u64,
+                    request: null_request_packet(),
+                    transaction:
+                        drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
+                            interchain_account_id: "ica".to_string(),
+                            validators: vec!["valoper_address".to_string()],
+                            denom: "remote_denom".to_string(),
+                            transfer: None,
+                        },
+                    answers: vec![],
+                },
+            ),
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("admin", &[Coin::new(1000, "untrn")]),
+        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new()
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-core-execute-tick_claiming")
+                    .add_attributes(vec![("action", "tick_claiming"), ("state", "unbonding")])
+            )
+            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "puppeteer_contract".to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+                        timeout: 60u64,
+                        reason: drop_puppeteer_base::msg::IBCTransferReason::Stake,
+                        reply_to: "cosmos2contract".to_string()
+                    }
+                )
+                .unwrap(),
+                funds: vec![
+                    Coin::new(1000u128, "base_denom".to_string()),
+                    Coin::new(1000u128, "untrn")
+                ],
+            })))
+    );
+}
+
+fn null_request_packet() -> RequestPacket {
+    RequestPacket {
+        sequence: None,
+        source_port: None,
+        source_channel: None,
+        destination_port: None,
+        destination_channel: None,
+        data: None,
+        timeout_height: None,
+        timeout_timestamp: None,
+    }
 }
