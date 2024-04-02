@@ -2,6 +2,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Decimal, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use drop_helpers::fsm::{Fsm, Transition};
+use drop_puppeteer_base::msg::ResponseHookMsg;
 use optfield::optfield;
 
 #[optfield(pub ConfigOptional, attrs)]
@@ -172,8 +173,7 @@ pub struct FeeItem {
 pub const FSM: Fsm<ContractState> = Fsm::new("machine_state", TRANSITIONS);
 pub const LAST_IDLE_CALL: Item<u64> = Item::new("last_tick");
 pub const LAST_ICA_BALANCE_CHANGE_HEIGHT: Item<u64> = Item::new("last_ica_balance_change_height");
-pub const LAST_PUPPETEER_RESPONSE: Item<drop_puppeteer_base::msg::ResponseHookMsg> =
-    Item::new("last_puppeteer_response");
+pub const LAST_PUPPETEER_RESPONSE: Item<ResponseHookMsg> = Item::new("last_puppeteer_response");
 pub const COLLECTED_FEES: Map<String, FeeItem> = Map::new("collected_fees");
 pub const FAILED_BATCH_ID: Item<u128> = Item::new("failed_batch_id");
 pub const PRE_UNBONDING_BALANCE: Item<Uint128> = Item::new("pre_unbonding_balance");

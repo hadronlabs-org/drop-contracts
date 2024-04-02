@@ -21,7 +21,7 @@ use drop_staking_base::state::validatorset::ValidatorInfo;
 use drop_staking_base::state::withdrawal_voucher::{Metadata, Trait};
 use drop_staking_base::{
     msg::{
-        core::{ExecuteMsg, InstantiateMsg, QueryMsg},
+        core::{ExecuteMsg, InstantiateMsg, LastPuppeteerResponse, QueryMsg},
         token::ExecuteMsg as TokenExecuteMsg,
         withdrawal_voucher::ExecuteMsg as VoucherExecuteMsg,
     },
@@ -83,9 +83,9 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
             to_json_binary(&NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?)?
         }
         QueryMsg::ContractState {} => to_json_binary(&FSM.get_current_state(deps.storage)?)?,
-        QueryMsg::LastPuppeteerResponse {} => {
-            to_json_binary(&LAST_PUPPETEER_RESPONSE.load(deps.storage)?)?
-        }
+        QueryMsg::LastPuppeteerResponse {} => to_json_binary(&LastPuppeteerResponse {
+            response: LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?,
+        })?,
         QueryMsg::PauseInfo {} => query_pause_info(deps)?,
     })
 }
