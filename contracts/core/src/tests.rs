@@ -12,8 +12,9 @@ use drop_staking_base::{
     msg::strategy::QueryMsg as StategyQueryMsg,
     state::core::{
         unbond_batches_map, ContractState, UnbondBatch, UnbondBatchStatus, UnbondItem,
-        BONDED_AMOUNT, CONFIG, FSM, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE,
-        LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+        BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FSM, LAST_IDLE_CALL, LAST_LSM_REDEEM,
+        LAST_PUPPETEER_RESPONSE, LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES,
+        UNBOND_BATCH_ID,
     },
 };
 use drop_staking_base::{
@@ -588,6 +589,8 @@ fn test_execute_tick_idle_non_native_rewards() {
     LAST_LSM_REDEEM.save(deps.as_mut().storage, &0).unwrap();
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(100);
+    let exchange_rate = EXCHANGE_RATE.load(deps.as_ref().storage);
+    assert!(exchange_rate.is_err());
     let res = execute(
         deps.as_mut(),
         env,
@@ -595,6 +598,8 @@ fn test_execute_tick_idle_non_native_rewards() {
         drop_staking_base::msg::core::ExecuteMsg::Tick {},
     )
     .unwrap();
+    let exchange_rate = EXCHANGE_RATE.load(deps.as_ref().storage);
+    assert!(exchange_rate.is_ok());
 
     assert_eq!(
         res,
@@ -3292,6 +3297,9 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
         Err(crate::error::ContractError::PuppeteerResponseIsNotReceived {})
     );
 }
+
+#[test]
+fn test_bond() {}
 
 fn null_request_packet() -> RequestPacket {
     RequestPacket {
