@@ -3625,6 +3625,150 @@ fn test_bond_lsm_share_ok() {
     );
 }
 
+#[test]
+fn test_unbond() {
+    let mut deps = mock_dependencies(&[]);
+    let mut env = mock_env();
+    env.block.time = Timestamp::from_seconds(1000);
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+        .unwrap();
+    BONDED_AMOUNT
+        .save(deps.as_mut().storage, &Uint128::from(1000u128))
+        .unwrap();
+    UNBOND_BATCH_ID.save(deps.as_mut().storage, &0u128).unwrap();
+    unbond_batches_map()
+        .save(
+            deps.as_mut().storage,
+            0,
+            &UnbondBatch {
+                total_amount: Uint128::from(0u128),
+                expected_amount: Uint128::from(0u128),
+                unbond_items: vec![],
+                status: UnbondBatchStatus::New,
+                expected_release: 0,
+                slashing_effect: None,
+                unbonded_amount: None,
+                withdrawed_amount: None,
+                created: 0,
+            },
+        )
+        .unwrap();
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                token_contract: "token_contract".to_string(),
+                puppeteer_contract: "puppeteer_contract".to_string(),
+                puppeteer_timeout: 60,
+                strategy_contract: "strategy_contract".to_string(),
+                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
+                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
+                validators_set_contract: "validators_set_contract".to_string(),
+                base_denom: "base_denom".to_string(),
+                remote_denom: "remote_denom".to_string(),
+                idle_min_interval: 1000,
+                unbonding_period: 60,
+                unbonding_safe_period: 100,
+                unbond_batch_switch_time: 600,
+                pump_address: Some("pump_address".to_string()),
+                ld_denom: Some("ld_denom".to_string()),
+                channel: "channel".to_string(),
+                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                fee_address: Some("fee_address".to_string()),
+                lsm_redeem_threshold: 3u64,
+                lsm_min_bond_amount: Uint128::one(),
+                lsm_redeem_maximum_interval: 100,
+                bond_limit: None,
+                emergency_address: None,
+                min_stake_amount: Uint128::new(100),
+            },
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        env,
+        mock_info("some_sender", &[Coin::new(1000, "ld_denom")]),
+        drop_staking_base::msg::core::ExecuteMsg::Unbond {},
+    )
+    .unwrap();
+    let unbond_batch = unbond_batches_map().load(deps.as_ref().storage, 0).unwrap();
+    let extension = Some(drop_staking_base::state::withdrawal_voucher::Metadata {
+        description: Some("Withdrawal voucher".into()),
+        name: "LDV voucher".to_string(),
+        batch_id: "0".to_string(),
+        amount: Uint128::from(1000u128),
+        expected_amount: Uint128::from(1000u128),
+        attributes: Some(vec![
+            drop_staking_base::state::withdrawal_voucher::Trait {
+                display_type: None,
+                trait_type: "unbond_batch_id".to_string(),
+                value: "0".to_string(),
+            },
+            drop_staking_base::state::withdrawal_voucher::Trait {
+                display_type: None,
+                trait_type: "received_amount".to_string(),
+                value: "1000".to_string(),
+            },
+            drop_staking_base::state::withdrawal_voucher::Trait {
+                display_type: None,
+                trait_type: "expected_amount".to_string(),
+                value: "1000".to_string(),
+            },
+            drop_staking_base::state::withdrawal_voucher::Trait {
+                display_type: None,
+                trait_type: "exchange_rate".to_string(),
+                value: "1".to_string(),
+            },
+        ]),
+    });
+    assert_eq!(
+        res,
+        Response::new()
+            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "withdrawal_voucher_contract".to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::Mint {
+                        token_id: "0_some_sender_1".to_string(),
+                        owner: "some_sender".to_string(),
+                        token_uri: None,
+                        extension,
+                    }
+                )
+                .unwrap(),
+                funds: vec![],
+            })))
+            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "token_contract".to_string(),
+                msg: to_json_binary(&drop_staking_base::msg::token::ExecuteMsg::Burn {}).unwrap(),
+                funds: vec![Coin::new(1000u128, "ld_denom")],
+            })))
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-core-execute-unbond")
+                    .add_attribute("action", "unbond")
+                    .add_attribute("exchange_rate", "1")
+                    .add_attribute("expected_amount", "1000")
+            )
+    );
+    assert_eq!(
+        unbond_batch,
+        UnbondBatch {
+            total_amount: Uint128::from(1000u128),
+            expected_amount: Uint128::from(1000u128),
+            unbond_items: vec![UnbondItem {
+                amount: Uint128::from(1000u128),
+                sender: "some_sender".to_string(),
+                expected_amount: Uint128::from(1000u128),
+            },],
+            status: UnbondBatchStatus::New,
+            expected_release: 0,
+            slashing_effect: None,
+            unbonded_amount: None,
+            withdrawed_amount: None,
+            created: 0,
+        }
+    );
+}
+
 fn null_request_packet() -> RequestPacket {
     RequestPacket {
         sequence: None,
