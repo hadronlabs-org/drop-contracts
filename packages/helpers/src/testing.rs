@@ -45,6 +45,7 @@ pub struct WasmMockQuerier {
     registered_queries: HashMap<u64, Binary>,
     wasm_query_responses: RefCell<HashMap<String, Vec<Box<WasmFn>>>>, // fml
     custom_query_responses: RefCell<Vec<Box<CustomFn>>>,              // fml
+    stargate_query_responses: RefCell<HashMap<String, Vec<Box<WasmFn>>>>, // fml
 }
 
 impl Querier for WasmMockQuerier {
@@ -65,6 +66,31 @@ impl Querier for WasmMockQuerier {
 impl WasmMockQuerier {
     pub fn handle_query(&self, request: &QueryRequest<NeutronQuery>) -> QuerierResult {
         match &request {
+            QueryRequest::Stargate { path, data } => {
+                let mut stargate_query_responses = self.stargate_query_responses.borrow_mut();
+                let responses = match stargate_query_responses.get_mut(path) {
+                    None => Err(SystemError::UnsupportedRequest {
+                        kind: format!(
+                            "Stargate query is not mocked. Path: {} Data {}",
+                            path,
+                            String::from_utf8(data.0.clone()).unwrap()
+                        ),
+                    }),
+                    Some(responses) => Ok(responses),
+                }
+                .unwrap();
+                if responses.is_empty() {
+                    return SystemResult::Err(SystemError::UnsupportedRequest {
+                        kind: format!(
+                            "Stargate query is not mocked. Path: {} Data {}",
+                            path,
+                            String::from_utf8(data.0.clone()).unwrap()
+                        ),
+                    });
+                }
+                let response = responses.remove(0);
+                SystemResult::Ok(ContractResult::Ok(response(data)))
+            }
             QueryRequest::Custom(custom_query) => match custom_query {
                 NeutronQuery::InterchainQueryResult { query_id } => SystemResult::Ok(
                     ContractResult::Ok((*self.query_responses.get(query_id).unwrap()).clone()),
@@ -146,6 +172,14 @@ impl WasmMockQuerier {
         let mut custom_query_responses = self.custom_query_responses.borrow_mut();
         custom_query_responses.push(Box::new(response_func));
     }
+    pub fn add_stargate_query_response<F>(&mut self, path: &str, response_func: F)
+    where
+        F: 'static + Fn(&Binary) -> Binary,
+    {
+        let mut stargate_responses = self.stargate_query_responses.borrow_mut();
+        let response_funcs = stargate_responses.entry(path.to_string()).or_default();
+        response_funcs.push(Box::new(response_func));
+    }
 }
 
 #[derive(Clone, Default)]
@@ -165,6 +199,7 @@ impl WasmMockQuerier {
             query_responses: HashMap::new(),
             registered_queries: HashMap::new(),
             wasm_query_responses: HashMap::new().into(),
+            stargate_query_responses: HashMap::new().into(),
             custom_query_responses: Vec::new().into(),
         }
     }

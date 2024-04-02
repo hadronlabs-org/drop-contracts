@@ -1416,7 +1416,7 @@ fn get_pending_lsm_share_msg<T, X: CustomQuery>(
     }
 }
 
-mod check_denom {
+pub mod check_denom {
     use super::*;
 
     #[derive(PartialEq)]
@@ -1430,12 +1430,12 @@ mod check_denom {
     // so I have to redefine them here manually >:(
 
     #[cw_serde]
-    struct QueryDenomTraceResponse {
+    pub struct QueryDenomTraceResponse {
         pub denom_trace: DenomTrace,
     }
 
     #[cw_serde]
-    struct DenomTrace {
+    pub struct DenomTrace {
         pub path: String,
         pub base_denom: String,
     }
