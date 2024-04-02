@@ -3370,6 +3370,80 @@ fn test_bond() {
     );
 }
 
+#[test]
+fn test_bond_with_receiver() {
+    let mut deps = mock_dependencies(&[]);
+    let mut env = mock_env();
+    env.block.time = Timestamp::from_seconds(1000);
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+        .unwrap();
+    BONDED_AMOUNT
+        .save(deps.as_mut().storage, &Uint128::zero())
+        .unwrap();
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                token_contract: "token_contract".to_string(),
+                puppeteer_contract: "puppeteer_contract".to_string(),
+                puppeteer_timeout: 60,
+                strategy_contract: "strategy_contract".to_string(),
+                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
+                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
+                validators_set_contract: "validators_set_contract".to_string(),
+                base_denom: "base_denom".to_string(),
+                remote_denom: "remote_denom".to_string(),
+                idle_min_interval: 1000,
+                unbonding_period: 60,
+                unbonding_safe_period: 100,
+                unbond_batch_switch_time: 600,
+                pump_address: Some("pump_address".to_string()),
+                ld_denom: Some("ld_denom".to_string()),
+                channel: "channel".to_string(),
+                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                fee_address: Some("fee_address".to_string()),
+                lsm_redeem_threshold: 3u64,
+                lsm_min_bond_amount: Uint128::one(),
+                lsm_redeem_maximum_interval: 100,
+                bond_limit: None,
+                emergency_address: None,
+                min_stake_amount: Uint128::new(100),
+            },
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        env,
+        mock_info("some", &[Coin::new(1000, "base_denom")]),
+        drop_staking_base::msg::core::ExecuteMsg::Bond {
+            receiver: Some("receiver".to_string()),
+        },
+    )
+    .unwrap();
+    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
+    assert_eq!(bonded_amount, Uint128::from(1000u128));
+    assert_eq!(
+        res,
+        Response::new()
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-core-execute-bond")
+                    .add_attribute("action", "bond")
+                    .add_attribute("exchange_rate", "1")
+                    .add_attribute("issue_amount", "1000")
+                    .add_attribute("receiver", "receiver")
+            )
+            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "token_contract".to_string(),
+                msg: to_json_binary(&drop_staking_base::msg::token::ExecuteMsg::Mint {
+                    amount: Uint128::from(1000u128),
+                    receiver: "receiver".to_string()
+                })
+                .unwrap(),
+                funds: vec![],
+            })))
+    );
+}
+
 fn null_request_packet() -> RequestPacket {
     RequestPacket {
         sequence: None,
