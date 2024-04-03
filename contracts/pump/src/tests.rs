@@ -46,8 +46,8 @@ fn test_instantiate() {
             register_fee: Uint128::from(400u128),
         },
         timeout: drop_staking_base::state::pump::PumpTimeout {
-            local: Some(0u64),
-            remote: 0u64,
+            local: Some(10u64),
+            remote: 10u64,
         },
         local_denom: "local_denom".to_string(),
         owner: Some("owner".to_string()),
@@ -60,7 +60,7 @@ fn test_instantiate() {
         ).add_attributes(vec![
             ("contract_name", "crates.io:drop-neutron-contracts__drop-pump"),
             ("contract_version", "1.0.0"),
-            ("msg", "InstantiateMsg { dest_address: Some(\"dest_address\"), dest_channel: Some(\"dest_channel\"), dest_port: Some(\"dest_port\"), connection_id: \"connection\", ibc_fees: IBCFees { recv_fee: Uint128(100), ack_fee: Uint128(200), timeout_fee: Uint128(300), register_fee: Uint128(400) }, refundee: Some(\"refundee\"), timeout: PumpTimeout { local: Some(0), remote: 0 }, local_denom: \"local_denom\", owner: Some(\"owner\") }"),
+            ("msg", "InstantiateMsg { dest_address: Some(\"dest_address\"), dest_channel: Some(\"dest_channel\"), dest_port: Some(\"dest_port\"), connection_id: \"connection\", ibc_fees: IBCFees { recv_fee: Uint128(100), ack_fee: Uint128(200), timeout_fee: Uint128(300), register_fee: Uint128(400) }, refundee: Some(\"refundee\"), timeout: PumpTimeout { local: Some(10), remote: 10 }, local_denom: \"local_denom\", owner: Some(\"owner\") }"),
             ("sender", "admin")
         ]))
     );
