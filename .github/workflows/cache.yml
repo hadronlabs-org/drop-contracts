@@ -14,7 +14,7 @@ jobs:
     runs-on: ${{ matrix.runner_label }}
     strategy:
       matrix:
-        runner_label: ${{ fromJSON('["lionco-runner-1", "lionco-runner-2", "lionco-runner-3", "lionco-runner-4", "lionco-runner-5", "lionco-runner-6"]') }}
+        runner_label: ${{ fromJSON('["lionco-runner-5", "lionco-runner-6"]') }}
     steps:
       - name: Stop old containers
         run: docker ps -q | grep -q . && docker stop $(docker ps -q) -t0 || echo "No containers to stop"
@@ -31,7 +31,7 @@ jobs:
     runs-on: ${{ matrix.runner_label }}
     strategy:
       matrix:
-        runner_label: ${{ fromJSON('["lionco-runner-1", "lionco-runner-2", "lionco-runner-3", "lionco-runner-4", "lionco-runner-5", "lionco-runner-6"]') }}
+        runner_label: ${{ fromJSON('["lionco-runner-5", "lionco-runner-6"]') }}
     steps:
       - name: Clean Workspace
         if: always()
