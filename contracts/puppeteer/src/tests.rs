@@ -1,13 +1,16 @@
 use crate::contract::Puppeteer;
 use cosmwasm_std::{
     testing::{mock_env, mock_info},
-    Addr, Binary, Coin, CosmosMsg, Event, Response, SubMsg, Uint128,
+    Addr, Binary, Coin, CosmosMsg, DepsMut, Event, Response, SubMsg, Uint128,
 };
 use drop_helpers::testing::mock_dependencies;
-use drop_puppeteer_base::state::ReplyMsg;
-use drop_staking_base::state::puppeteer::Config;
+use drop_puppeteer_base::state::{PuppeteerBase, ReplyMsg};
+use drop_staking_base::state::puppeteer::{Config, KVQueryType};
 use drop_staking_base::{msg::puppeteer::InstantiateMsg, state::puppeteer::ConfigOptional};
-use neutron_sdk::bindings::msg::{IbcFee, NeutronMsg};
+use neutron_sdk::bindings::{
+    msg::{IbcFee, NeutronMsg},
+    query::NeutronQuery,
+};
 use prost::Message;
 
 #[test]
@@ -92,21 +95,7 @@ fn test_update_config() {
 #[test]
 fn test_execute_delegate() {
     let mut deps = mock_dependencies(&[]);
-    let puppeteer_base = Puppeteer::default();
-    let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    puppeteer_base
-        .config
-        .save(deps.as_mut().storage, &get_base_config())
-        .unwrap();
-    puppeteer_base
-        .ica
-        .set_address(deps.as_mut().storage, "ica_address")
-        .unwrap();
-    puppeteer_base
-        .ibc_fee
-        .save(deps.as_mut().storage, &get_standard_fees())
-        .unwrap();
+    let pupeteer_base = base_init(&mut deps.as_mut());
     let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
         items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
         reply_to: "some_reply_to".to_string(),
@@ -160,6 +149,95 @@ fn test_execute_delegate() {
             ReplyMsg::SudoPayload.to_reply_id()
         ))
     );
+    let tx_state = pupeteer_base.tx_state.load(deps.as_ref().storage).unwrap();
+    assert_eq!(
+        tx_state,
+        drop_puppeteer_base::state::TxState {
+            seq_id: None,
+            status: drop_puppeteer_base::state::TxStateStatus::InProgress,
+            reply_to: Some("some_reply_to".to_string()),
+            transaction: Some(drop_puppeteer_base::msg::Transaction::Delegate {
+                interchain_account_id: "DROP".to_string(),
+                denom: "remote_denom".to_string(),
+                items: vec![("valoper1".to_string(), Uint128::from(1000u128))]
+            })
+        }
+    );
+}
+
+#[test]
+fn test_execute_undelegate() {
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
+        batch_id: 0u128,
+        items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
+        reply_to: "some_reply_to".to_string(),
+        timeout: Some(100u64),
+    };
+    let env = mock_env();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env,
+        mock_info("not_allowed_sender", &[]),
+        msg.clone(),
+    );
+    assert_eq!(
+        res.unwrap_err(),
+        drop_puppeteer_base::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+            msg: "Sender is not allowed".to_string()
+        })
+    );
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        msg,
+    )
+    .unwrap();
+    let msg = cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
+        delegator_address: "ica_address".to_string(),
+        validator_address: "valoper1".to_string(),
+        amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+            denom: "remote_denom".to_string(),
+            amount: "1000".to_string(),
+        }),
+    };
+    let mut buf = Vec::with_capacity(msg.encoded_len());
+    msg.encode(&mut buf).unwrap();
+    let any_msg = neutron_sdk::bindings::types::ProtobufAny {
+        type_url: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
+        value: Binary::from(buf),
+    };
+    assert_eq!(
+        res,
+        Response::new().add_submessage(SubMsg::reply_on_success(
+            CosmosMsg::Custom(NeutronMsg::submit_tx(
+                "connection_id".to_string(),
+                "DROP".to_string(),
+                vec![any_msg],
+                "".to_string(),
+                100u64,
+                get_standard_fees()
+            )),
+            ReplyMsg::SudoPayload.to_reply_id()
+        ))
+    );
+    let tx_state = puppeteer_base.tx_state.load(deps.as_ref().storage).unwrap();
+    assert_eq!(
+        tx_state,
+        drop_puppeteer_base::state::TxState {
+            seq_id: None,
+            status: drop_puppeteer_base::state::TxStateStatus::InProgress,
+            reply_to: Some("some_reply_to".to_string()),
+            transaction: Some(drop_puppeteer_base::msg::Transaction::Undelegate {
+                batch_id: 0u128,
+                interchain_account_id: "DROP".to_string(),
+                denom: "remote_denom".to_string(),
+                items: vec![("valoper1".to_string(), Uint128::from(1000u128))]
+            })
+        }
+    );
 }
 
 fn get_base_config() -> Config {
@@ -173,6 +251,26 @@ fn get_base_config() -> Config {
         sdk_version: "0.45.0".to_string(),
         proxy_address: None,
     }
+}
+
+fn base_init(
+    deps_mut: &mut DepsMut<NeutronQuery>,
+) -> PuppeteerBase<'static, drop_staking_base::state::puppeteer::Config, KVQueryType> {
+    let puppeteer_base = Puppeteer::default();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    puppeteer_base
+        .config
+        .save(deps_mut.storage, &get_base_config())
+        .unwrap();
+    puppeteer_base
+        .ica
+        .set_address(deps_mut.storage, "ica_address")
+        .unwrap();
+    puppeteer_base
+        .ibc_fee
+        .save(deps_mut.storage, &get_standard_fees())
+        .unwrap();
+    puppeteer_base
 }
 
 fn get_standard_fees() -> IbcFee {
