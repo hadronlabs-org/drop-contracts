@@ -69,14 +69,16 @@ const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    deps: DepsMut,
+    deps: DepsMut<NeutronQuery>,
     _env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: InstantiateMsg,
-) -> NeutronResult<Response> {
+) -> NeutronResult<Response<NeutronMsg>> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let owner = deps.api.addr_validate(&msg.owner)?;
-
+    let owner = deps
+        .api
+        .addr_validate(&msg.owner.unwrap_or(info.sender.to_string()))?
+        .to_string();
     let allowed_senders = msg
         .allowed_senders
         .iter()
@@ -87,7 +89,6 @@ pub fn instantiate(
         port_id: msg.port_id,
         update_period: msg.update_period,
         remote_denom: msg.remote_denom,
-        owner,
         allowed_senders,
         proxy_address: None,
         transfer_channel_id: msg.transfer_channel_id,
@@ -106,7 +107,7 @@ pub fn instantiate(
             Timestamp::default(),
         ),
     )?;
-    Puppeteer::default().instantiate(deps, config)
+    Puppeteer::default().instantiate(deps, config, owner)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -129,6 +130,10 @@ pub fn query(
             )
             .map_err(ContractError::Std),
             QueryExtMsg::Fees {} => query_fees(deps),
+            QueryExtMsg::Ownership {} => {
+                let owner = cw_ownable::get_ownership(deps.storage)?;
+                to_json_binary(&owner).map_err(ContractError::Std)
+            }
         },
         _ => Puppeteer::default().query(deps, env, msg),
     }
@@ -233,6 +238,11 @@ pub fn execute(
             reply_to,
         } => execute_transfer(deps, info, items, timeout, reply_to),
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
+        ExecuteMsg::UpdateOwnership(action) => {
+            let attrs = vec![attr("action", "update_ownership")];
+            cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
+            Ok(response("update_ownership", CONTRACT_NAME, attrs))
+        }
         _ => puppeteer_base.execute(deps, env, info, msg.to_base_enum()),
     }
 }
@@ -248,10 +258,6 @@ fn execute_update_config(
     let mut config = puppeteer_base.config.load(deps.storage)?;
 
     let mut attrs: Vec<Attribute> = Vec::new();
-    if let Some(owner) = new_config.owner {
-        config.owner = owner.clone();
-        attrs.push(attr("owner", owner))
-    }
 
     if let Some(proxy_address) = new_config.proxy_address {
         config.proxy_address = Some(proxy_address.clone());
@@ -286,6 +292,11 @@ fn execute_update_config(
     if let Some(transfer_channel_id) = new_config.transfer_channel_id {
         config.transfer_channel_id = transfer_channel_id.clone();
         attrs.push(attr("transfer_channel_id", transfer_channel_id.to_string()))
+    }
+
+    if let Some(sdk_version) = new_config.sdk_version {
+        config.sdk_version = sdk_version.clone();
+        attrs.push(attr("sdk_version", sdk_version.to_string()))
     }
 
     puppeteer_base.update_config(deps.into_empty(), &config)?;

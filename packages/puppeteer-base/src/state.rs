@@ -67,7 +67,6 @@ where
 }
 
 pub trait BaseConfig {
-    fn owner(&self) -> &str;
     fn connection_id(&self) -> String;
     fn update_period(&self) -> u64;
 }
