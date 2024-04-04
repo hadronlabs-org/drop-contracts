@@ -1,12 +1,14 @@
+use crate::contract::Puppeteer;
 use cosmwasm_std::{
     testing::{mock_env, mock_info},
-    Addr, Event, Response,
+    Addr, Binary, Coin, CosmosMsg, Event, Response, SubMsg, Uint128,
 };
 use drop_helpers::testing::mock_dependencies;
+use drop_puppeteer_base::state::ReplyMsg;
 use drop_staking_base::state::puppeteer::Config;
 use drop_staking_base::{msg::puppeteer::InstantiateMsg, state::puppeteer::ConfigOptional};
-
-use crate::contract::Puppeteer;
+use neutron_sdk::bindings::msg::{IbcFee, NeutronMsg};
+use prost::Message;
 
 #[test]
 fn test_instantiate() {
@@ -87,6 +89,79 @@ fn test_update_config() {
     );
 }
 
+#[test]
+fn test_execute_delegate() {
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = Puppeteer::default();
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    puppeteer_base
+        .config
+        .save(deps.as_mut().storage, &get_base_config())
+        .unwrap();
+    puppeteer_base
+        .ica
+        .set_address(deps.as_mut().storage, "ica_address")
+        .unwrap();
+    puppeteer_base
+        .ibc_fee
+        .save(deps.as_mut().storage, &get_standard_fees())
+        .unwrap();
+    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
+        items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
+        reply_to: "some_reply_to".to_string(),
+        timeout: Some(100u64),
+    };
+    let env = mock_env();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env,
+        mock_info("not_allowed_sender", &[]),
+        msg.clone(),
+    );
+    assert_eq!(
+        res.unwrap_err(),
+        drop_puppeteer_base::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+            msg: "Sender is not allowed".to_string()
+        })
+    );
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        msg,
+    )
+    .unwrap();
+    let msg = cosmos_sdk_proto::cosmos::staking::v1beta1::MsgDelegate {
+        delegator_address: "ica_address".to_string(),
+        validator_address: "valoper1".to_string(),
+        amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+            denom: "remote_denom".to_string(),
+            amount: "1000".to_string(),
+        }),
+    };
+    let mut buf = Vec::with_capacity(msg.encoded_len());
+    msg.encode(&mut buf).unwrap();
+    let any_msg = neutron_sdk::bindings::types::ProtobufAny {
+        type_url: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
+        value: Binary::from(buf),
+    };
+    assert_eq!(
+        res,
+        Response::new().add_submessage(SubMsg::reply_on_success(
+            CosmosMsg::Custom(NeutronMsg::submit_tx(
+                "connection_id".to_string(),
+                "DROP".to_string(),
+                vec![any_msg],
+                "".to_string(),
+                100u64,
+                get_standard_fees()
+            )),
+            ReplyMsg::SudoPayload.to_reply_id()
+        ))
+    );
+}
+
 fn get_base_config() -> Config {
     Config {
         port_id: "port_id".to_string(),
@@ -97,5 +172,13 @@ fn get_base_config() -> Config {
         transfer_channel_id: "transfer_channel_id".to_string(),
         sdk_version: "0.45.0".to_string(),
         proxy_address: None,
+    }
+}
+
+fn get_standard_fees() -> IbcFee {
+    IbcFee {
+        recv_fee: vec![Coin::new(1000u128, "local_denom")],
+        ack_fee: vec![Coin::new(2000u128, "local_denom")],
+        timeout_fee: vec![Coin::new(3000u128, "local_denom")],
     }
 }
