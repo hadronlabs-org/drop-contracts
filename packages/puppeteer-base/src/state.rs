@@ -73,7 +73,6 @@ pub trait BaseConfig {
 
 #[cw_serde]
 pub struct ConfigResponse {
-    pub owner: String,
     pub connection_id: String,
     pub update_period: u64,
 }

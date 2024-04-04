@@ -198,7 +198,6 @@ export interface DropPuppeteerSchema {
 }
 export interface ConfigResponse {
   connection_id: string;
-  owner: string;
   update_period: number;
 }
 export interface RedeemShareItem {
