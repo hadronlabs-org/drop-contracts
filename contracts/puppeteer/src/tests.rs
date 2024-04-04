@@ -1,3 +1,5 @@
+use std::vec;
+
 use crate::contract::Puppeteer;
 use cosmwasm_std::{
     testing::{mock_env, mock_info},
@@ -235,6 +237,85 @@ fn test_execute_undelegate() {
                 interchain_account_id: "DROP".to_string(),
                 denom: "remote_denom".to_string(),
                 items: vec![("valoper1".to_string(), Uint128::from(1000u128))]
+            })
+        }
+    );
+}
+
+#[test]
+fn test_execute_redeem_share() {
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+        items: vec![drop_puppeteer_base::state::RedeemShareItem {
+            amount: Uint128::from(1000u128),
+            remote_denom: "remote_denom".to_string(),
+            local_denom: "local_denom".to_string(),
+        }],
+        timeout: Some(100u64),
+        reply_to: "some_reply_to".to_string(),
+    };
+    let env = mock_env();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env,
+        mock_info("not_allowed_sender", &[]),
+        msg.clone(),
+    );
+    assert_eq!(
+        res.unwrap_err(),
+        drop_puppeteer_base::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+            msg: "Sender is not allowed".to_string()
+        })
+    );
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        msg,
+    )
+    .unwrap();
+    let msg = crate::proto::liquidstaking::staking::v1beta1::MsgRedeemTokensforShares {
+        amount: Some(crate::proto::cosmos::base::v1beta1::Coin {
+            denom: "remote_denom".to_string(),
+            amount: "1000".to_string(),
+        }),
+        delegator_address: "ica_address".to_string(),
+    };
+    let mut buf = Vec::with_capacity(msg.encoded_len());
+    msg.encode(&mut buf).unwrap();
+    let any_msg = neutron_sdk::bindings::types::ProtobufAny {
+        type_url: "/cosmos.staking.v1beta1.MsgRedeemTokensForShares".to_string(),
+        value: Binary::from(buf),
+    };
+    assert_eq!(
+        res,
+        Response::new().add_submessage(SubMsg::reply_on_success(
+            CosmosMsg::Custom(NeutronMsg::submit_tx(
+                "connection_id".to_string(),
+                "DROP".to_string(),
+                vec![any_msg],
+                "".to_string(),
+                100u64,
+                get_standard_fees()
+            )),
+            ReplyMsg::SudoPayload.to_reply_id()
+        )).add_attributes(vec![("action", "redeem_share"), ("items", "[RedeemShareItem { amount: Uint128(1000), remote_denom: \"remote_denom\", local_denom: \"local_denom\" }]")])
+    );
+    let tx_state = puppeteer_base.tx_state.load(deps.as_ref().storage).unwrap();
+    assert_eq!(
+        tx_state,
+        drop_puppeteer_base::state::TxState {
+            seq_id: None,
+            status: drop_puppeteer_base::state::TxStateStatus::InProgress,
+            reply_to: Some("some_reply_to".to_string()),
+            transaction: Some(drop_puppeteer_base::msg::Transaction::RedeemShares {
+                interchain_account_id: "DROP".to_string(),
+                items: vec![drop_puppeteer_base::state::RedeemShareItem {
+                    amount: Uint128::from(1000u128),
+                    remote_denom: "remote_denom".to_string(),
+                    local_denom: "local_denom".to_string()
+                }]
             })
         }
     );
