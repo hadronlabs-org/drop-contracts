@@ -880,7 +880,11 @@ fn compose_submsg(
 }
 
 #[entry_point]
-pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResult<Response> {
+pub fn sudo(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    msg: SudoMsg,
+) -> NeutronResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
     deps.api.debug(&format!(
         "WASMDEBUG: sudo call: {:?} block: {:?}",
@@ -941,7 +945,7 @@ fn sudo_response(
     _env: Env,
     request: RequestPacket,
     data: Binary,
-) -> NeutronResult<Response> {
+) -> NeutronResult<Response<NeutronMsg>> {
     deps.api.debug("WASMDEBUG: sudo response");
     let attrs = vec![
         attr("action", "sudo_response"),
@@ -1081,7 +1085,7 @@ fn sudo_error(
     _env: Env,
     request: RequestPacket,
     details: String,
-) -> NeutronResult<Response> {
+) -> NeutronResult<Response<NeutronMsg>> {
     let attrs = vec![
         attr("action", "sudo_error"),
         attr("request_id", request.sequence.unwrap_or(0).to_string()),
@@ -1132,7 +1136,7 @@ fn sudo_timeout(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     request: RequestPacket,
-) -> NeutronResult<Response> {
+) -> NeutronResult<Response<NeutronMsg>> {
     deps.api.debug(&format!(
         "WASMDEBUG: sudo_timeout: request: {request:?}",
         request = request

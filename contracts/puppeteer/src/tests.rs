@@ -3,15 +3,19 @@ use std::vec;
 use crate::contract::Puppeteer;
 use cosmwasm_std::{
     testing::{mock_env, mock_info},
-    Addr, Binary, Coin, CosmosMsg, DepsMut, Event, Response, SubMsg, Uint128,
+    Addr, Binary, Coin, CosmosMsg, DepsMut, Event, Response, StdError, SubMsg, Uint128,
 };
 use drop_helpers::testing::mock_dependencies;
 use drop_puppeteer_base::state::{PuppeteerBase, ReplyMsg};
 use drop_staking_base::state::puppeteer::{Config, KVQueryType};
 use drop_staking_base::{msg::puppeteer::InstantiateMsg, state::puppeteer::ConfigOptional};
-use neutron_sdk::bindings::{
-    msg::{IbcFee, NeutronMsg},
-    query::NeutronQuery,
+use neutron_sdk::{
+    bindings::{
+        msg::{IbcFee, NeutronMsg},
+        query::NeutronQuery,
+    },
+    sudo::msg::SudoMsg,
+    NeutronError,
 };
 use prost::Message;
 
@@ -355,6 +359,46 @@ fn test_execute_set_fees() {
             ack_fee: vec![Coin::new(4000u128, "untrn")],
             timeout_fee: vec![Coin::new(5000u128, "untrn")],
         }
+    );
+}
+
+#[test]
+fn test_sudo_response_tx_state_wrong() {
+    // Test that the contract returns an error if the tx state is not in progress
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    let msg = SudoMsg::Response {
+        request: neutron_sdk::sudo::msg::RequestPacket {
+            sequence: Some(1u64),
+            source_port: Some("source_port".to_string()),
+            source_channel: Some("source_channel".to_string()),
+            destination_port: Some("destination_port".to_string()),
+            destination_channel: Some("destination_channel".to_string()),
+            data: None,
+            timeout_height: None,
+            timeout_timestamp: None,
+        },
+        data: Binary::from(vec![]),
+    };
+    let env = mock_env();
+    puppeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                seq_id: None,
+                status: drop_puppeteer_base::state::TxStateStatus::Idle,
+                reply_to: None,
+                transaction: None,
+            },
+        )
+        .unwrap();
+    let res = crate::contract::sudo(deps.as_mut(), env, msg);
+    assert_eq!(
+        res.unwrap_err(),
+        NeutronError::Std(StdError::generic_err(
+            "Transaction txState is not equal to expected: WaitingForAck"
+        ))
     );
 }
 
