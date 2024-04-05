@@ -567,6 +567,28 @@ fn test_sudo_response_error() {
 }
 
 #[test]
+fn test_sudo_open_ack() {
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    let msg = SudoMsg::OpenAck {
+        port_id: "port_id_1".to_string(),
+        channel_id: "channel_1".to_string(),
+        counterparty_channel_id: "counterparty_channel_id_1".to_string(),
+        counterparty_version: "{\"version\": \"1\",\"controller_connection_id\": \"connection_id\",\"host_connection_id\": \"host_connection_id\",\"address\": \"ica_address\",\"encoding\": \"amino\",\"tx_type\": \"cosmos-sdk/MsgSend\"}".to_string(),
+    };
+    let env = mock_env();
+    let res = crate::contract::sudo(deps.as_mut(), env, msg).unwrap();
+    assert_eq!(res, Response::new());
+    let ica = puppeteer_base.ica.load(deps.as_ref().storage).unwrap();
+    assert_eq!(
+        ica,
+        drop_helpers::ica::IcaState::Registered {
+            ica_address: "ica_address".to_string()
+        }
+    );
+}
+
+#[test]
 fn test_sudo_response_timeout() {
     let mut deps = mock_dependencies(&[]);
     let puppeteer_base = base_init(&mut deps.as_mut());
