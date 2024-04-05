@@ -478,6 +478,80 @@ fn test_sudo_response_ok() {
     );
 }
 
+#[test]
+fn test_sudo_response_error() {
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    let request = neutron_sdk::sudo::msg::RequestPacket {
+        sequence: Some(1u64),
+        source_port: Some("source_port".to_string()),
+        source_channel: Some("source_channel".to_string()),
+        destination_port: Some("destination_port".to_string()),
+        destination_channel: Some("destination_channel".to_string()),
+        data: None,
+        timeout_height: None,
+        timeout_timestamp: None,
+    };
+    let transaction = drop_puppeteer_base::msg::Transaction::IBCTransfer {
+        denom: "remote_denom".to_string(),
+        amount: 1000u128,
+        recipient: "recipient".to_string(),
+        reason: drop_puppeteer_base::msg::IBCTransferReason::Stake,
+    };
+    let msg = SudoMsg::Error {
+        request: request.clone(),
+        details: "some shit happened".to_string(),
+    };
+    let env = mock_env();
+    puppeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                seq_id: None,
+                status: drop_puppeteer_base::state::TxStateStatus::WaitingForAck,
+                reply_to: Some("reply_to_contract".to_string()),
+                transaction: Some(transaction.clone()),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::sudo(deps.as_mut(), env, msg).unwrap();
+    assert_eq!(
+        res,
+        Response::new()
+            .add_message(CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
+                contract_addr: "reply_to_contract".to_string(),
+                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PuppeteerHook(
+                    Box::new(drop_puppeteer_base::msg::ResponseHookMsg::Error(
+                        drop_puppeteer_base::msg::ResponseHookErrorMsg {
+                            request_id: 1,
+                            request,
+                            transaction,
+                            details: "some shit happened".to_string()
+                        }
+                    ))
+                ))
+                .unwrap(),
+                funds: vec![]
+            }))
+            .add_event(Event::new("puppeteer-sudo-error").add_attributes(vec![
+                ("action", "sudo_error"),
+                ("request_id", "1"),
+                ("details", "some shit happened")
+            ]))
+    );
+    let state = puppeteer_base.tx_state.load(deps.as_ref().storage).unwrap();
+    assert_eq!(
+        state,
+        drop_puppeteer_base::state::TxState {
+            seq_id: None,
+            status: drop_puppeteer_base::state::TxStateStatus::Idle,
+            reply_to: None,
+            transaction: None,
+        }
+    );
+}
+
 fn get_base_config() -> Config {
     Config {
         port_id: "port_id".to_string(),
