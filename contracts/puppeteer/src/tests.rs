@@ -321,6 +321,43 @@ fn test_execute_redeem_share() {
     );
 }
 
+#[test]
+fn test_execute_set_fees() {
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::SetFees {
+        recv_fee: Uint128::from(3000u128),
+        ack_fee: Uint128::from(4000u128),
+        timeout_fee: Uint128::from(5000u128),
+        register_fee: Uint128::from(6000u128),
+    };
+    let env = mock_env();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env,
+        mock_info("not_allowed_sender", &[]),
+        msg.clone(),
+    );
+    assert_eq!(
+        res.unwrap_err(),
+        drop_puppeteer_base::error::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner {}
+        )
+    );
+    let res =
+        crate::contract::execute(deps.as_mut(), mock_env(), mock_info("owner", &[]), msg).unwrap();
+    assert_eq!(res, Response::new());
+    let fees = puppeteer_base.ibc_fee.load(deps.as_ref().storage).unwrap();
+    assert_eq!(
+        fees,
+        IbcFee {
+            recv_fee: vec![Coin::new(3000u128, "untrn")],
+            ack_fee: vec![Coin::new(4000u128, "untrn")],
+            timeout_fee: vec![Coin::new(5000u128, "untrn")],
+        }
+    );
+}
+
 fn get_base_config() -> Config {
     Config {
         port_id: "port_id".to_string(),
@@ -356,8 +393,8 @@ fn base_init(
 
 fn get_standard_fees() -> IbcFee {
     IbcFee {
-        recv_fee: vec![Coin::new(1000u128, "local_denom")],
-        ack_fee: vec![Coin::new(2000u128, "local_denom")],
-        timeout_fee: vec![Coin::new(3000u128, "local_denom")],
+        recv_fee: vec![Coin::new(1000u128, "untrn")],
+        ack_fee: vec![Coin::new(2000u128, "untrn")],
+        timeout_fee: vec![Coin::new(3000u128, "untrn")],
     }
 }
