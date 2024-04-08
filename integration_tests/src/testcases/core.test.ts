@@ -548,17 +548,26 @@ describe('Core', () => {
     const res = await contractClient.adminExecute(
       neutronUserAddress,
       {
-        addr: context.puppeteerContractClient.contractAddress,
-        msg: Buffer.from(
-          JSON.stringify({
-            set_fees: {
-              timeout_fee: '10000',
-              ack_fee: '10000',
-              recv_fee: '0',
-              register_fee: '1000000',
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.puppeteerContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    set_fees: {
+                      timeout_fee: '10000',
+                      ack_fee: '10000',
+                      recv_fee: '0',
+                      register_fee: '1000000',
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
             },
-          }),
-        ).toString('base64'),
+          },
+        ],
       },
       1.5,
     );
@@ -622,18 +631,31 @@ describe('Core', () => {
 
   it('update limit', async () => {
     const { factoryContractClient, neutronUserAddress } = context;
-    const res = await factoryContractClient.adminExecute(neutronUserAddress, {
-      addr: context.coreContractClient.contractAddress,
-      msg: Buffer.from(
-        JSON.stringify({
-          update_config: {
-            new_config: {
-              bond_limit: '0',
+    const res = await factoryContractClient.adminExecute(
+      neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.coreContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    update_config: {
+                      new_config: {
+                        bond_limit: '0',
+                      },
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
             },
           },
-        }),
-      ).toString('base64'),
-    });
+        ],
+      },
+      1.5,
+    );
     expect(res.transactionHash).toHaveLength(64);
     const config = await context.coreContractClient.queryConfig();
     expect(config.bond_limit).toBe(null);
@@ -681,13 +703,23 @@ describe('Core', () => {
     const res = await context.factoryContractClient.adminExecute(
       neutronUserAddress,
       {
-        addr: context.coreContractClient.contractAddress,
-        msg: Buffer.from(
-          JSON.stringify({
-            reset_bonded_amount: {},
-          }),
-        ).toString('base64'),
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.coreContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    reset_bonded_amount: {},
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
       },
+      1.5,
     );
     expect(res.transactionHash).toHaveLength(64);
     const bonded = await coreContractClient.queryTotalBonded();

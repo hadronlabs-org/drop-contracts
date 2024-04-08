@@ -27,7 +27,7 @@ export type ContractState = "idle" | "claiming" | "unbonding" | "staking" | "tra
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal1 = string;
-export type ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128 = [string, [string, Uint128]][];
+export type ArrayOfTupleOfStringAndTupleOfStringAndUint128 = [string, [string, Uint128]][];
 export type ResponseHookMsg =
   | {
       success: ResponseHookSuccessMsg;
@@ -149,7 +149,7 @@ export type PauseInfoResponse =
   | {
       unpaused: {};
     };
-export type ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint1281 = [string, [string, Uint128]][];
+export type ArrayOfTupleOfStringAndTupleOfStringAndUint1281 = [string, [string, Uint128]][];
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -235,12 +235,12 @@ export interface DropCoreSchema {
     | Config
     | ContractState
     | Decimal1
-    | ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128
+    | ArrayOfTupleOfStringAndTupleOfStringAndUint128
     | ResponseHookMsg
     | ArrayOfNonNativeRewardsItem
     | String
     | PauseInfoResponse
-    | ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint1281
+    | ArrayOfTupleOfStringAndTupleOfStringAndUint1281
     | Uint1281
     | UnbondBatch;
   query: UnbondBatchArgs;
@@ -459,6 +459,21 @@ export class Client {
     });
     return res;
   }
+  static async instantiate2(
+    client: SigningCosmWasmClient,
+    sender: string,
+    codeId: number,
+    salt: number,
+    initMsg: InstantiateMsg,
+    label: string,
+    fees: StdFee | 'auto' | number,
+    initCoins?: readonly Coin[],
+  ): Promise<InstantiateResult> {
+    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
+      ...(initCoins && initCoins.length && { funds: initCoins }),
+    });
+    return res;
+  }
   queryConfig = async(): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
@@ -480,10 +495,10 @@ export class Client {
   queryNonNativeRewardsReceivers = async(): Promise<ArrayOfNonNativeRewardsItem> => {
     return this.client.queryContractSmart(this.contractAddress, { non_native_rewards_receivers: {} });
   }
-  queryPendingLSMShares = async(): Promise<ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128> => {
+  queryPendingLSMShares = async(): Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128> => {
     return this.client.queryContractSmart(this.contractAddress, { pending_l_s_m_shares: {} });
   }
-  queryLSMSharesToRedeem = async(): Promise<ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128> => {
+  queryLSMSharesToRedeem = async(): Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128> => {
     return this.client.queryContractSmart(this.contractAddress, { l_s_m_shares_to_redeem: {} });
   }
   queryTotalBonded = async(): Promise<Uint128> => {
