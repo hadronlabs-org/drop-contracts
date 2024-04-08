@@ -653,7 +653,7 @@ describe('Core Slashing', () => {
       let res;
       await waitFor(async () => {
         try {
-          res = await context.puppeteerContractClient.queryExtention({
+          res = await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
@@ -804,14 +804,14 @@ describe('Core Slashing', () => {
         return !!response;
       }, 100_000);
       const [, currentHeight] =
-        (await context.puppeteerContractClient.queryExtention({
+        (await context.puppeteerContractClient.queryExtension({
           msg: {
             balances: {},
           },
         })) as any;
       await waitFor(async () => {
         const [, nowHeight] =
-          (await context.puppeteerContractClient.queryExtention({
+          (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
@@ -840,14 +840,14 @@ describe('Core Slashing', () => {
         return !!response;
       }, 100_000);
       const [, currentHeight] =
-        (await context.puppeteerContractClient.queryExtention({
+        (await context.puppeteerContractClient.queryExtension({
           msg: {
             balances: {},
           },
         })) as any;
       await waitFor(async () => {
         const [, nowHeight] =
-          (await context.puppeteerContractClient.queryExtention({
+          (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
@@ -991,7 +991,7 @@ describe('Core Slashing', () => {
     await waitFor(async () => {
       const icaTs = Math.floor(
         (
-          (await context.puppeteerContractClient.queryExtention({
+          (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
@@ -1008,7 +1008,7 @@ describe('Core Slashing', () => {
     await waitFor(async () => {
       const icaTs = Math.floor(
         (
-          (await context.puppeteerContractClient.queryExtention({
+          (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
@@ -1034,14 +1034,14 @@ describe('Core Slashing', () => {
       return !!response;
     }, 100_000);
     const [, currentHeight] =
-      (await context.puppeteerContractClient.queryExtention({
+      (await context.puppeteerContractClient.queryExtension({
         msg: {
           balances: {},
         },
       })) as any;
     await waitFor(async () => {
       const [, nowHeight] =
-        (await context.puppeteerContractClient.queryExtention({
+        (await context.puppeteerContractClient.queryExtension({
           msg: {
             balances: {},
           },

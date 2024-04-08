@@ -125,7 +125,7 @@ export type Addr = string;
 
 export interface DropPuppeteerSchema {
   responses: ConfigResponse | Binary | IcaState | ArrayOfTransaction;
-  query: ExtentionArgs;
+  query: ExtensionArgs;
   execute:
     | RegisterBalanceAndDelegatorDelegationsQueryArgs
     | RegisterDelegatorUnbondingDelegationsQueryArgs
@@ -164,7 +164,7 @@ export interface Coin {
   denom: string;
   [k: string]: unknown;
 }
-export interface ExtentionArgs {
+export interface ExtensionArgs {
   msg: QueryExtMsg;
 }
 export interface RegisterBalanceAndDelegatorDelegationsQueryArgs {
@@ -292,8 +292,8 @@ export class Client {
   queryTransactions = async(): Promise<ArrayOfTransaction> => {
     return this.client.queryContractSmart(this.contractAddress, { transactions: {} });
   }
-  queryExtention = async(args: ExtentionArgs): Promise<Binary> => {
-    return this.client.queryContractSmart(this.contractAddress, { extention: args });
+  queryExtension = async(args: ExtensionArgs): Promise<Binary> => {
+    return this.client.queryContractSmart(this.contractAddress, { extension: args });
   }
   registerICA = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

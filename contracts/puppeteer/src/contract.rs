@@ -116,7 +116,7 @@ pub fn query(
     msg: QueryMsg<QueryExtMsg>,
 ) -> ContractResult<Binary> {
     match msg {
-        QueryMsg::Extention { msg } => match msg {
+        QueryMsg::Extension { msg } => match msg {
             QueryExtMsg::Delegations {} => query_delegations(deps),
             QueryExtMsg::Balances {} => query_balances(deps),
             QueryExtMsg::NonNativeRewardsBalances {} => query_non_native_rewards_balances(deps),

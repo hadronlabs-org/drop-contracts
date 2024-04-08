@@ -50,7 +50,7 @@ where
     #[returns(Vec<Transaction>)]
     Transactions {},
     #[returns(cosmwasm_std::Binary)]
-    Extention { msg: E },
+    Extension { msg: E },
 }
 
 #[cw_serde]

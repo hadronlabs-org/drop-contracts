@@ -77,7 +77,7 @@ fn puppeteer_query(
         PuppeteerQueryMsg::Config {} => todo!(),
         PuppeteerQueryMsg::Ica {} => todo!(),
         PuppeteerQueryMsg::Transactions {} => todo!(),
-        PuppeteerQueryMsg::Extention { msg } => match msg {
+        PuppeteerQueryMsg::Extension { msg } => match msg {
             drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {} => {
                 let mut delegations_amount: Vec<cosmwasm_std::Delegation> = Vec::new();
                 for i in 0..3 {

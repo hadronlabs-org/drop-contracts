@@ -581,7 +581,7 @@ describe('Interchain puppeteer', () => {
     let delegations = [];
     let height = 0;
     await waitFor(async () => {
-      const [d, h] = (await context.contractClient.queryExtention({
+      const [d, h] = (await context.contractClient.queryExtension({
         msg: { delegations: {} },
       })) as unknown as any[];
       delegations = d.delegations;
@@ -615,7 +615,7 @@ describe('Interchain puppeteer', () => {
   it('query unbonding delegations query', async () => {
     await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 4);
 
-    const unbonding_delegations = (await context.contractClient.queryExtention({
+    const unbonding_delegations = (await context.contractClient.queryExtension({
       msg: { unbonding_delegations: {} },
     })) as unknown as any[];
     unbonding_delegations.sort((a, b) =>

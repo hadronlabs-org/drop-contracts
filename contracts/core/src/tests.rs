@@ -64,7 +64,7 @@ impl WasmMockQuerier {
                 if contract_addr == MOCK_PUPPETEER_CONTRACT_ADDR {
                     let q: PuppeteerBaseQueryMsg<QueryExtMsg> = from_json(msg).unwrap();
                     let reply = match q {
-                        PuppeteerBaseQueryMsg::Extention { msg } => match msg {
+                        PuppeteerBaseQueryMsg::Extension { msg } => match msg {
                             QueryExtMsg::NonNativeRewardsBalances {} => {
                                 let data = (
                                     MultiBalances {

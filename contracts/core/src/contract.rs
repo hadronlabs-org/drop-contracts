@@ -137,7 +137,7 @@ fn query_exchange_rate(
         .querier
         .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
             config.puppeteer_contract.to_string(),
-            &drop_puppeteer_base::msg::QueryMsg::Extention {
+            &drop_puppeteer_base::msg::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
         )?;
@@ -543,7 +543,7 @@ fn execute_tick_idle(
             .querier
             .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
             config.puppeteer_contract.to_string(),
-            &drop_puppeteer_base::msg::QueryMsg::Extention {
+            &drop_puppeteer_base::msg::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
         )?;
@@ -1213,7 +1213,7 @@ fn get_ica_balance_by_denom<T: CustomQuery>(
     let (ica_balances, local_height, local_time): drop_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             puppeteer_contract.to_string(),
-            &drop_puppeteer_base::msg::QueryMsg::Extention {
+            &drop_puppeteer_base::msg::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
             },
         )?;
@@ -1260,7 +1260,7 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
     let rewards: drop_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             config.puppeteer_contract.to_string(),
-            &drop_puppeteer_base::msg::QueryMsg::Extention {
+            &drop_puppeteer_base::msg::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::NonNativeRewardsBalances {},
             },
         )?;
