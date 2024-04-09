@@ -794,7 +794,9 @@ fn execute_bond(
         Ok(a)
     })?;
     attrs.push(attr("receiver", receiver.clone()));
-    attrs.push(attr("ref", r#ref.unwrap_or_default()));
+    if let Some(r#ref) = r#ref {
+        attrs.push(attr("ref", r#ref));
+    }
 
     let msgs = vec![CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.token_contract,
