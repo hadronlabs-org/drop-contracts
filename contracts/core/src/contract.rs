@@ -795,7 +795,9 @@ fn execute_bond(
     })?;
     attrs.push(attr("receiver", receiver.clone()));
     if let Some(r#ref) = r#ref {
-        attrs.push(attr("ref", r#ref));
+        if !r#ref.is_empty() {
+            attrs.push(attr("ref", r#ref));
+        }
     }
 
     let msgs = vec![CosmosMsg::Wasm(WasmMsg::Execute {
