@@ -1,9 +1,10 @@
 use crate::state::{CodeIds, RemoteOpts};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Binary, Uint128};
+use cosmwasm_std::{CosmosMsg, Uint128};
 use cw_ownable::cw_ownable_execute;
 use drop_macros::pausable;
 use drop_staking_base::msg::token::DenomMetadata;
+use neutron_sdk::bindings::msg::NeutronMsg;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -87,8 +88,7 @@ pub enum ExecuteMsg {
     UpdateConfig(Box<UpdateConfigMsg>),
     Proxy(ProxyMsg),
     AdminExecute {
-        addr: String,
-        msg: Binary,
+        msgs: Vec<CosmosMsg<NeutronMsg>>,
     },
 }
 #[cw_serde]

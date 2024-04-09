@@ -719,10 +719,10 @@
     events "^3.3.0"
     protobufjs "^7.2.0"
 
-"@neutron-org/contracts2ts@^1.4.0":
-  version "1.4.0"
-  resolved "https://registry.yarnpkg.com/@neutron-org/contracts2ts/-/contracts2ts-1.4.0.tgz#e69e5b05a119414832835edde20e9da7eb78677d"
-  integrity sha512-ItBi6iVqalOE77EKv1/hjujIrCQnWs82PZzg9U6kDysQhDfoKIyKQBz6c7HIlDOCxDLFG5UPnFY4bUvZsPjuxg==
+"@neutron-org/contracts2ts@^1.4.2":
+  version "1.4.2"
+  resolved "https://registry.yarnpkg.com/@neutron-org/contracts2ts/-/contracts2ts-1.4.2.tgz#88260963c3e917f783e5534a9a8f6fef0764914c"
+  integrity sha512-S/rSrbeuxDhcCRMh5iDEHp6SVl4vmakEK0JMO1AWDPjYNiEyBYhLJA+VtFhJUbl5x6KTPaLoUFpeOUJFzqYY9Q==
   dependencies:
     "@apidevtools/json-schema-ref-parser" "^11.5.4"
     "@cosmjs/cosmwasm-stargate" "^0.32.3"

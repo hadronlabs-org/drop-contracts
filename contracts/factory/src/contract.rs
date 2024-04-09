@@ -125,7 +125,7 @@ pub fn execute(
         }
         ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, env, info, *msg),
         ExecuteMsg::Proxy(msg) => execute_proxy_msg(deps, env, info, msg),
-        ExecuteMsg::AdminExecute { addr, msg } => execute_admin_execute(deps, env, info, addr, msg),
+        ExecuteMsg::AdminExecute { msgs } => execute_admin_execute(deps, env, info, msgs),
         ExecuteMsg::Pause {} => exec_pause(deps, info),
         ExecuteMsg::Unpause {} => exec_unpause(deps, info),
     }
@@ -187,17 +187,11 @@ fn execute_admin_execute(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    addr: String,
-    msg: Binary,
+    msgs: Vec<CosmosMsg<NeutronMsg>>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let attrs = vec![attr("action", "admin-execute")];
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: addr,
-        msg,
-        funds: vec![],
-    });
-    Ok(response("execute-admin", CONTRACT_NAME, attrs).add_message(msg))
+    Ok(response("execute-admin", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
 fn execute_update_config(

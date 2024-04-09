@@ -37,7 +37,7 @@
     "@cosmjs/stargate": "^0.32.1",
     "@cosmjs/tendermint-rpc": "^0.32.1",
     "@neutron-org/client-ts": "^1.4.0",
-    "@neutron-org/contracts2ts": "^1.4.0",
+    "@neutron-org/contracts2ts": "^1.4.2",
     "@neutron-org/cosmopark": "^1.5.0",
     "bech32": "^1.1.4"
   },
