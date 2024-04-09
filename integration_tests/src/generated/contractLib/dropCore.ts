@@ -368,6 +368,7 @@ export interface UnbondBatchArgs {
 }
 export interface BondArgs {
   receiver?: string | null;
+  ref?: string | null;
 }
 export interface UpdateConfigArgs {
   new_config: ConfigOptional;

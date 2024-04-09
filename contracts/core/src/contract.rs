@@ -201,7 +201,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::Bond { receiver } => execute_bond(deps, env, info, receiver),
+        ExecuteMsg::Bond { receiver, r#ref } => execute_bond(deps, env, info, receiver, r#ref),
         ExecuteMsg::Unbond {} => execute_unbond(deps, env, info),
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, *new_config),
         ExecuteMsg::UpdateOwnership(action) => {
@@ -754,6 +754,7 @@ fn execute_bond(
     env: Env,
     info: MessageInfo,
     receiver: Option<String>,
+    r#ref: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let Coin { amount, denom } = cw_utils::one_coin(&info)?;
@@ -793,6 +794,11 @@ fn execute_bond(
         Ok(a)
     })?;
     attrs.push(attr("receiver", receiver.clone()));
+    if let Some(r#ref) = r#ref {
+        if !r#ref.is_empty() {
+            attrs.push(attr("ref", r#ref));
+        }
+    }
 
     let msgs = vec![CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.token_contract,
