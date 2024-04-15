@@ -1,28 +1,31 @@
-use std::marker::PhantomData;
-
+use crate::{
+    contract::{execute, get_non_native_rewards_and_fee_transfer_msg, get_stake_msg},
+    error::ContractError,
+};
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockQuerier, MockStorage},
     to_json_binary, Addr, Coin, ContractResult, CosmosMsg, Decimal, Empty, MessageInfo, Order,
-    OwnedDeps, Querier, QuerierResult, QueryRequest, StdResult, SystemError, SystemResult,
-    Timestamp, Uint128, WasmMsg, WasmQuery,
+    OwnedDeps, Querier, QuerierResult, QueryRequest, StdError, StdResult, SystemError,
+    SystemResult, Timestamp, Uint128, WasmMsg, WasmQuery,
 };
-
 use drop_puppeteer_base::msg::QueryMsg as PuppeteerBaseQueryMsg;
 use drop_staking_base::{
-    msg::puppeteer::{MultiBalances, QueryExtMsg},
+    msg::{
+        core::ExecuteMsg,
+        puppeteer::{MultiBalances, QueryExtMsg},
+        strategy::QueryMsg as StrategyQueryMsg,
+    },
     state::core::{
-        Config, FeeItem, NonNativeRewardsItem, COLLECTED_FEES, LAST_ICA_BALANCE_CHANGE_HEIGHT,
-        NON_NATIVE_REWARDS_CONFIG,
+        unbond_batches_map, Config, FeeItem, NonNativeRewardsItem, UnbondBatch, UnbondBatchStatus,
+        COLLECTED_FEES, CONFIG, LAST_ICA_BALANCE_CHANGE_HEIGHT, NON_NATIVE_REWARDS_CONFIG,
     },
 };
-use drop_staking_base::{msg::strategy::QueryMsg as StategyQueryMsg, state::core::CONFIG};
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     interchain_queries::v045::types::Balances,
 };
-
-use crate::contract::{get_non_native_rewards_and_fee_transfer_msg, get_stake_msg};
+use std::marker::PhantomData;
 
 pub const MOCK_PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
 pub const MOCK_STRATEGY_CONTRACT_ADDR: &str = "strategy_contract";
@@ -91,16 +94,16 @@ impl WasmMockQuerier {
                                 );
                                 to_json_binary(&data)
                             }
-                            _ => todo!(),
+                            _ => unimplemented!(),
                         },
-                        _ => todo!(),
+                        _ => unimplemented!(),
                     };
                     return SystemResult::Ok(ContractResult::from(reply));
                 }
                 if contract_addr == MOCK_STRATEGY_CONTRACT_ADDR {
-                    let q: StategyQueryMsg = from_json(msg).unwrap();
+                    let q: StrategyQueryMsg = from_json(msg).unwrap();
                     let reply = match q {
-                        StategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
+                        StrategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
                             drop_staking_base::msg::distribution::IdealDelegation {
                                 valoper_address: "valoper_address".to_string(),
                                 stake_change: deposit,
@@ -109,7 +112,7 @@ impl WasmMockQuerier {
                                 weight: 1u64,
                             },
                         ]),
-                        _ => todo!(),
+                        _ => unimplemented!(),
                     };
                     return SystemResult::Ok(ContractResult::from(reply));
                 }
@@ -356,4 +359,181 @@ fn get_stake_msg_zero_fee() {
             funds: vec![Coin::new(200, "untrn")],
         })
     );
+}
+
+mod process_emergency_batch {
+    use super::*;
+
+    fn setup(
+        status: UnbondBatchStatus,
+    ) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier, NeutronQuery> {
+        let mut deps = mock_dependencies();
+        {
+            let deps_as_mut = deps.as_mut();
+            cw_ownable::initialize_owner(deps_as_mut.storage, deps_as_mut.api, Some("owner"))
+                .unwrap();
+        }
+        {
+            unbond_batches_map()
+                .save(
+                    deps.as_mut().storage,
+                    2,
+                    &UnbondBatch {
+                        total_amount: Uint128::new(100),
+                        expected_amount: Uint128::new(100),
+                        expected_release: 200,
+                        unbond_items: vec![],
+                        status,
+                        slashing_effect: None,
+                        unbonded_amount: None,
+                        withdrawed_amount: None,
+                        created: 200,
+                    },
+                )
+                .unwrap();
+        }
+        deps
+    }
+
+    #[test]
+    fn unauthorized() {
+        let mut deps = setup(UnbondBatchStatus::WithdrawnEmergency);
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("stranger", &[]),
+            ExecuteMsg::ProcessEmergencyBatch {
+                batch_id: 2,
+                unbonded_amount: Uint128::new(100),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            err,
+            ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+        );
+    }
+
+    #[test]
+    fn not_in_withdrawn_emergency_state() {
+        let mut deps = setup(UnbondBatchStatus::WithdrawingEmergency);
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            ExecuteMsg::ProcessEmergencyBatch {
+                batch_id: 2,
+                unbonded_amount: Uint128::new(100),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            err,
+            ContractError::Std(StdError::generic_err(
+                "Requested batch is not in WithdrawnEmergency state"
+            ))
+        );
+    }
+
+    #[test]
+    fn unbonded_amount_is_zero() {
+        let mut deps = setup(UnbondBatchStatus::WithdrawnEmergency);
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            ExecuteMsg::ProcessEmergencyBatch {
+                batch_id: 2,
+                unbonded_amount: Uint128::new(0),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            err,
+            ContractError::Std(StdError::generic_err("Unbonded amount must not be zero"))
+        );
+    }
+
+    #[test]
+    fn unbonded_amount_too_high() {
+        let mut deps = setup(UnbondBatchStatus::WithdrawnEmergency);
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            ExecuteMsg::ProcessEmergencyBatch {
+                batch_id: 2,
+                unbonded_amount: Uint128::new(200),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            err,
+            ContractError::Std(StdError::generic_err(
+                "Unbonded amount must be less or equal to expected amount"
+            ))
+        );
+    }
+
+    #[test]
+    fn no_slashing() {
+        let mut deps = setup(UnbondBatchStatus::WithdrawnEmergency);
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            ExecuteMsg::ProcessEmergencyBatch {
+                batch_id: 2,
+                unbonded_amount: Uint128::new(100),
+            },
+        )
+        .unwrap();
+
+        let batch = unbond_batches_map().load(deps.as_mut().storage, 2).unwrap();
+        assert_eq!(
+            batch,
+            UnbondBatch {
+                total_amount: Uint128::new(100),
+                expected_amount: Uint128::new(100),
+                expected_release: 200,
+                unbond_items: vec![],
+                status: UnbondBatchStatus::Withdrawn,
+                slashing_effect: Some(Decimal::one()),
+                unbonded_amount: Some(Uint128::new(100)),
+                withdrawed_amount: None,
+                created: 200,
+            }
+        );
+    }
+
+    #[test]
+    fn some_slashing() {
+        let mut deps = setup(UnbondBatchStatus::WithdrawnEmergency);
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            ExecuteMsg::ProcessEmergencyBatch {
+                batch_id: 2,
+                unbonded_amount: Uint128::new(70),
+            },
+        )
+        .unwrap();
+
+        let batch = unbond_batches_map().load(deps.as_mut().storage, 2).unwrap();
+        assert_eq!(
+            batch,
+            UnbondBatch {
+                total_amount: Uint128::new(100),
+                expected_amount: Uint128::new(100),
+                expected_release: 200,
+                unbond_items: vec![],
+                status: UnbondBatchStatus::Withdrawn,
+                slashing_effect: Some(Decimal::from_ratio(70u128, 100u128)),
+                unbonded_amount: Some(Uint128::new(70)),
+                withdrawed_amount: None,
+                created: 200,
+            }
+        );
+    }
 }

@@ -244,7 +244,13 @@ export interface DropCoreSchema {
     | Uint1281
     | UnbondBatch;
   query: UnbondBatchArgs;
-  execute: BondArgs | UpdateConfigArgs | UpdateNonNativeRewardsReceiversArgs | PuppeteerHookArgs | UpdateOwnershipArgs;
+  execute:
+    | BondArgs
+    | UpdateConfigArgs
+    | UpdateNonNativeRewardsReceiversArgs
+    | PuppeteerHookArgs
+    | ProcessEmergencyBatchArgs
+    | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
@@ -402,6 +408,10 @@ export interface ConfigOptional {
 export interface UpdateNonNativeRewardsReceiversArgs {
   items: NonNativeRewardsItem[];
 }
+export interface ProcessEmergencyBatchArgs {
+  batch_id: number;
+  unbonded_amount: Uint128;
+}
 export interface InstantiateMsg {
   base_denom: string;
   bond_limit?: Uint128 | null;
@@ -535,6 +545,10 @@ export class Client {
   resetBondedAmount = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { reset_bonded_amount: {} }, fee || "auto", memo, funds);
+  }
+  processEmergencyBatch = async(sender:string, args: ProcessEmergencyBatchArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { process_emergency_batch: args }, fee || "auto", memo, funds);
   }
   pause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
