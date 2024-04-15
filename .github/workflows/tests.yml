@@ -68,11 +68,11 @@ jobs:
           profile: minimal
           override: true
       - name: Setup node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18.16.1'
-          cache: 'yarn'
-          cache-dependency-path: integration_tests/yarn.lock
+          node-version: '18.16.1'    
+      - name: Install Yarn
+        run: npm install -g yarn
       - name: Setup Go environment
         uses: actions/setup-go@v5.0.0
         with:
