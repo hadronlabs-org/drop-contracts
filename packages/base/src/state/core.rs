@@ -2,6 +2,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Decimal, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use drop_helpers::fsm::{Fsm, Transition};
+use drop_puppeteer_base::msg::ResponseHookMsg;
 use optfield::optfield;
 
 #[optfield(pub ConfigOptional, attrs)]
@@ -94,7 +95,7 @@ pub fn unbond_batches_map<'a>() -> IndexedMap<'a, u128, UnbondBatch, UnbondBatch
 
 pub const UNBOND_BATCH_ID: Item<u128> = Item::new("batches_ids");
 pub const TOTAL_LSM_SHARES: Item<u128> = Item::new("total_lsm_shares");
-pub const PENDING_LSM_SHARES: Map<String, (String, Uint128)> = Map::new("pending_lsm_shares");
+pub const PENDING_LSM_SHARES: Map<String, (String, Uint128)> = Map::new("pending_lsm_shares"); // (local_denom, (remote_denom, amount))
 pub const LSM_SHARES_TO_REDEEM: Map<String, (String, Uint128)> = Map::new("lsm_shares_to_redeem");
 
 #[cw_serde]
@@ -107,6 +108,14 @@ pub enum ContractState {
 }
 
 const TRANSITIONS: &[Transition<ContractState>] = &[
+    Transition {
+        from: ContractState::Idle,
+        to: ContractState::Claiming,
+    },
+    Transition {
+        from: ContractState::Idle,
+        to: ContractState::Unbonding,
+    },
     Transition {
         from: ContractState::Idle,
         to: ContractState::Claiming,
@@ -128,12 +137,20 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
         to: ContractState::Staking,
     },
     Transition {
+        from: ContractState::Transfering,
+        to: ContractState::Unbonding,
+    },
+    Transition {
         from: ContractState::Staking,
         to: ContractState::Unbonding,
     },
     Transition {
         from: ContractState::Claiming,
         to: ContractState::Staking,
+    },
+    Transition {
+        from: ContractState::Claiming,
+        to: ContractState::Unbonding,
     },
     Transition {
         from: ContractState::Staking,
@@ -172,8 +189,7 @@ pub struct FeeItem {
 pub const FSM: Fsm<ContractState> = Fsm::new("machine_state", TRANSITIONS);
 pub const LAST_IDLE_CALL: Item<u64> = Item::new("last_tick");
 pub const LAST_ICA_BALANCE_CHANGE_HEIGHT: Item<u64> = Item::new("last_ica_balance_change_height");
-pub const LAST_PUPPETEER_RESPONSE: Item<drop_puppeteer_base::msg::ResponseHookMsg> =
-    Item::new("last_puppeteer_response");
+pub const LAST_PUPPETEER_RESPONSE: Item<ResponseHookMsg> = Item::new("last_puppeteer_response");
 pub const COLLECTED_FEES: Map<String, FeeItem> = Map::new("collected_fees");
 pub const FAILED_BATCH_ID: Item<u128> = Item::new("failed_batch_id");
 pub const PRE_UNBONDING_BALANCE: Item<Uint128> = Item::new("pre_unbonding_balance");

@@ -35,6 +35,11 @@ pub struct InstantiateMsg {
     pub min_stake_amount: Uint128,
 }
 
+#[cw_serde]
+pub struct LastPuppeteerResponse {
+    pub response: Option<ResponseHookMsg>,
+}
+
 #[pausable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
@@ -49,7 +54,7 @@ pub enum QueryMsg {
     UnbondBatch { batch_id: Uint128 },
     #[returns(crate::state::core::ContractState)]
     ContractState {},
-    #[returns(ResponseHookMsg)]
+    #[returns(LastPuppeteerResponse)]
     LastPuppeteerResponse {},
     #[returns(Vec<NonNativeRewardsItem>)]
     NonNativeRewardsReceivers {},
@@ -65,11 +70,18 @@ pub enum QueryMsg {
 #[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
-    Bond { receiver: Option<String> },
+    Bond {
+        receiver: Option<String>,
+        r#ref: Option<String>,
+    },
     Unbond {},
     //permissioned
-    UpdateConfig { new_config: Box<ConfigOptional> },
-    UpdateNonNativeRewardsReceivers { items: Vec<NonNativeRewardsItem> },
+    UpdateConfig {
+        new_config: Box<ConfigOptional>,
+    },
+    UpdateNonNativeRewardsReceivers {
+        items: Vec<NonNativeRewardsItem>,
+    },
     Tick {},
     PuppeteerHook(Box<ResponseHookMsg>),
     ResetBondedAmount {},

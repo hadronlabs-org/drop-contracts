@@ -411,7 +411,7 @@ describe('Core', () => {
       core_params: {
         idle_min_interval: 40,
         puppeteer_timeout: 60,
-        unbond_batch_switch_time: 240,
+        unbond_batch_switch_time: 60,
         unbonding_safe_period: 10,
         unbonding_period: 360,
         channel: 'channel-0',
@@ -548,17 +548,26 @@ describe('Core', () => {
     const res = await contractClient.adminExecute(
       neutronUserAddress,
       {
-        addr: context.puppeteerContractClient.contractAddress,
-        msg: Buffer.from(
-          JSON.stringify({
-            set_fees: {
-              timeout_fee: '10000',
-              ack_fee: '10000',
-              recv_fee: '0',
-              register_fee: '1000000',
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.puppeteerContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    set_fees: {
+                      timeout_fee: '10000',
+                      ack_fee: '10000',
+                      recv_fee: '0',
+                      register_fee: '1000000',
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
             },
-          }),
-        ).toString('base64'),
+          },
+        ],
       },
       1.5,
     );
@@ -622,18 +631,31 @@ describe('Core', () => {
 
   it('update limit', async () => {
     const { factoryContractClient, neutronUserAddress } = context;
-    const res = await factoryContractClient.adminExecute(neutronUserAddress, {
-      addr: context.coreContractClient.contractAddress,
-      msg: Buffer.from(
-        JSON.stringify({
-          update_config: {
-            new_config: {
-              bond_limit: '0',
+    const res = await factoryContractClient.adminExecute(
+      neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.coreContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    update_config: {
+                      new_config: {
+                        bond_limit: '0',
+                      },
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
             },
           },
-        }),
-      ).toString('base64'),
-    });
+        ],
+      },
+      1.5,
+    );
     expect(res.transactionHash).toHaveLength(64);
     const config = await context.coreContractClient.queryConfig();
     expect(config.bond_limit).toBe(null);
@@ -681,13 +703,23 @@ describe('Core', () => {
     const res = await context.factoryContractClient.adminExecute(
       neutronUserAddress,
       {
-        addr: context.coreContractClient.contractAddress,
-        msg: Buffer.from(
-          JSON.stringify({
-            reset_bonded_amount: {},
-          }),
-        ).toString('base64'),
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.coreContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    reset_bonded_amount: {},
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
       },
+      1.5,
     );
     expect(res.transactionHash).toHaveLength(64);
     const bonded = await coreContractClient.queryTotalBonded();
@@ -1052,8 +1084,9 @@ describe('Core', () => {
         let response;
         await waitFor(async () => {
           try {
-            response =
-              await context.coreContractClient.queryLastPuppeteerResponse();
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
           } catch (e) {
             //
           }
@@ -1114,8 +1147,9 @@ describe('Core', () => {
         let response;
         await waitFor(async () => {
           try {
-            response =
-              await context.coreContractClient.queryLastPuppeteerResponse();
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
           } catch (e) {
             //
           }
@@ -1194,8 +1228,9 @@ describe('Core', () => {
         let response;
         await waitFor(async () => {
           try {
-            response =
-              await context.coreContractClient.queryLastPuppeteerResponse();
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
           } catch (e) {
             //
           }
@@ -1269,8 +1304,9 @@ describe('Core', () => {
         let response;
         await waitFor(async () => {
           try {
-            response =
-              await context.coreContractClient.queryLastPuppeteerResponse();
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
           } catch (e) {
             //
           }
@@ -1316,8 +1352,9 @@ describe('Core', () => {
         let response;
         await waitFor(async () => {
           try {
-            response =
-              await context.coreContractClient.queryLastPuppeteerResponse();
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
           } catch (e) {
             //
           }
@@ -1345,12 +1382,12 @@ describe('Core', () => {
           'neutron',
           `neutrond tx tokenfactory create-denom test1 --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
         await context.park.executeInNetwork(
           'neutron',
           `neutrond tx tokenfactory create-denom test2 --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
         const denoms =
           await context.neutronClient.OsmosisTokenfactoryV1Beta1.query.queryDenomsFromCreator(
             neutronUserAddress,
@@ -1360,12 +1397,12 @@ describe('Core', () => {
           'neutron',
           `neutrond tx tokenfactory mint 1000000${denoms.data.denoms[0]} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
         await context.park.executeInNetwork(
           'neutron',
           `neutrond tx tokenfactory mint 1000000${denoms.data.denoms[1]} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
         const balances =
           await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
             neutronUserAddress,
@@ -1377,12 +1414,12 @@ describe('Core', () => {
           'neutron',
           `neutrond tx ibc-transfer transfer transfer channel-0 ${context.icaAddress} 66666${tokenFactoryDenoms[0].denom} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
         await context.park.executeInNetwork(
           'neutron',
           `neutrond tx ibc-transfer transfer transfer channel-0 ${context.icaAddress} 2222${tokenFactoryDenoms[1].denom} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
       });
       it('wait for balances to come', async () => {
         let res: readonly Coin[] = [];
@@ -1469,8 +1506,9 @@ describe('Core', () => {
         let response: ResponseHookMsg;
         await waitFor(async () => {
           try {
-            response =
-              await context.coreContractClient.queryLastPuppeteerResponse();
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
           } catch (e) {
             //
           }
@@ -2038,7 +2076,7 @@ describe('Core', () => {
       it('tick', async () => {
         const { coreContractClient, neutronUserAddress } = context;
         previousResponse = (
-          (await coreContractClient.queryLastPuppeteerResponse()) as {
+          (await coreContractClient.queryLastPuppeteerResponse()).response as {
             success: ResponseHookSuccessMsg;
           }
         ).success;
@@ -2050,8 +2088,9 @@ describe('Core', () => {
         let response: ResponseHookMsg;
         await waitFor(async () => {
           try {
-            response =
-              await context.coreContractClient.queryLastPuppeteerResponse();
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
           } catch (e) {
             return false;
           }

@@ -773,6 +773,7 @@ dependencies = [
  "cosmos-sdk-proto",
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cw-ownable",
  "cw-utils 1.0.3",
  "drop-helpers",
  "drop-staking-base",

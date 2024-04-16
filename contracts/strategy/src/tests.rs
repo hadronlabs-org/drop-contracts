@@ -76,6 +76,7 @@ fn puppeteer_query(
     match msg {
         PuppeteerQueryMsg::Config {} => todo!(),
         PuppeteerQueryMsg::Ica {} => todo!(),
+        PuppeteerQueryMsg::TxState {} => todo!(),
         PuppeteerQueryMsg::Transactions {} => todo!(),
         PuppeteerQueryMsg::Extension { msg } => match msg {
             drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {} => {

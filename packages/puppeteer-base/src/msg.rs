@@ -51,6 +51,8 @@ where
     Transactions {},
     #[returns(cosmwasm_std::Binary)]
     Extension { msg: E },
+    #[returns(crate::state::TxState)]
+    TxState {},
 }
 
 #[cw_serde]

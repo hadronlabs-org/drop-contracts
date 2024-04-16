@@ -125,7 +125,7 @@ pub fn execute(
         }
         ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, env, info, *msg),
         ExecuteMsg::Proxy(msg) => execute_proxy_msg(deps, env, info, msg),
-        ExecuteMsg::AdminExecute { addr, msg } => execute_admin_execute(deps, env, info, addr, msg),
+        ExecuteMsg::AdminExecute { msgs } => execute_admin_execute(deps, env, info, msgs),
         ExecuteMsg::Pause {} => exec_pause(deps, info),
         ExecuteMsg::Unpause {} => exec_unpause(deps, info),
     }
@@ -187,17 +187,11 @@ fn execute_admin_execute(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    addr: String,
-    msg: Binary,
+    msgs: Vec<CosmosMsg<NeutronMsg>>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let attrs = vec![attr("action", "admin-execute")];
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: addr,
-        msg,
-        funds: vec![],
-    });
-    Ok(response("execute-admin", CONTRACT_NAME, attrs).add_message(msg))
+    Ok(response("execute-admin", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
 fn execute_update_config(
@@ -486,7 +480,7 @@ fn execute_init(
             label: get_contract_label("puppeteer"),
             msg: to_json_binary(&PuppeteerInstantiateMsg {
                 allowed_senders: vec![core_contract.to_string()],
-                owner: env.contract.address.to_string(),
+                owner: Some(env.contract.address.to_string()),
                 remote_denom: config.remote_opts.denom.to_string(),
                 update_period: config.remote_opts.update_period,
                 connection_id: config.remote_opts.connection_id.to_string(),

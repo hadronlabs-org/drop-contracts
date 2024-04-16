@@ -96,6 +96,7 @@ export type Transaction =
 export type Uint128 = string;
 export type IBCTransferReason = "l_s_m_share" | "stake";
 export type ArrayOfTransaction = Transaction[];
+export type TxStateStatus = "idle" | "in_progress" | "waiting_for_ack";
 export type QueryExtMsg =
   | {
       delegations: {};
@@ -111,6 +112,9 @@ export type QueryExtMsg =
     }
   | {
       unbonding_delegations: {};
+    }
+  | {
+      ownership: {};
     };
 /**
  * A human readable address.
@@ -122,9 +126,58 @@ export type QueryExtMsg =
  * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
  */
 export type Addr = string;
+/**
+ * Actions that can be taken to alter the contract's ownership
+ */
+export type UpdateOwnershipArgs =
+  | {
+      transfer_ownership: {
+        expiry?: Expiration | null;
+        new_owner: string;
+      };
+    }
+  | "accept_ownership"
+  | "renounce_ownership";
+/**
+ * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
+ */
+export type Expiration =
+  | {
+      at_height: number;
+    }
+  | {
+      at_time: Timestamp;
+    }
+  | {
+      never: {};
+    };
+/**
+ * A point in time in nanosecond precision.
+ *
+ * This type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.
+ *
+ * ## Examples
+ *
+ * ``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);
+ *
+ * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
+ */
+export type Timestamp = Uint64;
+/**
+ * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u64` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
+ *
+ * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
+ */
+export type Uint64 = string;
 
 export interface DropPuppeteerSchema {
-  responses: ConfigResponse | Binary | IcaState | ArrayOfTransaction;
+  responses: ConfigResponse | Binary | IcaState | ArrayOfTransaction | TxState;
   query: ExtensionArgs;
   execute:
     | RegisterBalanceAndDelegatorDelegationsQueryArgs
@@ -139,13 +192,13 @@ export interface DropPuppeteerSchema {
     | IBCTransferArgs
     | TransferArgs
     | ClaimRewardsAndOptionalyTransferArgs
-    | UpdateConfigArgs;
+    | UpdateConfigArgs
+    | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
 export interface ConfigResponse {
   connection_id: string;
-  owner: string;
   update_period: number;
 }
 export interface RedeemShareItem {
@@ -163,6 +216,12 @@ export interface Coin {
   amount: Uint128;
   denom: string;
   [k: string]: unknown;
+}
+export interface TxState {
+  reply_to?: string | null;
+  seq_id?: number | null;
+  status: TxStateStatus;
+  transaction?: Transaction | null;
 }
 export interface ExtensionArgs {
   msg: QueryExtMsg;
@@ -233,7 +292,6 @@ export interface UpdateConfigArgs {
 export interface ConfigOptional {
   allowed_senders?: Addr[] | null;
   connection_id?: string | null;
-  owner?: Addr | null;
   port_id?: string | null;
   proxy_address?: Addr | null;
   remote_denom?: string | null;
@@ -244,7 +302,7 @@ export interface ConfigOptional {
 export interface InstantiateMsg {
   allowed_senders: string[];
   connection_id: string;
-  owner: string;
+  owner?: string | null;
   port_id: string;
   remote_denom: string;
   sdk_version: string;
@@ -294,6 +352,9 @@ export class Client {
   }
   queryExtension = async(args: ExtensionArgs): Promise<Binary> => {
     return this.client.queryContractSmart(this.contractAddress, { extension: args });
+  }
+  queryTxState = async(): Promise<TxState> => {
+    return this.client.queryContractSmart(this.contractAddress, { tx_state: {} });
   }
   registerICA = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
@@ -354,5 +415,9 @@ export class Client {
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+  }
+  updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
   }
 }
