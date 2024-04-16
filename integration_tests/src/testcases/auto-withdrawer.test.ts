@@ -890,7 +890,7 @@ describe('Auto withdrawer', () => {
         let height = 0;
         await waitFor(async () => {
           try {
-            res = await context.puppeteerContractClient.queryExtention({
+            res = await context.puppeteerContractClient.queryExtension({
               msg: {
                 balances: {},
               },
@@ -1039,14 +1039,14 @@ describe('Auto withdrawer', () => {
       });
       it('wait for balance to update', async () => {
         const [, currentHeight] =
-          (await context.puppeteerContractClient.queryExtention({
+          (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
           })) as any;
         await waitFor(async () => {
           const [, nowHeight] =
-            (await context.puppeteerContractClient.queryExtention({
+            (await context.puppeteerContractClient.queryExtension({
               msg: {
                 balances: {},
               },
@@ -1197,7 +1197,7 @@ describe('Auto withdrawer', () => {
         await waitFor(async () => {
           try {
             const res: any =
-              await context.puppeteerContractClient.queryExtention({
+              await context.puppeteerContractClient.queryExtension({
                 msg: {
                   non_native_rewards_balances: {},
                 },
@@ -1256,7 +1256,7 @@ describe('Auto withdrawer', () => {
       });
       it('wait for balances to update', async () => {
         await waitFor(async () => {
-          const res: any = await context.puppeteerContractClient.queryExtention(
+          const res: any = await context.puppeteerContractClient.queryExtension(
             {
               msg: {
                 non_native_rewards_balances: {},
@@ -1306,7 +1306,7 @@ describe('Auto withdrawer', () => {
           batch_id: '0',
         });
         await waitFor(async () => {
-          const res = (await context.puppeteerContractClient.queryExtention({
+          const res = (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
@@ -1346,14 +1346,14 @@ describe('Auto withdrawer', () => {
       });
       it('wait for balance to update', async () => {
         const [, currentHeight] =
-          (await context.puppeteerContractClient.queryExtention({
+          (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
           })) as any;
         await waitFor(async () => {
           const [, nowHeight] =
-            (await context.puppeteerContractClient.queryExtention({
+            (await context.puppeteerContractClient.queryExtension({
               msg: {
                 balances: {},
               },

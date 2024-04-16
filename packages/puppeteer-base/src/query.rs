@@ -25,7 +25,7 @@ where
             QueryMsg::Ica {} => self.query_ica(deps),
             QueryMsg::TxState {} => self.query_tx_state(deps),
             QueryMsg::Transactions {} => self.query_transactions(deps),
-            QueryMsg::Extention { msg } => Err(ContractError::Std(StdError::generic_err(format!(
+            QueryMsg::Extension { msg } => Err(ContractError::Std(StdError::generic_err(format!(
                 "Unsupported query message: {:?}",
                 msg
             )))),

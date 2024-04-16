@@ -178,7 +178,7 @@ export type Uint64 = string;
 
 export interface DropPuppeteerSchema {
   responses: ConfigResponse | Binary | IcaState | ArrayOfTransaction | TxState;
-  query: ExtentionArgs;
+  query: ExtensionArgs;
   execute:
     | RegisterBalanceAndDelegatorDelegationsQueryArgs
     | RegisterDelegatorUnbondingDelegationsQueryArgs
@@ -223,7 +223,7 @@ export interface TxState {
   status: TxStateStatus;
   transaction?: Transaction | null;
 }
-export interface ExtentionArgs {
+export interface ExtensionArgs {
   msg: QueryExtMsg;
 }
 export interface RegisterBalanceAndDelegatorDelegationsQueryArgs {
@@ -341,21 +341,6 @@ export class Client {
     });
     return res;
   }
-  static async instantiate2(
-    client: SigningCosmWasmClient,
-    sender: string,
-    codeId: number,
-    salt: number,
-    initMsg: InstantiateMsg,
-    label: string,
-    fees: StdFee | 'auto' | number,
-    initCoins?: readonly Coin[],
-  ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
-    });
-    return res;
-  }
   queryConfig = async(): Promise<ConfigResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
@@ -365,8 +350,8 @@ export class Client {
   queryTransactions = async(): Promise<ArrayOfTransaction> => {
     return this.client.queryContractSmart(this.contractAddress, { transactions: {} });
   }
-  queryExtention = async(args: ExtentionArgs): Promise<Binary> => {
-    return this.client.queryContractSmart(this.contractAddress, { extention: args });
+  queryExtension = async(args: ExtensionArgs): Promise<Binary> => {
+    return this.client.queryContractSmart(this.contractAddress, { extension: args });
   }
   queryTxState = async(): Promise<TxState> => {
     return this.client.queryContractSmart(this.contractAddress, { tx_state: {} });

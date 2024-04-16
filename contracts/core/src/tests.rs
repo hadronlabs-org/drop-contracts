@@ -3345,7 +3345,10 @@ fn test_bond() {
         deps.as_mut(),
         env,
         mock_info("some", &[Coin::new(1000, "base_denom")]),
-        drop_staking_base::msg::core::ExecuteMsg::Bond { receiver: None },
+        drop_staking_base::msg::core::ExecuteMsg::Bond {
+            receiver: None,
+            r#ref: None,
+        },
     )
     .unwrap();
     let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
@@ -3419,6 +3422,7 @@ fn test_bond_with_receiver() {
         mock_info("some", &[Coin::new(1000, "base_denom")]),
         drop_staking_base::msg::core::ExecuteMsg::Bond {
             receiver: Some("receiver".to_string()),
+            r#ref: None,
         },
     )
     .unwrap();
@@ -3510,7 +3514,10 @@ fn test_bond_lsm_share_wrong_validator() {
         deps.as_mut(),
         env,
         mock_info("some", &[Coin::new(1000, "lsm_share")]),
-        drop_staking_base::msg::core::ExecuteMsg::Bond { receiver: None },
+        drop_staking_base::msg::core::ExecuteMsg::Bond {
+            receiver: None,
+            r#ref: None,
+        },
     );
     assert!(res.is_err());
     assert_eq!(res, Err(crate::error::ContractError::InvalidDenom {}));
@@ -3596,7 +3603,10 @@ fn test_bond_lsm_share_ok() {
         deps.as_mut(),
         env,
         mock_info("some", &[Coin::new(1000, "lsm_share")]),
-        drop_staking_base::msg::core::ExecuteMsg::Bond { receiver: None },
+        drop_staking_base::msg::core::ExecuteMsg::Bond {
+            receiver: None,
+            r#ref: None,
+        },
     )
     .unwrap();
     let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();

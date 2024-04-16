@@ -121,7 +121,7 @@ fn prepare_delegation_data(
     let account_delegations: drop_staking_base::msg::puppeteer::DelegationsResponse =
         deps.querier.query_wasm_smart(
             puppeteer_address,
-            &drop_puppeteer_base::msg::QueryMsg::Extention {
+            &drop_puppeteer_base::msg::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
         )?;
