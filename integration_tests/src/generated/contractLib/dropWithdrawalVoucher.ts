@@ -74,7 +74,7 @@ export type UpdateOwnershipArgs =
 
 export interface DropWithdrawalVoucherSchema {
   responses:
-    | AllNftInfoResponseForEmpty
+    | AllNftInfoResponseFor_Empty
     | OperatorsResponse
     | TokensResponse
     | ApprovalResponse
@@ -82,11 +82,11 @@ export interface DropWithdrawalVoucherSchema {
     | ContractInfoResponse
     | Null
     | MinterResponse
-    | NftInfoResponseForEmpty
+    | NftInfoResponseFor_Empty1
     | NumTokensResponse
     | OperatorResponse
     | OwnerOfResponse1
-    | OwnershipForString
+    | OwnershipFor_String
     | TokensResponse1;
   query:
     | OwnerOfArgs
@@ -113,7 +113,7 @@ export interface DropWithdrawalVoucherSchema {
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
-export interface AllNftInfoResponseForEmpty {
+export interface AllNftInfoResponseFor_Empty {
   /**
    * Who can transfer the token
    */
@@ -186,7 +186,7 @@ export interface ContractInfoResponse {
 export interface MinterResponse {
   minter?: string | null;
 }
-export interface NftInfoResponseForEmpty {
+export interface NftInfoResponseFor_Empty1 {
   /**
    * You can add any custom metadata here when you extend cw721-base
    */
@@ -215,7 +215,7 @@ export interface OwnerOfResponse1 {
 /**
  * The contract's ownership info
  */
-export interface OwnershipForString {
+export interface OwnershipFor_String {
   /**
    * The contract's current owner. `None` if the ownership has been renounced.
    */
@@ -395,21 +395,6 @@ export class Client {
     });
     return res;
   }
-  static async instantiate2(
-    client: SigningCosmWasmClient,
-    sender: string,
-    codeId: number,
-    salt: number,
-    initMsg: InstantiateMsg,
-    label: string,
-    fees: StdFee | 'auto' | number,
-    initCoins?: readonly Coin[],
-  ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
-    });
-    return res;
-  }
   queryOwnerOf = async(args: OwnerOfArgs): Promise<OwnerOfResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { owner_of: args });
   }
@@ -431,10 +416,10 @@ export class Client {
   queryContractInfo = async(): Promise<ContractInfoResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { contract_info: {} });
   }
-  queryNftInfo = async(args: NftInfoArgs): Promise<NftInfoResponseForEmpty> => {
+  queryNftInfo = async(args: NftInfoArgs): Promise<NftInfoResponseFor_Empty> => {
     return this.client.queryContractSmart(this.contractAddress, { nft_info: args });
   }
-  queryAllNftInfo = async(args: AllNftInfoArgs): Promise<AllNftInfoResponseForEmpty> => {
+  queryAllNftInfo = async(args: AllNftInfoArgs): Promise<AllNftInfoResponseFor_Empty> => {
     return this.client.queryContractSmart(this.contractAddress, { all_nft_info: args });
   }
   queryTokens = async(args: TokensArgs): Promise<TokensResponse> => {
@@ -449,7 +434,7 @@ export class Client {
   queryExtension = async(args: ExtensionArgs): Promise<Null> => {
     return this.client.queryContractSmart(this.contractAddress, { extension: args });
   }
-  queryOwnership = async(): Promise<OwnershipForString> => {
+  queryOwnership = async(): Promise<OwnershipFor_String> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
   }
   transferNft = async(sender:string, args: TransferNftArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
