@@ -212,7 +212,7 @@ fn mock_app() -> App {
 fn test_initialization() {
     let mut deps = mock_dependencies();
     let msg = InstantiateMsg {
-        core_address: CORE_CONTRACT_ADDR.to_string(),
+        owner: CORE_CONTRACT_ADDR.to_string(),
         distribution_address: DISTRIBUTION_CONTRACT_ADDR.to_string(),
         puppeteer_address: PUPPETEER_CONTRACT_ADDR.to_string(),
         validator_set_address: VALIDATOR_SET_CONTRACT_ADDR.to_string(),
@@ -227,7 +227,7 @@ fn test_initialization() {
         vec![
             Event::new("crates.io:drop-staking__drop-strategy-instantiate".to_string())
                 .add_attributes(vec![
-                    Attribute::new("core_address".to_string(), CORE_CONTRACT_ADDR.to_string()),
+                    Attribute::new("owner".to_string(), CORE_CONTRACT_ADDR.to_string()),
                     Attribute::new(
                         "puppeteer_address".to_string(),
                         PUPPETEER_CONTRACT_ADDR.to_string()
@@ -259,7 +259,7 @@ fn test_config_query() {
         &mut app,
         strategy_id,
         InstantiateMsg {
-            core_address: CORE_CONTRACT_ADDR.to_string(),
+            owner: CORE_CONTRACT_ADDR.to_string(),
             distribution_address: distribution_contract.to_string(),
             puppeteer_address: puppeteer_contract.to_string(),
             validator_set_address: validator_set_contract.to_string(),
@@ -267,15 +267,14 @@ fn test_config_query() {
         },
     );
 
-    let config: drop_staking_base::msg::strategy::ConfigResponse = app
+    let config: drop_staking_base::msg::strategy::Config = app
         .wrap()
         .query_wasm_smart(strategy_contract.clone(), &QueryMsg::Config {})
         .unwrap();
 
     assert_eq!(
         config,
-        drop_staking_base::msg::strategy::ConfigResponse {
-            core_address: CORE_CONTRACT_ADDR.to_string(),
+        drop_staking_base::msg::strategy::Config {
             distribution_address: distribution_contract.to_string(),
             puppeteer_address: puppeteer_contract.to_string(),
             validator_set_address: validator_set_contract.to_string(),
@@ -297,7 +296,7 @@ fn test_ideal_deposit_calculation() {
         &mut app,
         strategy_id,
         InstantiateMsg {
-            core_address: CORE_CONTRACT_ADDR.to_string(),
+            owner: CORE_CONTRACT_ADDR.to_string(),
             distribution_address: distribution_contract.to_string(),
             puppeteer_address: puppeteer_contract.to_string(),
             validator_set_address: validator_set_contract.to_string(),
@@ -356,7 +355,7 @@ fn test_ideal_withdraw_calculation() {
         &mut app,
         strategy_id,
         InstantiateMsg {
-            core_address: CORE_CONTRACT_ADDR.to_string(),
+            owner: CORE_CONTRACT_ADDR.to_string(),
             distribution_address: distribution_contract.to_string(),
             puppeteer_address: puppeteer_contract.to_string(),
             validator_set_address: validator_set_contract.to_string(),
