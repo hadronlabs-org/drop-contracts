@@ -1148,7 +1148,6 @@ fn get_unbonding_msg<T>(
         .may_load(deps.storage)?
         .unwrap_or(UNBOND_BATCH_ID.load(deps.storage)?);
     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
-    // println!("unbonding: unbond.created + config.unbond_batch_switch_time < env.block.time.seconds() \n {} + {} < {}", unbond.created , config.unbond_batch_switch_time , env.block.time.seconds());
     if (unbond.created + config.unbond_batch_switch_time < env.block.time.seconds())
         && !unbond.unbond_items.is_empty()
         && !unbond.total_amount.is_zero()
