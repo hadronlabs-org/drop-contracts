@@ -3,7 +3,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, entry_point, to_json_binary, Addr, Attribute, BankQuery,
     Binary, Coin, CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order,
-    QueryRequest, Response, StdError, StdResult, Timestamp, Uint128, WasmMsg,
+    QueryRequest, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
@@ -21,7 +21,7 @@ use drop_staking_base::state::validatorset::ValidatorInfo;
 use drop_staking_base::state::withdrawal_voucher::{Metadata, Trait};
 use drop_staking_base::{
     msg::{
-        core::{ExecuteMsg, InstantiateMsg, QueryMsg},
+        core::{ExecuteMsg, InstantiateMsg, LastPuppeteerResponse, QueryMsg},
         token::ExecuteMsg as TokenExecuteMsg,
         withdrawal_voucher::ExecuteMsg as VoucherExecuteMsg,
     },
@@ -37,7 +37,7 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    deps: DepsMut,
+    deps: DepsMut<NeutronQuery>,
     env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
@@ -60,6 +60,7 @@ pub fn instantiate(
     LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &0)?;
     TOTAL_LSM_SHARES.save(deps.storage, &0)?;
     BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
+    NON_NATIVE_REWARDS_CONFIG.save(deps.storage, &vec![])?;
     LAST_LSM_REDEEM.save(deps.storage, &0)?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
@@ -83,9 +84,9 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
             to_json_binary(&NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?)?
         }
         QueryMsg::ContractState {} => to_json_binary(&FSM.get_current_state(deps.storage)?)?,
-        QueryMsg::LastPuppeteerResponse {} => {
-            to_json_binary(&LAST_PUPPETEER_RESPONSE.load(deps.storage)?)?
-        }
+        QueryMsg::LastPuppeteerResponse {} => to_json_binary(&LastPuppeteerResponse {
+            response: LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?,
+        })?,
         QueryMsg::PauseInfo {} => query_pause_info(deps)?,
     })
 }
@@ -137,7 +138,7 @@ fn query_exchange_rate(
         .querier
         .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
             config.puppeteer_contract.to_string(),
-            &drop_puppeteer_base::msg::QueryMsg::Extention {
+            &drop_puppeteer_base::msg::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
         )?;
@@ -589,7 +590,7 @@ fn execute_tick_idle(
             .querier
             .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
             config.puppeteer_contract.to_string(),
-            &drop_puppeteer_base::msg::QueryMsg::Extention {
+            &drop_puppeteer_base::msg::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
         )?;
@@ -604,8 +605,6 @@ fn execute_tick_idle(
             .filter(|d| validators_map.get(&d.validator).map_or(false, |_| true))
             .map(|d| d.validator.clone())
             .collect::<Vec<_>>();
-        // XXX: maybe this state transition should only happen if `!validators_to_claim.is_empty()`?
-        FSM.go_to(deps.storage, ContractState::Claiming)?;
         if validators_to_claim.is_empty() {
             attrs.push(attr("validators_to_claim", "empty"));
             if let Some((transfer_msg, pending_amount)) =
@@ -614,16 +613,19 @@ fn execute_tick_idle(
                 FSM.go_to(deps.storage, ContractState::Transfering)?;
                 PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
                 messages.push(transfer_msg);
+                attrs.push(attr("state", "transfering"));
             } else if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
                 messages.push(stake_msg);
                 FSM.go_to(deps.storage, ContractState::Staking)?;
+                attrs.push(attr("state", "staking"));
             } else if let Some(unbond_message) =
                 get_unbonding_msg(deps.branch(), &env, config, &info)?
             {
                 messages.push(unbond_message);
                 FSM.go_to(deps.storage, ContractState::Unbonding)?;
+                attrs.push(attr("state", "unbonding"));
             } else {
-                FSM.go_to(deps.storage, ContractState::Idle)?;
+                attrs.push(attr("state", "idle"));
             }
         } else {
             attrs.push(attr("validators_to_claim", validators_to_claim.join(",")));
@@ -639,8 +641,9 @@ fn execute_tick_idle(
                 )?,
                 funds: info.funds,
             }));
+            FSM.go_to(deps.storage, ContractState::Claiming)?;
+            attrs.push(attr("state", "claiming"));
         }
-        attrs.push(attr("state", "claiming"));
         LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
     }
     Ok(response("execute-tick_idle", CONTRACT_NAME, attrs).add_messages(messages))
@@ -691,17 +694,20 @@ fn execute_tick_claiming(
         FSM.go_to(deps.storage, ContractState::Transfering)?;
         PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
         messages.push(transfer_msg);
+        attrs.push(attr("state", "transfering"));
     } else if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
         messages.push(stake_msg);
         FSM.go_to(deps.storage, ContractState::Staking)?;
+        attrs.push(attr("state", "staking"));
     } else if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info)? {
         messages.push(unbond_message);
         FSM.go_to(deps.storage, ContractState::Unbonding)?;
+        attrs.push(attr("state", "unbonding"));
     } else {
         FSM.go_to(deps.storage, ContractState::Idle)?;
+        attrs.push(attr("state", "idle"));
     }
 
-    attrs.push(attr("state", "unbonding"));
     Ok(response("execute-tick_claiming", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
@@ -715,6 +721,7 @@ fn execute_tick_transfering(
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut messages = vec![];
     let mut attrs = vec![];
+    attrs.push(attr("action", "tick_transfering"));
     if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
         messages.push(stake_msg);
         FSM.go_to(deps.storage, ContractState::Staking)?;
@@ -898,6 +905,10 @@ fn execute_update_config(
     if let Some(pump_address) = new_config.pump_address {
         attrs.push(attr("pump_address", &pump_address));
         config.pump_address = Some(pump_address);
+    }
+    if let Some(remote_denom) = new_config.remote_denom {
+        attrs.push(attr("remote_denom", &remote_denom));
+        config.remote_denom = remote_denom;
     }
     if let Some(validators_set_contract) = new_config.validators_set_contract {
         attrs.push(attr("validators_set_contract", &validators_set_contract));
@@ -1189,8 +1200,7 @@ fn get_unbonding_msg<T>(
         .may_load(deps.storage)?
         .unwrap_or(UNBOND_BATCH_ID.load(deps.storage)?);
     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
-    if (Timestamp::from_seconds(unbond.created).plus_seconds(config.unbond_batch_switch_time)
-        > env.block.time)
+    if (unbond.created + config.unbond_batch_switch_time < env.block.time.seconds())
         && !unbond.unbond_items.is_empty()
         && !unbond.total_amount.is_zero()
     {
@@ -1265,7 +1275,7 @@ fn get_ica_balance_by_denom<T: CustomQuery>(
     let (ica_balances, local_height, local_time): drop_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             puppeteer_contract.to_string(),
-            &drop_puppeteer_base::msg::QueryMsg::Extention {
+            &drop_puppeteer_base::msg::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
             },
         )?;
@@ -1308,11 +1318,14 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
 ) -> ContractResult<Option<CosmosMsg<T>>> {
     let config = CONFIG.load(deps.storage)?;
     let non_native_rewards_receivers = NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?;
+    if non_native_rewards_receivers.is_empty() {
+        return Ok(None);
+    }
     let mut items = vec![];
     let rewards: drop_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             config.puppeteer_contract.to_string(),
-            &drop_puppeteer_base::msg::QueryMsg::Extention {
+            &drop_puppeteer_base::msg::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::NonNativeRewardsBalances {},
             },
         )?;
@@ -1330,14 +1343,15 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
         if amount > &item.min_amount {
             let fee = item.fee * *amount;
             let amount = *amount - fee;
-            items.push((
-                item.address,
-                cosmwasm_std::Coin {
-                    denom: item.denom.clone(),
-                    amount,
-                },
-            ));
-
+            if !amount.is_zero() {
+                items.push((
+                    item.address,
+                    cosmwasm_std::Coin {
+                        denom: item.denom.clone(),
+                        amount,
+                    },
+                ));
+            }
             if (item.fee > Decimal::zero()) && (fee > Uint128::zero()) {
                 items.push((
                     item.fee_address,
@@ -1429,26 +1443,31 @@ fn get_pending_lsm_share_msg<T, X: CustomQuery>(
 ) -> ContractResult<Option<CosmosMsg<T>>> {
     let lsm_share: Option<(String, (String, Uint128))> = PENDING_LSM_SHARES.first(deps.storage)?;
     match lsm_share {
-        Some((denom, (_remote_denom, amount))) => Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.puppeteer_contract.to_string(),
-            msg: to_json_binary(
-                &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
-                    reason: IBCTransferReason::LSMShare,
-                    timeout: config.puppeteer_timeout,
-                    reply_to: env.contract.address.to_string(),
+        Some((local_denom, (_remote_denom, amount))) => {
+            Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: config.puppeteer_contract.to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+                        reason: IBCTransferReason::LSMShare,
+                        timeout: config.puppeteer_timeout,
+                        reply_to: env.contract.address.to_string(),
+                    },
+                )?,
+                funds: {
+                    let mut all_funds = vec![cosmwasm_std::Coin {
+                        denom: local_denom,
+                        amount,
+                    }];
+                    all_funds.extend(funds);
+                    all_funds
                 },
-            )?,
-            funds: {
-                let mut all_funds = vec![cosmwasm_std::Coin { denom, amount }];
-                all_funds.extend(funds);
-                all_funds
-            },
-        }))),
+            })))
+        }
         None => Ok(None),
     }
 }
 
-mod check_denom {
+pub mod check_denom {
     use super::*;
 
     #[derive(PartialEq)]
@@ -1462,12 +1481,12 @@ mod check_denom {
     // so I have to redefine them here manually >:(
 
     #[cw_serde]
-    struct QueryDenomTraceResponse {
+    pub struct QueryDenomTraceResponse {
         pub denom_trace: DenomTrace,
     }
 
     #[cw_serde]
-    struct DenomTrace {
+    pub struct DenomTrace {
         pub path: String,
         pub base_denom: String,
     }

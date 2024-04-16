@@ -13,7 +13,6 @@ pub struct Config {
     pub port_id: String,
     pub update_period: u64,
     pub remote_denom: String,
-    pub owner: Addr,
     pub allowed_senders: Vec<Addr>,
     pub proxy_address: Option<Addr>,
     pub transfer_channel_id: String,
@@ -21,10 +20,6 @@ pub struct Config {
 }
 
 impl BaseConfig for Config {
-    fn owner(&self) -> &str {
-        self.owner.as_str()
-    }
-
     fn connection_id(&self) -> String {
         self.connection_id.clone()
     }

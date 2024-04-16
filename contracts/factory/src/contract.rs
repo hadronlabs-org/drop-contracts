@@ -480,7 +480,7 @@ fn execute_init(
             label: get_contract_label("puppeteer"),
             msg: to_json_binary(&PuppeteerInstantiateMsg {
                 allowed_senders: vec![core_contract.to_string()],
-                owner: env.contract.address.to_string(),
+                owner: Some(env.contract.address.to_string()),
                 remote_denom: config.remote_opts.denom.to_string(),
                 update_period: config.remote_opts.update_period,
                 connection_id: config.remote_opts.connection_id.to_string(),

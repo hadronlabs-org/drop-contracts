@@ -14,7 +14,7 @@ use neutron_sdk::{
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    error::{ContractError, ContractResult},
+    error::ContractResult,
     msg::{ExecuteMsg, Transaction},
     state::{BaseConfig, PuppeteerBase, TxState, TxStateStatus, ICA_ID, LOCAL_DENOM},
 };
@@ -24,13 +24,16 @@ where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
     U: Serialize + DeserializeOwned + Clone,
 {
-    pub fn instantiate(&self, deps: DepsMut, config: &T) -> NeutronResult<Response> {
-        deps.api.debug("WASMDEBUG: instantiate");
-        cw_ownable::initialize_owner(deps.storage, deps.api, Some(config.owner()))?;
-
+    pub fn instantiate<X: CustomQuery, Z>(
+        &self,
+        deps: DepsMut<X>,
+        config: &T,
+        owner: String,
+    ) -> NeutronResult<Response<Z>> {
+        cw_ownable::initialize_owner(deps.storage, deps.api, Some(&owner))?;
         self.config.save(deps.storage, config)?;
         self.recipient_transfers.save(deps.storage, &vec![])?;
-        Ok(Response::default())
+        Ok(Response::<Z>::default())
     }
 
     pub fn execute(
@@ -53,10 +56,6 @@ where
     }
 
     pub fn update_config(&self, deps: DepsMut, config: &T) -> NeutronResult<Response> {
-        deps.api.debug("WASMDEBUG: update config");
-
-        cw_ownable::initialize_owner(deps.storage, deps.api, Some(config.owner()))?;
-
         self.config.save(deps.storage, config)?;
         Ok(Response::default())
     }
@@ -137,12 +136,7 @@ where
         timeout_fee: Uint128,
         register_fee: Uint128,
     ) -> ContractResult<Response<NeutronMsg>> {
-        let config = self.config.load(deps.storage)?;
-        ensure_eq!(
-            config.owner(),
-            info.sender.as_str(),
-            ContractError::Unauthorized {}
-        );
+        cw_ownable::assert_owner(deps.storage, &info.sender)?;
         // TODO: Change LOCAL_DENOM to configurable value
         let fees = IbcFee {
             recv_fee: vec![CosmosCoin {

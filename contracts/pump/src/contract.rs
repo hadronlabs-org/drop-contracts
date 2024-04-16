@@ -2,8 +2,7 @@ use cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxMsgData;
 use cosmos_sdk_proto::cosmos::base::v1beta1::Coin as ProtoCoin;
 use cosmos_sdk_proto::ibc::applications::transfer::v1::{MsgTransfer, MsgTransferResponse};
 use cosmwasm_std::{
-    attr, coin, ensure, ensure_eq, entry_point, to_json_binary, Addr, Coin, CosmosMsg, Deps,
-    StdError, Uint128,
+    attr, coin, ensure, entry_point, to_json_binary, Addr, Coin, CosmosMsg, Deps, StdError, Uint128,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw_utils::must_pay;
@@ -28,18 +27,22 @@ const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    deps: DepsMut,
+    deps: DepsMut<NeutronQuery>,
     _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
-) -> NeutronResult<Response> {
+) -> NeutronResult<Response<NeutronMsg>> {
     let attrs = vec![
         attr("contract_name", CONTRACT_NAME),
         attr("contract_version", CONTRACT_VERSION),
         attr("msg", format!("{:?}", msg)),
         attr("sender", &info.sender),
     ];
-
+    cw_ownable::initialize_owner(
+        deps.storage,
+        deps.api,
+        Some(msg.owner.unwrap_or(info.sender.to_string()).as_str()),
+    )?;
     CONFIG.save(
         deps.storage,
         &Config {
@@ -51,11 +54,6 @@ pub fn instantiate(
                 .refundee
                 .map(|r| deps.api.addr_validate(&r))
                 .transpose()?,
-            owner: msg
-                .owner
-                .map(|a| deps.api.addr_validate(&a))
-                .transpose()?
-                .unwrap_or(info.sender),
             ibc_fees: msg.ibc_fees,
             timeout: msg.timeout,
             local_denom: msg.local_denom,
@@ -69,6 +67,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> NeutronResult<Binary> {
     match msg {
         QueryMsg::Config {} => query_config(deps),
         QueryMsg::Ica {} => query_ica(deps),
+        QueryMsg::Ownership {} => {
+            let ownership = cw_ownable::get_ownership(deps.storage)?;
+            to_json_binary(&ownership).map_err(NeutronError::Std)
+        }
     }
 }
 
@@ -96,6 +98,14 @@ pub fn execute(
         ExecuteMsg::UpdateConfig { new_config } => {
             execute_update_config(deps, env, info, *new_config)
         }
+        ExecuteMsg::UpdateOwnership(action) => {
+            cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
+            Ok(response::<(&str, &str), _>(
+                "execute-update-ownership",
+                CONTRACT_NAME,
+                [],
+            ))
+        }
     }
 }
 
@@ -103,6 +113,11 @@ fn execute_refund(deps: DepsMut<NeutronQuery>, env: Env) -> ContractResult<Respo
     let config = CONFIG.load(deps.storage)?;
     let refundee = config.refundee.ok_or(ContractError::RefundeeIsNotSet {})?;
     let balances = deps.querier.query_all_balances(env.contract.address)?;
+    if balances.is_empty() {
+        return Err(ContractError::PaymentError(
+            cw_utils::PaymentError::NoFunds {},
+        ));
+    }
     let attrs = vec![attr("action", "refund"), attr("refundee", &refundee)];
     let msg = CosmosMsg::Bank(cosmwasm_std::BankMsg::Send {
         to_address: refundee.to_string(),
@@ -118,7 +133,7 @@ fn execute_update_config(
     new_config: UpdateConfigMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut config = CONFIG.load(deps.storage)?;
-    ensure_eq!(info.sender, config.owner, ContractError::Unauthorized {});
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let attrs = vec![
         attr("action", "update_config"),
         attr("new_config", format!("{:?}", new_config)),
@@ -137,9 +152,6 @@ fn execute_update_config(
     }
     if let Some(refundee) = new_config.refundee {
         config.refundee = Some(deps.api.addr_validate(&refundee)?);
-    }
-    if let Some(admin) = new_config.admin {
-        config.owner = deps.api.addr_validate(&admin)?;
     }
     if let Some(ibc_fees) = new_config.ibc_fees {
         config.ibc_fees = ibc_fees;
@@ -160,6 +172,7 @@ fn execute_register_ica(
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let attrs = vec![
+        attr("action", "register_ica"),
         attr("connection_id", &config.connection_id),
         attr("ica_id", ICA_ID),
     ];
@@ -268,17 +281,13 @@ fn compose_msg<T: prost::Message>(
 
 #[entry_point]
 pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResult<Response> {
-    deps.api.debug(&format!(
-        "WASMDEBUG: sudo call: {:?} block: {:?}",
-        msg, env.block
-    ));
     match msg {
         SudoMsg::Response { request, data } => sudo_response(deps, env, request, data),
         SudoMsg::Error { request, details } => sudo_error(deps, env, request, details),
         SudoMsg::Timeout { request } => sudo_timeout(deps, env, request),
         SudoMsg::KVQueryResult { .. } | SudoMsg::TxQueryResult { .. } => {
             Err(NeutronError::Std(StdError::GenericErr {
-                msg: "KVQueryResult is not supported".to_string(),
+                msg: "KVQueryResult and TxQueryResult are not supported".to_string(),
             }))
         }
         SudoMsg::OpenAck {
@@ -406,14 +415,14 @@ fn uint_into_vec_coin(amount: Uint128, denom: &String) -> Vec<Coin> {
     }]
 }
 
-fn check_funds(info: &MessageInfo, config: &Config, amount: Uint128) -> ContractResult<()> {
+fn check_funds(info: &MessageInfo, config: &Config, needed_amount: Uint128) -> ContractResult<()> {
     let info_amount = must_pay(info, &config.local_denom)?;
     ensure!(
-        info_amount >= amount,
+        info_amount >= needed_amount,
         ContractError::InvalidFunds {
             reason: format!(
                 "invalid amount: expected at least {}, got {}",
-                config.ibc_fees.register_fee, info_amount
+                needed_amount, info_amount
             )
         }
     );

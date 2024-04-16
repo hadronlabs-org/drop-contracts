@@ -411,7 +411,7 @@ describe('Core', () => {
       core_params: {
         idle_min_interval: 40,
         puppeteer_timeout: 60,
-        unbond_batch_switch_time: 240,
+        unbond_batch_switch_time: 60,
         unbonding_safe_period: 10,
         unbonding_period: 360,
         channel: 'channel-0',
@@ -572,7 +572,7 @@ describe('Core', () => {
       1.5,
     );
     expect(res.transactionHash).toHaveLength(64);
-    const fees: any = await context.puppeteerContractClient.queryExtention({
+    const fees: any = await context.puppeteerContractClient.queryExtension({
       msg: { fees: {} },
     });
     expect(fees).toEqual({
@@ -1084,8 +1084,9 @@ describe('Core', () => {
         let response;
         await waitFor(async () => {
           try {
-            response =
-              await context.coreContractClient.queryLastPuppeteerResponse();
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
           } catch (e) {
             //
           }
@@ -1103,7 +1104,7 @@ describe('Core', () => {
         let res;
         await waitFor(async () => {
           try {
-            res = await context.puppeteerContractClient.queryExtention({
+            res = await context.puppeteerContractClient.queryExtension({
               msg: {
                 balances: {},
               },
@@ -1146,8 +1147,9 @@ describe('Core', () => {
         let response;
         await waitFor(async () => {
           try {
-            response =
-              await context.coreContractClient.queryLastPuppeteerResponse();
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
           } catch (e) {
             //
           }
@@ -1226,8 +1228,9 @@ describe('Core', () => {
         let response;
         await waitFor(async () => {
           try {
-            response =
-              await context.coreContractClient.queryLastPuppeteerResponse();
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
           } catch (e) {
             //
           }
@@ -1301,8 +1304,9 @@ describe('Core', () => {
         let response;
         await waitFor(async () => {
           try {
-            response =
-              await context.coreContractClient.queryLastPuppeteerResponse();
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
           } catch (e) {
             //
           }
@@ -1317,14 +1321,14 @@ describe('Core', () => {
       });
       it('wait for balance to update', async () => {
         const [, currentHeight] =
-          (await context.puppeteerContractClient.queryExtention({
+          (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
           })) as any;
         await waitFor(async () => {
           const [, nowHeight] =
-            (await context.puppeteerContractClient.queryExtention({
+            (await context.puppeteerContractClient.queryExtension({
               msg: {
                 balances: {},
               },
@@ -1348,8 +1352,9 @@ describe('Core', () => {
         let response;
         await waitFor(async () => {
           try {
-            response =
-              await context.coreContractClient.queryLastPuppeteerResponse();
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
           } catch (e) {
             //
           }
@@ -1377,12 +1382,12 @@ describe('Core', () => {
           'neutron',
           `neutrond tx tokenfactory create-denom test1 --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
         await context.park.executeInNetwork(
           'neutron',
           `neutrond tx tokenfactory create-denom test2 --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
         const denoms =
           await context.neutronClient.OsmosisTokenfactoryV1Beta1.query.queryDenomsFromCreator(
             neutronUserAddress,
@@ -1392,12 +1397,12 @@ describe('Core', () => {
           'neutron',
           `neutrond tx tokenfactory mint 1000000${denoms.data.denoms[0]} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
         await context.park.executeInNetwork(
           'neutron',
           `neutrond tx tokenfactory mint 1000000${denoms.data.denoms[1]} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
         const balances =
           await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
             neutronUserAddress,
@@ -1409,12 +1414,12 @@ describe('Core', () => {
           'neutron',
           `neutrond tx ibc-transfer transfer transfer channel-0 ${context.icaAddress} 66666${tokenFactoryDenoms[0].denom} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
         await context.park.executeInNetwork(
           'neutron',
           `neutrond tx ibc-transfer transfer transfer channel-0 ${context.icaAddress} 2222${tokenFactoryDenoms[1].denom} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
       });
       it('wait for balances to come', async () => {
         let res: readonly Coin[] = [];
@@ -1474,7 +1479,7 @@ describe('Core', () => {
         await waitFor(async () => {
           try {
             const res: any =
-              await context.puppeteerContractClient.queryExtention({
+              await context.puppeteerContractClient.queryExtension({
                 msg: {
                   non_native_rewards_balances: {},
                 },
@@ -1501,8 +1506,9 @@ describe('Core', () => {
         let response: ResponseHookMsg;
         await waitFor(async () => {
           try {
-            response =
-              await context.coreContractClient.queryLastPuppeteerResponse();
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
           } catch (e) {
             //
           }
@@ -1532,7 +1538,7 @@ describe('Core', () => {
       });
       it('wait for balances to update', async () => {
         await waitFor(async () => {
-          const res: any = await context.puppeteerContractClient.queryExtention(
+          const res: any = await context.puppeteerContractClient.queryExtension(
             {
               msg: {
                 non_native_rewards_balances: {},
@@ -1796,7 +1802,7 @@ describe('Core', () => {
       describe('redeem', () => {
         let delegationsSum = 0;
         it('query delegations', async () => {
-          const res: any = await context.puppeteerContractClient.queryExtention(
+          const res: any = await context.puppeteerContractClient.queryExtension(
             {
               msg: {
                 delegations: {},
@@ -1846,14 +1852,14 @@ describe('Core', () => {
         });
         it('wait for delegations to come', async () => {
           const [, currentHeight] =
-            await context.puppeteerContractClient.queryExtention({
+            await context.puppeteerContractClient.queryExtension({
               msg: {
                 delegations: {},
               },
             });
           await waitFor(async () => {
             const [, nowHeight] =
-              await context.puppeteerContractClient.queryExtention({
+              await context.puppeteerContractClient.queryExtension({
                 msg: {
                   delegations: {},
                 },
@@ -1862,7 +1868,7 @@ describe('Core', () => {
           });
         });
         it('query delegations', async () => {
-          const res: any = await context.puppeteerContractClient.queryExtention(
+          const res: any = await context.puppeteerContractClient.queryExtension(
             {
               msg: {
                 delegations: {},
@@ -2057,7 +2063,7 @@ describe('Core', () => {
         await waitFor(async () => {
           const icaTs = Math.floor(
             (
-              (await context.puppeteerContractClient.queryExtention({
+              (await context.puppeteerContractClient.queryExtension({
                 msg: {
                   balances: {},
                 },
@@ -2070,7 +2076,7 @@ describe('Core', () => {
       it('tick', async () => {
         const { coreContractClient, neutronUserAddress } = context;
         previousResponse = (
-          (await coreContractClient.queryLastPuppeteerResponse()) as {
+          (await coreContractClient.queryLastPuppeteerResponse()).response as {
             success: ResponseHookSuccessMsg;
           }
         ).success;
@@ -2082,8 +2088,9 @@ describe('Core', () => {
         let response: ResponseHookMsg;
         await waitFor(async () => {
           try {
-            response =
-              await context.coreContractClient.queryLastPuppeteerResponse();
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
           } catch (e) {
             return false;
           }
@@ -2096,14 +2103,14 @@ describe('Core', () => {
       });
       it('wait for balance to update', async () => {
         const [, currentHeight] =
-          (await context.puppeteerContractClient.queryExtention({
+          (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
           })) as any;
         await waitFor(async () => {
           const [, nowHeight] =
-            (await context.puppeteerContractClient.queryExtention({
+            (await context.puppeteerContractClient.queryExtension({
               msg: {
                 balances: {},
               },

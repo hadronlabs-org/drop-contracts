@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     attr,
-    testing::{mock_env, mock_info, MockQuerier},
+    testing::{mock_env, mock_info},
     to_json_binary, Addr, Decimal, Event,
 };
 use drop_helpers::testing::mock_dependencies;
@@ -8,7 +8,7 @@ use drop_staking_base::state::validatorset::ConfigOptional;
 
 #[test]
 fn instantiate() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
     let response = crate::contract::instantiate(
         deps.as_mut(),
         mock_env(),
@@ -47,7 +47,7 @@ fn instantiate() {
 
 #[test]
 fn query_config() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
     drop_staking_base::state::validatorset::CONFIG
         .save(
             deps.as_mut().storage,
@@ -78,7 +78,7 @@ fn query_config() {
 
 #[test]
 fn update_config_wrong_owner() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
 
     drop_staking_base::state::validatorset::CONFIG
         .save(
@@ -114,7 +114,7 @@ fn update_config_wrong_owner() {
 
 #[test]
 fn update_config_ok() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
 
     let deps_mut = deps.as_mut();
 
@@ -169,7 +169,7 @@ fn update_config_ok() {
 
 #[test]
 fn update_validator_wrong_owner() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
 
     let error = crate::contract::execute(
         deps.as_mut(),
@@ -193,7 +193,7 @@ fn update_validator_wrong_owner() {
 
 #[test]
 fn update_validator_ok() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
 
     let deps_mut = deps.as_mut();
 
@@ -249,7 +249,7 @@ fn update_validator_ok() {
 
 #[test]
 fn update_validators_wrong_owner() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
 
     let error = crate::contract::execute(
         deps.as_mut(),
@@ -273,7 +273,7 @@ fn update_validators_wrong_owner() {
 
 #[test]
 fn update_validators_ok() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
 
     let deps_mut = deps.as_mut();
 
@@ -347,7 +347,7 @@ fn update_validators_ok() {
 
 #[test]
 fn update_validator_info_wrong_sender() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
 
     let deps_mut = deps.as_mut();
 
@@ -407,7 +407,7 @@ fn update_validator_info_wrong_sender() {
 
 #[test]
 fn update_validator_info_ok() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
 
     let deps_mut = deps.as_mut();
 
