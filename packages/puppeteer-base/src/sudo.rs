@@ -11,6 +11,7 @@ use cosmwasm_std::{Binary, DepsMut, Env, Response, StdError, Timestamp};
 use cw_storage_plus::Index;
 use neutron_sdk::{
     bindings::{
+        msg::NeutronMsg,
         query::{NeutronQuery, QueryRegisteredQueryResponse},
         types::Height,
     },
@@ -37,7 +38,7 @@ where
         query_id: u64,
         _height: Height,
         data: Binary,
-    ) -> NeutronResult<Response> {
+    ) -> NeutronResult<Response<NeutronMsg>> {
         let _config: T = self.config.load(deps.storage)?;
         let tx: TxRaw = TxRaw::decode(data.as_slice())?;
         let body: TxBody = TxBody::decode(tx.body_bytes.as_slice())?;
@@ -102,7 +103,7 @@ where
         query_id: u64,
         version: &str,
         storage: cw_storage_plus::Item<'a, (X, u64, Timestamp)>,
-    ) -> NeutronResult<Response> {
+    ) -> NeutronResult<Response<NeutronMsg>> {
         let registered_query_result = get_raw_interchain_query_result(deps.as_ref(), query_id)?;
         deps.api.debug(&format!(
             "WASMDEBUG: sudo_kv_query_result: registered_query_result: {:?}",
@@ -122,7 +123,7 @@ where
         deps: DepsMut<NeutronQuery>,
         env: Env,
         query_id: u64,
-    ) -> NeutronResult<Response> {
+    ) -> NeutronResult<Response<NeutronMsg>> {
         if let Some(mut item) = self
             .unbonding_delegations
             .idx
@@ -158,7 +159,7 @@ where
         _channel_id: String,
         _counterparty_channel_id: String,
         counterparty_version: String,
-    ) -> NeutronResult<Response> {
+    ) -> NeutronResult<Response<NeutronMsg>> {
         let parsed_version: Result<OpenAckVersion, _> =
             serde_json_wasm::from_str(counterparty_version.as_str());
         if let Ok(parsed_version) = parsed_version {

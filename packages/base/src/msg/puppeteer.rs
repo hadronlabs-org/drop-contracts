@@ -1,5 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{from_json, Addr, Decimal, Timestamp, Uint128};
+use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 use drop_helpers::version::version_to_u32;
 use std::ops::Div;
 use std::str::FromStr;
@@ -33,12 +34,13 @@ pub struct InstantiateMsg {
     pub port_id: String,
     pub update_period: u64,
     pub remote_denom: String,
-    pub owner: String,
+    pub owner: Option<String>,
     pub allowed_senders: Vec<String>,
     pub transfer_channel_id: String,
     pub sdk_version: String,
 }
 
+#[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
     RegisterICA {},
@@ -145,6 +147,7 @@ pub struct FeesResponse {
     pub register_fee: cosmwasm_std::Coin,
 }
 
+#[cw_ownable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryExtMsg {
