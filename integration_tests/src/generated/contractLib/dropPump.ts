@@ -82,7 +82,7 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropPumpSchema {
-  responses: Config | IcaState | OwnershipFor_String;
+  responses: Config | IcaState | OwnershipForString;
   execute: PushArgs | UpdateConfigArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
@@ -110,7 +110,7 @@ export interface PumpTimeout {
 /**
  * The contract's ownership info
  */
-export interface OwnershipFor_String {
+export interface OwnershipForString {
   /**
    * The contract's current owner. `None` if the ownership has been renounced.
    */
@@ -136,7 +136,6 @@ export interface UpdateConfigArgs {
   new_config: UpdateConfigMsg;
 }
 export interface UpdateConfigMsg {
-  admin?: string | null;
   connection_id?: string | null;
   dest_address?: string | null;
   dest_channel?: string | null;
@@ -210,7 +209,7 @@ export class Client {
   queryIca = async(): Promise<IcaState> => {
     return this.client.queryContractSmart(this.contractAddress, { ica: {} });
   }
-  queryOwnership = async(): Promise<OwnershipFor_String> => {
+  queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
   }
   registerICA = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {

@@ -79,6 +79,12 @@ export type Transaction =
         interchain_account_id: string;
         items: [string, Coin][];
       };
+    }
+  | {
+      grant_delegate: {
+        grantee: string;
+        interchain_account_id: string;
+      };
     };
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
@@ -185,6 +191,7 @@ export interface DropPuppeteerSchema {
     | RegisterNonNativeRewardsBalancesQueryArgs
     | SetFeesArgs
     | DelegateArgs
+    | GrantDelegateArgs
     | UndelegateArgs
     | RedelegateArgs
     | TokenizeShareArgs
@@ -243,6 +250,11 @@ export interface SetFeesArgs {
 }
 export interface DelegateArgs {
   items: [string, Uint128][];
+  reply_to: string;
+  timeout?: number | null;
+}
+export interface GrantDelegateArgs {
+  grantee: string;
   reply_to: string;
   timeout?: number | null;
 }
@@ -398,6 +410,10 @@ export class Client {
   delegate = async(sender:string, args: DelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { delegate: args }, fee || "auto", memo, funds);
+  }
+  grantDelegate = async(sender:string, args: GrantDelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { grant_delegate: args }, fee || "auto", memo, funds);
   }
   undelegate = async(sender:string, args: UndelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

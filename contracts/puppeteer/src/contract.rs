@@ -10,9 +10,10 @@ use crate::{
     },
 };
 use cosmos_sdk_proto::cosmos::{
+    authz::v1beta1::{Grant, MsgGrant, MsgGrantResponse},
     bank::v1beta1::{MsgSend, MsgSendResponse},
     base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
-    staking::v1beta1::{MsgDelegate, MsgUndelegate},
+    staking::v1beta1::{AuthorizationType, MsgDelegate, MsgUndelegate, StakeAuthorization},
 };
 use cosmwasm_std::{
     attr, ensure_eq, entry_point, to_json_binary, Addr, Attribute, CosmosMsg, Deps, Order, Reply,
@@ -243,6 +244,11 @@ pub fn execute(
             cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
             Ok(response("update_ownership", CONTRACT_NAME, attrs))
         }
+        ExecuteMsg::GrantDelegate {
+            grantee,
+            timeout,
+            reply_to,
+        } => execute_grant_delegate(deps, info, grantee, timeout, reply_to),
         _ => puppeteer_base.execute(deps, env, info, msg.to_base_enum()),
     }
 }
@@ -540,6 +546,56 @@ fn execute_delegate(
             interchain_account_id: ICA_ID.to_string(),
             denom: config.remote_denom,
             items,
+        },
+        timeout,
+        reply_to,
+        ReplyMsg::SudoPayload.to_reply_id(),
+    )?;
+
+    Ok(Response::default().add_submessages(vec![submsg]))
+}
+
+fn execute_grant_delegate(
+    mut deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    grantee: String,
+    timeout: Option<u64>,
+    reply_to: String,
+) -> ContractResult<Response<NeutronMsg>> {
+    let puppeteer_base = Puppeteer::default();
+    deps.api.addr_validate(&reply_to)?;
+    let config: Config = puppeteer_base.config.load(deps.storage)?;
+    validate_sender(&config, &info.sender)?;
+    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
+    let ica = puppeteer_base.ica.get_address(deps.storage)?;
+    let mut any_msgs = vec![];
+    let grant_msg = MsgGrant {
+        grantee: grantee.clone(),
+        granter: ica.to_string(),
+        grant: Some(Grant {
+            authorization: Some(cosmos_sdk_proto::Any {
+                type_url: "/cosmos.staking.v1beta1.StakeAuthorization".to_string(),
+                value: StakeAuthorization {
+                    max_tokens: None,
+                    authorization_type: AuthorizationType::Delegate as i32,
+                    validators: None,
+                }
+                .encode_to_vec(),
+            }),
+            expiration: None,
+        }),
+    };
+    any_msgs.push(prepare_any_msg(
+        grant_msg,
+        "/cosmos.authz.v1beta1.MsgGrant",
+    )?);
+    let submsg = compose_submsg(
+        deps.branch(),
+        config.clone(),
+        any_msgs,
+        Transaction::GrantDelegate {
+            interchain_account_id: ica.to_string(),
+            grantee: grantee,
         },
         timeout,
         reply_to,
@@ -1043,6 +1099,12 @@ fn get_answers_from_msg_data(
                     drop_puppeteer_base::proto::MsgBeginRedelegateResponse {
                         completion_time: out.completion_time.map(|t| t.into()),
                     },
+                )
+            }
+            "/cosmos.authz.v1beta1.MsgGrant" => {
+                let _out: MsgGrantResponse = decode_message_response(&item.data)?;
+                ResponseAnswer::GrantDelegateResponse(
+                    drop_puppeteer_base::proto::MsgGrantResponse {},
                 )
             }
             "/cosmos.staking.v1beta1.MsgRedeemTokensForShares" => {

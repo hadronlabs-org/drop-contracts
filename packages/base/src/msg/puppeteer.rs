@@ -65,6 +65,11 @@ pub enum ExecuteMsg {
         timeout: Option<u64>,
         reply_to: String,
     },
+    GrantDelegate {
+        grantee: String,
+        timeout: Option<u64>,
+        reply_to: String,
+    },
     Undelegate {
         items: Vec<(String, Uint128)>,
         batch_id: u128,

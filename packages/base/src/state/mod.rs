@@ -6,6 +6,7 @@ pub mod provider_proposals;
 pub mod pump;
 pub mod puppeteer;
 pub mod rewards_manager;
+pub mod staker;
 pub mod strategy;
 pub mod token;
 pub mod validatorset;

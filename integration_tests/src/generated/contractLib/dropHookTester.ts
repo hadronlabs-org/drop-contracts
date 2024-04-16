@@ -2,6 +2,9 @@ import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult
 import { StdFee } from "@cosmjs/amino";
 export type ResponseAnswer =
   | {
+      grant_delegate_response: MsgGrantResponse;
+    }
+  | {
       delegate_response: MsgDelegateResponse;
     }
   | {
@@ -114,6 +117,12 @@ export type Transaction =
         interchain_account_id: string;
         items: [string, Coin][];
       };
+    }
+  | {
+      grant_delegate: {
+        grantee: string;
+        interchain_account_id: string;
+      };
     };
 export type IBCTransferReason = "l_s_m_share" | "stake";
 export type ArrayOfResponseHookSuccessMsg = ResponseHookSuccessMsg[];
@@ -145,6 +154,7 @@ export interface ResponseHookSuccessMsg {
   request_id: number;
   transaction: Transaction;
 }
+export interface MsgGrantResponse {}
 export interface MsgDelegateResponse {}
 export interface MsgUndelegateResponse {
   completion_time?: Timestamp | null;
