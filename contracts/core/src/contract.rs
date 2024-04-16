@@ -281,18 +281,18 @@ fn execute_process_emergency_batch(
     ensure_ne!(
         unbonded_amount,
         Uint128::zero(),
-        StdError::generic_err("Unbonded amount must not be zero")
+        ContractError::UnbondedAmountZero {}
     );
 
     let mut batch = unbond_batches_map().load(deps.storage, batch_id)?;
     ensure_eq!(
         batch.status,
         UnbondBatchStatus::WithdrawnEmergency,
-        StdError::generic_err("Requested batch is not in WithdrawnEmergency state")
+        ContractError::BatchNotWithdrawnEmergency {}
     );
     ensure!(
         batch.expected_amount >= unbonded_amount,
-        StdError::generic_err("Unbonded amount must be less or equal to expected amount")
+        ContractError::UnbondedAmountTooHigh {}
     );
 
     let slashing_effect = Decimal::from_ratio(unbonded_amount, batch.expected_amount);

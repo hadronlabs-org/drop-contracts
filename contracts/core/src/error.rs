@@ -88,6 +88,15 @@ pub enum ContractError {
 
     #[error(transparent)]
     PauseError(#[from] PauseError),
+
+    #[error("Unbonded amount must not be zero")]
+    UnbondedAmountZero {},
+
+    #[error("Requested batch is not in WithdrawnEmergency state")]
+    BatchNotWithdrawnEmergency {},
+
+    #[error("Unbonded amount must be less or equal to expected amount")]
+    UnbondedAmountTooHigh {},
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

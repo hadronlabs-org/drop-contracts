@@ -6,8 +6,8 @@ use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockQuerier, MockStorage},
     to_json_binary, Addr, Coin, ContractResult, CosmosMsg, Decimal, Empty, MessageInfo, Order,
-    OwnedDeps, Querier, QuerierResult, QueryRequest, StdError, StdResult, SystemError,
-    SystemResult, Timestamp, Uint128, WasmMsg, WasmQuery,
+    OwnedDeps, Querier, QuerierResult, QueryRequest, StdResult, SystemError, SystemResult,
+    Timestamp, Uint128, WasmMsg, WasmQuery,
 };
 use drop_puppeteer_base::msg::QueryMsg as PuppeteerBaseQueryMsg;
 use drop_staking_base::{
@@ -427,12 +427,7 @@ mod process_emergency_batch {
             },
         )
         .unwrap_err();
-        assert_eq!(
-            err,
-            ContractError::Std(StdError::generic_err(
-                "Requested batch is not in WithdrawnEmergency state"
-            ))
-        );
+        assert_eq!(err, ContractError::BatchNotWithdrawnEmergency {});
     }
 
     #[test]
@@ -448,10 +443,7 @@ mod process_emergency_batch {
             },
         )
         .unwrap_err();
-        assert_eq!(
-            err,
-            ContractError::Std(StdError::generic_err("Unbonded amount must not be zero"))
-        );
+        assert_eq!(err, ContractError::UnbondedAmountZero {});
     }
 
     #[test]
@@ -467,12 +459,7 @@ mod process_emergency_batch {
             },
         )
         .unwrap_err();
-        assert_eq!(
-            err,
-            ContractError::Std(StdError::generic_err(
-                "Unbonded amount must be less or equal to expected amount"
-            ))
-        );
+        assert_eq!(err, ContractError::UnbondedAmountTooHigh {});
     }
 
     #[test]
