@@ -67,14 +67,12 @@ where
 }
 
 pub trait BaseConfig {
-    fn owner(&self) -> &str;
     fn connection_id(&self) -> String;
     fn update_period(&self) -> u64;
 }
 
 #[cw_serde]
 pub struct ConfigResponse {
-    pub owner: String,
     pub connection_id: String,
     pub update_period: u64,
 }

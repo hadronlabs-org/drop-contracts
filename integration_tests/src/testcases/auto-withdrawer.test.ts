@@ -407,7 +407,7 @@ describe('Auto withdrawer', () => {
       core_params: {
         idle_min_interval: 40,
         puppeteer_timeout: 60,
-        unbond_batch_switch_time: 240,
+        unbond_batch_switch_time: 60,
         unbonding_safe_period: 10,
         unbonding_period: UNBONDING_TIME,
         channel: 'channel-0',

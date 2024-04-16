@@ -162,16 +162,15 @@ describe('Interchain puppeteer', () => {
   });
 
   it('query configuration data', async () => {
-    const { contractClient, account } = context;
+    const { contractClient } = context;
     const config = await contractClient.queryConfig();
 
-    expect(config).toEqual({
+    expect<typeof config>(config).toEqual({
       connection_id: 'connection-0',
       port_id: 'transfer',
       update_period: 10,
       remote_denom: 'wrong',
       sdk_version: '0.46.0',
-      owner: account.address,
       allowed_senders: [context.hookContractClient.contractAddress],
       proxy_address: null,
       transfer_channel_id: 'channel-0',
@@ -200,7 +199,6 @@ describe('Interchain puppeteer', () => {
       update_period: 10,
       remote_denom: 'stake',
       sdk_version: '0.46.0',
-      owner: account.address,
       allowed_senders: [context.hookContractClient.contractAddress],
       proxy_address: null,
       transfer_channel_id: 'channel-0',

@@ -411,7 +411,7 @@ describe('Core', () => {
       core_params: {
         idle_min_interval: 40,
         puppeteer_timeout: 60,
-        unbond_batch_switch_time: 240,
+        unbond_batch_switch_time: 60,
         unbonding_safe_period: 10,
         unbonding_period: 360,
         channel: 'channel-0',
@@ -1377,12 +1377,12 @@ describe('Core', () => {
           'neutron',
           `neutrond tx tokenfactory create-denom test1 --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
         await context.park.executeInNetwork(
           'neutron',
           `neutrond tx tokenfactory create-denom test2 --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
         const denoms =
           await context.neutronClient.OsmosisTokenfactoryV1Beta1.query.queryDenomsFromCreator(
             neutronUserAddress,
@@ -1392,12 +1392,12 @@ describe('Core', () => {
           'neutron',
           `neutrond tx tokenfactory mint 1000000${denoms.data.denoms[0]} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
         await context.park.executeInNetwork(
           'neutron',
           `neutrond tx tokenfactory mint 1000000${denoms.data.denoms[1]} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
         const balances =
           await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
             neutronUserAddress,
@@ -1409,12 +1409,12 @@ describe('Core', () => {
           'neutron',
           `neutrond tx ibc-transfer transfer transfer channel-0 ${context.icaAddress} 66666${tokenFactoryDenoms[0].denom} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
         await context.park.executeInNetwork(
           'neutron',
           `neutrond tx ibc-transfer transfer transfer channel-0 ${context.icaAddress} 2222${tokenFactoryDenoms[1].denom} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
-        await sleep(5_000);
+        await sleep(8_000);
       });
       it('wait for balances to come', async () => {
         let res: readonly Coin[] = [];
