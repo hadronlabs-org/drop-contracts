@@ -236,7 +236,7 @@ export interface DropCoreSchema {
     | ContractState
     | Decimal1
     | ArrayOfTupleOfStringAndTupleOfStringAndUint128
-    | ResponseHookMsg
+    | LastPuppeteerResponse
     | ArrayOfNonNativeRewardsItem
     | String
     | PauseInfoResponse
@@ -273,6 +273,9 @@ export interface Config {
   validators_set_contract: string;
   withdrawal_manager_contract: string;
   withdrawal_voucher_contract: string;
+}
+export interface LastPuppeteerResponse {
+  response?: ResponseHookMsg | null;
 }
 export interface ResponseHookSuccessMsg {
   answers: ResponseAnswer[];
@@ -490,7 +493,7 @@ export class Client {
   queryContractState = async(): Promise<ContractState> => {
     return this.client.queryContractSmart(this.contractAddress, { contract_state: {} });
   }
-  queryLastPuppeteerResponse = async(): Promise<ResponseHookMsg> => {
+  queryLastPuppeteerResponse = async(): Promise<LastPuppeteerResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { last_puppeteer_response: {} });
   }
   queryNonNativeRewardsReceivers = async(): Promise<ArrayOfNonNativeRewardsItem> => {

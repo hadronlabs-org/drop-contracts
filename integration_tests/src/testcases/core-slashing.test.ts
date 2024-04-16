@@ -643,8 +643,9 @@ describe('Core Slashing', () => {
       let response;
       await waitFor(async () => {
         try {
-          response =
-            await context.coreContractClient.queryLastPuppeteerResponse();
+          response = (
+            await context.coreContractClient.queryLastPuppeteerResponse()
+          ).response;
         } catch (e) {
           //
         }
@@ -682,8 +683,9 @@ describe('Core Slashing', () => {
       let response;
       await waitFor(async () => {
         try {
-          response =
-            await context.coreContractClient.queryLastPuppeteerResponse();
+          response = (
+            await context.coreContractClient.queryLastPuppeteerResponse()
+          ).response;
         } catch (e) {
           //
         }
@@ -718,8 +720,9 @@ describe('Core Slashing', () => {
       let response;
       await waitFor(async () => {
         try {
-          response =
-            await context.coreContractClient.queryLastPuppeteerResponse();
+          response = (
+            await context.coreContractClient.queryLastPuppeteerResponse()
+          ).response;
         } catch (e) {
           //
         }
@@ -796,8 +799,9 @@ describe('Core Slashing', () => {
       let response;
       await waitFor(async () => {
         try {
-          response =
-            await context.coreContractClient.queryLastPuppeteerResponse();
+          response = (
+            await context.coreContractClient.queryLastPuppeteerResponse()
+          ).response;
         } catch (e) {
           //
         }
@@ -832,8 +836,9 @@ describe('Core Slashing', () => {
       let response;
       await waitFor(async () => {
         try {
-          response =
-            await context.coreContractClient.queryLastPuppeteerResponse();
+          response = (
+            await context.coreContractClient.queryLastPuppeteerResponse()
+          ).response;
         } catch (e) {
           //
         }
@@ -873,8 +878,9 @@ describe('Core Slashing', () => {
       let response;
       await waitFor(async () => {
         try {
-          response =
-            await context.coreContractClient.queryLastPuppeteerResponse();
+          response = (
+            await context.coreContractClient.queryLastPuppeteerResponse()
+          ).response;
         } catch (e) {
           //
         }
@@ -909,8 +915,9 @@ describe('Core Slashing', () => {
       let response;
       await waitFor(async () => {
         try {
-          response =
-            await context.coreContractClient.queryLastPuppeteerResponse();
+          response = (
+            await context.coreContractClient.queryLastPuppeteerResponse()
+          ).response;
         } catch (e) {
           //
         }
@@ -1026,8 +1033,9 @@ describe('Core Slashing', () => {
     let response;
     await waitFor(async () => {
       try {
-        response =
-          await context.coreContractClient.queryLastPuppeteerResponse();
+        response = (
+          await context.coreContractClient.queryLastPuppeteerResponse()
+        ).response;
       } catch (e) {
         //
       }

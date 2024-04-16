@@ -96,6 +96,7 @@ export type Transaction =
 export type Uint128 = string;
 export type IBCTransferReason = "l_s_m_share" | "stake";
 export type ArrayOfTransaction = Transaction[];
+export type TxStateStatus = "idle" | "in_progress" | "waiting_for_ack";
 export type QueryExtMsg =
   | {
       delegations: {};
@@ -176,7 +177,7 @@ export type Timestamp = Uint64;
 export type Uint64 = string;
 
 export interface DropPuppeteerSchema {
-  responses: ConfigResponse | Binary | IcaState | ArrayOfTransaction;
+  responses: ConfigResponse | Binary | IcaState | ArrayOfTransaction | TxState;
   query: ExtentionArgs;
   execute:
     | RegisterBalanceAndDelegatorDelegationsQueryArgs
@@ -215,6 +216,12 @@ export interface Coin {
   amount: Uint128;
   denom: string;
   [k: string]: unknown;
+}
+export interface TxState {
+  reply_to?: string | null;
+  seq_id?: number | null;
+  status: TxStateStatus;
+  transaction?: Transaction | null;
 }
 export interface ExtentionArgs {
   msg: QueryExtMsg;
@@ -360,6 +367,9 @@ export class Client {
   }
   queryExtention = async(args: ExtentionArgs): Promise<Binary> => {
     return this.client.queryContractSmart(this.contractAddress, { extention: args });
+  }
+  queryTxState = async(): Promise<TxState> => {
+    return this.client.queryContractSmart(this.contractAddress, { tx_state: {} });
   }
   registerICA = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
