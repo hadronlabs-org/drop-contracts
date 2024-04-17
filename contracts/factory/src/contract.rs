@@ -546,7 +546,7 @@ fn execute_init(
                 unbond_batch_switch_time: core_params.unbond_batch_switch_time,
                 idle_min_interval: core_params.idle_min_interval,
                 bond_limit: core_params.bond_limit,
-                channel: core_params.channel,
+                transfer_channel_id: config.remote_opts.transfer_channel_id,
                 lsm_min_bond_amount: core_params.lsm_min_bond_amount,
                 lsm_redeem_threshold: core_params.lsm_redeem_threshold,
                 lsm_redeem_max_interval: core_params.lsm_redeem_max_interval,

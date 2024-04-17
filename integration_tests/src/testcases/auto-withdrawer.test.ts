@@ -431,7 +431,6 @@ describe('Auto withdrawer', () => {
         unbond_batch_switch_time: 60,
         unbonding_safe_period: 10,
         unbonding_period: UNBONDING_TIME,
-        channel: 'channel-0',
         lsm_redeem_threshold: 10,
         lsm_redeem_max_interval: 60_000,
         lsm_min_bond_amount: '1',

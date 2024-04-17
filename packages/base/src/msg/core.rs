@@ -29,7 +29,7 @@ pub struct InstantiateMsg {
     pub unbond_batch_switch_time: u64, //seconds
     pub bond_limit: Option<Uint128>,
     pub pump_address: Option<String>,
-    pub channel: String,
+    pub transfer_channel_id: String,
     pub owner: String,
     pub fee: Option<Decimal>,
     pub fee_address: Option<String>,
@@ -115,7 +115,6 @@ impl From<InstantiateMsg> for Config {
             withdrawal_manager_contract: val.withdrawal_manager_contract,
             base_denom: val.base_denom,
             remote_denom: val.remote_denom,
-            channel: val.channel,
             idle_min_interval: val.idle_min_interval,
             unbonding_safe_period: val.unbonding_safe_period,
             unbonding_period: val.unbonding_period,

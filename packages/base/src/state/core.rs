@@ -25,7 +25,6 @@ pub struct Config {
     pub unbonding_safe_period: u64,    //seconds
     pub unbond_batch_switch_time: u64, //seconds
     pub pump_address: Option<String>,
-    pub channel: String,
     pub lsm_min_bond_amount: Uint128,
     pub lsm_redeem_threshold: u64,
     pub lsm_redeem_maximum_interval: u64, //seconds
@@ -37,6 +36,7 @@ pub struct Config {
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
+pub const TRANSFER_CHANNEL_ID: Item<String> = Item::new("transfer_channel_id");
 
 #[cw_serde]
 #[derive(Copy)]

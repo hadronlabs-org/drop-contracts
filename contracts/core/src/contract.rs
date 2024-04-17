@@ -15,7 +15,7 @@ use drop_staking_base::state::core::{
     UnbondBatchStatus, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM,
     LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE,
     LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, PRE_UNBONDING_BALANCE,
-    TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+    TOTAL_LSM_SHARES, TRANSFER_CHANNEL_ID, UNBOND_BATCH_ID,
 };
 use drop_staking_base::state::validatorset::ValidatorInfo;
 use drop_staking_base::state::withdrawal_voucher::{Metadata, Trait};
@@ -53,7 +53,8 @@ pub fn instantiate(
         attr("base_denom", &msg.base_denom),
         attr("owner", &msg.owner),
     ];
-    cw_ownable::initialize_owner(deps.storage, deps.api, Some(msg.owner.as_ref()))?;
+    cw_ownable::initialize_owner(deps.storage, deps.api, Some(&msg.owner))?;
+    TRANSFER_CHANNEL_ID.save(deps.storage, &msg.transfer_channel_id)?;
     CONFIG.save(deps.storage, &msg.into())?;
     //an empty unbonding batch added as it's ready to be used on unbond action
     UNBOND_BATCH_ID.save(deps.storage, &0)?;
@@ -1045,10 +1046,6 @@ fn execute_update_config(
             }
         };
     }
-    if let Some(channel) = new_config.channel {
-        attrs.push(attr("channel", &channel));
-        config.channel = channel;
-    }
     if let Some(fee) = new_config.fee {
         attrs.push(attr("fee", fee.to_string()));
         config.fee = Some(fee);
@@ -1573,7 +1570,7 @@ pub mod check_denom {
             .path
             .split_once('/')
             .ok_or(ContractError::InvalidDenom {})?;
-        if port != "transfer" && channel != config.channel {
+        if port != "transfer" && channel != TRANSFER_CHANNEL_ID.load(deps.storage)? {
             return Err(ContractError::InvalidDenom {});
         }
 

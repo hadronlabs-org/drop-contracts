@@ -435,7 +435,6 @@ describe('Core', () => {
         unbond_batch_switch_time: 60,
         unbonding_safe_period: 10,
         unbonding_period: 360,
-        channel: 'channel-0',
         lsm_redeem_threshold: 2,
         lsm_min_bond_amount: '1000',
         lsm_redeem_max_interval: 60_000,

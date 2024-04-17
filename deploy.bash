@@ -219,7 +219,6 @@ deploy_protocol() {
         "unbond_batch_switch_time":259200,
         "unbonding_safe_period":3600,
         "unbonding_period":1814400,
-        "channel":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
         "lsm_redeem_threshold":2,
         "lsm_min_bond_amount":"1",
         "lsm_redeem_max_interval":60000,

@@ -26,7 +26,6 @@ pub struct CoreParams {
     pub lsm_min_bond_amount: Uint128,
     pub lsm_redeem_threshold: u64,
     pub lsm_redeem_max_interval: u64, //seconds
-    pub channel: String,
     pub bond_limit: Option<Uint128>,
     pub min_stake_amount: Uint128,
 }

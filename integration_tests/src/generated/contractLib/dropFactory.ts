@@ -803,7 +803,6 @@ export interface InitArgs {
 }
 export interface CoreParams {
   bond_limit?: Uint128 | null;
-  channel: string;
   idle_min_interval: number;
   lsm_min_bond_amount: Uint128;
   lsm_redeem_max_interval: number;
@@ -821,7 +820,6 @@ export interface StakerParams {
 export interface ConfigOptional {
   base_denom?: string | null;
   bond_limit?: Uint128 | null;
-  channel?: string | null;
   emergency_address?: string | null;
   fee?: Decimal | null;
   fee_address?: string | null;

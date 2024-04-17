@@ -286,7 +286,6 @@ export interface DropCoreSchema {
 export interface Config {
   base_denom: string;
   bond_limit?: Uint128 | null;
-  channel: string;
   emergency_address?: string | null;
   fee?: Decimal | null;
   fee_address?: string | null;
@@ -413,7 +412,6 @@ export interface UpdateConfigArgs {
 export interface ConfigOptional {
   base_denom?: string | null;
   bond_limit?: Uint128 | null;
-  channel?: string | null;
   emergency_address?: string | null;
   fee?: Decimal | null;
   fee_address?: string | null;
@@ -458,7 +456,6 @@ export interface ProcessEmergencyBatchArgs {
 export interface InstantiateMsg {
   base_denom: string;
   bond_limit?: Uint128 | null;
-  channel: string;
   emergency_address?: string | null;
   fee?: Decimal | null;
   fee_address?: string | null;
@@ -475,6 +472,7 @@ export interface InstantiateMsg {
   staker_contract: string;
   strategy_contract: string;
   token_contract: string;
+  transfer_channel_id: string;
   unbond_batch_switch_time: number;
   unbonding_period: number;
   unbonding_safe_period: number;
