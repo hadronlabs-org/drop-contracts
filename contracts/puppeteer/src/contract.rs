@@ -357,7 +357,7 @@ fn execute_ibc_transfer(
             recipient: ica_address,
         },
         reply_to,
-        ReplyMsg::SudoPayload.to_reply_id(),
+        ReplyMsg::IbcTransfer.to_reply_id(),
     )?;
     Ok(Response::default().add_submessages(vec![submsg]))
 }
