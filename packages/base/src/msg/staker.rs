@@ -1,6 +1,7 @@
-use crate::state::{staker::ConfigOptional, staker::IBCFees};
+use crate::state::staker::ConfigOptional;
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, Uint128};
+use cosmwasm_std::Uint128;
+use drop_helpers::interchain::IBCFees;
 
 #[cw_ownable::cw_ownable_query]
 #[cw_serde]
@@ -39,12 +40,11 @@ pub struct InstantiateMsg {
     pub port_id: String,
     pub ibc_fees: IBCFees,
     pub timeout: u64,
-    pub local_denom: String,
     pub remote_denom: String,
     pub base_denom: String,
     pub transfer_channel_id: String,
     pub owner: Option<String>,
-    pub allowed_addresses: Vec<Addr>,
+    pub allowed_senders: Vec<String>,
 }
 
 #[cw_serde]

@@ -27,7 +27,7 @@ use drop_helpers::{
         new_delegations_and_balance_query_msg, new_multiple_balances_query_msg,
         update_balance_and_delegations_query_msg, update_multiple_balances_query_msg,
     },
-    interchain_tx::prepare_any_msg,
+    interchain::prepare_any_msg,
 };
 use drop_puppeteer_base::{
     error::{ContractError, ContractResult},
@@ -109,7 +109,32 @@ pub fn instantiate(
             Timestamp::default(),
         ),
     )?;
-    Puppeteer::default().instantiate(deps, config, owner)
+    let puppeteer = Puppeteer::default();
+    puppeteer.ibc_fee.save(
+        deps.storage,
+        &IbcFee {
+            recv_fee: vec![cosmwasm_std::Coin {
+                denom: LOCAL_DENOM.to_string(),
+                amount: msg.ibc_fees.recv_fee,
+            }],
+            ack_fee: vec![cosmwasm_std::Coin {
+                denom: LOCAL_DENOM.to_string(),
+                amount: msg.ibc_fees.ack_fee,
+            }],
+            timeout_fee: vec![cosmwasm_std::Coin {
+                denom: LOCAL_DENOM.to_string(),
+                amount: msg.ibc_fees.timeout_fee,
+            }],
+        },
+    )?;
+    puppeteer.register_fee.save(
+        deps.storage,
+        &cosmwasm_std::Coin {
+            denom: LOCAL_DENOM.to_string(),
+            amount: msg.ibc_fees.register_fee,
+        },
+    )?;
+    puppeteer.instantiate(deps, config, owner)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

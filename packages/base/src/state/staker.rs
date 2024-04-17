@@ -1,16 +1,8 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Uint128};
+use cosmwasm_std::Uint128;
 use cw_storage_plus::Item;
-use drop_helpers::ica::Ica;
+use drop_helpers::{ica::Ica, interchain::IBCFees};
 use optfield::optfield;
-
-#[cw_serde]
-pub struct IBCFees {
-    pub recv_fee: Uint128,
-    pub ack_fee: Uint128,
-    pub timeout_fee: Uint128,
-    pub register_fee: Uint128,
-}
 
 #[optfield(pub ConfigOptional, attrs)]
 #[cw_serde]
@@ -20,11 +12,10 @@ pub struct Config {
     pub connection_id: String,
     pub ibc_fees: IBCFees,
     pub timeout: u64,
-    pub local_denom: String,
     pub remote_denom: String,
     pub base_denom: String,
-    pub allowed_addresses: Vec<Addr>,
-    pub puppeteer_ica: Option<Addr>,
+    pub allowed_senders: Vec<String>,
+    pub puppeteer_ica: Option<String>,
 }
 
 #[cw_serde]

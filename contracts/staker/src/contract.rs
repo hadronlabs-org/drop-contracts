@@ -9,7 +9,7 @@ use cosmwasm_std::{
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw_utils::must_pay;
 use drop_helpers::answer::response;
-use drop_helpers::interchain_tx::prepare_any_msg;
+use drop_helpers::interchain::prepare_any_msg;
 use drop_staking_base::msg::staker::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion, QueryMsg,
 };
@@ -27,6 +27,7 @@ use crate::error::{ContractError, ContractResult};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const LOCAL_DENOM: &str = "untrn";
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -55,10 +56,9 @@ pub fn instantiate(
             connection_id: msg.connection_id,
             ibc_fees: msg.ibc_fees,
             timeout: msg.timeout,
-            local_denom: msg.local_denom,
             remote_denom: msg.remote_denom,
             base_denom: msg.base_denom,
-            allowed_addresses: msg.allowed_addresses,
+            allowed_senders: msg.allowed_senders,
             puppeteer_ica: None,
         },
     )?;
@@ -148,9 +148,6 @@ fn execute_update_config(
     if let Some(timeout) = new_config.timeout {
         config.timeout = timeout;
     }
-    if let Some(local_denom) = new_config.local_denom {
-        config.local_denom = local_denom;
-    }
     CONFIG.save(deps.storage, &config)?;
     Ok(response("update_config", CONTRACT_NAME, attrs))
 }
@@ -165,13 +162,13 @@ fn execute_register_ica(
         attr("connection_id", &config.connection_id),
         attr("ica_id", ICA_ID),
     ];
-    check_funds(&info, &config, config.ibc_fees.register_fee)?;
+    check_funds(&info, config.ibc_fees.register_fee)?;
     let register_fee: Uint128 = config.ibc_fees.register_fee;
     let register_msg = ICA.register(
         deps.storage,
         config.connection_id,
         ICA_ID,
-        coin(register_fee.u128(), config.local_denom),
+        coin(register_fee.u128(), LOCAL_DENOM.to_string()),
     )?;
     Ok(response("register-ica", CONTRACT_NAME, attrs).add_message(register_msg))
 }
@@ -185,10 +182,9 @@ fn execute_stake(
     let config = CONFIG.load(deps.storage)?;
     check_funds(
         &info,
-        &config,
         config.ibc_fees.ack_fee + config.ibc_fees.recv_fee + config.ibc_fees.timeout_fee,
     )?;
-    if !config.allowed_addresses.contains(&info.sender) {
+    if !config.allowed_senders.contains(&info.sender.to_string()) {
         return Err(ContractError::Unauthorized {});
     }
     let amount = NON_STAKED_BALANCE.load(deps.storage)?;
@@ -214,9 +210,9 @@ fn execute_stake(
         attr("amount", amount.to_string()),
     ];
     let fee = IbcFee {
-        recv_fee: uint_into_vec_coin(config.ibc_fees.recv_fee, &config.local_denom),
-        ack_fee: uint_into_vec_coin(config.ibc_fees.ack_fee, &config.local_denom),
-        timeout_fee: uint_into_vec_coin(config.ibc_fees.timeout_fee, &config.local_denom),
+        recv_fee: uint_into_vec_coin(config.ibc_fees.recv_fee, &LOCAL_DENOM.to_string()),
+        ack_fee: uint_into_vec_coin(config.ibc_fees.ack_fee, &LOCAL_DENOM.to_string()),
+        timeout_fee: uint_into_vec_coin(config.ibc_fees.timeout_fee, &LOCAL_DENOM.to_string()),
     };
     let ica = ICA.get_address(deps.storage)?;
     let puppeteer_ica = config
@@ -269,7 +265,6 @@ fn execute_ibc_transfer(
     let config = CONFIG.load(deps.storage)?;
     check_funds(
         &info,
-        &config,
         config.ibc_fees.ack_fee + config.ibc_fees.recv_fee + config.ibc_fees.timeout_fee,
     )?;
     must_pay(&info, &config.base_denom)?;
@@ -288,9 +283,9 @@ fn execute_ibc_transfer(
         attr("coin", format!("{:?}", coin)),
     ];
     let fee = IbcFee {
-        recv_fee: uint_into_vec_coin(config.ibc_fees.recv_fee, &config.local_denom),
-        ack_fee: uint_into_vec_coin(config.ibc_fees.ack_fee, &config.local_denom),
-        timeout_fee: uint_into_vec_coin(config.ibc_fees.timeout_fee, &config.local_denom),
+        recv_fee: uint_into_vec_coin(config.ibc_fees.recv_fee, &LOCAL_DENOM.to_string()),
+        ack_fee: uint_into_vec_coin(config.ibc_fees.ack_fee, &LOCAL_DENOM.to_string()),
+        timeout_fee: uint_into_vec_coin(config.ibc_fees.timeout_fee, &LOCAL_DENOM.to_string()),
     };
     let ica = ICA.get_address(deps.storage)?;
     let msg = NeutronMsg::IbcTransfer {
@@ -455,8 +450,8 @@ fn uint_into_vec_coin(amount: Uint128, denom: &String) -> Vec<Coin> {
     vec![Coin::new(amount.u128(), denom)]
 }
 
-fn check_funds(info: &MessageInfo, config: &Config, needed_amount: Uint128) -> ContractResult<()> {
-    let info_amount = must_pay(info, &config.local_denom)?;
+fn check_funds(info: &MessageInfo, needed_amount: Uint128) -> ContractResult<()> {
+    let info_amount = must_pay(info, LOCAL_DENOM)?;
     ensure!(
         info_amount >= needed_amount,
         ContractError::InvalidFunds {

@@ -792,6 +792,7 @@ export interface State {
   distribution_contract: string;
   puppeteer_contract: string;
   rewards_manager_contract: string;
+  staker_contract: string;
   strategy_contract: string;
   token_contract: string;
   validators_set_contract: string;
@@ -1242,6 +1243,7 @@ export interface CodeIds {
   distribution_code_id: number;
   puppeteer_code_id: number;
   rewards_manager_code_id: number;
+  staker_code_id: number;
   strategy_code_id: number;
   token_code_id: number;
   validators_set_code_id: number;
@@ -1251,9 +1253,16 @@ export interface CodeIds {
 export interface RemoteOpts {
   connection_id: string;
   denom: string;
+  ibc_fees: IBCFees;
   port_id: string;
   transfer_channel_id: string;
   update_period: number;
+}
+export interface IBCFees {
+  ack_fee: Uint128;
+  recv_fee: Uint128;
+  register_fee: Uint128;
+  timeout_fee: Uint128;
 }
 export interface DenomMetadata {
   /**

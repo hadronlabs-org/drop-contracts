@@ -22,6 +22,7 @@ use drop_staking_base::{
     msg::rewards_manager::{
         InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg,
     },
+    msg::staker::InstantiateMsg as StakerInstantiateMsg,
     msg::strategy::InstantiateMsg as StrategyInstantiateMsg,
     msg::token::{
         ConfigResponse as TokenConfigResponse, InstantiateMsg as TokenInstantiateMsg,
@@ -340,6 +341,8 @@ fn execute_init(
         get_code_checksum(deps.as_ref(), config.code_ids.distribution_code_id)?;
     let puppeteer_contract_checksum =
         get_code_checksum(deps.as_ref(), config.code_ids.puppeteer_code_id)?;
+    let staker_contract_checksum =
+        get_code_checksum(deps.as_ref(), config.code_ids.staker_code_id)?;
     let rewards_manager_contract_checksum =
         get_code_checksum(deps.as_ref(), config.code_ids.rewards_manager_code_id)?;
 
@@ -353,7 +356,10 @@ fn execute_init(
     attrs.push(attr("core_address", core_address.to_string()));
     let puppeteer_address =
         instantiate2_address(&puppeteer_contract_checksum, &canonical_self_address, salt)?;
-    attrs.push(attr("core_address", core_address.to_string()));
+    attrs.push(attr("puppeteer_address", core_address.to_string()));
+    let staker_address =
+        instantiate2_address(&staker_contract_checksum, &canonical_self_address, salt)?;
+    attrs.push(attr("staker_address", core_address.to_string()));
 
     let withdrawal_voucher_address = instantiate2_address(
         &withdrawal_voucher_contract_checksum,
@@ -423,6 +429,7 @@ fn execute_init(
     let validators_set_contract = deps.api.addr_humanize(&validators_set_address)?.to_string();
     let distribution_contract = deps.api.addr_humanize(&distribution_address)?.to_string();
     let puppeteer_contract = deps.api.addr_humanize(&puppeteer_address)?.to_string();
+    let staker_contract = deps.api.addr_humanize(&staker_address)?.to_string();
     let rewards_manager_contract = deps
         .api
         .addr_humanize(&rewards_manager_address)?
@@ -432,6 +439,7 @@ fn execute_init(
         token_contract: token_contract.to_string(),
         core_contract: core_contract.to_string(),
         puppeteer_contract: puppeteer_contract.to_string(),
+        staker_contract: staker_contract.to_string(),
         withdrawal_voucher_contract: withdrawal_voucher_contract.to_string(),
         withdrawal_manager_contract: withdrawal_manager_contract.to_string(),
         strategy_contract: strategy_contract.to_string(),
@@ -487,6 +495,25 @@ fn execute_init(
                 port_id: config.remote_opts.port_id.to_string(),
                 transfer_channel_id: config.remote_opts.transfer_channel_id.to_string(),
                 sdk_version: config.sdk_version.to_string(),
+                ibc_fees: config.remote_opts.ibc_fees.clone(),
+            })?,
+            funds: vec![],
+            salt: Binary::from(salt),
+        }),
+        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
+            admin: Some(env.contract.address.to_string()),
+            code_id: config.code_ids.staker_code_id,
+            label: get_contract_label("staker"),
+            msg: to_json_binary(&StakerInstantiateMsg {
+                allowed_senders: vec![core_contract.to_string()],
+                owner: Some(env.contract.address.to_string()),
+                remote_denom: config.remote_opts.denom.to_string(),
+                connection_id: config.remote_opts.connection_id.to_string(),
+                port_id: config.remote_opts.port_id.to_string(),
+                transfer_channel_id: config.remote_opts.transfer_channel_id.to_string(),
+                base_denom: base_denom.to_string(),
+                timeout: core_params.puppeteer_timeout,
+                ibc_fees: config.remote_opts.ibc_fees,
             })?,
             funds: vec![],
             salt: Binary::from(salt),

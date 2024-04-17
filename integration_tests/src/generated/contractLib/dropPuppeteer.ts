@@ -314,12 +314,19 @@ export interface ConfigOptional {
 export interface InstantiateMsg {
   allowed_senders: string[];
   connection_id: string;
+  ibc_fees: IBCFees;
   owner?: string | null;
   port_id: string;
   remote_denom: string;
   sdk_version: string;
   transfer_channel_id: string;
   update_period: number;
+}
+export interface IBCFees {
+  ack_fee: Uint128;
+  recv_fee: Uint128;
+  register_fee: Uint128;
+  timeout_fee: Uint128;
 }
 
 

@@ -1,7 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{from_json, Addr, Decimal, Timestamp, Uint128};
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
-use drop_helpers::version::version_to_u32;
+use drop_helpers::{interchain::IBCFees, version::version_to_u32};
 use std::ops::Div;
 use std::str::FromStr;
 
@@ -38,6 +38,7 @@ pub struct InstantiateMsg {
     pub allowed_senders: Vec<String>,
     pub transfer_channel_id: String,
     pub sdk_version: String,
+    pub ibc_fees: IBCFees,
 }
 
 #[cw_ownable_execute]

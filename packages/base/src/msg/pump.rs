@@ -1,6 +1,7 @@
-use crate::state::pump::{IBCFees, PumpTimeout};
+use crate::state::pump::PumpTimeout;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Coin;
+use drop_helpers::interchain::IBCFees;
 
 #[cw_ownable::cw_ownable_query]
 #[cw_serde]

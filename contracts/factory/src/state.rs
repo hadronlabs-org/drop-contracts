@@ -1,5 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cw_storage_plus::Item;
+use drop_helpers::interchain::IBCFees;
 use drop_staking_base::msg::token::DenomMetadata;
 
 #[cw_serde]
@@ -7,6 +8,7 @@ pub struct CodeIds {
     pub token_code_id: u64,
     pub core_code_id: u64,
     pub puppeteer_code_id: u64,
+    pub staker_code_id: u64,
     pub withdrawal_voucher_code_id: u64,
     pub withdrawal_manager_code_id: u64,
     pub strategy_code_id: u64,
@@ -22,6 +24,7 @@ pub struct RemoteOpts {
     pub connection_id: String,
     pub port_id: String,
     pub transfer_channel_id: String,
+    pub ibc_fees: IBCFees,
 }
 
 #[cw_serde]
@@ -39,6 +42,7 @@ pub struct State {
     pub token_contract: String,
     pub core_contract: String,
     pub puppeteer_contract: String,
+    pub staker_contract: String,
     pub withdrawal_voucher_contract: String,
     pub withdrawal_manager_contract: String,
     pub strategy_contract: String,
