@@ -18,7 +18,7 @@ use drop_staking_base::{
     },
     state::core::{
         unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem,
-        UnbondBatch, UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FSM,
+        UnbondBatch, UnbondBatchStatus, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FSM,
         LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE,
         LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, TOTAL_LSM_SHARES,
         UNBOND_BATCH_ID,
@@ -959,11 +959,7 @@ fn test_tick_idle_unbonding_close() {
             &UnbondBatch {
                 total_amount: Uint128::from(1000u128),
                 expected_amount: Uint128::from(1000u128),
-                unbond_items: vec![UnbondItem {
-                    amount: Uint128::from(1000u128),
-                    sender: "some_sender".to_string(),
-                    expected_amount: Uint128::from(1000u128),
-                }],
+                total_unbond_items: 1,
                 status: UnbondBatchStatus::Unbonding,
                 expected_release: 10001,
                 slashing_effect: None,
@@ -1093,11 +1089,7 @@ fn test_tick_idle_claim_wo_unbond() {
             &UnbondBatch {
                 total_amount: Uint128::from(1000u128),
                 expected_amount: Uint128::from(1000u128),
-                unbond_items: vec![UnbondItem {
-                    amount: Uint128::from(1000u128),
-                    sender: "some_sender".to_string(),
-                    expected_amount: Uint128::from(1000u128),
-                }],
+                total_unbond_items: 1,
                 status: UnbondBatchStatus::Unbonding,
                 expected_release: 9000,
                 slashing_effect: None,
@@ -1246,11 +1238,7 @@ fn test_tick_idle_claim_with_unbond_transfer() {
             &UnbondBatch {
                 total_amount: Uint128::from(1000u128),
                 expected_amount: Uint128::from(1000u128),
-                unbond_items: vec![UnbondItem {
-                    amount: Uint128::from(1000u128),
-                    sender: "some_sender".to_string(),
-                    expected_amount: Uint128::from(1000u128),
-                }],
+                total_unbond_items: 1,
                 status: UnbondBatchStatus::Unbonding,
                 expected_release: 90000,
                 slashing_effect: None,
@@ -1716,11 +1704,7 @@ fn test_tick_idle_unbonding() {
             &UnbondBatch {
                 total_amount: Uint128::from(1000u128),
                 expected_amount: Uint128::from(1000u128),
-                unbond_items: vec![UnbondItem {
-                    amount: Uint128::from(1000u128),
-                    sender: "some_sender".to_string(),
-                    expected_amount: Uint128::from(1000u128),
-                }],
+                total_unbond_items: 1,
                 status: UnbondBatchStatus::New,
                 expected_release: 0,
                 slashing_effect: None,
@@ -2062,11 +2046,7 @@ fn test_tick_claiming_wo_transfer_unbonding() {
             &UnbondBatch {
                 total_amount: Uint128::from(1000u128),
                 expected_amount: Uint128::from(1000u128),
-                unbond_items: vec![UnbondItem {
-                    amount: Uint128::from(1000u128),
-                    sender: "some_sender".to_string(),
-                    expected_amount: Uint128::from(1000u128),
-                }],
+                total_unbond_items: 1,
                 status: UnbondBatchStatus::New,
                 expected_release: 0,
                 slashing_effect: None,
@@ -2214,11 +2194,7 @@ fn test_tick_claiming_wo_idle() {
             &UnbondBatch {
                 total_amount: Uint128::from(1000u128),
                 expected_amount: Uint128::from(1000u128),
-                unbond_items: vec![UnbondItem {
-                    amount: Uint128::from(1000u128),
-                    sender: "some_sender".to_string(),
-                    expected_amount: Uint128::from(1000u128),
-                }],
+                total_unbond_items: 1,
                 status: UnbondBatchStatus::New,
                 expected_release: 0,
                 slashing_effect: None,
@@ -2458,11 +2434,7 @@ fn test_tick_staking_to_unbonding() {
             &UnbondBatch {
                 total_amount: Uint128::from(1000u128),
                 expected_amount: Uint128::from(1000u128),
-                unbond_items: vec![UnbondItem {
-                    amount: Uint128::from(1000u128),
-                    sender: "some_sender".to_string(),
-                    expected_amount: Uint128::from(1000u128),
-                }],
+                total_unbond_items: 1,
                 status: UnbondBatchStatus::New,
                 expected_release: 0,
                 slashing_effect: None,
@@ -2614,11 +2586,7 @@ fn test_tick_staking_to_idle() {
             &UnbondBatch {
                 total_amount: Uint128::from(1000u128),
                 expected_amount: Uint128::from(1000u128),
-                unbond_items: vec![UnbondItem {
-                    amount: Uint128::from(1000u128),
-                    sender: "some_sender".to_string(),
-                    expected_amount: Uint128::from(1000u128),
-                }],
+                total_unbond_items: 1,
                 status: UnbondBatchStatus::New,
                 expected_release: 0,
                 slashing_effect: None,
@@ -3062,7 +3030,7 @@ fn test_unbond() {
             &UnbondBatch {
                 total_amount: Uint128::from(0u128),
                 expected_amount: Uint128::from(0u128),
-                unbond_items: vec![],
+                total_unbond_items: 0,
                 status: UnbondBatchStatus::New,
                 expected_release: 0,
                 slashing_effect: None,
@@ -3174,11 +3142,7 @@ fn test_unbond() {
         UnbondBatch {
             total_amount: Uint128::from(1000u128),
             expected_amount: Uint128::from(1000u128),
-            unbond_items: vec![UnbondItem {
-                amount: Uint128::from(1000u128),
-                sender: "some_sender".to_string(),
-                expected_amount: Uint128::from(1000u128),
-            },],
+            total_unbond_items: 1,
             status: UnbondBatchStatus::New,
             expected_release: 0,
             slashing_effect: None,
@@ -3225,7 +3189,7 @@ mod process_emergency_batch {
                         total_amount: Uint128::new(100),
                         expected_amount: Uint128::new(100),
                         expected_release: 200,
-                        unbond_items: vec![],
+                        total_unbond_items: 0,
                         status,
                         slashing_effect: None,
                         unbonded_amount: None,
@@ -3326,7 +3290,7 @@ mod process_emergency_batch {
                 total_amount: Uint128::new(100),
                 expected_amount: Uint128::new(100),
                 expected_release: 200,
-                unbond_items: vec![],
+                total_unbond_items: 0,
                 status: UnbondBatchStatus::Withdrawn,
                 slashing_effect: Some(Decimal::one()),
                 unbonded_amount: Some(Uint128::new(100)),
@@ -3357,7 +3321,7 @@ mod process_emergency_batch {
                 total_amount: Uint128::new(100),
                 expected_amount: Uint128::new(100),
                 expected_release: 200,
-                unbond_items: vec![],
+                total_unbond_items: 0,
                 status: UnbondBatchStatus::Withdrawn,
                 slashing_effect: Some(Decimal::from_ratio(70u128, 100u128)),
                 unbonded_amount: Some(Uint128::new(70)),

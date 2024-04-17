@@ -1057,8 +1057,7 @@ describe('Core', () => {
   });
 
   it('validate unbonding batch', async () => {
-    const { coreContractClient, neutronUserAddress } = context;
-    const batch = await coreContractClient.queryUnbondBatch({
+    const batch = await context.coreContractClient.queryUnbondBatch({
       batch_id: '0',
     });
     expect(batch).toBeTruthy();
@@ -1069,18 +1068,7 @@ describe('Core', () => {
       status: 'new',
       total_amount: '500000',
       expected_amount: '500000',
-      unbond_items: [
-        {
-          amount: '200000',
-          expected_amount: '200000',
-          sender: neutronUserAddress,
-        },
-        {
-          amount: '300000',
-          expected_amount: '300000',
-          sender: neutronUserAddress,
-        },
-      ],
+      total_unbond_items: 2,
       unbonded_amount: null,
       withdrawed_amount: null,
     });
@@ -1338,18 +1326,7 @@ describe('Core', () => {
           expected_release: 0,
           total_amount: '500000',
           expected_amount: '500000',
-          unbond_items: [
-            {
-              amount: '200000',
-              expected_amount: '200000',
-              sender: context.neutronUserAddress,
-            },
-            {
-              amount: '300000',
-              expected_amount: '300000',
-              sender: context.neutronUserAddress,
-            },
-          ],
+          total_unbond_items: 2,
           unbonded_amount: null,
           withdrawed_amount: null,
         });
@@ -1391,18 +1368,7 @@ describe('Core', () => {
           expected_release: expect.any(Number),
           total_amount: '500000',
           expected_amount: '500000',
-          unbond_items: [
-            {
-              amount: '200000',
-              expected_amount: '200000',
-              sender: context.neutronUserAddress,
-            },
-            {
-              amount: '300000',
-              expected_amount: '300000',
-              sender: context.neutronUserAddress,
-            },
-          ],
+          total_unbond_items: 2,
           unbonded_amount: null,
           withdrawed_amount: null,
         });
@@ -2255,8 +2221,7 @@ describe('Core', () => {
         expect(state).toEqual('staking_rewards');
       });
       it('validate unbonding batch', async () => {
-        const { coreContractClient, neutronUserAddress } = context;
-        const batch = await coreContractClient.queryUnbondBatch({
+        const batch = await context.coreContractClient.queryUnbondBatch({
           batch_id: '0',
         });
         expect(batch).toEqual<UnbondBatch>({
@@ -2266,18 +2231,7 @@ describe('Core', () => {
           expected_release: expect.any(Number),
           total_amount: '500000',
           expected_amount: '500000',
-          unbond_items: [
-            {
-              amount: '200000',
-              expected_amount: '200000',
-              sender: neutronUserAddress,
-            },
-            {
-              amount: '300000',
-              expected_amount: '300000',
-              sender: neutronUserAddress,
-            },
-          ],
+          total_unbond_items: 2,
           unbonded_amount: '500000',
           withdrawed_amount: null,
         });

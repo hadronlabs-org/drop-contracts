@@ -397,14 +397,9 @@ export interface UnbondBatch {
   slashing_effect?: Decimal | null;
   status: UnbondBatchStatus;
   total_amount: Uint128;
-  unbond_items: UnbondItem[];
+  total_unbond_items: number;
   unbonded_amount?: Uint128 | null;
   withdrawed_amount?: Uint128 | null;
-}
-export interface UnbondItem {
-  amount: Uint128;
-  expected_amount: Uint128;
-  sender: string;
 }
 export interface UnbondBatchArgs {
   batch_id: Uint128;

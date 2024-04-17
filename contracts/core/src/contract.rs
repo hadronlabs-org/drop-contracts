@@ -12,7 +12,7 @@ use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
 use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::state::core::{
     unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem, UnbondBatch,
-    UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM,
+    UnbondBatchStatus, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM,
     LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE,
     LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, PRE_UNBONDING_BALANCE,
     TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
@@ -1063,11 +1063,7 @@ fn execute_unbond(
     let exchange_rate = query_exchange_rate(deps.as_ref(), env)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
     let expected_amount = amount * exchange_rate;
-    unbond_batch.unbond_items.push(UnbondItem {
-        sender: info.sender.to_string(),
-        amount,
-        expected_amount,
-    });
+    unbond_batch.total_unbond_items += 1;
     unbond_batch.total_amount += amount;
     unbond_batch.expected_amount += expected_amount;
 
@@ -1111,7 +1107,7 @@ fn execute_unbond(
                     + "_"
                     + info.sender.to_string().as_str()
                     + "_"
-                    + &unbond_batch.unbond_items.len().to_string(),
+                    + &unbond_batch.total_unbond_items.to_string(),
                 token_uri: None,
                 extension,
             })?,
@@ -1225,7 +1221,7 @@ fn get_unbonding_msg<T>(
         .unwrap_or(UNBOND_BATCH_ID.load(deps.storage)?);
     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
     if (unbond.created + config.unbond_batch_switch_time < env.block.time.seconds())
-        && !unbond.unbond_items.is_empty()
+        && unbond.total_unbond_items != 0
         && !unbond.total_amount.is_zero()
     {
         let (pre_unbonding_balance, _, _) = get_ica_balance_by_denom(
@@ -1333,7 +1329,7 @@ fn new_unbond(now: u64) -> UnbondBatch {
     UnbondBatch {
         total_amount: Uint128::zero(),
         expected_amount: Uint128::zero(),
-        unbond_items: vec![],
+        total_unbond_items: 0,
         status: UnbondBatchStatus::New,
         expected_release: 0,
         slashing_effect: None,
