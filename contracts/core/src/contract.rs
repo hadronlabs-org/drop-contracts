@@ -10,7 +10,6 @@ use drop_helpers::answer::response;
 use drop_helpers::pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse};
 use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
 use drop_puppeteer_base::state::RedeemShareItem;
-use drop_staking_base::msg::core::LastStakerResponse;
 use drop_staking_base::state::core::{
     unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem, UnbondBatch,
     UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM,
@@ -22,7 +21,7 @@ use drop_staking_base::state::validatorset::ValidatorInfo;
 use drop_staking_base::state::withdrawal_voucher::{Metadata, Trait};
 use drop_staking_base::{
     msg::{
-        core::{ExecuteMsg, InstantiateMsg, LastPuppeteerResponse, QueryMsg},
+        core::{ExecuteMsg, LastStakerResponse, InstantiateMsg, LastPuppeteerResponse, QueryMsg},
         token::ExecuteMsg as TokenExecuteMsg,
         withdrawal_voucher::ExecuteMsg as VoucherExecuteMsg,
     },
@@ -130,10 +129,12 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<De
     let ld_total_supply: cosmwasm_std::SupplyResponse = deps
         .querier
         .query(&QueryRequest::Bank(BankQuery::Supply { denom: ld_denom }))?;
-    let ld_total_amount = ld_total_supply.amount.amount;
-    if ld_total_amount.is_zero() {
+
+    let exchange_rate_denominator = ld_total_supply.amount.amount;
+    if exchange_rate_denominator.is_zero() {
         return Ok(Decimal::one());
     }
+
     let delegations = deps
         .querier
         .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
@@ -171,11 +172,15 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<De
         &drop_staking_base::msg::staker::QueryMsg::AllBalance {},
     )?;
     let total_lsm_shares = Uint128::new(TOTAL_LSM_SHARES.load(deps.storage)?);
-    let exchange_rate = Decimal::from_ratio(
-        delegations_amount + staker_balance + total_lsm_shares - unprocessed_unbonded_amount,
-        ld_total_amount,
-    );
-    Ok(exchange_rate) // arithmetic operations order is important here as we don't want to overflow
+    // arithmetic operations order is important here as we don't want to overflow
+    let exchange_rate_numerator = delegations_amount + staker_balance + total_lsm_shares
+        - unprocessed_unbonded_amount;
+    if exchange_rate_numerator.is_zero() {
+        return Ok(Decimal::one());
+    }
+
+    let exchange_rate = Decimal::from_ratio(exchange_rate_numerator, exchange_rate_denominator);
+    Ok(exchange_rate)
 }
 
 fn cache_exchange_rate(deps: DepsMut<NeutronQuery>, env: Env) -> ContractResult<()> {
