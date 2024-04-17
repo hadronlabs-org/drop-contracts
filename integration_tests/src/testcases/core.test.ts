@@ -90,6 +90,7 @@ describe('Core', () => {
       withdrawalVoucher?: number;
       withdrawalManager?: number;
       strategy?: number;
+      staker?: number;
       puppeteer?: number;
       validatorsSet?: number;
       distribution?: number;
@@ -282,6 +283,15 @@ describe('Core', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.rewardsManager = res.codeId;
     }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(join(__dirname, '../../../artifacts/drop_staker.wasm')),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.staker = res.codeId;
+    }
 
     const res = await client.upload(
       account.address,
@@ -301,6 +311,7 @@ describe('Core', () => {
           withdrawal_voucher_code_id: context.codeIds.withdrawalVoucher,
           withdrawal_manager_code_id: context.codeIds.withdrawalManager,
           strategy_code_id: context.codeIds.strategy,
+          staker_code_id: context.codeIds.staker,
           distribution_code_id: context.codeIds.distribution,
           validators_set_code_id: context.codeIds.validatorsSet,
           puppeteer_code_id: context.codeIds.puppeteer,
@@ -312,6 +323,12 @@ describe('Core', () => {
           port_id: 'transfer',
           denom: 'stake',
           update_period: 2,
+          ibc_fees: {
+            timeout_fee: '10000',
+            ack_fee: '10000',
+            recv_fee: '0',
+            register_fee: '1000000',
+          },
         },
         salt: 'salt',
         subdenom: 'drop',

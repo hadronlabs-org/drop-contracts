@@ -152,6 +152,12 @@ describe('Interchain puppeteer', () => {
             context.hookContractClient.contractAddress,
             account.address,
           ],
+          ibc_fees: {
+            timeout_fee: '10000',
+            ack_fee: '10000',
+            recv_fee: '0',
+            register_fee: '1000000',
+          },
         },
         'label',
         'auto',
