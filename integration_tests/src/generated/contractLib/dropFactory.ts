@@ -24,9 +24,6 @@ export type PauseInfoResponse1 =
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type CallbackArgs = {
-  post_init: {};
-};
 export type UpdateConfigArgs =
   | {
       core: ConfigOptional;
@@ -778,7 +775,7 @@ export type Expiration =
 
 export interface DropFactorySchema {
   responses: PauseInfoResponse | State;
-  execute: InitArgs | CallbackArgs | UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
+  execute: InitArgs | UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
@@ -829,7 +826,6 @@ export interface ConfigOptional {
   fee?: Decimal | null;
   fee_address?: string | null;
   idle_min_interval?: number | null;
-  ld_denom?: string | null;
   lsm_min_bond_amount?: Uint128 | null;
   lsm_redeem_maximum_interval?: number | null;
   lsm_redeem_threshold?: number | null;
@@ -1356,10 +1352,6 @@ export class Client {
   init = async(sender:string, args: InitArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { init: args }, fee || "auto", memo, funds);
-  }
-  callback = async(sender:string, args: CallbackArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { callback: args }, fee || "auto", memo, funds);
   }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

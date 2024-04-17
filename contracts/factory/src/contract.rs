@@ -1,8 +1,8 @@
 use crate::{
     error::ContractResult,
     msg::{
-        CallbackMsg, CoreParams, ExecuteMsg, InstantiateMsg, ProxyMsg, QueryMsg, StakerParams,
-        UpdateConfigMsg, ValidatorSetMsg,
+        CoreParams, ExecuteMsg, InstantiateMsg, ProxyMsg, QueryMsg, StakerParams, UpdateConfigMsg,
+        ValidatorSetMsg,
     },
     state::{Config, State, CONFIG, STATE},
 };
@@ -13,19 +13,13 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
 use drop_staking_base::msg::{
-    core::{
-        ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg,
-        QueryMsg as CoreQueryMsg,
-    },
+    core::{InstantiateMsg as CoreInstantiateMsg, QueryMsg as CoreQueryMsg},
     distribution::InstantiateMsg as DistributionInstantiateMsg,
     puppeteer::InstantiateMsg as PuppeteerInstantiateMsg,
     rewards_manager::{InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg},
     staker::InstantiateMsg as StakerInstantiateMsg,
     strategy::InstantiateMsg as StrategyInstantiateMsg,
-    token::{
-        ConfigResponse as TokenConfigResponse, InstantiateMsg as TokenInstantiateMsg,
-        QueryMsg as TokenQueryMsg,
-    },
+    token::InstantiateMsg as TokenInstantiateMsg,
     validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
     withdrawal_manager::{
         InstantiateMsg as WithdrawalManagerInstantiateMsg, QueryMsg as WithdrawalManagerQueryMsg,
@@ -112,9 +106,6 @@ pub fn execute(
             core_params,
             staker_params,
         } => execute_init(deps, env, info, base_denom, core_params, staker_params),
-        ExecuteMsg::Callback(msg) => match msg {
-            CallbackMsg::PostInit {} => execute_post_init(deps, env, info),
-        },
         ExecuteMsg::UpdateOwnership(action) => {
             cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
             Ok(response::<(&str, &str), _>(
@@ -603,37 +594,9 @@ fn execute_init(
             funds: vec![],
             salt: Binary::from(salt),
         }),
-        CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: env.contract.address.to_string(),
-            msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::PostInit {}))?,
-            funds: vec![],
-        }),
     ];
 
     Ok(response("execute-init", CONTRACT_NAME, attrs).add_messages(msgs))
-}
-
-fn execute_post_init(
-    deps: DepsMut,
-    _env: Env,
-    _info: MessageInfo,
-) -> ContractResult<Response<NeutronMsg>> {
-    let attrs = vec![attr("action", "post_init")];
-    let state = STATE.load(deps.storage)?;
-    let token_config: TokenConfigResponse = deps
-        .querier
-        .query_wasm_smart(state.token_contract, &TokenQueryMsg::Config {})?;
-    let core_update_msg = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: state.core_contract,
-        msg: to_json_binary(&CoreExecuteMsg::UpdateConfig {
-            new_config: Box::new(drop_staking_base::state::core::ConfigOptional {
-                ld_denom: Some(token_config.denom),
-                ..drop_staking_base::state::core::ConfigOptional::default()
-            }),
-        })?,
-        funds: vec![],
-    });
-    Ok(response("execute-post_init", CONTRACT_NAME, attrs).add_message(core_update_msg))
 }
 
 fn get_code_checksum(deps: Deps, code_id: u64) -> NeutronResult<HexBinary> {

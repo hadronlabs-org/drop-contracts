@@ -116,7 +116,6 @@ impl From<InstantiateMsg> for Config {
             base_denom: val.base_denom,
             remote_denom: val.remote_denom,
             channel: val.channel,
-            ld_denom: None,
             idle_min_interval: val.idle_min_interval,
             unbonding_safe_period: val.unbonding_safe_period,
             unbonding_period: val.unbonding_period,

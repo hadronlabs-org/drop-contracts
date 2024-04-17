@@ -21,8 +21,11 @@ use drop_staking_base::state::validatorset::ValidatorInfo;
 use drop_staking_base::state::withdrawal_voucher::{Metadata, Trait};
 use drop_staking_base::{
     msg::{
-        core::{ExecuteMsg, LastStakerResponse, InstantiateMsg, LastPuppeteerResponse, QueryMsg},
-        token::ExecuteMsg as TokenExecuteMsg,
+        core::{ExecuteMsg, InstantiateMsg, LastPuppeteerResponse, LastStakerResponse, QueryMsg},
+        token::{
+            ConfigResponse as TokenConfigResponse, ExecuteMsg as TokenExecuteMsg,
+            QueryMsg as TokenQueryMsg,
+        },
         withdrawal_voucher::ExecuteMsg as VoucherExecuteMsg,
     },
     state::core::LAST_IDLE_CALL,
@@ -66,7 +69,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResult<Binary> {
+pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     Ok(match msg {
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?)?,
         QueryMsg::Owner {} => to_json_binary(
@@ -78,7 +81,17 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::PendingLSMShares {} => query_pending_lsm_shares(deps)?,
         QueryMsg::LSMSharesToRedeem {} => query_lsm_shares_to_redeem(deps)?,
         QueryMsg::TotalBonded {} => to_json_binary(&BONDED_AMOUNT.load(deps.storage)?)?,
-        QueryMsg::ExchangeRate {} => to_json_binary(&query_exchange_rate(deps, env)?)?,
+        QueryMsg::ExchangeRate {} => {
+            let config = CONFIG.load(deps.storage)?;
+            let ld_denom = deps
+                .querier
+                .query_wasm_smart::<TokenConfigResponse>(
+                    &config.token_contract,
+                    &TokenQueryMsg::Config {},
+                )?
+                .denom;
+            to_json_binary(&query_exchange_rate(deps, &config, ld_denom)?)?
+        }
         QueryMsg::UnbondBatch { batch_id } => query_unbond_batch(deps, batch_id)?,
         QueryMsg::NonNativeRewardsReceivers {} => {
             to_json_binary(&NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?)?
@@ -116,7 +129,11 @@ fn query_lsm_shares_to_redeem(deps: Deps<NeutronQuery>) -> ContractResult<Binary
     to_json_binary(&shares).map_err(From::from)
 }
 
-fn query_exchange_rate(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Decimal> {
+fn query_exchange_rate(
+    deps: Deps<NeutronQuery>,
+    config: &Config,
+    ld_denom: String,
+) -> ContractResult<Decimal> {
     let fsm_state = FSM.get_current_state(deps.storage)?;
     if fsm_state != ContractState::Idle {
         return Ok(EXCHANGE_RATE
@@ -124,8 +141,6 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<De
             .unwrap_or((Decimal::one(), 0))
             .0);
     }
-    let config = CONFIG.load(deps.storage)?;
-    let ld_denom = config.ld_denom.ok_or(ContractError::LDDenomIsNotSet {})?;
     let ld_total_supply: cosmwasm_std::SupplyResponse = deps
         .querier
         .query(&QueryRequest::Bank(BankQuery::Supply { denom: ld_denom }))?;
@@ -138,7 +153,7 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<De
     let delegations = deps
         .querier
         .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
-            config.puppeteer_contract.to_string(),
+            &config.puppeteer_contract,
             &drop_puppeteer_base::msg::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
@@ -168,13 +183,13 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<De
         unprocessed_unbonded_amount += failed_batch.total_amount;
     }
     let staker_balance: Uint128 = deps.querier.query_wasm_smart(
-        config.staker_contract,
+        &config.staker_contract,
         &drop_staking_base::msg::staker::QueryMsg::AllBalance {},
     )?;
     let total_lsm_shares = Uint128::new(TOTAL_LSM_SHARES.load(deps.storage)?);
     // arithmetic operations order is important here as we don't want to overflow
-    let exchange_rate_numerator = delegations_amount + staker_balance + total_lsm_shares
-        - unprocessed_unbonded_amount;
+    let exchange_rate_numerator =
+        delegations_amount + staker_balance + total_lsm_shares - unprocessed_unbonded_amount;
     if exchange_rate_numerator.is_zero() {
         return Ok(Decimal::one());
     }
@@ -183,8 +198,13 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<De
     Ok(exchange_rate)
 }
 
-fn cache_exchange_rate(deps: DepsMut<NeutronQuery>, env: Env) -> ContractResult<()> {
-    let exchange_rate = query_exchange_rate(deps.as_ref(), env.clone())?;
+fn cache_exchange_rate(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    config: &Config,
+    ld_denom: String,
+) -> ContractResult<()> {
+    let exchange_rate = query_exchange_rate(deps.as_ref(), config, ld_denom)?;
     EXCHANGE_RATE.save(deps.storage, &(exchange_rate, env.block.height))?;
     Ok(())
 }
@@ -201,8 +221,8 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::Bond { receiver, r#ref } => execute_bond(deps, env, info, receiver, r#ref),
-        ExecuteMsg::Unbond {} => execute_unbond(deps, env, info),
+        ExecuteMsg::Bond { receiver, r#ref } => execute_bond(deps, info, receiver, r#ref),
+        ExecuteMsg::Unbond {} => execute_unbond(deps, info),
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, *new_config),
         ExecuteMsg::UpdateOwnership(action) => {
             cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
@@ -475,7 +495,11 @@ fn execute_tick_idle(
     let mut attrs = vec![attr("action", "tick_idle")];
     let last_idle_call = LAST_IDLE_CALL.load(deps.storage)?;
     let mut messages = vec![];
-    cache_exchange_rate(deps.branch(), env.clone())?;
+    let ld_denom = deps
+        .querier
+        .query_wasm_smart::<TokenConfigResponse>(&config.token_contract, &TokenQueryMsg::Config {})?
+        .denom;
+    cache_exchange_rate(deps.branch(), env.clone(), config, ld_denom)?;
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
         //process non-native rewards
         if let Some(transfer_msg) =
@@ -838,7 +862,6 @@ fn execute_tick_unbonding(
 
 fn execute_bond(
     deps: DepsMut<NeutronQuery>,
-    env: Env,
     info: MessageInfo,
     receiver: Option<String>,
     r#ref: Option<String>,
@@ -869,14 +892,18 @@ fn execute_bond(
     } else {
         // if it's not LSM share, we send this amount to the staker
         msgs.push(CosmosMsg::Bank(BankMsg::Send {
-            to_address: config.staker_contract,
+            to_address: config.staker_contract.to_string(),
             amount: vec![Coin::new(amount.u128(), denom)],
         }));
     }
 
     let mut attrs = vec![attr("action", "bond")];
 
-    let exchange_rate = query_exchange_rate(deps.as_ref(), env)?;
+    let ld_denom = deps
+        .querier
+        .query_wasm_smart::<TokenConfigResponse>(&config.token_contract, &TokenQueryMsg::Config {})?
+        .denom;
+    let exchange_rate = query_exchange_rate(deps.as_ref(), &config, ld_denom)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
 
     let issue_amount = amount * (Decimal::one() / exchange_rate);
@@ -1018,10 +1045,6 @@ fn execute_update_config(
             }
         };
     }
-    if let Some(ld_denom) = new_config.ld_denom {
-        attrs.push(attr("ld_denom", &ld_denom));
-        config.ld_denom = Some(ld_denom);
-    }
     if let Some(channel) = new_config.channel {
         attrs.push(attr("channel", &channel));
         config.channel = channel;
@@ -1050,17 +1073,19 @@ fn execute_update_config(
 
 fn execute_unbond(
     deps: DepsMut<NeutronQuery>,
-    env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut attrs = vec![attr("action", "unbond")];
     let unbond_batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
-    let ld_denom = config.ld_denom.ok_or(ContractError::LDDenomIsNotSet {})?;
+    let ld_denom = deps
+        .querier
+        .query_wasm_smart::<TokenConfigResponse>(&config.token_contract, &TokenQueryMsg::Config {})?
+        .denom;
     let amount = cw_utils::must_pay(&info, &ld_denom)?;
     BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total - amount))?;
     let mut unbond_batch = unbond_batches_map().load(deps.storage, unbond_batch_id)?;
-    let exchange_rate = query_exchange_rate(deps.as_ref(), env)?;
+    let exchange_rate = query_exchange_rate(deps.as_ref(), &config, ld_denom.clone())?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
     let expected_amount = amount * exchange_rate;
     unbond_batch.total_unbond_items += 1;

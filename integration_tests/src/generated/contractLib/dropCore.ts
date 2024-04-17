@@ -291,7 +291,6 @@ export interface Config {
   fee?: Decimal | null;
   fee_address?: string | null;
   idle_min_interval: number;
-  ld_denom?: string | null;
   lsm_min_bond_amount: Uint128;
   lsm_redeem_maximum_interval: number;
   lsm_redeem_threshold: number;
@@ -419,7 +418,6 @@ export interface ConfigOptional {
   fee?: Decimal | null;
   fee_address?: string | null;
   idle_min_interval?: number | null;
-  ld_denom?: string | null;
   lsm_min_bond_amount?: Uint128 | null;
   lsm_redeem_maximum_interval?: number | null;
   lsm_redeem_threshold?: number | null;

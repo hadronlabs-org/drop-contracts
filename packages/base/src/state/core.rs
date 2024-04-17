@@ -26,7 +26,6 @@ pub struct Config {
     pub unbond_batch_switch_time: u64, //seconds
     pub pump_address: Option<String>,
     pub channel: String,
-    pub ld_denom: Option<String>,
     pub lsm_min_bond_amount: Uint128,
     pub lsm_redeem_threshold: u64,
     pub lsm_redeem_maximum_interval: u64, //seconds

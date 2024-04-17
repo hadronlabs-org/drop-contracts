@@ -17,11 +17,6 @@ pub struct InstantiateMsg {
 }
 
 #[cw_serde]
-pub enum CallbackMsg {
-    PostInit {},
-}
-
-#[cw_serde]
 pub struct CoreParams {
     pub idle_min_interval: u64,
     pub puppeteer_timeout: u64,
@@ -91,7 +86,6 @@ pub enum ExecuteMsg {
         core_params: CoreParams,
         staker_params: StakerParams,
     },
-    Callback(CallbackMsg),
     UpdateConfig(Box<UpdateConfigMsg>),
     Proxy(ProxyMsg),
     AdminExecute {

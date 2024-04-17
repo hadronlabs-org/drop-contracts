@@ -5,7 +5,7 @@ use crate::{
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockStorage},
-    to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, Event, MessageInfo, OwnedDeps,
+    to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Decimal, Event, MessageInfo, OwnedDeps,
     Response, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
@@ -53,7 +53,6 @@ fn get_default_config(fee: Option<Decimal>) -> Config {
         unbonding_safe_period: 10,
         unbond_batch_switch_time: 6000,
         pump_address: None,
-        ld_denom: None,
         channel: "channel".to_string(),
         fee,
         fee_address: Some("fee_address".to_string()),
@@ -73,6 +72,14 @@ fn setup_config(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier, Neut
             &get_default_config(Decimal::from_atomics(1u32, 1).ok()),
         )
         .unwrap();
+}
+
+fn mock_token_query_config(_: &Binary) -> Binary {
+    to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
+        core_address: "core_contract".to_string(),
+        denom: "ld_denom".to_string(),
+    })
+    .unwrap()
 }
 
 #[test]
@@ -393,7 +400,6 @@ fn test_update_config() {
         unbonding_safe_period: Some(20),
         unbond_batch_switch_time: Some(12000),
         pump_address: Some("new_pump_address".to_string()),
-        ld_denom: Some("new_ld_denom".to_string()),
         channel: Some("new_channel".to_string()),
         fee: Some(Decimal::from_atomics(2u32, 1).unwrap()),
         fee_address: Some("new_fee_address".to_string()),
@@ -420,7 +426,6 @@ fn test_update_config() {
         unbonding_safe_period: 20,
         unbond_batch_switch_time: 12000,
         pump_address: Some("new_pump_address".to_string()),
-        ld_denom: Some("new_ld_denom".to_string()),
         channel: "new_channel".to_string(),
         fee: Some(Decimal::from_atomics(2u32, 1).unwrap()),
         fee_address: Some("new_fee_address".to_string()),
@@ -501,6 +506,8 @@ fn test_execute_tick_idle_non_native_rewards() {
             ))
             .unwrap()
         });
+    deps.querier
+        .add_wasm_query_response("token_contract", mock_token_query_config);
 
     CONFIG
         .save(
@@ -521,7 +528,6 @@ fn test_execute_tick_idle_non_native_rewards() {
                 unbonding_safe_period: 10,
                 unbond_batch_switch_time: 6000,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -646,6 +652,8 @@ fn test_execute_tick_idle_non_native_rewards() {
 #[test]
 fn test_execute_tick_idle_get_pending_lsm_shares_transfer() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("token_contract", mock_token_query_config);
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -665,7 +673,6 @@ fn test_execute_tick_idle_get_pending_lsm_shares_transfer() {
                 unbonding_safe_period: 10,
                 unbond_batch_switch_time: 6000,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -752,7 +759,6 @@ fn test_idle_tick_pending_lsm_redeem() {
                 unbonding_safe_period: 10,
                 unbond_batch_switch_time: 6000,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -788,6 +794,8 @@ fn test_idle_tick_pending_lsm_redeem() {
         .unwrap();
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(100);
+    deps.querier
+        .add_wasm_query_response("token_contract", mock_token_query_config);
     let res = execute(
         deps.as_mut(),
         env.clone(),
@@ -809,6 +817,8 @@ fn test_idle_tick_pending_lsm_redeem() {
             &("local_denom_3".to_string(), Uint128::from(100u128)),
         )
         .unwrap();
+    deps.querier
+        .add_wasm_query_response("token_contract", mock_token_query_config);
     let res = execute(
         deps.as_mut(),
         env,
@@ -909,6 +919,8 @@ fn test_tick_idle_unbonding_close() {
             ))
             .unwrap()
         });
+    deps.querier
+        .add_wasm_query_response("token_contract", mock_token_query_config);
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -928,7 +940,6 @@ fn test_tick_idle_unbonding_close() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 6000,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -987,6 +998,8 @@ fn test_tick_idle_unbonding_close() {
 #[test]
 fn test_tick_idle_claim_wo_unbond() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("token_contract", mock_token_query_config);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&(
@@ -1058,7 +1071,6 @@ fn test_tick_idle_claim_wo_unbond() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 6000,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -1188,6 +1200,8 @@ fn test_tick_idle_claim_with_unbond_transfer() {
             ))
             .unwrap()
         });
+    deps.querier
+        .add_wasm_query_response("token_contract", mock_token_query_config);
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -1207,7 +1221,6 @@ fn test_tick_idle_claim_with_unbond_transfer() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 600,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -1345,6 +1358,8 @@ fn test_tick_idle_staking_bond() {
             ))
             .unwrap()
         });
+    deps.querier
+        .add_wasm_query_response("token_contract", mock_token_query_config);
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -1364,7 +1379,6 @@ fn test_tick_idle_staking_bond() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 600,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -1498,6 +1512,8 @@ fn test_tick_idle_staking() {
             ])
             .unwrap()
         });
+    deps.querier
+        .add_wasm_query_response("token_contract", mock_token_query_config);
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -1517,7 +1533,6 @@ fn test_tick_idle_staking() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 600,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -1578,6 +1593,8 @@ fn test_tick_idle_staking() {
 #[test]
 fn test_tick_idle_unbonding() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("token_contract", mock_token_query_config);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&(
@@ -1673,7 +1690,6 @@ fn test_tick_idle_unbonding() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 6000,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -1772,7 +1788,6 @@ fn test_tick_no_puppeteer_response() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 600,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -1860,7 +1875,6 @@ fn test_tick_claiming_wo_transfer_stake() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 600,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: None,
                 fee_address: None,
@@ -2002,7 +2016,6 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 6000,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: None,
                 fee_address: None,
@@ -2150,7 +2163,6 @@ fn test_tick_claiming_wo_idle() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 60000,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: None,
                 fee_address: None,
@@ -2244,7 +2256,6 @@ fn test_execute_tick_transfering_no_puppeteer_response() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 600,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -2294,7 +2305,6 @@ fn test_execute_tick_staking_no_puppeteer_response() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 600,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -2411,7 +2421,6 @@ fn test_tick_staking_to_unbonding() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 1000,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -2563,7 +2572,6 @@ fn test_tick_staking_to_idle() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 10000,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -2636,7 +2644,6 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 600,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -2667,6 +2674,8 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
 #[test]
 fn test_bond_wo_receiver() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("token_contract", mock_token_query_config);
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -2693,7 +2702,6 @@ fn test_bond_wo_receiver() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 600,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -2747,6 +2755,8 @@ fn test_bond_wo_receiver() {
 #[test]
 fn test_bond_with_receiver() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("token_contract", mock_token_query_config);
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -2773,7 +2783,6 @@ fn test_bond_with_receiver() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 600,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -2873,7 +2882,6 @@ fn test_bond_lsm_share_wrong_validator() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 600,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -2902,6 +2910,8 @@ fn test_bond_lsm_share_wrong_validator() {
 #[test]
 fn test_bond_lsm_share_ok() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("token_contract", mock_token_query_config);
     deps.querier.add_stargate_query_response(
         "/ibc.applications.transfer.v1.Query/DenomTrace",
         |_data| {
@@ -2963,7 +2973,6 @@ fn test_bond_lsm_share_ok() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 600,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
@@ -3015,6 +3024,8 @@ fn test_bond_lsm_share_ok() {
 #[test]
 fn test_unbond() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("token_contract", mock_token_query_config);
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -3059,7 +3070,6 @@ fn test_unbond() {
                 unbonding_safe_period: 100,
                 unbond_batch_switch_time: 600,
                 pump_address: Some("pump_address".to_string()),
-                ld_denom: Some("ld_denom".to_string()),
                 channel: "channel".to_string(),
                 fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
                 fee_address: Some("fee_address".to_string()),
