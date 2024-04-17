@@ -1,6 +1,6 @@
-use crate::state::{pump::IBCFees, staker::ConfigOptional};
+use crate::state::{staker::ConfigOptional, staker::IBCFees};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Uint128;
+use cosmwasm_std::{Addr, Uint128};
 
 #[cw_ownable::cw_ownable_query]
 #[cw_serde]
@@ -9,7 +9,7 @@ pub enum QueryMsg {
     #[returns(crate::state::pump::Config)]
     Config {},
     #[returns(Uint128)]
-    BalanceInProgress {},
+    NonStakedBalance {},
     #[returns(drop_helpers::ica::IcaState)]
     Ica {},
 }
@@ -28,22 +28,23 @@ pub struct OpenAckVersion {
 #[cw_serde]
 pub enum ExecuteMsg {
     RegisterICA {},
-    Stake {},
-    BalanceInProgress {},
+    Stake { items: Vec<(String, Uint128)> },
+    IBCTransfer {},
     UpdateConfig { new_config: Box<ConfigOptional> },
 }
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub dest_address: Option<String>,
-    pub dest_channel: Option<String>,
-    pub dest_port: Option<String>,
     pub connection_id: String,
+    pub port_id: String,
     pub ibc_fees: IBCFees,
     pub timeout: u64,
     pub local_denom: String,
     pub remote_denom: String,
+    pub base_denom: String,
+    pub transfer_channel_id: String,
     pub owner: Option<String>,
+    pub allowed_addresses: Vec<Addr>,
 }
 
 #[cw_serde]

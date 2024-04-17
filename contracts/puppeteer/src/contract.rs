@@ -27,6 +27,7 @@ use drop_helpers::{
         new_delegations_and_balance_query_msg, new_multiple_balances_query_msg,
         update_balance_and_delegations_query_msg, update_multiple_balances_query_msg,
     },
+    interchain_tx::prepare_any_msg,
 };
 use drop_puppeteer_base::{
     error::{ContractError, ContractResult},
@@ -57,7 +58,7 @@ use neutron_sdk::{
     },
     interchain_txs::helpers::decode_message_response,
     sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg},
-    NeutronError, NeutronResult,
+    NeutronResult,
 };
 use prost::Message;
 use std::{str::FromStr, vec};
@@ -595,7 +596,7 @@ fn execute_grant_delegate(
         any_msgs,
         Transaction::GrantDelegate {
             interchain_account_id: ica.to_string(),
-            grantee: grantee,
+            grantee,
         },
         timeout,
         reply_to,
@@ -889,20 +890,6 @@ fn execute_redeem_shares(
     Ok(Response::default()
         .add_submessages(vec![submsg])
         .add_attributes(attrs))
-}
-
-fn prepare_any_msg<T: prost::Message>(msg: T, type_url: &str) -> NeutronResult<ProtobufAny> {
-    let mut buf = Vec::with_capacity(msg.encoded_len());
-
-    if let Err(e) = msg.encode(&mut buf) {
-        return Err(NeutronError::Std(StdError::generic_err(format!(
-            "Encode error: {e}"
-        ))));
-    }
-    Ok(ProtobufAny {
-        type_url: type_url.to_string(),
-        value: Binary::from(buf),
-    })
 }
 
 fn compose_submsg(
