@@ -13,6 +13,12 @@ pub enum ContractError {
 
     #[error("{0}")]
     OwnershipError(#[from] OwnershipError),
+
+    #[error("Incoming deposit and calculated deposit are not equal")]
+    WrongDepositAndCalculation {},
+
+    #[error("Incoming withdraw and calculated withdraw are not equal")]
+    WrongWithdrawAndCalculation {},
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

@@ -10,7 +10,7 @@ use drop_staking_base::msg::validatorset::{
 };
 use drop_staking_base::state::provider_proposals::ProposalInfo;
 use drop_staking_base::state::validatorset::{
-    Config, ConfigOptional, ValidatorInfo, CONFIG, VALIDATORS_SET,
+    Config, ConfigOptional, ValidatorInfo, CONFIG, VALIDATORS_LIST, VALIDATORS_SET,
 };
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -64,12 +64,8 @@ fn query_validator(deps: Deps<NeutronQuery>, valoper: String) -> ContractResult<
 }
 
 fn query_validators(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let validators: StdResult<Vec<_>> = VALIDATORS_SET
-        .range_raw(deps.storage, None, None, Order::Ascending)
-        .map(|item| item.map(|(_key, value)| value))
-        .collect();
-
-    Ok(to_json_binary(&validators?)?)
+    let validators = VALIDATORS_LIST.load(deps.storage)?;
+    Ok(to_json_binary(&validators)?)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -157,6 +153,8 @@ fn execute_update_validator(
         },
     )?;
 
+    update_validators_list(deps)?;
+
     Ok(response(
         "update_validator",
         CONTRACT_NAME,
@@ -201,6 +199,8 @@ fn execute_update_validators(
             },
         )?;
     }
+
+    update_validators_list(deps)?;
 
     Ok(response(
         "update_validators",
@@ -253,6 +253,8 @@ fn execute_update_validators_info(
 
         VALIDATORS_SET.save(deps.storage, validator.valoper_address.clone(), &validator)?;
     }
+
+    update_validators_list(deps)?;
 
     Ok(response(
         "update_validators_info",
@@ -307,6 +309,8 @@ fn execute_update_validators_voting(
         }
     }
 
+    update_validators_list(deps)?;
+
     Ok(response(
         "execute_update_validators_voting",
         CONTRACT_NAME,
@@ -315,6 +319,17 @@ fn execute_update_validators_voting(
             proposal.proposal.proposal_id.to_string(),
         )],
     ))
+}
+
+fn update_validators_list(deps: DepsMut<NeutronQuery>) -> StdResult<()> {
+    let validators: StdResult<Vec<_>> = VALIDATORS_SET
+        .range_raw(deps.storage, None, None, Order::Ascending)
+        .map(|item| item.map(|(_key, value)| value))
+        .collect();
+
+    VALIDATORS_LIST.save(deps.storage, &validators.unwrap_or_default())?;
+
+    Ok(())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

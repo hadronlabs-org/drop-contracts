@@ -1172,17 +1172,16 @@ pub fn get_stake_bond_msg<T>(
         if staker_pending_stake.is_zero() {
             return Ok(None);
         }
-        let to_delegate: Vec<drop_staking_base::msg::distribution::IdealDelegation> =
-            deps.querier.query_wasm_smart(
-                &config.strategy_contract,
-                &drop_staking_base::msg::strategy::QueryMsg::CalcDeposit {
-                    deposit: staker_pending_stake,
-                },
-            )?;
+        let to_delegate: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
+            &config.strategy_contract,
+            &drop_staking_base::msg::strategy::QueryMsg::CalcDeposit {
+                deposit: staker_pending_stake,
+            },
+        )?;
         return Ok(Some(CosmosMsg::<T>::Wasm(WasmMsg::Execute {
             contract_addr: config.staker_contract.to_string(),
             msg: to_json_binary(&drop_staking_base::msg::staker::ExecuteMsg::Stake {
-                items: ideal_delegation_to_stake_items(&to_delegate),
+                items: to_delegate,
             })?,
             funds: info.funds.clone(),
         })));
@@ -1219,13 +1218,12 @@ pub fn get_stake_rewards_msg<T>(
     let fee = config.fee.unwrap_or(Decimal::zero()) * balance;
     let deposit_amount = balance - fee;
 
-    let to_delegate: Vec<drop_staking_base::msg::distribution::IdealDelegation> =
-        deps.querier.query_wasm_smart(
-            &config.strategy_contract,
-            &drop_staking_base::msg::strategy::QueryMsg::CalcDeposit {
-                deposit: deposit_amount,
-            },
-        )?;
+    let to_delegate: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
+        &config.strategy_contract,
+        &drop_staking_base::msg::strategy::QueryMsg::CalcDeposit {
+            deposit: deposit_amount,
+        },
+    )?;
 
     let staking_fee: Option<(String, Uint128)> =
         if fee > Uint128::zero() && config.fee_address.is_some() {
@@ -1237,7 +1235,7 @@ pub fn get_stake_rewards_msg<T>(
     Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_contract.to_string(),
         msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
-            items: ideal_delegation_to_stake_items(&to_delegate),
+            items: to_delegate,
             fee: staking_fee,
             timeout: Some(config.puppeteer_timeout),
             reply_to: env.contract.address.to_string(),
@@ -1268,13 +1266,12 @@ fn get_unbonding_msg<T>(
             true,
         )?;
         PRE_UNBONDING_BALANCE.save(deps.storage, &pre_unbonding_balance)?;
-        let undelegations: Vec<drop_staking_base::msg::distribution::IdealDelegation> =
-            deps.querier.query_wasm_smart(
-                config.strategy_contract.to_string(),
-                &drop_staking_base::msg::strategy::QueryMsg::CalcWithdraw {
-                    withdraw: unbond.total_amount,
-                },
-            )?;
+        let undelegations: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
+            config.strategy_contract.to_string(),
+            &drop_staking_base::msg::strategy::QueryMsg::CalcWithdraw {
+                withdraw: unbond.total_amount,
+            },
+        )?;
         unbond.status = UnbondBatchStatus::UnbondRequested;
         unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
         UNBOND_BATCH_ID.save(deps.storage, &(batch_id + 1))?;
@@ -1286,10 +1283,7 @@ fn get_unbonding_msg<T>(
         Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.puppeteer_contract.to_string(),
             msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
-                items: undelegations
-                    .iter()
-                    .map(|d| (d.valoper_address.clone(), d.stake_change))
-                    .collect::<Vec<_>>(),
+                items: undelegations,
                 batch_id,
                 timeout: Some(config.puppeteer_timeout),
                 reply_to: env.contract.address.to_string(),
@@ -1515,15 +1509,6 @@ fn get_pending_lsm_share_msg<T, X: CustomQuery>(
         }
         None => Ok(None),
     }
-}
-
-fn ideal_delegation_to_stake_items(
-    ideal_delegation: &[drop_staking_base::msg::distribution::IdealDelegation],
-) -> Vec<(String, Uint128)> {
-    ideal_delegation
-        .iter()
-        .map(|d| (d.valoper_address.to_string(), d.stake_change))
-        .collect::<Vec<_>>()
 }
 
 pub mod check_denom {

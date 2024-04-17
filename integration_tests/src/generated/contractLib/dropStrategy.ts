@@ -15,8 +15,8 @@ import { Coin } from "@cosmjs/amino";
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type ArrayOfIdealDelegation = IdealDelegation[];
-export type ArrayOfIdealDelegation1 = IdealDelegation[];
+export type ArrayOfTupleOfStringAndUint128 = [string, Uint128][];
+export type ArrayOfTupleOfStringAndUint1281 = [string, Uint128][];
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -68,18 +68,11 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropStrategySchema {
-  responses: ArrayOfIdealDelegation | ArrayOfIdealDelegation1 | Config | OwnershipForString;
+  responses: ArrayOfTupleOfStringAndUint128 | ArrayOfTupleOfStringAndUint1281 | Config | OwnershipForString;
   query: CalcDepositArgs | CalcWithdrawArgs;
   execute: UpdateConfigArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
-}
-export interface IdealDelegation {
-  current_stake: Uint128;
-  ideal_stake: Uint128;
-  stake_change: Uint128;
-  valoper_address: string;
-  weight: number;
 }
 export interface Config {
   denom: string;
@@ -176,10 +169,10 @@ export class Client {
   queryConfig = async(): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
-  queryCalcDeposit = async(args: CalcDepositArgs): Promise<ArrayOfIdealDelegation> => {
+  queryCalcDeposit = async(args: CalcDepositArgs): Promise<ArrayOfTupleOfStringAndUint128> => {
     return this.client.queryContractSmart(this.contractAddress, { calc_deposit: args });
   }
-  queryCalcWithdraw = async(args: CalcWithdrawArgs): Promise<ArrayOfIdealDelegation> => {
+  queryCalcWithdraw = async(args: CalcWithdrawArgs): Promise<ArrayOfTupleOfStringAndUint128> => {
     return this.client.queryContractSmart(this.contractAddress, { calc_withdraw: args });
   }
   queryOwnership = async(): Promise<OwnershipForString> => {
