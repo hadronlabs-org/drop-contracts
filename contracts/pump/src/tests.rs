@@ -263,7 +263,7 @@ fn test_execute_refund_no_refundee() {
 }
 
 #[test]
-fn test_execute_refund_success() {
+fn test_execute_refund_success_refundee() {
     let msg = drop_staking_base::msg::pump::ExecuteMsg::Refund {
         coins: coins(200, "untrn"),
     };
@@ -271,7 +271,7 @@ fn test_execute_refund_success() {
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
-    let res = execute(deps.as_mut(), mock_env(), mock_info("nobody", &[]), msg).unwrap();
+    let res = execute(deps.as_mut(), mock_env(), mock_info("refundee", &[]), msg).unwrap();
     assert_eq!(
         res,
         Response::new()
@@ -284,6 +284,53 @@ fn test_execute_refund_success() {
                 amount: vec![Coin::new(200, "untrn")]
             }))
     );
+}
+
+#[test]
+fn test_execute_refund_success_owner() {
+    let msg = drop_staking_base::msg::pump::ExecuteMsg::Refund {
+        coins: coins(200, "untrn"),
+    };
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+    {
+        let deps = deps.as_mut();
+        cw_ownable::initialize_owner(deps.storage, deps.api, Some("owner")).unwrap();
+    }
+
+    let res = execute(deps.as_mut(), mock_env(), mock_info("owner", &[]), msg).unwrap();
+    assert_eq!(
+        res,
+        Response::new()
+            .add_event(
+                Event::new("crates.io:drop-neutron-contracts__drop-pump-refund")
+                    .add_attributes(vec![("action", "refund"), ("refundee", "refundee")])
+            )
+            .add_message(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "refundee".to_string(),
+                amount: vec![Coin::new(200, "untrn")]
+            }))
+    );
+}
+
+#[test]
+fn test_execute_refund_permission_denied() {
+    let msg = drop_staking_base::msg::pump::ExecuteMsg::Refund {
+        coins: coins(200, "untrn"),
+    };
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+    {
+        let deps = deps.as_mut();
+        cw_ownable::initialize_owner(deps.storage, deps.api, Some("owner")).unwrap();
+    }
+
+    let err = execute(deps.as_mut(), mock_env(), mock_info("nobody", &[]), msg).unwrap_err();
+    assert_eq!(err, crate::error::ContractError::Unauthorized {});
 }
 
 #[test]

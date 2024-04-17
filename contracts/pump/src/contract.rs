@@ -94,7 +94,7 @@ pub fn execute(
     match msg {
         ExecuteMsg::RegisterICA {} => execute_register_ica(deps, info),
         ExecuteMsg::Push { coins } => execute_push(deps, env, info, coins),
-        ExecuteMsg::Refund { coins } => execute_refund(deps, coins),
+        ExecuteMsg::Refund { coins } => execute_refund(deps, info, coins),
         ExecuteMsg::UpdateConfig { new_config } => {
             execute_update_config(deps, env, info, *new_config)
         }
@@ -111,10 +111,17 @@ pub fn execute(
 
 fn execute_refund(
     deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
     coins: Vec<Coin>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let refundee = config.refundee.ok_or(ContractError::RefundeeIsNotSet {})?;
+
+    // only allow either owner or refundee to execute this method
+    if cw_ownable::assert_owner(deps.storage, &info.sender).is_err() && info.sender != refundee {
+        return Err(ContractError::Unauthorized {});
+    }
+
     let attrs = vec![attr("action", "refund"), attr("refundee", &refundee)];
     let msg = CosmosMsg::Bank(cosmwasm_std::BankMsg::Send {
         to_address: refundee.into_string(),
