@@ -94,7 +94,7 @@ pub fn execute(
     match msg {
         ExecuteMsg::RegisterICA {} => execute_register_ica(deps, info),
         ExecuteMsg::Push { coins } => execute_push(deps, env, info, coins),
-        ExecuteMsg::Refund {} => execute_refund(deps, env),
+        ExecuteMsg::Refund { coins } => execute_refund(deps, coins),
         ExecuteMsg::UpdateConfig { new_config } => {
             execute_update_config(deps, env, info, *new_config)
         }
@@ -109,19 +109,16 @@ pub fn execute(
     }
 }
 
-fn execute_refund(deps: DepsMut<NeutronQuery>, env: Env) -> ContractResult<Response<NeutronMsg>> {
+fn execute_refund(
+    deps: DepsMut<NeutronQuery>,
+    coins: Vec<Coin>,
+) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let refundee = config.refundee.ok_or(ContractError::RefundeeIsNotSet {})?;
-    let balances = deps.querier.query_all_balances(env.contract.address)?;
-    if balances.is_empty() {
-        return Err(ContractError::PaymentError(
-            cw_utils::PaymentError::NoFunds {},
-        ));
-    }
     let attrs = vec![attr("action", "refund"), attr("refundee", &refundee)];
     let msg = CosmosMsg::Bank(cosmwasm_std::BankMsg::Send {
-        to_address: refundee.to_string(),
-        amount: balances,
+        to_address: refundee.into_string(),
+        amount: coins,
     });
     Ok(response("refund", CONTRACT_NAME, attrs).add_message(msg))
 }
@@ -285,11 +282,9 @@ pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResul
         SudoMsg::Response { request, data } => sudo_response(deps, env, request, data),
         SudoMsg::Error { request, details } => sudo_error(deps, env, request, details),
         SudoMsg::Timeout { request } => sudo_timeout(deps, env, request),
-        SudoMsg::KVQueryResult { .. } | SudoMsg::TxQueryResult { .. } => {
-            Err(NeutronError::Std(StdError::GenericErr {
-                msg: "KVQueryResult and TxQueryResult are not supported".to_string(),
-            }))
-        }
+        SudoMsg::KVQueryResult { .. } | SudoMsg::TxQueryResult { .. } => Err(NeutronError::Std(
+            StdError::generic_err("KVQueryResult and TxQueryResult are not supported"),
+        )),
         SudoMsg::OpenAck {
             port_id,
             channel_id,

@@ -1,4 +1,5 @@
 use cosmwasm_std::{
+    coins,
     testing::{mock_env, mock_info},
     Addr, BankMsg, Binary, Coin, CosmosMsg, Event, Response, SubMsg, Uint128,
 };
@@ -249,51 +250,28 @@ fn test_register_ica() {
 }
 
 #[test]
-fn test_execute_refund() {
-    let msg = drop_staking_base::msg::pump::ExecuteMsg::Refund {};
-    // no funds
-    let mut deps = mock_dependencies(&[]);
-    CONFIG
-        .save(deps.as_mut().storage, &get_default_config())
-        .unwrap();
-    // no fees
-    let res = execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("nobody", &[]),
-        msg.clone(),
-    );
-    assert_eq!(
-        res,
-        Err(crate::error::ContractError::PaymentError(
-            cw_utils::PaymentError::NoFunds {}
-        ))
-    );
-    // no refundee
+fn test_execute_refund_no_refundee() {
+    let msg = drop_staking_base::msg::pump::ExecuteMsg::Refund {
+        coins: coins(200, "untrn"),
+    };
     let mut deps = mock_dependencies(&[]);
     let mut config = get_default_config();
     config.refundee = None;
     CONFIG.save(deps.as_mut().storage, &config).unwrap();
-    // no fees
-    let res = execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("nobody", &[]),
-        msg.clone(),
-    );
-    assert_eq!(res, Err(crate::error::ContractError::RefundeeIsNotSet {}));
-    // normal
-    let mut deps = mock_dependencies(&[Coin::new(1000u128, "some_denom")]);
-    let config = get_default_config();
-    CONFIG.save(deps.as_mut().storage, &config).unwrap();
-    // no fees
-    let res = execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("nobody", &[]),
-        msg.clone(),
-    )
-    .unwrap();
+    let err = execute(deps.as_mut(), mock_env(), mock_info("nobody", &[]), msg).unwrap_err();
+    assert_eq!(err, crate::error::ContractError::RefundeeIsNotSet {});
+}
+
+#[test]
+fn test_execute_refund_success() {
+    let msg = drop_staking_base::msg::pump::ExecuteMsg::Refund {
+        coins: coins(200, "untrn"),
+    };
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+    let res = execute(deps.as_mut(), mock_env(), mock_info("nobody", &[]), msg).unwrap();
     assert_eq!(
         res,
         Response::new()
@@ -303,7 +281,7 @@ fn test_execute_refund() {
             )
             .add_message(CosmosMsg::Bank(BankMsg::Send {
                 to_address: "refundee".to_string(),
-                amount: vec![Coin::new(1000u128, "some_denom")]
+                amount: vec![Coin::new(200, "untrn")]
             }))
     );
 }
