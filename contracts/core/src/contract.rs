@@ -11,11 +11,11 @@ use drop_helpers::pause::{assert_paused, is_paused, set_pause, unpause, PauseInf
 use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
 use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::state::core::{
-    unbond_batches_map, Config, ConfigOptional, ContractState, FeeItem, NonNativeRewardsItem,
-    UnbondBatch, UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, COLLECTED_FEES, CONFIG,
-    EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_LSM_REDEEM,
-    LAST_PUPPETEER_RESPONSE, LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES,
-    PENDING_TRANSFER, PRE_UNBONDING_BALANCE, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+    unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem, UnbondBatch,
+    UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM,
+    LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LSM_SHARES_TO_REDEEM,
+    NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, PENDING_TRANSFER, PRE_UNBONDING_BALANCE,
+    TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
 };
 use drop_staking_base::state::validatorset::ValidatorInfo;
 use drop_staking_base::state::withdrawal_voucher::{Metadata, Trait};
@@ -1114,20 +1114,12 @@ pub fn get_stake_msg<T>(
             },
         )?;
 
-    if fee > Uint128::zero() && config.fee_address.is_some() {
-        COLLECTED_FEES.update(deps.storage, config.remote_denom.to_string(), |fee_item| {
-            if let Some(mut fee_item) = fee_item {
-                fee_item.amount += fee;
-                Ok::<FeeItem, StdError>(fee_item)
-            } else {
-                Ok(FeeItem {
-                    address: config.fee_address.clone().unwrap(),
-                    denom: config.remote_denom.to_string(),
-                    amount: fee,
-                })
-            }
-        })?;
-    };
+    let staking_fee: Option<(String, Uint128)> =
+        if fee > Uint128::zero() && config.fee_address.is_some() {
+            Some((config.fee_address.clone().unwrap(), fee))
+        } else {
+            None
+        };
 
     Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_contract.to_string(),
@@ -1136,6 +1128,7 @@ pub fn get_stake_msg<T>(
                 .iter()
                 .map(|d| (d.valoper_address.to_string(), d.stake_change))
                 .collect::<Vec<_>>(),
+            fee: staking_fee,
             timeout: Some(config.puppeteer_timeout),
             reply_to: env.contract.address.to_string(),
         })?,
@@ -1306,7 +1299,7 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
                     },
                 ));
             }
-            if (item.fee > Decimal::zero()) && (fee > Uint128::zero()) {
+            if !item.fee.is_zero() && !fee.is_zero() {
                 items.push((
                     item.fee_address,
                     cosmwasm_std::Coin {
@@ -1316,21 +1309,6 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
                 ));
             }
         }
-    }
-
-    let collected_fees = COLLECTED_FEES
-        .range_raw(deps.storage, None, None, Order::Ascending)
-        .map(|item| item.map(|(_key, value)| value))
-        .collect::<StdResult<Vec<FeeItem>>>()?;
-
-    for fee_item in collected_fees {
-        items.push((
-            fee_item.address,
-            cosmwasm_std::Coin {
-                denom: fee_item.denom,
-                amount: fee_item.amount,
-            },
-        ));
     }
 
     if items.is_empty() {
