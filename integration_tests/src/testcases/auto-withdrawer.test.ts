@@ -88,6 +88,7 @@ describe('Auto withdrawer', () => {
       withdrawalManager?: number;
       strategy?: number;
       puppeteer?: number;
+      staker?: number;
       validatorsSet?: number;
       distribution?: number;
       rewardsManager?: number;
@@ -278,6 +279,15 @@ describe('Auto withdrawer', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.rewardsManager = res.codeId;
     }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(join(__dirname, '../../../artifacts/drop_staker.wasm')),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.staker = res.codeId;
+    }
 
     const res = await client.upload(
       account.address,
@@ -301,6 +311,7 @@ describe('Auto withdrawer', () => {
           validators_set_code_id: context.codeIds.validatorsSet,
           puppeteer_code_id: context.codeIds.puppeteer,
           rewards_manager_code_id: context.codeIds.rewardsManager,
+          staker_code_id: context.codeIds.staker,
         },
         remote_opts: {
           connection_id: 'connection-0',
@@ -308,6 +319,12 @@ describe('Auto withdrawer', () => {
           port_id: 'transfer',
           denom: 'stake',
           update_period: 2,
+          ibc_fees: {
+            timeout_fee: '10000',
+            ack_fee: '10000',
+            recv_fee: '0',
+            register_fee: '1000000',
+          },
         },
         salt: 'salt',
         subdenom: 'drop',
