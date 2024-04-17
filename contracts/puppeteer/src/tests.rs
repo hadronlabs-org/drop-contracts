@@ -6,7 +6,7 @@ use cosmwasm_std::{
     to_json_binary, Addr, Binary, Coin, CosmosMsg, DepsMut, Event, Response, StdError, SubMsg,
     Uint128,
 };
-use drop_helpers::testing::mock_dependencies;
+use drop_helpers::{interchain::IBCFees, testing::mock_dependencies};
 use drop_puppeteer_base::state::{PuppeteerBase, ReplyMsg};
 use drop_staking_base::state::puppeteer::{Config, KVQueryType};
 use drop_staking_base::{msg::puppeteer::InstantiateMsg, state::puppeteer::ConfigOptional};
@@ -32,6 +32,12 @@ fn test_instantiate() {
         allowed_senders: vec!["allowed_sender".to_string()],
         transfer_channel_id: "transfer_channel_id".to_string(),
         sdk_version: "0.45.0".to_string(),
+        ibc_fees: IBCFees {
+            recv_fee: Uint128::from(3000u128),
+            ack_fee: Uint128::from(4000u128),
+            timeout_fee: Uint128::from(5000u128),
+            register_fee: Uint128::from(6000u128),
+        },
     };
     let env = mock_env();
     let res =
