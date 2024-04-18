@@ -24,7 +24,7 @@ import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
-import { setupPark } from '../testSuite';
+import { awaitBlocks, setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
@@ -896,6 +896,10 @@ describe('Core Slashing', () => {
           return false;
         }
       }, 100_000);
+      await awaitBlocks(
+        `http://127.0.0.1:${context.park.ports.neutron.rpc}`,
+        2,
+      );
     });
     it('tick 4 (unbonding)', async () => {
       const { neutronUserAddress } = context;

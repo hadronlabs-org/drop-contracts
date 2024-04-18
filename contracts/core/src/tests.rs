@@ -5,8 +5,8 @@ use crate::{
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockStorage},
-    to_json_binary, Addr, Coin, CosmosMsg, Decimal, Event, MessageInfo, Order, OwnedDeps, Response,
-    StdResult, SubMsg, Timestamp, Uint128, WasmMsg,
+    to_json_binary, Addr, Coin, CosmosMsg, Decimal, Event, MessageInfo, OwnedDeps, Response,
+    SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
 use drop_puppeteer_base::state::RedeemShareItem;
@@ -17,11 +17,11 @@ use drop_staking_base::{
         strategy::QueryMsg as StrategyQueryMsg,
     },
     state::core::{
-        unbond_batches_map, Config, ConfigOptional, ContractState, FeeItem, NonNativeRewardsItem,
-        UnbondBatch, UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, COLLECTED_FEES, CONFIG,
-        EXCHANGE_RATE, FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM,
-        LAST_PUPPETEER_RESPONSE, LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG,
-        PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+        unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem,
+        UnbondBatch, UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FSM,
+        LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE,
+        LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, TOTAL_LSM_SHARES,
+        UNBOND_BATCH_ID,
     },
 };
 use neutron_sdk::{
@@ -258,27 +258,13 @@ fn get_stake_msg_success() {
             contract_addr: "puppeteer_contract".to_string(),
             msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
                 items: vec![("valoper_address".to_string(), Uint128::new(180))],
+                fee: Some(("fee_address".to_string(), Uint128::new(20))),
                 timeout: Some(60),
                 reply_to: "cosmos2contract".to_string(),
             })
             .unwrap(),
             funds: vec![Coin::new(200, "untrn")],
         })
-    );
-
-    let collected_fees = COLLECTED_FEES
-        .range_raw(deps.as_mut().storage, None, None, Order::Ascending)
-        .map(|item| item.map(|(_key, value)| value))
-        .collect::<StdResult<Vec<FeeItem>>>()
-        .unwrap();
-
-    assert_eq!(
-        collected_fees[0],
-        FeeItem {
-            address: "fee_address".to_string(),
-            denom: "remote_denom".to_string(),
-            amount: Uint128::new(20),
-        }
     );
 }
 
@@ -338,6 +324,7 @@ fn get_stake_msg_zero_fee() {
             contract_addr: "puppeteer_contract".to_string(),
             msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
                 items: vec![("valoper_address".to_string(), Uint128::new(200))],
+                fee: None,
                 timeout: Some(60),
                 reply_to: "cosmos2contract".to_string(),
             })
@@ -1553,6 +1540,7 @@ fn test_tick_idle_staking() {
                 contract_addr: "puppeteer_contract".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
                     items: vec![("valoper_address".to_string(), Uint128::from(200u128))],
+                    fee: Some(("fee_address".to_string(), Uint128::new(20))),
                     timeout: Some(60u64),
                     reply_to: "cosmos2contract".to_string()
                 })
@@ -2139,6 +2127,7 @@ fn test_tick_claiming_wo_transfer_stake() {
                 contract_addr: "puppeteer_contract".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
                     items: vec![("valoper_address".to_string(), Uint128::from(200u128))],
+                    fee: None,
                     timeout: Some(60u64),
                     reply_to: "cosmos2contract".to_string()
                 })
@@ -2594,6 +2583,7 @@ fn test_tick_transferring_to_staking() {
                 contract_addr: "puppeteer_contract".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
                     items: vec![("valoper_address".to_string(), Uint128::from(180u128))],
+                    fee: Some(("fee_address".to_string(), Uint128::new(20))),
                     timeout: Some(60u64),
                     reply_to: "cosmos2contract".to_string()
                 })
