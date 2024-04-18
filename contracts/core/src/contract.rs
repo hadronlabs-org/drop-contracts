@@ -13,9 +13,9 @@ use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::state::core::{
     unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem, UnbondBatch,
     UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM,
-    LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LSM_SHARES_TO_REDEEM,
-    NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, PENDING_TRANSFER, PRE_UNBONDING_BALANCE,
-    TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+    LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE,
+    LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, PENDING_TRANSFER,
+    PRE_UNBONDING_BALANCE, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
 };
 use drop_staking_base::state::validatorset::ValidatorInfo;
 use drop_staking_base::state::withdrawal_voucher::{Metadata, Trait};
@@ -219,6 +219,7 @@ pub fn execute(
         }
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::PuppeteerHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
+        ExecuteMsg::StakerHook(msg) => execute_staker_hook(deps, env, info, *msg),
         ExecuteMsg::Pause {} => exec_pause(deps, info),
         ExecuteMsg::Unpause {} => exec_unpause(deps, info),
     }
@@ -254,6 +255,7 @@ fn exec_unpause(
     ))
 }
 
+// TODO: remove
 fn execute_reset_bonded_amount(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
@@ -280,6 +282,26 @@ fn execute_set_non_native_rewards_receivers(
         "execute-set_non_native_rewards_receivers",
         CONTRACT_NAME,
         vec![attr("action", "set_non_native_rewards_receivers")],
+    ))
+}
+
+fn execute_staker_hook(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    info: MessageInfo,
+    msg: drop_staking_base::msg::staker::ResponseHookMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let config = CONFIG.load(deps.storage)?;
+    ensure_eq!(
+        info.sender,
+        config.staker_contract,
+        ContractError::Unauthorized {}
+    );
+    LAST_STAKER_RESPONSE.save(deps.storage, &msg)?;
+    Ok(response(
+        "execute-staker_hook",
+        CONTRACT_NAME,
+        vec![attr("action", "staker_hook")],
     ))
 }
 

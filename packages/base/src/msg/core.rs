@@ -1,3 +1,4 @@
+use crate::msg::staker::ResponseHookMsg as StakerResponseHookMsg;
 use crate::state::core::{Config, ConfigOptional, NonNativeRewardsItem};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Decimal, Uint128};
@@ -85,6 +86,7 @@ pub enum ExecuteMsg {
     },
     Tick {},
     PuppeteerHook(Box<PuppeteerResponseHookMsg>),
+    StakerHook(Box<StakerResponseHookMsg>),
     ResetBondedAmount {},
 }
 
