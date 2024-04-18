@@ -13,6 +13,7 @@ pub struct Config {
     pub puppeteer_contract: String,
     pub puppeteer_timeout: u64, //seconds
     pub strategy_contract: String,
+    pub staker_contract: String,
     pub withdrawal_voucher_contract: String,
     pub withdrawal_manager_contract: String,
     pub validators_set_contract: String,

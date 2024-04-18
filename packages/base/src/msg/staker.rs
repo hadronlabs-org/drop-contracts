@@ -1,7 +1,8 @@
-use crate::state::staker::ConfigOptional;
+use crate::state::staker::{ConfigOptional, Transaction};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
 use drop_helpers::interchain::IBCFees;
+use neutron_sdk::sudo::msg::RequestPacket;
 
 #[cw_ownable::cw_ownable_query]
 #[cw_serde]
@@ -11,6 +12,8 @@ pub enum QueryMsg {
     Config {},
     #[returns(Uint128)]
     NonStakedBalance {},
+    #[returns(Uint128)]
+    AllBalance {},
     #[returns(drop_helpers::ica::IcaState)]
     Ica {},
 }
@@ -51,3 +54,23 @@ pub struct InstantiateMsg {
 
 #[cw_serde]
 pub enum MigrateMsg {}
+
+#[cw_serde]
+pub enum ResponseHookMsg {
+    Success(ResponseHookSuccessMsg),
+    Error(ResponseHookErrorMsg),
+}
+
+#[cw_serde]
+pub struct ResponseHookSuccessMsg {
+    pub request_id: u64,
+    pub request: RequestPacket,
+    pub transaction: Transaction,
+}
+#[cw_serde]
+pub struct ResponseHookErrorMsg {
+    pub request_id: u64,
+    pub transaction: Transaction,
+    pub request: RequestPacket,
+    pub details: String,
+}

@@ -5,7 +5,7 @@ use cw_ownable::cw_ownable_execute;
 #[allow(unused_imports)]
 use drop_helpers::pause::PauseInfoResponse;
 use drop_macros::{pausable, pausable_query};
-use drop_puppeteer_base::msg::ResponseHookMsg;
+use drop_puppeteer_base::msg::ResponseHookMsg as PuppeteerResponseHookMsg;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -13,6 +13,7 @@ pub struct InstantiateMsg {
     pub puppeteer_contract: String,
     pub puppeteer_timeout: u64,
     pub strategy_contract: String,
+    pub staker_contract: String,
     pub withdrawal_voucher_contract: String,
     pub withdrawal_manager_contract: String,
     pub validators_set_contract: String,
@@ -37,7 +38,7 @@ pub struct InstantiateMsg {
 
 #[cw_serde]
 pub struct LastPuppeteerResponse {
-    pub response: Option<ResponseHookMsg>,
+    pub response: Option<PuppeteerResponseHookMsg>,
 }
 
 #[pausable_query]
@@ -83,7 +84,7 @@ pub enum ExecuteMsg {
         items: Vec<NonNativeRewardsItem>,
     },
     Tick {},
-    PuppeteerHook(Box<ResponseHookMsg>),
+    PuppeteerHook(Box<PuppeteerResponseHookMsg>),
     ResetBondedAmount {},
 }
 
@@ -97,6 +98,7 @@ impl From<InstantiateMsg> for Config {
             puppeteer_contract: val.puppeteer_contract,
             puppeteer_timeout: val.puppeteer_timeout,
             strategy_contract: val.strategy_contract,
+            staker_contract: val.staker_contract,
             withdrawal_voucher_contract: val.withdrawal_voucher_contract,
             withdrawal_manager_contract: val.withdrawal_manager_contract,
             base_denom: val.base_denom,

@@ -1,8 +1,8 @@
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockStorage},
-    to_json_binary, Addr, Coin, CosmosMsg, Decimal, Event, MessageInfo, OwnedDeps, Response,
-    SubMsg, Timestamp, Uint128, WasmMsg,
+    to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, Event, MessageInfo, OwnedDeps,
+    Response, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use std::{str::FromStr, vec};
 
@@ -46,6 +46,7 @@ fn get_default_config(fee: Option<Decimal>) -> Config {
         withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
         withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
         validators_set_contract: "validators_set_contract".to_string(),
+        staker_contract: "staker_contract".to_string(),
         base_denom: "base_denom".to_string(),
         remote_denom: "remote_denom".to_string(),
         idle_min_interval: 1,
@@ -352,6 +353,7 @@ fn test_update_config() {
             puppeteer_contract: "old_puppeteer_contract".to_string(),
             puppeteer_timeout: 10,
             strategy_contract: "old_strategy_contract".to_string(),
+            staker_contract: "old_staker_contract".to_string(),
             withdrawal_voucher_contract: "old_withdrawal_voucher_contract".to_string(),
             withdrawal_manager_contract: "old_withdrawal_manager_contract".to_string(),
             validators_set_contract: "old_validators_set_contract".to_string(),
@@ -381,6 +383,7 @@ fn test_update_config() {
         puppeteer_contract: Some("new_puppeteer_contract".to_string()),
         puppeteer_timeout: Some(100),
         strategy_contract: Some("new_strategy_contract".to_string()),
+        staker_contract: Some("new_staker_contract".to_string()),
         withdrawal_voucher_contract: Some("new_withdrawal_voucher_contract".to_string()),
         withdrawal_manager_contract: Some("new_withdrawal_manager_contract".to_string()),
         validators_set_contract: Some("new_validators_set_contract".to_string()),
@@ -406,6 +409,7 @@ fn test_update_config() {
         token_contract: "new_token_contract".to_string(),
         puppeteer_contract: "new_puppeteer_contract".to_string(),
         puppeteer_timeout: 100,
+        staker_contract: "new_staker_contract".to_string(),
         strategy_contract: "new_strategy_contract".to_string(),
         withdrawal_voucher_contract: "new_withdrawal_voucher_contract".to_string(),
         withdrawal_manager_contract: "new_withdrawal_manager_contract".to_string(),
@@ -506,6 +510,7 @@ fn test_execute_tick_idle_non_native_rewards() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -649,6 +654,7 @@ fn test_execute_tick_idle_get_pending_lsm_shares_transfer() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -735,6 +741,7 @@ fn test_idle_tick_pending_lsm_redeem() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -911,6 +918,7 @@ fn test_tick_idle_unbonding_close() {
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
                 strategy_contract: "strategy_contract".to_string(),
+                staker_contract: "staker_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
                 validators_set_contract: "validators_set_contract".to_string(),
@@ -1043,6 +1051,7 @@ fn test_tick_idle_claim_wo_unbond() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -1195,6 +1204,7 @@ fn test_tick_idle_claim_with_unbond_transfer() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -1332,6 +1342,7 @@ fn test_tick_idle_transfer() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -1484,6 +1495,7 @@ fn test_tick_idle_staking() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -1635,6 +1647,7 @@ fn test_tick_idle_unbonding() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -1737,6 +1750,7 @@ fn test_tick_claiming_no_puppeteer_response() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -1804,6 +1818,7 @@ fn test_tick_claiming_wo_transfer_unbonded_transfer_for_stake() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -1908,6 +1923,7 @@ fn test_tick_claiming_with_transfer_unbonded_transfer_for_stake() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -2066,6 +2082,7 @@ fn test_tick_claiming_wo_transfer_stake() {
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
                 validators_set_contract: "validators_set_contract".to_string(),
+                staker_contract: "staker_contract".to_string(),
                 base_denom: "base_denom".to_string(),
                 remote_denom: "remote_denom".to_string(),
                 idle_min_interval: 1000,
@@ -2196,6 +2213,7 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -2343,6 +2361,7 @@ fn test_tick_claiming_wo_idle() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -2440,6 +2459,7 @@ fn test_execute_tick_transfering_no_puppeteer_response() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -2542,6 +2562,7 @@ fn test_tick_transferring_to_staking() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -2673,6 +2694,7 @@ fn test_tick_transferring_to_unbonding() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -2828,6 +2850,7 @@ fn test_tick_transfering_to_idle() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -2904,6 +2927,7 @@ fn test_execute_tick_staking_no_puppeteer_response() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -3020,6 +3044,7 @@ fn test_tick_staking_to_unbonding() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -3175,6 +3200,7 @@ fn test_tick_staking_to_idle() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -3251,6 +3277,7 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -3291,7 +3318,7 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
 }
 
 #[test]
-fn test_bond() {
+fn test_bond_wo_receiver() {
     let mut deps = mock_dependencies(&[]);
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(1000);
@@ -3307,6 +3334,7 @@ fn test_bond() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -3353,6 +3381,10 @@ fn test_bond() {
                     .add_attribute("issue_amount", "1000")
                     .add_attribute("receiver", "some")
             )
+            .add_submessage(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "staker_contract".to_string(),
+                amount: vec![Coin::new(1000, "base_denom")]
+            })))
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token_contract".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::token::ExecuteMsg::Mint {
@@ -3382,6 +3414,7 @@ fn test_bond_with_receiver() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -3428,6 +3461,10 @@ fn test_bond_with_receiver() {
                     .add_attribute("issue_amount", "1000")
                     .add_attribute("receiver", "receiver")
             )
+            .add_submessage(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "staker_contract".to_string(),
+                amount: vec![Coin::new(1000, "base_denom")]
+            })))
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token_contract".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::token::ExecuteMsg::Mint {
@@ -3476,6 +3513,7 @@ fn test_bond_lsm_share_wrong_validator() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -3565,6 +3603,7 @@ fn test_bond_lsm_share_ok() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
@@ -3660,6 +3699,7 @@ fn test_unbond() {
                 token_contract: "token_contract".to_string(),
                 puppeteer_contract: "puppeteer_contract".to_string(),
                 puppeteer_timeout: 60,
+                staker_contract: "staker_contract".to_string(),
                 strategy_contract: "strategy_contract".to_string(),
                 withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
                 withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),

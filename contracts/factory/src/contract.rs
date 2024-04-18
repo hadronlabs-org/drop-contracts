@@ -542,6 +542,7 @@ fn execute_init(
                 token_contract: token_contract.to_string(),
                 puppeteer_contract: puppeteer_contract.to_string(),
                 strategy_contract: strategy_contract.to_string(),
+                staker_contract: staker_contract.to_string(),
                 withdrawal_voucher_contract: withdrawal_voucher_contract.to_string(),
                 withdrawal_manager_contract: withdrawal_manager_contract.to_string(),
                 base_denom: base_denom.to_string(),

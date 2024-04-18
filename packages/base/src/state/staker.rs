@@ -40,6 +40,7 @@ pub struct TxState {
     pub status: TxStateStatus,
     pub seq_id: Option<u64>,
     pub transaction: Option<Transaction>,
+    pub reply_to: Option<String>,
 }
 
 pub const CONFIG: Item<Config> = Item::new("core");

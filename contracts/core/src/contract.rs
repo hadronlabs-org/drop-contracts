@@ -1,9 +1,9 @@
 use crate::error::{ContractError, ContractResult};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, entry_point, to_json_binary, Addr, Attribute, BankQuery, Binary, Coin,
-    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest,
-    Response, StdError, StdResult, Uint128, WasmMsg,
+    attr, ensure, ensure_eq, entry_point, to_json_binary, Addr, Attribute, BankMsg, BankQuery,
+    Binary, Coin, CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order,
+    QueryRequest, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
@@ -115,7 +115,7 @@ fn query_lsm_shares_to_redeem(deps: Deps<NeutronQuery>) -> ContractResult<Binary
 
 fn query_exchange_rate(
     deps: Deps<NeutronQuery>,
-    env: Env,
+    _env: Env,
     current_stake: Option<Uint128>,
 ) -> ContractResult<Decimal> {
     let fsm_state = FSM.get_current_state(deps.storage)?;
@@ -166,13 +166,13 @@ fn query_exchange_rate(
         let failed_batch = unbond_batches_map().load(deps.storage, failed_batch_id)?;
         unprocessed_unbonded_amount += failed_batch.total_amount;
     }
-    let core_balance = deps
-        .querier
-        .query_balance(env.contract.address.to_string(), config.base_denom)?
-        .amount;
+    let staker_balance: Uint128 = deps.querier.query_wasm_smart(
+        config.staker_contract,
+        &drop_staking_base::msg::staker::QueryMsg::AllBalance {},
+    )?;
     let total_lsm_shares = Uint128::new(TOTAL_LSM_SHARES.load(deps.storage)?);
     let exchange_rate = Decimal::from_ratio(
-        delegations_amount + core_balance + total_lsm_shares
+        delegations_amount + staker_balance + total_lsm_shares
             - current_stake.unwrap_or(Uint128::zero())
             - unprocessed_unbonded_amount,
         ld_total_amount,
@@ -772,7 +772,7 @@ fn execute_bond(
     }
     BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total + amount))?;
     let denom_type = check_denom::check_denom(&deps, &denom, &config)?;
-
+    let mut msgs = vec![];
     if let check_denom::DenomType::LsmShare(remote_denom) = denom_type {
         if amount < config.lsm_min_bond_amount {
             return Err(ContractError::LSMBondAmountIsBelowMinimum {
@@ -786,6 +786,12 @@ fn execute_bond(
             new.1 += amount;
             StdResult::Ok(new)
         })?;
+    } else {
+        // if it's not LSM share, we send this amount to the staker
+        msgs.push(CosmosMsg::Bank(BankMsg::Send {
+            to_address: config.staker_contract,
+            amount: vec![Coin::new(amount.u128(), denom)],
+        }));
     }
 
     let mut attrs = vec![attr("action", "bond")];
@@ -806,15 +812,14 @@ fn execute_bond(
             attrs.push(attr("ref", r#ref));
         }
     }
-
-    let msgs = vec![CosmosMsg::Wasm(WasmMsg::Execute {
+    msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.token_contract,
         msg: to_json_binary(&TokenExecuteMsg::Mint {
             amount: issue_amount,
             receiver,
         })?,
         funds: vec![],
-    })];
+    }));
     Ok(response("execute-bond", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
@@ -841,6 +846,10 @@ fn execute_update_config(
     if let Some(strategy_contract) = new_config.strategy_contract {
         attrs.push(attr("strategy_contract", &strategy_contract));
         config.strategy_contract = strategy_contract;
+    }
+    if let Some(staker_contract) = new_config.staker_contract {
+        attrs.push(attr("staker_contract", &staker_contract));
+        config.staker_contract = staker_contract;
     }
     if let Some(withdrawal_voucher_contract) = new_config.withdrawal_voucher_contract {
         attrs.push(attr(

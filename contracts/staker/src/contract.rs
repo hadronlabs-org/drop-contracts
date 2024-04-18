@@ -73,6 +73,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> NeutronResult<Binary> {
         QueryMsg::Config {} => query_config(deps),
         QueryMsg::Ica {} => query_ica(deps),
         QueryMsg::NonStakedBalance {} => query_non_staked_balance(deps, env),
+        QueryMsg::AllBalance {} => query_all_balance(deps, env),
         QueryMsg::Ownership {} => {
             let ownership = cw_ownable::get_ownership(deps.storage)?;
             to_json_binary(&ownership).map_err(NeutronError::Std)
@@ -80,7 +81,18 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> NeutronResult<Binary> {
     }
 }
 
-fn query_non_staked_balance(deps: Deps, env: Env) -> NeutronResult<Binary> {
+fn query_non_staked_balance(deps: Deps, _env: Env) -> NeutronResult<Binary> {
+    let balance = NON_STAKED_BALANCE.load(deps.storage)?;
+    let config = CONFIG.load(deps.storage)?;
+    if config.min_staking_amount > balance {
+        return Err(NeutronError::Std(StdError::generic_err(
+            "not enough funds to stake",
+        )));
+    }
+    to_json_binary(&(balance)).map_err(NeutronError::Std)
+}
+
+fn query_all_balance(deps: Deps, env: Env) -> NeutronResult<Binary> {
     let balance = NON_STAKED_BALANCE.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
     let local_balance = deps
@@ -288,6 +300,7 @@ fn execute_stake(
         cosmos_msg,
         Transaction::Stake { amount },
         ReplyMsg::SudoPayload.to_reply_id(),
+        Some(info.sender.to_string()),
     )?;
     Ok(response("stake", CONTRACT_NAME, attrs).add_submessage(submsg))
 }
@@ -358,6 +371,7 @@ fn execute_ibc_transfer(
             amount: coin.amount,
         },
         ReplyMsg::IbcTransfer.to_reply_id(),
+        None,
     )?;
 
     Ok(response("ibc_transfer", CONTRACT_NAME, attrs).add_submessage(submsg))
@@ -436,6 +450,7 @@ fn msg_with_sudo_callback<C: Into<CosmosMsg<X>> + Serialize, X>(
     msg: C,
     transaction: Transaction,
     payload_id: u64,
+    reply_to: Option<String>,
 ) -> StdResult<SubMsg<X>> {
     TX_STATE.save(
         deps.storage,
@@ -443,6 +458,7 @@ fn msg_with_sudo_callback<C: Into<CosmosMsg<X>> + Serialize, X>(
             status: TxStateStatus::InProgress,
             seq_id: None,
             transaction: Some(transaction),
+            reply_to,
         },
     )?;
     Ok(SubMsg::reply_on_success(msg, payload_id))
