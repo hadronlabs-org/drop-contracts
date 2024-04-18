@@ -179,12 +179,12 @@ fn execute_receive_nft_withdraw(
         config.withdrawal_voucher_contract,
         &drop_staking_base::msg::withdrawal_voucher::QueryMsg::NftInfo { token_id },
     )?;
-    let voucher_extention = voucher.extension.ok_or_else(|| ContractError::InvalidNFT {
+    let voucher_extension = voucher.extension.ok_or_else(|| ContractError::InvalidNFT {
         reason: "extension is not set".to_string(),
     })?;
 
     let batch_id =
-        voucher_extention
+        voucher_extension
             .batch_id
             .parse::<u128>()
             .map_err(|_| ContractError::InvalidNFT {
@@ -207,8 +207,8 @@ fn execute_receive_nft_withdraw(
         .ok_or(ContractError::BatchSlashingEffectIsEmpty {})?;
 
     let payout_amount = Uint128::min(
-        slashing_effect * voucher_extention.expected_amount,
-        voucher_extention.expected_amount,
+        slashing_effect * voucher_extension.expected_amount,
+        voucher_extension.expected_amount,
     ); //just in case
 
     let to_address = receiver.unwrap_or(sender);

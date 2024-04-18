@@ -144,7 +144,7 @@ pub fn query(
     msg: QueryMsg<QueryExtMsg>,
 ) -> ContractResult<Binary> {
     match msg {
-        QueryMsg::Extention { msg } => match msg {
+        QueryMsg::Extension { msg } => match msg {
             QueryExtMsg::Delegations {} => query_delegations(deps),
             QueryExtMsg::Balances {} => query_balances(deps),
             QueryExtMsg::NonNativeRewardsBalances {} => query_non_native_rewards_balances(deps),
@@ -202,9 +202,10 @@ pub fn execute(
     match msg {
         ExecuteMsg::Delegate {
             items,
+            fee,
             timeout,
             reply_to,
-        } => execute_delegate(deps, info, items, timeout, reply_to),
+        } => execute_delegate(deps, info, items, fee, timeout, reply_to),
         ExecuteMsg::Undelegate {
             items,
             batch_id,
@@ -389,7 +390,7 @@ fn execute_ibc_transfer(
             recipient: ica_address,
         },
         reply_to,
-        ReplyMsg::SudoPayload.to_reply_id(),
+        ReplyMsg::IbcTransfer.to_reply_id(),
     )?;
     Ok(Response::default().add_submessages(vec![submsg]))
 }
@@ -542,6 +543,7 @@ fn execute_delegate(
     mut deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
     items: Vec<(String, Uint128)>,
+    fee: Option<(String, Uint128)>,
     timeout: Option<u64>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
@@ -551,7 +553,7 @@ fn execute_delegate(
     validate_sender(&config, &info.sender)?;
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
     let delegator = puppeteer_base.ica.get_address(deps.storage)?;
-    let any_msgs = items
+    let mut any_msgs = items
         .iter()
         .map(|(validator, amount)| MsgDelegate {
             delegator_address: delegator.to_string(),
@@ -563,6 +565,23 @@ fn execute_delegate(
         })
         .map(|msg| prepare_any_msg(msg, "/cosmos.staking.v1beta1.MsgDelegate"))
         .collect::<NeutronResult<Vec<ProtobufAny>>>()?;
+
+    if let Some(fee) = fee {
+        let to_address = fee.0.to_string();
+        let amount = fee.1;
+        let transfer_msg = MsgSend {
+            from_address: delegator.to_string(),
+            to_address,
+            amount: vec![Coin {
+                amount: amount.to_string(),
+                denom: config.remote_denom.to_string(),
+            }],
+        };
+        any_msgs.push(prepare_any_msg(
+            transfer_msg,
+            "/cosmos.bank.v1beta1.MsgSend",
+        )?)
+    }
 
     let submsg = compose_submsg(
         deps.branch(),

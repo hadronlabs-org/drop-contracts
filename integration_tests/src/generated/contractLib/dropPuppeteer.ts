@@ -184,7 +184,7 @@ export type Uint64 = string;
 
 export interface DropPuppeteerSchema {
   responses: ConfigResponse | Binary | IcaState | ArrayOfTransaction | TxState;
-  query: ExtentionArgs;
+  query: ExtensionArgs;
   execute:
     | RegisterBalanceAndDelegatorDelegationsQueryArgs
     | RegisterDelegatorUnbondingDelegationsQueryArgs
@@ -230,7 +230,7 @@ export interface TxState {
   status: TxStateStatus;
   transaction?: Transaction | null;
 }
-export interface ExtentionArgs {
+export interface ExtensionArgs {
   msg: QueryExtMsg;
 }
 export interface RegisterBalanceAndDelegatorDelegationsQueryArgs {
@@ -249,6 +249,11 @@ export interface SetFeesArgs {
   timeout_fee: Uint128;
 }
 export interface DelegateArgs {
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  fee?: [string, Uint128] | null;
   items: [string, Uint128][];
   reply_to: string;
   timeout?: number | null;
@@ -384,8 +389,8 @@ export class Client {
   queryTransactions = async(): Promise<ArrayOfTransaction> => {
     return this.client.queryContractSmart(this.contractAddress, { transactions: {} });
   }
-  queryExtention = async(args: ExtentionArgs): Promise<Binary> => {
-    return this.client.queryContractSmart(this.contractAddress, { extention: args });
+  queryExtension = async(args: ExtensionArgs): Promise<Binary> => {
+    return this.client.queryContractSmart(this.contractAddress, { extension: args });
   }
   queryTxState = async(): Promise<TxState> => {
     return this.client.queryContractSmart(this.contractAddress, { tx_state: {} });

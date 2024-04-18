@@ -24,7 +24,7 @@ import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
-import { setupPark } from '../testSuite';
+import { awaitBlocks, setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
@@ -671,7 +671,7 @@ describe('Core Slashing', () => {
       let res;
       await waitFor(async () => {
         try {
-          res = await context.puppeteerContractClient.queryExtention({
+          res = await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
@@ -825,14 +825,14 @@ describe('Core Slashing', () => {
         return !!response;
       }, 100_000);
       const [, currentHeight] =
-        (await context.puppeteerContractClient.queryExtention({
+        (await context.puppeteerContractClient.queryExtension({
           msg: {
             balances: {},
           },
         })) as any;
       await waitFor(async () => {
         const [, nowHeight] =
-          (await context.puppeteerContractClient.queryExtention({
+          (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
@@ -862,14 +862,14 @@ describe('Core Slashing', () => {
         return !!response;
       }, 100_000);
       const [, currentHeight] =
-        (await context.puppeteerContractClient.queryExtention({
+        (await context.puppeteerContractClient.queryExtension({
           msg: {
             balances: {},
           },
         })) as any;
       await waitFor(async () => {
         const [, nowHeight] =
-          (await context.puppeteerContractClient.queryExtention({
+          (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
@@ -913,6 +913,10 @@ describe('Core Slashing', () => {
           return false;
         }
       }, 100_000);
+      await awaitBlocks(
+        `http://127.0.0.1:${context.park.ports.neutron.rpc}`,
+        2,
+      );
     });
     it('tick 4 (unbonding)', async () => {
       const { neutronUserAddress } = context;
@@ -1015,7 +1019,7 @@ describe('Core Slashing', () => {
     await waitFor(async () => {
       const icaTs = Math.floor(
         (
-          (await context.puppeteerContractClient.queryExtention({
+          (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
@@ -1032,7 +1036,7 @@ describe('Core Slashing', () => {
     await waitFor(async () => {
       const icaTs = Math.floor(
         (
-          (await context.puppeteerContractClient.queryExtention({
+          (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
@@ -1059,14 +1063,14 @@ describe('Core Slashing', () => {
       return !!response;
     }, 100_000);
     const [, currentHeight] =
-      (await context.puppeteerContractClient.queryExtention({
+      (await context.puppeteerContractClient.queryExtension({
         msg: {
           balances: {},
         },
       })) as any;
     await waitFor(async () => {
       const [, nowHeight] =
-        (await context.puppeteerContractClient.queryExtention({
+        (await context.puppeteerContractClient.queryExtension({
           msg: {
             balances: {},
           },
