@@ -162,6 +162,9 @@ fn execute_update_config(
     if let Some(puppeteer_ica) = new_config.puppeteer_ica {
         config.puppeteer_ica = Some(puppeteer_ica);
     }
+    if let Some(transfer_channel_id) = new_config.transfer_channel_id {
+        config.transfer_channel_id = transfer_channel_id;
+    }
     if let Some(min_ibc_transfer) = new_config.min_ibc_transfer {
         config.min_ibc_transfer = min_ibc_transfer;
     }
