@@ -20,7 +20,7 @@ export type Uint128 = string;
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal = string;
-export type ContractState = "idle" | "claiming" | "unbonding" | "staking" | "transfering";
+export type ContractState = "idle" | "claiming" | "unbonding" | "staking_rewards" | "staking_bond";
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
@@ -189,6 +189,24 @@ export type PuppeteerHookArgs =
   | {
       error: ResponseHookErrorMsg;
     };
+export type StakerHookArgs =
+  | {
+      success: ResponseHookSuccessMsg2;
+    }
+  | {
+      error: ResponseHookErrorMsg2;
+    };
+export type Transaction2 =
+  | {
+      stake: {
+        amount: Uint128;
+      };
+    }
+  | {
+      i_b_c_transfer: {
+        amount: Uint128;
+      };
+    };
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -253,7 +271,13 @@ export interface DropCoreSchema {
     | Uint1281
     | UnbondBatch;
   query: UnbondBatchArgs;
-  execute: BondArgs | UpdateConfigArgs | UpdateNonNativeRewardsReceiversArgs | PuppeteerHookArgs | UpdateOwnershipArgs;
+  execute:
+    | BondArgs
+    | UpdateConfigArgs
+    | UpdateNonNativeRewardsReceiversArgs
+    | PuppeteerHookArgs
+    | StakerHookArgs
+    | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
@@ -274,6 +298,7 @@ export interface Config {
   puppeteer_contract: string;
   puppeteer_timeout: number;
   remote_denom: string;
+  staker_contract: string;
   strategy_contract: string;
   token_contract: string;
   unbond_batch_switch_time: number;
@@ -403,6 +428,7 @@ export interface ConfigOptional {
   puppeteer_contract?: string | null;
   puppeteer_timeout?: number | null;
   remote_denom?: string | null;
+  staker_contract?: string | null;
   strategy_contract?: string | null;
   token_contract?: string | null;
   unbond_batch_switch_time?: number | null;
@@ -414,6 +440,18 @@ export interface ConfigOptional {
 }
 export interface UpdateNonNativeRewardsReceiversArgs {
   items: NonNativeRewardsItem[];
+}
+export interface ResponseHookSuccessMsg2 {
+  local_height: number;
+  request: RequestPacket;
+  request_id: number;
+  transaction: Transaction2;
+}
+export interface ResponseHookErrorMsg2 {
+  details: string;
+  request: RequestPacket;
+  request_id: number;
+  transaction: Transaction2;
 }
 export interface InstantiateMsg {
   base_denom: string;
@@ -432,6 +470,7 @@ export interface InstantiateMsg {
   puppeteer_contract: string;
   puppeteer_timeout: number;
   remote_denom: string;
+  staker_contract: string;
   strategy_contract: string;
   token_contract: string;
   unbond_batch_switch_time: number;
@@ -544,6 +583,10 @@ export class Client {
   puppeteerHook = async(sender:string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
+  }
+  stakerHook = async(sender:string, args: StakerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { staker_hook: args }, fee || "auto", memo, funds);
   }
   resetBondedAmount = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

@@ -838,6 +838,7 @@ export interface ConfigOptional {
   puppeteer_contract?: string | null;
   puppeteer_timeout?: number | null;
   remote_denom?: string | null;
+  staker_contract?: string | null;
   strategy_contract?: string | null;
   token_contract?: string | null;
   unbond_batch_switch_time?: number | null;

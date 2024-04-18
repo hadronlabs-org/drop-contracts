@@ -2,6 +2,20 @@ import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
 /**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint128 = string;
+/**
  * A human readable address.
  *
  * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
@@ -24,7 +38,7 @@ export type Addr = string;
  *
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
-export type Uint128 = string;
+export type Uint1281 = string;
 export type IcaState =
   | ("none" | "in_progress" | "timeout")
   | {
@@ -45,7 +59,7 @@ export type IcaState =
  *
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
-export type Uint1281 = string;
+export type Uint1282 = string;
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -97,7 +111,7 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropStakerSchema {
-  responses: Config | IcaState | Uint1281 | OwnershipForString;
+  responses: Uint128 | Config | IcaState | Uint1282 | OwnershipForString;
   execute: StakeArgs | UpdateConfigArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
@@ -113,10 +127,10 @@ export interface Config {
   timeout: PumpTimeout;
 }
 export interface IBCFees {
-  ack_fee: Uint128;
-  recv_fee: Uint128;
-  register_fee: Uint128;
-  timeout_fee: Uint128;
+  ack_fee: Uint1281;
+  recv_fee: Uint1281;
+  register_fee: Uint1281;
+  timeout_fee: Uint1281;
 }
 export interface PumpTimeout {
   local?: number | null;
@@ -140,7 +154,7 @@ export interface OwnershipForString {
   pending_owner?: string | null;
 }
 export interface StakeArgs {
-  items: [string, Uint128][];
+  items: [string, Uint1281][];
 }
 export interface UpdateConfigArgs {
   new_config: ConfigOptional;
@@ -150,8 +164,8 @@ export interface ConfigOptional {
   base_denom?: string | null;
   connection_id?: string | null;
   ibc_fees?: IBCFees | null;
-  min_ibc_transfer?: Uint128 | null;
-  min_staking_amount?: Uint128 | null;
+  min_ibc_transfer?: Uint1281 | null;
+  min_staking_amount?: Uint1281 | null;
   port_id?: string | null;
   puppeteer_ica?: string | null;
   remote_denom?: string | null;
@@ -163,8 +177,8 @@ export interface InstantiateMsg {
   base_denom: string;
   connection_id: string;
   ibc_fees: IBCFees;
-  min_ibc_transfer: Uint128;
-  min_staking_amount: Uint128;
+  min_ibc_transfer: Uint1281;
+  min_staking_amount: Uint1281;
   owner?: string | null;
   port_id: string;
   remote_denom: string;
@@ -223,6 +237,9 @@ export class Client {
   }
   queryNonStakedBalance = async(): Promise<Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { non_staked_balance: {} });
+  }
+  queryAllBalance = async(): Promise<Uint128> => {
+    return this.client.queryContractSmart(this.contractAddress, { all_balance: {} });
   }
   queryIca = async(): Promise<IcaState> => {
     return this.client.queryContractSmart(this.contractAddress, { ica: {} });
