@@ -146,6 +146,7 @@ fn execute_delegate(
         contract_addr: config.puppeteer_addr,
         msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
             items: vec![(validator, amount)],
+            fee: None,
             timeout,
             reply_to: env.contract.address.to_string(),
         })?,

@@ -62,6 +62,7 @@ pub enum ExecuteMsg {
     },
     Delegate {
         items: Vec<(String, Uint128)>,
+        fee: Option<(String, Uint128)>,
         timeout: Option<u64>,
         reply_to: String,
     },

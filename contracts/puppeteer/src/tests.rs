@@ -105,6 +105,7 @@ fn test_execute_delegate() {
     let pupeteer_base = base_init(&mut deps.as_mut());
     let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
         items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
+        fee: None,
         reply_to: "some_reply_to".to_string(),
         timeout: Some(100u64),
     };

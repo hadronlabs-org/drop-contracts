@@ -242,6 +242,11 @@ export interface SetFeesArgs {
   timeout_fee: Uint128;
 }
 export interface DelegateArgs {
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  fee?: [string, Uint128] | null;
   items: [string, Uint128][];
   reply_to: string;
   timeout?: number | null;
@@ -337,6 +342,21 @@ export class Client {
     initCoins?: readonly Coin[],
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
+      ...(initCoins && initCoins.length && { funds: initCoins }),
+    });
+    return res;
+  }
+  static async instantiate2(
+    client: SigningCosmWasmClient,
+    sender: string,
+    codeId: number,
+    salt: number,
+    initMsg: InstantiateMsg,
+    label: string,
+    fees: StdFee | 'auto' | number,
+    initCoins?: readonly Coin[],
+  ): Promise<InstantiateResult> {
+    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
       ...(initCoins && initCoins.length && { funds: initCoins }),
     });
     return res;
