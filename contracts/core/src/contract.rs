@@ -14,8 +14,8 @@ use drop_staking_base::state::core::{
     unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem, UnbondBatch,
     UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM,
     LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE,
-    LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, PENDING_TRANSFER,
-    PRE_UNBONDING_BALANCE, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+    LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, PRE_UNBONDING_BALANCE,
+    TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
 };
 use drop_staking_base::state::validatorset::ValidatorInfo;
 use drop_staking_base::state::withdrawal_voucher::{Metadata, Trait};
@@ -403,9 +403,9 @@ fn execute_tick(
     match current_state {
         ContractState::Idle => execute_tick_idle(deps.branch(), env, info, &config),
         ContractState::Claiming => execute_tick_claiming(deps.branch(), env, info, &config),
-        ContractState::Transfering => execute_tick_transfering(deps.branch(), env, info, &config),
+        ContractState::StakingBond => execute_tick_staking_bond(deps.branch(), env, info, &config),
         ContractState::Unbonding => execute_tick_unbonding(deps.branch(), env, info, &config),
-        ContractState::Staking => execute_tick_staking(deps.branch(), env, info, &config),
+        ContractState::StakingRewards => execute_tick_staking(deps.branch(), env, info, &config),
     }
 }
 
@@ -572,16 +572,9 @@ fn execute_tick_idle(
             .collect::<Vec<_>>();
         if validators_to_claim.is_empty() {
             attrs.push(attr("validators_to_claim", "empty"));
-            if let Some((transfer_msg, pending_amount)) =
-                get_transfer_pending_balance_msg(deps.as_ref(), &env, config, info.funds.clone())?
-            {
-                FSM.go_to(deps.storage, ContractState::Transfering)?;
-                PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
-                messages.push(transfer_msg);
-                attrs.push(attr("state", "transfering"));
-            } else if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
+            if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
                 messages.push(stake_msg);
-                FSM.go_to(deps.storage, ContractState::Staking)?;
+                FSM.go_to(deps.storage, ContractState::StakingRewards)?;
                 attrs.push(attr("state", "staking"));
             } else if let Some(unbond_message) =
                 get_unbonding_msg(deps.branch(), &env, config, &info)?
@@ -653,16 +646,9 @@ fn execute_tick_claiming(
             attrs.push(attr("error_on_claiming", format!("{:?}", err)));
         }
     }
-    if let Some((transfer_msg, pending_amount)) =
-        get_transfer_pending_balance_msg(deps.as_ref(), &env, config, info.funds.clone())?
-    {
-        FSM.go_to(deps.storage, ContractState::Transfering)?;
-        PENDING_TRANSFER.save(deps.storage, &pending_amount)?;
-        messages.push(transfer_msg);
-        attrs.push(attr("state", "transfering"));
-    } else if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
+    if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
         messages.push(stake_msg);
-        FSM.go_to(deps.storage, ContractState::Staking)?;
+        FSM.go_to(deps.storage, ContractState::StakingRewards)?;
         attrs.push(attr("state", "staking"));
     } else if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info)? {
         messages.push(unbond_message);
@@ -676,20 +662,35 @@ fn execute_tick_claiming(
     Ok(response("execute-tick_claiming", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
-fn execute_tick_transfering(
+fn execute_tick_staking_bond(
     mut deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let _response_msg = get_received_puppeteer_response(deps.as_ref())?;
-    LAST_PUPPETEER_RESPONSE.remove(deps.storage);
+    let response_msg = get_received_staker_response(deps.as_ref())?;
+    if let drop_staking_base::msg::staker::ResponseHookMsg::Success(response) = response_msg {
+        let (_, puppeteer_height, _): drop_staking_base::msg::puppeteer::BalancesResponse =
+            deps.querier.query_wasm_smart(
+                config.puppeteer_contract.to_string(),
+                &drop_puppeteer_base::msg::QueryMsg::Extension {
+                    msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
+                },
+            )?;
+        if response.local_height > puppeteer_height {
+            return Err(ContractError::PuppeteerBalanceOutdated {
+                ica_height: response.local_height,
+                puppeteer_height,
+            });
+        }
+    }
+    LAST_STAKER_RESPONSE.remove(deps.storage);
     let mut messages = vec![];
     let mut attrs = vec![];
     attrs.push(attr("action", "tick_transfering"));
     if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
         messages.push(stake_msg);
-        FSM.go_to(deps.storage, ContractState::Staking)?;
+        FSM.go_to(deps.storage, ContractState::StakingRewards)?;
         attrs.push(attr("state", "staking"));
     } else if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info)? {
         messages.push(unbond_message);
@@ -1059,44 +1060,6 @@ fn execute_unbond(
     Ok(response("execute-unbond", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
-fn get_transfer_pending_balance_msg<T>(
-    deps: Deps<NeutronQuery>,
-    env: &Env,
-    config: &Config,
-    funds: Vec<Coin>,
-) -> ContractResult<Option<(CosmosMsg<T>, Uint128)>> {
-    let pending_amount = deps
-        .querier
-        .query_balance(
-            env.contract.address.to_string(),
-            config.base_denom.to_string(),
-        )?
-        .amount;
-    if pending_amount.is_zero() {
-        return Ok(None);
-    }
-    let mut all_funds = vec![Coin {
-        denom: config.base_denom.to_string(),
-        amount: pending_amount,
-    }];
-    all_funds.extend(funds);
-
-    Ok(Some((
-        CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.puppeteer_contract.to_string(),
-            msg: to_json_binary(
-                &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
-                    reason: IBCTransferReason::Stake,
-                    timeout: config.puppeteer_timeout,
-                    reply_to: env.contract.address.to_string(),
-                },
-            )?,
-            funds: all_funds,
-        }),
-        pending_amount,
-    )))
-}
-
 pub fn get_stake_msg<T>(
     deps: DepsMut<NeutronQuery>,
     env: &Env,
@@ -1215,6 +1178,14 @@ fn get_received_puppeteer_response(
     deps: Deps<NeutronQuery>,
 ) -> ContractResult<drop_puppeteer_base::msg::ResponseHookMsg> {
     LAST_PUPPETEER_RESPONSE
+        .load(deps.storage)
+        .map_err(|_| ContractError::PuppeteerResponseIsNotReceived {})
+}
+
+fn get_received_staker_response(
+    deps: Deps<NeutronQuery>,
+) -> ContractResult<drop_staking_base::msg::staker::ResponseHookMsg> {
+    LAST_STAKER_RESPONSE
         .load(deps.storage)
         .map_err(|_| ContractError::PuppeteerResponseIsNotReceived {})
 }

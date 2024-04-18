@@ -423,7 +423,7 @@ pub fn sudo_open_ack(
 
 fn sudo_response(
     deps: DepsMut<NeutronQuery>,
-    _env: Env,
+    env: Env,
     request: RequestPacket,
     data: Binary,
 ) -> ContractResult<Response> {
@@ -465,6 +465,7 @@ fn sudo_response(
                     request_id: seq_id,
                     request: request.clone(),
                     transaction: transaction.clone(),
+                    local_height: env.block.height,
                 },
             )))?,
             funds: vec![],
@@ -609,7 +610,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
     }
 }
 
-pub fn submit_tx_reply(deps: DepsMut, msg: Reply) -> StdResult<Response> {
+fn submit_tx_reply(deps: DepsMut, msg: Reply) -> StdResult<Response> {
     let resp: MsgSubmitTxResponse = serde_json_wasm::from_slice(
         msg.result
             .into_result()

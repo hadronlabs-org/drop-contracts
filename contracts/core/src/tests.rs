@@ -2484,7 +2484,7 @@ fn test_execute_tick_transfering_no_puppeteer_response() {
             },
         )
         .unwrap();
-    FSM.set_initial_state(deps.as_mut().storage, ContractState::Transfering)
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingBond)
         .unwrap();
     let res = execute(
         deps.as_mut(),
@@ -2587,7 +2587,7 @@ fn test_tick_transferring_to_staking() {
             },
         )
         .unwrap();
-    FSM.set_initial_state(deps.as_mut().storage, ContractState::Transfering)
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingBond)
         .unwrap();
     let res = execute(
         deps.as_mut(),
@@ -2719,7 +2719,7 @@ fn test_tick_transferring_to_unbonding() {
             },
         )
         .unwrap();
-    FSM.set_initial_state(deps.as_mut().storage, ContractState::Transfering)
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingBond)
         .unwrap();
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &0u128).unwrap();
     unbond_batches_map()
@@ -2875,7 +2875,7 @@ fn test_tick_transfering_to_idle() {
             },
         )
         .unwrap();
-    FSM.set_initial_state(deps.as_mut().storage, ContractState::Transfering)
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingBond)
         .unwrap();
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &0u128).unwrap();
     unbond_batches_map()
@@ -2952,7 +2952,7 @@ fn test_execute_tick_staking_no_puppeteer_response() {
             },
         )
         .unwrap();
-    FSM.set_initial_state(deps.as_mut().storage, ContractState::Staking)
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingRewards)
         .unwrap();
     let res = execute(
         deps.as_mut(),
@@ -3069,7 +3069,7 @@ fn test_tick_staking_to_unbonding() {
             },
         )
         .unwrap();
-    FSM.set_initial_state(deps.as_mut().storage, ContractState::Staking)
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingRewards)
         .unwrap();
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &0u128).unwrap();
     unbond_batches_map()
@@ -3225,7 +3225,7 @@ fn test_tick_staking_to_idle() {
             },
         )
         .unwrap();
-    FSM.set_initial_state(deps.as_mut().storage, ContractState::Staking)
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingRewards)
         .unwrap();
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &0u128).unwrap();
     unbond_batches_map()

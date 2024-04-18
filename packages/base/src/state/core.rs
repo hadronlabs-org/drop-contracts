@@ -105,8 +105,8 @@ pub enum ContractState {
     Idle,
     Claiming,
     Unbonding,
-    Staking,
-    Transfering,
+    StakingRewards,
+    StakingBond,
 }
 
 const TRANSITIONS: &[Transition<ContractState>] = &[
@@ -124,38 +124,38 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
     },
     Transition {
         from: ContractState::Idle,
-        to: ContractState::Staking,
+        to: ContractState::StakingRewards,
     },
     Transition {
         from: ContractState::Idle,
-        to: ContractState::Transfering,
+        to: ContractState::StakingBond,
     },
     Transition {
         from: ContractState::Claiming,
-        to: ContractState::Transfering,
+        to: ContractState::StakingBond,
     },
     Transition {
-        from: ContractState::Transfering,
-        to: ContractState::Staking,
+        from: ContractState::StakingBond,
+        to: ContractState::StakingRewards,
     },
     Transition {
-        from: ContractState::Transfering,
+        from: ContractState::StakingBond,
         to: ContractState::Unbonding,
     },
     Transition {
-        from: ContractState::Staking,
+        from: ContractState::StakingRewards,
         to: ContractState::Unbonding,
     },
     Transition {
         from: ContractState::Claiming,
-        to: ContractState::Staking,
+        to: ContractState::StakingRewards,
     },
     Transition {
         from: ContractState::Claiming,
         to: ContractState::Unbonding,
     },
     Transition {
-        from: ContractState::Staking,
+        from: ContractState::StakingRewards,
         to: ContractState::Idle,
     },
     Transition {
@@ -163,7 +163,7 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
         to: ContractState::Idle,
     },
     Transition {
-        from: ContractState::Transfering,
+        from: ContractState::StakingBond,
         to: ContractState::Idle,
     },
     Transition {
@@ -189,7 +189,6 @@ pub const LAST_PUPPETEER_RESPONSE: Item<PuppeteerResponseHookMsg> =
 pub const LAST_STAKER_RESPONSE: Item<StakerResponseHookMsg> = Item::new("last_staker_response");
 pub const FAILED_BATCH_ID: Item<u128> = Item::new("failed_batch_id");
 pub const PRE_UNBONDING_BALANCE: Item<Uint128> = Item::new("pre_unbonding_balance");
-pub const PENDING_TRANSFER: Item<Uint128> = Item::new("pending_transfer");
 // Vec<(denom, address for pumping)>
 pub const NON_NATIVE_REWARDS_CONFIG: Item<Vec<NonNativeRewardsItem>> =
     Item::new("non_native_rewards_config");

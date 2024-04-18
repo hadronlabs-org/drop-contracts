@@ -69,6 +69,9 @@ pub enum ContractError {
     #[error("Puppeteer response is not received")]
     PuppeteerResponseIsNotReceived {},
 
+    #[error("Staker response is not received")]
+    StakerResponseIsNotReceived {},
+
     #[error("Unbonded amount is not set")]
     UnbondedAmountIsNotSet {},
 
