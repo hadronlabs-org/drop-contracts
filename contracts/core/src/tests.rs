@@ -3412,7 +3412,7 @@ fn test_bond_with_receiver() {
         mock_info("some", &[Coin::new(1000, "base_denom")]),
         drop_staking_base::msg::core::ExecuteMsg::Bond {
             receiver: Some("receiver".to_string()),
-            r#ref: None,
+            r#ref: Some("ref".to_string()),
         },
     )
     .unwrap();
@@ -3427,6 +3427,7 @@ fn test_bond_with_receiver() {
                     .add_attribute("exchange_rate", "1")
                     .add_attribute("issue_amount", "1000")
                     .add_attribute("receiver", "receiver")
+                    .add_attribute("ref", "ref")
             )
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token_contract".to_string(),

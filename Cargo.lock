@@ -869,6 +869,7 @@ dependencies = [
  "drop-puppeteer-base",
  "drop-staking-base",
  "neutron-sdk",
+ "thiserror",
 ]
 
 [[package]]
