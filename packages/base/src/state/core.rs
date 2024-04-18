@@ -193,6 +193,6 @@ pub const PENDING_TRANSFER: Item<Uint128> = Item::new("pending_transfer");
 // Vec<(denom, address for pumping)>
 pub const NON_NATIVE_REWARDS_CONFIG: Item<Vec<NonNativeRewardsItem>> =
     Item::new("non_native_rewards_config");
-pub const BONDED_AMOUNT: Item<Uint128> = Item::new("bonded_amount");
+pub const BONDED_AMOUNT: Item<Uint128> = Item::new("bonded_amount"); // to be used in bond limit
 pub const LAST_LSM_REDEEM: Item<u64> = Item::new("last_lsm_redeem");
 pub const EXCHANGE_RATE: Item<(Decimal, u64)> = Item::new("exchange_rate");

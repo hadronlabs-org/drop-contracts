@@ -255,7 +255,6 @@ fn exec_unpause(
     ))
 }
 
-// TODO: remove
 fn execute_reset_bonded_amount(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
