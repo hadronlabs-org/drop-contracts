@@ -74,3 +74,8 @@ pub struct ResponseHookErrorMsg {
     pub request: RequestPacket,
     pub details: String,
 }
+
+#[cw_serde]
+pub enum ReceiverExecuteMsg {
+    StakerHook(ResponseHookMsg),
+}

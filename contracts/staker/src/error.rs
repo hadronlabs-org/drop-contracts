@@ -2,6 +2,7 @@ use cosmwasm_std::{OverflowError, StdError};
 use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use neutron_sdk::NeutronError;
+use prost::DecodeError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -11,6 +12,8 @@ pub enum ContractError {
 
     #[error("{0}")]
     NeutronError(#[from] NeutronError),
+    #[error("{0}")]
+    DecodeError(#[from] DecodeError),
 
     #[error("{0}")]
     OwnershipError(#[from] OwnershipError),

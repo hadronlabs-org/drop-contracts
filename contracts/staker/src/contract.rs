@@ -4,14 +4,15 @@ use cosmos_sdk_proto::cosmos::staking::v1beta1::MsgDelegate;
 use cosmwasm_schema::serde::Serialize;
 use cosmwasm_std::{
     attr, coin, ensure, entry_point, to_json_binary, Coin, CosmosMsg, Deps, Reply, StdError,
-    SubMsg, Uint128,
+    SubMsg, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw_utils::must_pay;
 use drop_helpers::answer::response;
 use drop_helpers::interchain::prepare_any_msg;
 use drop_staking_base::msg::staker::{
-    ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion, QueryMsg,
+    ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion, QueryMsg, ReceiverExecuteMsg,
+    ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg,
 };
 use drop_staking_base::state::staker::{
     Config, ConfigOptional, ReplyMsg, Transaction, TxState, TxStateStatus, CONFIG, ICA, ICA_ID,
@@ -378,7 +379,7 @@ fn execute_ibc_transfer(
 }
 
 #[entry_point]
-pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResult<Response> {
+pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> ContractResult<Response> {
     match msg {
         SudoMsg::Response { request, data } => sudo_response(deps, env, request, data),
         SudoMsg::Error { request, details } => sudo_error(deps, env, request, details),
@@ -407,14 +408,14 @@ pub fn sudo_open_ack(
     _channel_id: String,
     _counterparty_channel_id: String,
     counterparty_version: String,
-) -> NeutronResult<Response> {
+) -> ContractResult<Response> {
     let parsed_version: Result<OpenAckVersion, _> =
         serde_json_wasm::from_str(counterparty_version.as_str());
     if let Ok(parsed_version) = parsed_version {
         ICA.set_address(deps.storage, parsed_version.address)?;
         Ok(Response::default())
     } else {
-        Err(NeutronError::Std(StdError::generic_err(
+        Err(ContractError::Std(StdError::generic_err(
             "can't parse version",
         )))
     }
@@ -425,24 +426,51 @@ fn sudo_response(
     _env: Env,
     request: RequestPacket,
     data: Binary,
-) -> NeutronResult<Response> {
+) -> ContractResult<Response> {
     let attrs = vec![
         attr("action", "sudo_response"),
         attr("request_id", request.sequence.unwrap_or(0).to_string()),
     ];
-    let _seq_id = request
+    let seq_id = request
         .sequence
         .ok_or_else(|| StdError::generic_err("sequence not found"))?;
-
-    let msg_data: TxMsgData = TxMsgData::decode(data.as_slice())?;
-    deps.api
-        .debug(&format!("WASMDEBUG: msg_data: data: {msg_data:?}"));
     let tx_state = TX_STATE.load(deps.storage)?;
-    if let Some(Transaction::Stake { amount }) = tx_state.transaction {
+    ensure!(
+        tx_state.seq_id == Some(seq_id),
+        ContractError::InvalidState {
+            reason: "seq_id does not match".to_string()
+        }
+    );
+    ensure!(
+        tx_state.status == TxStateStatus::WaitingForAck,
+        ContractError::InvalidState {
+            reason: "tx_state is not WaitingForAck".to_string()
+        }
+    );
+    let reply_to = tx_state.reply_to;
+    let transaction = tx_state
+        .transaction
+        .ok_or_else(|| StdError::generic_err("transaction not found"))?;
+    let _msg_data: TxMsgData = TxMsgData::decode(data.as_slice())?;
+    if let Transaction::Stake { amount } = transaction {
         NON_STAKED_BALANCE.update(deps.storage, |balance| StdResult::Ok(balance - amount))?;
     }
     TX_STATE.save(deps.storage, &TxState::default())?;
-    Ok(response("sudo-response", CONTRACT_NAME, attrs))
+    let mut msgs = vec![];
+    if let Some(reply_to) = reply_to {
+        msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: reply_to,
+            msg: to_json_binary(&ReceiverExecuteMsg::StakerHook(ResponseHookMsg::Success(
+                ResponseHookSuccessMsg {
+                    request_id: seq_id,
+                    request: request.clone(),
+                    transaction: transaction.clone(),
+                },
+            )))?,
+            funds: vec![],
+        }));
+    }
+    Ok(response("sudo-response", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
 fn msg_with_sudo_callback<C: Into<CosmosMsg<X>> + Serialize, X>(
@@ -468,18 +496,39 @@ fn sudo_timeout(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     request: RequestPacket,
-) -> NeutronResult<Response> {
+) -> ContractResult<Response> {
     let attrs = vec![
         attr("action", "sudo_timeout"),
         attr("request_id", request.sequence.unwrap_or(0).to_string()),
     ];
     ICA.set_timeout(deps.storage)?;
-    deps.api.debug(&format!(
-        "WASMDEBUG: sudo_timeout: request: {request:?}",
-        request = request
-    ));
+    let seq_id = request
+        .sequence
+        .ok_or_else(|| StdError::generic_err("sequence not found"))?;
+    let tx_state = TX_STATE.load(deps.storage)?;
+    let transaction = tx_state
+        .transaction
+        .ok_or_else(|| StdError::generic_err("transaction not found"))?;
+    if let Transaction::IBCTransfer { amount } = transaction {
+        NON_STAKED_BALANCE.update(deps.storage, |balance| StdResult::Ok(balance - amount))?;
+    }
+    let mut msgs = vec![];
+    if let Some(reply_to) = tx_state.reply_to {
+        msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: reply_to,
+            msg: to_json_binary(&ReceiverExecuteMsg::StakerHook(ResponseHookMsg::Error(
+                ResponseHookErrorMsg {
+                    request_id: seq_id,
+                    request,
+                    transaction,
+                    details: "timeout".to_string(),
+                },
+            )))?,
+            funds: vec![],
+        }));
+    }
     TX_STATE.save(deps.storage, &TxState::default())?;
-    Ok(response("sudo-timeout", CONTRACT_NAME, attrs))
+    Ok(response("sudo-timeout", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
 fn sudo_error(
@@ -487,21 +536,45 @@ fn sudo_error(
     _env: Env,
     request: RequestPacket,
     details: String,
-) -> NeutronResult<Response> {
+) -> ContractResult<Response> {
     let attrs = vec![
         attr("action", "sudo_error"),
         attr("request_id", request.sequence.unwrap_or(0).to_string()),
         attr("details", details.clone()),
     ];
-    let _seq_id = request
+    let tx_state = TX_STATE.load(deps.storage)?;
+    ensure!(
+        tx_state.status == TxStateStatus::WaitingForAck,
+        ContractError::InvalidState {
+            reason: "tx_state is not WaitingForAck".to_string()
+        }
+    );
+    let seq_id = request
         .sequence
         .ok_or_else(|| StdError::generic_err("sequence not found"))?;
-    let tx_state = TX_STATE.load(deps.storage)?;
-    if let Some(Transaction::IBCTransfer { amount }) = tx_state.transaction {
+    let transaction = tx_state
+        .transaction
+        .ok_or_else(|| StdError::generic_err("transaction not found"))?;
+    if let Transaction::IBCTransfer { amount } = transaction {
         NON_STAKED_BALANCE.update(deps.storage, |balance| StdResult::Ok(balance - amount))?;
     }
+    let mut msgs = vec![];
+    if let Some(reply_to) = tx_state.reply_to {
+        msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: reply_to,
+            msg: to_json_binary(&ReceiverExecuteMsg::StakerHook(ResponseHookMsg::Error(
+                ResponseHookErrorMsg {
+                    request_id: seq_id,
+                    request,
+                    transaction,
+                    details,
+                },
+            )))?,
+            funds: vec![],
+        }));
+    }
     TX_STATE.save(deps.storage, &TxState::default())?;
-    Ok(response("sudo-error", CONTRACT_NAME, attrs))
+    Ok(response("sudo-error", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
