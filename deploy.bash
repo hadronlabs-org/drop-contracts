@@ -58,11 +58,13 @@ wait_tx() {
     die "Tx failed with code $code and message: $(echo "$tx" | jq -r '.raw_log')"
   fi
   txhash="$(echo "$tx" | jq -r '.txhash')"
-  ((attempts=100))
+  if [[ ! ${#txhash} -eq 64 ]]; then
+    die "No txhash found in: $tx"
+  fi
+  ((attempts=200))
   while ! "$1" query tx --type=hash "$txhash" "${q[@]}" 2>/dev/null; do
     ((attempts-=1)) || {
-      echo "tx $txhash still not included in block" 1>&2
-      exit 1
+      die "tx $txhash still not included in block"
     }
     sleep 0.1
   done
