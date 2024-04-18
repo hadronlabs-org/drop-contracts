@@ -438,6 +438,10 @@ describe('Core', () => {
         bond_limit: '100000',
         min_stake_amount: '2',
       },
+      staker_params: {
+        min_stake_amount: '10000',
+        min_ibc_transfer: '10000',
+      },
     });
     expect(res.transactionHash).toHaveLength(64);
   });

@@ -514,7 +514,7 @@ fn execute_init(
                 base_denom: base_denom.to_string(),
                 timeout: core_params.puppeteer_timeout,
                 ibc_fees: config.remote_opts.ibc_fees,
-                min_ibc_transfer: staker_params.min_stake_amount,
+                min_ibc_transfer: staker_params.min_ibc_transfer,
                 min_staking_amount: staker_params.min_stake_amount,
             })?,
             funds: vec![],

@@ -39,7 +39,7 @@ pub struct CoreParams {
 #[cw_serde]
 pub struct StakerParams {
     pub min_stake_amount: Uint128,
-    pub max_stake_amount: Uint128,
+    pub min_ibc_transfer: Uint128,
 }
 
 #[cw_serde]

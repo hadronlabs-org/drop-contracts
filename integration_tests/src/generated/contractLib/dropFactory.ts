@@ -818,7 +818,7 @@ export interface CoreParams {
   unbonding_safe_period: number;
 }
 export interface StakerParams {
-  max_stake_amount: Uint128;
+  min_ibc_transfer: Uint128;
   min_stake_amount: Uint128;
 }
 export interface ConfigOptional {
