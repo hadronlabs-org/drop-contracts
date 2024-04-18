@@ -45,6 +45,8 @@ pub struct InstantiateMsg {
     pub transfer_channel_id: String,
     pub owner: Option<String>,
     pub allowed_senders: Vec<String>,
+    pub min_ibc_transfer: Uint128,
+    pub min_staking_amount: Uint128,
 }
 
 #[cw_serde]

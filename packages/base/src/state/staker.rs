@@ -16,6 +16,8 @@ pub struct Config {
     pub base_denom: String,
     pub allowed_senders: Vec<String>,
     pub puppeteer_ica: Option<String>,
+    pub min_ibc_transfer: Uint128,
+    pub min_staking_amount: Uint128,
 }
 
 #[cw_serde]

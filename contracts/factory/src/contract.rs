@@ -1,8 +1,8 @@
 use crate::{
     error::ContractResult,
     msg::{
-        CallbackMsg, CoreParams, ExecuteMsg, InstantiateMsg, ProxyMsg, QueryMsg, UpdateConfigMsg,
-        ValidatorSetMsg,
+        CallbackMsg, CoreParams, ExecuteMsg, InstantiateMsg, ProxyMsg, QueryMsg, StakerParams,
+        UpdateConfigMsg, ValidatorSetMsg,
     },
     state::{Config, State, CONFIG, STATE},
 };
@@ -12,27 +12,25 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
-use drop_staking_base::{
-    msg::core::{
+use drop_staking_base::msg::{
+    core::{
         ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg,
         QueryMsg as CoreQueryMsg,
     },
-    msg::distribution::InstantiateMsg as DistributionInstantiateMsg,
-    msg::puppeteer::InstantiateMsg as PuppeteerInstantiateMsg,
-    msg::rewards_manager::{
-        InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg,
-    },
-    msg::staker::InstantiateMsg as StakerInstantiateMsg,
-    msg::strategy::InstantiateMsg as StrategyInstantiateMsg,
-    msg::token::{
+    distribution::InstantiateMsg as DistributionInstantiateMsg,
+    puppeteer::InstantiateMsg as PuppeteerInstantiateMsg,
+    rewards_manager::{InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg},
+    staker::InstantiateMsg as StakerInstantiateMsg,
+    strategy::InstantiateMsg as StrategyInstantiateMsg,
+    token::{
         ConfigResponse as TokenConfigResponse, InstantiateMsg as TokenInstantiateMsg,
         QueryMsg as TokenQueryMsg,
     },
-    msg::validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
-    msg::withdrawal_manager::{
+    validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
+    withdrawal_manager::{
         InstantiateMsg as WithdrawalManagerInstantiateMsg, QueryMsg as WithdrawalManagerQueryMsg,
     },
-    msg::withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
+    withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -112,7 +110,8 @@ pub fn execute(
         ExecuteMsg::Init {
             base_denom,
             core_params,
-        } => execute_init(deps, env, info, base_denom, core_params),
+            staker_params,
+        } => execute_init(deps, env, info, base_denom, core_params, staker_params),
         ExecuteMsg::Callback(msg) => match msg {
             CallbackMsg::PostInit {} => execute_post_init(deps, env, info),
         },
@@ -317,6 +316,7 @@ fn execute_init(
     info: MessageInfo,
     base_denom: String,
     core_params: CoreParams,
+    staker_params: StakerParams,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
@@ -514,6 +514,8 @@ fn execute_init(
                 base_denom: base_denom.to_string(),
                 timeout: core_params.puppeteer_timeout,
                 ibc_fees: config.remote_opts.ibc_fees,
+                min_ibc_transfer: staker_params.min_stake_amount,
+                min_staking_amount: staker_params.min_stake_amount,
             })?,
             funds: vec![],
             salt: Binary::from(salt),

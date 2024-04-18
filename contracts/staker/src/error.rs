@@ -36,6 +36,9 @@ pub enum ContractError {
     #[error("Invalid Funds: {reason}")]
     InvalidFunds { reason: String },
 
+    #[error("Invalid State: {reason}")]
+    InvalidState { reason: String },
+
     #[error("Unknown sudo response")]
     UnknownResponse {},
 
