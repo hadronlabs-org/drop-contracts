@@ -182,7 +182,7 @@ fn test_register_ica() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("nobody", &[Coin::new(1000u128, "local_denom")]),
+        mock_info("nobody", &[Coin::new(1000u128, "untrn")]),
         msg.clone(),
     )
     .unwrap();
@@ -190,18 +190,18 @@ fn test_register_ica() {
         res,
         Response::new()
             .add_event(
-                Event::new("crates.io:drop-neutron-contracts__drop-pump-register-ica")
+                Event::new("crates.io:drop-neutron-contracts__drop-staker-register-ica")
                     .add_attributes(vec![
                         ("action", "register_ica"),
                         ("connection_id", "connection"),
-                        ("ica_id", "drop_PUMP")
+                        ("ica_id", "drop_STAKER")
                     ])
             )
             .add_submessage(SubMsg::new(CosmosMsg::Custom(
                 NeutronMsg::register_interchain_account(
                     "connection".to_string(),
-                    "drop_PUMP".to_string(),
-                    Some(vec![Coin::new(400u128, "local_denom")]),
+                    "drop_STAKER".to_string(),
+                    Some(vec![Coin::new(400u128, "untrn")]),
                 )
             )))
     );
@@ -209,7 +209,7 @@ fn test_register_ica() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("nobody", &[Coin::new(1000u128, "local_denom")]),
+        mock_info("nobody", &[Coin::new(1000u128, "untrn")]),
         msg.clone(),
     );
     assert_eq!(
@@ -223,7 +223,7 @@ fn test_register_ica() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("nobody", &[Coin::new(1000u128, "local_denom")]),
+        mock_info("nobody", &[Coin::new(1000u128, "untrn")]),
         msg.clone(),
     )
     .unwrap();
@@ -231,18 +231,18 @@ fn test_register_ica() {
         res,
         Response::new()
             .add_event(
-                Event::new("crates.io:drop-neutron-contracts__drop-pump-register-ica")
+                Event::new("crates.io:drop-neutron-contracts__drop-staker-register-ica")
                     .add_attributes(vec![
                         ("action", "register_ica"),
                         ("connection_id", "connection"),
-                        ("ica_id", "drop_PUMP")
+                        ("ica_id", "drop_STAKER")
                     ])
             )
             .add_submessage(SubMsg::new(CosmosMsg::Custom(
                 NeutronMsg::register_interchain_account(
                     "connection".to_string(),
-                    "drop_PUMP".to_string(),
-                    Some(vec![Coin::new(400u128, "local_denom")]),
+                    "drop_STAKER".to_string(),
+                    Some(vec![Coin::new(400u128, "untrn")]),
                 )
             )))
     );
