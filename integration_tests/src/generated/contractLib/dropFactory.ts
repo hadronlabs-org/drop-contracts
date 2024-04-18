@@ -802,6 +802,7 @@ export interface State {
 export interface InitArgs {
   base_denom: string;
   core_params: CoreParams;
+  staker_params: StakerParams;
 }
 export interface CoreParams {
   bond_limit?: Uint128 | null;
@@ -815,6 +816,10 @@ export interface CoreParams {
   unbond_batch_switch_time: number;
   unbonding_period: number;
   unbonding_safe_period: number;
+}
+export interface StakerParams {
+  max_stake_amount: Uint128;
+  min_stake_amount: Uint128;
 }
 export interface ConfigOptional {
   base_denom?: string | null;

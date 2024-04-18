@@ -150,6 +150,8 @@ export interface ConfigOptional {
   base_denom?: string | null;
   connection_id?: string | null;
   ibc_fees?: IBCFees | null;
+  min_ibc_transfer?: Uint128 | null;
+  min_staking_amount?: Uint128 | null;
   port_id?: string | null;
   puppeteer_ica?: string | null;
   remote_denom?: string | null;
@@ -161,6 +163,8 @@ export interface InstantiateMsg {
   base_denom: string;
   connection_id: string;
   ibc_fees: IBCFees;
+  min_ibc_transfer: Uint128;
+  min_staking_amount: Uint128;
   owner?: string | null;
   port_id: string;
   remote_denom: string;
