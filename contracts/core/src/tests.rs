@@ -1,27 +1,27 @@
+use crate::{
+    contract::{check_denom, execute, get_non_native_rewards_and_fee_transfer_msg, get_stake_msg},
+    error::ContractError,
+};
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockStorage},
     to_json_binary, Addr, Coin, CosmosMsg, Decimal, Event, MessageInfo, OwnedDeps, Response,
     SubMsg, Timestamp, Uint128, WasmMsg,
 };
-use std::{str::FromStr, vec};
-
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
 use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::{
-    msg::strategy::QueryMsg as StategyQueryMsg,
-    state::core::{
-        unbond_batches_map, ContractState, UnbondBatch, UnbondBatchStatus, UnbondItem,
-        BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FSM, LAST_IDLE_CALL, LAST_LSM_REDEEM,
-        LAST_PUPPETEER_RESPONSE, LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES,
-        UNBOND_BATCH_ID,
+    msg::{
+        core::{ExecuteMsg, InstantiateMsg},
+        puppeteer::MultiBalances,
+        strategy::QueryMsg as StrategyQueryMsg,
     },
-};
-use drop_staking_base::{
-    msg::{core::InstantiateMsg, puppeteer::MultiBalances},
     state::core::{
-        Config, ConfigOptional, NonNativeRewardsItem, LAST_ICA_BALANCE_CHANGE_HEIGHT,
-        NON_NATIVE_REWARDS_CONFIG,
+        unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem,
+        UnbondBatch, UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FSM,
+        LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE,
+        LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, TOTAL_LSM_SHARES,
+        UNBOND_BATCH_ID,
     },
 };
 use neutron_sdk::{
@@ -29,10 +29,7 @@ use neutron_sdk::{
     interchain_queries::v045::types::Balances,
     sudo::msg::RequestPacket,
 };
-
-use crate::contract::{
-    check_denom, execute, get_non_native_rewards_and_fee_transfer_msg, get_stake_msg,
-};
+use std::{str::FromStr, vec};
 
 pub const MOCK_PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
 pub const MOCK_STRATEGY_CONTRACT_ADDR: &str = "strategy_contract";
@@ -227,9 +224,9 @@ fn get_stake_msg_success() {
         });
     deps.querier
         .add_wasm_query_response("strategy_contract", |msg| {
-            let q: StategyQueryMsg = from_json(msg).unwrap();
+            let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
+                StrategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
                     drop_staking_base::msg::distribution::IdealDelegation {
                         valoper_address: "valoper_address".to_string(),
                         stake_change: deposit,
@@ -290,9 +287,9 @@ fn get_stake_msg_zero_fee() {
         });
     deps.querier
         .add_wasm_query_response("strategy_contract", |msg| {
-            let q: StategyQueryMsg = from_json(msg).unwrap();
+            let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
+                StrategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
                     drop_staking_base::msg::distribution::IdealDelegation {
                         valoper_address: "valoper_address".to_string(),
                         stake_change: deposit,
@@ -2040,9 +2037,9 @@ fn test_tick_claiming_wo_transfer_stake() {
         });
     deps.querier
         .add_wasm_query_response("strategy_contract", |msg| {
-            let q: StategyQueryMsg = from_json(msg).unwrap();
+            let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
+                StrategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
                     drop_staking_base::msg::distribution::IdealDelegation {
                         valoper_address: "valoper_address".to_string(),
                         stake_change: deposit,
@@ -2174,9 +2171,9 @@ fn test_tick_claiming_wo_transfer_unbonding() {
         });
     deps.querier
         .add_wasm_query_response("strategy_contract", |msg| {
-            let q: StategyQueryMsg = from_json(msg).unwrap();
+            let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StategyQueryMsg::CalcWithdraw { withdraw } => to_json_binary(&vec![
+                StrategyQueryMsg::CalcWithdraw { withdraw } => to_json_binary(&vec![
                     drop_staking_base::msg::distribution::IdealDelegation {
                         valoper_address: "valoper_address".to_string(),
                         stake_change: withdraw,
@@ -2321,9 +2318,9 @@ fn test_tick_claiming_wo_idle() {
         });
     deps.querier
         .add_wasm_query_response("strategy_contract", |msg| {
-            let q: StategyQueryMsg = from_json(msg).unwrap();
+            let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StategyQueryMsg::CalcWithdraw { withdraw } => to_json_binary(&vec![
+                StrategyQueryMsg::CalcWithdraw { withdraw } => to_json_binary(&vec![
                     drop_staking_base::msg::distribution::IdealDelegation {
                         valoper_address: "valoper_address".to_string(),
                         stake_change: withdraw,
@@ -2520,9 +2517,9 @@ fn test_tick_transferring_to_staking() {
         });
     deps.querier
         .add_wasm_query_response("strategy_contract", |msg| {
-            let q: StategyQueryMsg = from_json(msg).unwrap();
+            let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
+                StrategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
                     drop_staking_base::msg::distribution::IdealDelegation {
                         valoper_address: "valoper_address".to_string(),
                         stake_change: deposit,
@@ -2651,9 +2648,9 @@ fn test_tick_transferring_to_unbonding() {
         });
     deps.querier
         .add_wasm_query_response("strategy_contract", |msg| {
-            let q: StategyQueryMsg = from_json(msg).unwrap();
+            let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StategyQueryMsg::CalcWithdraw { withdraw } => to_json_binary(&vec![
+                StrategyQueryMsg::CalcWithdraw { withdraw } => to_json_binary(&vec![
                     drop_staking_base::msg::distribution::IdealDelegation {
                         valoper_address: "valoper_address".to_string(),
                         stake_change: withdraw,
@@ -2806,9 +2803,9 @@ fn test_tick_transfering_to_idle() {
         });
     deps.querier
         .add_wasm_query_response("strategy_contract", |msg| {
-            let q: StategyQueryMsg = from_json(msg).unwrap();
+            let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StategyQueryMsg::CalcWithdraw { withdraw } => to_json_binary(&vec![
+                StrategyQueryMsg::CalcWithdraw { withdraw } => to_json_binary(&vec![
                     drop_staking_base::msg::distribution::IdealDelegation {
                         valoper_address: "valoper_address".to_string(),
                         stake_change: withdraw,
@@ -2998,9 +2995,9 @@ fn test_tick_staking_to_unbonding() {
         });
     deps.querier
         .add_wasm_query_response("strategy_contract", |msg| {
-            let q: StategyQueryMsg = from_json(msg).unwrap();
+            let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StategyQueryMsg::CalcWithdraw { withdraw } => to_json_binary(&vec![
+                StrategyQueryMsg::CalcWithdraw { withdraw } => to_json_binary(&vec![
                     drop_staking_base::msg::distribution::IdealDelegation {
                         valoper_address: "valoper_address".to_string(),
                         stake_change: withdraw,
@@ -3153,9 +3150,9 @@ fn test_tick_staking_to_idle() {
         });
     deps.querier
         .add_wasm_query_response("strategy_contract", |msg| {
-            let q: StategyQueryMsg = from_json(msg).unwrap();
+            let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StategyQueryMsg::CalcWithdraw { withdraw } => to_json_binary(&vec![
+                StrategyQueryMsg::CalcWithdraw { withdraw } => to_json_binary(&vec![
                     drop_staking_base::msg::distribution::IdealDelegation {
                         valoper_address: "valoper_address".to_string(),
                         stake_change: withdraw,
@@ -3780,5 +3777,169 @@ fn null_request_packet() -> RequestPacket {
         data: None,
         timeout_height: None,
         timeout_timestamp: None,
+    }
+}
+
+mod process_emergency_batch {
+    use super::*;
+
+    fn setup(
+        status: UnbondBatchStatus,
+    ) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier, NeutronQuery> {
+        let mut deps = mock_dependencies(&[]);
+        {
+            let deps_as_mut = deps.as_mut();
+            cw_ownable::initialize_owner(deps_as_mut.storage, deps_as_mut.api, Some("owner"))
+                .unwrap();
+        }
+        {
+            unbond_batches_map()
+                .save(
+                    deps.as_mut().storage,
+                    2,
+                    &UnbondBatch {
+                        total_amount: Uint128::new(100),
+                        expected_amount: Uint128::new(100),
+                        expected_release: 200,
+                        unbond_items: vec![],
+                        status,
+                        slashing_effect: None,
+                        unbonded_amount: None,
+                        withdrawed_amount: None,
+                        created: 200,
+                    },
+                )
+                .unwrap();
+        }
+        deps
+    }
+
+    #[test]
+    fn unauthorized() {
+        let mut deps = setup(UnbondBatchStatus::WithdrawnEmergency);
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("stranger", &[]),
+            ExecuteMsg::ProcessEmergencyBatch {
+                batch_id: 2,
+                unbonded_amount: Uint128::new(100),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            err,
+            ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+        );
+    }
+
+    #[test]
+    fn not_in_withdrawn_emergency_state() {
+        let mut deps = setup(UnbondBatchStatus::WithdrawingEmergency);
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            ExecuteMsg::ProcessEmergencyBatch {
+                batch_id: 2,
+                unbonded_amount: Uint128::new(100),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(err, ContractError::BatchNotWithdrawnEmergency {});
+    }
+
+    #[test]
+    fn unbonded_amount_is_zero() {
+        let mut deps = setup(UnbondBatchStatus::WithdrawnEmergency);
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            ExecuteMsg::ProcessEmergencyBatch {
+                batch_id: 2,
+                unbonded_amount: Uint128::new(0),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(err, ContractError::UnbondedAmountZero {});
+    }
+
+    #[test]
+    fn unbonded_amount_too_high() {
+        let mut deps = setup(UnbondBatchStatus::WithdrawnEmergency);
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            ExecuteMsg::ProcessEmergencyBatch {
+                batch_id: 2,
+                unbonded_amount: Uint128::new(200),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(err, ContractError::UnbondedAmountTooHigh {});
+    }
+
+    #[test]
+    fn no_slashing() {
+        let mut deps = setup(UnbondBatchStatus::WithdrawnEmergency);
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            ExecuteMsg::ProcessEmergencyBatch {
+                batch_id: 2,
+                unbonded_amount: Uint128::new(100),
+            },
+        )
+        .unwrap();
+
+        let batch = unbond_batches_map().load(deps.as_mut().storage, 2).unwrap();
+        assert_eq!(
+            batch,
+            UnbondBatch {
+                total_amount: Uint128::new(100),
+                expected_amount: Uint128::new(100),
+                expected_release: 200,
+                unbond_items: vec![],
+                status: UnbondBatchStatus::Withdrawn,
+                slashing_effect: Some(Decimal::one()),
+                unbonded_amount: Some(Uint128::new(100)),
+                withdrawed_amount: None,
+                created: 200,
+            }
+        );
+    }
+
+    #[test]
+    fn some_slashing() {
+        let mut deps = setup(UnbondBatchStatus::WithdrawnEmergency);
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            ExecuteMsg::ProcessEmergencyBatch {
+                batch_id: 2,
+                unbonded_amount: Uint128::new(70),
+            },
+        )
+        .unwrap();
+
+        let batch = unbond_batches_map().load(deps.as_mut().storage, 2).unwrap();
+        assert_eq!(
+            batch,
+            UnbondBatch {
+                total_amount: Uint128::new(100),
+                expected_amount: Uint128::new(100),
+                expected_release: 200,
+                unbond_items: vec![],
+                status: UnbondBatchStatus::Withdrawn,
+                slashing_effect: Some(Decimal::from_ratio(70u128, 100u128)),
+                unbonded_amount: Some(Uint128::new(70)),
+                withdrawed_amount: None,
+                created: 200,
+            }
+        );
     }
 }

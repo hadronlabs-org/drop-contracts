@@ -85,6 +85,10 @@ pub enum ExecuteMsg {
     Tick {},
     PuppeteerHook(Box<ResponseHookMsg>),
     ResetBondedAmount {},
+    ProcessEmergencyBatch {
+        batch_id: u128,
+        unbonded_amount: Uint128,
+    },
 }
 
 #[cw_serde]
