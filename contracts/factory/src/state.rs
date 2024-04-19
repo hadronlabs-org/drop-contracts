@@ -1,7 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cw_storage_plus::Item;
 use drop_helpers::interchain::IBCFees;
-use drop_staking_base::msg::token::DenomMetadata;
 
 #[cw_serde]
 pub struct CodeIds {
@@ -28,16 +27,6 @@ pub struct RemoteOpts {
 }
 
 #[cw_serde]
-pub struct Config {
-    pub code_ids: CodeIds,
-    pub remote_opts: RemoteOpts,
-    pub salt: String,
-    pub subdenom: String,
-    pub sdk_version: String,
-    pub token_metadata: DenomMetadata,
-}
-
-#[cw_serde]
 pub struct State {
     pub token_contract: String,
     pub core_contract: String,
@@ -58,5 +47,4 @@ pub struct PauseInfoResponse {
     pub rewards_manager: drop_helpers::pause::PauseInfoResponse,
 }
 
-pub const CONFIG: Item<Config> = Item::new("config");
 pub const STATE: Item<State> = Item::new("state");

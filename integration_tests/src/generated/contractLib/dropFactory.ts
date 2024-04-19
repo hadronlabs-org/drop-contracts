@@ -10,6 +10,16 @@ export type PauseInfoResponse1 =
   | {
       unpaused: {};
     };
+export type UpdateConfigArgs =
+  | {
+      core: ConfigOptional;
+    }
+  | {
+      validators_set: ConfigOptional2;
+    }
+  | {
+      puppeteer_fees: FeesMsg;
+    };
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -24,16 +34,6 @@ export type PauseInfoResponse1 =
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type UpdateConfigArgs =
-  | {
-      core: ConfigOptional;
-    }
-  | {
-      validators_set: ConfigOptional2;
-    }
-  | {
-      puppeteer_fees: FeesMsg;
-    };
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
@@ -775,7 +775,7 @@ export type Expiration =
 
 export interface DropFactorySchema {
   responses: PauseInfoResponse | State;
-  execute: InitArgs | UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
+  execute: UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
@@ -795,27 +795,6 @@ export interface State {
   validators_set_contract: string;
   withdrawal_manager_contract: string;
   withdrawal_voucher_contract: string;
-}
-export interface InitArgs {
-  base_denom: string;
-  core_params: CoreParams;
-  staker_params: StakerParams;
-}
-export interface CoreParams {
-  bond_limit?: Uint128 | null;
-  idle_min_interval: number;
-  lsm_min_bond_amount: Uint128;
-  lsm_redeem_max_interval: number;
-  lsm_redeem_threshold: number;
-  min_stake_amount: Uint128;
-  puppeteer_timeout: number;
-  unbond_batch_switch_time: number;
-  unbonding_period: number;
-  unbonding_safe_period: number;
-}
-export interface StakerParams {
-  min_ibc_transfer: Uint128;
-  min_stake_amount: Uint128;
 }
 export interface ConfigOptional {
   base_denom?: string | null;
@@ -1231,10 +1210,13 @@ export interface WeightedVoteOption {
   [k: string]: unknown;
 }
 export interface InstantiateMsg {
+  base_denom: string;
   code_ids: CodeIds;
+  core_params: CoreParams;
   remote_opts: RemoteOpts;
   salt: string;
   sdk_version: string;
+  staker_params: StakerParams;
   subdenom: string;
   token_metadata: DenomMetadata;
 }
@@ -1250,6 +1232,18 @@ export interface CodeIds {
   withdrawal_manager_code_id: number;
   withdrawal_voucher_code_id: number;
 }
+export interface CoreParams {
+  bond_limit?: Uint128 | null;
+  idle_min_interval: number;
+  lsm_min_bond_amount: Uint128;
+  lsm_redeem_max_interval: number;
+  lsm_redeem_threshold: number;
+  min_stake_amount: Uint128;
+  puppeteer_timeout: number;
+  unbond_batch_switch_time: number;
+  unbonding_period: number;
+  unbonding_safe_period: number;
+}
 export interface RemoteOpts {
   connection_id: string;
   denom: string;
@@ -1263,6 +1257,10 @@ export interface IBCFees {
   recv_fee: Uint128;
   register_fee: Uint128;
   timeout_fee: Uint128;
+}
+export interface StakerParams {
+  min_ibc_transfer: Uint128;
+  min_stake_amount: Uint128;
 }
 export interface DenomMetadata {
   /**
@@ -1346,10 +1344,6 @@ export class Client {
   }
   queryPauseInfo = async(): Promise<PauseInfoResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
-  }
-  init = async(sender:string, args: InitArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { init: args }, fee || "auto", memo, funds);
   }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

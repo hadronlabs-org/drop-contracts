@@ -14,6 +14,9 @@ pub struct InstantiateMsg {
     pub subdenom: String,
     pub token_metadata: DenomMetadata,
     pub sdk_version: String,
+    pub base_denom: String,
+    pub core_params: CoreParams,
+    pub staker_params: StakerParams,
 }
 
 #[cw_serde]
@@ -80,16 +83,9 @@ pub enum ValidatorSetMsg {
 #[pausable]
 #[cw_serde]
 pub enum ExecuteMsg {
-    Init {
-        base_denom: String,
-        core_params: CoreParams,
-        staker_params: StakerParams,
-    },
     UpdateConfig(Box<UpdateConfigMsg>),
     Proxy(ProxyMsg),
-    AdminExecute {
-        msgs: Vec<CosmosMsg<NeutronMsg>>,
-    },
+    AdminExecute { msgs: Vec<CosmosMsg<NeutronMsg>> },
 }
 #[cw_serde]
 pub enum MigrateMsg {}
