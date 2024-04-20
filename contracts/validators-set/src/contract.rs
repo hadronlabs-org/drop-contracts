@@ -111,16 +111,17 @@ fn execute_update_config(
     let mut attrs: Vec<Attribute> = Vec::new();
 
     if let Some(stats_contract) = new_config.stats_contract {
-        state.stats_contract = stats_contract.clone();
+        state.stats_contract = deps.api.addr_validate(&stats_contract)?;
         attrs.push(attr("stats_contract", stats_contract))
     }
 
     if let Some(provider_proposals_contract) = new_config.provider_proposals_contract {
+        state.provider_proposals_contract =
+            Some(deps.api.addr_validate(&provider_proposals_contract)?);
         attrs.push(attr(
             "provider_proposals_contract",
-            provider_proposals_contract.to_string(),
+            provider_proposals_contract,
         ));
-        state.provider_proposals_contract = Some(provider_proposals_contract);
     }
 
     CONFIG.save(deps.storage, &state)?;

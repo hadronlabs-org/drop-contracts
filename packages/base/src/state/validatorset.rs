@@ -1,9 +1,13 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Decimal};
 use cw_storage_plus::{Item, Map};
-use optfield::optfield;
 
-#[optfield(pub ConfigOptional, attrs)]
+#[cw_serde]
+pub struct ConfigOptional {
+    pub stats_contract: Option<String>,
+    pub provider_proposals_contract: Option<String>,
+}
+
 #[cw_serde]
 pub struct Config {
     pub stats_contract: Addr,

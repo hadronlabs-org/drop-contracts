@@ -91,8 +91,8 @@ fn update_config_wrong_owner() {
         mock_info("core1", &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
-                stats_contract: Some(Addr::unchecked("stats_contract1")),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract1")),
+                stats_contract: Some("stats_contract1".to_string()),
+                provider_proposals_contract: Some("provider_proposals_contract1".to_string()),
             },
         },
     )
@@ -133,8 +133,8 @@ fn update_config_ok() {
         mock_info("core", &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
-                stats_contract: Some(Addr::unchecked("stats_contract1")),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract1")),
+                stats_contract: Some("stats_contract1".to_string()),
+                provider_proposals_contract: Some("provider_proposals_contract1".to_string()),
             },
         },
     )
