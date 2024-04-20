@@ -1,11 +1,12 @@
 use astroport::router::SwapOperation;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
+use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 
+#[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig {
-        owner: Option<String>,
         core_contract: Option<String>,
         cron_address: Option<String>,
         router_contract: Option<String>,
@@ -19,6 +20,7 @@ pub enum ExecuteMsg {
     Exchange {},
 }
 
+#[cw_ownable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
@@ -28,7 +30,6 @@ pub enum QueryMsg {
 
 #[cw_serde]
 pub struct ConfigResponse {
-    pub owner: String,
     pub core_contract: String,
     pub cron_address: String,
     pub router_contract: String,

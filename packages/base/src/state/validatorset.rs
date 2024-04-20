@@ -6,7 +6,6 @@ use optfield::optfield;
 #[optfield(pub ConfigOptional, attrs)]
 #[cw_serde]
 pub struct Config {
-    pub owner: Addr,
     pub stats_contract: Addr,
     pub provider_proposals_contract: Option<Addr>,
 }

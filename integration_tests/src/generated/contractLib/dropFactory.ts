@@ -822,7 +822,6 @@ export interface ConfigOptional {
   withdrawal_voucher_contract?: string | null;
 }
 export interface ConfigOptional2 {
-  owner?: Addr | null;
   provider_proposals_contract?: Addr | null;
   stats_contract?: Addr | null;
 }
