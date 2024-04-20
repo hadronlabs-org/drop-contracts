@@ -797,13 +797,14 @@ export interface ConfigOptional {
   lsm_redeem_maximum_interval?: number | null;
   lsm_redeem_threshold?: number | null;
   min_stake_amount?: Uint128 | null;
-  pump_address?: string | null;
+  pump_ica_address?: string | null;
   puppeteer_contract?: string | null;
   puppeteer_timeout?: number | null;
   remote_denom?: string | null;
   staker_contract?: string | null;
   strategy_contract?: string | null;
   token_contract?: string | null;
+  transfer_channel_id?: string | null;
   unbond_batch_switch_time?: number | null;
   unbonding_period?: number | null;
   unbonding_safe_period?: number | null;

@@ -1,4 +1,3 @@
-use crate::error::{ContractError, ContractResult};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, entry_point, to_json_binary, Addr, Attribute, BankMsg,
@@ -8,18 +7,12 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
 use drop_helpers::pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse};
-use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
-use drop_puppeteer_base::state::RedeemShareItem;
-use drop_staking_base::state::core::{
-    unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem, UnbondBatch,
-    UnbondBatchStatus, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM,
-    LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE,
-    LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, PRE_UNBONDING_BALANCE,
-    TOTAL_LSM_SHARES, TRANSFER_CHANNEL_ID, UNBOND_BATCH_ID,
+use drop_puppeteer_base::{
+    msg::{IBCTransferReason, TransferReadyBatchesMsg},
+    state::RedeemShareItem,
 };
-use drop_staking_base::state::validatorset::ValidatorInfo;
-use drop_staking_base::state::withdrawal_voucher::{Metadata, Trait};
 use drop_staking_base::{
+    error::core::{ContractError, ContractResult},
     msg::{
         core::{ExecuteMsg, InstantiateMsg, LastPuppeteerResponse, LastStakerResponse, QueryMsg},
         token::{
@@ -28,7 +21,18 @@ use drop_staking_base::{
         },
         withdrawal_voucher::ExecuteMsg as VoucherExecuteMsg,
     },
-    state::core::LAST_IDLE_CALL,
+    state::{
+        core::{
+            unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem,
+            UnbondBatch, UnbondBatchStatus, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID,
+            FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM,
+            LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE, LSM_SHARES_TO_REDEEM,
+            NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, PRE_UNBONDING_BALANCE, TOTAL_LSM_SHARES,
+            UNBOND_BATCH_ID,
+        },
+        validatorset::ValidatorInfo,
+        withdrawal_voucher::{Metadata, Trait},
+    },
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 use prost::Message;
@@ -54,8 +58,8 @@ pub fn instantiate(
         attr("owner", &msg.owner),
     ];
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(&msg.owner))?;
-    TRANSFER_CHANNEL_ID.save(deps.storage, &msg.transfer_channel_id)?;
-    CONFIG.save(deps.storage, &msg.into())?;
+    let config = msg.into_config(deps.as_ref().into_empty())?;
+    CONFIG.save(deps.storage, &config)?;
     //an empty unbonding batch added as it's ready to be used on unbond action
     UNBOND_BATCH_ID.save(deps.storage, &0)?;
     unbond_batches_map().save(deps.storage, 0, &new_unbond(env.block.time.seconds()))?;
@@ -536,13 +540,13 @@ fn execute_tick_idle(
             ContractError::UnbondingTimeIsClose {}
         );
 
-        let pump_address = config
-            .pump_address
+        let pump_ica_address = config
+            .pump_ica_address
             .clone()
-            .ok_or(ContractError::PumpAddressIsNotSet {})?;
+            .ok_or(ContractError::PumpIcaAddressIsNotSet {})?;
         let (ica_balance, _local_height, ica_balance_local_time) = get_ica_balance_by_denom(
             deps.as_ref(),
-            &config.puppeteer_contract,
+            config.puppeteer_contract.as_ref(),
             &config.remote_denom,
             true,
         )?;
@@ -586,7 +590,7 @@ fn execute_tick_idle(
                     batch_ids: vec![id],
                     emergency: false,
                     amount: unbonded_amount,
-                    recipient: pump_address,
+                    recipient: pump_ica_address,
                 })
             }
             _ => {
@@ -604,7 +608,7 @@ fn execute_tick_idle(
                         ica_balance,
                     )
                 } else {
-                    (false, pump_address, total_expected_amount)
+                    (false, pump_ica_address, total_expected_amount)
                 };
                 let mut batch_ids = vec![];
                 for (id, mut batch) in unbonded_batches {
@@ -677,7 +681,7 @@ fn execute_tick_idle(
         } else {
             attrs.push(attr("validators_to_claim", validators_to_claim.join(",")));
             messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: config.puppeteer_contract.clone(),
+                contract_addr: config.puppeteer_contract.to_string(),
                 msg: to_json_binary(
                     &drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
                         validators: validators_to_claim,
@@ -921,7 +925,7 @@ fn execute_bond(
         }
     }
     msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.token_contract,
+        contract_addr: config.token_contract.into_string(),
         msg: to_json_binary(&TokenExecuteMsg::Mint {
             amount: issue_amount,
             receiver,
@@ -940,50 +944,56 @@ fn execute_update_config(
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut attrs = vec![attr("action", "update_config")];
     if let Some(token_contract) = new_config.token_contract {
-        attrs.push(attr("token_contract", &token_contract));
-        config.token_contract = token_contract;
+        config.token_contract = deps.api.addr_validate(&token_contract)?;
+        attrs.push(attr("token_contract", token_contract));
     }
     if let Some(puppeteer_contract) = new_config.puppeteer_contract {
-        attrs.push(attr("puppeteer_contract", &puppeteer_contract));
-        config.puppeteer_contract = puppeteer_contract;
+        config.puppeteer_contract = deps.api.addr_validate(&puppeteer_contract)?;
+        attrs.push(attr("puppeteer_contract", puppeteer_contract));
     }
     if let Some(puppeteer_timeout) = new_config.puppeteer_timeout {
         attrs.push(attr("puppeteer_contract", puppeteer_timeout.to_string()));
         config.puppeteer_timeout = puppeteer_timeout;
     }
     if let Some(strategy_contract) = new_config.strategy_contract {
-        attrs.push(attr("strategy_contract", &strategy_contract));
-        config.strategy_contract = strategy_contract;
+        config.strategy_contract = deps.api.addr_validate(&strategy_contract)?;
+        attrs.push(attr("strategy_contract", strategy_contract));
     }
     if let Some(staker_contract) = new_config.staker_contract {
-        attrs.push(attr("staker_contract", &staker_contract));
-        config.staker_contract = staker_contract;
+        config.staker_contract = deps.api.addr_validate(&staker_contract)?;
+        attrs.push(attr("staker_contract", staker_contract));
     }
     if let Some(withdrawal_voucher_contract) = new_config.withdrawal_voucher_contract {
+        config.withdrawal_voucher_contract =
+            deps.api.addr_validate(&withdrawal_voucher_contract)?;
         attrs.push(attr(
             "withdrawal_voucher_contract",
-            &withdrawal_voucher_contract,
+            withdrawal_voucher_contract,
         ));
-        config.withdrawal_voucher_contract = withdrawal_voucher_contract;
     }
     if let Some(withdrawal_manager_contract) = new_config.withdrawal_manager_contract {
+        config.withdrawal_manager_contract =
+            deps.api.addr_validate(&withdrawal_manager_contract)?;
         attrs.push(attr(
             "withdrawal_manager_contract",
-            &withdrawal_manager_contract,
+            withdrawal_manager_contract,
         ));
-        config.withdrawal_manager_contract = withdrawal_manager_contract;
     }
-    if let Some(pump_address) = new_config.pump_address {
-        attrs.push(attr("pump_address", &pump_address));
-        config.pump_address = Some(pump_address);
+    if let Some(pump_ica_address) = new_config.pump_ica_address {
+        attrs.push(attr("pump_address", &pump_ica_address));
+        config.pump_ica_address = Some(pump_ica_address);
+    }
+    if let Some(transfer_channel_id) = new_config.transfer_channel_id {
+        attrs.push(attr("transfer_channel_id", &transfer_channel_id));
+        config.transfer_channel_id = transfer_channel_id;
     }
     if let Some(remote_denom) = new_config.remote_denom {
         attrs.push(attr("remote_denom", &remote_denom));
         config.remote_denom = remote_denom;
     }
     if let Some(validators_set_contract) = new_config.validators_set_contract {
-        attrs.push(attr("validators_set_contract", &validators_set_contract));
-        config.validators_set_contract = validators_set_contract;
+        config.validators_set_contract = deps.api.addr_validate(&validators_set_contract)?;
+        attrs.push(attr("validators_set_contract", validators_set_contract));
     }
     if let Some(base_denom) = new_config.base_denom {
         attrs.push(attr("base_denom", &base_denom));
@@ -1122,7 +1132,7 @@ fn execute_unbond(
     });
     let msgs = vec![
         CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.withdrawal_voucher_contract,
+            contract_addr: config.withdrawal_voucher_contract.into_string(),
             msg: to_json_binary(&VoucherExecuteMsg::Mint {
                 owner: info.sender.to_string(),
                 token_id: unbond_batch_id.to_string()
@@ -1136,7 +1146,7 @@ fn execute_unbond(
             funds: vec![],
         }),
         CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.token_contract,
+            contract_addr: config.token_contract.into_string(),
             msg: to_json_binary(&TokenExecuteMsg::Burn {})?,
             funds: vec![Coin {
                 denom: ld_denom,
@@ -1186,8 +1196,12 @@ pub fn get_stake_rewards_msg<T>(
     info: &MessageInfo,
 ) -> ContractResult<Option<CosmosMsg<T>>> {
     let funds = info.funds.clone();
-    let (balance, balance_height, _) =
-        get_ica_balance_by_denom(deps, &config.puppeteer_contract, &config.remote_denom, true)?;
+    let (balance, balance_height, _) = get_ica_balance_by_denom(
+        deps,
+        config.puppeteer_contract.as_ref(),
+        &config.remote_denom,
+        true,
+    )?;
 
     if balance < config.min_stake_amount {
         return Ok(None);
@@ -1248,7 +1262,7 @@ fn get_unbonding_msg<T>(
     {
         let (pre_unbonding_balance, _, _) = get_ica_balance_by_denom(
             deps.as_ref(),
-            &config.puppeteer_contract,
+            config.puppeteer_contract.as_ref(),
             &config.remote_denom,
             true,
         )?;
@@ -1419,7 +1433,7 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
     }
 
     Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.puppeteer_contract,
+        contract_addr: config.puppeteer_contract.into_string(),
         msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
             items,
             timeout: Some(config.puppeteer_timeout),
@@ -1570,7 +1584,7 @@ pub mod check_denom {
             .path
             .split_once('/')
             .ok_or(ContractError::InvalidDenom {})?;
-        if port != "transfer" && channel != TRANSFER_CHANNEL_ID.load(deps.storage)? {
+        if port != "transfer" && channel != config.transfer_channel_id {
             return Err(ContractError::InvalidDenom {});
         }
 

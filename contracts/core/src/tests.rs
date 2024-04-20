@@ -1,6 +1,5 @@
-use crate::{
-    contract::{check_denom, execute, get_non_native_rewards_and_fee_transfer_msg},
-    error::ContractError,
+use crate::contract::{
+    check_denom, execute, get_non_native_rewards_and_fee_transfer_msg, get_stake_rewards_msg,
 };
 use cosmwasm_std::{
     from_json,
@@ -11,6 +10,7 @@ use cosmwasm_std::{
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
 use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::{
+    error::core::ContractError,
     msg::{
         core::{ExecuteMsg, InstantiateMsg},
         puppeteer::MultiBalances,
@@ -29,48 +29,46 @@ use neutron_sdk::{
     interchain_queries::v045::types::Balances,
     sudo::msg::RequestPacket,
 };
-
-use crate::contract::get_stake_rewards_msg;
 use std::{str::FromStr, vec};
 
 pub const MOCK_PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
 pub const MOCK_STRATEGY_CONTRACT_ADDR: &str = "strategy_contract";
 
-fn get_default_config(fee: Option<Decimal>) -> Config {
+fn get_default_config(
+    fee: Option<Decimal>,
+    idle_min_interval: u64,
+    lsm_redeem_threshold: u64,
+    lsm_redeem_maximum_interval: u64,
+    unbonding_safe_period: u64,
+    unbond_batch_switch_time: u64,
+    lsm_min_bond_amount: Uint128,
+) -> Config {
     Config {
-        token_contract: "token_contract".to_string(),
-        puppeteer_contract: MOCK_PUPPETEER_CONTRACT_ADDR.to_string(),
+        token_contract: Addr::unchecked("token_contract"),
+        puppeteer_contract: Addr::unchecked(MOCK_PUPPETEER_CONTRACT_ADDR),
         puppeteer_timeout: 60,
-        strategy_contract: MOCK_STRATEGY_CONTRACT_ADDR.to_string(),
-        withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-        withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-        validators_set_contract: "validators_set_contract".to_string(),
-        staker_contract: "staker_contract".to_string(),
+        strategy_contract: Addr::unchecked(MOCK_STRATEGY_CONTRACT_ADDR),
+        withdrawal_voucher_contract: Addr::unchecked("withdrawal_voucher_contract"),
+        withdrawal_manager_contract: Addr::unchecked("withdrawal_manager_contract"),
+        validators_set_contract: Addr::unchecked("validators_set_contract"),
+        staker_contract: Addr::unchecked("staker_contract"),
         base_denom: "base_denom".to_string(),
         remote_denom: "remote_denom".to_string(),
-        idle_min_interval: 1,
+        idle_min_interval,
         unbonding_period: 60,
-        unbonding_safe_period: 10,
-        unbond_batch_switch_time: 6000,
-        pump_address: None,
+        unbonding_safe_period,
+        unbond_batch_switch_time,
+        pump_ica_address: Some("pump_address".to_string()),
+        transfer_channel_id: "transfer_channel".to_string(),
         fee,
         fee_address: Some("fee_address".to_string()),
-        lsm_redeem_threshold: 10u64,
-        lsm_min_bond_amount: Uint128::one(),
-        lsm_redeem_maximum_interval: 10_000_000_000,
+        lsm_redeem_threshold,
+        lsm_min_bond_amount,
+        lsm_redeem_maximum_interval,
         bond_limit: None,
         emergency_address: None,
         min_stake_amount: Uint128::new(100),
     }
-}
-
-fn setup_config(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier, NeutronQuery>) {
-    CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(Decimal::from_atomics(1u32, 1).ok()),
-        )
-        .unwrap();
 }
 
 fn mock_token_query_config(_: &Binary) -> Binary {
@@ -84,7 +82,20 @@ fn mock_token_query_config(_: &Binary) -> Binary {
 #[test]
 fn get_non_native_rewards_and_fee_transfer_msg_success() {
     let mut deps = mock_dependencies(&[]);
-    setup_config(&mut deps);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(
+                Decimal::from_atomics(1u32, 1).ok(),
+                1,
+                10,
+                10_000_000_000,
+                10,
+                6000,
+                Uint128::one(),
+            ),
+        )
+        .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_msg: &_| {
             to_json_binary(&(
@@ -167,7 +178,20 @@ fn get_non_native_rewards_and_fee_transfer_msg_zero_fee() {
             ))
             .unwrap()
         });
-    setup_config(&mut deps);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(
+                Decimal::from_atomics(1u32, 1).ok(),
+                1,
+                10,
+                10_000_000_000,
+                10,
+                6000,
+                Uint128::one(),
+            ),
+        )
+        .unwrap();
 
     NON_NATIVE_REWARDS_CONFIG
         .save(
@@ -213,7 +237,20 @@ fn get_non_native_rewards_and_fee_transfer_msg_zero_fee() {
 #[test]
 fn get_stake_msg_success() {
     let mut deps = mock_dependencies(&[]);
-    setup_config(&mut deps);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(
+                Decimal::from_atomics(1u32, 1).ok(),
+                1,
+                10,
+                10_000_000_000,
+                10,
+                6000,
+                Uint128::one(),
+            ),
+        )
+        .unwrap();
     LAST_ICA_BALANCE_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &1)
         .unwrap();
@@ -252,7 +289,15 @@ fn get_stake_msg_success() {
     let stake_msg: CosmosMsg<NeutronMsg> = get_stake_rewards_msg(
         deps.as_ref(),
         &mock_env(),
-        &get_default_config(Decimal::from_atomics(1u32, 1).ok()),
+        &get_default_config(
+            Decimal::from_atomics(1u32, 1).ok(),
+            1,
+            10,
+            10_000_000_000,
+            10,
+            6000,
+            Uint128::one(),
+        ),
         &MessageInfo {
             sender: Addr::unchecked("addr0000"),
             funds: vec![Coin::new(200, "untrn")],
@@ -311,7 +356,20 @@ fn get_stake_msg_zero_fee() {
                 _ => unimplemented!(),
             }
         });
-    setup_config(&mut deps);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(
+                Decimal::from_atomics(1u32, 1).ok(),
+                1,
+                10,
+                10_000_000_000,
+                10,
+                6000,
+                Uint128::one(),
+            ),
+        )
+        .unwrap();
     LAST_ICA_BALANCE_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &1)
         .unwrap();
@@ -319,7 +377,7 @@ fn get_stake_msg_zero_fee() {
     let stake_msg: CosmosMsg<NeutronMsg> = get_stake_rewards_msg(
         deps.as_ref(),
         &mock_env(),
-        &get_default_config(None),
+        &get_default_config(None, 1, 10, 10_000_000_000, 10, 6000, Uint128::one()),
         &MessageInfo {
             sender: Addr::unchecked("addr0000"),
             funds: vec![Coin::new(200, "untrn")],
@@ -368,8 +426,8 @@ fn test_update_config() {
             unbonding_period: 20,
             unbonding_safe_period: 120,
             unbond_batch_switch_time: 2000,
-            pump_address: Some("old_pump_address".to_string()),
-            transfer_channel_id: "channel".to_string(),
+            pump_ica_address: Some("old_pump_address".to_string()),
+            transfer_channel_id: "old_transfer_channel".to_string(),
             fee: Some(Decimal::from_atomics(2u32, 1).unwrap()),
             fee_address: Some("old_fee_address".to_string()),
             lsm_redeem_max_interval: 20_000_000,
@@ -398,7 +456,8 @@ fn test_update_config() {
         unbonding_period: Some(120),
         unbonding_safe_period: Some(20),
         unbond_batch_switch_time: Some(12000),
-        pump_address: Some("new_pump_address".to_string()),
+        pump_ica_address: Some("new_pump_address".to_string()),
+        transfer_channel_id: Some("new_transfer_channel".to_string()),
         fee: Some(Decimal::from_atomics(2u32, 1).unwrap()),
         fee_address: Some("new_fee_address".to_string()),
         lsm_redeem_threshold: Some(20u64),
@@ -409,21 +468,22 @@ fn test_update_config() {
         min_stake_amount: Some(Uint128::new(200)),
     };
     let expected_config = Config {
-        token_contract: "new_token_contract".to_string(),
-        puppeteer_contract: "new_puppeteer_contract".to_string(),
+        token_contract: Addr::unchecked("new_token_contract"),
+        puppeteer_contract: Addr::unchecked("new_puppeteer_contract"),
         puppeteer_timeout: 100,
-        staker_contract: "new_staker_contract".to_string(),
-        strategy_contract: "new_strategy_contract".to_string(),
-        withdrawal_voucher_contract: "new_withdrawal_voucher_contract".to_string(),
-        withdrawal_manager_contract: "new_withdrawal_manager_contract".to_string(),
-        validators_set_contract: "new_validators_set_contract".to_string(),
+        staker_contract: Addr::unchecked("new_staker_contract"),
+        strategy_contract: Addr::unchecked("new_strategy_contract"),
+        withdrawal_voucher_contract: Addr::unchecked("new_withdrawal_voucher_contract"),
+        withdrawal_manager_contract: Addr::unchecked("new_withdrawal_manager_contract"),
+        validators_set_contract: Addr::unchecked("new_validators_set_contract"),
         base_denom: "new_base_denom".to_string(),
         remote_denom: "new_remote_denom".to_string(),
         idle_min_interval: 2,
         unbonding_period: 120,
         unbonding_safe_period: 20,
         unbond_batch_switch_time: 12000,
-        pump_address: Some("new_pump_address".to_string()),
+        pump_ica_address: Some("new_pump_address".to_string()),
+        transfer_channel_id: "new_transfer_channel".to_string(),
         fee: Some(Decimal::from_atomics(2u32, 1).unwrap()),
         fee_address: Some("new_fee_address".to_string()),
         lsm_redeem_threshold: 20u64,
@@ -434,11 +494,11 @@ fn test_update_config() {
         min_stake_amount: Uint128::new(200),
     };
 
-    let res = crate::contract::execute(
+    let res = execute(
         deps_mut,
         env.clone(),
         info,
-        drop_staking_base::msg::core::ExecuteMsg::UpdateConfig {
+        ExecuteMsg::UpdateConfig {
             new_config: Box::new(new_config),
         },
     );
@@ -459,7 +519,7 @@ fn test_execute_reset_bonded_amount() {
         deps.as_mut(),
         mock_env(),
         mock_info("admin", &[]),
-        drop_staking_base::msg::core::ExecuteMsg::ResetBondedAmount {},
+        ExecuteMsg::ResetBondedAmount {},
     );
     assert_eq!(
         res,
@@ -505,35 +565,18 @@ fn test_execute_tick_idle_non_native_rewards() {
         });
     deps.querier
         .add_wasm_query_response("token_contract", mock_token_query_config);
-
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 10,
-                unbond_batch_switch_time: 6000,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 10u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 10_000_000_000,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                10,
+                10_000_000_000,
+                10,
+                6000,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     NON_NATIVE_REWARDS_CONFIG
@@ -590,7 +633,7 @@ fn test_execute_tick_idle_non_native_rewards() {
         deps.as_mut(),
         env,
         mock_info("admin", &[]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     )
     .unwrap();
     let exchange_rate = EXCHANGE_RATE.load(deps.as_ref().storage);
@@ -609,28 +652,28 @@ fn test_execute_tick_idle_non_native_rewards() {
                     items: vec![
                         (
                             "non_native_denom_receiver_1".to_string(),
-                            cosmwasm_std::Coin {
+                            Coin {
                                 denom: "non_native_denom_1".to_string(),
                                 amount: Uint128::from(180u128),
                             },
                         ),
                         (
                             "non_native_denom_fee_receiver_1".to_string(),
-                            cosmwasm_std::Coin {
+                            Coin {
                                 denom: "non_native_denom_1".to_string(),
                                 amount: Uint128::from(20u128),
                             },
                         ),
                         (
                             "non_native_denom_fee_receiver_2".to_string(),
-                            cosmwasm_std::Coin {
+                            Coin {
                                 denom: "non_native_denom_2".to_string(),
                                 amount: Uint128::from(200u128),
                             },
                         ),
                         (
                             "non_native_denom_receiver_3".to_string(),
-                            cosmwasm_std::Coin {
+                            Coin {
                                 denom: "non_native_denom_3".to_string(),
                                 amount: Uint128::from(200u128),
                             },
@@ -653,31 +696,15 @@ fn test_execute_tick_idle_get_pending_lsm_shares_transfer() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 10,
-                unbond_batch_switch_time: 6000,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 10u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 10_000_000_000,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                10,
+                10_000_000_000,
+                10,
+                6000,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     NON_NATIVE_REWARDS_CONFIG
@@ -707,7 +734,7 @@ fn test_execute_tick_idle_get_pending_lsm_shares_transfer() {
         deps.as_mut(),
         env,
         mock_info("admin", &[]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     )
     .unwrap();
     assert_eq!(
@@ -738,31 +765,15 @@ fn test_idle_tick_pending_lsm_redeem() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 10,
-                unbond_batch_switch_time: 6000,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                10,
+                6000,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     NON_NATIVE_REWARDS_CONFIG
@@ -794,7 +805,7 @@ fn test_idle_tick_pending_lsm_redeem() {
         deps.as_mut(),
         env.clone(),
         mock_info("admin", &[]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     );
     assert!(res.is_err());
     LSM_SHARES_TO_REDEEM
@@ -817,7 +828,7 @@ fn test_idle_tick_pending_lsm_redeem() {
         deps.as_mut(),
         env,
         mock_info("admin", &[]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     )
     .unwrap();
     assert_eq!(
@@ -902,7 +913,7 @@ fn test_tick_idle_unbonding_close() {
                     delegations: vec![cosmwasm_std::Delegation {
                         delegator: Addr::unchecked("ica_address"),
                         validator: "valoper_address".to_string(),
-                        amount: cosmwasm_std::Coin {
+                        amount: Coin {
                             denom: "remote_denom".to_string(),
                             amount: Uint128::new(100_000),
                         },
@@ -918,31 +929,15 @@ fn test_tick_idle_unbonding_close() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                strategy_contract: "strategy_contract".to_string(),
-                staker_contract: "staker_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 6000,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                6000,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -979,13 +974,10 @@ fn test_tick_idle_unbonding_close() {
         deps.as_mut(),
         env,
         mock_info("admin", &[]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     );
     assert!(res.is_err());
-    assert_eq!(
-        res,
-        Err(crate::error::ContractError::UnbondingTimeIsClose {})
-    );
+    assert_eq!(res, Err(ContractError::UnbondingTimeIsClose {}));
 }
 
 #[test]
@@ -1034,7 +1026,7 @@ fn test_tick_idle_claim_wo_unbond() {
                     delegations: vec![cosmwasm_std::Delegation {
                         delegator: Addr::unchecked("ica_address"),
                         validator: "valoper_address".to_string(),
-                        amount: cosmwasm_std::Coin {
+                        amount: Coin {
                             denom: "remote_denom".to_string(),
                             amount: Uint128::new(100_000),
                         },
@@ -1045,36 +1037,17 @@ fn test_tick_idle_claim_wo_unbond() {
             ))
             .unwrap()
         });
-    CONFIG
-        .save(
-            deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 6000,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
-        )
-        .unwrap();
+    let mut config = get_default_config(
+        Some(Decimal::from_atomics(1u32, 1).unwrap()),
+        1000,
+        3,
+        100,
+        100,
+        6000,
+        Uint128::one(),
+    );
+    config.lsm_redeem_maximum_interval = 100;
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
     LAST_IDLE_CALL.save(deps.as_mut().storage, &0).unwrap();
@@ -1109,7 +1082,7 @@ fn test_tick_idle_claim_wo_unbond() {
         deps.as_mut(),
         env,
         mock_info("admin", &[Coin::new(1000, "untrn")]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     )
     .unwrap();
     assert_eq!(
@@ -1181,7 +1154,7 @@ fn test_tick_idle_claim_with_unbond_transfer() {
                     delegations: vec![cosmwasm_std::Delegation {
                         delegator: Addr::unchecked("ica_address"),
                         validator: "valoper_address".to_string(),
-                        amount: cosmwasm_std::Coin {
+                        amount: Coin {
                             denom: "remote_denom".to_string(),
                             amount: Uint128::new(100_000),
                         },
@@ -1197,31 +1170,15 @@ fn test_tick_idle_claim_with_unbond_transfer() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 600,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                6000,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -1258,7 +1215,7 @@ fn test_tick_idle_claim_with_unbond_transfer() {
         deps.as_mut(),
         env,
         mock_info("admin", &[Coin::new(1000, "untrn")]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     )
     .unwrap();
     assert_eq!(
@@ -1354,31 +1311,15 @@ fn test_tick_idle_staking_bond() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 600,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                600,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -1397,7 +1338,7 @@ fn test_tick_idle_staking_bond() {
         deps.as_mut(),
         env,
         mock_info("admin", &[Coin::new(1000, "untrn")]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     )
     .unwrap();
     assert_eq!(
@@ -1507,31 +1448,15 @@ fn test_tick_idle_staking() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 600,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                600,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -1550,7 +1475,7 @@ fn test_tick_idle_staking() {
         deps.as_mut(),
         env,
         mock_info("admin", &[Coin::new(1000, "untrn")]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     )
     .unwrap();
     assert_eq!(
@@ -1663,31 +1588,15 @@ fn test_tick_idle_unbonding() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 6000,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                6000,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -1724,7 +1633,7 @@ fn test_tick_idle_unbonding() {
         deps.as_mut(),
         env,
         mock_info("admin", &[Coin::new(1000, "untrn")]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     )
     .unwrap();
 
@@ -1760,31 +1669,15 @@ fn test_tick_no_puppeteer_response() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 600,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                600,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -1795,13 +1688,10 @@ fn test_tick_no_puppeteer_response() {
         deps.as_mut(),
         mock_env(),
         mock_info("admin", &[Coin::new(1000, "untrn")]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     );
     assert!(res.is_err());
-    assert_eq!(
-        res,
-        Err(crate::error::ContractError::PuppeteerResponseIsNotReceived {})
-    );
+    assert_eq!(res, Err(ContractError::PuppeteerResponseIsNotReceived {}));
 }
 
 #[test]
@@ -1846,31 +1736,7 @@ fn test_tick_claiming_wo_transfer_stake() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                staker_contract: "staker_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 600,
-                pump_address: Some("pump_address".to_string()),
-                fee: None,
-                fee_address: None,
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(None, 1000, 3, 100, 100, 600, Uint128::one()),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -1903,7 +1769,7 @@ fn test_tick_claiming_wo_transfer_stake() {
         deps.as_mut(),
         mock_env(),
         mock_info("admin", &[Coin::new(1000, "untrn")]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     )
     .unwrap();
     assert_eq!(
@@ -1986,31 +1852,15 @@ fn test_tick_claiming_wo_transfer_unbonding() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 6000,
-                pump_address: Some("pump_address".to_string()),
-                fee: None,
-                fee_address: None,
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                600,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -2060,7 +1910,7 @@ fn test_tick_claiming_wo_transfer_unbonding() {
         deps.as_mut(),
         env,
         mock_info("admin", &[Coin::new(1000, "untrn")]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     )
     .unwrap();
     assert_eq!(
@@ -2092,7 +1942,8 @@ fn test_tick_claiming_wo_transfer_unbonding() {
 
 #[test]
 fn test_tick_claiming_wo_idle() {
-    // no unbonded batch, no pending transfer for stake, no balance on ICA, and no unbond batch to switch so we go to idle
+    // no unbonded batch, no pending transfer for stake, no balance on ICA,
+    // and no unbond batch to switch, so we go to idle
     let mut deps = mock_dependencies(&[]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
@@ -2132,31 +1983,15 @@ fn test_tick_claiming_wo_idle() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 60000,
-                pump_address: Some("pump_address".to_string()),
-                fee: None,
-                fee_address: None,
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                60000,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -2206,7 +2041,7 @@ fn test_tick_claiming_wo_idle() {
         deps.as_mut(),
         env,
         mock_info("admin", &[Coin::new(1000, "untrn")]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     )
     .unwrap();
     assert_eq!(
@@ -2224,31 +2059,15 @@ fn test_execute_tick_transfering_no_puppeteer_response() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 600,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                600,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingBond)
@@ -2257,13 +2076,10 @@ fn test_execute_tick_transfering_no_puppeteer_response() {
         deps.as_mut(),
         mock_env(),
         mock_info("admin", &[Coin::new(1000, "untrn")]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     );
     assert!(res.is_err());
-    assert_eq!(
-        res,
-        Err(crate::error::ContractError::PuppeteerResponseIsNotReceived {})
-    );
+    assert_eq!(res, Err(ContractError::PuppeteerResponseIsNotReceived {}));
 }
 
 #[test]
@@ -2272,31 +2088,15 @@ fn test_execute_tick_staking_no_puppeteer_response() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 600,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                600,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingRewards)
@@ -2305,13 +2105,10 @@ fn test_execute_tick_staking_no_puppeteer_response() {
         deps.as_mut(),
         mock_env(),
         mock_info("admin", &[Coin::new(1000, "untrn")]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     );
     assert!(res.is_err());
-    assert_eq!(
-        res,
-        Err(crate::error::ContractError::PuppeteerResponseIsNotReceived {})
-    );
+    assert_eq!(res, Err(ContractError::PuppeteerResponseIsNotReceived {}));
 }
 
 #[test]
@@ -2387,31 +2184,15 @@ fn test_tick_staking_to_unbonding() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 1000,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                1000,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingRewards)
@@ -2440,7 +2221,7 @@ fn test_tick_staking_to_unbonding() {
         deps.as_mut(),
         env,
         mock_info("admin", &[Coin::new(1000, "untrn")]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     )
     .unwrap();
     assert_eq!(
@@ -2537,31 +2318,15 @@ fn test_tick_staking_to_idle() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 10000,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                10000,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingRewards)
@@ -2590,7 +2355,7 @@ fn test_tick_staking_to_idle() {
         deps.as_mut(),
         env,
         mock_info("admin", &[Coin::new(1000, "untrn")]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     )
     .unwrap();
     assert_eq!(
@@ -2608,31 +2373,15 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 600,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                600,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Unbonding)
@@ -2641,13 +2390,10 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
         deps.as_mut(),
         mock_env(),
         mock_info("admin", &[Coin::new(1000, "untrn")]),
-        drop_staking_base::msg::core::ExecuteMsg::Tick {},
+        ExecuteMsg::Tick {},
     );
     assert!(res.is_err());
-    assert_eq!(
-        res,
-        Err(crate::error::ContractError::PuppeteerResponseIsNotReceived {})
-    );
+    assert_eq!(res, Err(ContractError::PuppeteerResponseIsNotReceived {}));
 }
 
 #[test]
@@ -2665,38 +2411,22 @@ fn test_bond_wo_receiver() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 600,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                600,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     let res = execute(
         deps.as_mut(),
         env,
         mock_info("some", &[Coin::new(1000, "base_denom")]),
-        drop_staking_base::msg::core::ExecuteMsg::Bond {
+        ExecuteMsg::Bond {
             receiver: None,
             r#ref: None,
         },
@@ -2745,38 +2475,22 @@ fn test_bond_with_receiver() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 600,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                600,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     let res = execute(
         deps.as_mut(),
         env,
         mock_info("some", &[Coin::new(1000, "base_denom")]),
-        drop_staking_base::msg::core::ExecuteMsg::Bond {
+        ExecuteMsg::Bond {
             receiver: Some("receiver".to_string()),
             r#ref: Some("ref".to_string()),
         },
@@ -2843,44 +2557,28 @@ fn test_bond_lsm_share_wrong_validator() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 600,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::from(100u128),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                600,
+                Uint128::new(100),
+            ),
         )
         .unwrap();
     let res = execute(
         deps.as_mut(),
         env,
         mock_info("some", &[Coin::new(1000, "lsm_share")]),
-        drop_staking_base::msg::core::ExecuteMsg::Bond {
+        ExecuteMsg::Bond {
             receiver: None,
             r#ref: None,
         },
     );
     assert!(res.is_err());
-    assert_eq!(res, Err(crate::error::ContractError::InvalidDenom {}));
+    assert_eq!(res, Err(ContractError::InvalidDenom {}));
 }
 
 #[test]
@@ -2933,38 +2631,22 @@ fn test_bond_lsm_share_ok() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 600,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::from(100u128),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                600,
+                Uint128::new(100),
+            ),
         )
         .unwrap();
     let res = execute(
         deps.as_mut(),
         env,
         mock_info("some", &[Coin::new(1000, "lsm_share")]),
-        drop_staking_base::msg::core::ExecuteMsg::Bond {
+        ExecuteMsg::Bond {
             receiver: None,
             r#ref: None,
         },
@@ -3029,38 +2711,22 @@ fn test_unbond() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &Config {
-                token_contract: "token_contract".to_string(),
-                puppeteer_contract: "puppeteer_contract".to_string(),
-                puppeteer_timeout: 60,
-                staker_contract: "staker_contract".to_string(),
-                strategy_contract: "strategy_contract".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-                validators_set_contract: "validators_set_contract".to_string(),
-                base_denom: "base_denom".to_string(),
-                remote_denom: "remote_denom".to_string(),
-                idle_min_interval: 1000,
-                unbonding_period: 60,
-                unbonding_safe_period: 100,
-                unbond_batch_switch_time: 600,
-                pump_address: Some("pump_address".to_string()),
-                fee: Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                fee_address: Some("fee_address".to_string()),
-                lsm_redeem_threshold: 3u64,
-                lsm_min_bond_amount: Uint128::one(),
-                lsm_redeem_maximum_interval: 100,
-                bond_limit: None,
-                emergency_address: None,
-                min_stake_amount: Uint128::new(100),
-            },
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                600,
+                Uint128::one(),
+            ),
         )
         .unwrap();
     let res = execute(
         deps.as_mut(),
         env,
         mock_info("some_sender", &[Coin::new(1000, "ld_denom")]),
-        drop_staking_base::msg::core::ExecuteMsg::Unbond {},
+        ExecuteMsg::Unbond {},
     )
     .unwrap();
     let unbond_batch = unbond_batches_map().load(deps.as_ref().storage, 0).unwrap();

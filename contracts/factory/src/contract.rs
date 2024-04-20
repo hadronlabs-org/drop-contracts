@@ -271,7 +271,7 @@ pub fn instantiate(
                 withdrawal_manager_contract: withdrawal_manager_contract.to_string(),
                 base_denom: msg.base_denom.clone(),
                 remote_denom: msg.remote_opts.denom.to_string(),
-                pump_address: None,
+                pump_ica_address: None,
                 validators_set_contract,
                 puppeteer_timeout: msg.core_params.puppeteer_timeout,
                 unbonding_period: msg.core_params.unbonding_period,

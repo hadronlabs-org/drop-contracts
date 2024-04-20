@@ -352,7 +352,7 @@ setup_pump_ica() {
   msg='{
     "update_config":{
       "core":{
-        "pump_address":"'"$pump_ica_address"'"
+        "pump_ica_address":"'"$pump_ica_address"'"
       }
     }
   }'

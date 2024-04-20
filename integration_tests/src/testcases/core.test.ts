@@ -1147,7 +1147,7 @@ describe('Core', () => {
           neutronUserAddress,
           {
             core: {
-              pump_address: ica,
+              pump_ica_address: ica,
             },
           },
         );

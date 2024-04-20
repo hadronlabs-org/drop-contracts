@@ -1,7 +1,10 @@
 use crate::msg::staker::ResponseHookMsg as StakerResponseHookMsg;
-use crate::state::core::{Config, ConfigOptional, NonNativeRewardsItem};
+use crate::{
+    error::core::ContractResult,
+    state::core::{Config, ConfigOptional, NonNativeRewardsItem},
+};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Decimal, Uint128};
+use cosmwasm_std::{Decimal, Deps, Uint128};
 use cw_ownable::cw_ownable_execute;
 #[allow(unused_imports)]
 use drop_helpers::pause::PauseInfoResponse;
@@ -28,13 +31,52 @@ pub struct InstantiateMsg {
     pub unbonding_safe_period: u64,    //seconds
     pub unbond_batch_switch_time: u64, //seconds
     pub bond_limit: Option<Uint128>,
-    pub pump_address: Option<String>,
+    pub pump_ica_address: Option<String>,
     pub transfer_channel_id: String,
     pub owner: String,
     pub fee: Option<Decimal>,
     pub fee_address: Option<String>,
     pub emergency_address: Option<String>,
     pub min_stake_amount: Uint128,
+}
+
+impl InstantiateMsg {
+    pub fn into_config(self, deps: Deps) -> ContractResult<Config> {
+        Ok(Config {
+            token_contract: deps.api.addr_validate(&self.token_contract)?,
+            puppeteer_contract: deps.api.addr_validate(&self.puppeteer_contract)?,
+            puppeteer_timeout: self.puppeteer_timeout,
+            strategy_contract: deps.api.addr_validate(&self.strategy_contract)?,
+            staker_contract: deps.api.addr_validate(&self.staker_contract)?,
+            withdrawal_voucher_contract: deps
+                .api
+                .addr_validate(&self.withdrawal_voucher_contract)?,
+            withdrawal_manager_contract: deps
+                .api
+                .addr_validate(&self.withdrawal_manager_contract)?,
+            base_denom: self.base_denom,
+            remote_denom: self.remote_denom,
+            idle_min_interval: self.idle_min_interval,
+            unbonding_safe_period: self.unbonding_safe_period,
+            unbonding_period: self.unbonding_period,
+            pump_ica_address: self.pump_ica_address,
+            transfer_channel_id: self.transfer_channel_id,
+            lsm_redeem_threshold: self.lsm_redeem_threshold,
+            lsm_redeem_maximum_interval: self.lsm_redeem_max_interval,
+            lsm_min_bond_amount: self.lsm_min_bond_amount,
+            validators_set_contract: deps.api.addr_validate(&self.validators_set_contract)?,
+            bond_limit: match self.bond_limit {
+                None => None,
+                Some(limit) if limit.is_zero() => None,
+                Some(limit) => Some(limit),
+            },
+            unbond_batch_switch_time: self.unbond_batch_switch_time,
+            fee: self.fee,
+            fee_address: self.fee_address,
+            emergency_address: self.emergency_address,
+            min_stake_amount: self.min_stake_amount,
+        })
+    }
 }
 
 #[cw_serde]
@@ -102,37 +144,3 @@ pub enum ExecuteMsg {
 
 #[cw_serde]
 pub enum MigrateMsg {}
-
-impl From<InstantiateMsg> for Config {
-    fn from(val: InstantiateMsg) -> Self {
-        Config {
-            token_contract: val.token_contract,
-            puppeteer_contract: val.puppeteer_contract,
-            puppeteer_timeout: val.puppeteer_timeout,
-            strategy_contract: val.strategy_contract,
-            staker_contract: val.staker_contract,
-            withdrawal_voucher_contract: val.withdrawal_voucher_contract,
-            withdrawal_manager_contract: val.withdrawal_manager_contract,
-            base_denom: val.base_denom,
-            remote_denom: val.remote_denom,
-            idle_min_interval: val.idle_min_interval,
-            unbonding_safe_period: val.unbonding_safe_period,
-            unbonding_period: val.unbonding_period,
-            pump_address: val.pump_address,
-            lsm_redeem_threshold: val.lsm_redeem_threshold,
-            lsm_redeem_maximum_interval: val.lsm_redeem_max_interval,
-            lsm_min_bond_amount: val.lsm_min_bond_amount,
-            validators_set_contract: val.validators_set_contract,
-            unbond_batch_switch_time: val.unbond_batch_switch_time,
-            bond_limit: match val.bond_limit {
-                None => None,
-                Some(limit) if limit.is_zero() => None,
-                Some(limit) => Some(limit),
-            },
-            fee: val.fee,
-            fee_address: val.fee_address,
-            emergency_address: val.emergency_address,
-            min_stake_amount: val.min_stake_amount,
-        }
-    }
-}

@@ -20,6 +20,16 @@ export type Uint128 = string;
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal = string;
+/**
+ * A human readable address.
+ *
+ * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
+ *
+ * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
+ *
+ * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
+ */
+export type Addr = string;
 export type ContractState = "idle" | "claiming" | "unbonding" | "staking_rewards" | "staking_bond";
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
@@ -294,19 +304,20 @@ export interface Config {
   lsm_redeem_maximum_interval: number;
   lsm_redeem_threshold: number;
   min_stake_amount: Uint128;
-  pump_address?: string | null;
-  puppeteer_contract: string;
+  pump_ica_address?: string | null;
+  puppeteer_contract: Addr;
   puppeteer_timeout: number;
   remote_denom: string;
-  staker_contract: string;
-  strategy_contract: string;
-  token_contract: string;
+  staker_contract: Addr;
+  strategy_contract: Addr;
+  token_contract: Addr;
+  transfer_channel_id: string;
   unbond_batch_switch_time: number;
   unbonding_period: number;
   unbonding_safe_period: number;
-  validators_set_contract: string;
-  withdrawal_manager_contract: string;
-  withdrawal_voucher_contract: string;
+  validators_set_contract: Addr;
+  withdrawal_manager_contract: Addr;
+  withdrawal_voucher_contract: Addr;
 }
 export interface LastPuppeteerResponse {
   response?: ResponseHookMsg | null;
@@ -420,13 +431,14 @@ export interface ConfigOptional {
   lsm_redeem_maximum_interval?: number | null;
   lsm_redeem_threshold?: number | null;
   min_stake_amount?: Uint128 | null;
-  pump_address?: string | null;
+  pump_ica_address?: string | null;
   puppeteer_contract?: string | null;
   puppeteer_timeout?: number | null;
   remote_denom?: string | null;
   staker_contract?: string | null;
   strategy_contract?: string | null;
   token_contract?: string | null;
+  transfer_channel_id?: string | null;
   unbond_batch_switch_time?: number | null;
   unbonding_period?: number | null;
   unbonding_safe_period?: number | null;
@@ -465,7 +477,7 @@ export interface InstantiateMsg {
   lsm_redeem_threshold: number;
   min_stake_amount: Uint128;
   owner: string;
-  pump_address?: string | null;
+  pump_ica_address?: string | null;
   puppeteer_contract: string;
   puppeteer_timeout: number;
   remote_denom: string;
