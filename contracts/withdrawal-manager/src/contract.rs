@@ -44,8 +44,8 @@ pub fn instantiate(
     CONFIG.save(
         deps.storage,
         &Config {
-            core_contract: msg.core_contract,
-            withdrawal_voucher_contract: msg.voucher_contract,
+            core_contract: deps.api.addr_validate(&msg.core_contract)?,
+            withdrawal_voucher_contract: deps.api.addr_validate(&msg.voucher_contract)?,
             base_denom: msg.base_denom,
         },
     )?;
@@ -84,7 +84,8 @@ pub fn execute(
         ExecuteMsg::UpdateConfig {
             core_contract,
             voucher_contract,
-        } => execute_update_config(deps, info, core_contract, voucher_contract),
+            base_denom,
+        } => execute_update_config(deps, info, core_contract, voucher_contract, base_denom),
         ExecuteMsg::ReceiveNft(Cw721ReceiveMsg {
             sender,
             token_id,
@@ -137,6 +138,7 @@ fn execute_update_config(
     info: MessageInfo,
     core_contract: Option<String>,
     voucher_contract: Option<String>,
+    base_denom: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
@@ -144,12 +146,16 @@ fn execute_update_config(
     let mut attrs: Vec<Attribute> = vec![attr("action", "update_config")];
 
     if let Some(core_contract) = core_contract {
-        attrs.push(attr("core_contract", &core_contract));
-        config.core_contract = core_contract;
+        config.core_contract = deps.api.addr_validate(&core_contract)?;
+        attrs.push(attr("core_contract", core_contract));
     }
     if let Some(voucher_contract) = voucher_contract {
-        attrs.push(attr("voucher_contract", &voucher_contract));
-        config.withdrawal_voucher_contract = voucher_contract;
+        config.withdrawal_voucher_contract = deps.api.addr_validate(&voucher_contract)?;
+        attrs.push(attr("voucher_contract", voucher_contract));
+    }
+    if let Some(base_denom) = base_denom {
+        attrs.push(attr("base_denom", &base_denom));
+        config.base_denom = base_denom;
     }
     CONFIG.save(deps.storage, &config)?;
     Ok(response("update_config", CONTRACT_NAME, attrs))

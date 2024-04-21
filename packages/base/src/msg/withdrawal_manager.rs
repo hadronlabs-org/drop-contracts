@@ -29,6 +29,7 @@ pub enum ExecuteMsg {
     UpdateConfig {
         core_contract: Option<String>,
         voucher_contract: Option<String>,
+        base_denom: Option<String>,
     },
     ReceiveNft(Cw721ReceiveMsg),
 }

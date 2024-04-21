@@ -2,6 +2,16 @@ import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
 /**
+ * A human readable address.
+ *
+ * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
+ *
+ * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
+ *
+ * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
+ */
+export type Addr = string;
+/**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
 export type Expiration =
@@ -69,8 +79,8 @@ export interface DropWithdrawalManagerSchema {
 }
 export interface Config {
   base_denom: string;
-  core_contract: string;
-  withdrawal_voucher_contract: string;
+  core_contract: Addr;
+  withdrawal_voucher_contract: Addr;
 }
 /**
  * The contract's ownership info
@@ -90,6 +100,7 @@ export interface OwnershipForString {
   pending_owner?: string | null;
 }
 export interface UpdateConfigArgs {
+  base_denom?: string | null;
   core_contract?: string | null;
   voucher_contract?: string | null;
 }
