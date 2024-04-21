@@ -100,6 +100,9 @@ pub enum ContractError {
 
     #[error("Unbonded amount must be less or equal to expected amount")]
     UnbondedAmountTooHigh {},
+
+    #[error("Fee must be in range [0.0, 1.0]")]
+    InvalidFee {},
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

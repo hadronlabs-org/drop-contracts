@@ -59,6 +59,11 @@ pub fn instantiate(
     ];
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(&msg.owner))?;
     let config = msg.into_config(deps.as_ref().into_empty())?;
+    if let Some(fee) = config.fee {
+        if fee < Decimal::zero() || fee > Decimal::one() {
+            return Err(ContractError::InvalidFee {});
+        }
+    }
     CONFIG.save(deps.storage, &config)?;
     //an empty unbonding batch added as it's ready to be used on unbond action
     UNBOND_BATCH_ID.save(deps.storage, &0)?;
@@ -346,6 +351,11 @@ fn execute_set_non_native_rewards_receivers(
     items: Vec<NonNativeRewardsItem>,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
+    for item in &items {
+        if item.fee < Decimal::zero() || item.fee > Decimal::one() {
+            return Err(ContractError::InvalidFee {});
+        }
+    }
     NON_NATIVE_REWARDS_CONFIG.save(deps.storage, &items)?;
     Ok(response(
         "execute-set_non_native_rewards_receivers",
@@ -1057,6 +1067,9 @@ fn execute_update_config(
         };
     }
     if let Some(fee) = new_config.fee {
+        if fee < Decimal::zero() || fee > Decimal::one() {
+            return Err(ContractError::InvalidFee {});
+        }
         attrs.push(attr("fee", fee.to_string()));
         config.fee = Some(fee);
     }
