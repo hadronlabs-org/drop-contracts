@@ -405,7 +405,9 @@ fn execute_tick(
         ContractState::Claiming => execute_tick_claiming(deps.branch(), env, info, &config),
         ContractState::StakingBond => execute_tick_staking_bond(deps.branch(), env, info, &config),
         ContractState::Unbonding => execute_tick_unbonding(deps.branch(), env, info, &config),
-        ContractState::StakingRewards => execute_tick_staking(deps.branch(), env, info, &config),
+        ContractState::StakingRewards => {
+            execute_tick_staking_rewards(deps.branch(), env, info, &config)
+        }
     }
 }
 
@@ -437,6 +439,7 @@ fn execute_tick_idle(
             //return error if none
             return Err(ContractError::IdleMinIntervalIsNotReached {});
         }
+        // TODO: create a state for background routines
     } else {
         let unbonding_batches = unbond_batches_map()
             .idx
@@ -572,10 +575,16 @@ fn execute_tick_idle(
             .collect::<Vec<_>>();
         if validators_to_claim.is_empty() {
             attrs.push(attr("validators_to_claim", "empty"));
-            if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
+            if let Some(stake_bond_msg) = get_stake_bond_msg(deps.as_ref(), &env, config, &info)? {
+                messages.push(stake_bond_msg);
+                FSM.go_to(deps.storage, ContractState::StakingBond)?;
+                attrs.push(attr("state", "staking_bond"));
+            } else if let Some(stake_msg) =
+                get_stake_rewards_msg(deps.branch(), &env, config, &info)?
+            {
                 messages.push(stake_msg);
                 FSM.go_to(deps.storage, ContractState::StakingRewards)?;
-                attrs.push(attr("state", "staking"));
+                attrs.push(attr("state", "staking_rewards"));
             } else if let Some(unbond_message) =
                 get_unbonding_msg(deps.branch(), &env, config, &info)?
             {
@@ -646,7 +655,7 @@ fn execute_tick_claiming(
             attrs.push(attr("error_on_claiming", format!("{:?}", err)));
         }
     }
-    if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
+    if let Some(stake_msg) = get_stake_rewards_msg(deps.branch(), &env, config, &info)? {
         messages.push(stake_msg);
         FSM.go_to(deps.storage, ContractState::StakingRewards)?;
         attrs.push(attr("state", "staking"));
@@ -687,8 +696,8 @@ fn execute_tick_staking_bond(
     LAST_STAKER_RESPONSE.remove(deps.storage);
     let mut messages = vec![];
     let mut attrs = vec![];
-    attrs.push(attr("action", "tick_transfering"));
-    if let Some(stake_msg) = get_stake_msg(deps.branch(), &env, config, &info)? {
+    attrs.push(attr("action", "tick_staking_bond"));
+    if let Some(stake_msg) = get_stake_rewards_msg(deps.branch(), &env, config, &info)? {
         messages.push(stake_msg);
         FSM.go_to(deps.storage, ContractState::StakingRewards)?;
         attrs.push(attr("state", "staking"));
@@ -703,7 +712,7 @@ fn execute_tick_staking_bond(
     Ok(response("execute-tick_transfering", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
-fn execute_tick_staking(
+fn execute_tick_staking_rewards(
     mut deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
@@ -1060,7 +1069,36 @@ fn execute_unbond(
     Ok(response("execute-unbond", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
-pub fn get_stake_msg<T>(
+pub fn get_stake_bond_msg<T>(
+    deps: Deps<NeutronQuery>,
+    _env: &Env,
+    config: &Config,
+    info: &MessageInfo,
+) -> ContractResult<Option<CosmosMsg<T>>> {
+    let staker_pending_stake: Result<Uint128, _> = deps.querier.query_wasm_smart(
+        config.staker_contract.to_string(),
+        &drop_staking_base::msg::staker::QueryMsg::NonStakedBalance {},
+    );
+    if let Ok(staker_pending_stake) = staker_pending_stake {
+        let to_delegate: Vec<drop_staking_base::msg::distribution::IdealDelegation> =
+            deps.querier.query_wasm_smart(
+                &config.strategy_contract,
+                &drop_staking_base::msg::strategy::QueryMsg::CalcDeposit {
+                    deposit: staker_pending_stake,
+                },
+            )?;
+        return Ok(Some(CosmosMsg::<T>::Wasm(WasmMsg::Execute {
+            contract_addr: config.staker_contract.to_string(),
+            msg: to_json_binary(&drop_staking_base::msg::staker::ExecuteMsg::Stake {
+                items: ideal_delegation_to_stake_items(&to_delegate),
+            })?,
+            funds: info.funds.clone(),
+        })));
+    }
+    Ok(None)
+}
+
+pub fn get_stake_rewards_msg<T>(
     deps: DepsMut<NeutronQuery>,
     env: &Env,
     config: &Config,
@@ -1107,10 +1145,7 @@ pub fn get_stake_msg<T>(
     Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_contract.to_string(),
         msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
-            items: to_delegate
-                .iter()
-                .map(|d| (d.valoper_address.to_string(), d.stake_change))
-                .collect::<Vec<_>>(),
+            items: ideal_delegation_to_stake_items(&to_delegate),
             fee: staking_fee,
             timeout: Some(config.puppeteer_timeout),
             reply_to: env.contract.address.to_string(),
@@ -1388,6 +1423,15 @@ fn get_pending_lsm_share_msg<T, X: CustomQuery>(
         }
         None => Ok(None),
     }
+}
+
+fn ideal_delegation_to_stake_items(
+    ideal_delegation: &[drop_staking_base::msg::distribution::IdealDelegation],
+) -> Vec<(String, Uint128)> {
+    ideal_delegation
+        .iter()
+        .map(|d| (d.valoper_address.to_string(), d.stake_change))
+        .collect::<Vec<_>>()
 }
 
 pub mod check_denom {

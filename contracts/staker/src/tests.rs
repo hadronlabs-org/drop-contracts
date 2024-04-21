@@ -3,7 +3,9 @@ use cosmwasm_std::{
     Addr, Coin, CosmosMsg, Event, Response, SubMsg, Uint128,
 };
 use drop_helpers::testing::mock_dependencies;
-use drop_staking_base::state::staker::{Config, ConfigOptional, CONFIG, ICA};
+use drop_staking_base::state::staker::{
+    Config, ConfigOptional, TxState, CONFIG, ICA, NON_STAKED_BALANCE, TX_STATE,
+};
 use neutron_sdk::bindings::msg::NeutronMsg;
 // use prost::Message;
 
@@ -246,4 +248,136 @@ fn test_register_ica() {
                 )
             )))
     );
+}
+
+#[test]
+fn test_ibc_transfer() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+    TX_STATE
+        .save(deps.as_mut().storage, &TxState::default())
+        .unwrap();
+    let msg = drop_staking_base::msg::staker::ExecuteMsg::IBCTransfer {};
+    // no fees
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("nobody", &[]),
+        msg.clone(),
+    );
+    assert_eq!(
+        res,
+        Err(crate::error::ContractError::PaymentError(
+            cw_utils::PaymentError::NoFunds {}
+        ))
+    );
+    // low fees
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("nobody", &[Coin::new(100u128, "untrn")]),
+        msg.clone(),
+    );
+    assert_eq!(
+        res,
+        Err(crate::error::ContractError::InvalidFunds {
+            reason: "invalid amount: expected at least 600, got 100".to_string()
+        })
+    );
+    // no money on the contract
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("nobody", &[Coin::new(600u128, "untrn")]),
+        msg.clone(),
+    );
+    assert_eq!(
+        res,
+        Err(crate::error::ContractError::InvalidFunds {
+            reason: "amount is less than min_ibc_transfer".to_string()
+        })
+    );
+    let mut deps = mock_dependencies(&[Coin::new(10001, "base_denom")]);
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+    TX_STATE
+        .save(deps.as_mut().storage, &TxState::default())
+        .unwrap();
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::zero())
+        .unwrap();
+    ICA.set_address(deps.as_mut().storage, "ica_address")
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("nobody", &[Coin::new(600u128, "untrn")]),
+        msg.clone(),
+    )
+    .unwrap();
+    println!("{:?}", res);
+
+    // assert_eq!(
+    //     res,
+    //     Response::new()
+    //         .add_event(
+    //             Event::new("crates.io:drop-neutron-contracts__drop-staker-register-ica")
+    //                 .add_attributes(vec![
+    //                     ("action", "register_ica"),
+    //                     ("connection_id", "connection"),
+    //                     ("ica_id", "drop_STAKER")
+    //                 ])
+    //         )
+    //         .add_submessage(SubMsg::new(CosmosMsg::Custom(
+    //             NeutronMsg::register_interchain_account(
+    //                 "connection".to_string(),
+    //                 "drop_STAKER".to_string(),
+    //                 Some(vec![Coin::new(400u128, "untrn")]),
+    //             )
+    //         )))
+    // );
+    // // already asked for registration
+    // let res = execute(
+    //     deps.as_mut(),
+    //     mock_env(),
+    //     mock_info("nobody", &[Coin::new(1000u128, "untrn")]),
+    //     msg.clone(),
+    // );
+    // assert_eq!(
+    //     res,
+    //     Err(crate::error::ContractError::Std(
+    //         cosmwasm_std::StdError::generic_err("ICA registration is in progress right now")
+    //     ))
+    // );
+    // // reopen timeouted ICA
+    // ICA.set_timeout(deps.as_mut().storage).unwrap();
+    // let res = execute(
+    //     deps.as_mut(),
+    //     mock_env(),
+    //     mock_info("nobody", &[Coin::new(1000u128, "untrn")]),
+    //     msg.clone(),
+    // )
+    // .unwrap();
+    // assert_eq!(
+    //     res,
+    //     Response::new()
+    //         .add_event(
+    //             Event::new("crates.io:drop-neutron-contracts__drop-staker-register-ica")
+    //                 .add_attributes(vec![
+    //                     ("action", "register_ica"),
+    //                     ("connection_id", "connection"),
+    //                     ("ica_id", "drop_STAKER")
+    //                 ])
+    //         )
+    //         .add_submessage(SubMsg::new(CosmosMsg::Custom(
+    //             NeutronMsg::register_interchain_account(
+    //                 "connection".to_string(),
+    //                 "drop_STAKER".to_string(),
+    //                 Some(vec![Coin::new(400u128, "untrn")]),
+    //             )
+    //         )))
+    // );
 }

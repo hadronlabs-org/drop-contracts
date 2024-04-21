@@ -1,6 +1,7 @@
 use cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec;
-use cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxMsgData;
+use cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSend;
 use cosmos_sdk_proto::cosmos::staking::v1beta1::MsgDelegate;
+use cosmos_sdk_proto::traits::MessageExt;
 use cosmwasm_schema::serde::Serialize;
 use cosmwasm_std::{
     attr, coin, ensure, entry_point, to_json_binary, Coin, CosmosMsg, Deps, Reply, StdError,
@@ -22,7 +23,6 @@ use neutron_sdk::bindings::msg::{IbcFee, MsgIbcTransferResponse, MsgSubmitTxResp
 use neutron_sdk::bindings::query::NeutronQuery;
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg};
 use neutron_sdk::{NeutronError, NeutronResult};
-use prost::Message;
 
 use crate::error::{ContractError, ContractResult};
 
@@ -65,6 +65,7 @@ pub fn instantiate(
             min_staking_amount: msg.min_staking_amount,
         },
     )?;
+    NON_STAKED_BALANCE.save(deps.storage, &Uint128::zero())?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
@@ -75,11 +76,17 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> NeutronResult<Binary> {
         QueryMsg::Ica {} => query_ica(deps),
         QueryMsg::NonStakedBalance {} => query_non_staked_balance(deps, env),
         QueryMsg::AllBalance {} => query_all_balance(deps, env),
+        QueryMsg::TxState {} => query_tx_state(deps, env),
         QueryMsg::Ownership {} => {
             let ownership = cw_ownable::get_ownership(deps.storage)?;
             to_json_binary(&ownership).map_err(NeutronError::Std)
         }
     }
+}
+
+fn query_tx_state(deps: Deps, _env: Env) -> NeutronResult<Binary> {
+    let tx_state = TX_STATE.load(deps.storage)?;
+    to_json_binary(&tx_state).map_err(NeutronError::Std)
 }
 
 fn query_non_staked_balance(deps: Deps, _env: Env) -> NeutronResult<Binary> {
@@ -268,26 +275,37 @@ fn execute_stake(
         .ok_or(ContractError::Std(StdError::generic_err(
             "puppeteer_ica not set",
         )))?;
+    let mut delegations = vec![];
+    for (validator, amount) in items {
+        delegations.push(cosmos_sdk_proto::Any {
+            type_url: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
+            value: MsgDelegate {
+                delegator_address: puppeteer_ica.to_string(),
+                validator_address: validator.to_string(),
+                amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                    denom: config.remote_denom.to_string(),
+                    amount: amount.to_string(),
+                }),
+            }
+            .to_bytes()?,
+        });
+    }
     let grant_msg = MsgExec {
         grantee: ica.to_string(),
-        msgs: items
-            .iter()
-            .map(|(validator, amount)| cosmos_sdk_proto::Any {
-                type_url: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
-                value: MsgDelegate {
-                    delegator_address: puppeteer_ica.to_string(),
-                    validator_address: validator.to_string(),
-                    amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-                        denom: config.remote_denom.to_string(),
-                        amount: amount.to_string(),
-                    }),
-                }
-                .encode_to_vec(),
-            })
-            .collect(),
+        msgs: delegations,
     };
-    let any_msgs: Vec<neutron_sdk::bindings::types::ProtobufAny> =
-        vec![prepare_any_msg(grant_msg, "/cosmos.authz.v1beta1.MsgExec")?];
+    let bank_send_msg = MsgSend {
+        from_address: ica.to_string(),
+        to_address: puppeteer_ica,
+        amount: vec![cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+            denom: config.remote_denom.to_string(),
+            amount: sum.to_string(),
+        }],
+    };
+    let any_msgs: Vec<neutron_sdk::bindings::types::ProtobufAny> = vec![
+        prepare_any_msg(bank_send_msg, "/cosmos.bank.v1beta1.MsgSend")?,
+        prepare_any_msg(grant_msg, "/cosmos.authz.v1beta1.MsgExec")?,
+    ];
     let cosmos_msg = NeutronMsg::submit_tx(
         config.connection_id,
         ICA_ID.to_string(),
@@ -316,7 +334,6 @@ fn execute_ibc_transfer(
         &info,
         config.ibc_fees.ack_fee + config.ibc_fees.recv_fee + config.ibc_fees.timeout_fee,
     )?;
-    must_pay(&info, &config.base_denom)?;
     let tx_state = TX_STATE.load(deps.storage)?;
     ensure!(
         tx_state.status == TxStateStatus::Idle,
@@ -324,25 +341,23 @@ fn execute_ibc_transfer(
             reason: "tx_state is not idle".to_string()
         }
     );
-    let coin = info
-        .funds
-        .iter()
-        .find(|coin| coin.denom == config.base_denom)
-        .ok_or(ContractError::PaymentError(
-            cw_utils::PaymentError::NoFunds {},
-        ))?;
+    let pending_coin = deps
+        .querier
+        .query_balance(&env.contract.address, config.base_denom)?;
     ensure!(
-        coin.amount >= config.min_ibc_transfer,
+        pending_coin.amount >= config.min_ibc_transfer,
         ContractError::InvalidFunds {
             reason: "amount is less than min_ibc_transfer".to_string()
         }
     );
-    NON_STAKED_BALANCE.update(deps.storage, |balance| StdResult::Ok(balance + coin.amount))?;
+    NON_STAKED_BALANCE.update(deps.storage, |balance| {
+        StdResult::Ok(balance + pending_coin.amount)
+    })?;
     let attrs = vec![
         attr("action", "ibc_transfer"),
         attr("connection_id", &config.connection_id),
         attr("ica_id", ICA_ID),
-        attr("coin", format!("{:?}", coin)),
+        attr("pending_amount", pending_coin.amount),
     ];
     let fee = IbcFee {
         recv_fee: uint_into_vec_coin(config.ibc_fees.recv_fee, &LOCAL_DENOM.to_string()),
@@ -353,7 +368,7 @@ fn execute_ibc_transfer(
     let msg = NeutronMsg::IbcTransfer {
         source_port: config.port_id.to_string(),
         source_channel: config.transfer_channel_id,
-        token: coin.clone(),
+        token: pending_coin.clone(),
         sender: env.contract.address.to_string(),
         receiver: ica.to_string(),
         timeout_height: RequestPacketTimeoutHeight {
@@ -369,7 +384,7 @@ fn execute_ibc_transfer(
         deps,
         msg,
         Transaction::IBCTransfer {
-            amount: coin.amount,
+            amount: pending_coin.amount,
         },
         ReplyMsg::IbcTransfer.to_reply_id(),
         None,
@@ -380,6 +395,8 @@ fn execute_ibc_transfer(
 
 #[entry_point]
 pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> ContractResult<Response> {
+    deps.api
+        .debug(format!("WASMDEBUG: STAKER sudo: {:?}", msg).as_str());
     match msg {
         SudoMsg::Response { request, data } => sudo_response(deps, env, request, data),
         SudoMsg::Error { request, details } => sudo_error(deps, env, request, details),
@@ -425,7 +442,7 @@ fn sudo_response(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     request: RequestPacket,
-    data: Binary,
+    _data: Binary,
 ) -> ContractResult<Response> {
     let attrs = vec![
         attr("action", "sudo_response"),
@@ -451,7 +468,6 @@ fn sudo_response(
     let transaction = tx_state
         .transaction
         .ok_or_else(|| StdError::generic_err("transaction not found"))?;
-    let _msg_data: TxMsgData = TxMsgData::decode(data.as_slice())?;
     if let Transaction::Stake { amount } = transaction {
         NON_STAKED_BALANCE.update(deps.storage, |balance| StdResult::Ok(balance - amount))?;
     }

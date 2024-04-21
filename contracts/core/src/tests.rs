@@ -31,7 +31,7 @@ use neutron_sdk::{
 };
 
 use crate::contract::{
-    check_denom, execute, get_non_native_rewards_and_fee_transfer_msg, get_stake_msg,
+    check_denom, execute, get_non_native_rewards_and_fee_transfer_msg, get_stake_rewards_msg,
 };
 
 pub const MOCK_PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
@@ -244,7 +244,7 @@ fn get_stake_msg_success() {
             }
         });
 
-    let stake_msg: CosmosMsg<NeutronMsg> = get_stake_msg(
+    let stake_msg: CosmosMsg<NeutronMsg> = get_stake_rewards_msg(
         deps.as_mut(),
         &mock_env(),
         &get_default_config(Decimal::from_atomics(1u32, 1).ok()),
@@ -311,7 +311,7 @@ fn get_stake_msg_zero_fee() {
         .save(deps.as_mut().storage, &1)
         .unwrap();
 
-    let stake_msg: CosmosMsg<NeutronMsg> = get_stake_msg(
+    let stake_msg: CosmosMsg<NeutronMsg> = get_stake_rewards_msg(
         deps.as_mut(),
         &mock_env(),
         &get_default_config(None),

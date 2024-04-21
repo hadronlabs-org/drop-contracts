@@ -16,6 +16,8 @@ pub enum QueryMsg {
     AllBalance {},
     #[returns(drop_helpers::ica::IcaState)]
     Ica {},
+    #[returns(crate::state::staker::TxState)]
+    TxState {},
 }
 
 #[cw_serde]

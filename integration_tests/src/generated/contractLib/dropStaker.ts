@@ -97,6 +97,18 @@ export type Timestamp = Uint64;
  * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
  */
 export type Uint64 = string;
+export type TxStateStatus = "idle" | "in_progress" | "waiting_for_ack";
+export type Transaction =
+  | {
+      stake: {
+        amount: Uint1281;
+      };
+    }
+  | {
+      i_b_c_transfer: {
+        amount: Uint1281;
+      };
+    };
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -111,7 +123,7 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropStakerSchema {
-  responses: Uint128 | Config | IcaState | Uint1282 | OwnershipForString;
+  responses: Uint128 | Config | IcaState | Uint1282 | OwnershipForString | TxState;
   execute: StakeArgs | UpdateConfigArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
@@ -152,6 +164,12 @@ export interface OwnershipForString {
    * The account who has been proposed to take over the ownership. `None` if there isn't a pending ownership transfer.
    */
   pending_owner?: string | null;
+}
+export interface TxState {
+  reply_to?: string | null;
+  seq_id?: number | null;
+  status: TxStateStatus;
+  transaction?: Transaction | null;
 }
 export interface StakeArgs {
   items: [string, Uint1281][];
@@ -243,6 +261,9 @@ export class Client {
   }
   queryIca = async(): Promise<IcaState> => {
     return this.client.queryContractSmart(this.contractAddress, { ica: {} });
+  }
+  queryTxState = async(): Promise<TxState> => {
+    return this.client.queryContractSmart(this.contractAddress, { tx_state: {} });
   }
   queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });

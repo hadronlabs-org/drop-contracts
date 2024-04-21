@@ -487,7 +487,7 @@ fn execute_init(
             code_id: config.code_ids.puppeteer_code_id,
             label: get_contract_label("puppeteer"),
             msg: to_json_binary(&PuppeteerInstantiateMsg {
-                allowed_senders: vec![core_contract.to_string()],
+                allowed_senders: vec![core_contract.to_string(), env.contract.address.to_string()],
                 owner: Some(env.contract.address.to_string()),
                 remote_denom: config.remote_opts.denom.to_string(),
                 update_period: config.remote_opts.update_period,

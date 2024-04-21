@@ -10,10 +10,10 @@ use crate::{
     },
 };
 use cosmos_sdk_proto::cosmos::{
-    authz::v1beta1::{Grant, MsgGrant, MsgGrantResponse},
+    authz::v1beta1::{GenericAuthorization, Grant, MsgGrant, MsgGrantResponse},
     bank::v1beta1::{MsgSend, MsgSendResponse},
     base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
-    staking::v1beta1::{AuthorizationType, MsgDelegate, MsgUndelegate, StakeAuthorization},
+    staking::v1beta1::{MsgDelegate, MsgUndelegate},
 };
 use cosmwasm_std::{
     attr, ensure_eq, entry_point, to_json_binary, Addr, Attribute, CosmosMsg, Deps, Order, Reply,
@@ -272,10 +272,8 @@ pub fn execute(
             Ok(response("update_ownership", CONTRACT_NAME, attrs))
         }
         ExecuteMsg::GrantDelegate {
-            grantee,
-            timeout,
-            reply_to,
-        } => execute_grant_delegate(deps, info, grantee, timeout, reply_to),
+            grantee, timeout, ..
+        } => execute_grant_delegate(deps, env, info, grantee, timeout),
         _ => puppeteer_base.execute(deps, env, info, msg.to_base_enum()),
     }
 }
@@ -602,13 +600,12 @@ fn execute_delegate(
 
 fn execute_grant_delegate(
     mut deps: DepsMut<NeutronQuery>,
+    env: Env,
     info: MessageInfo,
     grantee: String,
     timeout: Option<u64>,
-    reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
-    deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
@@ -619,15 +616,22 @@ fn execute_grant_delegate(
         granter: ica.to_string(),
         grant: Some(Grant {
             authorization: Some(cosmos_sdk_proto::Any {
-                type_url: "/cosmos.staking.v1beta1.StakeAuthorization".to_string(),
-                value: StakeAuthorization {
-                    max_tokens: None,
-                    authorization_type: AuthorizationType::Delegate as i32,
-                    validators: None,
+                type_url: "/cosmos.authz.v1beta1.GenericAuthorization".to_string(),
+                value: GenericAuthorization {
+                    msg: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
                 }
                 .encode_to_vec(),
             }),
-            expiration: None,
+            expiration: Some(prost_types::Timestamp {
+                seconds: env
+                    .block
+                    .time
+                    .plus_days(365 * 120 + 30)
+                    .seconds()
+                    .try_into()
+                    .map_err(|_| ContractError::Std(StdError::generic_err("Invalid timestamp")))?,
+                nanos: 0,
+            }),
         }),
     };
     any_msgs.push(prepare_any_msg(
@@ -643,7 +647,7 @@ fn execute_grant_delegate(
             grantee,
         },
         timeout,
-        reply_to,
+        "".to_string(),
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
 
@@ -1081,19 +1085,22 @@ fn sudo_response(
             },)
         ))?
     ));
-    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: reply_to.clone(),
-        msg: to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
-            ResponseHookMsg::Success(ResponseHookSuccessMsg {
-                request_id: seq_id,
-                request: request.clone(),
-                transaction: transaction.clone(),
-                answers,
-            }),
-        ))?,
-        funds: vec![],
-    });
-    Ok(response("sudo-response", "puppeteer", attrs).add_message(msg))
+    let mut msgs = vec![];
+    if !reply_to.is_empty() {
+        msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: reply_to.clone(),
+            msg: to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
+                ResponseHookMsg::Success(ResponseHookSuccessMsg {
+                    request_id: seq_id,
+                    request: request.clone(),
+                    transaction: transaction.clone(),
+                    answers,
+                }),
+            ))?,
+            funds: vec![],
+        }));
+    }
+    Ok(response("sudo-response", "puppeteer", attrs).add_messages(msgs))
 }
 
 fn get_answers_from_msg_data(
