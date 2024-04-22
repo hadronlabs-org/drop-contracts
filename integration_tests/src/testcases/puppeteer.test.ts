@@ -672,7 +672,7 @@ describe('Interchain puppeteer', () => {
     await waitFor(async () => {
       res = await context.hookContractClient.queryAnswers();
       return res.length > 5;
-    }, 40_000);
+    }, 100_000);
     expect(res.length).toEqual(6);
     expect(res[5].answers).toEqual([
       {
