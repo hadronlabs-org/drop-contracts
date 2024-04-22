@@ -70,7 +70,6 @@ pub enum ExecuteMsg {
     GrantDelegate {
         grantee: String,
         timeout: Option<u64>,
-        reply_to: String,
     },
     Undelegate {
         items: Vec<(String, Uint128)>,

@@ -185,7 +185,6 @@ fn test_execute_grant_delegate() {
     let pupeteer_base = base_init(&mut deps.as_mut());
     let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::GrantDelegate {
         grantee: "grantee".to_string(),
-        reply_to: "".to_string(),
         timeout: Some(100u64),
     };
     let res = crate::contract::execute(

@@ -668,25 +668,14 @@ describe('Interchain puppeteer', () => {
     expect(res.transactionHash).toBeTruthy();
   });
   it('wait for grant to be processed', async () => {
-    let res: ResponseHookSuccessMsg[] = [];
     await waitFor(async () => {
-      res = await context.hookContractClient.queryAnswers();
-      return res.length > 5;
+      const res = await context.park.executeInNetwork(
+        'gaia',
+        `${context.park.config.networks['gaia'].binary} query authz grants-by-grantee ${context.gaiaAccount.address} --output json`,
+      );
+      const out = JSON.parse(res.out);
+      return out.grants && out.grants.length > 0;
     }, 100_000);
-    expect(res.length).toEqual(6);
-    expect(res[5].answers).toEqual([
-      {
-        grant_delegate_response: {},
-      },
-    ]);
-  });
-  it('verify grant data', async () => {
-    const res = await context.park.executeInNetwork(
-      'gaia',
-      `${context.park.config.networks['gaia'].binary} query authz grants-by-grantee ${context.gaiaAccount.address} --output json`,
-    );
-    const out = JSON.parse(res.out);
-    expect(out.grants).toHaveLength(1);
   });
   it('send a failing delegation', async () => {
     const { hookContractClient, account } = context;

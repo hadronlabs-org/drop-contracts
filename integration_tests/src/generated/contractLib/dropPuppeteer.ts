@@ -260,7 +260,6 @@ export interface DelegateArgs {
 }
 export interface GrantDelegateArgs {
   grantee: string;
-  reply_to: string;
   timeout?: number | null;
 }
 export interface UndelegateArgs {

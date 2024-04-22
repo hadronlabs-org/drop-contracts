@@ -271,9 +271,9 @@ pub fn execute(
             cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
             Ok(response("update_ownership", CONTRACT_NAME, attrs))
         }
-        ExecuteMsg::GrantDelegate {
-            grantee, timeout, ..
-        } => execute_grant_delegate(deps, env, info, grantee, timeout),
+        ExecuteMsg::GrantDelegate { grantee, timeout } => {
+            execute_grant_delegate(deps, env, info, grantee, timeout)
+        }
         _ => puppeteer_base.execute(deps, env, info, msg.to_base_enum()),
     }
 }
