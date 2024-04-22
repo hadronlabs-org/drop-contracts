@@ -1,9 +1,9 @@
 use crate::error::{ContractError, ContractResult};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, entry_point, to_json_binary, Addr, Attribute, BankMsg, BankQuery,
-    Binary, Coin, CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order,
-    QueryRequest, Response, StdError, StdResult, Uint128, WasmMsg,
+    attr, ensure, ensure_eq, ensure_ne, entry_point, to_json_binary, Addr, Attribute, BankMsg,
+    BankQuery, Binary, Coin, CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo,
+    Order, QueryRequest, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
@@ -208,6 +208,10 @@ pub fn execute(
             ))
         }
         ExecuteMsg::ResetBondedAmount {} => execute_reset_bonded_amount(deps, env, info),
+        ExecuteMsg::ProcessEmergencyBatch {
+            batch_id,
+            unbonded_amount,
+        } => execute_process_emergency_batch(deps, info, batch_id, unbonded_amount),
         ExecuteMsg::UpdateNonNativeRewardsReceivers { items } => {
             execute_set_non_native_rewards_receivers(deps, env, info, items)
         }
@@ -260,6 +264,48 @@ fn execute_reset_bonded_amount(
         "execute-reset_bond_limit",
         CONTRACT_NAME,
         vec![attr("action", "reset_bond_limit")],
+    ))
+}
+
+fn execute_process_emergency_batch(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    batch_id: u128,
+    unbonded_amount: Uint128,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+    ensure_ne!(
+        unbonded_amount,
+        Uint128::zero(),
+        ContractError::UnbondedAmountZero {}
+    );
+
+    let mut batch = unbond_batches_map().load(deps.storage, batch_id)?;
+    ensure_eq!(
+        batch.status,
+        UnbondBatchStatus::WithdrawnEmergency,
+        ContractError::BatchNotWithdrawnEmergency {}
+    );
+    ensure!(
+        batch.expected_amount >= unbonded_amount,
+        ContractError::UnbondedAmountTooHigh {}
+    );
+
+    let slashing_effect = Decimal::from_ratio(unbonded_amount, batch.expected_amount);
+    batch.status = UnbondBatchStatus::Withdrawn;
+    batch.unbonded_amount = Some(unbonded_amount);
+    batch.slashing_effect = Some(slashing_effect);
+    unbond_batches_map().save(deps.storage, batch_id, &batch)?;
+
+    Ok(response(
+        "execute-process_emergency_batch",
+        CONTRACT_NAME,
+        vec![
+            attr("action", "process_emergency_batch"),
+            attr("batch_id", batch_id.to_string()),
+            attr("unbonded_amount", unbonded_amount),
+            attr("slashing_effect", slashing_effect.to_string()),
+        ],
     ))
 }
 

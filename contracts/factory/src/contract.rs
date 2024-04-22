@@ -525,7 +525,7 @@ fn execute_init(
             code_id: config.code_ids.strategy_code_id,
             label: "strategy".to_string(),
             msg: to_json_binary(&StrategyInstantiateMsg {
-                core_address: env.contract.address.to_string(),
+                owner: env.contract.address.to_string(),
                 puppeteer_address: puppeteer_contract.to_string(),
                 validator_set_address: validators_set_contract.to_string(),
                 distribution_address: distribution_contract.to_string(),
