@@ -578,6 +578,7 @@ describe('Core', () => {
     });
     expect(res.transactionHash).toHaveLength(64);
   });
+
   it('update by factory admin execute', async () => {
     const { neutronUserAddress, factoryContractClient: contractClient } =
       context;
