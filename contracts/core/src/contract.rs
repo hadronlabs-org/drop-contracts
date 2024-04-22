@@ -889,7 +889,7 @@ fn execute_bond(
         }
     }
     BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total + amount))?;
-    let denom_type = check_denom::check_denom(&deps, &denom, &config)?;
+    let denom_type = check_denom::check_denom(&deps.as_ref(), &denom, &config)?;
     let mut msgs = vec![];
     if let check_denom::DenomType::LsmShare(remote_denom) = denom_type {
         if amount < config.lsm_min_bond_amount {
@@ -1541,7 +1541,7 @@ fn ideal_delegation_to_stake_items(
 pub mod check_denom {
     use super::*;
 
-    #[derive(PartialEq)]
+    #[derive(PartialEq, Debug)]
     pub enum DenomType {
         Base,
         LsmShare(String),
@@ -1563,7 +1563,7 @@ pub mod check_denom {
     }
 
     fn query_denom_trace(
-        deps: &DepsMut<NeutronQuery>,
+        deps: &Deps<NeutronQuery>,
         denom: impl Into<String>,
     ) -> StdResult<QueryDenomTraceResponse> {
         let denom = denom.into();
@@ -1583,28 +1583,32 @@ pub mod check_denom {
             })
     }
 
-    // TODO: extensive unit tests
     pub fn check_denom(
-        deps: &DepsMut<NeutronQuery>,
+        deps: &Deps<NeutronQuery>,
         denom: &str,
         config: &Config,
     ) -> ContractResult<DenomType> {
         if denom == config.base_denom {
             return Ok(DenomType::Base);
         }
+
         let trace = query_denom_trace(deps, denom)?.denom_trace;
         let (port, channel) = trace
             .path
             .split_once('/')
             .ok_or(ContractError::InvalidDenom {})?;
-        if port != "transfer" && channel != config.transfer_channel_id {
+        if port != "transfer" || channel != config.transfer_channel_id {
             return Err(ContractError::InvalidDenom {});
         }
 
-        let (validator, _unbonding_index) = trace
+        let (validator, unbonding_index) = trace
             .base_denom
             .split_once('/')
             .ok_or(ContractError::InvalidDenom {})?;
+        unbonding_index
+            .parse::<u64>()
+            .map_err(|_| ContractError::InvalidDenom {})?;
+
         let validator_info = deps
             .querier
             .query_wasm_smart::<drop_staking_base::msg::validatorset::ValidatorResponse>(
@@ -1617,6 +1621,7 @@ pub mod check_denom {
         if validator_info.is_none() {
             return Err(ContractError::InvalidDenom {});
         }
+
         Ok(DenomType::LsmShare(trace.base_denom))
     }
 }
