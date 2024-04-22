@@ -41,6 +41,10 @@ pub struct InstantiateMsg {
 pub struct LastPuppeteerResponse {
     pub response: Option<PuppeteerResponseHookMsg>,
 }
+#[cw_serde]
+pub struct LastStakerResponse {
+    pub response: Option<StakerResponseHookMsg>,
+}
 
 #[pausable_query]
 #[cw_serde]
@@ -58,6 +62,8 @@ pub enum QueryMsg {
     ContractState {},
     #[returns(LastPuppeteerResponse)]
     LastPuppeteerResponse {},
+    #[returns(LastStakerResponse)]
+    LastStakerResponse {},
     #[returns(Vec<NonNativeRewardsItem>)]
     NonNativeRewardsReceivers {},
     #[returns(Vec<(String,(String, Uint128))>)]

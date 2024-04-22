@@ -262,7 +262,6 @@ export interface GrantDelegateArgs {
   grantee: string;
   reply_to: string;
   timeout?: number | null;
-  validators: string[];
 }
 export interface UndelegateArgs {
   batch_id: number;

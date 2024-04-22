@@ -264,6 +264,7 @@ export interface DropCoreSchema {
     | Decimal1
     | ArrayOfTupleOfStringAndTupleOfStringAndUint128
     | LastPuppeteerResponse
+    | LastStakerResponse
     | ArrayOfNonNativeRewardsItem
     | String
     | PauseInfoResponse
@@ -377,6 +378,9 @@ export interface ResponseHookErrorMsg {
   request: RequestPacket;
   request_id: number;
   transaction: Transaction;
+}
+export interface LastStakerResponse {
+  response?: ResponseHookMsg | null;
 }
 export interface NonNativeRewardsItem {
   address: string;
@@ -544,6 +548,9 @@ export class Client {
   }
   queryLastPuppeteerResponse = async(): Promise<LastPuppeteerResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { last_puppeteer_response: {} });
+  }
+  queryLastStakerResponse = async(): Promise<LastStakerResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, { last_staker_response: {} });
   }
   queryNonNativeRewardsReceivers = async(): Promise<ArrayOfNonNativeRewardsItem> => {
     return this.client.queryContractSmart(this.contractAddress, { non_native_rewards_receivers: {} });

@@ -10,6 +10,7 @@ use drop_helpers::answer::response;
 use drop_helpers::pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse};
 use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
 use drop_puppeteer_base::state::RedeemShareItem;
+use drop_staking_base::msg::core::LastStakerResponse;
 use drop_staking_base::state::core::{
     unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem, UnbondBatch,
     UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM,
@@ -86,6 +87,9 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::ContractState {} => to_json_binary(&FSM.get_current_state(deps.storage)?)?,
         QueryMsg::LastPuppeteerResponse {} => to_json_binary(&LastPuppeteerResponse {
             response: LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?,
+        })?,
+        QueryMsg::LastStakerResponse {} => to_json_binary(&LastStakerResponse {
+            response: LAST_STAKER_RESPONSE.may_load(deps.storage)?,
         })?,
         QueryMsg::PauseInfo {} => query_pause_info(deps)?,
     })
@@ -580,7 +584,7 @@ fn execute_tick_idle(
                 FSM.go_to(deps.storage, ContractState::StakingBond)?;
                 attrs.push(attr("state", "staking_bond"));
             } else if let Some(stake_msg) =
-                get_stake_rewards_msg(deps.branch(), &env, config, &info)?
+                get_stake_rewards_msg(deps.as_ref(), &env, config, &info)?
             {
                 messages.push(stake_msg);
                 FSM.go_to(deps.storage, ContractState::StakingRewards)?;
@@ -655,10 +659,14 @@ fn execute_tick_claiming(
             attrs.push(attr("error_on_claiming", format!("{:?}", err)));
         }
     }
-    if let Some(stake_msg) = get_stake_rewards_msg(deps.branch(), &env, config, &info)? {
+    if let Some(stake_bond_msg) = get_stake_bond_msg(deps.as_ref(), &env, config, &info)? {
+        messages.push(stake_bond_msg);
+        FSM.go_to(deps.storage, ContractState::StakingBond)?;
+        attrs.push(attr("state", "staking_bond"));
+    } else if let Some(stake_msg) = get_stake_rewards_msg(deps.as_ref(), &env, config, &info)? {
         messages.push(stake_msg);
         FSM.go_to(deps.storage, ContractState::StakingRewards)?;
-        attrs.push(attr("state", "staking"));
+        attrs.push(attr("state", "staking_rewards"));
     } else if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info)? {
         messages.push(unbond_message);
         FSM.go_to(deps.storage, ContractState::Unbonding)?;
@@ -697,10 +705,10 @@ fn execute_tick_staking_bond(
     let mut messages = vec![];
     let mut attrs = vec![];
     attrs.push(attr("action", "tick_staking_bond"));
-    if let Some(stake_msg) = get_stake_rewards_msg(deps.branch(), &env, config, &info)? {
+    if let Some(stake_msg) = get_stake_rewards_msg(deps.as_ref(), &env, config, &info)? {
         messages.push(stake_msg);
         FSM.go_to(deps.storage, ContractState::StakingRewards)?;
-        attrs.push(attr("state", "staking"));
+        attrs.push(attr("state", "staking_rewards"));
     } else if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info)? {
         messages.push(unbond_message);
         FSM.go_to(deps.storage, ContractState::Unbonding)?;
@@ -1099,18 +1107,14 @@ pub fn get_stake_bond_msg<T>(
 }
 
 pub fn get_stake_rewards_msg<T>(
-    deps: DepsMut<NeutronQuery>,
+    deps: Deps<NeutronQuery>,
     env: &Env,
     config: &Config,
     info: &MessageInfo,
 ) -> ContractResult<Option<CosmosMsg<T>>> {
     let funds = info.funds.clone();
-    let (balance, balance_height, _) = get_ica_balance_by_denom(
-        deps.as_ref(),
-        &config.puppeteer_contract,
-        &config.remote_denom,
-        true,
-    )?;
+    let (balance, balance_height, _) =
+        get_ica_balance_by_denom(deps, &config.puppeteer_contract, &config.remote_denom, true)?;
 
     if balance < config.min_stake_amount {
         return Ok(None);
