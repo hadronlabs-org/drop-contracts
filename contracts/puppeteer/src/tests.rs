@@ -185,13 +185,12 @@ fn test_execute_grant_delegate() {
     let pupeteer_base = base_init(&mut deps.as_mut());
     let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::GrantDelegate {
         grantee: "grantee".to_string(),
-        reply_to: "some_reply_to".to_string(),
+        reply_to: "".to_string(),
         timeout: Some(100u64),
     };
-    let env = mock_env();
     let res = crate::contract::execute(
         deps.as_mut(),
-        env,
+        mock_env(),
         mock_info("not_allowed_sender", &[]),
         msg.clone(),
     );
@@ -201,26 +200,27 @@ fn test_execute_grant_delegate() {
             msg: "Sender is not allowed".to_string()
         })
     );
-    let res = crate::contract::execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("allowed_sender", &[]),
-        msg,
-    )
-    .unwrap();
+    let env = mock_env();
+    let res = crate::contract::execute(deps.as_mut(), env, mock_info("allowed_sender", &[]), msg)
+        .unwrap();
     let msg = cosmos_sdk_proto::cosmos::authz::v1beta1::MsgGrant {
         granter: "ica_address".to_string(),
         grantee: "grantee".to_string(),
         grant: Some(cosmos_sdk_proto::cosmos::authz::v1beta1::Grant {
-            expiration: None,
+            expiration: Some(prost_types::Timestamp {
+                seconds: mock_env()
+                    .block
+                    .time
+                    .plus_days(365 * 120 + 30)
+                    .seconds()
+                    .try_into()
+                    .unwrap(),
+                nanos: 0,
+            }),
             authorization: Some(cosmos_sdk_proto::Any {
-                type_url: "/cosmos.staking.v1beta1.StakeAuthorization".to_string(),
-                value: cosmos_sdk_proto::cosmos::staking::v1beta1::StakeAuthorization {
-                    max_tokens: None,
-                    authorization_type:
-                        cosmos_sdk_proto::cosmos::staking::v1beta1::AuthorizationType::Delegate
-                            as i32,
-                    validators: None,
+                type_url: "/cosmos.authz.v1beta1.GenericAuthorization".to_string(),
+                value: cosmos_sdk_proto::cosmos::authz::v1beta1::GenericAuthorization {
+                    msg: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
                 }
                 .encode_to_vec(),
             }),
@@ -252,7 +252,7 @@ fn test_execute_grant_delegate() {
         drop_puppeteer_base::state::TxState {
             seq_id: None,
             status: drop_puppeteer_base::state::TxStateStatus::InProgress,
-            reply_to: Some("some_reply_to".to_string()),
+            reply_to: Some("".to_string()),
             transaction: Some(drop_puppeteer_base::msg::Transaction::GrantDelegate {
                 interchain_account_id: "ica_address".to_string(),
                 grantee: "grantee".to_string(),

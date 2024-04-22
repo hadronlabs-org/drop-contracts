@@ -249,6 +249,11 @@ export interface SetFeesArgs {
   timeout_fee: Uint128;
 }
 export interface DelegateArgs {
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  fee?: [string, Uint128] | null;
   items: [string, Uint128][];
   reply_to: string;
   timeout?: number | null;
