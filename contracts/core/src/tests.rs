@@ -245,7 +245,7 @@ fn get_stake_msg_success() {
         });
 
     let stake_msg: CosmosMsg<NeutronMsg> = get_stake_rewards_msg(
-        deps.as_mut(),
+        deps.as_ref(),
         &mock_env(),
         &get_default_config(Decimal::from_atomics(1u32, 1).ok()),
         &MessageInfo {
@@ -312,7 +312,7 @@ fn get_stake_msg_zero_fee() {
         .unwrap();
 
     let stake_msg: CosmosMsg<NeutronMsg> = get_stake_rewards_msg(
-        deps.as_mut(),
+        deps.as_ref(),
         &mock_env(),
         &get_default_config(None),
         &MessageInfo {
@@ -1288,7 +1288,7 @@ fn test_tick_idle_claim_with_unbond_transfer() {
 }
 
 #[test]
-fn test_tick_idle_transfer() {
+fn test_tick_idle_staking_bond() {
     let mut deps = mock_dependencies(&[Coin::new(1000u128, "base_denom")]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
@@ -1323,6 +1323,27 @@ fn test_tick_idle_transfer() {
                 },
             ])
             .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("staker_contract", |_| {
+            to_json_binary(&Uint128::from(100000u128)).unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("strategy_contract", |msg| {
+            let q: StategyQueryMsg = from_json(msg).unwrap();
+            match q {
+                StategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
+                    drop_staking_base::msg::distribution::IdealDelegation {
+                        valoper_address: "valoper_address".to_string(),
+                        stake_change: deposit,
+                        ideal_stake: deposit,
+                        current_stake: deposit,
+                        weight: 1u64,
+                    },
+                ])
+                .unwrap(),
+                _ => unimplemented!(),
+            }
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
@@ -1394,21 +1415,17 @@ fn test_tick_idle_transfer() {
                     vec![
                         ("action", "tick_idle"),
                         ("validators_to_claim", "empty"),
-                        ("state", "transfering")
+                        ("state", "staking_bond")
                     ]
                 )
             )
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "puppeteer_contract".to_string(),
-                msg: to_json_binary(
-                    &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
-                        timeout: 60u64,
-                        reason: drop_puppeteer_base::msg::IBCTransferReason::Stake,
-                        reply_to: "cosmos2contract".to_string()
-                    }
-                )
+                contract_addr: "staker_contract".to_string(),
+                msg: to_json_binary(&drop_staking_base::msg::staker::ExecuteMsg::Stake {
+                    items: vec![("valoper_address".to_string(), Uint128::from(100000u128))]
+                })
                 .unwrap(),
-                funds: vec![Coin::new(1000, "base_denom"), Coin::new(1000, "untrn")],
+                funds: vec![Coin::new(1000, "untrn")],
             })))
     );
 }
@@ -1429,6 +1446,10 @@ fn test_tick_idle_staking() {
                 Timestamp::from_seconds(90001),
             ))
             .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("staker_contract", |_| {
+            to_json_binary(&Uint128::zero()).unwrap()
         });
     deps.querier
         .add_wasm_query_response("validators_set_contract", |_| {
@@ -1547,7 +1568,7 @@ fn test_tick_idle_staking() {
                     vec![
                         ("action", "tick_idle"),
                         ("validators_to_claim", "empty"),
-                        ("state", "staking")
+                        ("state", "staking_rewards")
                     ]
                 )
             )
@@ -1741,7 +1762,7 @@ fn test_tick_idle_unbonding() {
 }
 
 #[test]
-fn test_tick_claiming_no_puppeteer_response() {
+fn test_tick_no_puppeteer_response() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
         .save(

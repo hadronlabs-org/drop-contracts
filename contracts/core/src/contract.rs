@@ -1088,6 +1088,9 @@ pub fn get_stake_bond_msg<T>(
         &drop_staking_base::msg::staker::QueryMsg::NonStakedBalance {},
     );
     if let Ok(staker_pending_stake) = staker_pending_stake {
+        if staker_pending_stake.is_zero() {
+            return Ok(None);
+        }
         let to_delegate: Vec<drop_staking_base::msg::distribution::IdealDelegation> =
             deps.querier.query_wasm_smart(
                 &config.strategy_contract,
