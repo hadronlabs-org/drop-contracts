@@ -101,7 +101,6 @@ fn test_update_config() {
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap();
     let msg = ConfigOptional {
-        connection_id: Some("new_connection".to_string()),
         ibc_fees: Some(drop_helpers::interchain::IBCFees {
             recv_fee: Uint128::from(1100u128),
             ack_fee: Uint128::from(1200u128),
@@ -109,10 +108,6 @@ fn test_update_config() {
             register_fee: Uint128::from(1400u128),
         }),
         timeout: Some(20u64),
-        port_id: Some("new_port_id".to_string()),
-        transfer_channel_id: Some("new_transfer_channel_id".to_string()),
-        remote_denom: Some("new_remote_denom".to_string()),
-        base_denom: Some("new_base_denom".to_string()),
         allowed_senders: Some(vec!["new_core".to_string()]),
         puppeteer_ica: Some("puppeteer_ica".to_string()),
         min_ibc_transfer: Some(Uint128::from(110000u128)),
@@ -133,14 +128,14 @@ fn test_update_config() {
             "crates.io:drop-neutron-contracts__drop-staker-update_config"
         ).add_attributes(vec![
             ("action","update_config"),
-            ("new_config", "ConfigOptional { port_id: Some(\"new_port_id\"), transfer_channel_id: Some(\"new_transfer_channel_id\"), connection_id: Some(\"new_connection\"), ibc_fees: Some(IBCFees { recv_fee: Uint128(1100), ack_fee: Uint128(1200), timeout_fee: Uint128(1300), register_fee: Uint128(1400) }), timeout: Some(20), remote_denom: Some(\"new_remote_denom\"), base_denom: Some(\"new_base_denom\"), allowed_senders: Some([\"new_core\"]), puppeteer_ica: Some(\"puppeteer_ica\"), min_ibc_transfer: Some(Uint128(110000)), min_staking_amount: Some(Uint128(110000)) }")
+            ("new_config", "ConfigOptional { ibc_fees: Some(IBCFees { recv_fee: Uint128(1100), ack_fee: Uint128(1200), timeout_fee: Uint128(1300), register_fee: Uint128(1400) }), timeout: Some(20), allowed_senders: Some([\"new_core\"]), puppeteer_ica: Some(\"puppeteer_ica\"), min_ibc_transfer: Some(Uint128(110000)), min_staking_amount: Some(Uint128(110000)) }")
         ]))
     );
     let config = CONFIG.load(deps.as_ref().storage).unwrap();
     assert_eq!(
         config,
         Config {
-            connection_id: "new_connection".to_string(),
+            connection_id: "connection".to_string(),
             ibc_fees: drop_helpers::interchain::IBCFees {
                 recv_fee: Uint128::from(1100u128),
                 ack_fee: Uint128::from(1200u128),
@@ -148,10 +143,10 @@ fn test_update_config() {
                 register_fee: Uint128::from(1400u128),
             },
             timeout: 20u64,
-            port_id: "new_port_id".to_string(),
-            transfer_channel_id: "new_transfer_channel_id".to_string(),
-            remote_denom: "new_remote_denom".to_string(),
-            base_denom: "new_base_denom".to_string(),
+            port_id: "port_id".to_string(),
+            transfer_channel_id: "transfer_channel_id".to_string(),
+            remote_denom: "remote_denom".to_string(),
+            base_denom: "base_denom".to_string(),
             allowed_senders: vec!["new_core".to_string()],
             puppeteer_ica: Some("puppeteer_ica".to_string()),
             min_ibc_transfer: Uint128::from(110000u128),
