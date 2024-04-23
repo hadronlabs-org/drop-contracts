@@ -668,13 +668,15 @@ describe('Interchain puppeteer', () => {
   });
   it('wait for grant to be processed', async () => {
     await waitFor(async () => {
-      const res = await context.park.executeInNetwork(
-        'gaia',
-        `${context.park.config.networks['gaia'].binary} query authz grants-by-grantee ${context.gaiaAccount.address} --output json`,
-      );
-      const out = JSON.parse(res.out);
-      return out.grants && out.grants.length > 0;
+      const res = await context.contractClient.queryTxState();
+      return res.status === 'idle';
     }, 100_000);
+    const res = await context.park.executeInNetwork(
+      'gaia',
+      `${context.park.config.networks['gaia'].binary} query authz grants-by-grantee ${context.gaiaAccount.address} --output json`,
+    );
+    const out = JSON.parse(res.out);
+    expect(out.grants).toHaveLength(1);
   });
   it('send a failing delegation', async () => {
     const { hookContractClient, account } = context;
