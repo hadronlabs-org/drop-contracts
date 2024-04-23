@@ -661,7 +661,6 @@ describe('Interchain puppeteer', () => {
       account.address,
       {
         grantee: (await context.gaiaWallet.getAccounts())[0].address,
-        reply_to: context.hookContractClient.contractAddress,
       },
       1.5,
     );
