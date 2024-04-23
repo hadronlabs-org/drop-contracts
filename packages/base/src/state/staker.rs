@@ -2,9 +2,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Uint128;
 use cw_storage_plus::Item;
 use drop_helpers::{ica::Ica, interchain::IBCFees};
-use optfield::optfield;
 
-#[optfield(pub ConfigOptional, attrs)]
 #[cw_serde]
 pub struct Config {
     pub port_id: String,
@@ -18,6 +16,16 @@ pub struct Config {
     pub puppeteer_ica: Option<String>,
     pub min_ibc_transfer: Uint128,
     pub min_staking_amount: Uint128,
+}
+
+#[cw_serde]
+pub struct ConfigOptional {
+    pub ibc_fees: Option<IBCFees>,
+    pub timeout: Option<u64>,
+    pub allowed_senders: Option<Vec<String>>,
+    pub puppeteer_ica: Option<String>,
+    pub min_ibc_transfer: Option<Uint128>,
+    pub min_staking_amount: Option<Uint128>,
 }
 
 #[cw_serde]

@@ -157,33 +157,17 @@ fn execute_update_config(
         attr("action", "update_config"),
         attr("new_config", format!("{:?}", new_config)),
     ];
-    if let Some(port_id) = new_config.port_id {
-        config.port_id = port_id;
-    }
-
-    if let Some(connection_id) = new_config.connection_id {
-        config.connection_id = connection_id;
-    }
     if let Some(ibc_fees) = new_config.ibc_fees {
         config.ibc_fees = ibc_fees;
     }
     if let Some(timeout) = new_config.timeout {
         config.timeout = timeout;
     }
-    if let Some(remote_denom) = new_config.remote_denom {
-        config.remote_denom = remote_denom;
-    }
-    if let Some(base_denom) = new_config.base_denom {
-        config.base_denom = base_denom;
-    }
     if let Some(allowed_senders) = new_config.allowed_senders {
         config.allowed_senders = allowed_senders;
     }
     if let Some(puppeteer_ica) = new_config.puppeteer_ica {
         config.puppeteer_ica = Some(puppeteer_ica);
-    }
-    if let Some(transfer_channel_id) = new_config.transfer_channel_id {
-        config.transfer_channel_id = transfer_channel_id;
     }
     if let Some(min_ibc_transfer) = new_config.min_ibc_transfer {
         config.min_ibc_transfer = min_ibc_transfer;
@@ -247,11 +231,12 @@ fn execute_stake(
     let sum = items
         .iter()
         .fold(Uint128::zero(), |acc, (_, amount)| acc + *amount);
-    if sum < config.min_staking_amount {
-        return Err(ContractError::InvalidFunds {
-            reason: "amount is less than min_staking_amount".to_string(),
-        });
-    }
+    ensure!(
+        sum >= config.min_staking_amount,
+        ContractError::InvalidFunds {
+            reason: "amount is less than min_staking_amount".to_string()
+        }
+    );
     ensure!(
         amount >= sum,
         ContractError::InvalidFunds {
