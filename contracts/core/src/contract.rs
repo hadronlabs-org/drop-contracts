@@ -1053,6 +1053,7 @@ fn execute_unbond(
     let config = CONFIG.load(deps.storage)?;
     let ld_denom = config.ld_denom.ok_or(ContractError::LDDenomIsNotSet {})?;
     let amount = cw_utils::must_pay(&info, &ld_denom)?;
+    BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total - amount))?;
     let mut unbond_batch = unbond_batches_map().load(deps.storage, unbond_batch_id)?;
     let exchange_rate = query_exchange_rate(deps.as_ref(), env)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));

@@ -3187,6 +3187,8 @@ fn test_unbond() {
             created: 0,
         }
     );
+    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
+    assert_eq!(bonded_amount, Uint128::zero());
 }
 
 fn null_request_packet() -> RequestPacket {
