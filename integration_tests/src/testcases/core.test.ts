@@ -326,7 +326,7 @@ describe('Core', () => {
           transfer_channel_id: 'channel-0',
           port_id: 'transfer',
           denom: 'stake',
-          update_period: 2,
+          update_period: '2',
           ibc_fees: {
             timeout_fee: '10000',
             ack_fee: '10000',
@@ -339,7 +339,7 @@ describe('Core', () => {
         token_metadata: {
           description: 'Drop token',
           display: 'drop',
-          exponent: 6,
+          exponent: '6',
           name: 'Drop liquid staking token',
           symbol: 'DROP',
           uri: null,

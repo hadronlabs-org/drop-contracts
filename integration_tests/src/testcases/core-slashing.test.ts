@@ -572,7 +572,6 @@ describe('Core Slashing', () => {
                   JSON.stringify({
                     grant_delegate: {
                       grantee: context.stakerIcaAddress,
-                      reply_to: '',
                     },
                   }),
                 ).toString('base64'),
