@@ -251,55 +251,28 @@ fn execute_update_validators_info(
         }
 
         if let Some(last_processed_local_height) = update.last_processed_local_height {
-            validator.last_processed_local_height = validator
-                .last_processed_local_height
-                .map(|stored_last_processed_local_height| {
-                    if stored_last_processed_local_height < last_processed_local_height {
-                        last_processed_local_height
-                    } else {
-                        stored_last_processed_local_height
-                    }
-                })
-                .or(Some(last_processed_local_height));
+            validator.last_processed_local_height = Some(
+                last_processed_local_height
+                    .max(validator.last_processed_local_height.unwrap_or_default()),
+            );
         }
 
         if let Some(last_processed_remote_height) = update.last_processed_remote_height {
-            validator.last_processed_remote_height = validator
-                .last_processed_remote_height
-                .map(|stored_last_processed_remote_height| {
-                    if stored_last_processed_remote_height < last_processed_remote_height {
-                        last_processed_remote_height
-                    } else {
-                        stored_last_processed_remote_height
-                    }
-                })
-                .or(Some(last_processed_remote_height));
+            validator.last_processed_remote_height = Some(
+                last_processed_remote_height
+                    .max(validator.last_processed_remote_height.unwrap_or_default()),
+            );
         }
 
         if let Some(last_validated_height) = update.last_validated_height {
-            validator.last_validated_height = validator
-                .last_validated_height
-                .map(|stored_last_validated_height| {
-                    if stored_last_validated_height < last_validated_height {
-                        last_validated_height
-                    } else {
-                        stored_last_validated_height
-                    }
-                })
-                .or(Some(last_validated_height));
+            validator.last_validated_height = Some(
+                last_validated_height.max(validator.last_validated_height.unwrap_or_default()),
+            );
         }
 
         if let Some(jailed_number) = update.jailed_number {
-            validator.jailed_number = validator
-                .jailed_number
-                .map(|stored_jailed_number| {
-                    if stored_jailed_number < jailed_number {
-                        jailed_number
-                    } else {
-                        stored_jailed_number
-                    }
-                })
-                .or(Some(jailed_number));
+            validator.jailed_number =
+                Some(jailed_number.max(validator.jailed_number.unwrap_or_default()));
         }
 
         validator.uptime = update.uptime;
