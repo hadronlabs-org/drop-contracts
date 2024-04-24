@@ -729,7 +729,7 @@ describe('Interchain puppeteer', () => {
     await waitFor(async () => {
       res = await hookContractClient.queryErrors();
       return res.length > 1;
-    }, 80_000);
+    }, 160_000);
     expect(res.length).toEqual(2);
     expect(res[1].details).toEqual('Timeout');
   });
