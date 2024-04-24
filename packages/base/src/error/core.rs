@@ -83,6 +83,13 @@ pub enum ContractError {
         ica_height: u64,
         puppeteer_height: u64,
     },
+
+    #[error("Puppeteer delegations is outdated: ICA delegations height {ica_height}, puppeteer delegations height {puppeteer_height}")]
+    PuppeteerDelegationsOutdated {
+        ica_height: u64,
+        puppeteer_height: u64,
+    },
+
     #[error("Bond limit exceeded")]
     BondLimitExceeded {},
 

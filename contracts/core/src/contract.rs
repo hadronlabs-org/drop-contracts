@@ -7,10 +7,8 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
 use drop_helpers::pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse};
-use drop_puppeteer_base::{
-    msg::{IBCTransferReason, TransferReadyBatchesMsg},
-    state::RedeemShareItem,
-};
+use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
+use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
@@ -25,10 +23,9 @@ use drop_staking_base::{
         core::{
             unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem,
             UnbondBatch, UnbondBatchStatus, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID,
-            FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM,
-            LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE, LD_DENOM, LSM_SHARES_TO_REDEEM,
-            NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, PRE_UNBONDING_BALANCE, TOTAL_LSM_SHARES,
-            UNBOND_BATCH_ID,
+            FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE,
+            LAST_STAKER_RESPONSE, LD_DENOM, LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG,
+            PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
         withdrawal_voucher::{Metadata, Trait},
@@ -80,7 +77,7 @@ pub fn instantiate(
     unbond_batches_map().save(deps.storage, 0, &new_unbond(env.block.time.seconds()))?;
     FSM.set_initial_state(deps.storage, ContractState::Idle)?;
     LAST_IDLE_CALL.save(deps.storage, &0)?;
-    LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &0)?;
+    LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &0)?;
     TOTAL_LSM_SHARES.save(deps.storage, &0)?;
     BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
     NON_NATIVE_REWARDS_CONFIG.save(deps.storage, &vec![])?;
@@ -168,6 +165,16 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
         )?;
+
+    let last_ica_balance_change_height = LAST_ICA_CHANGE_HEIGHT.load(deps.storage)?;
+    ensure!(
+        last_ica_balance_change_height <= delegations.1,
+        ContractError::PuppeteerDelegationsOutdated {
+            ica_height: last_ica_balance_change_height,
+            puppeteer_height: delegations.1
+        }
+    );
+
     let delegations_amount: Uint128 = delegations
         .0
         .delegations
@@ -396,61 +403,58 @@ fn execute_puppeteer_hook(
         ContractError::Unauthorized {}
     );
     match msg.clone() {
-        drop_puppeteer_base::msg::ResponseHookMsg::Success(_) => {
-            LAST_ICA_BALANCE_CHANGE_HEIGHT.save(deps.storage, &env.block.height)?;
-            if let drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) = &msg {
-                match &success_msg.transaction {
-                    drop_puppeteer_base::msg::Transaction::IBCTransfer {
-                        denom,
-                        amount,
-                        reason,
-                        recipient: _,
-                    } => {
-                        if *reason == IBCTransferReason::LSMShare {
-                            let current_pending =
-                                PENDING_LSM_SHARES.may_load(deps.storage, denom.to_string())?;
-                            if let Some((remote_denom, current_amount)) = current_pending {
-                                let sent_amount = Uint128::from(*amount);
-                                LSM_SHARES_TO_REDEEM.update(
+        drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) => {
+            LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &success_msg.local_height)?;
+            match &success_msg.transaction {
+                drop_puppeteer_base::msg::Transaction::IBCTransfer {
+                    denom,
+                    amount,
+                    reason,
+                    recipient: _,
+                } => {
+                    if *reason == IBCTransferReason::LSMShare {
+                        let current_pending =
+                            PENDING_LSM_SHARES.may_load(deps.storage, denom.to_string())?;
+                        if let Some((remote_denom, current_amount)) = current_pending {
+                            let sent_amount = Uint128::from(*amount);
+                            LSM_SHARES_TO_REDEEM.update(
+                                deps.storage,
+                                denom.to_string(),
+                                |one| {
+                                    let mut new = one.unwrap_or((remote_denom, Uint128::zero()));
+                                    new.1 += sent_amount;
+                                    StdResult::Ok(new)
+                                },
+                            )?;
+                            if current_amount == sent_amount {
+                                PENDING_LSM_SHARES.remove(deps.storage, denom.to_string());
+                            } else {
+                                PENDING_LSM_SHARES.update(
                                     deps.storage,
                                     denom.to_string(),
-                                    |one| {
-                                        let mut new =
-                                            one.unwrap_or((remote_denom, Uint128::zero()));
-                                        new.1 += sent_amount;
-                                        StdResult::Ok(new)
+                                    |one| match one {
+                                        Some(one) => {
+                                            let mut new = one;
+                                            new.1 -= Uint128::from(*amount);
+                                            StdResult::Ok(new)
+                                        }
+                                        None => unreachable!("denom should be in the map"),
                                     },
                                 )?;
-                                if current_amount == sent_amount {
-                                    PENDING_LSM_SHARES.remove(deps.storage, denom.to_string());
-                                } else {
-                                    PENDING_LSM_SHARES.update(
-                                        deps.storage,
-                                        denom.to_string(),
-                                        |one| match one {
-                                            Some(one) => {
-                                                let mut new = one;
-                                                new.1 -= Uint128::from(*amount);
-                                                StdResult::Ok(new)
-                                            }
-                                            None => unreachable!("denom should be in the map"),
-                                        },
-                                    )?;
-                                }
                             }
                         }
                     }
-                    drop_puppeteer_base::msg::Transaction::RedeemShares { items, .. } => {
-                        let mut sum = 0u128;
-                        for item in items {
-                            sum += item.amount.u128();
-                            LSM_SHARES_TO_REDEEM.remove(deps.storage, item.local_denom.to_string());
-                        }
-                        TOTAL_LSM_SHARES.update(deps.storage, |one| StdResult::Ok(one - sum))?;
-                        LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
-                    }
-                    _ => {}
                 }
+                drop_puppeteer_base::msg::Transaction::RedeemShares { items, .. } => {
+                    let mut sum = 0u128;
+                    for item in items {
+                        sum += item.amount.u128();
+                        LSM_SHARES_TO_REDEEM.remove(deps.storage, item.local_denom.to_string());
+                    }
+                    TOTAL_LSM_SHARES.update(deps.storage, |one| StdResult::Ok(one - sum))?;
+                    LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
+                }
+                _ => {}
             }
         }
         drop_puppeteer_base::msg::ResponseHookMsg::Error(err_msg) => {
@@ -643,14 +647,23 @@ fn execute_tick_idle(
             &drop_staking_base::msg::validatorset::QueryMsg::Validators {},
         )?;
 
-        let (delegations, _, _) = deps
-            .querier
-            .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
-            config.puppeteer_contract.to_string(),
-            &drop_puppeteer_base::msg::QueryMsg::Extension {
-                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
-            },
-        )?;
+        let (delegations, local_height, _) =
+            deps.querier
+                .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
+                    config.puppeteer_contract.to_string(),
+                    &drop_puppeteer_base::msg::QueryMsg::Extension {
+                        msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+                    },
+                )?;
+
+        let last_ica_balance_change_height = LAST_ICA_CHANGE_HEIGHT.load(deps.storage)?;
+        ensure!(
+            last_ica_balance_change_height <= local_height,
+            ContractError::PuppeteerDelegationsOutdated {
+                ica_height: last_ica_balance_change_height,
+                puppeteer_height: local_height
+            }
+        );
 
         let validators_map = validators
             .iter()
@@ -1197,7 +1210,7 @@ pub fn get_stake_rewards_msg<T>(
     info: &MessageInfo,
 ) -> ContractResult<Option<CosmosMsg<T>>> {
     let funds = info.funds.clone();
-    let (balance, balance_height, _) = get_ica_balance_by_denom(
+    let (balance, _, _) = get_ica_balance_by_denom(
         deps,
         config.puppeteer_contract.as_ref(),
         &config.remote_denom,
@@ -1208,14 +1221,6 @@ pub fn get_stake_rewards_msg<T>(
         return Ok(None);
     }
 
-    let last_ica_balance_change_height = LAST_ICA_BALANCE_CHANGE_HEIGHT.load(deps.storage)?;
-    ensure!(
-        last_ica_balance_change_height <= balance_height,
-        ContractError::PuppeteerBalanceOutdated {
-            ica_height: last_ica_balance_change_height,
-            puppeteer_height: balance_height
-        }
-    );
     let fee = config.fee.unwrap_or(Decimal::zero()) * balance;
     let deposit_amount = balance - fee;
 
@@ -1260,13 +1265,6 @@ fn get_unbonding_msg<T>(
         && unbond.total_unbond_items != 0
         && !unbond.total_amount.is_zero()
     {
-        let (pre_unbonding_balance, _, _) = get_ica_balance_by_denom(
-            deps.as_ref(),
-            config.puppeteer_contract.as_ref(),
-            &config.remote_denom,
-            true,
-        )?;
-        PRE_UNBONDING_BALANCE.save(deps.storage, &pre_unbonding_balance)?;
         let undelegations: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
             config.strategy_contract.to_string(),
             &drop_staking_base::msg::strategy::QueryMsg::CalcWithdraw {
@@ -1332,13 +1330,22 @@ fn get_ica_balance_by_denom<T: CustomQuery>(
     remote_denom: &str,
     can_be_zero: bool,
 ) -> ContractResult<(Uint128, u64, u64)> {
-    let (ica_balances, local_height, local_time): drop_staking_base::msg::puppeteer::BalancesResponse =
+    let (ica_balances, balance_height, local_time): drop_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             puppeteer_contract.to_string(),
             &drop_puppeteer_base::msg::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
             },
         )?;
+
+    let last_ica_balance_change_height = LAST_ICA_CHANGE_HEIGHT.load(deps.storage)?;
+    ensure!(
+        last_ica_balance_change_height <= balance_height,
+        ContractError::PuppeteerBalanceOutdated {
+            ica_height: last_ica_balance_change_height,
+            puppeteer_height: balance_height
+        }
+    );
 
     let balance = ica_balances.coins.iter().find_map(|c| {
         if c.denom == remote_denom {
@@ -1352,7 +1359,7 @@ fn get_ica_balance_by_denom<T: CustomQuery>(
             true => balance.unwrap_or(Uint128::zero()),
             false => balance.ok_or(ContractError::ICABalanceZero {})?,
         },
-        local_height,
+        balance_height,
         local_time.seconds(),
     ))
 }
@@ -1389,6 +1396,15 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::NonNativeRewardsBalances {},
             },
         )?;
+
+    let last_ica_balance_change_height = LAST_ICA_CHANGE_HEIGHT.load(deps.storage)?;
+    ensure!(
+        last_ica_balance_change_height <= rewards.1,
+        ContractError::PuppeteerBalanceOutdated {
+            ica_height: last_ica_balance_change_height,
+            puppeteer_height: rewards.1
+        }
+    );
 
     let rewards_map = rewards
         .0

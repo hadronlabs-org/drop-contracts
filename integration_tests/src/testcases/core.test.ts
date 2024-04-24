@@ -41,6 +41,7 @@ import {
 import { stringToPath } from '@cosmjs/crypto';
 import { sleep } from '../helpers/sleep';
 import { waitForTx } from '../helpers/waitForTx';
+import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
@@ -1637,7 +1638,14 @@ describe('Core', () => {
         });
       }, 30_000);
       it('tick should fail', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(coreContractClient, puppeteerContractClient);
+
         await expect(
           context.coreContractClient.tick(
             neutronUserAddress,
@@ -1825,6 +1833,7 @@ describe('Core', () => {
             undefined,
             [],
           );
+          console.log(res.events);
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();
           expect(state).toEqual('idle');
@@ -1840,6 +1849,7 @@ describe('Core', () => {
         });
         it('await for pending length decrease', async () => {
           let pending: any;
+
           await waitFor(async () => {
             try {
               const res =
@@ -1852,13 +1862,24 @@ describe('Core', () => {
           }, 60_000);
         });
         it('tick', async () => {
-          const { neutronUserAddress } = context;
+          const {
+            neutronUserAddress,
+            coreContractClient,
+            puppeteerContractClient,
+          } = context;
+
+          await waitForPuppeteerICQ(
+            coreContractClient,
+            puppeteerContractClient,
+          );
+
           const res = await context.coreContractClient.tick(
             neutronUserAddress,
             1.5,
             undefined,
             [],
           );
+
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();
           expect(state).toEqual('idle');
@@ -1907,7 +1928,16 @@ describe('Core', () => {
           expect(pending).toHaveLength(2);
         });
         it('tick', async () => {
-          const { neutronUserAddress } = context;
+          const {
+            neutronUserAddress,
+            coreContractClient,
+            puppeteerContractClient,
+          } = context;
+          await waitForPuppeteerICQ(
+            coreContractClient,
+            puppeteerContractClient,
+          );
+
           const res = await context.coreContractClient.tick(
             neutronUserAddress,
             1.5,

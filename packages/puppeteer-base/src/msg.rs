@@ -80,6 +80,7 @@ pub struct ResponseHookSuccessMsg {
     pub request: RequestPacket,
     pub transaction: Transaction,
     pub answers: Vec<ResponseAnswer>,
+    pub local_height: u64,
 }
 #[cw_serde]
 pub struct ResponseHookErrorMsg {
