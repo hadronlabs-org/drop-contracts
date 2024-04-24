@@ -1,4 +1,4 @@
-FROM debian:bullseye-slim
+FROM ubuntu:23.04
 ARG HERMES_VERSION=v1.8.2
 WORKDIR /app
 RUN apt-get update && apt-get install -y wget && \
