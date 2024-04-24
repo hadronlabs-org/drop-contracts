@@ -20,7 +20,7 @@ export type Uint128 = string;
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal = string;
-export type ContractState = "idle" | "claiming" | "unbonding" | "staking" | "transfering";
+export type ContractState = "idle" | "claiming" | "unbonding" | "staking_rewards" | "staking_bond";
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
@@ -36,6 +36,9 @@ export type ResponseHookMsg =
       error: ResponseHookErrorMsg;
     };
 export type ResponseAnswer =
+  | {
+      grant_delegate_response: MsgGrantResponse;
+    }
   | {
       delegate_response: MsgDelegateResponse;
     }
@@ -135,6 +138,12 @@ export type Transaction =
         interchain_account_id: string;
         items: [string, Coin][];
       };
+    }
+  | {
+      grant_delegate: {
+        grantee: string;
+        interchain_account_id: string;
+      };
     };
 export type IBCTransferReason = "l_s_m_share" | "stake";
 export type ArrayOfNonNativeRewardsItem = NonNativeRewardsItem[];
@@ -179,6 +188,24 @@ export type PuppeteerHookArgs =
     }
   | {
       error: ResponseHookErrorMsg;
+    };
+export type StakerHookArgs =
+  | {
+      success: ResponseHookSuccessMsg2;
+    }
+  | {
+      error: ResponseHookErrorMsg2;
+    };
+export type Transaction2 =
+  | {
+      stake: {
+        amount: Uint128;
+      };
+    }
+  | {
+      i_b_c_transfer: {
+        amount: Uint128;
+      };
     };
 /**
  * Actions that can be taken to alter the contract's ownership
@@ -237,6 +264,7 @@ export interface DropCoreSchema {
     | Decimal1
     | ArrayOfTupleOfStringAndTupleOfStringAndUint128
     | LastPuppeteerResponse
+    | LastStakerResponse
     | ArrayOfNonNativeRewardsItem
     | String
     | PauseInfoResponse
@@ -249,6 +277,7 @@ export interface DropCoreSchema {
     | UpdateConfigArgs
     | UpdateNonNativeRewardsReceiversArgs
     | PuppeteerHookArgs
+    | StakerHookArgs
     | ProcessEmergencyBatchArgs
     | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
@@ -271,6 +300,7 @@ export interface Config {
   puppeteer_contract: string;
   puppeteer_timeout: number;
   remote_denom: string;
+  staker_contract: string;
   strategy_contract: string;
   token_contract: string;
   unbond_batch_switch_time: number;
@@ -289,6 +319,7 @@ export interface ResponseHookSuccessMsg {
   request_id: number;
   transaction: Transaction;
 }
+export interface MsgGrantResponse {}
 export interface MsgDelegateResponse {}
 export interface MsgUndelegateResponse {
   completion_time?: Timestamp | null;
@@ -349,6 +380,9 @@ export interface ResponseHookErrorMsg {
   request_id: number;
   transaction: Transaction;
 }
+export interface LastStakerResponse {
+  response?: ResponseHookMsg | null;
+}
 export interface NonNativeRewardsItem {
   address: string;
   denom: string;
@@ -399,6 +433,7 @@ export interface ConfigOptional {
   puppeteer_contract?: string | null;
   puppeteer_timeout?: number | null;
   remote_denom?: string | null;
+  staker_contract?: string | null;
   strategy_contract?: string | null;
   token_contract?: string | null;
   unbond_batch_switch_time?: number | null;
@@ -410,6 +445,18 @@ export interface ConfigOptional {
 }
 export interface UpdateNonNativeRewardsReceiversArgs {
   items: NonNativeRewardsItem[];
+}
+export interface ResponseHookSuccessMsg2 {
+  local_height: number;
+  request: RequestPacket;
+  request_id: number;
+  transaction: Transaction2;
+}
+export interface ResponseHookErrorMsg2 {
+  details: string;
+  request: RequestPacket;
+  request_id: number;
+  transaction: Transaction2;
 }
 export interface ProcessEmergencyBatchArgs {
   batch_id: number;
@@ -432,6 +479,7 @@ export interface InstantiateMsg {
   puppeteer_contract: string;
   puppeteer_timeout: number;
   remote_denom: string;
+  staker_contract: string;
   strategy_contract: string;
   token_contract: string;
   unbond_batch_switch_time: number;
@@ -506,6 +554,9 @@ export class Client {
   queryLastPuppeteerResponse = async(): Promise<LastPuppeteerResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { last_puppeteer_response: {} });
   }
+  queryLastStakerResponse = async(): Promise<LastStakerResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, { last_staker_response: {} });
+  }
   queryNonNativeRewardsReceivers = async(): Promise<ArrayOfNonNativeRewardsItem> => {
     return this.client.queryContractSmart(this.contractAddress, { non_native_rewards_receivers: {} });
   }
@@ -544,6 +595,10 @@ export class Client {
   puppeteerHook = async(sender:string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
+  }
+  stakerHook = async(sender:string, args: StakerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { staker_hook: args }, fee || "auto", memo, funds);
   }
   resetBondedAmount = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

@@ -2,7 +2,7 @@ use cosmwasm_std::{
     testing::{mock_env, mock_info},
     Addr, BankMsg, Binary, Coin, CosmosMsg, Event, Response, SubMsg, Uint128,
 };
-use drop_helpers::testing::mock_dependencies;
+use drop_helpers::{interchain::IBCFees, testing::mock_dependencies};
 use drop_staking_base::state::pump::{Config, CONFIG, ICA};
 use neutron_sdk::bindings::{msg::NeutronMsg, types::ProtobufAny};
 use prost::Message;
@@ -16,7 +16,7 @@ fn get_default_config() -> Config {
         dest_port: Some("dest_port".to_string()),
         connection_id: "connection".to_string(),
         refundee: Some(Addr::unchecked("refundee")),
-        ibc_fees: drop_staking_base::state::pump::IBCFees {
+        ibc_fees: IBCFees {
             recv_fee: Uint128::from(100u128),
             ack_fee: Uint128::from(200u128),
             timeout_fee: Uint128::from(300u128),
@@ -39,7 +39,7 @@ fn test_instantiate() {
         dest_port: Some("dest_port".to_string()),
         connection_id: "connection".to_string(),
         refundee: Some("refundee".to_string()),
-        ibc_fees: drop_staking_base::state::pump::IBCFees {
+        ibc_fees: IBCFees {
             recv_fee: Uint128::from(100u128),
             ack_fee: Uint128::from(200u128),
             timeout_fee: Uint128::from(300u128),
@@ -82,7 +82,7 @@ fn test_update_config() {
         dest_port: Some("dest_port".to_string()),
         connection_id: "connection".to_string(),
         refundee: Some("refundee".to_string()),
-        ibc_fees: drop_staking_base::state::pump::IBCFees {
+        ibc_fees: IBCFees {
             recv_fee: Uint128::from(100u128),
             ack_fee: Uint128::from(200u128),
             timeout_fee: Uint128::from(300u128),
@@ -104,7 +104,7 @@ fn test_update_config() {
         dest_port: Some("new_dest_port".to_string()),
         connection_id: Some("new_connection".to_string()),
         refundee: Some("new_refundee".to_string()),
-        ibc_fees: Some(drop_staking_base::state::pump::IBCFees {
+        ibc_fees: Some(IBCFees {
             recv_fee: Uint128::from(1000u128),
             ack_fee: Uint128::from(2000u128),
             timeout_fee: Uint128::from(3000u128),
@@ -143,7 +143,7 @@ fn test_update_config() {
             dest_port: Some("new_dest_port".to_string()),
             connection_id: "new_connection".to_string(),
             refundee: Some(Addr::unchecked("new_refundee")),
-            ibc_fees: drop_staking_base::state::pump::IBCFees {
+            ibc_fees: IBCFees {
                 recv_fee: Uint128::from(1000u128),
                 ack_fee: Uint128::from(2000u128),
                 timeout_fee: Uint128::from(3000u128),

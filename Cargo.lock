@@ -691,6 +691,7 @@ dependencies = [
  "cosmwasm-std",
  "cw-storage-plus 1.2.0",
  "neutron-sdk",
+ "prost",
  "serde",
  "serde-json-wasm 1.0.1",
  "thiserror",
@@ -831,6 +832,23 @@ dependencies = [
  "cw2 1.1.2",
  "drop-helpers",
  "drop-staking-base",
+]
+
+[[package]]
+name = "drop-staker"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-utils 1.0.3",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "prost",
+ "serde-json-wasm 1.0.1",
+ "thiserror",
 ]
 
 [[package]]

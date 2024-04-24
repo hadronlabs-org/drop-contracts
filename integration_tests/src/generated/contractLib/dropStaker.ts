@@ -15,8 +15,51 @@ import { Coin } from "@cosmjs/amino";
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type ArrayOfIdealDelegation = IdealDelegation[];
-export type ArrayOfIdealDelegation1 = IdealDelegation[];
+/**
+ * A human readable address.
+ *
+ * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
+ *
+ * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
+ *
+ * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
+ */
+export type Addr = string;
+/**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint1281 = string;
+export type IcaState =
+  | ("none" | "in_progress" | "timeout")
+  | {
+      registered: {
+        ica_address: string;
+      };
+    };
+/**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint1282 = string;
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -54,6 +97,18 @@ export type Timestamp = Uint64;
  * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
  */
 export type Uint64 = string;
+export type TxStateStatus = "idle" | "in_progress" | "waiting_for_ack";
+export type Transaction =
+  | {
+      stake: {
+        amount: Uint1281;
+      };
+    }
+  | {
+      i_b_c_transfer: {
+        amount: Uint1281;
+      };
+    };
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -67,25 +122,31 @@ export type UpdateOwnershipArgs =
   | "accept_ownership"
   | "renounce_ownership";
 
-export interface DropStrategySchema {
-  responses: ArrayOfIdealDelegation | ArrayOfIdealDelegation1 | Config | OwnershipForString;
-  query: CalcDepositArgs | CalcWithdrawArgs;
-  execute: UpdateConfigArgs | UpdateOwnershipArgs;
+export interface DropStakerSchema {
+  responses: Uint128 | Config | IcaState | Uint1282 | OwnershipForString | TxState;
+  execute: StakeArgs | UpdateConfigArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
-export interface IdealDelegation {
-  current_stake: Uint128;
-  ideal_stake: Uint128;
-  stake_change: Uint128;
-  valoper_address: string;
-  weight: number;
-}
 export interface Config {
-  denom: string;
-  distribution_address: string;
-  puppeteer_address: string;
-  validator_set_address: string;
+  connection_id: string;
+  dest_address?: Addr | null;
+  dest_channel?: string | null;
+  dest_port?: string | null;
+  ibc_fees: IBCFees;
+  local_denom: string;
+  refundee?: Addr | null;
+  timeout: PumpTimeout;
+}
+export interface IBCFees {
+  ack_fee: Uint1281;
+  recv_fee: Uint1281;
+  register_fee: Uint1281;
+  timeout_fee: Uint1281;
+}
+export interface PumpTimeout {
+  local?: number | null;
+  remote: number;
 }
 /**
  * The contract's ownership info
@@ -104,27 +165,43 @@ export interface OwnershipForString {
    */
   pending_owner?: string | null;
 }
-export interface CalcDepositArgs {
-  deposit: Uint128;
+export interface TxState {
+  reply_to?: string | null;
+  seq_id?: number | null;
+  status: TxStateStatus;
+  transaction?: Transaction | null;
 }
-export interface CalcWithdrawArgs {
-  withdraw: Uint128;
+export interface StakeArgs {
+  items: [string, Uint1281][];
 }
 export interface UpdateConfigArgs {
   new_config: ConfigOptional;
 }
 export interface ConfigOptional {
-  denom?: string | null;
-  distribution_address?: string | null;
-  puppeteer_address?: string | null;
-  validator_set_address?: string | null;
+  allowed_senders?: string[] | null;
+  base_denom?: string | null;
+  connection_id?: string | null;
+  ibc_fees?: IBCFees | null;
+  min_ibc_transfer?: Uint1281 | null;
+  min_staking_amount?: Uint1281 | null;
+  port_id?: string | null;
+  puppeteer_ica?: string | null;
+  remote_denom?: string | null;
+  timeout?: number | null;
+  transfer_channel_id?: string | null;
 }
 export interface InstantiateMsg {
-  denom: string;
-  distribution_address: string;
-  owner: string;
-  puppeteer_address: string;
-  validator_set_address: string;
+  allowed_senders: string[];
+  base_denom: string;
+  connection_id: string;
+  ibc_fees: IBCFees;
+  min_ibc_transfer: Uint1281;
+  min_staking_amount: Uint1281;
+  owner?: string | null;
+  port_id: string;
+  remote_denom: string;
+  timeout: number;
+  transfer_channel_id: string;
 }
 
 
@@ -176,14 +253,32 @@ export class Client {
   queryConfig = async(): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
-  queryCalcDeposit = async(args: CalcDepositArgs): Promise<ArrayOfIdealDelegation> => {
-    return this.client.queryContractSmart(this.contractAddress, { calc_deposit: args });
+  queryNonStakedBalance = async(): Promise<Uint128> => {
+    return this.client.queryContractSmart(this.contractAddress, { non_staked_balance: {} });
   }
-  queryCalcWithdraw = async(args: CalcWithdrawArgs): Promise<ArrayOfIdealDelegation> => {
-    return this.client.queryContractSmart(this.contractAddress, { calc_withdraw: args });
+  queryAllBalance = async(): Promise<Uint128> => {
+    return this.client.queryContractSmart(this.contractAddress, { all_balance: {} });
+  }
+  queryIca = async(): Promise<IcaState> => {
+    return this.client.queryContractSmart(this.contractAddress, { ica: {} });
+  }
+  queryTxState = async(): Promise<TxState> => {
+    return this.client.queryContractSmart(this.contractAddress, { tx_state: {} });
   }
   queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
+  }
+  registerICA = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { register_i_c_a: {} }, fee || "auto", memo, funds);
+  }
+  stake = async(sender:string, args: StakeArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { stake: args }, fee || "auto", memo, funds);
+  }
+  iBCTransfer = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { i_b_c_transfer: {} }, fee || "auto", memo, funds);
   }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

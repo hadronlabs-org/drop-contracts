@@ -792,6 +792,7 @@ export interface State {
   distribution_contract: string;
   puppeteer_contract: string;
   rewards_manager_contract: string;
+  staker_contract: string;
   strategy_contract: string;
   token_contract: string;
   validators_set_contract: string;
@@ -801,6 +802,7 @@ export interface State {
 export interface InitArgs {
   base_denom: string;
   core_params: CoreParams;
+  staker_params: StakerParams;
 }
 export interface CoreParams {
   bond_limit?: Uint128 | null;
@@ -814,6 +816,10 @@ export interface CoreParams {
   unbond_batch_switch_time: number;
   unbonding_period: number;
   unbonding_safe_period: number;
+}
+export interface StakerParams {
+  min_ibc_transfer: Uint128;
+  min_stake_amount: Uint128;
 }
 export interface ConfigOptional {
   base_denom?: string | null;
@@ -832,6 +838,7 @@ export interface ConfigOptional {
   puppeteer_contract?: string | null;
   puppeteer_timeout?: number | null;
   remote_denom?: string | null;
+  staker_contract?: string | null;
   strategy_contract?: string | null;
   token_contract?: string | null;
   unbond_batch_switch_time?: number | null;
@@ -1242,6 +1249,7 @@ export interface CodeIds {
   distribution_code_id: number;
   puppeteer_code_id: number;
   rewards_manager_code_id: number;
+  staker_code_id: number;
   strategy_code_id: number;
   token_code_id: number;
   validators_set_code_id: number;
@@ -1251,9 +1259,16 @@ export interface CodeIds {
 export interface RemoteOpts {
   connection_id: string;
   denom: string;
+  ibc_fees: IBCFees;
   port_id: string;
   transfer_channel_id: string;
   update_period: number;
+}
+export interface IBCFees {
+  ack_fee: Uint128;
+  recv_fee: Uint128;
+  register_fee: Uint128;
+  timeout_fee: Uint128;
 }
 export interface DenomMetadata {
   /**

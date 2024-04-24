@@ -1,8 +1,9 @@
+use crate::msg::staker::ResponseHookMsg as StakerResponseHookMsg;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Decimal, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use drop_helpers::fsm::{Fsm, Transition};
-use drop_puppeteer_base::msg::ResponseHookMsg;
+use drop_puppeteer_base::msg::ResponseHookMsg as PuppeteerResponseHookMsg;
 use optfield::optfield;
 
 #[optfield(pub ConfigOptional, attrs)]
@@ -13,6 +14,7 @@ pub struct Config {
     pub puppeteer_contract: String,
     pub puppeteer_timeout: u64, //seconds
     pub strategy_contract: String,
+    pub staker_contract: String,
     pub withdrawal_voucher_contract: String,
     pub withdrawal_manager_contract: String,
     pub validators_set_contract: String,
@@ -103,8 +105,8 @@ pub enum ContractState {
     Idle,
     Claiming,
     Unbonding,
-    Staking,
-    Transfering,
+    StakingRewards,
+    StakingBond,
 }
 
 const TRANSITIONS: &[Transition<ContractState>] = &[
@@ -122,38 +124,38 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
     },
     Transition {
         from: ContractState::Idle,
-        to: ContractState::Staking,
+        to: ContractState::StakingRewards,
     },
     Transition {
         from: ContractState::Idle,
-        to: ContractState::Transfering,
+        to: ContractState::StakingBond,
     },
     Transition {
         from: ContractState::Claiming,
-        to: ContractState::Transfering,
+        to: ContractState::StakingBond,
     },
     Transition {
-        from: ContractState::Transfering,
-        to: ContractState::Staking,
+        from: ContractState::StakingBond,
+        to: ContractState::StakingRewards,
     },
     Transition {
-        from: ContractState::Transfering,
+        from: ContractState::StakingBond,
         to: ContractState::Unbonding,
     },
     Transition {
-        from: ContractState::Staking,
+        from: ContractState::StakingRewards,
         to: ContractState::Unbonding,
     },
     Transition {
         from: ContractState::Claiming,
-        to: ContractState::Staking,
+        to: ContractState::StakingRewards,
     },
     Transition {
         from: ContractState::Claiming,
         to: ContractState::Unbonding,
     },
     Transition {
-        from: ContractState::Staking,
+        from: ContractState::StakingRewards,
         to: ContractState::Idle,
     },
     Transition {
@@ -161,7 +163,7 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
         to: ContractState::Idle,
     },
     Transition {
-        from: ContractState::Transfering,
+        from: ContractState::StakingBond,
         to: ContractState::Idle,
     },
     Transition {
@@ -182,13 +184,14 @@ pub struct NonNativeRewardsItem {
 pub const FSM: Fsm<ContractState> = Fsm::new("machine_state", TRANSITIONS);
 pub const LAST_IDLE_CALL: Item<u64> = Item::new("last_tick");
 pub const LAST_ICA_BALANCE_CHANGE_HEIGHT: Item<u64> = Item::new("last_ica_balance_change_height");
-pub const LAST_PUPPETEER_RESPONSE: Item<ResponseHookMsg> = Item::new("last_puppeteer_response");
+pub const LAST_PUPPETEER_RESPONSE: Item<PuppeteerResponseHookMsg> =
+    Item::new("last_puppeteer_response");
+pub const LAST_STAKER_RESPONSE: Item<StakerResponseHookMsg> = Item::new("last_staker_response");
 pub const FAILED_BATCH_ID: Item<u128> = Item::new("failed_batch_id");
 pub const PRE_UNBONDING_BALANCE: Item<Uint128> = Item::new("pre_unbonding_balance");
-pub const PENDING_TRANSFER: Item<Uint128> = Item::new("pending_transfer");
 // Vec<(denom, address for pumping)>
 pub const NON_NATIVE_REWARDS_CONFIG: Item<Vec<NonNativeRewardsItem>> =
     Item::new("non_native_rewards_config");
-pub const BONDED_AMOUNT: Item<Uint128> = Item::new("bonded_amount");
+pub const BONDED_AMOUNT: Item<Uint128> = Item::new("bonded_amount"); // to be used in bond limit
 pub const LAST_LSM_REDEEM: Item<u64> = Item::new("last_lsm_redeem");
 pub const EXCHANGE_RATE: Item<(Decimal, u64)> = Item::new("exchange_rate");

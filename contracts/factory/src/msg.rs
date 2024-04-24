@@ -37,6 +37,12 @@ pub struct CoreParams {
 }
 
 #[cw_serde]
+pub struct StakerParams {
+    pub min_stake_amount: Uint128,
+    pub min_ibc_transfer: Uint128,
+}
+
+#[cw_serde]
 pub struct FeesMsg {
     pub recv_fee: Uint128,
     pub ack_fee: Uint128,
@@ -83,6 +89,7 @@ pub enum ExecuteMsg {
     Init {
         base_denom: String,
         core_params: CoreParams,
+        staker_params: StakerParams,
     },
     Callback(CallbackMsg),
     UpdateConfig(Box<UpdateConfigMsg>),

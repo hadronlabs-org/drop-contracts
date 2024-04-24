@@ -11,5 +11,5 @@ fi
 git clone https://github.com/cosmos/gaia.git -b v15.0.0
 cp ./Dockerfile ./gaia
 
-docker build gaia -t ${ORG}gaiatestnet-test${VERSION}
+docker build gaia -t ${ORG}gaia_testnet-test${VERSION}
 rm -rf ./gaia

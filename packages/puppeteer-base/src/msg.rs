@@ -1,8 +1,8 @@
 use crate::{
     proto::{
-        MsgBeginRedelegateResponse, MsgDelegateResponse, MsgExecResponse, MsgIBCTransfer,
-        MsgRedeemTokensforSharesResponse, MsgSendResponse, MsgTokenizeSharesResponse,
-        MsgUndelegateResponse,
+        MsgBeginRedelegateResponse, MsgDelegateResponse, MsgExecResponse, MsgGrantResponse,
+        MsgIBCTransfer, MsgRedeemTokensforSharesResponse, MsgSendResponse,
+        MsgTokenizeSharesResponse, MsgUndelegateResponse,
     },
     state::RedeemShareItem,
 };
@@ -91,6 +91,7 @@ pub struct ResponseHookErrorMsg {
 
 #[cw_serde]
 pub enum ResponseAnswer {
+    GrantDelegateResponse(MsgGrantResponse),
     DelegateResponse(MsgDelegateResponse),
     UndelegateResponse(MsgUndelegateResponse),
     BeginRedelegateResponse(MsgBeginRedelegateResponse),
@@ -151,6 +152,10 @@ pub enum Transaction {
     Transfer {
         interchain_account_id: String,
         items: Vec<(String, cosmwasm_std::Coin)>,
+    },
+    GrantDelegate {
+        interchain_account_id: String,
+        grantee: String,
     },
 }
 

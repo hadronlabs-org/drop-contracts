@@ -10,6 +10,7 @@ use crate::{
     },
 };
 use cosmos_sdk_proto::cosmos::{
+    authz::v1beta1::{GenericAuthorization, Grant, MsgGrant, MsgGrantResponse},
     bank::v1beta1::{MsgSend, MsgSendResponse},
     base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
     staking::v1beta1::{MsgDelegate, MsgUndelegate},
@@ -26,6 +27,7 @@ use drop_helpers::{
         new_delegations_and_balance_query_msg, new_multiple_balances_query_msg,
         update_balance_and_delegations_query_msg, update_multiple_balances_query_msg,
     },
+    interchain::prepare_any_msg,
 };
 use drop_puppeteer_base::{
     error::{ContractError, ContractResult},
@@ -56,7 +58,7 @@ use neutron_sdk::{
     },
     interchain_txs::helpers::decode_message_response,
     sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg},
-    NeutronError, NeutronResult,
+    NeutronResult,
 };
 use prost::Message;
 use std::{str::FromStr, vec};
@@ -107,7 +109,32 @@ pub fn instantiate(
             Timestamp::default(),
         ),
     )?;
-    Puppeteer::default().instantiate(deps, config, owner)
+    let puppeteer = Puppeteer::default();
+    puppeteer.ibc_fee.save(
+        deps.storage,
+        &IbcFee {
+            recv_fee: vec![cosmwasm_std::Coin {
+                denom: LOCAL_DENOM.to_string(),
+                amount: msg.ibc_fees.recv_fee,
+            }],
+            ack_fee: vec![cosmwasm_std::Coin {
+                denom: LOCAL_DENOM.to_string(),
+                amount: msg.ibc_fees.ack_fee,
+            }],
+            timeout_fee: vec![cosmwasm_std::Coin {
+                denom: LOCAL_DENOM.to_string(),
+                amount: msg.ibc_fees.timeout_fee,
+            }],
+        },
+    )?;
+    puppeteer.register_fee.save(
+        deps.storage,
+        &cosmwasm_std::Coin {
+            denom: LOCAL_DENOM.to_string(),
+            amount: msg.ibc_fees.register_fee,
+        },
+    )?;
+    puppeteer.instantiate(deps, config, owner)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -243,6 +270,9 @@ pub fn execute(
             let attrs = vec![attr("action", "update_ownership")];
             cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
             Ok(response("update_ownership", CONTRACT_NAME, attrs))
+        }
+        ExecuteMsg::GrantDelegate { grantee, timeout } => {
+            execute_grant_delegate(deps, env, info, grantee, timeout)
         }
         _ => puppeteer_base.execute(deps, env, info, msg.to_base_enum()),
     }
@@ -568,6 +598,62 @@ fn execute_delegate(
     Ok(Response::default().add_submessages(vec![submsg]))
 }
 
+fn execute_grant_delegate(
+    mut deps: DepsMut<NeutronQuery>,
+    env: Env,
+    info: MessageInfo,
+    grantee: String,
+    timeout: Option<u64>,
+) -> ContractResult<Response<NeutronMsg>> {
+    let puppeteer_base = Puppeteer::default();
+    let config: Config = puppeteer_base.config.load(deps.storage)?;
+    validate_sender(&config, &info.sender)?;
+    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
+    let ica = puppeteer_base.ica.get_address(deps.storage)?;
+    let mut any_msgs = vec![];
+    let grant_msg = MsgGrant {
+        grantee: grantee.clone(),
+        granter: ica.to_string(),
+        grant: Some(Grant {
+            authorization: Some(cosmos_sdk_proto::Any {
+                type_url: "/cosmos.authz.v1beta1.GenericAuthorization".to_string(),
+                value: GenericAuthorization {
+                    msg: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
+                }
+                .encode_to_vec(),
+            }),
+            expiration: Some(prost_types::Timestamp {
+                seconds: env
+                    .block
+                    .time
+                    .plus_days(365 * 120 + 30)
+                    .seconds()
+                    .try_into()
+                    .map_err(|_| ContractError::Std(StdError::generic_err("Invalid timestamp")))?,
+                nanos: 0,
+            }),
+        }),
+    };
+    any_msgs.push(prepare_any_msg(
+        grant_msg,
+        "/cosmos.authz.v1beta1.MsgGrant",
+    )?);
+    let submsg = compose_submsg(
+        deps.branch(),
+        config.clone(),
+        any_msgs,
+        Transaction::GrantDelegate {
+            interchain_account_id: ica.to_string(),
+            grantee,
+        },
+        timeout,
+        "".to_string(),
+        ReplyMsg::SudoPayload.to_reply_id(),
+    )?;
+
+    Ok(Response::default().add_submessages(vec![submsg]))
+}
+
 fn execute_transfer(
     mut deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
@@ -854,20 +940,6 @@ fn execute_redeem_shares(
         .add_attributes(attrs))
 }
 
-fn prepare_any_msg<T: prost::Message>(msg: T, type_url: &str) -> NeutronResult<ProtobufAny> {
-    let mut buf = Vec::with_capacity(msg.encoded_len());
-
-    if let Err(e) = msg.encode(&mut buf) {
-        return Err(NeutronError::Std(StdError::generic_err(format!(
-            "Encode error: {e}"
-        ))));
-    }
-    Ok(ProtobufAny {
-        type_url: type_url.to_string(),
-        value: Binary::from(buf),
-    })
-}
-
 fn compose_submsg(
     mut deps: DepsMut<NeutronQuery>,
     config: Config,
@@ -1013,19 +1085,22 @@ fn sudo_response(
             },)
         ))?
     ));
-    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: reply_to.clone(),
-        msg: to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
-            ResponseHookMsg::Success(ResponseHookSuccessMsg {
-                request_id: seq_id,
-                request: request.clone(),
-                transaction: transaction.clone(),
-                answers,
-            }),
-        ))?,
-        funds: vec![],
-    });
-    Ok(response("sudo-response", "puppeteer", attrs).add_message(msg))
+    let mut msgs = vec![];
+    if !reply_to.is_empty() {
+        msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: reply_to.clone(),
+            msg: to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
+                ResponseHookMsg::Success(ResponseHookSuccessMsg {
+                    request_id: seq_id,
+                    request: request.clone(),
+                    transaction: transaction.clone(),
+                    answers,
+                }),
+            ))?,
+            funds: vec![],
+        }));
+    }
+    Ok(response("sudo-response", "puppeteer", attrs).add_messages(msgs))
 }
 
 fn get_answers_from_msg_data(
@@ -1062,6 +1137,12 @@ fn get_answers_from_msg_data(
                     drop_puppeteer_base::proto::MsgBeginRedelegateResponse {
                         completion_time: out.completion_time.map(|t| t.into()),
                     },
+                )
+            }
+            "/cosmos.authz.v1beta1.MsgGrant" => {
+                let _out: MsgGrantResponse = decode_message_response(&item.data)?;
+                ResponseAnswer::GrantDelegateResponse(
+                    drop_puppeteer_base::proto::MsgGrantResponse {},
                 )
             }
             "/cosmos.staking.v1beta1.MsgRedeemTokensForShares" => {
