@@ -151,10 +151,8 @@ const relayersConfig = {
     config: {
       'chains.0.gas_multiplier': 1.2,
       'chains.0.trusting_period': '112h0m0s',
-      'chains.0.unbonding_period': '336h0m0s',
       'chains.1.gas_multiplier': 1.2,
       'chains.1.trusting_period': '168h0m0s',
-      'chains.1.unbonding_period': '504h0m0s',
     },
     image: `${ORG}hermes-test${VERSION}`,
     log_level: 'trace',

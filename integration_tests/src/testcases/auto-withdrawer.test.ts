@@ -119,7 +119,6 @@ describe('Auto withdrawer', () => {
         hermes: {
           config: {
             'chains.1.trusting_period': '2m0s',
-            'chains.1.unbonding_period': `${UNBONDING_TIME}s`,
           },
         },
       },
