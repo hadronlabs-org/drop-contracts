@@ -1,6 +1,6 @@
-use crate::msg::staker::ResponseHookMsg as StakerResponseHookMsg;
 use crate::{
-    error::core::ContractResult,
+    error::core::{ContractError, ContractResult},
+    msg::staker::ResponseHookMsg as StakerResponseHookMsg,
     state::core::{Config, ConfigOptional, NonNativeRewardsItem},
 };
 use cosmwasm_schema::{cw_serde, QueryResponses};
@@ -42,6 +42,11 @@ pub struct InstantiateMsg {
 
 impl InstantiateMsg {
     pub fn into_config(self, deps: Deps) -> ContractResult<Config> {
+        if let Some(fee) = self.fee {
+            if fee < Decimal::zero() || fee > Decimal::one() {
+                return Err(ContractError::InvalidFee {});
+            }
+        }
         Ok(Config {
             token_contract: deps.api.addr_validate(&self.token_contract)?,
             puppeteer_contract: deps.api.addr_validate(&self.puppeteer_contract)?,
