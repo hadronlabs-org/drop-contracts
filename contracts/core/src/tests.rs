@@ -5,7 +5,7 @@ use crate::contract::{
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockStorage},
-    to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Decimal, Event, MessageInfo, OwnedDeps,
+    to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, Event, MessageInfo, OwnedDeps,
     Response, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
@@ -21,8 +21,8 @@ use drop_staking_base::{
         unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem,
         UnbondBatch, UnbondBatchStatus, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FSM,
         LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE,
-        LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, TOTAL_LSM_SHARES,
-        UNBOND_BATCH_ID,
+        LD_DENOM, LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES,
+        TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
     },
 };
 use neutron_sdk::{
@@ -70,14 +70,6 @@ fn get_default_config(
         emergency_address: None,
         min_stake_amount: Uint128::new(100),
     }
-}
-
-fn mock_token_query_config(_: &Binary) -> Binary {
-    to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
-        core_address: "core_contract".to_string(),
-        denom: "ld_denom".to_string(),
-    })
-    .unwrap()
 }
 
 #[test]
@@ -405,6 +397,14 @@ fn get_stake_msg_zero_fee() {
 #[test]
 fn test_update_config() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("old_token_contract", |_| {
+            to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
+                core_address: "core_contract".to_string(),
+                denom: "ld_denom".to_string(),
+            })
+            .unwrap()
+        });
     let env = mock_env();
     let info = mock_info("admin", &[]);
     let mut deps_mut = deps.as_mut();
@@ -441,6 +441,10 @@ fn test_update_config() {
         },
     )
     .unwrap();
+    assert_eq!(
+        LD_DENOM.may_load(deps_mut.storage).unwrap(),
+        Some("ld_denom".to_string())
+    );
 
     let new_config = ConfigOptional {
         token_contract: Some("new_token_contract".to_string()),
@@ -564,8 +568,6 @@ fn test_execute_tick_idle_non_native_rewards() {
             ))
             .unwrap()
         });
-    deps.querier
-        .add_wasm_query_response("token_contract", mock_token_query_config);
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -579,6 +581,9 @@ fn test_execute_tick_idle_non_native_rewards() {
                 Uint128::one(),
             ),
         )
+        .unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
     NON_NATIVE_REWARDS_CONFIG
         .save(
@@ -692,8 +697,6 @@ fn test_execute_tick_idle_non_native_rewards() {
 #[test]
 fn test_execute_tick_idle_get_pending_lsm_shares_transfer() {
     let mut deps = mock_dependencies(&[]);
-    deps.querier
-        .add_wasm_query_response("token_contract", mock_token_query_config);
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -707,6 +710,9 @@ fn test_execute_tick_idle_get_pending_lsm_shares_transfer() {
                 Uint128::one(),
             ),
         )
+        .unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
     NON_NATIVE_REWARDS_CONFIG
         .save(deps.as_mut().storage, &vec![])
@@ -777,6 +783,9 @@ fn test_idle_tick_pending_lsm_redeem() {
             ),
         )
         .unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
+        .unwrap();
     NON_NATIVE_REWARDS_CONFIG
         .save(deps.as_mut().storage, &vec![])
         .unwrap();
@@ -800,8 +809,6 @@ fn test_idle_tick_pending_lsm_redeem() {
         .unwrap();
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(100);
-    deps.querier
-        .add_wasm_query_response("token_contract", mock_token_query_config);
     let res = execute(
         deps.as_mut(),
         env.clone(),
@@ -823,8 +830,6 @@ fn test_idle_tick_pending_lsm_redeem() {
             &("local_denom_3".to_string(), Uint128::from(100u128)),
         )
         .unwrap();
-    deps.querier
-        .add_wasm_query_response("token_contract", mock_token_query_config);
     let res = execute(
         deps.as_mut(),
         env,
@@ -925,8 +930,6 @@ fn test_tick_idle_unbonding_close() {
             ))
             .unwrap()
         });
-    deps.querier
-        .add_wasm_query_response("token_contract", mock_token_query_config);
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -940,6 +943,9 @@ fn test_tick_idle_unbonding_close() {
                 Uint128::one(),
             ),
         )
+        .unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -984,8 +990,6 @@ fn test_tick_idle_unbonding_close() {
 #[test]
 fn test_tick_idle_claim_wo_unbond() {
     let mut deps = mock_dependencies(&[]);
-    deps.querier
-        .add_wasm_query_response("token_contract", mock_token_query_config);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&(
@@ -1049,6 +1053,9 @@ fn test_tick_idle_claim_wo_unbond() {
     );
     config.lsm_redeem_maximum_interval = 100;
     CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
+        .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
     LAST_IDLE_CALL.save(deps.as_mut().storage, &0).unwrap();
@@ -1166,8 +1173,6 @@ fn test_tick_idle_claim_with_unbond_transfer() {
             ))
             .unwrap()
         });
-    deps.querier
-        .add_wasm_query_response("token_contract", mock_token_query_config);
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -1181,6 +1186,9 @@ fn test_tick_idle_claim_with_unbond_transfer() {
                 Uint128::one(),
             ),
         )
+        .unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -1307,8 +1315,6 @@ fn test_tick_idle_staking_bond() {
             ))
             .unwrap()
         });
-    deps.querier
-        .add_wasm_query_response("token_contract", mock_token_query_config);
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -1322,6 +1328,9 @@ fn test_tick_idle_staking_bond() {
                 Uint128::one(),
             ),
         )
+        .unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -1444,8 +1453,6 @@ fn test_tick_idle_staking() {
             ])
             .unwrap()
         });
-    deps.querier
-        .add_wasm_query_response("token_contract", mock_token_query_config);
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -1459,6 +1466,9 @@ fn test_tick_idle_staking() {
                 Uint128::one(),
             ),
         )
+        .unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -1508,8 +1518,6 @@ fn test_tick_idle_staking() {
 #[test]
 fn test_tick_idle_unbonding() {
     let mut deps = mock_dependencies(&[]);
-    deps.querier
-        .add_wasm_query_response("token_contract", mock_token_query_config);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&(
@@ -1599,6 +1607,9 @@ fn test_tick_idle_unbonding() {
                 Uint128::one(),
             ),
         )
+        .unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -2400,8 +2411,6 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
 #[test]
 fn test_bond_wo_receiver() {
     let mut deps = mock_dependencies(&[]);
-    deps.querier
-        .add_wasm_query_response("token_contract", mock_token_query_config);
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -2422,6 +2431,9 @@ fn test_bond_wo_receiver() {
                 Uint128::one(),
             ),
         )
+        .unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
     let res = execute(
         deps.as_mut(),
@@ -2464,8 +2476,6 @@ fn test_bond_wo_receiver() {
 #[test]
 fn test_bond_with_receiver() {
     let mut deps = mock_dependencies(&[]);
-    deps.querier
-        .add_wasm_query_response("token_contract", mock_token_query_config);
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -2486,6 +2496,9 @@ fn test_bond_with_receiver() {
                 Uint128::one(),
             ),
         )
+        .unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
     let res = execute(
         deps.as_mut(),
@@ -2585,8 +2598,6 @@ fn test_bond_lsm_share_wrong_validator() {
 #[test]
 fn test_bond_lsm_share_ok() {
     let mut deps = mock_dependencies(&[]);
-    deps.querier
-        .add_wasm_query_response("token_contract", mock_token_query_config);
     deps.querier.add_stargate_query_response(
         "/ibc.applications.transfer.v1.Query/DenomTrace",
         |_data| {
@@ -2643,6 +2654,9 @@ fn test_bond_lsm_share_ok() {
             ),
         )
         .unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
+        .unwrap();
     let res = execute(
         deps.as_mut(),
         env,
@@ -2682,8 +2696,6 @@ fn test_bond_lsm_share_ok() {
 #[test]
 fn test_unbond() {
     let mut deps = mock_dependencies(&[]);
-    deps.querier
-        .add_wasm_query_response("token_contract", mock_token_query_config);
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -2722,6 +2734,9 @@ fn test_unbond() {
                 Uint128::one(),
             ),
         )
+        .unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
     let res = execute(
         deps.as_mut(),
