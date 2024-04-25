@@ -20,6 +20,12 @@ pub enum ContractError {
 
     #[error(transparent)]
     PauseError(#[from] PauseError),
+
+    #[error("Denoms list is empty")]
+    EmptyDenomsList,
+
+    #[error("Handler for this denom already exists")]
+    DenomHandlerAlreadyExists,
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

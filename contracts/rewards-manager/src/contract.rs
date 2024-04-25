@@ -1,9 +1,11 @@
-use cosmwasm_std::{attr, entry_point, to_json_binary, Attribute, CosmosMsg, Deps, Order, WasmMsg};
+use cosmwasm_std::{
+    attr, ensure, entry_point, to_json_binary, Attribute, CosmosMsg, Deps, Order, WasmMsg,
+};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
 use drop_helpers::pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse};
-use drop_staking_base::error::rewards_manager::ContractResult;
+use drop_staking_base::error::rewards_manager::{ContractError, ContractResult};
 use drop_staking_base::msg::rewards_manager::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
@@ -82,7 +84,7 @@ pub fn execute(
         ExecuteMsg::UpdateConfig { owner } => exec_update_config(deps, info, owner),
         ExecuteMsg::AddHandler { config } => exec_add_handler(deps, info, config),
         ExecuteMsg::RemoveHandler { denom } => exec_remove_handler(deps, info, denom),
-        ExecuteMsg::ExchangeRewards {} => exec_exchange_rewards(deps, env, info),
+        ExecuteMsg::ExchangeRewards { denoms } => exec_exchange_rewards(deps, env, info, denoms),
         ExecuteMsg::Pause {} => exec_pause(deps, info),
         ExecuteMsg::Unpause {} => exec_unpause(deps, info),
     }
@@ -136,6 +138,10 @@ fn exec_add_handler(
 ) -> ContractResult<Response> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
+    ensure!(
+        !REWARDS_HANDLERS.has(deps.storage, config.denom.clone()),
+        ContractError::DenomHandlerAlreadyExists
+    );
     REWARDS_HANDLERS.save(deps.storage, config.denom.clone(), &config)?;
 
     Ok(response(
@@ -165,16 +171,23 @@ fn exec_remove_handler(
     ))
 }
 
-fn exec_exchange_rewards(deps: DepsMut, env: Env, _info: MessageInfo) -> ContractResult<Response> {
+fn exec_exchange_rewards(
+    deps: DepsMut,
+    env: Env,
+    _info: MessageInfo,
+    denoms: Vec<String>,
+) -> ContractResult<Response> {
     assert_paused(deps.storage)?;
-
-    let balances = deps.querier.query_all_balances(env.contract.address)?;
 
     let mut messages: Vec<CosmosMsg> = Vec::new();
     let mut attrs: Vec<Attribute> = Vec::new();
-
-    for balance in &balances {
-        let denom = balance.denom.clone();
+    let mut coins = vec![];
+    ensure!(!denoms.is_empty(), ContractError::EmptyDenomsList);
+    for denom in &denoms {
+        let balance = deps
+            .querier
+            .query_balance(env.contract.address.to_string(), denom)?;
+        coins.push(balance.clone());
         let amount = balance.amount;
 
         if REWARDS_HANDLERS.has(deps.storage, denom.clone()) {
@@ -198,7 +211,10 @@ fn exec_exchange_rewards(deps: DepsMut, env: Env, _info: MessageInfo) -> Contrac
     Ok(response(
         "exchange_rewards",
         CONTRACT_NAME,
-        [attr("total_denoms", balances.len().to_string())],
+        [
+            attr("total_denoms", denoms.len().to_string()),
+            attr("coins", format!("{:?}", coins)),
+        ],
     )
     .add_messages(messages)
     .add_attributes(attrs))

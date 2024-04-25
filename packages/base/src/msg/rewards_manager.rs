@@ -11,7 +11,7 @@ pub enum ExecuteMsg {
     UpdateConfig { owner: Option<String> },
     AddHandler { config: HandlerConfig },
     RemoveHandler { denom: String },
-    ExchangeRewards {},
+    ExchangeRewards { denoms: Vec<String> },
 }
 
 #[pausable_query]
