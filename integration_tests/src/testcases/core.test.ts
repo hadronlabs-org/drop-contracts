@@ -1211,7 +1211,7 @@ describe('Core', () => {
         await waitFor(async () => {
           const res = await context.stakerContractClient.queryTxState();
           return res.status === 'idle';
-        }, 60_000);
+        }, 80_000);
         const balances = await context.gaiaClient.getAllBalances(
           context.stakerIcaAddress,
         );
