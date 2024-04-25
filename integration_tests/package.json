@@ -5,7 +5,6 @@
   "license": "MIT",
   "scripts": {
     "test": "vitest --run",
-    "test:poc-stargate": "vitest --run poc-stargate.test.ts --bail 1",
     "test:poc-provider-proposals": "vitest --run poc-provider-proposals.test.ts --bail 1",
     "test:poc-proposal-votes": "vitest --run poc-proposal-votes.test.ts --bail 1",
     "test:core": "vitest --run core.test.ts --bail 1",
@@ -18,7 +17,7 @@
     "test:validator-set": "vitest --run validator-set.test.ts --bail 1",
     "test:distribution": "vitest --run distribution.test.ts --bail 1",
     "test:auto-withdrawer": "vitest --run auto-withdrawer.test.ts --bail 1",
-    "test:debug": "vitest --inspect-brk --bail 1 --threads false --run core.test.ts",
+    "debug": "vitest --inspect-brk --bail 1 --threads false --run core.test.ts",
     "watch": "vitest",
     "build-ts-client": "ts-node ./src/rebuild-client.ts",
     "build-lsm-image": "./dockerfiles/lsm/build.sh",
@@ -39,7 +38,8 @@
     "@neutron-org/client-ts": "^1.4.0",
     "@neutron-org/contracts2ts": "^1.4.4",
     "@neutron-org/cosmopark": "^1.6.1",
-    "bech32": "^1.1.4"
+    "bech32": "^1.1.4",
+    "yaml": "^2.4.1"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^6.9.1",

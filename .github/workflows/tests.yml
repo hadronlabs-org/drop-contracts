@@ -1,16 +1,14 @@
 on:
   push:
     branches:
-      - '**'
-
+      - "**"
 name: tests
-
 jobs:
   clippy:
     name: Actions - clippy
     runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - uses: actions-rs/toolchain@v1
@@ -23,12 +21,11 @@ jobs:
       - run: cargo fetch --verbose
       - run: cargo clippy --all --all-targets -- -D warnings
       - run: cargo clippy --lib --target wasm32-unknown-unknown -- -D warnings
-
   rustfmt:
     name: Actions - rustfmt
     runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - uses: actions-rs/toolchain@v1
@@ -38,12 +35,13 @@ jobs:
           profile: minimal
           override: true
       - run: cargo fmt -- --check
-
   unit-test:
     name: Actions - unit test
     runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: 1.75.0
@@ -53,30 +51,43 @@ jobs:
       - run: cargo test --verbose --all
         env:
           RUST_BACKTRACE: 1
-  integration-test:
-    name: Actions - integration test
+  lint-test:
+    name: Actions - integration tests lint
     runs-on: self-hosted
     steps:
-      - name: Upgrade docker compose to use v2
-        run: sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x /usr/local/bin/docker-compose
-      - uses: actions/checkout@v1
-        with:
-          fetch-depth: 1
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.75.0
-          profile: minimal
-          override: true
       - name: Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: '18.16.1'    
+          node-version: 18.16.1
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Install Yarn
+        run: npm install -g yarn
+      - name: Lint
+        run: cd integration_tests && yarn --ignore-engines && yarn lint
+  images-prepare:
+    name: Actions - images prepare
+    runs-on: self-hosted
+    steps:
+      - name: Upgrade docker compose to use v2
+        run: sudo curl -L
+          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
+          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
+          /usr/local/bin/docker-compose
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.16.1
       - name: Install Yarn
         run: npm install -g yarn
       - name: Setup Go environment
         uses: actions/setup-go@v5.0.0
         with:
-          go-version: 1.20
+          go-version: 1.2
           cache: false
       - name: Log in to Private Registry
         uses: docker/login-action@v3
@@ -87,10 +98,561 @@ jobs:
         run: |
           cd integration_tests
           yarn build-images
-      - name: Lint
-        run: cd integration_tests && yarn --ignore-engines && yarn lint
+  artifacts-prepare:
+    name: Actions - artifacts prepare
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.75.0
+          profile: minimal
+          override: true
       - run: make compile
-      - name: Run tests
+      - name: Cache artifacts
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ runner.os }}-${{ github.sha }}
+  test-poc-provider-proposals:
+    name: test:poc-provider-proposals Integration Tests
+    needs:
+      - images-prepare
+      - artifacts-prepare
+    runs-on: self-hosted
+    steps:
+      - name: Upgrade docker compose to use v2
+        run: sudo curl -L
+          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
+          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
+          /usr/local/bin/docker-compose
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.12.2
+      - name: Install Yarn
+        run: npm install -g yarn
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Clean volumes
+        run: docker volume prune -f
+      - name: Download images
         run: |
-          cd integration_tests 
-          MAX_THREADS=4 yarn vitest ./src --run --bail 1
+          cd integration_tests
+          yarn build-images
+      - name: Download artifacts
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ runner.os }}-${{ github.sha }}
+      - name: Run test test:poc-provider-proposals
+        run: cd integration_tests && yarn && yarn test:poc-provider-proposals
+      - name: Cleanup resources
+        if: always()
+        run: |
+          docker stop -t0 $(docker ps -a -q) || true
+          docker container prune -f || true
+          docker volume rm $(docker volume ls -q) || true
+  test-poc-proposal-votes:
+    name: test:poc-proposal-votes Integration Tests
+    needs:
+      - images-prepare
+      - artifacts-prepare
+    runs-on: self-hosted
+    steps:
+      - name: Upgrade docker compose to use v2
+        run: sudo curl -L
+          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
+          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
+          /usr/local/bin/docker-compose
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.12.2
+      - name: Install Yarn
+        run: npm install -g yarn
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Clean volumes
+        run: docker volume prune -f
+      - name: Download images
+        run: |
+          cd integration_tests
+          yarn build-images
+      - name: Download artifacts
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ runner.os }}-${{ github.sha }}
+      - name: Run test test:poc-proposal-votes
+        run: cd integration_tests && yarn && yarn test:poc-proposal-votes
+      - name: Cleanup resources
+        if: always()
+        run: |
+          docker stop -t0 $(docker ps -a -q) || true
+          docker container prune -f || true
+          docker volume rm $(docker volume ls -q) || true
+  test-core:
+    name: test:core Integration Tests
+    needs:
+      - images-prepare
+      - artifacts-prepare
+    runs-on: self-hosted
+    steps:
+      - name: Upgrade docker compose to use v2
+        run: sudo curl -L
+          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
+          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
+          /usr/local/bin/docker-compose
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.12.2
+      - name: Install Yarn
+        run: npm install -g yarn
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Clean volumes
+        run: docker volume prune -f
+      - name: Download images
+        run: |
+          cd integration_tests
+          yarn build-images
+      - name: Download artifacts
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ runner.os }}-${{ github.sha }}
+      - name: Run test test:core
+        run: cd integration_tests && yarn && yarn test:core
+      - name: Cleanup resources
+        if: always()
+        run: |
+          docker stop -t0 $(docker ps -a -q) || true
+          docker container prune -f || true
+          docker volume rm $(docker volume ls -q) || true
+  test-core-slashing:
+    name: test:core:slashing Integration Tests
+    needs:
+      - images-prepare
+      - artifacts-prepare
+    runs-on: self-hosted
+    steps:
+      - name: Upgrade docker compose to use v2
+        run: sudo curl -L
+          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
+          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
+          /usr/local/bin/docker-compose
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.12.2
+      - name: Install Yarn
+        run: npm install -g yarn
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Clean volumes
+        run: docker volume prune -f
+      - name: Download images
+        run: |
+          cd integration_tests
+          yarn build-images
+      - name: Download artifacts
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ runner.os }}-${{ github.sha }}
+      - name: Run test test:core:slashing
+        run: cd integration_tests && yarn && yarn test:core:slashing
+      - name: Cleanup resources
+        if: always()
+        run: |
+          docker stop -t0 $(docker ps -a -q) || true
+          docker container prune -f || true
+          docker volume rm $(docker volume ls -q) || true
+  test-pump:
+    name: test:pump Integration Tests
+    needs:
+      - images-prepare
+      - artifacts-prepare
+    runs-on: self-hosted
+    steps:
+      - name: Upgrade docker compose to use v2
+        run: sudo curl -L
+          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
+          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
+          /usr/local/bin/docker-compose
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.12.2
+      - name: Install Yarn
+        run: npm install -g yarn
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Clean volumes
+        run: docker volume prune -f
+      - name: Download images
+        run: |
+          cd integration_tests
+          yarn build-images
+      - name: Download artifacts
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ runner.os }}-${{ github.sha }}
+      - name: Run test test:pump
+        run: cd integration_tests && yarn && yarn test:pump
+      - name: Cleanup resources
+        if: always()
+        run: |
+          docker stop -t0 $(docker ps -a -q) || true
+          docker container prune -f || true
+          docker volume rm $(docker volume ls -q) || true
+  test-pump-multi:
+    name: test:pump-multi Integration Tests
+    needs:
+      - images-prepare
+      - artifacts-prepare
+    runs-on: self-hosted
+    steps:
+      - name: Upgrade docker compose to use v2
+        run: sudo curl -L
+          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
+          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
+          /usr/local/bin/docker-compose
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.12.2
+      - name: Install Yarn
+        run: npm install -g yarn
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Clean volumes
+        run: docker volume prune -f
+      - name: Download images
+        run: |
+          cd integration_tests
+          yarn build-images
+      - name: Download artifacts
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ runner.os }}-${{ github.sha }}
+      - name: Run test test:pump-multi
+        run: cd integration_tests && yarn && yarn test:pump-multi
+      - name: Cleanup resources
+        if: always()
+        run: |
+          docker stop -t0 $(docker ps -a -q) || true
+          docker container prune -f || true
+          docker volume rm $(docker volume ls -q) || true
+  test-puppeteer:
+    name: test:puppeteer Integration Tests
+    needs:
+      - images-prepare
+      - artifacts-prepare
+    runs-on: self-hosted
+    steps:
+      - name: Upgrade docker compose to use v2
+        run: sudo curl -L
+          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
+          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
+          /usr/local/bin/docker-compose
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.12.2
+      - name: Install Yarn
+        run: npm install -g yarn
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Clean volumes
+        run: docker volume prune -f
+      - name: Download images
+        run: |
+          cd integration_tests
+          yarn build-images
+      - name: Download artifacts
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ runner.os }}-${{ github.sha }}
+      - name: Run test test:puppeteer
+        run: cd integration_tests && yarn && yarn test:puppeteer
+      - name: Cleanup resources
+        if: always()
+        run: |
+          docker stop -t0 $(docker ps -a -q) || true
+          docker container prune -f || true
+          docker volume rm $(docker volume ls -q) || true
+  test-puppeteer-authz:
+    name: test:puppeteer-authz Integration Tests
+    needs:
+      - images-prepare
+      - artifacts-prepare
+    runs-on: self-hosted
+    steps:
+      - name: Upgrade docker compose to use v2
+        run: sudo curl -L
+          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
+          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
+          /usr/local/bin/docker-compose
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.12.2
+      - name: Install Yarn
+        run: npm install -g yarn
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Clean volumes
+        run: docker volume prune -f
+      - name: Download images
+        run: |
+          cd integration_tests
+          yarn build-images
+      - name: Download artifacts
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ runner.os }}-${{ github.sha }}
+      - name: Run test test:puppeteer-authz
+        run: cd integration_tests && yarn && yarn test:puppeteer-authz
+      - name: Cleanup resources
+        if: always()
+        run: |
+          docker stop -t0 $(docker ps -a -q) || true
+          docker container prune -f || true
+          docker volume rm $(docker volume ls -q) || true
+  test-validators-stats:
+    name: test:validators-stats Integration Tests
+    needs:
+      - images-prepare
+      - artifacts-prepare
+    runs-on: self-hosted
+    steps:
+      - name: Upgrade docker compose to use v2
+        run: sudo curl -L
+          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
+          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
+          /usr/local/bin/docker-compose
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.12.2
+      - name: Install Yarn
+        run: npm install -g yarn
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Clean volumes
+        run: docker volume prune -f
+      - name: Download images
+        run: |
+          cd integration_tests
+          yarn build-images
+      - name: Download artifacts
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ runner.os }}-${{ github.sha }}
+      - name: Run test test:validators-stats
+        run: cd integration_tests && yarn && yarn test:validators-stats
+      - name: Cleanup resources
+        if: always()
+        run: |
+          docker stop -t0 $(docker ps -a -q) || true
+          docker container prune -f || true
+          docker volume rm $(docker volume ls -q) || true
+  test-validator-set:
+    name: test:validator-set Integration Tests
+    needs:
+      - images-prepare
+      - artifacts-prepare
+    runs-on: self-hosted
+    steps:
+      - name: Upgrade docker compose to use v2
+        run: sudo curl -L
+          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
+          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
+          /usr/local/bin/docker-compose
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.12.2
+      - name: Install Yarn
+        run: npm install -g yarn
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Clean volumes
+        run: docker volume prune -f
+      - name: Download images
+        run: |
+          cd integration_tests
+          yarn build-images
+      - name: Download artifacts
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ runner.os }}-${{ github.sha }}
+      - name: Run test test:validator-set
+        run: cd integration_tests && yarn && yarn test:validator-set
+      - name: Cleanup resources
+        if: always()
+        run: |
+          docker stop -t0 $(docker ps -a -q) || true
+          docker container prune -f || true
+          docker volume rm $(docker volume ls -q) || true
+  test-distribution:
+    name: test:distribution Integration Tests
+    needs:
+      - images-prepare
+      - artifacts-prepare
+    runs-on: self-hosted
+    steps:
+      - name: Upgrade docker compose to use v2
+        run: sudo curl -L
+          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
+          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
+          /usr/local/bin/docker-compose
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.12.2
+      - name: Install Yarn
+        run: npm install -g yarn
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Clean volumes
+        run: docker volume prune -f
+      - name: Download images
+        run: |
+          cd integration_tests
+          yarn build-images
+      - name: Download artifacts
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ runner.os }}-${{ github.sha }}
+      - name: Run test test:distribution
+        run: cd integration_tests && yarn && yarn test:distribution
+      - name: Cleanup resources
+        if: always()
+        run: |
+          docker stop -t0 $(docker ps -a -q) || true
+          docker container prune -f || true
+          docker volume rm $(docker volume ls -q) || true
+  test-auto-withdrawer:
+    name: test:auto-withdrawer Integration Tests
+    needs:
+      - images-prepare
+      - artifacts-prepare
+    runs-on: self-hosted
+    steps:
+      - name: Upgrade docker compose to use v2
+        run: sudo curl -L
+          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
+          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
+          /usr/local/bin/docker-compose
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.12.2
+      - name: Install Yarn
+        run: npm install -g yarn
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Clean volumes
+        run: docker volume prune -f
+      - name: Download images
+        run: |
+          cd integration_tests
+          yarn build-images
+      - name: Download artifacts
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ runner.os }}-${{ github.sha }}
+      - name: Run test test:auto-withdrawer
+        run: cd integration_tests && yarn && yarn test:auto-withdrawer
+      - name: Cleanup resources
+        if: always()
+        run: |
+          docker stop -t0 $(docker ps -a -q) || true
+          docker container prune -f || true
+          docker volume rm $(docker volume ls -q) || true
