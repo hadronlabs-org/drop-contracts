@@ -5,7 +5,7 @@ use astroport::pair::ExecuteMsg as PairExecuteMsg;
 use astroport::router::{ExecuteMsg as RouterExecuteMsg, SwapOperation};
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{
-    attr, coins, to_json_binary, Addr, Attribute, Coin, Empty, Event, Response, StdError,
+    attr, coins, to_json_binary, Addr, Attribute, Coin, Decimal, Empty, Event, Response, StdError,
     StdResult, Uint128,
 };
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
@@ -15,6 +15,7 @@ use drop_staking_base::msg::astroport_exchange_handler::{
 };
 
 const CORE_CONTRACT_ADDR: &str = "core_contract";
+const PRICE_PROVIDER_CONTRACT_ADDR: &str = "price_provider_contract";
 const OWNER_CONTRACT_ADDR: &str = "owner_contract";
 const CRON_ADDR: &str = "cron_address";
 
@@ -213,11 +214,13 @@ fn test_initialization() {
     let msg = InstantiateMsg {
         owner: OWNER_CONTRACT_ADDR.to_string(),
         core_contract: CORE_CONTRACT_ADDR.to_string(),
+        price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
         cron_address: CRON_ADDR.to_string(),
         pair_contract: "pair_contract".to_string(),
         router_contract: "router_contract".to_string(),
         from_denom: "ueth".to_string(),
         min_rewards: Uint128::one(),
+        max_spread: Decimal::percent(1),
     };
 
     let info = mock_info(OWNER_CONTRACT_ADDR, &[]);
@@ -231,6 +234,10 @@ fn test_initialization() {
         .add_attributes(vec![
             Attribute::new("core_contract".to_string(), CORE_CONTRACT_ADDR.to_string()),
             Attribute::new("cron_address".to_string(), CRON_ADDR.to_string()),
+            Attribute::new(
+                "price_provider_contract".to_string(),
+                PRICE_PROVIDER_CONTRACT_ADDR.to_string()
+            ),
             Attribute::new("pair_contract".to_string(), "pair_contract".to_string()),
             Attribute::new("router_contract".to_string(), "router_contract".to_string()),
             Attribute::new("from_denom".to_string(), "ueth".to_string()),
@@ -251,11 +258,13 @@ fn test_config_query() {
         InstantiateMsg {
             owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),
             from_denom: "ueth".to_string(),
             min_rewards: Uint128::one(),
+            max_spread: Decimal::percent(1),
         },
     );
 
@@ -269,6 +278,7 @@ fn test_config_query() {
         ConfigResponse {
             core_contract: CORE_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),
             from_denom: "ueth".to_string(),
@@ -295,11 +305,13 @@ fn test_exchange_through_pair_call() {
         InstantiateMsg {
             owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: pair_contract.to_string(),
             router_contract: router_contract.to_string(),
             from_denom: "ueth".to_string(),
             min_rewards: Uint128::one(),
+            max_spread: Decimal::percent(1),
         },
     );
 
@@ -354,11 +366,13 @@ fn test_exchange_through_router_call() {
         InstantiateMsg {
             owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: pair_contract.to_string(),
             router_contract: router_contract.to_string(),
             from_denom: "ueth".to_string(),
             min_rewards: Uint128::one(),
+            max_spread: Decimal::percent(1),
         },
     );
 
@@ -434,10 +448,12 @@ fn test_not_enough_balance_error() {
             owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),
             from_denom: "ueth".to_string(),
             min_rewards: Uint128::from(200u128),
+            max_spread: Decimal::percent(1),
         },
     );
 
@@ -476,10 +492,12 @@ fn test_unauthorized_router_call() {
             owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),
             from_denom: "ueth".to_string(),
             min_rewards: Uint128::one(),
+            max_spread: Decimal::percent(1),
         },
     );
 
@@ -525,11 +543,13 @@ fn test_unauthorized_config_update() {
         InstantiateMsg {
             owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),
             from_denom: "ueth".to_string(),
             min_rewards: Uint128::one(),
+            max_spread: Decimal::percent(1),
         },
     );
 
@@ -538,11 +558,13 @@ fn test_unauthorized_config_update() {
         astroport_handler_contract.clone(),
         &ExecuteMsg::UpdateConfig {
             core_contract: Some(CORE_CONTRACT_ADDR.to_string()),
+            price_provider_contract: Some(PRICE_PROVIDER_CONTRACT_ADDR.to_string()),
             cron_address: Some(CRON_ADDR.to_string()),
             pair_contract: Some("pair_contract".to_string()),
             router_contract: Some("router_contract".to_string()),
             from_denom: Some("ueth".to_string()),
             min_rewards: Some(Uint128::one()),
+            max_spread: Some(Decimal::percent(1)),
         },
         &[],
     );
@@ -569,11 +591,13 @@ fn test_config_update() {
         InstantiateMsg {
             owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
+            price_provider_contract: "price_provider_contract".to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),
             from_denom: "ueth".to_string(),
             min_rewards: Uint128::one(),
+            max_spread: Decimal::percent(1),
         },
     );
 
@@ -584,10 +608,12 @@ fn test_config_update() {
             &ExecuteMsg::UpdateConfig {
                 core_contract: Some("core1".to_string()),
                 cron_address: Some("cron1".to_string()),
+                price_provider_contract: Some("price_provider_contract_1".to_string()),
                 pair_contract: Some("pair_contract_1".to_string()),
                 router_contract: Some("router_contract_1".to_string()),
                 from_denom: Some("untrn".to_string()),
                 min_rewards: Some(Uint128::zero()),
+                max_spread: Some(Decimal::percent(1)),
             },
             &[],
         )
@@ -606,6 +632,10 @@ fn test_config_update() {
         attrs,
         vec![
             Attribute::new("core_contract".to_string(), "core1".to_string()),
+            Attribute::new(
+                "price_provider_contract".to_string(),
+                "price_provider_contract_1".to_string()
+            ),
             Attribute::new("cron_address".to_string(), "cron1".to_string()),
             Attribute::new(
                 "router_contract".to_string(),
@@ -626,6 +656,7 @@ fn test_config_update() {
         config,
         ConfigResponse {
             core_contract: "core1".to_string(),
+            price_provider_contract: "price_provider_contract_1".to_string(),
             cron_address: "cron1".to_string(),
             pair_contract: "pair_contract_1".to_string(),
             router_contract: "router_contract_1".to_string(),
@@ -649,12 +680,14 @@ fn test_swap_operations_update() {
         astroport_exchange_handler_code_id,
         InstantiateMsg {
             owner: OWNER_CONTRACT_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),
             from_denom: "ueth".to_string(),
             min_rewards: Uint128::one(),
+            max_spread: Decimal::percent(1),
         },
     );
 
@@ -693,6 +726,7 @@ fn test_swap_operations_update() {
         config,
         ConfigResponse {
             core_contract: CORE_CONTRACT_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),
@@ -720,6 +754,7 @@ fn test_swap_operations_update() {
         config,
         ConfigResponse {
             core_contract: CORE_CONTRACT_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),

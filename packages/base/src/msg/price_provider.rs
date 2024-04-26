@@ -10,13 +10,8 @@ pub struct InstantiateMsg {
 #[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
-    RemovePair {
-        pair: (String, String),
-    },
-    SetPrice {
-        pair: (String, String),
-        price: Decimal,
-    },
+    RemoveDenom { denom: String },
+    SetPrice { denom: String, price: Decimal },
 }
 
 #[cw_ownable_query]
@@ -24,7 +19,7 @@ pub enum ExecuteMsg {
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     #[returns(Decimal)]
-    Price { pair: (String, String) },
+    Price { denom: String },
 }
 
 #[cw_serde]

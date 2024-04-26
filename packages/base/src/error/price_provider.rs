@@ -10,8 +10,8 @@ pub enum ContractError {
     #[error("{0}")]
     OwnershipError(#[from] OwnershipError),
 
-    #[error("Pair not found {details}")]
-    PairNotFound { details: String },
+    #[error("Denom not found {details}")]
+    DenomNotFound { details: String },
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;
