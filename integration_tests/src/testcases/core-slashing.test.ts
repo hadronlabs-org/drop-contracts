@@ -180,6 +180,73 @@ describe('Core Slashing', () => {
     await context.park.stop();
   });
 
+  it('transfer tokens to neutron', async () => {
+    context.gaiaUserAddress = (
+      await context.gaiaWallet.getAccounts()
+    )[0].address;
+    context.gaiaUserAddress2 = (
+      await context.gaiaWallet2.getAccounts()
+    )[0].address;
+    context.neutronUserAddress = (
+      await context.wallet.getAccounts()
+    )[0].address;
+    {
+      const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
+        context.park.config.master_mnemonic,
+        {
+          prefix: 'cosmosvaloper',
+          hdPaths: [stringToPath("m/44'/118'/1'/0/0") as any],
+        },
+      );
+      context.validatorAddress = (await wallet.getAccounts())[0].address;
+    }
+    {
+      const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
+        context.park.config.master_mnemonic,
+        {
+          prefix: 'cosmosvaloper',
+          hdPaths: [stringToPath("m/44'/118'/2'/0/0") as any],
+        },
+      );
+      context.secondValidatorAddress = (await wallet.getAccounts())[0].address;
+    }
+
+    const { gaiaClient, gaiaUserAddress, neutronUserAddress, neutronClient } =
+      context;
+    const res = await gaiaClient.signAndBroadcast(
+      gaiaUserAddress,
+      [
+        {
+          typeUrl: '/ibc.applications.transfer.v1.MsgTransfer',
+          value: MsgTransfer.fromPartial({
+            sender: gaiaUserAddress,
+            sourceChannel: 'channel-0',
+            sourcePort: 'transfer',
+            receiver: neutronUserAddress,
+            token: { denom: 'stake', amount: '2000000' },
+            timeoutTimestamp: BigInt((Date.now() + 10 * 60 * 1000) * 1e6),
+            timeoutHeight: {
+              revisionHeight: BigInt(0),
+              revisionNumber: BigInt(0),
+            },
+          }),
+        },
+      ],
+      1.5,
+    );
+    expect(res.transactionHash).toHaveLength(64);
+    await waitFor(async () => {
+      const balances =
+        await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+          neutronUserAddress,
+        );
+      context.neutronIBCDenom = balances.data.balances.find((b) =>
+        b.denom.startsWith('ibc/'),
+      )?.denom;
+      return balances.data.balances.length > 1;
+    });
+    expect(context.neutronIBCDenom).toBeTruthy();
+  });
   it('instantiate', async () => {
     const { client, account } = context;
     context.codeIds = {};
@@ -337,6 +404,23 @@ describe('Core Slashing', () => {
           uri: null,
           uri_hash: null,
         },
+        base_denom: context.neutronIBCDenom,
+        core_params: {
+          idle_min_interval: 10,
+          puppeteer_timeout: 60,
+          unbond_batch_switch_time: 60,
+          unbonding_safe_period: 10,
+          unbonding_period: 360,
+          lsm_redeem_threshold: 2,
+          lsm_min_bond_amount: '1',
+          lsm_redeem_max_interval: 60_000,
+          bond_limit: '0',
+          min_stake_amount: '2',
+        },
+        staker_params: {
+          min_stake_amount: '100',
+          min_ibc_transfer: '100',
+        },
       },
       'drop-staking-factory',
       'auto',
@@ -348,95 +432,9 @@ describe('Core Slashing', () => {
       client,
       context.contractAddress,
     );
-    context.gaiaUserAddress = (
-      await context.gaiaWallet.getAccounts()
-    )[0].address;
-    context.gaiaUserAddress2 = (
-      await context.gaiaWallet2.getAccounts()
-    )[0].address;
-    context.neutronUserAddress = (
-      await context.wallet.getAccounts()
-    )[0].address;
-    {
-      const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
-        context.park.config.master_mnemonic,
-        {
-          prefix: 'cosmosvaloper',
-          hdPaths: [stringToPath("m/44'/118'/1'/0/0") as any],
-        },
-      );
-      context.validatorAddress = (await wallet.getAccounts())[0].address;
-    }
-    {
-      const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
-        context.park.config.master_mnemonic,
-        {
-          prefix: 'cosmosvaloper',
-          hdPaths: [stringToPath("m/44'/118'/2'/0/0") as any],
-        },
-      );
-      context.secondValidatorAddress = (await wallet.getAccounts())[0].address;
-    }
   });
-  it('transfer tokens to neutron', async () => {
-    const { gaiaClient, gaiaUserAddress, neutronUserAddress, neutronClient } =
-      context;
-    const res = await gaiaClient.signAndBroadcast(
-      gaiaUserAddress,
-      [
-        {
-          typeUrl: '/ibc.applications.transfer.v1.MsgTransfer',
-          value: MsgTransfer.fromPartial({
-            sender: gaiaUserAddress,
-            sourceChannel: 'channel-0',
-            sourcePort: 'transfer',
-            receiver: neutronUserAddress,
-            token: { denom: 'stake', amount: '2000000' },
-            timeoutTimestamp: BigInt((Date.now() + 10 * 60 * 1000) * 1e6),
-            timeoutHeight: {
-              revisionHeight: BigInt(0),
-              revisionNumber: BigInt(0),
-            },
-          }),
-        },
-      ],
-      1.5,
-    );
-    expect(res.transactionHash).toHaveLength(64);
-    await waitFor(async () => {
-      const balances =
-        await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
-          neutronUserAddress,
-        );
-      context.neutronIBCDenom = balances.data.balances.find((b) =>
-        b.denom.startsWith('ibc/'),
-      )?.denom;
-      return balances.data.balances.length > 1;
-    });
-    expect(context.neutronIBCDenom).toBeTruthy();
-  });
-  it('init', async () => {
+  it('query factory state', async () => {
     const { factoryContractClient: contractClient } = context;
-    await contractClient.init(context.neutronUserAddress, {
-      base_denom: context.neutronIBCDenom,
-      core_params: {
-        idle_min_interval: 10,
-        puppeteer_timeout: 60,
-        unbond_batch_switch_time: 60,
-        unbonding_safe_period: 10,
-        unbonding_period: 360,
-        channel: 'channel-0',
-        lsm_redeem_threshold: 2,
-        lsm_min_bond_amount: '1',
-        lsm_redeem_max_interval: 60_000,
-        bond_limit: '0',
-        min_stake_amount: '2',
-      },
-      staker_params: {
-        min_stake_amount: '100',
-        min_ibc_transfer: '100',
-      },
-    });
     const res = await contractClient.queryState();
     context.coreContractClient = new DropCore.Client(
       context.client,
@@ -742,7 +740,7 @@ describe('Core Slashing', () => {
       neutronUserAddress,
       {
         core: {
-          pump_address: ica,
+          pump_ica_address: ica,
         },
       },
     );
@@ -892,13 +890,7 @@ describe('Core Slashing', () => {
         expected_release: expect.any(Number),
         total_amount: '1000',
         expected_amount: '1000',
-        unbond_items: [
-          {
-            amount: '1000',
-            expected_amount: '1000',
-            sender: context.neutronUserAddress,
-          },
-        ],
+        total_unbond_items: 1,
         unbonded_amount: null,
         withdrawed_amount: null,
       });
@@ -1078,13 +1070,7 @@ describe('Core Slashing', () => {
         expected_release: expect.any(Number),
         total_amount: '3000',
         expected_amount: '3499',
-        unbond_items: [
-          {
-            amount: '3000',
-            expected_amount: '3499',
-            sender: context.neutronUserAddress,
-          },
-        ],
+        total_unbond_items: 1,
         unbonded_amount: null,
         withdrawed_amount: null,
       });
@@ -1198,13 +1184,7 @@ describe('Core Slashing', () => {
       expected_release: expect.any(Number),
       total_amount: '1000',
       expected_amount: '1000',
-      unbond_items: [
-        {
-          amount: '1000',
-          expected_amount: '1000',
-          sender: context.neutronUserAddress,
-        },
-      ],
+      total_unbond_items: 1,
       unbonded_amount: null,
       withdrawed_amount: null,
     });
@@ -1221,13 +1201,7 @@ describe('Core Slashing', () => {
       expected_release: expect.any(Number),
       total_amount: '3000',
       expected_amount: '3499',
-      unbond_items: [
-        {
-          amount: '3000',
-          expected_amount: '3499',
-          sender: context.neutronUserAddress,
-        },
-      ],
+      total_unbond_items: 1,
       unbonded_amount: null,
       withdrawed_amount: null,
     });
@@ -1250,13 +1224,7 @@ describe('Core Slashing', () => {
       expected_release: expect.any(Number),
       total_amount: '1000',
       expected_amount: '1000',
-      unbond_items: [
-        {
-          amount: '1000',
-          expected_amount: '1000',
-          sender: context.neutronUserAddress,
-        },
-      ],
+      total_unbond_items: 1,
       unbonded_amount: null,
       withdrawed_amount: null,
     });
@@ -1273,13 +1241,7 @@ describe('Core Slashing', () => {
       expected_release: expect.any(Number),
       total_amount: '3000',
       expected_amount: '3499',
-      unbond_items: [
-        {
-          amount: '3000',
-          expected_amount: '3499',
-          sender: context.neutronUserAddress,
-        },
-      ],
+      total_unbond_items: 1,
       unbonded_amount: null,
       withdrawed_amount: null,
     });

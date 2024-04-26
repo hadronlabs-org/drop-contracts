@@ -5,7 +5,6 @@ use cw_storage_plus::Item;
 
 #[cw_serde]
 pub struct Config {
-    pub owner: String,
     pub core_contract: String,
     pub cron_address: String,
     pub router_contract: String,
