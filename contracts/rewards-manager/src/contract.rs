@@ -1,12 +1,11 @@
 use cosmwasm_std::{attr, entry_point, to_json_binary, Attribute, CosmosMsg, Deps, Order, WasmMsg};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
+use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::response;
 use drop_helpers::pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse};
 use drop_staking_base::error::rewards_manager::ContractResult;
-use drop_staking_base::msg::rewards_manager::{
-    ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
-};
+use drop_staking_base::msg::rewards_manager::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use drop_staking_base::state::rewards_manager::{HandlerConfig, REWARDS_HANDLERS};
 
 use drop_staking_base::msg::reward_handler::HandlerExecuteMsg;
@@ -35,21 +34,10 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => query_config(deps, env),
+        QueryMsg::Ownership {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
         QueryMsg::Handlers {} => query_handlers(deps, env),
         QueryMsg::PauseInfo {} => query_pause_info(deps),
     }
-}
-
-fn query_config(deps: Deps, _env: Env) -> StdResult<Binary> {
-    let owner = cw_ownable::get_ownership(deps.storage)?;
-
-    to_json_binary(&ConfigResponse {
-        owner: owner
-            .owner
-            .map(|addr| addr.into_string())
-            .unwrap_or_default(),
-    })
 }
 
 fn query_pause_info(deps: Deps) -> StdResult<Binary> {
@@ -79,7 +67,10 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response> {
     match msg {
-        ExecuteMsg::UpdateConfig { owner } => exec_update_config(deps, info, owner),
+        ExecuteMsg::UpdateOwnership(action) => {
+            update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
+            Ok(Response::new())
+        }
         ExecuteMsg::AddHandler { config } => exec_add_handler(deps, info, config),
         ExecuteMsg::RemoveHandler { denom } => exec_remove_handler(deps, info, denom),
         ExecuteMsg::ExchangeRewards {} => exec_exchange_rewards(deps, env, info),
@@ -110,23 +101,6 @@ fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response> {
         CONTRACT_NAME,
         Vec::<Attribute>::new(),
     ))
-}
-
-fn exec_update_config(
-    deps: DepsMut,
-    info: MessageInfo,
-    owner: Option<String>,
-) -> ContractResult<Response> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-
-    let mut attrs: Vec<Attribute> = Vec::new();
-    if let Some(owner) = owner {
-        let owner = deps.api.addr_validate(&owner)?;
-        cw_ownable::initialize_owner(deps.storage, deps.api, Some(owner.as_ref()))?;
-        attrs.push(attr("owner", owner))
-    }
-
-    Ok(response("config_update", CONTRACT_NAME, attrs))
 }
 
 fn exec_add_handler(

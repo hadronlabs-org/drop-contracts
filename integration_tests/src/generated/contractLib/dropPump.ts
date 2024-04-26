@@ -83,7 +83,7 @@ export type UpdateOwnershipArgs =
 
 export interface DropPumpSchema {
   responses: Config | IcaState | OwnershipForString;
-  execute: PushArgs | UpdateConfigArgs | UpdateOwnershipArgs;
+  execute: PushArgs | RefundArgs | UpdateConfigArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
@@ -131,6 +131,9 @@ export interface Coin {
   amount: Uint128;
   denom: string;
   [k: string]: unknown;
+}
+export interface RefundArgs {
+  coins: Coin[];
 }
 export interface UpdateConfigArgs {
   new_config: UpdateConfigMsg;
@@ -220,9 +223,9 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { push: args }, fee || "auto", memo, funds);
   }
-  refund = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  refund = async(sender:string, args: RefundArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { refund: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { refund: args }, fee || "auto", memo, funds);
   }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

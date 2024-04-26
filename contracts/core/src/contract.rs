@@ -1,4 +1,3 @@
-use crate::error::{ContractError, ContractResult};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, entry_point, to_json_binary, Addr, Attribute, BankMsg,
@@ -8,25 +7,32 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
 use drop_helpers::pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse};
-use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
-use drop_puppeteer_base::state::RedeemShareItem;
-use drop_staking_base::msg::core::LastStakerResponse;
-use drop_staking_base::state::core::{
-    unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem, UnbondBatch,
-    UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM,
-    LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE,
-    LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, PRE_UNBONDING_BALANCE,
-    TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+use drop_puppeteer_base::{
+    msg::{IBCTransferReason, TransferReadyBatchesMsg},
+    state::RedeemShareItem,
 };
-use drop_staking_base::state::validatorset::ValidatorInfo;
-use drop_staking_base::state::withdrawal_voucher::{Metadata, Trait};
 use drop_staking_base::{
+    error::core::{ContractError, ContractResult},
     msg::{
-        core::{ExecuteMsg, InstantiateMsg, LastPuppeteerResponse, QueryMsg},
-        token::ExecuteMsg as TokenExecuteMsg,
+        core::{ExecuteMsg, InstantiateMsg, LastPuppeteerResponse, LastStakerResponse, QueryMsg},
+        token::{
+            ConfigResponse as TokenConfigResponse, ExecuteMsg as TokenExecuteMsg,
+            QueryMsg as TokenQueryMsg,
+        },
         withdrawal_voucher::ExecuteMsg as VoucherExecuteMsg,
     },
-    state::core::LAST_IDLE_CALL,
+    state::{
+        core::{
+            unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem,
+            UnbondBatch, UnbondBatchStatus, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID,
+            FSM, LAST_ICA_BALANCE_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM,
+            LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE, LD_DENOM, LSM_SHARES_TO_REDEEM,
+            NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, PRE_UNBONDING_BALANCE, TOTAL_LSM_SHARES,
+            UNBOND_BATCH_ID,
+        },
+        validatorset::ValidatorInfo,
+        withdrawal_voucher::{Metadata, Trait},
+    },
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 use prost::Message;
@@ -51,8 +57,24 @@ pub fn instantiate(
         attr("base_denom", &msg.base_denom),
         attr("owner", &msg.owner),
     ];
-    cw_ownable::initialize_owner(deps.storage, deps.api, Some(msg.owner.as_ref()))?;
-    CONFIG.save(deps.storage, &msg.into())?;
+    cw_ownable::initialize_owner(deps.storage, deps.api, Some(&msg.owner))?;
+    let config = msg.into_config(deps.as_ref().into_empty())?;
+    if let Some(fee) = config.fee {
+        if fee < Decimal::zero() || fee > Decimal::one() {
+            return Err(ContractError::InvalidFee {});
+        }
+    }
+    CONFIG.save(deps.storage, &config)?;
+    LD_DENOM.save(
+        deps.storage,
+        &deps
+            .querier
+            .query_wasm_smart::<TokenConfigResponse>(
+                &config.token_contract,
+                &TokenQueryMsg::Config {},
+            )?
+            .denom,
+    )?;
     //an empty unbonding batch added as it's ready to be used on unbond action
     UNBOND_BATCH_ID.save(deps.storage, &0)?;
     unbond_batches_map().save(deps.storage, 0, &new_unbond(env.block.time.seconds()))?;
@@ -67,7 +89,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResult<Binary> {
+pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     Ok(match msg {
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?)?,
         QueryMsg::Owner {} => to_json_binary(
@@ -79,7 +101,10 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::PendingLSMShares {} => query_pending_lsm_shares(deps)?,
         QueryMsg::LSMSharesToRedeem {} => query_lsm_shares_to_redeem(deps)?,
         QueryMsg::TotalBonded {} => to_json_binary(&BONDED_AMOUNT.load(deps.storage)?)?,
-        QueryMsg::ExchangeRate {} => to_json_binary(&query_exchange_rate(deps, env)?)?,
+        QueryMsg::ExchangeRate {} => {
+            let config = CONFIG.load(deps.storage)?;
+            to_json_binary(&query_exchange_rate(deps, &config)?)?
+        }
         QueryMsg::UnbondBatch { batch_id } => query_unbond_batch(deps, batch_id)?,
         QueryMsg::NonNativeRewardsReceivers {} => {
             to_json_binary(&NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?)?
@@ -117,7 +142,7 @@ fn query_lsm_shares_to_redeem(deps: Deps<NeutronQuery>) -> ContractResult<Binary
     to_json_binary(&shares).map_err(From::from)
 }
 
-fn query_exchange_rate(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Decimal> {
+fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractResult<Decimal> {
     let fsm_state = FSM.get_current_state(deps.storage)?;
     if fsm_state != ContractState::Idle {
         return Ok(EXCHANGE_RATE
@@ -125,19 +150,20 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<De
             .unwrap_or((Decimal::one(), 0))
             .0);
     }
-    let config = CONFIG.load(deps.storage)?;
-    let ld_denom = config.ld_denom.ok_or(ContractError::LDDenomIsNotSet {})?;
-    let ld_total_supply: cosmwasm_std::SupplyResponse = deps
-        .querier
-        .query(&QueryRequest::Bank(BankQuery::Supply { denom: ld_denom }))?;
-    let ld_total_amount = ld_total_supply.amount.amount;
-    if ld_total_amount.is_zero() {
+    let ld_total_supply: cosmwasm_std::SupplyResponse =
+        deps.querier.query(&QueryRequest::Bank(BankQuery::Supply {
+            denom: LD_DENOM.load(deps.storage)?,
+        }))?;
+
+    let exchange_rate_denominator = ld_total_supply.amount.amount;
+    if exchange_rate_denominator.is_zero() {
         return Ok(Decimal::one());
     }
+
     let delegations = deps
         .querier
         .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
-            config.puppeteer_contract.to_string(),
+            &config.puppeteer_contract,
             &drop_puppeteer_base::msg::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
@@ -167,19 +193,27 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<De
         unprocessed_unbonded_amount += failed_batch.total_amount;
     }
     let staker_balance: Uint128 = deps.querier.query_wasm_smart(
-        config.staker_contract,
+        &config.staker_contract,
         &drop_staking_base::msg::staker::QueryMsg::AllBalance {},
     )?;
     let total_lsm_shares = Uint128::new(TOTAL_LSM_SHARES.load(deps.storage)?);
-    let exchange_rate = Decimal::from_ratio(
-        delegations_amount + staker_balance + total_lsm_shares - unprocessed_unbonded_amount,
-        ld_total_amount,
-    );
-    Ok(exchange_rate) // arithmetic operations order is important here as we don't want to overflow
+    // arithmetic operations order is important here as we don't want to overflow
+    let exchange_rate_numerator =
+        delegations_amount + staker_balance + total_lsm_shares - unprocessed_unbonded_amount;
+    if exchange_rate_numerator.is_zero() {
+        return Ok(Decimal::one());
+    }
+
+    let exchange_rate = Decimal::from_ratio(exchange_rate_numerator, exchange_rate_denominator);
+    Ok(exchange_rate)
 }
 
-fn cache_exchange_rate(deps: DepsMut<NeutronQuery>, env: Env) -> ContractResult<()> {
-    let exchange_rate = query_exchange_rate(deps.as_ref(), env.clone())?;
+fn cache_exchange_rate(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    config: &Config,
+) -> ContractResult<()> {
+    let exchange_rate = query_exchange_rate(deps.as_ref(), config)?;
     EXCHANGE_RATE.save(deps.storage, &(exchange_rate, env.block.height))?;
     Ok(())
 }
@@ -196,8 +230,8 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::Bond { receiver, r#ref } => execute_bond(deps, env, info, receiver, r#ref),
-        ExecuteMsg::Unbond {} => execute_unbond(deps, env, info),
+        ExecuteMsg::Bond { receiver, r#ref } => execute_bond(deps, info, receiver, r#ref),
+        ExecuteMsg::Unbond {} => execute_unbond(deps, info),
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, *new_config),
         ExecuteMsg::UpdateOwnership(action) => {
             cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
@@ -316,6 +350,11 @@ fn execute_set_non_native_rewards_receivers(
     items: Vec<NonNativeRewardsItem>,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
+    for item in &items {
+        if item.fee < Decimal::zero() || item.fee > Decimal::one() {
+            return Err(ContractError::InvalidFee {});
+        }
+    }
     NON_NATIVE_REWARDS_CONFIG.save(deps.storage, &items)?;
     Ok(response(
         "execute-set_non_native_rewards_receivers",
@@ -470,7 +509,7 @@ fn execute_tick_idle(
     let mut attrs = vec![attr("action", "tick_idle")];
     let last_idle_call = LAST_IDLE_CALL.load(deps.storage)?;
     let mut messages = vec![];
-    cache_exchange_rate(deps.branch(), env.clone())?;
+    cache_exchange_rate(deps.branch(), env.clone(), config)?;
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
         //process non-native rewards
         if let Some(transfer_msg) =
@@ -506,13 +545,13 @@ fn execute_tick_idle(
             ContractError::UnbondingTimeIsClose {}
         );
 
-        let pump_address = config
-            .pump_address
+        let pump_ica_address = config
+            .pump_ica_address
             .clone()
-            .ok_or(ContractError::PumpAddressIsNotSet {})?;
+            .ok_or(ContractError::PumpIcaAddressIsNotSet {})?;
         let (ica_balance, _local_height, ica_balance_local_time) = get_ica_balance_by_denom(
             deps.as_ref(),
-            &config.puppeteer_contract,
+            config.puppeteer_contract.as_ref(),
             &config.remote_denom,
             true,
         )?;
@@ -556,7 +595,7 @@ fn execute_tick_idle(
                     batch_ids: vec![id],
                     emergency: false,
                     amount: unbonded_amount,
-                    recipient: pump_address,
+                    recipient: pump_ica_address,
                 })
             }
             _ => {
@@ -574,7 +613,7 @@ fn execute_tick_idle(
                         ica_balance,
                     )
                 } else {
-                    (false, pump_address, total_expected_amount)
+                    (false, pump_ica_address, total_expected_amount)
                 };
                 let mut batch_ids = vec![];
                 for (id, mut batch) in unbonded_batches {
@@ -647,7 +686,7 @@ fn execute_tick_idle(
         } else {
             attrs.push(attr("validators_to_claim", validators_to_claim.join(",")));
             messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: config.puppeteer_contract.clone(),
+                contract_addr: config.puppeteer_contract.to_string(),
                 msg: to_json_binary(
                     &drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
                         validators: validators_to_claim,
@@ -833,7 +872,6 @@ fn execute_tick_unbonding(
 
 fn execute_bond(
     deps: DepsMut<NeutronQuery>,
-    env: Env,
     info: MessageInfo,
     receiver: Option<String>,
     r#ref: Option<String>,
@@ -846,7 +884,7 @@ fn execute_bond(
         }
     }
     BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total + amount))?;
-    let denom_type = check_denom::check_denom(&deps, &denom, &config)?;
+    let denom_type = check_denom::check_denom(&deps.as_ref(), &denom, &config)?;
     let mut msgs = vec![];
     if let check_denom::DenomType::LsmShare(remote_denom) = denom_type {
         if amount < config.lsm_min_bond_amount {
@@ -864,14 +902,14 @@ fn execute_bond(
     } else {
         // if it's not LSM share, we send this amount to the staker
         msgs.push(CosmosMsg::Bank(BankMsg::Send {
-            to_address: config.staker_contract,
+            to_address: config.staker_contract.to_string(),
             amount: vec![Coin::new(amount.u128(), denom)],
         }));
     }
 
     let mut attrs = vec![attr("action", "bond")];
 
-    let exchange_rate = query_exchange_rate(deps.as_ref(), env)?;
+    let exchange_rate = query_exchange_rate(deps.as_ref(), &config)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
 
     let issue_amount = amount * (Decimal::one() / exchange_rate);
@@ -888,7 +926,7 @@ fn execute_bond(
         }
     }
     msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.token_contract,
+        contract_addr: config.token_contract.into_string(),
         msg: to_json_binary(&TokenExecuteMsg::Mint {
             amount: issue_amount,
             receiver,
@@ -907,50 +945,56 @@ fn execute_update_config(
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut attrs = vec![attr("action", "update_config")];
     if let Some(token_contract) = new_config.token_contract {
-        attrs.push(attr("token_contract", &token_contract));
-        config.token_contract = token_contract;
+        config.token_contract = deps.api.addr_validate(&token_contract)?;
+        attrs.push(attr("token_contract", token_contract));
     }
     if let Some(puppeteer_contract) = new_config.puppeteer_contract {
-        attrs.push(attr("puppeteer_contract", &puppeteer_contract));
-        config.puppeteer_contract = puppeteer_contract;
+        config.puppeteer_contract = deps.api.addr_validate(&puppeteer_contract)?;
+        attrs.push(attr("puppeteer_contract", puppeteer_contract));
     }
     if let Some(puppeteer_timeout) = new_config.puppeteer_timeout {
         attrs.push(attr("puppeteer_contract", puppeteer_timeout.to_string()));
         config.puppeteer_timeout = puppeteer_timeout;
     }
     if let Some(strategy_contract) = new_config.strategy_contract {
-        attrs.push(attr("strategy_contract", &strategy_contract));
-        config.strategy_contract = strategy_contract;
+        config.strategy_contract = deps.api.addr_validate(&strategy_contract)?;
+        attrs.push(attr("strategy_contract", strategy_contract));
     }
     if let Some(staker_contract) = new_config.staker_contract {
-        attrs.push(attr("staker_contract", &staker_contract));
-        config.staker_contract = staker_contract;
+        config.staker_contract = deps.api.addr_validate(&staker_contract)?;
+        attrs.push(attr("staker_contract", staker_contract));
     }
     if let Some(withdrawal_voucher_contract) = new_config.withdrawal_voucher_contract {
+        config.withdrawal_voucher_contract =
+            deps.api.addr_validate(&withdrawal_voucher_contract)?;
         attrs.push(attr(
             "withdrawal_voucher_contract",
-            &withdrawal_voucher_contract,
+            withdrawal_voucher_contract,
         ));
-        config.withdrawal_voucher_contract = withdrawal_voucher_contract;
     }
     if let Some(withdrawal_manager_contract) = new_config.withdrawal_manager_contract {
+        config.withdrawal_manager_contract =
+            deps.api.addr_validate(&withdrawal_manager_contract)?;
         attrs.push(attr(
             "withdrawal_manager_contract",
-            &withdrawal_manager_contract,
+            withdrawal_manager_contract,
         ));
-        config.withdrawal_manager_contract = withdrawal_manager_contract;
     }
-    if let Some(pump_address) = new_config.pump_address {
-        attrs.push(attr("pump_address", &pump_address));
-        config.pump_address = Some(pump_address);
+    if let Some(pump_ica_address) = new_config.pump_ica_address {
+        attrs.push(attr("pump_address", &pump_ica_address));
+        config.pump_ica_address = Some(pump_ica_address);
+    }
+    if let Some(transfer_channel_id) = new_config.transfer_channel_id {
+        attrs.push(attr("transfer_channel_id", &transfer_channel_id));
+        config.transfer_channel_id = transfer_channel_id;
     }
     if let Some(remote_denom) = new_config.remote_denom {
         attrs.push(attr("remote_denom", &remote_denom));
         config.remote_denom = remote_denom;
     }
     if let Some(validators_set_contract) = new_config.validators_set_contract {
-        attrs.push(attr("validators_set_contract", &validators_set_contract));
-        config.validators_set_contract = validators_set_contract;
+        config.validators_set_contract = deps.api.addr_validate(&validators_set_contract)?;
+        attrs.push(attr("validators_set_contract", validators_set_contract));
     }
     if let Some(base_denom) = new_config.base_denom {
         attrs.push(attr("base_denom", &base_denom));
@@ -1013,15 +1057,10 @@ fn execute_update_config(
             }
         };
     }
-    if let Some(ld_denom) = new_config.ld_denom {
-        attrs.push(attr("ld_denom", &ld_denom));
-        config.ld_denom = Some(ld_denom);
-    }
-    if let Some(channel) = new_config.channel {
-        attrs.push(attr("channel", &channel));
-        config.channel = channel;
-    }
     if let Some(fee) = new_config.fee {
+        if fee < Decimal::zero() || fee > Decimal::one() {
+            return Err(ContractError::InvalidFee {});
+        }
         attrs.push(attr("fee", fee.to_string()));
         config.fee = Some(fee);
     }
@@ -1045,24 +1084,19 @@ fn execute_update_config(
 
 fn execute_unbond(
     deps: DepsMut<NeutronQuery>,
-    env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut attrs = vec![attr("action", "unbond")];
     let unbond_batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
-    let ld_denom = config.ld_denom.ok_or(ContractError::LDDenomIsNotSet {})?;
+    let ld_denom = LD_DENOM.load(deps.storage)?;
     let amount = cw_utils::must_pay(&info, &ld_denom)?;
     BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total - amount))?;
     let mut unbond_batch = unbond_batches_map().load(deps.storage, unbond_batch_id)?;
-    let exchange_rate = query_exchange_rate(deps.as_ref(), env)?;
+    let exchange_rate = query_exchange_rate(deps.as_ref(), &config)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
     let expected_amount = amount * exchange_rate;
-    unbond_batch.unbond_items.push(UnbondItem {
-        sender: info.sender.to_string(),
-        amount,
-        expected_amount,
-    });
+    unbond_batch.total_unbond_items += 1;
     unbond_batch.total_amount += amount;
     unbond_batch.expected_amount += expected_amount;
 
@@ -1099,21 +1133,21 @@ fn execute_unbond(
     });
     let msgs = vec![
         CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.withdrawal_voucher_contract,
+            contract_addr: config.withdrawal_voucher_contract.into_string(),
             msg: to_json_binary(&VoucherExecuteMsg::Mint {
                 owner: info.sender.to_string(),
                 token_id: unbond_batch_id.to_string()
                     + "_"
                     + info.sender.to_string().as_str()
                     + "_"
-                    + &unbond_batch.unbond_items.len().to_string(),
+                    + &unbond_batch.total_unbond_items.to_string(),
                 token_uri: None,
                 extension,
             })?,
             funds: vec![],
         }),
         CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.token_contract,
+            contract_addr: config.token_contract.into_string(),
             msg: to_json_binary(&TokenExecuteMsg::Burn {})?,
             funds: vec![Coin {
                 denom: ld_denom,
@@ -1138,17 +1172,16 @@ pub fn get_stake_bond_msg<T>(
         if staker_pending_stake.is_zero() {
             return Ok(None);
         }
-        let to_delegate: Vec<drop_staking_base::msg::distribution::IdealDelegation> =
-            deps.querier.query_wasm_smart(
-                &config.strategy_contract,
-                &drop_staking_base::msg::strategy::QueryMsg::CalcDeposit {
-                    deposit: staker_pending_stake,
-                },
-            )?;
+        let to_delegate: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
+            &config.strategy_contract,
+            &drop_staking_base::msg::strategy::QueryMsg::CalcDeposit {
+                deposit: staker_pending_stake,
+            },
+        )?;
         return Ok(Some(CosmosMsg::<T>::Wasm(WasmMsg::Execute {
             contract_addr: config.staker_contract.to_string(),
             msg: to_json_binary(&drop_staking_base::msg::staker::ExecuteMsg::Stake {
-                items: ideal_delegation_to_stake_items(&to_delegate),
+                items: to_delegate,
             })?,
             funds: info.funds.clone(),
         })));
@@ -1163,8 +1196,12 @@ pub fn get_stake_rewards_msg<T>(
     info: &MessageInfo,
 ) -> ContractResult<Option<CosmosMsg<T>>> {
     let funds = info.funds.clone();
-    let (balance, balance_height, _) =
-        get_ica_balance_by_denom(deps, &config.puppeteer_contract, &config.remote_denom, true)?;
+    let (balance, balance_height, _) = get_ica_balance_by_denom(
+        deps,
+        config.puppeteer_contract.as_ref(),
+        &config.remote_denom,
+        true,
+    )?;
 
     if balance < config.min_stake_amount {
         return Ok(None);
@@ -1181,13 +1218,12 @@ pub fn get_stake_rewards_msg<T>(
     let fee = config.fee.unwrap_or(Decimal::zero()) * balance;
     let deposit_amount = balance - fee;
 
-    let to_delegate: Vec<drop_staking_base::msg::distribution::IdealDelegation> =
-        deps.querier.query_wasm_smart(
-            &config.strategy_contract,
-            &drop_staking_base::msg::strategy::QueryMsg::CalcDeposit {
-                deposit: deposit_amount,
-            },
-        )?;
+    let to_delegate: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
+        &config.strategy_contract,
+        &drop_staking_base::msg::strategy::QueryMsg::CalcDeposit {
+            deposit: deposit_amount,
+        },
+    )?;
 
     let staking_fee: Option<(String, Uint128)> =
         if fee > Uint128::zero() && config.fee_address.is_some() {
@@ -1199,7 +1235,7 @@ pub fn get_stake_rewards_msg<T>(
     Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_contract.to_string(),
         msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
-            items: ideal_delegation_to_stake_items(&to_delegate),
+            items: to_delegate,
             fee: staking_fee,
             timeout: Some(config.puppeteer_timeout),
             reply_to: env.contract.address.to_string(),
@@ -1220,23 +1256,22 @@ fn get_unbonding_msg<T>(
         .unwrap_or(UNBOND_BATCH_ID.load(deps.storage)?);
     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
     if (unbond.created + config.unbond_batch_switch_time < env.block.time.seconds())
-        && !unbond.unbond_items.is_empty()
+        && unbond.total_unbond_items != 0
         && !unbond.total_amount.is_zero()
     {
         let (pre_unbonding_balance, _, _) = get_ica_balance_by_denom(
             deps.as_ref(),
-            &config.puppeteer_contract,
+            config.puppeteer_contract.as_ref(),
             &config.remote_denom,
             true,
         )?;
         PRE_UNBONDING_BALANCE.save(deps.storage, &pre_unbonding_balance)?;
-        let undelegations: Vec<drop_staking_base::msg::distribution::IdealDelegation> =
-            deps.querier.query_wasm_smart(
-                config.strategy_contract.to_string(),
-                &drop_staking_base::msg::strategy::QueryMsg::CalcWithdraw {
-                    withdraw: unbond.total_amount,
-                },
-            )?;
+        let undelegations: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
+            config.strategy_contract.to_string(),
+            &drop_staking_base::msg::strategy::QueryMsg::CalcWithdraw {
+                withdraw: unbond.total_amount,
+            },
+        )?;
         unbond.status = UnbondBatchStatus::UnbondRequested;
         unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
         UNBOND_BATCH_ID.save(deps.storage, &(batch_id + 1))?;
@@ -1248,10 +1283,7 @@ fn get_unbonding_msg<T>(
         Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.puppeteer_contract.to_string(),
             msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
-                items: undelegations
-                    .iter()
-                    .map(|d| (d.valoper_address.clone(), d.stake_change))
-                    .collect::<Vec<_>>(),
+                items: undelegations,
                 batch_id,
                 timeout: Some(config.puppeteer_timeout),
                 reply_to: env.contract.address.to_string(),
@@ -1328,7 +1360,7 @@ fn new_unbond(now: u64) -> UnbondBatch {
     UnbondBatch {
         total_amount: Uint128::zero(),
         expected_amount: Uint128::zero(),
-        unbond_items: vec![],
+        total_unbond_items: 0,
         status: UnbondBatchStatus::New,
         expected_release: 0,
         slashing_effect: None,
@@ -1396,7 +1428,7 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
     }
 
     Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.puppeteer_contract,
+        contract_addr: config.puppeteer_contract.into_string(),
         msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
             items,
             timeout: Some(config.puppeteer_timeout),
@@ -1479,19 +1511,10 @@ fn get_pending_lsm_share_msg<T, X: CustomQuery>(
     }
 }
 
-fn ideal_delegation_to_stake_items(
-    ideal_delegation: &[drop_staking_base::msg::distribution::IdealDelegation],
-) -> Vec<(String, Uint128)> {
-    ideal_delegation
-        .iter()
-        .map(|d| (d.valoper_address.to_string(), d.stake_change))
-        .collect::<Vec<_>>()
-}
-
 pub mod check_denom {
     use super::*;
 
-    #[derive(PartialEq)]
+    #[derive(PartialEq, Debug)]
     pub enum DenomType {
         Base,
         LsmShare(String),
@@ -1513,7 +1536,7 @@ pub mod check_denom {
     }
 
     fn query_denom_trace(
-        deps: &DepsMut<NeutronQuery>,
+        deps: &Deps<NeutronQuery>,
         denom: impl Into<String>,
     ) -> StdResult<QueryDenomTraceResponse> {
         let denom = denom.into();
@@ -1533,28 +1556,32 @@ pub mod check_denom {
             })
     }
 
-    // TODO: extensive unit tests
     pub fn check_denom(
-        deps: &DepsMut<NeutronQuery>,
+        deps: &Deps<NeutronQuery>,
         denom: &str,
         config: &Config,
     ) -> ContractResult<DenomType> {
         if denom == config.base_denom {
             return Ok(DenomType::Base);
         }
+
         let trace = query_denom_trace(deps, denom)?.denom_trace;
         let (port, channel) = trace
             .path
             .split_once('/')
             .ok_or(ContractError::InvalidDenom {})?;
-        if port != "transfer" && channel != config.channel {
+        if port != "transfer" || channel != config.transfer_channel_id {
             return Err(ContractError::InvalidDenom {});
         }
 
-        let (validator, _unbonding_index) = trace
+        let (validator, unbonding_index) = trace
             .base_denom
             .split_once('/')
             .ok_or(ContractError::InvalidDenom {})?;
+        unbonding_index
+            .parse::<u64>()
+            .map_err(|_| ContractError::InvalidDenom {})?;
+
         let validator_info = deps
             .querier
             .query_wasm_smart::<drop_staking_base::msg::validatorset::ValidatorResponse>(
@@ -1567,6 +1594,7 @@ pub mod check_denom {
         if validator_info.is_none() {
             return Err(ContractError::InvalidDenom {});
         }
+
         Ok(DenomType::LsmShare(trace.base_denom))
     }
 }

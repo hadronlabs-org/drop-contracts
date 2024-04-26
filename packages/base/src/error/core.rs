@@ -48,8 +48,8 @@ pub enum ContractError {
     #[error("Unbonding time is too close")]
     UnbondingTimeIsClose {},
 
-    #[error("Pump address is not set")]
-    PumpAddressIsNotSet {},
+    #[error("Pump ICA address is not set")]
+    PumpIcaAddressIsNotSet {},
 
     #[error("Emergency address is not set")]
     EmergencyAddressIsNotSet {},
@@ -100,6 +100,9 @@ pub enum ContractError {
 
     #[error("Unbonded amount must be less or equal to expected amount")]
     UnbondedAmountTooHigh {},
+
+    #[error("Fee must be in range [0.0, 1.0]")]
+    InvalidFee {},
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

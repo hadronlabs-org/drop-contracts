@@ -7,7 +7,7 @@ use std::ops::Sub;
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
 use drop_staking_base::error::distribution::{ContractError, ContractResult};
-use drop_staking_base::msg::distribution::{Delegation, IdealDelegation, InstantiateMsg, QueryMsg};
+use drop_staking_base::msg::distribution::{Delegations, InstantiateMsg, QueryMsg};
 use neutron_sdk::bindings::msg::NeutronMsg;
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
@@ -40,91 +40,23 @@ pub fn query(_deps: Deps, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     }
 }
 
-fn calculate_total_stake_withdraw(
-    delegations: &[Delegation],
-    withdraw: Uint128,
-) -> ContractResult<Uint128> {
-    let total: Uint128 = delegations.iter().map(|d| d.stake).sum();
-    if total < withdraw {
-        return Err(ContractError::TooBigWithdraw {});
-    }
-    Ok(total - withdraw)
-}
-
-fn calculate_total_stake_deposit(
-    delegations: &[Delegation],
-    deposit: Uint128,
-) -> ContractResult<Uint128> {
-    let total: Uint128 = delegations.iter().map(|d| d.stake).sum();
-    Ok(total + deposit)
-}
-
-fn distribute_stake_withdraw(
-    withdraw: Uint128,
-    mut ideal_distribution: Vec<IdealDelegation>,
-) -> Vec<IdealDelegation> {
-    // We need to distribute the deposit among all delegations (at least 1 token reservation required),
-    // so we need to subtract amount of delegations (validators)
-    let mut stake_left = withdraw.sub(Uint128::from(ideal_distribution.len() as u128));
-
-    for d in &mut ideal_distribution {
-        if d.ideal_stake >= d.current_stake || stake_left == Uint128::zero() {
-            continue;
-        }
-
-        // We need to add one because we already subtracted it before but now we need it for calculations
-        // so we need to take into account this one token
-        stake_left += Uint128::one();
-        let mut stake_diff = d.current_stake - d.ideal_stake;
-
-        if stake_left < stake_diff {
-            stake_diff = stake_left;
-        }
-
-        stake_left -= stake_diff;
-        d.stake_change = stake_diff;
-    }
-
-    ideal_distribution
-}
-
-fn distribute_stake_deposit(
-    deposit: Uint128,
-    mut ideal_distribution: Vec<IdealDelegation>,
-) -> Vec<IdealDelegation> {
-    // We need to distribute the deposit among all delegations (at least 1 token reservation required),
-    // so we need to subtract amount of delegations (validators)
-    let mut stake_left = deposit.sub(Uint128::from(ideal_distribution.len() as u128));
-
-    for d in &mut ideal_distribution {
-        if d.ideal_stake <= d.current_stake || stake_left == Uint128::zero() {
-            continue;
-        }
-
-        // We need to add one because we already subtracted it before but now we need it for calculations
-        // so we need to take into account this one token
-        stake_left += Uint128::one();
-        let mut stake_diff = d.ideal_stake - d.current_stake;
-
-        if stake_left < stake_diff {
-            stake_diff = stake_left;
-        }
-
-        stake_left -= stake_diff;
-        d.stake_change = stake_diff;
-    }
-
-    ideal_distribution
-}
-
 /// Calculates the ideal withdrawal of stake among the given withdraw amount.
 pub fn calc_withdraw(
     withdraw: Uint128,
-    delegations: Vec<Delegation>,
-) -> ContractResult<Vec<IdealDelegation>> {
-    let total_stake: Uint128 = calculate_total_stake_withdraw(&delegations, withdraw)?;
-    let ideal_distribution = calc_ideal_stake(total_stake, delegations)?;
-    let distribution = distribute_stake_withdraw(withdraw, ideal_distribution);
+    delegations: Delegations,
+) -> ContractResult<Vec<(String, Uint128)>> {
+    if delegations.total < (withdraw + Uint128::from(delegations.delegations.len() as u128)) {
+        return Err(ContractError::TooBigWithdraw {});
+    }
+
+    let total_stake = delegations.total - withdraw;
+    let distribution = calc_deposit_distribution(
+        total_stake,
+        withdraw,
+        delegations,
+        |ideal_stake, current_stake| ideal_stake >= current_stake,
+        |ideal_stake, current_stake| current_stake - ideal_stake,
+    )?;
 
     Ok(distribution)
 }
@@ -132,81 +64,94 @@ pub fn calc_withdraw(
 /// Calculates the ideal distribution of stake among the given delegations.
 pub fn calc_deposit(
     deposit: Uint128,
-    delegations: Vec<Delegation>,
-) -> ContractResult<Vec<IdealDelegation>> {
-    let total_stake: Uint128 = calculate_total_stake_deposit(&delegations, deposit)?;
-    let ideal_distribution = calc_ideal_stake(total_stake, delegations)?;
-    let distribution = distribute_stake_deposit(deposit, ideal_distribution);
+    delegations: Delegations,
+) -> ContractResult<Vec<(String, Uint128)>> {
+    let total_stake = delegations.total + deposit;
+    let distribution = calc_deposit_distribution(
+        total_stake,
+        deposit,
+        delegations,
+        |ideal_stake, current_stake| ideal_stake <= current_stake,
+        |ideal_stake, current_stake| ideal_stake - current_stake,
+    )?;
 
     Ok(distribution)
 }
 
-pub fn calc_ideal_stake(
+pub fn calc_deposit_distribution<C, D>(
     mut total_stake: Uint128,
-    delegations: Vec<Delegation>,
-) -> ContractResult<Vec<IdealDelegation>> {
-    let total_weight: u64 = delegations.iter().map(|d| d.weight).sum();
+    mut deposit: Uint128,
+    delegations: Delegations,
+    check_stake: C,
+    calc_diff: D,
+) -> ContractResult<Vec<(String, Uint128)>>
+where
+    C: Fn(Uint128, Uint128) -> bool,
+    D: Fn(Uint128, Uint128) -> Uint128,
+{
+    let stake_per_weight = Decimal::from_ratio(total_stake, delegations.total_weight);
 
-    let stake_per_weight = Decimal::from_ratio(total_stake, total_weight);
-
-    let mut distribution: Vec<IdealDelegation> = Vec::new();
-    for d in delegations {
+    // We need to distribute the deposit among all delegations (at least 1 token reservation required),
+    // so we need to subtract amount of delegations (validators)
+    deposit = deposit.sub(Uint128::from(delegations.delegations.len() as u128));
+    let mut deposit_changes: Vec<(String, Uint128)> = Vec::new();
+    for d in delegations.delegations {
         let weight = Decimal::from_atomics(d.weight, 0)?;
         let mut ideal_stake = stake_per_weight.checked_mul(weight)?.to_uint_ceil(); // ceil used to consume all available stake
 
-        // If the ideal stake is more than the total stake, we can't increase it.
-        // It means that we distributed all available stake and can't continue after last
-        // delegation.
         if total_stake < ideal_stake {
             ideal_stake = total_stake;
         }
 
-        let ideal_delegation = IdealDelegation {
-            valoper_address: d.valoper_address,
-            ideal_stake,
-            current_stake: d.stake,
-            stake_change: Uint128::one(), // We need to preserve at least 1 token to avoid bug with empty values https://github.com/cosmos/ics23/issues/134
-            weight: d.weight,
-        };
-
-        distribution.push(ideal_delegation);
-
         total_stake -= ideal_stake;
 
-        // If the total stake is zero, we distributed all available stake and can't continue.
-        if total_stake == Uint128::zero() {
-            break;
+        if check_stake(ideal_stake, d.stake) || deposit.is_zero() {
+            deposit_changes.push((d.valoper_address, Uint128::one()));
+            continue;
         }
+
+        // We need to add one because we already subtracted it before but now we need it for calculations
+        // so we need to take into account this one token
+        deposit += Uint128::one();
+        let mut stake_change = calc_diff(ideal_stake, d.stake);
+
+        if deposit < stake_change {
+            stake_change = deposit;
+        }
+
+        deposit -= stake_change;
+
+        deposit_changes.push((d.valoper_address, stake_change));
     }
 
-    Ok(distribution)
+    Ok(deposit_changes)
 }
 
 #[cfg(test)]
 mod tests {
+    use drop_staking_base::msg::distribution::Delegation;
+
     use super::*;
 
     #[test]
     fn calc_ideal_deposit_single_from_zero() {
         let stake = Uint128::from(100u128);
 
-        let delegations = vec![Delegation {
-            valoper_address: "valoper1".to_string(),
-            stake: Uint128::zero(),
-            weight: 10,
-        }];
+        let delegations = Delegations {
+            total: Uint128::zero(),
+            total_weight: 10,
+            delegations: vec![Delegation {
+                valoper_address: "valoper1".to_string(),
+                stake: Uint128::zero(),
+                weight: 10,
+            }],
+        };
 
         let distribution = calc_deposit(stake, delegations).unwrap();
 
         assert_eq!(
             distribution,
-            vec![IdealDelegation {
-                valoper_address: "valoper1".to_string(),
-                ideal_stake: Uint128::from(100u128),
-                current_stake: Uint128::zero(),
-                stake_change: Uint128::from(100u128),
-                weight: 10,
-            },]
+            vec![("valoper1".to_string(), Uint128::from(100u128))]
         );
     }
 
@@ -214,23 +159,21 @@ mod tests {
     fn calc_ideal_deposit_single_with_distribution() {
         let stake = Uint128::from(50u128);
 
-        let delegations = vec![Delegation {
-            valoper_address: "valoper1".to_string(),
-            stake: Uint128::from(100u128),
-            weight: 10,
-        }];
+        let delegations = Delegations {
+            total: Uint128::from(100u128),
+            total_weight: 10,
+            delegations: vec![Delegation {
+                valoper_address: "valoper1".to_string(),
+                stake: Uint128::from(100u128),
+                weight: 10,
+            }],
+        };
 
         let distribution = calc_deposit(stake, delegations).unwrap();
 
         assert_eq!(
             distribution,
-            vec![IdealDelegation {
-                valoper_address: "valoper1".to_string(),
-                ideal_stake: Uint128::from(150u128),
-                current_stake: Uint128::from(100u128),
-                stake_change: Uint128::from(50u128),
-                weight: 10,
-            },]
+            vec![("valoper1".to_string(), Uint128::from(50u128))]
         );
     }
 
@@ -238,50 +181,36 @@ mod tests {
     fn calc_ideal_deposit_from_zero() {
         let stake = Uint128::from(100u128);
 
-        let delegations = vec![
-            Delegation {
-                valoper_address: "valoper1".to_string(),
-                stake: Uint128::zero(),
-                weight: 10,
-            },
-            Delegation {
-                valoper_address: "valoper2".to_string(),
-                stake: Uint128::zero(),
-                weight: 20,
-            },
-            Delegation {
-                valoper_address: "valoper3".to_string(),
-                stake: Uint128::zero(),
-                weight: 40,
-            },
-        ];
+        let delegations = Delegations {
+            total: Uint128::zero(),
+            total_weight: 70,
+            delegations: vec![
+                Delegation {
+                    valoper_address: "valoper1".to_string(),
+                    stake: Uint128::zero(),
+                    weight: 10,
+                },
+                Delegation {
+                    valoper_address: "valoper2".to_string(),
+                    stake: Uint128::zero(),
+                    weight: 20,
+                },
+                Delegation {
+                    valoper_address: "valoper3".to_string(),
+                    stake: Uint128::zero(),
+                    weight: 40,
+                },
+            ],
+        };
 
         let distribution = calc_deposit(stake, delegations).unwrap();
 
         assert_eq!(
             distribution,
             vec![
-                IdealDelegation {
-                    valoper_address: "valoper1".to_string(),
-                    ideal_stake: Uint128::from(15u128),
-                    current_stake: Uint128::zero(),
-                    stake_change: Uint128::from(15u128),
-                    weight: 10,
-                },
-                IdealDelegation {
-                    valoper_address: "valoper2".to_string(),
-                    ideal_stake: Uint128::from(29u128),
-                    current_stake: Uint128::zero(),
-                    stake_change: Uint128::from(29u128),
-                    weight: 20,
-                },
-                IdealDelegation {
-                    valoper_address: "valoper3".to_string(),
-                    ideal_stake: Uint128::from(56u128),
-                    current_stake: Uint128::zero(),
-                    stake_change: Uint128::from(56u128),
-                    weight: 40,
-                }
+                ("valoper1".to_string(), Uint128::from(15u128)),
+                ("valoper2".to_string(), Uint128::from(29u128)),
+                ("valoper3".to_string(), Uint128::from(56u128))
             ]
         );
     }
@@ -290,50 +219,36 @@ mod tests {
     fn calc_ideal_deposit_with_distributions() {
         let stake = Uint128::from(100u128);
 
-        let delegations = vec![
-            Delegation {
-                valoper_address: "valoper1".to_string(),
-                stake: Uint128::from(15u128),
-                weight: 10,
-            },
-            Delegation {
-                valoper_address: "valoper2".to_string(),
-                stake: Uint128::from(29u128),
-                weight: 20,
-            },
-            Delegation {
-                valoper_address: "valoper3".to_string(),
-                stake: Uint128::from(56u128),
-                weight: 40,
-            },
-        ];
+        let delegations = Delegations {
+            total: Uint128::from(100u128),
+            total_weight: 70,
+            delegations: vec![
+                Delegation {
+                    valoper_address: "valoper1".to_string(),
+                    stake: Uint128::from(15u128),
+                    weight: 10,
+                },
+                Delegation {
+                    valoper_address: "valoper2".to_string(),
+                    stake: Uint128::from(29u128),
+                    weight: 20,
+                },
+                Delegation {
+                    valoper_address: "valoper3".to_string(),
+                    stake: Uint128::from(56u128),
+                    weight: 40,
+                },
+            ],
+        };
 
         let distribution = calc_deposit(stake, delegations).unwrap();
 
         assert_eq!(
             distribution,
             vec![
-                IdealDelegation {
-                    valoper_address: "valoper1".to_string(),
-                    ideal_stake: Uint128::from(29u128),
-                    current_stake: Uint128::from(15u128),
-                    stake_change: Uint128::from(14u128),
-                    weight: 10,
-                },
-                IdealDelegation {
-                    valoper_address: "valoper2".to_string(),
-                    ideal_stake: Uint128::from(58u128),
-                    current_stake: Uint128::from(29u128),
-                    stake_change: Uint128::from(29u128),
-                    weight: 20,
-                },
-                IdealDelegation {
-                    valoper_address: "valoper3".to_string(),
-                    ideal_stake: Uint128::from(113u128),
-                    current_stake: Uint128::from(56u128),
-                    stake_change: Uint128::from(57u128),
-                    weight: 40,
-                }
+                ("valoper1".to_string(), Uint128::from(14u128)),
+                ("valoper2".to_string(), Uint128::from(29u128)),
+                ("valoper3".to_string(), Uint128::from(57u128))
             ]
         );
     }
@@ -342,50 +257,36 @@ mod tests {
     fn calc_ideal_deposit_with_missed() {
         let stake = Uint128::from(100u128);
 
-        let delegations = vec![
-            Delegation {
-                valoper_address: "valoper1".to_string(),
-                stake: Uint128::from(15u128),
-                weight: 10,
-            },
-            Delegation {
-                valoper_address: "valoper2".to_string(),
-                stake: Uint128::from(70u128),
-                weight: 20,
-            },
-            Delegation {
-                valoper_address: "valoper3".to_string(),
-                stake: Uint128::from(56u128),
-                weight: 40,
-            },
-        ];
+        let delegations = Delegations {
+            total: Uint128::from(141u128),
+            total_weight: 70,
+            delegations: vec![
+                Delegation {
+                    valoper_address: "valoper1".to_string(),
+                    stake: Uint128::from(15u128),
+                    weight: 10,
+                },
+                Delegation {
+                    valoper_address: "valoper2".to_string(),
+                    stake: Uint128::from(70u128),
+                    weight: 20,
+                },
+                Delegation {
+                    valoper_address: "valoper3".to_string(),
+                    stake: Uint128::from(56u128),
+                    weight: 40,
+                },
+            ],
+        };
 
         let distribution = calc_deposit(stake, delegations).unwrap();
 
         assert_eq!(
             distribution,
             vec![
-                IdealDelegation {
-                    valoper_address: "valoper1".to_string(),
-                    ideal_stake: Uint128::from(35u128),
-                    current_stake: Uint128::from(15u128),
-                    stake_change: Uint128::from(20u128),
-                    weight: 10,
-                },
-                IdealDelegation {
-                    valoper_address: "valoper2".to_string(),
-                    ideal_stake: Uint128::from(69u128),
-                    current_stake: Uint128::from(70u128),
-                    stake_change: Uint128::one(),
-                    weight: 20,
-                },
-                IdealDelegation {
-                    valoper_address: "valoper3".to_string(),
-                    ideal_stake: Uint128::from(137u128),
-                    current_stake: Uint128::from(56u128),
-                    stake_change: Uint128::from(79u128),
-                    weight: 40,
-                }
+                ("valoper1".to_string(), Uint128::from(20u128)),
+                ("valoper2".to_string(), Uint128::one()),
+                ("valoper3".to_string(), Uint128::from(79u128))
             ]
         );
     }
@@ -394,50 +295,36 @@ mod tests {
     fn calc_ideal_deposit_new_second_validator() {
         let stake = Uint128::from(100u128);
 
-        let delegations = vec![
-            Delegation {
-                valoper_address: "valoper1".to_string(),
-                stake: Uint128::from(110u128),
-                weight: 10,
-            },
-            Delegation {
-                valoper_address: "valoper2".to_string(),
-                stake: Uint128::zero(),
-                weight: 40,
-            },
-            Delegation {
-                valoper_address: "valoper3".to_string(),
-                stake: Uint128::from(90u128),
-                weight: 20,
-            },
-        ];
+        let delegations = Delegations {
+            total: Uint128::from(200u128),
+            total_weight: 70,
+            delegations: vec![
+                Delegation {
+                    valoper_address: "valoper1".to_string(),
+                    stake: Uint128::from(110u128),
+                    weight: 10,
+                },
+                Delegation {
+                    valoper_address: "valoper2".to_string(),
+                    stake: Uint128::zero(),
+                    weight: 40,
+                },
+                Delegation {
+                    valoper_address: "valoper3".to_string(),
+                    stake: Uint128::from(90u128),
+                    weight: 20,
+                },
+            ],
+        };
 
         let distribution = calc_deposit(stake, delegations).unwrap();
 
         assert_eq!(
             distribution,
             vec![
-                IdealDelegation {
-                    valoper_address: "valoper1".to_string(),
-                    ideal_stake: Uint128::from(43u128),
-                    current_stake: Uint128::from(110u128),
-                    stake_change: Uint128::one(),
-                    weight: 10,
-                },
-                IdealDelegation {
-                    valoper_address: "valoper2".to_string(),
-                    ideal_stake: Uint128::from(172u128),
-                    current_stake: Uint128::zero(),
-                    stake_change: Uint128::from(98u128),
-                    weight: 40,
-                },
-                IdealDelegation {
-                    valoper_address: "valoper3".to_string(),
-                    ideal_stake: Uint128::from(85u128),
-                    current_stake: Uint128::from(90u128),
-                    stake_change: Uint128::one(),
-                    weight: 20,
-                },
+                ("valoper1".to_string(), Uint128::one()),
+                ("valoper2".to_string(), Uint128::from(98u128)),
+                ("valoper3".to_string(), Uint128::one())
             ]
         );
     }
@@ -446,50 +333,36 @@ mod tests {
     fn calc_ideal_deposit_new_third_validator() {
         let stake = Uint128::from(100u128);
 
-        let delegations = vec![
-            Delegation {
-                valoper_address: "valoper1".to_string(),
-                stake: Uint128::from(150u128),
-                weight: 10,
-            },
-            Delegation {
-                valoper_address: "valoper2".to_string(),
-                stake: Uint128::from(200u128),
-                weight: 40,
-            },
-            Delegation {
-                valoper_address: "valoper3".to_string(),
-                stake: Uint128::zero(),
-                weight: 40,
-            },
-        ];
+        let delegations = Delegations {
+            total: Uint128::from(350u128),
+            total_weight: 90,
+            delegations: vec![
+                Delegation {
+                    valoper_address: "valoper1".to_string(),
+                    stake: Uint128::from(150u128),
+                    weight: 10,
+                },
+                Delegation {
+                    valoper_address: "valoper2".to_string(),
+                    stake: Uint128::from(200u128),
+                    weight: 40,
+                },
+                Delegation {
+                    valoper_address: "valoper3".to_string(),
+                    stake: Uint128::zero(),
+                    weight: 40,
+                },
+            ],
+        };
 
         let distribution = calc_deposit(stake, delegations).unwrap();
 
         assert_eq!(
             distribution,
             vec![
-                IdealDelegation {
-                    valoper_address: "valoper1".to_string(),
-                    ideal_stake: Uint128::from(50u128),
-                    current_stake: Uint128::from(150u128),
-                    stake_change: Uint128::one(),
-                    weight: 10,
-                },
-                IdealDelegation {
-                    valoper_address: "valoper2".to_string(),
-                    ideal_stake: Uint128::from(200u128),
-                    current_stake: Uint128::from(200u128),
-                    stake_change: Uint128::one(),
-                    weight: 40,
-                },
-                IdealDelegation {
-                    valoper_address: "valoper3".to_string(),
-                    ideal_stake: Uint128::from(200u128),
-                    current_stake: Uint128::zero(),
-                    stake_change: Uint128::from(98u128),
-                    weight: 40,
-                },
+                ("valoper1".to_string(), Uint128::one()),
+                ("valoper2".to_string(), Uint128::one()),
+                ("valoper3".to_string(), Uint128::from(98u128))
             ]
         );
     }
@@ -498,11 +371,15 @@ mod tests {
     fn calc_ideal_withdraw_single_from_zero() {
         let withdraw = Uint128::from(100u128);
 
-        let delegations = vec![Delegation {
-            valoper_address: "valoper1".to_string(),
-            stake: Uint128::zero(),
-            weight: 10,
-        }];
+        let delegations = Delegations {
+            total: Uint128::zero(),
+            total_weight: 10,
+            delegations: vec![Delegation {
+                valoper_address: "valoper1".to_string(),
+                stake: Uint128::zero(),
+                weight: 10,
+            }],
+        };
 
         let error = calc_withdraw(withdraw, delegations).unwrap_err();
 
@@ -513,11 +390,15 @@ mod tests {
     fn calc_ideal_withdraw_single_not_enough_stake() {
         let withdraw = Uint128::from(100u128);
 
-        let delegations = vec![Delegation {
-            valoper_address: "valoper1".to_string(),
-            stake: Uint128::from(50u128),
-            weight: 10,
-        }];
+        let delegations = Delegations {
+            total: Uint128::from(50u128),
+            total_weight: 10,
+            delegations: vec![Delegation {
+                valoper_address: "valoper1".to_string(),
+                stake: Uint128::from(50u128),
+                weight: 10,
+            }],
+        };
 
         let error = calc_withdraw(withdraw, delegations).unwrap_err();
 
@@ -528,23 +409,21 @@ mod tests {
     fn calc_ideal_withdraw_single_with_distribution() {
         let withdraw = Uint128::from(50u128);
 
-        let delegations = vec![Delegation {
-            valoper_address: "valoper1".to_string(),
-            stake: Uint128::from(100u128),
-            weight: 10,
-        }];
+        let delegations = Delegations {
+            total: Uint128::from(100u128),
+            total_weight: 10,
+            delegations: vec![Delegation {
+                valoper_address: "valoper1".to_string(),
+                stake: Uint128::from(100u128),
+                weight: 10,
+            }],
+        };
 
         let distribution = calc_withdraw(withdraw, delegations).unwrap();
 
         assert_eq!(
             distribution,
-            vec![IdealDelegation {
-                valoper_address: "valoper1".to_string(),
-                ideal_stake: Uint128::from(50u128),
-                current_stake: Uint128::from(100u128),
-                stake_change: Uint128::from(50u128),
-                weight: 10,
-            },]
+            vec![("valoper1".to_string(), Uint128::from(50u128)),]
         );
     }
 
@@ -552,50 +431,36 @@ mod tests {
     fn calc_ideal_withdraw_from_enough_stake() {
         let withdraw = Uint128::from(100u128);
 
-        let delegations = vec![
-            Delegation {
-                valoper_address: "valoper1".to_string(),
-                stake: Uint128::from(70u128),
-                weight: 10,
-            },
-            Delegation {
-                valoper_address: "valoper2".to_string(),
-                stake: Uint128::from(90u128),
-                weight: 20,
-            },
-            Delegation {
-                valoper_address: "valoper3".to_string(),
-                stake: Uint128::from(150u128),
-                weight: 40,
-            },
-        ];
+        let delegations = Delegations {
+            total: Uint128::from(310u128),
+            total_weight: 70,
+            delegations: vec![
+                Delegation {
+                    valoper_address: "valoper1".to_string(),
+                    stake: Uint128::from(70u128),
+                    weight: 10,
+                },
+                Delegation {
+                    valoper_address: "valoper2".to_string(),
+                    stake: Uint128::from(90u128),
+                    weight: 20,
+                },
+                Delegation {
+                    valoper_address: "valoper3".to_string(),
+                    stake: Uint128::from(150u128),
+                    weight: 40,
+                },
+            ],
+        };
 
         let distribution = calc_withdraw(withdraw, delegations).unwrap();
 
         assert_eq!(
             distribution,
             vec![
-                IdealDelegation {
-                    valoper_address: "valoper1".to_string(),
-                    ideal_stake: Uint128::from(30u128),
-                    current_stake: Uint128::from(70u128),
-                    stake_change: Uint128::from(40u128),
-                    weight: 10,
-                },
-                IdealDelegation {
-                    valoper_address: "valoper2".to_string(),
-                    ideal_stake: Uint128::from(60u128),
-                    current_stake: Uint128::from(90u128),
-                    stake_change: Uint128::from(30u128),
-                    weight: 20,
-                },
-                IdealDelegation {
-                    valoper_address: "valoper3".to_string(),
-                    ideal_stake: Uint128::from(120u128),
-                    current_stake: Uint128::from(150u128),
-                    stake_change: Uint128::from(30u128),
-                    weight: 40,
-                },
+                ("valoper1".to_string(), Uint128::from(40u128)),
+                ("valoper2".to_string(), Uint128::from(30u128)),
+                ("valoper3".to_string(), Uint128::from(30u128))
             ]
         );
     }
@@ -604,50 +469,94 @@ mod tests {
     fn calc_ideal_withdraw_only_single_delegation() {
         let withdraw = Uint128::from(50u128);
 
-        let delegations = vec![
-            Delegation {
-                valoper_address: "valoper1".to_string(),
-                stake: Uint128::from(100u128),
-                weight: 10,
-            },
-            Delegation {
-                valoper_address: "valoper2".to_string(),
-                stake: Uint128::from(250u128),
-                weight: 20,
-            },
-            Delegation {
-                valoper_address: "valoper3".to_string(),
-                stake: Uint128::from(400u128),
-                weight: 40,
-            },
-        ];
+        let delegations = Delegations {
+            total: Uint128::from(750u128),
+            total_weight: 70,
+            delegations: vec![
+                Delegation {
+                    valoper_address: "valoper1".to_string(),
+                    stake: Uint128::from(100u128),
+                    weight: 10,
+                },
+                Delegation {
+                    valoper_address: "valoper2".to_string(),
+                    stake: Uint128::from(250u128),
+                    weight: 20,
+                },
+                Delegation {
+                    valoper_address: "valoper3".to_string(),
+                    stake: Uint128::from(400u128),
+                    weight: 40,
+                },
+            ],
+        };
 
         let distribution = calc_withdraw(withdraw, delegations).unwrap();
 
         assert_eq!(
             distribution,
             vec![
-                IdealDelegation {
+                ("valoper1".to_string(), Uint128::one()),
+                ("valoper2".to_string(), Uint128::from(48u128)),
+                ("valoper3".to_string(), Uint128::one())
+            ]
+        );
+    }
+
+    #[test]
+    fn calc_ideal_withdraw_from_two_delegations_too_big() {
+        let withdraw = Uint128::from(1000u128);
+
+        let delegations = Delegations {
+            total: Uint128::from(1000u128),
+            total_weight: 2,
+            delegations: vec![
+                Delegation {
                     valoper_address: "valoper1".to_string(),
-                    ideal_stake: Uint128::from(100u128),
-                    current_stake: Uint128::from(100u128),
-                    stake_change: Uint128::one(),
-                    weight: 10,
+                    stake: Uint128::from(500u128),
+                    weight: 1,
                 },
-                IdealDelegation {
+                Delegation {
                     valoper_address: "valoper2".to_string(),
-                    ideal_stake: Uint128::from(200u128),
-                    current_stake: Uint128::from(250u128),
-                    stake_change: Uint128::from(48u128),
-                    weight: 20,
+                    stake: Uint128::from(500u128),
+                    weight: 1,
                 },
-                IdealDelegation {
-                    valoper_address: "valoper3".to_string(),
-                    ideal_stake: Uint128::from(400u128),
-                    current_stake: Uint128::from(400u128),
-                    stake_change: Uint128::one(),
-                    weight: 40,
+            ],
+        };
+
+        let error = calc_withdraw(withdraw, delegations).unwrap_err();
+
+        assert_eq!(error, ContractError::TooBigWithdraw {});
+    }
+
+    #[test]
+    fn calc_ideal_withdraw_from_two_delegations() {
+        let withdraw = Uint128::from(998u128);
+
+        let delegations = Delegations {
+            total: Uint128::from(1000u128),
+            total_weight: 2,
+            delegations: vec![
+                Delegation {
+                    valoper_address: "valoper1".to_string(),
+                    stake: Uint128::from(500u128),
+                    weight: 1,
                 },
+                Delegation {
+                    valoper_address: "valoper2".to_string(),
+                    stake: Uint128::from(500u128),
+                    weight: 1,
+                },
+            ],
+        };
+
+        let distribution = calc_withdraw(withdraw, delegations).unwrap();
+
+        assert_eq!(
+            distribution,
+            vec![
+                ("valoper1".to_string(), Uint128::from(499u128)),
+                ("valoper2".to_string(), Uint128::from(499u128))
             ]
         );
     }

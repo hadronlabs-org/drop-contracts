@@ -10,6 +10,16 @@ export type PauseInfoResponse1 =
   | {
       unpaused: {};
     };
+export type UpdateConfigArgs =
+  | {
+      core: ConfigOptional;
+    }
+  | {
+      validators_set: ConfigOptional2;
+    }
+  | {
+      puppeteer_fees: FeesMsg;
+    };
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -24,35 +34,12 @@ export type PauseInfoResponse1 =
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type CallbackArgs = {
-  post_init: {};
-};
-export type UpdateConfigArgs =
-  | {
-      core: ConfigOptional;
-    }
-  | {
-      validators_set: ConfigOptional2;
-    }
-  | {
-      puppeteer_fees: FeesMsg;
-    };
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal = string;
-/**
- * A human readable address.
- *
- * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
- *
- * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
- *
- * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
- */
-export type Addr = string;
 export type ProxyArgs =
   | {
       validator_set: ValidatorSetMsg;
@@ -778,7 +765,7 @@ export type Expiration =
 
 export interface DropFactorySchema {
   responses: PauseInfoResponse | State;
-  execute: InitArgs | CallbackArgs | UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
+  execute: UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
@@ -799,48 +786,25 @@ export interface State {
   withdrawal_manager_contract: string;
   withdrawal_voucher_contract: string;
 }
-export interface InitArgs {
-  base_denom: string;
-  core_params: CoreParams;
-  staker_params: StakerParams;
-}
-export interface CoreParams {
-  bond_limit?: Uint128 | null;
-  channel: string;
-  idle_min_interval: number;
-  lsm_min_bond_amount: Uint128;
-  lsm_redeem_max_interval: number;
-  lsm_redeem_threshold: number;
-  min_stake_amount: Uint128;
-  puppeteer_timeout: number;
-  unbond_batch_switch_time: number;
-  unbonding_period: number;
-  unbonding_safe_period: number;
-}
-export interface StakerParams {
-  min_ibc_transfer: Uint128;
-  min_stake_amount: Uint128;
-}
 export interface ConfigOptional {
   base_denom?: string | null;
   bond_limit?: Uint128 | null;
-  channel?: string | null;
   emergency_address?: string | null;
   fee?: Decimal | null;
   fee_address?: string | null;
   idle_min_interval?: number | null;
-  ld_denom?: string | null;
   lsm_min_bond_amount?: Uint128 | null;
   lsm_redeem_maximum_interval?: number | null;
   lsm_redeem_threshold?: number | null;
   min_stake_amount?: Uint128 | null;
-  pump_address?: string | null;
+  pump_ica_address?: string | null;
   puppeteer_contract?: string | null;
   puppeteer_timeout?: number | null;
   remote_denom?: string | null;
   staker_contract?: string | null;
   strategy_contract?: string | null;
   token_contract?: string | null;
+  transfer_channel_id?: string | null;
   unbond_batch_switch_time?: number | null;
   unbonding_period?: number | null;
   unbonding_safe_period?: number | null;
@@ -849,9 +813,8 @@ export interface ConfigOptional {
   withdrawal_voucher_contract?: string | null;
 }
 export interface ConfigOptional2 {
-  owner?: Addr | null;
-  provider_proposals_contract?: Addr | null;
-  stats_contract?: Addr | null;
+  provider_proposals_contract?: string | null;
+  stats_contract?: string | null;
 }
 export interface FeesMsg {
   ack_fee: Uint128;
@@ -1237,10 +1200,13 @@ export interface WeightedVoteOption {
   [k: string]: unknown;
 }
 export interface InstantiateMsg {
+  base_denom: string;
   code_ids: CodeIds;
+  core_params: CoreParams;
   remote_opts: RemoteOpts;
   salt: string;
   sdk_version: string;
+  staker_params: StakerParams;
   subdenom: string;
   token_metadata: DenomMetadata;
 }
@@ -1256,6 +1222,18 @@ export interface CodeIds {
   withdrawal_manager_code_id: number;
   withdrawal_voucher_code_id: number;
 }
+export interface CoreParams {
+  bond_limit?: Uint128 | null;
+  idle_min_interval: number;
+  lsm_min_bond_amount: Uint128;
+  lsm_redeem_max_interval: number;
+  lsm_redeem_threshold: number;
+  min_stake_amount: Uint128;
+  puppeteer_timeout: number;
+  unbond_batch_switch_time: number;
+  unbonding_period: number;
+  unbonding_safe_period: number;
+}
 export interface RemoteOpts {
   connection_id: string;
   denom: string;
@@ -1269,6 +1247,10 @@ export interface IBCFees {
   recv_fee: Uint128;
   register_fee: Uint128;
   timeout_fee: Uint128;
+}
+export interface StakerParams {
+  min_ibc_transfer: Uint128;
+  min_stake_amount: Uint128;
 }
 export interface DenomMetadata {
   /**
@@ -1352,14 +1334,6 @@ export class Client {
   }
   queryPauseInfo = async(): Promise<PauseInfoResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
-  }
-  init = async(sender:string, args: InitArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { init: args }, fee || "auto", memo, funds);
-  }
-  callback = async(sender:string, args: CallbackArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { callback: args }, fee || "auto", memo, funds);
   }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
