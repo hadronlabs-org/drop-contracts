@@ -32,3 +32,4 @@ pub struct ValidatorInfo {
 
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const VALIDATORS_SET: Map<String, ValidatorInfo> = Map::new("validators_set");
+pub const VALIDATORS_LIST: Item<Vec<ValidatorInfo>> = Item::new("validators_list");

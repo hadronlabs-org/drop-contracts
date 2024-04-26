@@ -15,9 +15,9 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     #[returns(Config)]
     Config {},
-    #[returns(Vec<super::distribution::IdealDelegation>)]
+    #[returns(Vec<(String, Uint128)>)]
     CalcDeposit { deposit: Uint128 },
-    #[returns(Vec<super::distribution::IdealDelegation>)]
+    #[returns(Vec<(String, Uint128)>)]
     CalcWithdraw { withdraw: Uint128 },
 }
 

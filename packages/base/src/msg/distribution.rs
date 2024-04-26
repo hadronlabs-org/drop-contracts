@@ -2,6 +2,12 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
 
 #[cw_serde]
+pub struct Delegations {
+    pub total: Uint128,
+    pub total_weight: u64,
+    pub delegations: Vec<Delegation>,
+}
+#[cw_serde]
 pub struct Delegation {
     pub valoper_address: String,
     pub stake: Uint128,
@@ -20,15 +26,15 @@ pub struct IdealDelegation {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(Vec<IdealDelegation>)]
+    #[returns(Vec<(String, Uint128)>)]
     CalcDeposit {
         deposit: Uint128,
-        delegations: Vec<Delegation>,
+        delegations: Delegations,
     },
-    #[returns(Vec<IdealDelegation>)]
+    #[returns(Vec<(String, Uint128)>)]
     CalcWithdraw {
         withdraw: Uint128,
-        delegations: Vec<Delegation>,
+        delegations: Delegations,
     },
 }
 

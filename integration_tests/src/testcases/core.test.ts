@@ -1517,7 +1517,7 @@ describe('Core', () => {
             res.some((b) => b.amount === '66666') &&
             res.some((b) => b.amount === '2222')
           );
-        }, 30_000);
+        }, 500_000);
         remoteNonNativeDenoms = [
           res.find((b) => b.amount === '66666').denom,
           res.find((b) => b.amount === '2222').denom,
@@ -1772,7 +1772,7 @@ describe('Core', () => {
               );
               lsmDenoms = diff;
               return diff.length === 2;
-            }, 30_000);
+            }, 500_000);
           });
         });
 

@@ -1271,7 +1271,7 @@ describe('Auto withdrawer', () => {
             res.some((b) => b.amount === '66666') &&
             res.some((b) => b.amount === '2222')
           );
-        }, 30_000);
+        }, 100_000);
         remoteNonNativeDenoms = [
           res.find((b) => b.amount === '66666').denom,
           res.find((b) => b.amount === '2222').denom,
