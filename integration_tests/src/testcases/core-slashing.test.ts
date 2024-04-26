@@ -243,7 +243,7 @@ describe('Core Slashing', () => {
         b.denom.startsWith('ibc/'),
       )?.denom;
       return balances.data.balances.length > 1;
-    });
+    }, 60_000);
     expect(context.neutronIBCDenom).toBeTruthy();
   });
   it('instantiate', async () => {

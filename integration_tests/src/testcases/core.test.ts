@@ -239,7 +239,7 @@ describe('Core', () => {
           }),
         },
       ],
-      1.5,
+      2,
     );
     expect(res.transactionHash).toHaveLength(64);
     await waitFor(async () => {
@@ -251,7 +251,7 @@ describe('Core', () => {
         b.denom.startsWith('ibc/'),
       )?.denom;
       return balances.data.balances.length > 1;
-    });
+    }, 60_000);
     expect(context.neutronIBCDenom).toBeTruthy();
   });
 
