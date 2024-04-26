@@ -235,17 +235,30 @@ fn execute_update_validators_info(
         if update.last_commission_in_range.is_some() {
             validator.last_commission_in_range = update.last_commission_in_range;
         }
-        if update.last_processed_local_height.is_some() {
-            validator.last_processed_local_height = update.last_processed_local_height;
+
+        if let Some(last_processed_local_height) = update.last_processed_local_height {
+            validator.last_processed_local_height = Some(
+                last_processed_local_height
+                    .max(validator.last_processed_local_height.unwrap_or_default()),
+            );
         }
-        if update.last_processed_remote_height.is_some() {
-            validator.last_processed_remote_height = update.last_processed_remote_height;
+
+        if let Some(last_processed_remote_height) = update.last_processed_remote_height {
+            validator.last_processed_remote_height = Some(
+                last_processed_remote_height
+                    .max(validator.last_processed_remote_height.unwrap_or_default()),
+            );
         }
-        if update.last_validated_height.is_some() {
-            validator.last_validated_height = update.last_validated_height;
+
+        if let Some(last_validated_height) = update.last_validated_height {
+            validator.last_validated_height = Some(
+                last_validated_height.max(validator.last_validated_height.unwrap_or_default()),
+            );
         }
-        if update.jailed_number.is_some() {
-            validator.jailed_number = update.jailed_number;
+
+        if let Some(jailed_number) = update.jailed_number {
+            validator.jailed_number =
+                Some(jailed_number.max(validator.jailed_number.unwrap_or_default()));
         }
 
         validator.uptime = update.uptime;
