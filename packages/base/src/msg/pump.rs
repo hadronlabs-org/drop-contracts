@@ -40,7 +40,7 @@ pub struct UpdateConfigMsg {
 pub enum ExecuteMsg {
     RegisterICA {},
     Push { coins: Vec<Coin> },
-    Refund {},
+    Refund { coins: Vec<Coin> },
     UpdateConfig { new_config: Box<UpdateConfigMsg> },
 }
 

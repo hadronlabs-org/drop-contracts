@@ -2,11 +2,20 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Timestamp};
 use cw_storage_plus::Item;
 use drop_puppeteer_base::state::BaseConfig;
-use optfield::optfield;
 
 use crate::msg::puppeteer::{BalancesAndDelegations, MultiBalances};
 
-#[optfield(pub ConfigOptional, attrs)]
+#[cw_serde]
+pub struct ConfigOptional {
+    pub connection_id: Option<String>,
+    pub port_id: Option<String>,
+    pub update_period: Option<u64>,
+    pub remote_denom: Option<String>,
+    pub allowed_senders: Option<Vec<String>>,
+    pub transfer_channel_id: Option<String>,
+    pub sdk_version: Option<String>,
+}
+
 #[cw_serde]
 pub struct Config {
     pub connection_id: String,
@@ -14,7 +23,6 @@ pub struct Config {
     pub update_period: u64,
     pub remote_denom: String,
     pub allowed_senders: Vec<Addr>,
-    pub proxy_address: Option<Addr>,
     pub transfer_channel_id: String,
     pub sdk_version: String,
 }

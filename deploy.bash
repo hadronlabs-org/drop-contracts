@@ -100,7 +100,6 @@ main() {
   pre_deploy_check_ibc_connection
   deploy_wasm_code
   deploy_factory
-  deploy_protocol
   setup_puppeteer_ica
   deploy_pump
   setup_pump_ica
@@ -157,7 +156,7 @@ pre_deploy_check_ibc_connection() {
 }
 
 deploy_wasm_code() {
-  for contract in factory core distribution puppeteer rewards_manager strategy token validators_set withdrawal_manager withdrawal_voucher pump; do
+  for contract in factory core distribution puppeteer rewards_manager strategy token staker validators_set withdrawal_manager withdrawal_voucher pump; do
       store_code "$contract"
       code_id="${contract}_code_id"
       printf '[OK] %-24s code ID: %s\n' "$contract" "${!code_id}"
@@ -167,6 +166,10 @@ deploy_wasm_code() {
 # code IDs are assigned using dynamic variable names, shellcheck's mind cannot comprehend that
 # shellcheck disable=SC2154
 deploy_factory() {
+  # TODO: calculate unbond batch switch time and unbonding period using params queried from the network
+  uatom_on_neutron_denom="ibc/$(printf 'transfer/%s/%s' "$NEUTRON_SIDE_TRANSFER_CHANNEL_ID" "$TARGET_BASE_DENOM" \
+    | sha256sum - | awk '{print $1}' | tr '[:lower:]' '[:upper:]')"
+  echo "[OK] IBC denom of $TARGET_BASE_DENOM on Neutron is $uatom_on_neutron_denom"
   msg='{
     "sdk_version":"'"$TARGET_SDK_VERSION"'",
     "code_ids": {
@@ -178,6 +181,7 @@ deploy_factory() {
       "distribution_code_id":'"$distribution_code_id"',
       "validators_set_code_id":'"$validators_set_code_id"',
       "puppeteer_code_id":'"$puppeteer_code_id"',
+      "staker_code_id":'"$staker_code_id"',
       "rewards_manager_code_id":'"$rewards_manager_code_id"'
     },
     "remote_opts":{
@@ -185,7 +189,13 @@ deploy_factory() {
       "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
       "port_id":"transfer",
       "denom":"'"$TARGET_BASE_DENOM"'",
-      "update_period":100
+      "update_period":100,
+      "ibc_fees":{
+        "timeout_fee":"'"$IBC_TIMEOUT_FEE"'",
+        "ack_fee":"'"$IBC_ACK_FEE"'",
+        "recv_fee":"0",
+        "register_fee":"'"$IBC_REGISTER_FEE"'"
+      }
     },
     "salt":"salt",
     "subdenom":"drop",
@@ -195,40 +205,31 @@ deploy_factory() {
       "exponent":6,
       "name":"Drop liquid staking token",
       "symbol":"DROP"
+    },
+    "base_denom":"'"$uatom_on_neutron_denom"'",
+    "core_params":{
+      "idle_min_interval":60,
+      "puppeteer_timeout":120,
+      "unbond_batch_switch_time":259200,
+      "unbonding_safe_period":3600,
+      "unbonding_period":1814400,
+      "lsm_redeem_threshold":2,
+      "lsm_min_bond_amount":"1",
+      "lsm_redeem_max_interval":60000,
+      "bond_limit":"0",
+      "min_stake_amount":"2"
+    },
+    "staker_params":{
+      "min_stake_amount":"10000",
+      "min_ibc_transfer":"10000"
     }
   }'
   factory_address="$(neutrond tx wasm instantiate "$factory_code_id" "$msg" \
     --label "drop-staking-factory"                                          \
     --admin "$deploy_wallet"                                                \
     --from "$DEPLOY_WALLET" "${ntx[@]}"                                     \
-      | wait_ntx | jq -r "$(select_attr "instantiate" "_contract_address")")"
+      | wait_ntx | jq -r "$(select_attr "wasm-crates.io:drop-staking__drop-factory-instantiate" "_contract_address")")"
   echo "[OK] Factory address: $factory_address"
-}
-
-deploy_protocol() {
-  # TODO: calculate unbond batch switch time and unbonding period using params queried from the network
-  uatom_on_neutron_denom="ibc/$(printf 'transfer/%s/%s' "$NEUTRON_SIDE_TRANSFER_CHANNEL_ID" "$TARGET_BASE_DENOM" \
-    | sha256sum - | awk '{print $1}' | tr '[:lower:]' '[:upper:]')"
-  echo "[OK] IBC denom of $TARGET_BASE_DENOM on Neutron is $uatom_on_neutron_denom"
-  msg='{
-    "init":{
-      "base_denom":"'"$uatom_on_neutron_denom"'",
-      "core_params":{
-        "idle_min_interval":60,
-        "puppeteer_timeout":120,
-        "unbond_batch_switch_time":259200,
-        "unbonding_safe_period":3600,
-        "unbonding_period":1814400,
-        "channel":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
-        "lsm_redeem_threshold":2,
-        "lsm_min_bond_amount":"1",
-        "lsm_redeem_max_interval":60000,
-        "bond_limit":"0",
-        "min_stake_amount":"2"
-      }
-    }
-  }'
-  neutrond tx wasm execute "$factory_address" "$msg" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx | assert_success
   puppeteer_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.puppeteer_contract')"
   withdrawal_manager_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
@@ -351,7 +352,7 @@ setup_pump_ica() {
   msg='{
     "update_config":{
       "core":{
-        "pump_address":"'"$pump_ica_address"'"
+        "pump_ica_address":"'"$pump_ica_address"'"
       }
     }
   }'

@@ -60,11 +60,10 @@ fn test_update_config() {
         new_config: ConfigOptional {
             update_period: Some(121u64),
             remote_denom: Some("new_remote_denom".to_string()),
-            allowed_senders: Some(vec![Addr::unchecked("new_allowed_sender")]),
+            allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
             transfer_channel_id: Some("new_transfer_channel_id".to_string()),
             connection_id: Some("new_connection_id".to_string()),
             port_id: Some("new_port_id".to_string()),
-            proxy_address: Some(Addr::unchecked("new_proxy_address")),
             sdk_version: Some("0.47.0".to_string()),
         },
     };
@@ -78,7 +77,6 @@ fn test_update_config() {
         Response::new().add_event(
             Event::new("crates.io:drop-neutron-contracts__drop-puppeteer-config_update")
                 .add_attributes(vec![
-                    ("proxy_address", "new_proxy_address"),
                     ("remote_denom", "new_remote_denom"),
                     ("connection_id", "new_connection_id"),
                     ("port_id", "new_port_id"),
@@ -100,7 +98,6 @@ fn test_update_config() {
             allowed_senders: vec![Addr::unchecked("new_allowed_sender")],
             transfer_channel_id: "new_transfer_channel_id".to_string(),
             sdk_version: "0.47.0".to_string(),
-            proxy_address: Some(Addr::unchecked("new_proxy_address")),
         }
     );
 }
@@ -124,9 +121,9 @@ fn test_execute_delegate() {
     );
     assert_eq!(
         res.unwrap_err(),
-        drop_puppeteer_base::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-            msg: "Sender is not allowed".to_string()
-        })
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Sender is not allowed"
+        ))
     );
     let res = crate::contract::execute(
         deps.as_mut(),
@@ -279,9 +276,9 @@ fn test_execute_undelegate() {
     );
     assert_eq!(
         res.unwrap_err(),
-        drop_puppeteer_base::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-            msg: "Sender is not allowed".to_string()
-        })
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Sender is not allowed"
+        ))
     );
     let res = crate::contract::execute(
         deps.as_mut(),
@@ -357,9 +354,9 @@ fn test_execute_redeem_share() {
     );
     assert_eq!(
         res.unwrap_err(),
-        drop_puppeteer_base::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-            msg: "Sender is not allowed".to_string()
-        })
+        drop_puppeteer_base::error::ContractError::Std(cosmwasm_std::StdError::generic_err(
+            "Sender is not allowed"
+        ))
     );
     let res = crate::contract::execute(
         deps.as_mut(),
@@ -759,7 +756,6 @@ fn get_base_config() -> Config {
         allowed_senders: vec![Addr::unchecked("allowed_sender")],
         transfer_channel_id: "transfer_channel_id".to_string(),
         sdk_version: "0.45.0".to_string(),
-        proxy_address: None,
     }
 }
 

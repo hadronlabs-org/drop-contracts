@@ -14,11 +14,9 @@ pub struct InstantiateMsg {
     pub subdenom: String,
     pub token_metadata: DenomMetadata,
     pub sdk_version: String,
-}
-
-#[cw_serde]
-pub enum CallbackMsg {
-    PostInit {},
+    pub base_denom: String,
+    pub core_params: CoreParams,
+    pub staker_params: StakerParams,
 }
 
 #[cw_serde]
@@ -31,7 +29,6 @@ pub struct CoreParams {
     pub lsm_min_bond_amount: Uint128,
     pub lsm_redeem_threshold: u64,
     pub lsm_redeem_max_interval: u64, //seconds
-    pub channel: String,
     pub bond_limit: Option<Uint128>,
     pub min_stake_amount: Uint128,
 }
@@ -86,17 +83,9 @@ pub enum ValidatorSetMsg {
 #[pausable]
 #[cw_serde]
 pub enum ExecuteMsg {
-    Init {
-        base_denom: String,
-        core_params: CoreParams,
-        staker_params: StakerParams,
-    },
-    Callback(CallbackMsg),
     UpdateConfig(Box<UpdateConfigMsg>),
     Proxy(ProxyMsg),
-    AdminExecute {
-        msgs: Vec<CosmosMsg<NeutronMsg>>,
-    },
+    AdminExecute { msgs: Vec<CosmosMsg<NeutronMsg>> },
 }
 #[cw_serde]
 pub enum MigrateMsg {}

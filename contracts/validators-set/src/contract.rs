@@ -16,7 +16,6 @@ use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
-
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -27,24 +26,19 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-
-    let owner = deps.api.addr_validate(&msg.owner)?;
-    let stats_contract = deps.api.addr_validate(&msg.stats_contract)?;
-
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(msg.owner.as_ref()))?;
 
+    let stats_contract = deps.api.addr_validate(&msg.stats_contract)?;
     let config = &Config {
-        owner: owner.clone(),
         stats_contract: stats_contract.clone(),
         provider_proposals_contract: None,
     };
-
     CONFIG.save(deps.storage, config)?;
 
     Ok(response(
         "instantiate",
         CONTRACT_NAME,
-        [attr("owner", owner), attr("stats_contract", stats_contract)],
+        [attr("stats_contract", stats_contract)],
     ))
 }
 
@@ -114,28 +108,20 @@ fn execute_update_config(
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     let mut state = CONFIG.load(deps.storage)?;
-
     let mut attrs: Vec<Attribute> = Vec::new();
 
-    if let Some(owner) = new_config.owner {
-        if owner != state.owner {
-            state.owner = owner.clone();
-            cw_ownable::initialize_owner(deps.storage, deps.api, Some(state.owner.as_ref()))?;
-        }
-        attrs.push(attr("owner", owner.to_string()))
-    }
-
     if let Some(stats_contract) = new_config.stats_contract {
-        state.stats_contract = stats_contract.clone();
+        state.stats_contract = deps.api.addr_validate(&stats_contract)?;
         attrs.push(attr("stats_contract", stats_contract))
     }
 
-    if new_config.provider_proposals_contract.is_some() {
-        state.provider_proposals_contract = new_config.provider_proposals_contract.clone();
+    if let Some(provider_proposals_contract) = new_config.provider_proposals_contract {
+        state.provider_proposals_contract =
+            Some(deps.api.addr_validate(&provider_proposals_contract)?);
         attrs.push(attr(
             "provider_proposals_contract",
-            new_config.provider_proposals_contract.unwrap().to_string(),
-        ))
+            provider_proposals_contract,
+        ));
     }
 
     CONFIG.save(deps.storage, &state)?;
@@ -249,17 +235,30 @@ fn execute_update_validators_info(
         if update.last_commission_in_range.is_some() {
             validator.last_commission_in_range = update.last_commission_in_range;
         }
-        if update.last_processed_local_height.is_some() {
-            validator.last_processed_local_height = update.last_processed_local_height;
+
+        if let Some(last_processed_local_height) = update.last_processed_local_height {
+            validator.last_processed_local_height = Some(
+                last_processed_local_height
+                    .max(validator.last_processed_local_height.unwrap_or_default()),
+            );
         }
-        if update.last_processed_remote_height.is_some() {
-            validator.last_processed_remote_height = update.last_processed_remote_height;
+
+        if let Some(last_processed_remote_height) = update.last_processed_remote_height {
+            validator.last_processed_remote_height = Some(
+                last_processed_remote_height
+                    .max(validator.last_processed_remote_height.unwrap_or_default()),
+            );
         }
-        if update.last_validated_height.is_some() {
-            validator.last_validated_height = update.last_validated_height;
+
+        if let Some(last_validated_height) = update.last_validated_height {
+            validator.last_validated_height = Some(
+                last_validated_height.max(validator.last_validated_height.unwrap_or_default()),
+            );
         }
-        if update.jailed_number.is_some() {
-            validator.jailed_number = update.jailed_number;
+
+        if let Some(jailed_number) = update.jailed_number {
+            validator.jailed_number =
+                Some(jailed_number.max(validator.jailed_number.unwrap_or_default()));
         }
 
         validator.uptime = update.uptime;

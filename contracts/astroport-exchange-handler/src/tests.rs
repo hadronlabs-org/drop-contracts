@@ -11,9 +11,8 @@ use cosmwasm_std::{
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
 use drop_helpers::answer::response;
 use drop_staking_base::msg::astroport_exchange_handler::{
-    ConfigResponse, ExecuteMsg, InstantiateMsg,
+    ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
-use drop_staking_base::msg::rewards_manager::QueryMsg;
 
 const CORE_CONTRACT_ADDR: &str = "core_contract";
 const OWNER_CONTRACT_ADDR: &str = "owner_contract";
@@ -230,7 +229,6 @@ fn test_initialization() {
             "crates.io:drop-staking__drop-astroport-exchange-handler-instantiate".to_string()
         )
         .add_attributes(vec![
-            Attribute::new("owner".to_string(), OWNER_CONTRACT_ADDR.to_string()),
             Attribute::new("core_contract".to_string(), CORE_CONTRACT_ADDR.to_string()),
             Attribute::new("cron_address".to_string(), CRON_ADDR.to_string()),
             Attribute::new("pair_contract".to_string(), "pair_contract".to_string()),
@@ -269,7 +267,6 @@ fn test_config_query() {
     assert_eq!(
         config,
         ConfigResponse {
-            owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
@@ -540,7 +537,6 @@ fn test_unauthorized_config_update() {
         sender_address,
         astroport_handler_contract.clone(),
         &ExecuteMsg::UpdateConfig {
-            owner: Some(OWNER_CONTRACT_ADDR.to_string()),
             core_contract: Some(CORE_CONTRACT_ADDR.to_string()),
             cron_address: Some(CRON_ADDR.to_string()),
             pair_contract: Some("pair_contract".to_string()),
@@ -586,7 +582,6 @@ fn test_config_update() {
             Addr::unchecked(OWNER_CONTRACT_ADDR),
             astroport_handler_contract.clone(),
             &ExecuteMsg::UpdateConfig {
-                owner: Some("owner1".to_string()),
                 core_contract: Some("core1".to_string()),
                 cron_address: Some("cron1".to_string()),
                 pair_contract: Some("pair_contract_1".to_string()),
@@ -610,7 +605,6 @@ fn test_config_update() {
     assert_eq!(
         attrs,
         vec![
-            Attribute::new("owner".to_string(), "owner1".to_string()),
             Attribute::new("core_contract".to_string(), "core1".to_string()),
             Attribute::new("cron_address".to_string(), "cron1".to_string()),
             Attribute::new(
@@ -631,7 +625,6 @@ fn test_config_update() {
     assert_eq!(
         config,
         ConfigResponse {
-            owner: "owner1".to_string(),
             core_contract: "core1".to_string(),
             cron_address: "cron1".to_string(),
             pair_contract: "pair_contract_1".to_string(),
@@ -699,7 +692,6 @@ fn test_swap_operations_update() {
     assert_eq!(
         config,
         ConfigResponse {
-            owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
@@ -727,7 +719,6 @@ fn test_swap_operations_update() {
     assert_eq!(
         config,
         ConfigResponse {
-            owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
