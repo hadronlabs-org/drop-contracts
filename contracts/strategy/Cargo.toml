@@ -27,11 +27,11 @@ cosmwasm-schema     = { workspace = true }
 cosmwasm-std        = { workspace = true }
 cw-ownable          = { workspace = true }
 cw2                 = { workspace = true }
+thiserror           = { workspace = true }
 neutron-sdk         = { workspace = true }
 drop-staking-base   = { workspace = true }
 drop-helpers        = { workspace = true }
 drop-puppeteer-base = { workspace = true }
-thiserror           = { workspace = true }
 
 [dev-dependencies]
 cw-multi-test     = { workspace = true }

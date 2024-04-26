@@ -4,6 +4,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw721::NftInfoResponse;
+use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::{
     answer::response,
     pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse},
@@ -32,12 +33,10 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(msg.owner.as_ref()))?;
 
     let attrs: Vec<Attribute> = vec![
         attr("action", "instantiate"),
-        attr("owner", &msg.owner),
         attr("core_contract", &msg.core_contract),
         attr("voucher_contract", &msg.voucher_contract),
         attr("base_denom", &msg.base_denom),
@@ -45,10 +44,9 @@ pub fn instantiate(
     CONFIG.save(
         deps.storage,
         &Config {
-            core_contract: msg.core_contract,
-            withdrawal_voucher_contract: msg.voucher_contract,
+            core_contract: deps.api.addr_validate(&msg.core_contract)?,
+            withdrawal_voucher_contract: deps.api.addr_validate(&msg.voucher_contract)?,
             base_denom: msg.base_denom,
-            owner: msg.owner,
         },
     )?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
@@ -57,6 +55,7 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
+        QueryMsg::Ownership {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::PauseInfo {} => query_pause_info(deps),
     }
@@ -73,16 +72,20 @@ fn query_pause_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
+        ExecuteMsg::UpdateOwnership(action) => {
+            update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
+            Ok(Response::new())
+        }
         ExecuteMsg::UpdateConfig {
-            owner,
             core_contract,
             voucher_contract,
-        } => execute_update_config(deps, info, owner, core_contract, voucher_contract),
+            base_denom,
+        } => execute_update_config(deps, info, core_contract, voucher_contract, base_denom),
         ExecuteMsg::ReceiveNft(Cw721ReceiveMsg {
             sender,
             token_id,
@@ -133,27 +136,26 @@ fn exec_unpause(
 fn execute_update_config(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
-    owner: Option<String>,
     core_contract: Option<String>,
     voucher_contract: Option<String>,
+    base_denom: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     let mut config = CONFIG.load(deps.storage)?;
     let mut attrs: Vec<Attribute> = vec![attr("action", "update_config")];
-    if let Some(owner) = owner {
-        cw_ownable::initialize_owner(deps.storage, deps.api, Some(owner.as_ref()))?;
 
-        attrs.push(attr("owner", &owner));
-        config.owner = owner;
-    }
     if let Some(core_contract) = core_contract {
-        attrs.push(attr("core_contract", &core_contract));
-        config.core_contract = core_contract;
+        config.core_contract = deps.api.addr_validate(&core_contract)?;
+        attrs.push(attr("core_contract", core_contract));
     }
     if let Some(voucher_contract) = voucher_contract {
-        attrs.push(attr("voucher_contract", &voucher_contract));
-        config.withdrawal_voucher_contract = voucher_contract;
+        config.withdrawal_voucher_contract = deps.api.addr_validate(&voucher_contract)?;
+        attrs.push(attr("voucher_contract", voucher_contract));
+    }
+    if let Some(base_denom) = base_denom {
+        attrs.push(attr("base_denom", &base_denom));
+        config.base_denom = base_denom;
     }
     CONFIG.save(deps.storage, &config)?;
     Ok(response("update_config", CONTRACT_NAME, attrs))

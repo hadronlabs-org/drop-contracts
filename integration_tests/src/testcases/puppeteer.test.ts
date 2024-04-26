@@ -186,7 +186,6 @@ describe('Interchain puppeteer', () => {
         context.hookContractClient.contractAddress,
         context.account.address,
       ],
-      proxy_address: null,
       transfer_channel_id: 'channel-0',
     });
   });
@@ -217,7 +216,6 @@ describe('Interchain puppeteer', () => {
         context.hookContractClient.contractAddress,
         account.address,
       ],
-      proxy_address: null,
       transfer_channel_id: 'channel-0',
     });
   });

@@ -179,16 +179,11 @@ export interface UpdateConfigArgs {
 }
 export interface ConfigOptional {
   allowed_senders?: string[] | null;
-  base_denom?: string | null;
-  connection_id?: string | null;
   ibc_fees?: IBCFees | null;
   min_ibc_transfer?: Uint1281 | null;
   min_staking_amount?: Uint1281 | null;
-  port_id?: string | null;
   puppeteer_ica?: string | null;
-  remote_denom?: string | null;
   timeout?: number | null;
-  transfer_channel_id?: string | null;
 }
 export interface InstantiateMsg {
   allowed_senders: string[];

@@ -92,7 +92,6 @@ pub fn instantiate(
         update_period: msg.update_period,
         remote_denom: msg.remote_denom,
         allowed_senders,
-        proxy_address: None,
         transfer_channel_id: msg.transfer_channel_id,
         sdk_version: msg.sdk_version,
     };
@@ -290,11 +289,6 @@ fn execute_update_config(
 
     let mut attrs: Vec<Attribute> = Vec::new();
 
-    if let Some(proxy_address) = new_config.proxy_address {
-        config.proxy_address = Some(proxy_address.clone());
-        attrs.push(attr("proxy_address", proxy_address))
-    }
-
     if let Some(remote_denom) = new_config.remote_denom {
         config.remote_denom = remote_denom.clone();
         attrs.push(attr("remote_denom", remote_denom))
@@ -316,18 +310,22 @@ fn execute_update_config(
     }
 
     if let Some(allowed_senders) = new_config.allowed_senders {
-        config.allowed_senders = allowed_senders.clone();
-        attrs.push(attr("allowed_senders", allowed_senders.len().to_string()))
+        let allowed_senders = allowed_senders
+            .iter()
+            .map(|addr| deps.api.addr_validate(addr))
+            .collect::<StdResult<Vec<_>>>()?;
+        attrs.push(attr("allowed_senders", allowed_senders.len().to_string()));
+        config.allowed_senders = allowed_senders
     }
 
     if let Some(transfer_channel_id) = new_config.transfer_channel_id {
         config.transfer_channel_id = transfer_channel_id.clone();
-        attrs.push(attr("transfer_channel_id", transfer_channel_id.to_string()))
+        attrs.push(attr("transfer_channel_id", transfer_channel_id))
     }
 
     if let Some(sdk_version) = new_config.sdk_version {
         config.sdk_version = sdk_version.clone();
-        attrs.push(attr("sdk_version", sdk_version.to_string()))
+        attrs.push(attr("sdk_version", sdk_version))
     }
 
     puppeteer_base.update_config(deps.into_empty(), &config)?;

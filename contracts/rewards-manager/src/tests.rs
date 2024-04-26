@@ -133,33 +133,6 @@ fn test_initialization() {
 }
 
 #[test]
-fn test_config_query() {
-    let mut app = mock_app();
-
-    let rewards_manager_code_id = app.store_code(rewards_manager_contract());
-
-    let rewards_manager_contract = instantiate_rewards_manager_contract(
-        &mut app,
-        rewards_manager_code_id,
-        InstantiateMsg {
-            owner: OWNER_ADDR.to_string(),
-        },
-    );
-
-    let config: drop_staking_base::msg::rewards_manager::ConfigResponse = app
-        .wrap()
-        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::Config {})
-        .unwrap();
-
-    assert_eq!(
-        config,
-        drop_staking_base::msg::rewards_manager::ConfigResponse {
-            owner: OWNER_ADDR.to_string(),
-        }
-    );
-}
-
-#[test]
 fn test_handlers_query() {
     let mut app = mock_app();
 

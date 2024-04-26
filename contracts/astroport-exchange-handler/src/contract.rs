@@ -7,6 +7,7 @@ use cosmwasm_std::{
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
+use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::{attr_coin, response};
 use drop_staking_base::error::astroport_exchange_handler::{ContractError, ContractResult};
 use drop_staking_base::msg::astroport_exchange_handler::{
@@ -25,8 +26,7 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let owner = deps.api.addr_validate(&msg.owner)?;
-    cw_ownable::initialize_owner(deps.storage, deps.api, Some(owner.as_ref()))?;
+    cw_ownable::initialize_owner(deps.storage, deps.api, Some(msg.owner.as_ref()))?;
 
     let cron = deps.api.addr_validate(&msg.cron_address)?;
     let core_contract = deps.api.addr_validate(&msg.core_contract)?;
@@ -34,7 +34,6 @@ pub fn instantiate(
     let router_contract = deps.api.addr_validate(&msg.router_contract)?;
 
     let config = Config {
-        owner: msg.owner.clone(),
         cron_address: cron.to_string(),
         core_contract: core_contract.to_string(),
         pair_contract: pair_contract.to_string(),
@@ -49,7 +48,6 @@ pub fn instantiate(
         "instantiate",
         CONTRACT_NAME,
         [
-            attr("owner", msg.owner),
             attr("core_contract", msg.core_contract),
             attr("cron_address", msg.cron_address),
             attr("pair_contract", msg.pair_contract),
@@ -63,17 +61,16 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
+        QueryMsg::Ownership {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
         QueryMsg::Config {} => query_config(deps, env),
     }
 }
 
 fn query_config(deps: Deps, _env: Env) -> StdResult<Binary> {
     let config = CONFIG.load(deps.storage)?;
-
     let swap_operations = SWAP_OPERATIONS.may_load(deps.storage)?;
 
     to_json_binary(&ConfigResponse {
-        owner: config.owner,
         core_contract: config.core_contract,
         cron_address: config.cron_address,
         pair_contract: config.pair_contract,
@@ -92,8 +89,11 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response> {
     match msg {
+        ExecuteMsg::UpdateOwnership(action) => {
+            update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
+            Ok(Response::new())
+        }
         ExecuteMsg::UpdateConfig {
-            owner,
             core_contract,
             cron_address,
             router_contract,
@@ -103,7 +103,6 @@ pub fn execute(
         } => exec_update_config(
             deps,
             info,
-            owner,
             core_contract,
             cron_address,
             router_contract,
@@ -122,7 +121,6 @@ pub fn execute(
 fn exec_update_config(
     deps: DepsMut,
     info: MessageInfo,
-    owner: Option<String>,
     core_contract: Option<String>,
     cron_address: Option<String>,
     router_contract: Option<String>,
@@ -133,14 +131,7 @@ fn exec_update_config(
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     let mut config = CONFIG.load(deps.storage)?;
-
     let mut attrs: Vec<Attribute> = Vec::new();
-    if let Some(owner) = owner {
-        let owner = deps.api.addr_validate(&owner)?;
-        config.owner = owner.to_string();
-        cw_ownable::initialize_owner(deps.storage, deps.api, Some(owner.as_ref()))?;
-        attrs.push(attr("owner", owner))
-    }
 
     if let Some(core_contract) = core_contract {
         let core_contract = deps.api.addr_validate(&core_contract)?;

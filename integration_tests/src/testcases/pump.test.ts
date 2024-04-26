@@ -322,7 +322,13 @@ describe('Pump', () => {
         denom: 'untrn',
       },
     );
-    const res = await contractClient.refund(neutronUserAddress, 1.5);
+    const res = await contractClient.refund(
+      neutronUserAddress,
+      {
+        coins: [{ amount: '10000', denom: 'untrn' }],
+      },
+      1.5,
+    );
     expect(res).toBeTruthy();
     expect(res.transactionHash).toHaveLength(64);
     const {

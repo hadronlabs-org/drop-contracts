@@ -26,7 +26,6 @@ fn instantiate() {
     assert_eq!(
         config,
         drop_staking_base::state::validatorset::Config {
-            owner: Addr::unchecked("owner"),
             stats_contract: Addr::unchecked("stats_contract"),
             provider_proposals_contract: None,
         }
@@ -36,10 +35,8 @@ fn instantiate() {
     assert_eq!(
         response.events,
         vec![
-            Event::new("crates.io:drop-staking__drop-validators-set-instantiate").add_attributes([
-                attr("owner", "owner"),
-                attr("stats_contract", "stats_contract")
-            ])
+            Event::new("crates.io:drop-staking__drop-validators-set-instantiate")
+                .add_attributes([attr("stats_contract", "stats_contract")])
         ]
     );
     assert!(response.attributes.is_empty());
@@ -52,7 +49,6 @@ fn query_config() {
         .save(
             deps.as_mut().storage,
             &drop_staking_base::state::validatorset::Config {
-                owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
                 provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
             },
@@ -68,7 +64,6 @@ fn query_config() {
     assert_eq!(
         response,
         to_json_binary(&drop_staking_base::state::validatorset::Config {
-            owner: Addr::unchecked("core"),
             stats_contract: Addr::unchecked("stats_contract"),
             provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract"))
         })
@@ -84,7 +79,6 @@ fn update_config_wrong_owner() {
         .save(
             deps.as_mut().storage,
             &drop_staking_base::state::validatorset::Config {
-                owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
                 provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
             },
@@ -97,9 +91,8 @@ fn update_config_wrong_owner() {
         mock_info("core1", &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
-                owner: Some(Addr::unchecked("owner1")),
-                stats_contract: Some(Addr::unchecked("stats_contract1")),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract1")),
+                stats_contract: Some("stats_contract1".to_string()),
+                provider_proposals_contract: Some("provider_proposals_contract1".to_string()),
             },
         },
     )
@@ -128,7 +121,6 @@ fn update_config_ok() {
         .save(
             deps.as_mut().storage,
             &drop_staking_base::state::validatorset::Config {
-                owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
                 provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
             },
@@ -141,9 +133,8 @@ fn update_config_ok() {
         mock_info("core", &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
-                owner: Some(Addr::unchecked("owner1")),
-                stats_contract: Some(Addr::unchecked("stats_contract1")),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract1")),
+                stats_contract: Some("stats_contract1".to_string()),
+                provider_proposals_contract: Some("provider_proposals_contract1".to_string()),
             },
         },
     )
@@ -159,7 +150,6 @@ fn update_config_ok() {
     assert_eq!(
         config,
         to_json_binary(&drop_staking_base::state::validatorset::Config {
-            owner: Addr::unchecked("owner1"),
             stats_contract: Addr::unchecked("stats_contract1"),
             provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract1"))
         })
@@ -361,7 +351,6 @@ fn update_validator_info_wrong_sender() {
         .save(
             deps_mut.storage,
             &drop_staking_base::state::validatorset::Config {
-                owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
                 provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
             },
@@ -421,7 +410,6 @@ fn update_validator_info_ok() {
         .save(
             deps_mut.storage,
             &drop_staking_base::state::validatorset::Config {
-                owner: Addr::unchecked("core"),
                 stats_contract: Addr::unchecked("stats_contract"),
                 provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
             },

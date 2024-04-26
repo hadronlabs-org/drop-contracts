@@ -95,7 +95,6 @@ export interface DropValidatorsSetSchema {
   [k: string]: unknown;
 }
 export interface Config {
-  owner: Addr;
   provider_proposals_contract?: Addr | null;
   stats_contract: Addr;
 }
@@ -140,9 +139,8 @@ export interface UpdateConfigArgs {
   new_config: ConfigOptional;
 }
 export interface ConfigOptional {
-  owner?: Addr | null;
-  provider_proposals_contract?: Addr | null;
-  stats_contract?: Addr | null;
+  provider_proposals_contract?: string | null;
+  stats_contract?: string | null;
 }
 export interface UpdateValidatorsArgs {
   validators: ValidatorData[];

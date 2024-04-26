@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use cosmwasm_std::{attr, entry_point, to_json_binary, Attribute, Deps, Uint128};
+use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Attribute, Deps, Uint128};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
@@ -12,7 +12,7 @@ use drop_staking_base::state::strategy::{
 };
 use neutron_sdk::NeutronResult;
 
-use crate::error::ContractResult;
+use crate::error::{ContractError, ContractResult};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -52,7 +52,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> NeutronResult<Binary> {
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     match msg {
         QueryMsg::Config {} => query_config(deps, env),
         QueryMsg::CalcDeposit { deposit } => query_calc_deposit(deps, deposit),
@@ -61,7 +61,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> NeutronResult<Binary> {
     }
 }
 
-fn query_config(deps: Deps, _env: Env) -> NeutronResult<Binary> {
+fn query_config(deps: Deps, _env: Env) -> ContractResult<Binary> {
     let puppeteer_address = PUPPETEER_ADDRESS.load(deps.storage)?.into_string();
     let validator_set_address = VALIDATOR_SET_ADDRESS.load(deps.storage)?.into_string();
     let distribution_address = DISTRIBUTION_ADDRESS.load(deps.storage)?.into_string();
@@ -75,45 +75,55 @@ fn query_config(deps: Deps, _env: Env) -> NeutronResult<Binary> {
     })?)
 }
 
-pub fn query_calc_deposit(deps: Deps, deposit: Uint128) -> NeutronResult<Binary> {
+pub fn query_calc_deposit(deps: Deps, deposit: Uint128) -> ContractResult<Binary> {
     let distribution_address = DISTRIBUTION_ADDRESS.load(deps.storage)?.into_string();
 
-    let delegations: Vec<drop_staking_base::msg::distribution::Delegation> =
-        prepare_delegation_data(deps)?;
+    let delegations = prepare_delegation_data(deps)?;
 
-    let ideal_deposit: Vec<drop_staking_base::msg::distribution::IdealDelegation> =
-        deps.querier.query_wasm_smart(
-            distribution_address,
-            &drop_staking_base::msg::distribution::QueryMsg::CalcDeposit {
-                deposit,
-                delegations,
-            },
-        )?;
+    let deposit_changes: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
+        distribution_address,
+        &drop_staking_base::msg::distribution::QueryMsg::CalcDeposit {
+            deposit,
+            delegations,
+        },
+    )?;
 
-    Ok(to_json_binary(&ideal_deposit)?)
+    let total_deposit_changes: Uint128 = deposit_changes.iter().map(|(_, amount)| amount).sum();
+    ensure_eq!(
+        total_deposit_changes,
+        deposit,
+        ContractError::WrongDepositAndCalculation {}
+    );
+
+    Ok(to_json_binary(&deposit_changes)?)
 }
 
-pub fn query_calc_withdraw(deps: Deps, withdraw: Uint128) -> NeutronResult<Binary> {
+pub fn query_calc_withdraw(deps: Deps, withdraw: Uint128) -> ContractResult<Binary> {
     let distribution_address = DISTRIBUTION_ADDRESS.load(deps.storage)?.into_string();
 
-    let delegations: Vec<drop_staking_base::msg::distribution::Delegation> =
-        prepare_delegation_data(deps)?;
+    let delegations = prepare_delegation_data(deps)?;
 
-    let ideal_deposit: Vec<drop_staking_base::msg::distribution::IdealDelegation> =
-        deps.querier.query_wasm_smart(
-            distribution_address,
-            &drop_staking_base::msg::distribution::QueryMsg::CalcWithdraw {
-                withdraw,
-                delegations,
-            },
-        )?;
+    let deposit_changes: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
+        distribution_address,
+        &drop_staking_base::msg::distribution::QueryMsg::CalcWithdraw {
+            withdraw,
+            delegations,
+        },
+    )?;
 
-    Ok(to_json_binary(&ideal_deposit)?)
+    let total_deposit_changes: Uint128 = deposit_changes.iter().map(|(_, amount)| amount).sum();
+    ensure_eq!(
+        total_deposit_changes,
+        withdraw,
+        ContractError::WrongWithdrawAndCalculation {}
+    );
+
+    Ok(to_json_binary(&deposit_changes)?)
 }
 
 fn prepare_delegation_data(
     deps: Deps,
-) -> NeutronResult<Vec<drop_staking_base::msg::distribution::Delegation>> {
+) -> NeutronResult<drop_staking_base::msg::distribution::Delegations> {
     let puppeteer_address = PUPPETEER_ADDRESS.load(deps.storage)?.into_string();
     let validator_set_address = VALIDATOR_SET_ADDRESS.load(deps.storage)?.into_string();
     let denom = DENOM.load(deps.storage)?;
@@ -132,6 +142,8 @@ fn prepare_delegation_data(
         )?;
 
     let mut delegations: Vec<drop_staking_base::msg::distribution::Delegation> = Vec::new();
+    let mut total_delegations: Uint128 = Uint128::zero();
+    let mut total_weight: u64 = 0;
     let delegation_validator_map: HashMap<_, _> = account_delegations
         .0
         .delegations
@@ -152,10 +164,16 @@ fn prepare_delegation_data(
             weight: validator.weight,
         };
 
+        total_delegations += validator_denom_delegation;
+        total_weight += validator.weight;
         delegations.push(delegation);
     }
 
-    Ok(delegations)
+    Ok(drop_staking_base::msg::distribution::Delegations {
+        total: total_delegations,
+        total_weight,
+        delegations,
+    })
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
