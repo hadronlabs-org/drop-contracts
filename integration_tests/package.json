@@ -37,7 +37,7 @@
     "@cosmjs/tendermint-rpc": "^0.32.1",
     "@neutron-org/client-ts": "^1.4.0",
     "@neutron-org/contracts2ts": "^1.4.4",
-    "@neutron-org/cosmopark": "^1.6.1",
+    "@neutron-org/cosmopark": "^1.6.3",
     "bech32": "^1.1.4",
     "yaml": "^2.4.1"
   },

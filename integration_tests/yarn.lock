@@ -739,10 +739,10 @@
     lodash "^4.17.21"
     node-recursive-directory "^1.2.0"
 
-"@neutron-org/cosmopark@^1.6.1":
-  version "1.6.1"
-  resolved "https://registry.yarnpkg.com/@neutron-org/cosmopark/-/cosmopark-1.6.1.tgz#05c0a665d4861030a21a35e4de6eb0b240b72b85"
-  integrity sha512-z6sBXDavrrus0h3+G43Op57suRy+8W2qqsuS8XvDZJewtkDo83pNZ5VhN4CJAuQciOWU1RTcquAR8M3lAMuF+g==
+"@neutron-org/cosmopark@^1.6.3":
+  version "1.6.3"
+  resolved "https://registry.yarnpkg.com/@neutron-org/cosmopark/-/cosmopark-1.6.3.tgz#55b378bcdd2e6b94aad1dca7f375fe3925f3dea2"
+  integrity sha512-jVeC6OhvnsFI0G3f3SAAgc313uc8nr9cifZQgBRcN+tce+DWUapiAtWhvnY5l+F243W0q4iv5qHf9WXlG1VPOQ==
   dependencies:
     "@iarna/toml" "^2.2.5"
     commander "^11.0.0"
