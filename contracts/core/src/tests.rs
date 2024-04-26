@@ -1,6 +1,6 @@
-use crate::{
-    contract::{check_denom, execute, get_non_native_rewards_and_fee_transfer_msg},
-    error::{ContractError, ContractResult},
+use crate::contract::{
+    check_denom::{DenomTrace, QueryDenomTraceResponse},
+    execute, get_non_native_rewards_and_fee_transfer_msg, get_stake_rewards_msg,
 };
 use cosmwasm_std::{
     from_json,
@@ -11,7 +11,7 @@ use cosmwasm_std::{
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
 use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::{
-    error::core::ContractError,
+    error::core::{ContractError, ContractResult},
     msg::{
         core::{ExecuteMsg, InstantiateMsg},
         puppeteer::MultiBalances,
@@ -19,8 +19,8 @@ use drop_staking_base::{
     },
     state::core::{
         unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem,
-        UnbondBatch, UnbondBatchStatus, UnbondItem, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FSM,
-        LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE,
+        UnbondBatch, UnbondBatchStatus, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FSM,
+        LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LD_DENOM,
         LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, TOTAL_LSM_SHARES,
         UNBOND_BATCH_ID,
     },
@@ -252,7 +252,20 @@ fn get_non_native_rewards_balance_outdated_error() {
             ))
             .unwrap()
         });
-    setup_config(&mut deps);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(
+                Decimal::from_atomics(1u32, 1).ok(),
+                1,
+                10,
+                10_000_000_000,
+                10,
+                6000,
+                Uint128::one(),
+            ),
+        )
+        .unwrap();
 
     NON_NATIVE_REWARDS_CONFIG
         .save(
@@ -279,7 +292,7 @@ fn get_non_native_rewards_balance_outdated_error() {
     assert!(result.is_err());
     assert_eq!(
         result,
-        Err(crate::error::ContractError::PuppeteerBalanceOutdated {
+        Err(ContractError::PuppeteerBalanceOutdated {
             ica_height: 11u64,
             puppeteer_height: 10u64
         })
@@ -303,7 +316,7 @@ fn get_stake_msg_success() {
             ),
         )
         .unwrap();
-    LAST_ICA_BALANCE_CHANGE_HEIGHT
+    LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &1)
         .unwrap();
     deps.querier
@@ -408,7 +421,7 @@ fn get_stake_msg_zero_fee() {
             ),
         )
         .unwrap();
-    LAST_ICA_BALANCE_CHANGE_HEIGHT
+    LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &1)
         .unwrap();
 
@@ -473,7 +486,20 @@ fn get_stake_msg_balance_outdated_error() {
                 _ => unimplemented!(),
             }
         });
-    setup_config(&mut deps);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(
+                Decimal::from_atomics(1u32, 1).ok(),
+                1,
+                10,
+                10_000_000_000,
+                10,
+                6000,
+                Uint128::one(),
+            ),
+        )
+        .unwrap();
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &11)
         .unwrap();
@@ -481,7 +507,7 @@ fn get_stake_msg_balance_outdated_error() {
     let stake_msg: ContractResult<Option<CosmosMsg<NeutronMsg>>> = get_stake_rewards_msg(
         deps.as_ref(),
         &mock_env(),
-        &get_default_config(None),
+        &get_default_config(None, 1, 10, 10_000_000_000, 10, 6000, Uint128::one()),
         &MessageInfo {
             sender: Addr::unchecked("addr0000"),
             funds: vec![Coin::new(200, "untrn")],
@@ -491,7 +517,7 @@ fn get_stake_msg_balance_outdated_error() {
     assert!(stake_msg.is_err());
     assert_eq!(
         stake_msg,
-        Err(crate::error::ContractError::PuppeteerBalanceOutdated {
+        Err(ContractError::PuppeteerBalanceOutdated {
             ica_height: 11u64,
             puppeteer_height: 10u64
         })
@@ -3064,6 +3090,8 @@ mod process_emergency_batch {
 }
 
 mod check_denom {
+    use crate::contract::check_denom::DenomType;
+
     use super::*;
 
     #[test]
