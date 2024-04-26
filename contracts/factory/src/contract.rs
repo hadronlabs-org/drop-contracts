@@ -80,10 +80,10 @@ pub fn instantiate(
     attrs.push(attr("core_address", core_address.to_string()));
     let puppeteer_address =
         instantiate2_address(&puppeteer_contract_checksum, &canonical_self_address, salt)?;
-    attrs.push(attr("core_address", core_address.to_string()));
+    attrs.push(attr("puppeteer_address", puppeteer_address.to_string()));
     let staker_address =
         instantiate2_address(&staker_contract_checksum, &canonical_self_address, salt)?;
-    attrs.push(attr("staker_address", core_address.to_string()));
+    attrs.push(attr("staker_address", staker_address.to_string()));
 
     let withdrawal_voucher_address = instantiate2_address(
         &withdrawal_voucher_contract_checksum,
