@@ -265,16 +265,9 @@ fn get_stake_msg_success() {
         .add_wasm_query_response("strategy_contract", |msg| {
             let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StrategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
-                    drop_staking_base::msg::distribution::IdealDelegation {
-                        valoper_address: "valoper_address".to_string(),
-                        stake_change: deposit,
-                        ideal_stake: deposit,
-                        current_stake: deposit,
-                        weight: 1u64,
-                    },
-                ])
-                .unwrap(),
+                StrategyQueryMsg::CalcDeposit { deposit } => {
+                    to_json_binary(&vec![("valoper_address".to_string(), deposit)]).unwrap()
+                }
                 _ => unimplemented!(),
             }
         });
@@ -336,16 +329,9 @@ fn get_stake_msg_zero_fee() {
         .add_wasm_query_response("strategy_contract", |msg| {
             let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StrategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
-                    drop_staking_base::msg::distribution::IdealDelegation {
-                        valoper_address: "valoper_address".to_string(),
-                        stake_change: deposit,
-                        ideal_stake: deposit,
-                        current_stake: deposit,
-                        weight: 1u64,
-                    },
-                ])
-                .unwrap(),
+                StrategyQueryMsg::CalcDeposit { deposit } => {
+                    to_json_binary(&vec![("valoper_address".to_string(), deposit)]).unwrap()
+                }
                 _ => unimplemented!(),
             }
         });
@@ -1290,16 +1276,7 @@ fn test_tick_idle_staking_bond() {
             let q: drop_staking_base::msg::strategy::QueryMsg = from_json(msg).unwrap();
             match q {
                 drop_staking_base::msg::strategy::QueryMsg::CalcDeposit { deposit } => {
-                    to_json_binary(&vec![
-                        drop_staking_base::msg::distribution::IdealDelegation {
-                            valoper_address: "valoper_address".to_string(),
-                            stake_change: deposit,
-                            ideal_stake: deposit,
-                            current_stake: deposit,
-                            weight: 1u64,
-                        },
-                    ])
-                    .unwrap()
+                    to_json_binary(&vec![("valoper_address".to_string(), deposit)]).unwrap()
                 }
                 _ => unimplemented!(),
             }
@@ -1442,15 +1419,10 @@ fn test_tick_idle_staking() {
         });
     deps.querier
         .add_wasm_query_response("strategy_contract", |_| {
-            to_json_binary(&vec![
-                drop_staking_base::msg::distribution::IdealDelegation {
-                    valoper_address: "valoper_address".to_string(),
-                    ideal_stake: Uint128::from(200u128),
-                    current_stake: Uint128::from(0u128),
-                    stake_change: Uint128::from(200u128),
-                    weight: 1u64,
-                },
-            ])
+            to_json_binary(&vec![(
+                "valoper_address".to_string(),
+                Uint128::from(200u128),
+            )])
             .unwrap()
         });
     CONFIG
@@ -1582,15 +1554,10 @@ fn test_tick_idle_unbonding() {
         });
     deps.querier
         .add_wasm_query_response("strategy_contract", |_| {
-            to_json_binary(&vec![
-                drop_staking_base::msg::distribution::IdealDelegation {
-                    valoper_address: "valoper_address".to_string(),
-                    ideal_stake: Uint128::from(1000u128),
-                    current_stake: Uint128::from(0u128),
-                    stake_change: Uint128::from(1000u128),
-                    weight: 1u64,
-                },
-            ])
+            to_json_binary(&vec![(
+                "valoper_address".to_string(),
+                Uint128::from(1000u128),
+            )])
             .unwrap()
         });
 
@@ -1732,16 +1699,9 @@ fn test_tick_claiming_wo_transfer_stake() {
         .add_wasm_query_response("strategy_contract", |msg| {
             let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StrategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
-                    drop_staking_base::msg::distribution::IdealDelegation {
-                        valoper_address: "valoper_address".to_string(),
-                        stake_change: deposit,
-                        ideal_stake: deposit,
-                        current_stake: deposit,
-                        weight: 1u64,
-                    },
-                ])
-                .unwrap(),
+                StrategyQueryMsg::CalcDeposit { deposit } => {
+                    to_json_binary(&vec![("valoper_address".to_string(), deposit)]).unwrap()
+                }
                 _ => unimplemented!(),
             }
         });
@@ -1848,16 +1808,9 @@ fn test_tick_claiming_wo_transfer_unbonding() {
         .add_wasm_query_response("strategy_contract", |msg| {
             let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StrategyQueryMsg::CalcWithdraw { withdraw } => to_json_binary(&vec![
-                    drop_staking_base::msg::distribution::IdealDelegation {
-                        valoper_address: "valoper_address".to_string(),
-                        stake_change: withdraw,
-                        ideal_stake: withdraw,
-                        current_stake: withdraw,
-                        weight: 1u64,
-                    },
-                ])
-                .unwrap(),
+                StrategyQueryMsg::CalcWithdraw { withdraw } => {
+                    to_json_binary(&vec![("valoper_address".to_string(), withdraw)]).unwrap()
+                }
                 _ => unimplemented!(),
             }
         });
@@ -1979,16 +1932,9 @@ fn test_tick_claiming_wo_idle() {
         .add_wasm_query_response("strategy_contract", |msg| {
             let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StrategyQueryMsg::CalcWithdraw { withdraw } => to_json_binary(&vec![
-                    drop_staking_base::msg::distribution::IdealDelegation {
-                        valoper_address: "valoper_address".to_string(),
-                        stake_change: withdraw,
-                        ideal_stake: withdraw,
-                        current_stake: withdraw,
-                        weight: 1u64,
-                    },
-                ])
-                .unwrap(),
+                StrategyQueryMsg::CalcWithdraw { withdraw } => {
+                    to_json_binary(&vec![("valoper_address".to_string(), withdraw)]).unwrap()
+                }
                 _ => unimplemented!(),
             }
         });
@@ -2180,16 +2126,9 @@ fn test_tick_staking_to_unbonding() {
         .add_wasm_query_response("strategy_contract", |msg| {
             let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StrategyQueryMsg::CalcWithdraw { withdraw } => to_json_binary(&vec![
-                    drop_staking_base::msg::distribution::IdealDelegation {
-                        valoper_address: "valoper_address".to_string(),
-                        stake_change: withdraw,
-                        ideal_stake: withdraw,
-                        current_stake: withdraw,
-                        weight: 1u64,
-                    },
-                ])
-                .unwrap(),
+                StrategyQueryMsg::CalcWithdraw { withdraw } => {
+                    to_json_binary(&vec![("valoper_address".to_string(), withdraw)]).unwrap()
+                }
                 _ => unimplemented!(),
             }
         });
@@ -2314,16 +2253,9 @@ fn test_tick_staking_to_idle() {
         .add_wasm_query_response("strategy_contract", |msg| {
             let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StrategyQueryMsg::CalcWithdraw { withdraw } => to_json_binary(&vec![
-                    drop_staking_base::msg::distribution::IdealDelegation {
-                        valoper_address: "valoper_address".to_string(),
-                        stake_change: withdraw,
-                        ideal_stake: withdraw,
-                        current_stake: withdraw,
-                        weight: 1u64,
-                    },
-                ])
-                .unwrap(),
+                StrategyQueryMsg::CalcWithdraw { withdraw } => {
+                    to_json_binary(&vec![("valoper_address".to_string(), withdraw)]).unwrap()
+                }
                 _ => unimplemented!(),
             }
         });

@@ -11,7 +11,6 @@ use drop_puppeteer_base::error::ContractError as PuppeteerContractError;
 use drop_puppeteer_base::msg::QueryMsg as PuppeteerQueryMsg;
 use drop_staking_base::error::distribution::ContractError as DistributionContractError;
 use drop_staking_base::error::validatorset::ContractError as ValidatorSetContractError;
-use drop_staking_base::msg::distribution::IdealDelegation;
 use drop_staking_base::msg::strategy::QueryMsg;
 use drop_staking_base::msg::validatorset::QueryMsg as ValidatorSetQueryMsg;
 use drop_staking_base::msg::{
@@ -304,7 +303,7 @@ fn test_ideal_deposit_calculation() {
         },
     );
 
-    let ideal_deposit: Vec<drop_staking_base::msg::distribution::IdealDelegation> = app
+    let ideal_deposit: Vec<(String, Uint128)> = app
         .wrap()
         .query_wasm_smart(
             strategy_contract,
@@ -317,27 +316,9 @@ fn test_ideal_deposit_calculation() {
     assert_eq!(
         ideal_deposit,
         vec![
-            IdealDelegation {
-                valoper_address: "valoper0".to_string(),
-                ideal_stake: 134u128.into(),
-                current_stake: 100u128.into(),
-                stake_change: 34u128.into(),
-                weight: 100
-            },
-            IdealDelegation {
-                valoper_address: "valoper1".to_string(),
-                ideal_stake: 134u128.into(),
-                current_stake: 100u128.into(),
-                stake_change: 34u128.into(),
-                weight: 100
-            },
-            IdealDelegation {
-                valoper_address: "valoper2".to_string(),
-                ideal_stake: 132u128.into(),
-                current_stake: 100u128.into(),
-                stake_change: 32u128.into(),
-                weight: 100
-            }
+            ("valoper0".to_string(), Uint128::from(34u128)),
+            ("valoper1".to_string(), Uint128::from(34u128)),
+            ("valoper2".to_string(), Uint128::from(32u128))
         ]
     );
 }
@@ -363,7 +344,7 @@ fn test_ideal_withdraw_calculation() {
         },
     );
 
-    let ideal_deposit: Vec<drop_staking_base::msg::distribution::IdealDelegation> = app
+    let ideal_deposit: Vec<(String, Uint128)> = app
         .wrap()
         .query_wasm_smart(
             strategy_contract,
@@ -376,27 +357,9 @@ fn test_ideal_withdraw_calculation() {
     assert_eq!(
         ideal_deposit,
         vec![
-            IdealDelegation {
-                valoper_address: "valoper0".to_string(),
-                ideal_stake: 67u128.into(),
-                current_stake: 100u128.into(),
-                stake_change: 33u128.into(),
-                weight: 100
-            },
-            IdealDelegation {
-                valoper_address: "valoper1".to_string(),
-                ideal_stake: 67u128.into(),
-                current_stake: 100u128.into(),
-                stake_change: 33u128.into(),
-                weight: 100
-            },
-            IdealDelegation {
-                valoper_address: "valoper2".to_string(),
-                ideal_stake: 66u128.into(),
-                current_stake: 100u128.into(),
-                stake_change: 34u128.into(),
-                weight: 100
-            }
+            ("valoper0".to_string(), Uint128::from(33u128)),
+            ("valoper1".to_string(), Uint128::from(33u128)),
+            ("valoper2".to_string(), Uint128::from(34u128))
         ]
     );
 }
