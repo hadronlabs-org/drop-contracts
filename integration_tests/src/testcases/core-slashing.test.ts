@@ -893,13 +893,6 @@ describe('Core Slashing', () => {
 
         total_amount: '500',
         expected_amount: '500',
-        unbond_items: [
-          {
-            amount: '500',
-            expected_amount: '500',
-            sender: context.neutronUserAddress,
-          },
-        ],
         total_unbond_items: 1,
         unbonded_amount: null,
         withdrawed_amount: null,
@@ -1080,13 +1073,6 @@ describe('Core Slashing', () => {
         expected_release: expect.any(Number),
         total_amount: '3000',
         expected_amount: '3000',
-        unbond_items: [
-          {
-            amount: '3000',
-            expected_amount: '3000',
-            sender: context.neutronUserAddress,
-          },
-        ],
         total_unbond_items: 1,
         unbonded_amount: null,
         withdrawed_amount: null,
