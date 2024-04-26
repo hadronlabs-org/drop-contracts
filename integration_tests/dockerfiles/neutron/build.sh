@@ -1,6 +1,6 @@
 #!/bin/bash
 DIR="$(dirname $0)"
-COMMIT_HASH_OR_BRANCH="feat/slinky"
+COMMIT_HASH_OR_BRANCH="master"
 cd $DIR
 VERSION=$(cat ../../package.json | jq -r '.version')
 if [[ "$CI" == "true" ]]; then
