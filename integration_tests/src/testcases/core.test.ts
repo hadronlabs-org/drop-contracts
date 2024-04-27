@@ -1833,7 +1833,6 @@ describe('Core', () => {
             undefined,
             [],
           );
-          console.log(res.events);
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();
           expect(state).toEqual('idle');
