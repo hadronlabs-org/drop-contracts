@@ -92,6 +92,29 @@ fn pair_contract() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
+fn price_provider_contract() -> Box<dyn Contract<Empty>> {
+    let contract: ContractWrapper<
+        Empty,
+        Empty,
+        drop_staking_base::msg::price_provider::QueryMsg,
+        StdError,
+        StdError,
+        StdError,
+    > = ContractWrapper::new(
+        |_, _, _, _| Ok(Response::new()),
+        |_, _, _, _: Empty| Ok(Response::new()),
+        |_, _, _| to_json_binary(&Decimal::from_ratio(3u64, 2u64)),
+    );
+    Box::new(contract)
+}
+
+fn instantiate_price_provider_contract(app: &mut App) -> Addr {
+    instantiate_contract(
+        app,
+        price_provider_contract,
+        "price_provider_contract".to_string(),
+    )
+}
 fn instantiate_pair_contract(app: &mut App) -> Addr {
     instantiate_contract(app, pair_contract, "astroport pair contract".to_string())
 }
@@ -296,6 +319,7 @@ fn test_exchange_through_pair_call() {
 
     let pair_contract = instantiate_pair_contract(&mut app);
     let router_contract = instantiate_router_contract(&mut app);
+    let price_provider_contract = instantiate_price_provider_contract(&mut app);
 
     let astroport_exchange_handler_code_id = app.store_code(astroport_handler_contract());
 
@@ -305,7 +329,7 @@ fn test_exchange_through_pair_call() {
         InstantiateMsg {
             owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
-            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
+            price_provider_contract: price_provider_contract.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: pair_contract.to_string(),
             router_contract: router_contract.to_string(),
@@ -341,8 +365,8 @@ fn test_exchange_through_pair_call() {
             Attribute::new("message".to_string(), "PairExecuteMsg::Swap".to_string()),
             Attribute::new("to".to_string(), CORE_CONTRACT_ADDR.to_string()),
             Attribute::new("ask_asset_info".to_string(), "false".to_string()),
-            Attribute::new("belief_price".to_string(), "false".to_string()),
-            Attribute::new("max_spread".to_string(), "false".to_string()),
+            Attribute::new("belief_price".to_string(), "true".to_string()),
+            Attribute::new("max_spread".to_string(), "true".to_string()),
             Attribute::new("offer_asset".to_string(), "100ueth".to_string()),
             Attribute::new("funds_received".to_string(), "100ueth".to_string()),
         ]
@@ -357,6 +381,7 @@ fn test_exchange_through_router_call() {
 
     let pair_contract = instantiate_pair_contract(&mut app);
     let router_contract = instantiate_router_contract(&mut app);
+    let price_provider_contract = instantiate_price_provider_contract(&mut app);
 
     let astroport_exchange_handler_code_id = app.store_code(astroport_handler_contract());
 
@@ -366,7 +391,7 @@ fn test_exchange_through_router_call() {
         InstantiateMsg {
             owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
-            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
+            price_provider_contract: price_provider_contract.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: pair_contract.to_string(),
             router_contract: router_contract.to_string(),
@@ -425,7 +450,7 @@ fn test_exchange_through_router_call() {
             ),
             Attribute::new("to".to_string(), CORE_CONTRACT_ADDR.to_string()),
             Attribute::new("minimum_receive".to_string(), "false".to_string()),
-            Attribute::new("max_spread".to_string(), "false".to_string()),
+            Attribute::new("max_spread".to_string(), "true".to_string()),
             Attribute::new("funds_received".to_string(), "100ueth".to_string()),
             Attribute::new("operation1".to_string(), "ueth/untrn".to_string()),
             Attribute::new("operation2".to_string(), "untrn/ueth".to_string()),
@@ -644,6 +669,7 @@ fn test_config_update() {
             Attribute::new("pair_contract".to_string(), "pair_contract_1".to_string()),
             Attribute::new("from_denom".to_string(), "untrn".to_string()),
             Attribute::new("min_rewards".to_string(), Uint128::zero()),
+            Attribute::new("max_spread".to_string(), "0.01".to_string()),
         ]
     );
 
