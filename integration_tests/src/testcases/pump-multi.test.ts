@@ -227,7 +227,7 @@ describe('Pump-Multi', () => {
           ica = res.registered.ica_address;
           return true;
       }
-    }, 210_000);
+    }, 260_000);
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();
     context.icaAddressGaia = ica;

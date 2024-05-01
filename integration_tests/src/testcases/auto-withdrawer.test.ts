@@ -119,7 +119,6 @@ describe('Auto withdrawer', () => {
         hermes: {
           config: {
             'chains.1.trusting_period': '2m0s',
-            'chains.1.unbonding_period': `${UNBONDING_TIME}s`,
           },
         },
       },
@@ -249,7 +248,7 @@ describe('Auto withdrawer', () => {
         b.denom.startsWith('ibc/'),
       )?.denom;
       return balances.data.balances.length > 1;
-    });
+    }, 60_000);
     expect(context.neutronIBCDenom).toBeTruthy();
   });
 
@@ -1000,7 +999,7 @@ describe('Auto withdrawer', () => {
         await waitFor(async () => {
           const res = await context.stakerContractClient.queryTxState();
           return res.status === 'idle';
-        }, 60_000);
+        }, 80_000);
         const balances = await context.gaiaClient.getAllBalances(
           context.stakerIcaAddress,
         );

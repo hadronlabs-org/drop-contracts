@@ -34,18 +34,25 @@ const redefinedParams =
 
 const networkConfigs = {
   lsm: {
-    binary: 'liquidstakingd',
+    binary: redefinedParams.binary || 'gaiad',
     chain_id: 'testlsm',
-    denom: 'stake',
-    image: `${ORG}lsm-test${VERSION}`,
-    prefix: 'cosmos',
+    denom: redefinedParams.denom || 'stake',
+    image: `${ORG}${process.env.REMOTE_CHAIN ?? 'gaia-test'}${VERSION}`,
+    prefix: redefinedParams.prefix || 'cosmos',
     trace: true,
     validators: 2,
-    validators_balance: '1000000000',
-    genesis_opts: {
+    commands: redefinedParams.commands,
+    validators_balance: ['1900000000', '100000000'],
+    genesis_opts: redefinedParams.genesisOpts || {
       'app_state.slashing.params.downtime_jail_duration': '10s',
       'app_state.slashing.params.signed_blocks_window': '10',
+      'app_state.slashing.params.min_signed_per_window': '0.9',
+      'app_state.slashing.params.slash_fraction_downtime': '0.1',
       'app_state.staking.params.validator_bond_factor': '10',
+      'app_state.staking.params.unbonding_time': '1814400s',
+      'app_state.mint.minter.inflation': '0.9',
+      'app_state.mint.params.inflation_max': '0.95',
+      'app_state.mint.params.inflation_min': '0.5',
       'app_state.interchainaccounts.host_genesis_state.params.allow_messages': [
         '*',
       ],
@@ -59,11 +66,15 @@ const networkConfigs = {
       'api.swagger': true,
       'grpc.enable': true,
       'grpc.address': '0.0.0.0:9090',
-      'minimum-gas-prices': '0stake',
+      'minimum-gas-prices': redefinedParams.denom
+        ? `0${redefinedParams.denom}`
+        : '0stake',
       'rosetta.enable': true,
     },
-    upload: ['./artifacts/scripts/init-lsm.sh'],
-    post_start: [`/opt/init-lsm.sh > /opt/init-lsm.log 2>&1`],
+    upload: redefinedParams.upload || ['./artifacts/scripts/init-gaia.sh'],
+    post_start: redefinedParams.postUpload || [
+      `/opt/init-gaia.sh > /opt/init-gaia.log 2>&1`,
+    ],
   },
   gaia: {
     binary: redefinedParams.binary || 'gaiad',
@@ -151,10 +162,8 @@ const relayersConfig = {
     config: {
       'chains.0.gas_multiplier': 1.2,
       'chains.0.trusting_period': '112h0m0s',
-      'chains.0.unbonding_period': '336h0m0s',
       'chains.1.gas_multiplier': 1.2,
       'chains.1.trusting_period': '168h0m0s',
-      'chains.1.unbonding_period': '504h0m0s',
     },
     image: `${ORG}hermes-test${VERSION}`,
     log_level: 'trace',

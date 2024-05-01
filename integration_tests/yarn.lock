@@ -739,10 +739,10 @@
     lodash "^4.17.21"
     node-recursive-directory "^1.2.0"
 
-"@neutron-org/cosmopark@^1.5.0":
-  version "1.5.0"
-  resolved "https://registry.yarnpkg.com/@neutron-org/cosmopark/-/cosmopark-1.5.0.tgz#d089a6e6b5b53deb1846d75e81f35b69a989f7e6"
-  integrity sha512-Jeu6TLvkgj1pxtPBLUJIRytSKPPAd9Ip00w4LB6Li4LnXwSB+y0qoFQc/hl4kek1tdMioplm3mv+Q2am2iKabw==
+"@neutron-org/cosmopark@^1.6.3":
+  version "1.6.3"
+  resolved "https://registry.yarnpkg.com/@neutron-org/cosmopark/-/cosmopark-1.6.3.tgz#55b378bcdd2e6b94aad1dca7f375fe3925f3dea2"
+  integrity sha512-jVeC6OhvnsFI0G3f3SAAgc313uc8nr9cifZQgBRcN+tce+DWUapiAtWhvnY5l+F243W0q4iv5qHf9WXlG1VPOQ==
   dependencies:
     "@iarna/toml" "^2.2.5"
     commander "^11.0.0"
@@ -3911,6 +3911,11 @@ yaml@^2.2.2, yaml@^2.3.1:
   version "2.3.4"
   resolved "https://registry.yarnpkg.com/yaml/-/yaml-2.3.4.tgz#53fc1d514be80aabf386dc6001eb29bf3b7523b2"
   integrity sha512-8aAvwVUSHpfEqTQ4w/KMlf3HcRdt50E5ODIQJBw1fQ5RL34xabzxtUlzTXVqc4rkZsPbvrXKWnABCD7kWSmocA==
+
+yaml@^2.4.1:
+  version "2.4.1"
+  resolved "https://registry.yarnpkg.com/yaml/-/yaml-2.4.1.tgz#2e57e0b5e995292c25c75d2658f0664765210eed"
+  integrity sha512-pIXzoImaqmfOrL7teGUBt/T7ZDnyeGBWyXQBvOVhLkWLN37GXv8NMLK406UY6dS51JfcQHsmcW5cJ441bHg6Lg==
 
 yn@3.1.1:
   version "3.1.1"

@@ -122,7 +122,6 @@ describe('Core', () => {
         hermes: {
           config: {
             'chains.1.trusting_period': '2m0s',
-            'chains.1.unbonding_period': `${UNBONDING_TIME}s`,
           },
         },
       },
@@ -240,7 +239,7 @@ describe('Core', () => {
           }),
         },
       ],
-      1.5,
+      2,
     );
     expect(res.transactionHash).toHaveLength(64);
     await waitFor(async () => {
@@ -252,7 +251,7 @@ describe('Core', () => {
         b.denom.startsWith('ibc/'),
       )?.denom;
       return balances.data.balances.length > 1;
-    });
+    }, 60_000);
     expect(context.neutronIBCDenom).toBeTruthy();
   });
 
@@ -1193,7 +1192,7 @@ describe('Core', () => {
         await waitFor(async () => {
           const res = await context.stakerContractClient.queryTxState();
           return res.status === 'idle';
-        }, 60_000);
+        }, 80_000);
         const balances = await context.gaiaClient.getAllBalances(
           context.stakerIcaAddress,
         );
