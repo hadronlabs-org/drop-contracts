@@ -1,6 +1,5 @@
 use cosmwasm_schema::cw_serde;
 use cw_storage_plus::Item;
-use drop_helpers::interchain::IBCFees;
 
 #[cw_serde]
 pub struct CodeIds {
@@ -23,7 +22,6 @@ pub struct RemoteOpts {
     pub connection_id: String,
     pub port_id: String,
     pub transfer_channel_id: String,
-    pub ibc_fees: IBCFees,
 }
 
 #[cw_serde]

@@ -219,7 +219,6 @@ pub fn instantiate(
                 port_id: msg.remote_opts.port_id.to_string(),
                 transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
                 sdk_version: msg.sdk_version.to_string(),
-                ibc_fees: msg.remote_opts.ibc_fees.clone(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),
@@ -237,7 +236,6 @@ pub fn instantiate(
                 transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
                 base_denom: msg.base_denom.clone(),
                 timeout: msg.core_params.puppeteer_timeout,
-                ibc_fees: msg.remote_opts.ibc_fees,
                 min_ibc_transfer: msg.staker_params.min_ibc_transfer,
                 min_staking_amount: msg.staker_params.min_stake_amount,
             })?,
@@ -469,16 +467,6 @@ fn execute_update_config(
             drop_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig { new_config },
             info.funds,
         )?),
-        UpdateConfigMsg::PuppeteerFees(fees) => messages.push(get_proxied_message(
-            state.puppeteer_contract,
-            drop_puppeteer_base::msg::ExecuteMsg::SetFees {
-                recv_fee: fees.recv_fee,
-                ack_fee: fees.ack_fee,
-                timeout_fee: fees.timeout_fee,
-                register_fee: fees.register_fee,
-            },
-            info.funds,
-        )?),
     }
     Ok(response("execute-proxy-call", CONTRACT_NAME, attrs).add_messages(messages))
 }
@@ -509,11 +497,6 @@ fn execute_proxy_msg(
                     info.funds,
                 )?)
             }
-            ValidatorSetMsg::UpdateValidator { validator } => messages.push(get_proxied_message(
-                state.validators_set_contract,
-                drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidator { validator },
-                info.funds,
-            )?),
         },
         ProxyMsg::Core(msg) => match msg {
             crate::msg::CoreMsg::UpdateNonNativeRewardsReceivers { items } => {

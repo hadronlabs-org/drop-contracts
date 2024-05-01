@@ -132,12 +132,6 @@ describe('Pump', () => {
         dest_address: neutronSecondUserAddress,
         dest_channel: 'channel-0',
         dest_port: 'transfer',
-        ibc_fees: {
-          timeout_fee: '10000',
-          ack_fee: '10000',
-          recv_fee: '0',
-          register_fee: '1000000',
-        },
         local_denom: 'untrn',
         refundee: neutronSecondUserAddress,
         timeout: {
@@ -162,7 +156,7 @@ describe('Pump', () => {
     const { contractClient, neutronUserAddress } = context;
     await expect(
       contractClient.registerICA(neutronUserAddress, 1.5),
-    ).rejects.toThrowError(/No funds sent/);
+    ).rejects.toThrowError(/missing fee in denom untrn/);
   });
   it('register ICA w less then needed funds', async () => {
     const { contractClient, neutronUserAddress } = context;
@@ -173,7 +167,7 @@ describe('Pump', () => {
           denom: 'untrn',
         },
       ]),
-    ).rejects.toThrowError(/expected at least/);
+    ).rejects.toThrowError(/provided fee is less than min governance/);
   });
   it('register ICA', async () => {
     const { contractClient, neutronUserAddress } = context;
@@ -232,26 +226,8 @@ describe('Pump', () => {
         },
         1.5,
       ),
-    ).rejects.toThrowError(/No funds sent/);
-  });
-  it('try to push pump w less funds', async () => {
-    const { contractClient, neutronUserAddress } = context;
-    await expect(
-      contractClient.push(
-        neutronUserAddress,
-        {
-          coins: [{ amount: '10', denom: 'stake' }],
-        },
-        1.5,
-        undefined,
-        [
-          {
-            amount: '1',
-            denom: 'untrn',
-          },
-        ],
-      ),
-    ).rejects.toThrowError(/expected at least/);
+      // seems like two spaces is a typo in Neutron :^)
+    ).rejects.toThrowError(/spendable balance {2}is smaller than/);
   });
   it('push pump', async () => {
     const { contractClient, neutronUserAddress } = context;
@@ -264,7 +240,7 @@ describe('Pump', () => {
       undefined,
       [
         {
-          amount: '20000',
+          amount: '2000',
           denom: 'untrn',
         },
       ],
@@ -302,7 +278,7 @@ describe('Pump', () => {
       );
     expect(res.data.balances).toEqual([
       {
-        amount: '10000',
+        amount: '1000',
         denom: 'untrn',
       },
     ]);
@@ -325,7 +301,7 @@ describe('Pump', () => {
     const res = await contractClient.refund(
       neutronUserAddress,
       {
-        coins: [{ amount: '10000', denom: 'untrn' }],
+        coins: [{ amount: '1000', denom: 'untrn' }],
       },
       1.5,
     );
@@ -338,7 +314,7 @@ describe('Pump', () => {
       { denom: 'untrn' },
     );
     expect(parseInt(newBalance.amount) - parseInt(balance.amount)).toEqual(
-      10000,
+      1000,
     );
   });
 });

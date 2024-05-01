@@ -385,12 +385,6 @@ describe('Core Slashing', () => {
           port_id: 'transfer',
           denom: 'stake',
           update_period: 2,
-          ibc_fees: {
-            timeout_fee: '10000',
-            ack_fee: '10000',
-            recv_fee: '0',
-            register_fee: '1000000',
-          },
         },
         salt: 'salt',
         subdenom: 'drop',
@@ -460,18 +454,6 @@ describe('Core Slashing', () => {
       context.client,
       res.staker_contract,
     );
-  });
-  it('set fees for puppeteer', async () => {
-    const { neutronUserAddress, factoryContractClient: contractClient } =
-      context;
-    await contractClient.updateConfig(neutronUserAddress, {
-      puppeteer_fees: {
-        timeout_fee: '10000',
-        ack_fee: '10000',
-        recv_fee: '0',
-        register_fee: '1000000',
-      },
-    });
   });
   it('register staker ICA', async () => {
     const { stakerContractClient, neutronUserAddress } = context;
@@ -683,12 +665,6 @@ describe('Core Slashing', () => {
       codeId,
       {
         connection_id: 'connection-0',
-        ibc_fees: {
-          timeout_fee: '10000',
-          ack_fee: '10000',
-          recv_fee: '0',
-          register_fee: '1000000',
-        },
         local_denom: 'untrn',
         timeout: {
           local: 60,

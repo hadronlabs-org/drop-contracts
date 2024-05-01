@@ -83,42 +83,6 @@ describe('Validator set', () => {
     );
   });
 
-  it('Add single validator', async () => {
-    const { contractClient, account } = context;
-    const res = await contractClient.updateValidator(
-      account.address,
-      {
-        validator: {
-          valoper_address: 'valoper1',
-          weight: 1,
-        },
-      },
-      1.5,
-    );
-    expect(res.transactionHash).toBeTruthy();
-
-    const validators = await contractClient.queryValidators();
-
-    expect(validators).toEqual(
-      expect.arrayContaining([
-        {
-          valoper_address: 'valoper1',
-          weight: 1,
-          last_processed_remote_height: null,
-          last_processed_local_height: null,
-          last_validated_height: null,
-          last_commission_in_range: null,
-          uptime: '0',
-          tombstone: false,
-          jailed_number: null,
-          init_proposal: null,
-          total_passed_proposals: 0,
-          total_voted_proposals: 0,
-        },
-      ]),
-    );
-  });
-
   it('Add bunch of validators', async () => {
     const { contractClient, account } = context;
     const res = await contractClient.updateValidators(

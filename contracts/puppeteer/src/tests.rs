@@ -1,24 +1,26 @@
-use std::vec;
-
 use crate::contract::Puppeteer;
 use cosmwasm_std::{
+    coins,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, Binary, Coin, CosmosMsg, DepsMut, Event, Response, StdError, SubMsg,
-    Uint128,
+    to_json_binary, Addr, Binary, CosmosMsg, DepsMut, Event, Response, StdError, SubMsg, Uint128,
 };
-use drop_helpers::{interchain::IBCFees, testing::mock_dependencies};
+use drop_helpers::testing::mock_dependencies;
 use drop_puppeteer_base::state::{PuppeteerBase, ReplyMsg};
-use drop_staking_base::state::puppeteer::{Config, KVQueryType};
-use drop_staking_base::{msg::puppeteer::InstantiateMsg, state::puppeteer::ConfigOptional};
+use drop_staking_base::{
+    msg::puppeteer::InstantiateMsg,
+    state::puppeteer::{Config, ConfigOptional, KVQueryType},
+};
 use neutron_sdk::{
     bindings::{
         msg::{IbcFee, NeutronMsg},
         query::NeutronQuery,
     },
+    query::min_ibc_fee::MinIbcFeeResponse,
     sudo::msg::SudoMsg,
     NeutronError,
 };
 use prost::Message;
+use std::vec;
 
 #[test]
 fn test_instantiate() {
@@ -32,12 +34,6 @@ fn test_instantiate() {
         allowed_senders: vec!["allowed_sender".to_string()],
         transfer_channel_id: "transfer_channel_id".to_string(),
         sdk_version: "0.45.0".to_string(),
-        ibc_fees: IBCFees {
-            recv_fee: Uint128::from(3000u128),
-            ack_fee: Uint128::from(4000u128),
-            timeout_fee: Uint128::from(5000u128),
-            register_fee: Uint128::from(6000u128),
-        },
     };
     let env = mock_env();
     let res =
@@ -105,6 +101,12 @@ fn test_update_config() {
 #[test]
 fn test_execute_delegate() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
     let pupeteer_base = base_init(&mut deps.as_mut());
     let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
         items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
@@ -179,6 +181,12 @@ fn test_execute_delegate() {
 #[test]
 fn test_execute_grant_delegate() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
     let pupeteer_base = base_init(&mut deps.as_mut());
     let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::GrantDelegate {
         grantee: "grantee".to_string(),
@@ -192,9 +200,9 @@ fn test_execute_grant_delegate() {
     );
     assert_eq!(
         res.unwrap_err(),
-        drop_puppeteer_base::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-            msg: "Sender is not allowed".to_string()
-        })
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Sender is not allowed"
+        ))
     );
     let env = mock_env();
     let res = crate::contract::execute(deps.as_mut(), env, mock_info("allowed_sender", &[]), msg)
@@ -260,6 +268,12 @@ fn test_execute_grant_delegate() {
 #[test]
 fn test_execute_undelegate() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
     let puppeteer_base = base_init(&mut deps.as_mut());
     let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
         batch_id: 0u128,
@@ -335,6 +349,12 @@ fn test_execute_undelegate() {
 #[test]
 fn test_execute_redeem_share() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
     let puppeteer_base = base_init(&mut deps.as_mut());
     let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
         items: vec![drop_puppeteer_base::state::RedeemShareItem {
@@ -354,7 +374,7 @@ fn test_execute_redeem_share() {
     );
     assert_eq!(
         res.unwrap_err(),
-        drop_puppeteer_base::error::ContractError::Std(cosmwasm_std::StdError::generic_err(
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
             "Sender is not allowed"
         ))
     );
@@ -407,43 +427,6 @@ fn test_execute_redeem_share() {
                     local_denom: "local_denom".to_string()
                 }]
             })
-        }
-    );
-}
-
-#[test]
-fn test_execute_set_fees() {
-    let mut deps = mock_dependencies(&[]);
-    let puppeteer_base = base_init(&mut deps.as_mut());
-    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::SetFees {
-        recv_fee: Uint128::from(3000u128),
-        ack_fee: Uint128::from(4000u128),
-        timeout_fee: Uint128::from(5000u128),
-        register_fee: Uint128::from(6000u128),
-    };
-    let env = mock_env();
-    let res = crate::contract::execute(
-        deps.as_mut(),
-        env,
-        mock_info("not_allowed_sender", &[]),
-        msg.clone(),
-    );
-    assert_eq!(
-        res.unwrap_err(),
-        drop_puppeteer_base::error::ContractError::OwnershipError(
-            cw_ownable::OwnershipError::NotOwner {}
-        )
-    );
-    let res =
-        crate::contract::execute(deps.as_mut(), mock_env(), mock_info("owner", &[]), msg).unwrap();
-    assert_eq!(res, Response::new());
-    let fees = puppeteer_base.ibc_fee.load(deps.as_ref().storage).unwrap();
-    assert_eq!(
-        fees,
-        IbcFee {
-            recv_fee: vec![Coin::new(3000u128, "untrn")],
-            ack_fee: vec![Coin::new(4000u128, "untrn")],
-            timeout_fee: vec![Coin::new(5000u128, "untrn")],
         }
     );
 }
@@ -759,9 +742,7 @@ fn get_base_config() -> Config {
     }
 }
 
-fn base_init(
-    deps_mut: &mut DepsMut<NeutronQuery>,
-) -> PuppeteerBase<'static, drop_staking_base::state::puppeteer::Config, KVQueryType> {
+fn base_init(deps_mut: &mut DepsMut<NeutronQuery>) -> PuppeteerBase<'static, Config, KVQueryType> {
     let puppeteer_base = Puppeteer::default();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     puppeteer_base
@@ -773,16 +754,12 @@ fn base_init(
         .set_address(deps_mut.storage, "ica_address")
         .unwrap();
     puppeteer_base
-        .ibc_fee
-        .save(deps_mut.storage, &get_standard_fees())
-        .unwrap();
-    puppeteer_base
 }
 
 fn get_standard_fees() -> IbcFee {
     IbcFee {
-        recv_fee: vec![Coin::new(1000u128, "untrn")],
-        ack_fee: vec![Coin::new(2000u128, "untrn")],
-        timeout_fee: vec![Coin::new(3000u128, "untrn")],
+        recv_fee: vec![],
+        ack_fee: coins(100, "untrn"),
+        timeout_fee: coins(200, "untrn"),
     }
 }

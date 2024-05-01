@@ -1,6 +1,5 @@
 use cosmwasm_std::{OverflowError, StdError};
 use cw_ownable::OwnershipError;
-use cw_utils::PaymentError;
 use neutron_sdk::NeutronError;
 use thiserror::Error;
 
@@ -17,9 +16,6 @@ pub enum ContractError {
 
     #[error("{0}")]
     OverflowError(#[from] OverflowError),
-
-    #[error("{0}")]
-    PaymentError(#[from] PaymentError),
 
     #[error("ICA is not registered")]
     IcaNotRegistered {},

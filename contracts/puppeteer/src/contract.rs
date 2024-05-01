@@ -1,6 +1,6 @@
-use crate::{
-    proto::cosmos::base::v1beta1::Coin as ProtoCoin,
-    proto::liquidstaking::{
+use crate::proto::{
+    cosmos::base::v1beta1::Coin as ProtoCoin,
+    liquidstaking::{
         distribution::v1beta1::MsgWithdrawDelegatorReward,
         staking::v1beta1::{
             MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgDelegateResponse,
@@ -23,6 +23,7 @@ use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use drop_helpers::{
     answer::response,
+    ibc_fee::query_ibc_fee,
     icq::{
         new_delegations_and_balance_query_msg, new_multiple_balances_query_msg,
         update_balance_and_delegations_query_msg, update_multiple_balances_query_msg,
@@ -42,20 +43,14 @@ use drop_puppeteer_base::{
     },
 };
 use drop_staking_base::{
-    msg::puppeteer::{
-        BalancesAndDelegations, ExecuteMsg, FeesResponse, InstantiateMsg, MigrateMsg, QueryExtMsg,
-    },
+    msg::puppeteer::{BalancesAndDelegations, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryExtMsg},
     state::puppeteer::{
         Config, ConfigOptional, KVQueryType, DELEGATIONS_AND_BALANCE, NON_NATIVE_REWARD_BALANCES,
     },
 };
-use neutron_sdk::interchain_queries::v045::new_register_delegator_unbonding_delegations_query_msg;
 use neutron_sdk::{
-    bindings::{
-        msg::{IbcFee, NeutronMsg},
-        query::NeutronQuery,
-        types::ProtobufAny,
-    },
+    bindings::{msg::NeutronMsg, query::NeutronQuery, types::ProtobufAny},
+    interchain_queries::v045::new_register_delegator_unbonding_delegations_query_msg,
     interchain_txs::helpers::decode_message_response,
     sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg},
     NeutronResult,
@@ -109,30 +104,6 @@ pub fn instantiate(
         ),
     )?;
     let puppeteer = Puppeteer::default();
-    puppeteer.ibc_fee.save(
-        deps.storage,
-        &IbcFee {
-            recv_fee: vec![cosmwasm_std::Coin {
-                denom: LOCAL_DENOM.to_string(),
-                amount: msg.ibc_fees.recv_fee,
-            }],
-            ack_fee: vec![cosmwasm_std::Coin {
-                denom: LOCAL_DENOM.to_string(),
-                amount: msg.ibc_fees.ack_fee,
-            }],
-            timeout_fee: vec![cosmwasm_std::Coin {
-                denom: LOCAL_DENOM.to_string(),
-                amount: msg.ibc_fees.timeout_fee,
-            }],
-        },
-    )?;
-    puppeteer.register_fee.save(
-        deps.storage,
-        &cosmwasm_std::Coin {
-            denom: LOCAL_DENOM.to_string(),
-            amount: msg.ibc_fees.register_fee,
-        },
-    )?;
     puppeteer.instantiate(deps, config, owner)
 }
 
@@ -155,7 +126,6 @@ pub fn query(
                     .collect::<StdResult<Vec<_>>>()?,
             )
             .map_err(ContractError::Std),
-            QueryExtMsg::Fees {} => query_fees(deps),
             QueryExtMsg::Ownership {} => {
                 let owner = cw_ownable::get_ownership(deps.storage)?;
                 to_json_binary(&owner).map_err(ContractError::Std)
@@ -163,17 +133,6 @@ pub fn query(
         },
         _ => Puppeteer::default().query(deps, env, msg),
     }
-}
-
-fn query_fees(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let fees = Puppeteer::default().ibc_fee.load(deps.storage)?;
-    let register_fee = Puppeteer::default().register_fee.load(deps.storage)?;
-    Ok(to_json_binary(&FeesResponse {
-        recv_fee: fees.recv_fee,
-        ack_fee: fees.ack_fee,
-        timeout_fee: fees.timeout_fee,
-        register_fee,
-    })?)
 }
 
 fn query_delegations(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
@@ -348,7 +307,7 @@ fn execute_ibc_transfer(
     // exclude fees, no need to send local denom tokens to remote zone
     let message_funds: Vec<_> = info
         .funds
-        .iter()
+        .into_iter()
         .filter(|f| f.denom != LOCAL_DENOM)
         .collect();
     ensure_eq!(
@@ -374,7 +333,7 @@ fn execute_ibc_transfer(
         },
         timeout_timestamp: env.block.time.plus_seconds(timeout).nanos(),
         memo: "".to_string(),
-        fee: puppeteer_base.ibc_fee.load(deps.storage)?,
+        fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
     };
     let submsg = puppeteer_base.msg_with_sudo_callback(
         deps,
@@ -948,7 +907,7 @@ fn compose_submsg(
     reply_id: u64,
 ) -> NeutronResult<SubMsg<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
-    let ibc_fee: IbcFee = puppeteer_base.ibc_fee.load(deps.storage)?;
+    let ibc_fee = query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?;
     let connection_id = config.connection_id;
     let cosmos_msg = NeutronMsg::submit_tx(
         connection_id,

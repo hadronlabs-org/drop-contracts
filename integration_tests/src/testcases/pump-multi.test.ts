@@ -141,12 +141,6 @@ describe('Pump-Multi', () => {
         res.codeId,
         {
           connection_id: 'connection-0',
-          ibc_fees: {
-            timeout_fee: '10000',
-            ack_fee: '10000',
-            recv_fee: '0',
-            register_fee: '1000000',
-          },
           local_denom: 'untrn',
           refundee: neutronSecondUserAddress,
           timeout: {
@@ -174,12 +168,6 @@ describe('Pump-Multi', () => {
         res.codeId,
         {
           connection_id: 'connection-1',
-          ibc_fees: {
-            timeout_fee: '10000',
-            ack_fee: '10000',
-            recv_fee: '0',
-            register_fee: '1000000',
-          },
           local_denom: 'untrn',
           refundee: neutronSecondUserAddress,
           timeout: {

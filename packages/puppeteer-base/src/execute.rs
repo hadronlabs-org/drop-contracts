@@ -1,23 +1,19 @@
+use crate::{
+    error::{ContractError, ContractResult},
+    msg::{ExecuteMsg, Transaction},
+    state::{BaseConfig, PuppeteerBase, TxState, TxStateStatus, ICA_ID, LOCAL_DENOM},
+};
 use cosmwasm_std::{
-    attr, ensure_eq, Coin as CosmosCoin, CosmosMsg, CustomQuery, Deps, DepsMut, Env, MessageInfo,
-    Response, StdError, StdResult, SubMsg, Uint128,
+    attr, ensure_eq, CosmosMsg, CustomQuery, Deps, DepsMut, Env, MessageInfo, Response, StdError,
+    StdResult, SubMsg,
 };
 use drop_helpers::answer::response;
 use neutron_sdk::{
-    bindings::{
-        msg::{IbcFee, NeutronMsg},
-        query::NeutronQuery,
-    },
+    bindings::{msg::NeutronMsg, query::NeutronQuery},
     interchain_queries::v045::new_register_transfers_query_msg,
     NeutronError, NeutronResult,
 };
 use serde::{de::DeserializeOwned, Serialize};
-
-use crate::{
-    error::ContractResult,
-    msg::{ExecuteMsg, Transaction},
-    state::{BaseConfig, PuppeteerBase, TxState, TxStateStatus, ICA_ID, LOCAL_DENOM},
-};
 
 impl<'a, T, U> PuppeteerBase<'a, T, U>
 where
@@ -44,14 +40,8 @@ where
         msg: ExecuteMsg,
     ) -> ContractResult<Response<NeutronMsg>> {
         match msg {
-            ExecuteMsg::RegisterICA {} => self.execute_register_ica(deps),
+            ExecuteMsg::RegisterICA {} => self.execute_register_ica(deps, info),
             ExecuteMsg::RegisterQuery {} => self.register_transfers_query(deps),
-            ExecuteMsg::SetFees {
-                recv_fee,
-                ack_fee,
-                timeout_fee,
-                register_fee,
-            } => self.execute_set_fees(deps, info, recv_fee, ack_fee, timeout_fee, register_fee),
         }
     }
 
@@ -114,53 +104,24 @@ where
     fn execute_register_ica(
         &self,
         deps: DepsMut<NeutronQuery>,
+        info: MessageInfo,
     ) -> ContractResult<Response<NeutronMsg>> {
         let config = self.config.load(deps.storage)?;
         let attrs = vec![
             attr("connection_id", config.connection_id()),
             attr("ica_id", ICA_ID),
         ];
-        let register_fee = self.register_fee.load(deps.storage)?;
+        let register_fee = info
+            .funds
+            .into_iter()
+            .find(|f| f.denom == LOCAL_DENOM)
+            .ok_or(ContractError::InvalidFunds {
+                reason: format!("missing fee in denom {}", LOCAL_DENOM),
+            })?;
         let register_msg =
             self.ica
                 .register(deps.storage, config.connection_id(), ICA_ID, register_fee)?;
         Ok(response("register-ica", "puppeteer-base", attrs).add_message(register_msg))
-    }
-
-    fn execute_set_fees(
-        &self,
-        deps: DepsMut<NeutronQuery>,
-        info: MessageInfo,
-        recv_fee: Uint128,
-        ack_fee: Uint128,
-        timeout_fee: Uint128,
-        register_fee: Uint128,
-    ) -> ContractResult<Response<NeutronMsg>> {
-        cw_ownable::assert_owner(deps.storage, &info.sender)?;
-        // TODO: Change LOCAL_DENOM to configurable value
-        let fees = IbcFee {
-            recv_fee: vec![CosmosCoin {
-                denom: LOCAL_DENOM.to_string(),
-                amount: recv_fee,
-            }],
-            ack_fee: vec![CosmosCoin {
-                denom: LOCAL_DENOM.to_string(),
-                amount: ack_fee,
-            }],
-            timeout_fee: vec![CosmosCoin {
-                denom: LOCAL_DENOM.to_string(),
-                amount: timeout_fee,
-            }],
-        };
-        self.ibc_fee.save(deps.storage, &fees)?;
-        self.register_fee.save(
-            deps.storage,
-            &CosmosCoin {
-                amount: register_fee,
-                denom: LOCAL_DENOM.to_string(),
-            },
-        )?;
-        Ok(Response::default())
     }
 
     fn register_transfers_query(

@@ -87,7 +87,6 @@ export interface DropValidatorsSetSchema {
   execute:
     | UpdateConfigArgs
     | UpdateValidatorsArgs
-    | UpdateValidatorArgs
     | UpdateValidatorsInfoArgs
     | UpdateValidatorsVotingArgs
     | UpdateOwnershipArgs;
@@ -148,9 +147,6 @@ export interface UpdateValidatorsArgs {
 export interface ValidatorData {
   valoper_address: string;
   weight: number;
-}
-export interface UpdateValidatorArgs {
-  validator: ValidatorData;
 }
 export interface UpdateValidatorsInfoArgs {
   validators: ValidatorInfoUpdate[];
@@ -290,10 +286,6 @@ export class Client {
   updateValidators = async(sender:string, args: UpdateValidatorsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_validators: args }, fee || "auto", memo, funds);
-  }
-  updateValidator = async(sender:string, args: UpdateValidatorArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_validator: args }, fee || "auto", memo, funds);
   }
   updateValidatorsInfo = async(sender:string, args: UpdateValidatorsInfoArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

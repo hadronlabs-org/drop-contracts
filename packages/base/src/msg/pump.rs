@@ -1,7 +1,6 @@
 use crate::state::pump::PumpTimeout;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Coin;
-use drop_helpers::interchain::IBCFees;
 
 #[cw_ownable::cw_ownable_query]
 #[cw_serde]
@@ -30,7 +29,6 @@ pub struct UpdateConfigMsg {
     pub dest_port: Option<String>,
     pub connection_id: Option<String>,
     pub refundee: Option<String>,
-    pub ibc_fees: Option<IBCFees>,
     pub timeout: Option<PumpTimeout>,
     pub local_denom: Option<String>,
 }
@@ -50,7 +48,6 @@ pub struct InstantiateMsg {
     pub dest_channel: Option<String>,
     pub dest_port: Option<String>,
     pub connection_id: String,
-    pub ibc_fees: IBCFees,
     pub refundee: Option<String>,
     pub timeout: PumpTimeout,
     pub local_denom: String,

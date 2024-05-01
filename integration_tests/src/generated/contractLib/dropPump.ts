@@ -10,20 +10,6 @@ import { StdFee } from "@cosmjs/amino";
  * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
  */
 export type Addr = string;
-/**
- * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u128` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
- *
- * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
- *
- * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
- */
-export type Uint128 = string;
 export type IcaState =
   | ("none" | "in_progress" | "timeout")
   | {
@@ -69,6 +55,20 @@ export type Timestamp = Uint64;
  */
 export type Uint64 = string;
 /**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint128 = string;
+/**
  * Actions that can be taken to alter the contract's ownership
  */
 export type UpdateOwnershipArgs =
@@ -92,16 +92,9 @@ export interface Config {
   dest_address?: Addr | null;
   dest_channel?: string | null;
   dest_port?: string | null;
-  ibc_fees: IBCFees;
   local_denom: string;
   refundee?: Addr | null;
   timeout: PumpTimeout;
-}
-export interface IBCFees {
-  ack_fee: Uint128;
-  recv_fee: Uint128;
-  register_fee: Uint128;
-  timeout_fee: Uint128;
 }
 export interface PumpTimeout {
   local?: number | null;
@@ -143,7 +136,6 @@ export interface UpdateConfigMsg {
   dest_address?: string | null;
   dest_channel?: string | null;
   dest_port?: string | null;
-  ibc_fees?: IBCFees | null;
   local_denom?: string | null;
   refundee?: string | null;
   timeout?: PumpTimeout | null;
@@ -153,7 +145,6 @@ export interface InstantiateMsg {
   dest_address?: string | null;
   dest_channel?: string | null;
   dest_port?: string | null;
-  ibc_fees: IBCFees;
   local_denom: string;
   owner?: string | null;
   refundee?: string | null;

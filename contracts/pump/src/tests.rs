@@ -1,14 +1,22 @@
+use crate::{
+    contract::{execute, instantiate},
+    error::ContractError,
+};
 use cosmwasm_std::{
     coins,
     testing::{mock_env, mock_info},
-    Addr, BankMsg, Binary, Coin, CosmosMsg, Event, Response, SubMsg, Uint128,
+    to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Event, Response, SubMsg,
 };
-use drop_helpers::{interchain::IBCFees, testing::mock_dependencies};
+use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::state::pump::{Config, CONFIG, ICA};
-use neutron_sdk::bindings::{msg::NeutronMsg, types::ProtobufAny};
+use neutron_sdk::{
+    bindings::{
+        msg::{IbcFee, NeutronMsg},
+        types::ProtobufAny,
+    },
+    query::min_ibc_fee::MinIbcFeeResponse,
+};
 use prost::Message;
-
-use crate::contract::{execute, instantiate};
 
 fn get_default_config() -> Config {
     Config {
@@ -17,12 +25,6 @@ fn get_default_config() -> Config {
         dest_port: Some("dest_port".to_string()),
         connection_id: "connection".to_string(),
         refundee: Some(Addr::unchecked("refundee")),
-        ibc_fees: IBCFees {
-            recv_fee: Uint128::from(100u128),
-            ack_fee: Uint128::from(200u128),
-            timeout_fee: Uint128::from(300u128),
-            register_fee: Uint128::from(400u128),
-        },
         timeout: drop_staking_base::state::pump::PumpTimeout {
             local: Some(10u64),
             remote: 10u64,
@@ -40,12 +42,6 @@ fn test_instantiate() {
         dest_port: Some("dest_port".to_string()),
         connection_id: "connection".to_string(),
         refundee: Some("refundee".to_string()),
-        ibc_fees: IBCFees {
-            recv_fee: Uint128::from(100u128),
-            ack_fee: Uint128::from(200u128),
-            timeout_fee: Uint128::from(300u128),
-            register_fee: Uint128::from(400u128),
-        },
         timeout: drop_staking_base::state::pump::PumpTimeout {
             local: Some(10u64),
             remote: 10u64,
@@ -61,7 +57,7 @@ fn test_instantiate() {
         ).add_attributes(vec![
             ("contract_name", "crates.io:drop-neutron-contracts__drop-pump"),
             ("contract_version", "1.0.0"),
-            ("msg", "InstantiateMsg { dest_address: Some(\"dest_address\"), dest_channel: Some(\"dest_channel\"), dest_port: Some(\"dest_port\"), connection_id: \"connection\", ibc_fees: IBCFees { recv_fee: Uint128(100), ack_fee: Uint128(200), timeout_fee: Uint128(300), register_fee: Uint128(400) }, refundee: Some(\"refundee\"), timeout: PumpTimeout { local: Some(10), remote: 10 }, local_denom: \"local_denom\", owner: Some(\"owner\") }"),
+            ("msg", "InstantiateMsg { dest_address: Some(\"dest_address\"), dest_channel: Some(\"dest_channel\"), dest_port: Some(\"dest_port\"), connection_id: \"connection\", refundee: Some(\"refundee\"), timeout: PumpTimeout { local: Some(10), remote: 10 }, local_denom: \"local_denom\", owner: Some(\"owner\") }"),
             ("sender", "admin")
         ]))
     );
@@ -83,12 +79,6 @@ fn test_update_config() {
         dest_port: Some("dest_port".to_string()),
         connection_id: "connection".to_string(),
         refundee: Some("refundee".to_string()),
-        ibc_fees: IBCFees {
-            recv_fee: Uint128::from(100u128),
-            ack_fee: Uint128::from(200u128),
-            timeout_fee: Uint128::from(300u128),
-            register_fee: Uint128::from(400u128),
-        },
         timeout: drop_staking_base::state::pump::PumpTimeout {
             local: Some(0u64),
             remote: 0u64,
@@ -105,12 +95,6 @@ fn test_update_config() {
         dest_port: Some("new_dest_port".to_string()),
         connection_id: Some("new_connection".to_string()),
         refundee: Some("new_refundee".to_string()),
-        ibc_fees: Some(IBCFees {
-            recv_fee: Uint128::from(1000u128),
-            ack_fee: Uint128::from(2000u128),
-            timeout_fee: Uint128::from(3000u128),
-            register_fee: Uint128::from(4000u128),
-        }),
         timeout: Some(drop_staking_base::state::pump::PumpTimeout {
             local: Some(1u64),
             remote: 1u64,
@@ -132,7 +116,7 @@ fn test_update_config() {
             "crates.io:drop-neutron-contracts__drop-pump-update_config"
         ).add_attributes(vec![
             ("action","update_config"),
-            ("new_config", "UpdateConfigMsg { dest_address: Some(\"new_dest_address\"), dest_channel: Some(\"new_dest_channel\"), dest_port: Some(\"new_dest_port\"), connection_id: Some(\"new_connection\"), refundee: Some(\"new_refundee\"), ibc_fees: Some(IBCFees { recv_fee: Uint128(1000), ack_fee: Uint128(2000), timeout_fee: Uint128(3000), register_fee: Uint128(4000) }), timeout: Some(PumpTimeout { local: Some(1), remote: 1 }), local_denom: Some(\"new_local_denom\") }")
+            ("new_config", "UpdateConfigMsg { dest_address: Some(\"new_dest_address\"), dest_channel: Some(\"new_dest_channel\"), dest_port: Some(\"new_dest_port\"), connection_id: Some(\"new_connection\"), refundee: Some(\"new_refundee\"), timeout: Some(PumpTimeout { local: Some(1), remote: 1 }), local_denom: Some(\"new_local_denom\") }")
         ]))
     );
     let config = CONFIG.load(deps.as_ref().storage).unwrap();
@@ -144,12 +128,6 @@ fn test_update_config() {
             dest_port: Some("new_dest_port".to_string()),
             connection_id: "new_connection".to_string(),
             refundee: Some(Addr::unchecked("new_refundee")),
-            ibc_fees: IBCFees {
-                recv_fee: Uint128::from(1000u128),
-                ack_fee: Uint128::from(2000u128),
-                timeout_fee: Uint128::from(3000u128),
-                register_fee: Uint128::from(4000u128),
-            },
             timeout: drop_staking_base::state::pump::PumpTimeout {
                 local: Some(1u64),
                 remote: 1u64,
@@ -160,30 +138,40 @@ fn test_update_config() {
 }
 
 #[test]
+fn test_register_ica_no_fee() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+    let msg = drop_staking_base::msg::pump::ExecuteMsg::RegisterICA {};
+
+    let err = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("nobody", &[]),
+        msg.clone(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        err,
+        ContractError::InvalidFunds {
+            reason: "missing fee in denom local_denom".to_string()
+        }
+    )
+}
+
+#[test]
 fn test_register_ica() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
     let msg = drop_staking_base::msg::pump::ExecuteMsg::RegisterICA {};
-    // no fees
-    let res = execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("nobody", &[]),
-        msg.clone(),
-    );
-    assert_eq!(
-        res,
-        Err(crate::error::ContractError::PaymentError(
-            cw_utils::PaymentError::NoFunds {}
-        ))
-    );
 
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("nobody", &[Coin::new(1000u128, "local_denom")]),
+        mock_info("nobody", &coins(1000, "local_denom")),
         msg.clone(),
     )
     .unwrap();
@@ -202,7 +190,7 @@ fn test_register_ica() {
                 NeutronMsg::register_interchain_account(
                     "connection".to_string(),
                     "drop_PUMP".to_string(),
-                    Some(vec![Coin::new(400u128, "local_denom")]),
+                    Some(coins(1000, "local_denom")),
                 )
             )))
     );
@@ -210,7 +198,7 @@ fn test_register_ica() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("nobody", &[Coin::new(1000u128, "local_denom")]),
+        mock_info("nobody", &coins(1000, "local_denom")),
         msg.clone(),
     );
     assert_eq!(
@@ -224,7 +212,7 @@ fn test_register_ica() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("nobody", &[Coin::new(1000u128, "local_denom")]),
+        mock_info("nobody", &coins(1000, "local_denom")),
         msg.clone(),
     )
     .unwrap();
@@ -243,7 +231,7 @@ fn test_register_ica() {
                 NeutronMsg::register_interchain_account(
                     "connection".to_string(),
                     "drop_PUMP".to_string(),
-                    Some(vec![Coin::new(400u128, "local_denom")]),
+                    Some(coins(1000, "local_denom")),
                 )
             )))
     );
@@ -259,7 +247,7 @@ fn test_execute_refund_no_refundee() {
     config.refundee = None;
     CONFIG.save(deps.as_mut().storage, &config).unwrap();
     let err = execute(deps.as_mut(), mock_env(), mock_info("nobody", &[]), msg).unwrap_err();
-    assert_eq!(err, crate::error::ContractError::RefundeeIsNotSet {});
+    assert_eq!(err, ContractError::RefundeeIsNotSet {});
 }
 
 #[test]
@@ -339,42 +327,25 @@ fn test_push() {
         coins: vec![Coin::new(100u128, "remote_denom")],
     };
     let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: coins(100, "local_denom"),
+                timeout_fee: coins(200, "local_denom"),
+            },
+        })
+        .unwrap()
+    });
     ICA.set_address(deps.as_mut().storage, "some").unwrap();
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
-    // no fees
-    let res = execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("nobody", &[]),
-        msg.clone(),
-    );
-    assert_eq!(
-        res,
-        Err(crate::error::ContractError::PaymentError(
-            cw_utils::PaymentError::NoFunds {}
-        ))
-    );
-    // low feed
-    let res = execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("nobody", &[Coin::new(100u128, "local_denom")]),
-        msg.clone(),
-    );
-    assert_eq!(
-        res,
-        Err(crate::error::ContractError::InvalidFunds {
-            reason: "invalid amount: expected at least 600, got 100".to_string()
-        })
-    );
-    // normal
     let env = mock_env();
     let res = execute(
         deps.as_mut(),
         env.clone(),
-        mock_info("nobody", &[Coin::new(600u128, "local_denom")]),
+        mock_info("nobody", &[]),
         msg.clone(),
     )
     .unwrap();
@@ -415,10 +386,10 @@ fn test_push() {
                 vec![any_msg],
                 "".to_string(),
                 10u64,
-                neutron_sdk::bindings::msg::IbcFee {
-                    recv_fee: vec![Coin::new(100u128, "local_denom")],
-                    ack_fee: vec![Coin::new(200u128, "local_denom")],
-                    timeout_fee: vec![Coin::new(300u128, "local_denom")]
+                IbcFee {
+                    recv_fee: vec![],
+                    ack_fee: coins(100, "local_denom"),
+                    timeout_fee: coins(200, "local_denom")
                 }
             )))
     );

@@ -84,9 +84,6 @@ pub fn execute(
         ExecuteMsg::UpdateValidators { validators } => {
             execute_update_validators(deps, info, validators)
         }
-        ExecuteMsg::UpdateValidator { validator } => {
-            execute_update_validator(deps, info, validator)
-        }
         ExecuteMsg::UpdateValidatorsInfo { validators } => {
             execute_update_validators_info(deps, info, validators)
         }
@@ -123,46 +120,6 @@ fn execute_update_config(
     CONFIG.save(deps.storage, &state)?;
 
     Ok(response("update_config", CONTRACT_NAME, Vec::<Attribute>::new()).add_attributes(attrs))
-}
-
-fn execute_update_validator(
-    deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
-    validator: ValidatorData,
-) -> ContractResult<Response<NeutronMsg>> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    // TODO: implement notification of the validator stats contract about new validator
-    let valoper_address = validator.valoper_address.clone();
-
-    VALIDATORS_SET.save(
-        deps.storage,
-        valoper_address.clone(),
-        &ValidatorInfo {
-            valoper_address: validator.valoper_address,
-            weight: validator.weight,
-            last_processed_remote_height: None,
-            last_processed_local_height: None,
-            last_validated_height: None,
-            last_commission_in_range: None,
-            uptime: Default::default(),
-            tombstone: false,
-            jailed_number: None,
-            init_proposal: None,
-            total_passed_proposals: 0,
-            total_voted_proposals: 0,
-        },
-    )?;
-
-    update_validators_list(deps)?;
-
-    Ok(response(
-        "update_validator",
-        CONTRACT_NAME,
-        [
-            attr("address", valoper_address),
-            attr("weight", validator.weight.to_string()),
-        ],
-    ))
 }
 
 fn execute_update_validators(

@@ -1,12 +1,11 @@
+use crate::error::{ContractError, ContractResult};
 use cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxMsgData;
 use cosmos_sdk_proto::cosmos::base::v1beta1::Coin as ProtoCoin;
 use cosmos_sdk_proto::ibc::applications::transfer::v1::{MsgTransfer, MsgTransferResponse};
-use cosmwasm_std::{
-    attr, coin, ensure, entry_point, to_json_binary, Addr, Coin, CosmosMsg, Deps, StdError, Uint128,
-};
+use cosmwasm_std::{attr, entry_point, to_json_binary, Addr, Coin, CosmosMsg, Deps, StdError};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
-use cw_utils::must_pay;
 use drop_helpers::answer::response;
+use drop_helpers::ibc_fee::query_ibc_fee;
 use drop_staking_base::msg::pump::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion, QueryMsg, UpdateConfigMsg,
 };
@@ -18,8 +17,6 @@ use neutron_sdk::interchain_txs::helpers::decode_message_response;
 use neutron_sdk::sudo::msg::{RequestPacket, SudoMsg};
 use neutron_sdk::{NeutronError, NeutronResult};
 use prost::Message;
-
-use crate::error::{ContractError, ContractResult};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -54,7 +51,6 @@ pub fn instantiate(
                 .refundee
                 .map(|r| deps.api.addr_validate(&r))
                 .transpose()?,
-            ibc_fees: msg.ibc_fees,
             timeout: msg.timeout,
             local_denom: msg.local_denom,
         },
@@ -93,7 +89,7 @@ pub fn execute(
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
         ExecuteMsg::RegisterICA {} => execute_register_ica(deps, info),
-        ExecuteMsg::Push { coins } => execute_push(deps, env, info, coins),
+        ExecuteMsg::Push { coins } => execute_push(deps, env, coins),
         ExecuteMsg::Refund { coins } => execute_refund(deps, info, coins),
         ExecuteMsg::UpdateConfig { new_config } => {
             execute_update_config(deps, env, info, *new_config)
@@ -157,9 +153,6 @@ fn execute_update_config(
     if let Some(refundee) = new_config.refundee {
         config.refundee = Some(deps.api.addr_validate(&refundee)?);
     }
-    if let Some(ibc_fees) = new_config.ibc_fees {
-        config.ibc_fees = ibc_fees;
-    }
     if let Some(timeout) = new_config.timeout {
         config.timeout = timeout;
     }
@@ -180,41 +173,31 @@ fn execute_register_ica(
         attr("connection_id", &config.connection_id),
         attr("ica_id", ICA_ID),
     ];
-    check_funds(&info, &config, config.ibc_fees.register_fee)?;
-    let register_fee: Uint128 = config.ibc_fees.register_fee;
-    let register_msg = ICA.register(
-        deps.storage,
-        config.connection_id,
-        ICA_ID,
-        coin(register_fee.u128(), config.local_denom),
-    )?;
+    let register_fee = info
+        .funds
+        .into_iter()
+        .find(|f| f.denom == config.local_denom)
+        .ok_or(ContractError::InvalidFunds {
+            reason: format!("missing fee in denom {}", config.local_denom),
+        })?;
+    let register_msg = ICA.register(deps.storage, config.connection_id, ICA_ID, register_fee)?;
     Ok(response("register-ica", CONTRACT_NAME, attrs).add_message(register_msg))
 }
 
 fn execute_push(
     deps: DepsMut<NeutronQuery>,
     env: Env,
-    info: MessageInfo,
     coins: Vec<Coin>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let mut messages = vec![];
-    check_funds(
-        &info,
-        &config,
-        config.ibc_fees.ack_fee + config.ibc_fees.recv_fee + config.ibc_fees.timeout_fee,
-    )?;
     let attrs = vec![
         attr("action", "push"),
         attr("connection_id", &config.connection_id),
         attr("ica_id", ICA_ID),
         attr("coins", format!("{:?}", coins)),
     ];
-    let fee = IbcFee {
-        recv_fee: uint_into_vec_coin(config.ibc_fees.recv_fee, &config.local_denom),
-        ack_fee: uint_into_vec_coin(config.ibc_fees.ack_fee, &config.local_denom),
-        timeout_fee: uint_into_vec_coin(config.ibc_fees.timeout_fee, &config.local_denom),
-    };
+    let fee = query_ibc_fee(deps.as_ref(), &config.local_denom)?;
     let ica = ICA.get_address(deps.storage)?;
     let timeout_timestamp = env.block.time.plus_seconds(config.timeout.remote).nanos();
     let dst_port = &config
@@ -408,25 +391,4 @@ fn sudo_error(
 pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     deps.api.debug("WASMDEBUG: migrate");
     Ok(Response::default())
-}
-
-fn uint_into_vec_coin(amount: Uint128, denom: &String) -> Vec<Coin> {
-    vec![Coin {
-        denom: denom.to_string(),
-        amount,
-    }]
-}
-
-fn check_funds(info: &MessageInfo, config: &Config, needed_amount: Uint128) -> ContractResult<()> {
-    let info_amount = must_pay(info, &config.local_denom)?;
-    ensure!(
-        info_amount >= needed_amount,
-        ContractError::InvalidFunds {
-            reason: format!(
-                "invalid amount: expected at least {}, got {}",
-                needed_amount, info_amount
-            )
-        }
-    );
-    Ok(())
 }

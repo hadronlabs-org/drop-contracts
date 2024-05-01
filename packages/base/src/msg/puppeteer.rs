@@ -1,7 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{from_json, Addr, Decimal, Timestamp, Uint128};
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
-use drop_helpers::{interchain::IBCFees, version::version_to_u32};
+use drop_helpers::version::version_to_u32;
 use std::ops::Div;
 use std::str::FromStr;
 
@@ -38,7 +38,6 @@ pub struct InstantiateMsg {
     pub allowed_senders: Vec<String>,
     pub transfer_channel_id: String,
     pub sdk_version: String,
-    pub ibc_fees: IBCFees,
 }
 
 #[cw_ownable_execute]
@@ -54,12 +53,6 @@ pub enum ExecuteMsg {
     },
     RegisterNonNativeRewardsBalancesQuery {
         denoms: Vec<String>,
-    },
-    SetFees {
-        recv_fee: Uint128,
-        ack_fee: Uint128,
-        timeout_fee: Uint128,
-        register_fee: Uint128,
     },
     Delegate {
         items: Vec<(String, Uint128)>,
@@ -121,17 +114,6 @@ impl ExecuteMsg {
         match self {
             ExecuteMsg::RegisterICA {} => BaseExecuteMsg::RegisterICA {},
             ExecuteMsg::RegisterQuery {} => BaseExecuteMsg::RegisterQuery {},
-            ExecuteMsg::SetFees {
-                recv_fee,
-                ack_fee,
-                timeout_fee,
-                register_fee,
-            } => BaseExecuteMsg::SetFees {
-                recv_fee: *recv_fee,
-                ack_fee: *ack_fee,
-                timeout_fee: *timeout_fee,
-                register_fee: *register_fee,
-            },
             _ => unimplemented!(),
         }
     }
@@ -145,14 +127,6 @@ pub type Height = u64;
 pub type DelegationsResponse = (Delegations, Height, Timestamp);
 pub type BalancesResponse = (Balances, Height, Timestamp);
 
-#[cw_serde]
-pub struct FeesResponse {
-    pub recv_fee: Vec<cosmwasm_std::Coin>,
-    pub ack_fee: Vec<cosmwasm_std::Coin>,
-    pub timeout_fee: Vec<cosmwasm_std::Coin>,
-    pub register_fee: cosmwasm_std::Coin,
-}
-
 #[cw_ownable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
@@ -163,8 +137,6 @@ pub enum QueryExtMsg {
     Balances {},
     #[returns(BalancesResponse)]
     NonNativeRewardsBalances {},
-    #[returns(FeesResponse)]
-    Fees {},
     #[returns(Vec<drop_puppeteer_base::state::UnbondingDelegation>)]
     UnbondingDelegations {},
 }
