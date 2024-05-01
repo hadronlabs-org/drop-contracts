@@ -856,6 +856,7 @@ fn execute_tick_unbonding(
         }
         drop_puppeteer_base::msg::ResponseHookMsg::Error(response) => match response.transaction {
             drop_puppeteer_base::msg::Transaction::Undelegate { batch_id, .. } => {
+                LAST_PUPPETEER_RESPONSE.remove(deps.storage);
                 attrs.push(attr("batch_id", batch_id.to_string()));
                 let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
                 unbond.status = UnbondBatchStatus::UnbondFailed;
