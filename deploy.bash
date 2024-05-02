@@ -11,8 +11,6 @@ MIN_NTRN_REQUIRED="10"
 TARGET_SDK_VERSION="0.47.10"
 TARGET_BASE_DENOM="uatom"
 NEUTRON_SIDE_TRANSFER_CHANNEL_ID="channel-0"
-IBC_ACK_FEE="10000"
-IBC_TIMEOUT_FEE="$IBC_ACK_FEE"
 IBC_REGISTER_FEE="1000000"
 HERMES_CONFIG="../neutron/network/hermes/config.toml"
 
@@ -189,13 +187,7 @@ deploy_factory() {
       "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
       "port_id":"transfer",
       "denom":"'"$TARGET_BASE_DENOM"'",
-      "update_period":100,
-      "ibc_fees":{
-        "timeout_fee":"'"$IBC_TIMEOUT_FEE"'",
-        "ack_fee":"'"$IBC_ACK_FEE"'",
-        "recv_fee":"0",
-        "register_fee":"'"$IBC_REGISTER_FEE"'"
-      }
+      "update_period":100
     },
     "salt":"salt",
     "subdenom":"drop",
@@ -236,18 +228,6 @@ deploy_factory() {
     | jq -r '.data.withdrawal_manager_contract')"
   echo "[OK] Puppeteer contract: $puppeteer_address"
   echo "[OK] Withdrawal manager contract: $withdrawal_manager_address"
-  msg='{
-    "update_config":{
-      "puppeteer_fees":{
-        "timeout_fee":"'"$IBC_TIMEOUT_FEE"'",
-        "ack_fee":"'"$IBC_ACK_FEE"'",
-        "recv_fee":"0",
-        "register_fee":"'"$IBC_REGISTER_FEE"'"
-      }
-    }
-  }'
-  neutrond tx wasm execute "$factory_address" "$msg" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx | assert_success
-  echo "[OK] Set puppeteer fees"
 }
 
 setup_puppeteer_ica() {
@@ -289,12 +269,6 @@ setup_puppeteer_ica() {
 deploy_pump() {
   msg='{
     "connection_id":"'"$neutron_side_connection_id"'",
-    "ibc_fees":{
-      "timeout_fee":"'"$IBC_TIMEOUT_FEE"'",
-      "ack_fee":"'"$IBC_ACK_FEE"'",
-      "recv_fee":"0",
-      "register_fee":"'"$IBC_REGISTER_FEE"'"
-    },
     "local_denom":"untrn",
     "timeout":{
       "local":360,
