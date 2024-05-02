@@ -5,7 +5,7 @@ use cosmwasm_std::{
     QueryRequest, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use drop_helpers::answer::response;
-use drop_helpers::pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse};
+use drop_helpers::pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse};
 use drop_puppeteer_base::{
     msg::{IBCTransferReason, TransferReadyBatchesMsg},
     state::RedeemShareItem,
@@ -130,7 +130,7 @@ fn query_pending_lsm_shares(deps: Deps<NeutronQuery>) -> ContractResult<Binary> 
 }
 
 fn query_pause_info(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    if is_paused(deps.storage) {
+    if is_paused(deps.storage)? {
         to_json_binary(&PauseInfoResponse::Paused {}).map_err(From::from)
     } else {
         to_json_binary(&PauseInfoResponse::Unpaused {}).map_err(From::from)
@@ -280,7 +280,7 @@ fn exec_unpause(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
-    unpause(deps.storage)?;
+    unpause(deps.storage);
 
     Ok(response(
         "exec_unpause",
@@ -487,7 +487,7 @@ fn execute_tick(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    assert_paused(deps.storage)?;
+    pause_guard(deps.storage)?;
 
     let current_state = FSM.get_current_state(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;

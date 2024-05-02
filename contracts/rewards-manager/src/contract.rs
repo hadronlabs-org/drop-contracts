@@ -2,7 +2,7 @@ use cosmwasm_std::{attr, to_json_binary, Attribute, CosmosMsg, Deps, Order, Wasm
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::response;
-use drop_helpers::pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse};
+use drop_helpers::pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse};
 use drop_staking_base::error::rewards_manager::ContractResult;
 use drop_staking_base::msg::reward_handler::HandlerExecuteMsg;
 use drop_staking_base::msg::rewards_manager::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
@@ -40,7 +40,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 fn query_pause_info(deps: Deps) -> StdResult<Binary> {
-    if is_paused(deps.storage) {
+    if is_paused(deps.storage)? {
         to_json_binary(&PauseInfoResponse::Paused {})
     } else {
         to_json_binary(&PauseInfoResponse::Unpaused {})
@@ -93,7 +93,7 @@ fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response> {
 fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
-    unpause(deps.storage)?;
+    unpause(deps.storage);
 
     Ok(response(
         "exec_unpause",
@@ -139,7 +139,7 @@ fn exec_remove_handler(
 }
 
 fn exec_exchange_rewards(deps: DepsMut, env: Env, _info: MessageInfo) -> ContractResult<Response> {
-    assert_paused(deps.storage)?;
+    pause_guard(deps.storage)?;
 
     let balances = deps.querier.query_all_balances(env.contract.address)?;
 

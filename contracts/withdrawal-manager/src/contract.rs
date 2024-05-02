@@ -6,7 +6,7 @@ use cw721::NftInfoResponse;
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::{
     answer::response,
-    pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse},
+    pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse},
 };
 use drop_staking_base::{
     msg::{
@@ -61,7 +61,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
 }
 
 fn query_pause_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
-    if is_paused(deps.storage) {
+    if is_paused(deps.storage)? {
         to_json_binary(&PauseInfoResponse::Paused {})
     } else {
         to_json_binary(&PauseInfoResponse::Unpaused {})
@@ -123,7 +123,7 @@ fn exec_unpause(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
-    unpause(deps.storage)?;
+    unpause(deps.storage);
 
     Ok(response(
         "exec_unpause",
@@ -167,7 +167,7 @@ fn execute_receive_nft_withdraw(
     token_id: String,
     receiver: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    assert_paused(deps.storage)?;
+    pause_guard(deps.storage)?;
 
     let mut attrs = vec![attr("action", "receive_nft")];
     let config = CONFIG.load(deps.storage)?;
