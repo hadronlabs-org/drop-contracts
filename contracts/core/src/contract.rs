@@ -1025,13 +1025,6 @@ fn execute_update_config(
         ));
         config.unbond_batch_switch_time = unbond_batch_switch_time;
     }
-    if let Some(unbond_batch_switch_time) = new_config.unbond_batch_switch_time {
-        attrs.push(attr(
-            "unbond_batch_switch_time",
-            unbond_batch_switch_time.to_string(),
-        ));
-        config.unbond_batch_switch_time = unbond_batch_switch_time;
-    }
     if let Some(lsm_min_bond_amount) = new_config.lsm_min_bond_amount {
         attrs.push(attr("lsm_min_bond_amount", lsm_min_bond_amount.to_string()));
         config.lsm_min_bond_amount = lsm_min_bond_amount;
