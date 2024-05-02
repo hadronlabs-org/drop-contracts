@@ -38,6 +38,7 @@ pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+const BALANCE_UPDATE_DELAY: u64 = 5;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -165,15 +166,6 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
         )?;
-
-    let last_ica_balance_change_height = LAST_ICA_CHANGE_HEIGHT.load(deps.storage)?;
-    ensure!(
-        last_ica_balance_change_height <= delegations.1,
-        ContractError::PuppeteerDelegationsOutdated {
-            ica_height: last_ica_balance_change_height,
-            puppeteer_height: delegations.1
-        }
-    );
 
     let delegations_amount: Uint128 = delegations
         .0
@@ -493,6 +485,11 @@ fn execute_tick(
 
     let current_state = FSM.get_current_state(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
+
+    println!("before {:?}", config.puppeteer_contract.to_string());
+    check_latest_icq_responses(deps.as_ref(), config.puppeteer_contract.to_string())?;
+    println!("after");
+
     match current_state {
         ContractState::Idle => execute_tick_idle(deps.branch(), env, info, &config),
         ContractState::Claiming => execute_tick_claiming(deps.branch(), env, info, &config),
@@ -656,12 +653,11 @@ fn execute_tick_idle(
                     },
                 )?;
 
-        let last_ica_balance_change_height = LAST_ICA_CHANGE_HEIGHT.load(deps.storage)?;
         ensure!(
-            last_ica_balance_change_height <= local_height,
+            (env.block.height - local_height) <= BALANCE_UPDATE_DELAY,
             ContractError::PuppeteerDelegationsOutdated {
-                ica_height: last_ica_balance_change_height,
-                puppeteer_height: local_height
+                ica_height: env.block.height,
+                control_height: local_height
             }
         );
 
@@ -795,7 +791,7 @@ fn execute_tick_staking_bond(
         if response.local_height > puppeteer_height {
             return Err(ContractError::PuppeteerBalanceOutdated {
                 ica_height: response.local_height,
-                puppeteer_height,
+                control_height: puppeteer_height,
             });
         }
     }
@@ -1172,6 +1168,52 @@ fn execute_unbond(
     Ok(response("execute-unbond", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
+fn check_latest_icq_responses(
+    deps: Deps<NeutronQuery>,
+    puppeteer_contract: String,
+) -> ContractResult<Response<NeutronMsg>> {
+    let last_ica_balance_change_height = LAST_ICA_CHANGE_HEIGHT.load(deps.storage)?;
+
+    println!("puppeteer_contract {:?}", puppeteer_contract);
+
+    let (balance, balance_height, _): drop_staking_base::msg::puppeteer::BalancesResponse =
+        deps.querier.query_wasm_smart(
+            puppeteer_contract.to_string(),
+            &drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
+            },
+        )?;
+
+    println!("balance {:?}", balance);
+
+    ensure!(
+        last_ica_balance_change_height <= balance_height,
+        ContractError::PuppeteerBalanceOutdated {
+            ica_height: last_ica_balance_change_height,
+            control_height: balance_height
+        }
+    );
+
+    let (delegations, delegations_height, _): drop_staking_base::msg::puppeteer::DelegationsResponse =
+        deps.querier.query_wasm_smart(
+            puppeteer_contract,
+            &drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+            },
+        )?;
+    println!("delegations {:?}", delegations);
+
+    ensure!(
+        last_ica_balance_change_height <= delegations_height,
+        ContractError::PuppeteerDelegationsOutdated {
+            ica_height: last_ica_balance_change_height,
+            control_height: delegations_height
+        }
+    );
+
+    Ok(Response::new())
+}
+
 pub fn get_stake_bond_msg<T>(
     deps: Deps<NeutronQuery>,
     _env: &Env,
@@ -1343,7 +1385,7 @@ fn get_ica_balance_by_denom<T: CustomQuery>(
         last_ica_balance_change_height <= balance_height,
         ContractError::PuppeteerBalanceOutdated {
             ica_height: last_ica_balance_change_height,
-            puppeteer_height: balance_height
+            control_height: balance_height
         }
     );
 
@@ -1402,7 +1444,7 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
         last_ica_balance_change_height <= rewards.1,
         ContractError::PuppeteerBalanceOutdated {
             ica_height: last_ica_balance_change_height,
-            puppeteer_height: rewards.1
+            control_height: rewards.1
         }
     );
 
