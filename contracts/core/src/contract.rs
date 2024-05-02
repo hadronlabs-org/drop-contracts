@@ -495,6 +495,13 @@ fn execute_tick(
     let config = CONFIG.load(deps.storage)?;
     match current_state {
         ContractState::Idle => execute_tick_idle(deps.branch(), env, info, &config),
+        //
+        ContractState::LSMRedeem => execute_tick_peripheral(deps.branch(), env, info, &config),
+        ContractState::LSMTransfer => execute_tick_peripheral(deps.branch(), env, info, &config),
+        ContractState::NonNativeRewardsTransfer => {
+            execute_tick_peripheral(deps.branch(), env, info, &config)
+        }
+        //
         ContractState::Claiming => execute_tick_claiming(deps.branch(), env, info, &config),
         ContractState::StakingBond => execute_tick_staking_bond(deps.branch(), env, info, &config),
         ContractState::Unbonding => execute_tick_unbonding(deps.branch(), env, info, &config),
@@ -520,19 +527,21 @@ fn execute_tick_idle(
             get_non_native_rewards_and_fee_transfer_msg(deps.as_ref(), info.clone(), &env)?
         {
             messages.push(transfer_msg);
+            FSM.go_to(deps.storage, ContractState::NonNativeRewardsTransfer)?;
         } else if let Some(lsm_msg) =
             get_pending_redeem_msg(deps.as_ref(), config, &env, info.funds.clone())?
         {
             messages.push(lsm_msg);
+            FSM.go_to(deps.storage, ContractState::LSMRedeem)?;
         } else if let Some(lsm_msg) =
             get_pending_lsm_share_msg(deps.branch(), config, &env, info.funds.clone())?
         {
             messages.push(lsm_msg);
+            FSM.go_to(deps.storage, ContractState::LSMTransfer)?;
         } else {
             //return error if none
             return Err(ContractError::IdleMinIntervalIsNotReached {});
         }
-        // TODO: create a state for background routines
     } else {
         let unbonding_batches = unbond_batches_map()
             .idx
@@ -716,6 +725,49 @@ fn execute_tick_idle(
         LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
     }
     Ok(response("execute-tick_idle", CONTRACT_NAME, attrs).add_messages(messages))
+}
+
+fn execute_tick_peripheral(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _info: MessageInfo,
+    config: &Config,
+) -> ContractResult<Response<NeutronMsg>> {
+    let response_msg = get_received_puppeteer_response(deps.as_ref())?;
+    LAST_PUPPETEER_RESPONSE.remove(deps.storage);
+    let attrs = vec![attr("action", "tick_peripheral")];
+
+    let (_, balances_height, _): drop_staking_base::msg::puppeteer::BalancesResponse =
+        deps.querier.query_wasm_smart(
+            config.puppeteer_contract.to_string(),
+            &drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
+            },
+        )?;
+    let (_, delegations_height, _): drop_staking_base::msg::puppeteer::DelegationsResponse =
+        deps.querier.query_wasm_smart(
+            config.puppeteer_contract.to_string(),
+            &drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+            },
+        )?;
+
+    if let drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) = response_msg {
+        if success_msg.local_height > balances_height {
+            return Err(ContractError::PuppeteerBalanceOutdated {
+                ica_height: success_msg.local_height,
+                puppeteer_height: balances_height,
+            });
+        }
+        if success_msg.local_height > delegations_height {
+            return Err(ContractError::PuppeteerDelegationsOutdated {
+                ica_height: success_msg.local_height,
+                puppeteer_height: balances_height,
+            });
+        }
+    }
+    FSM.go_to(deps.storage, ContractState::Idle)?;
+    Ok(response("execute-tick_peripheral", CONTRACT_NAME, attrs))
 }
 
 fn execute_tick_claiming(

@@ -33,12 +33,10 @@ import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import {
-  ResponseHookMsg,
-  ResponseHookSuccessMsg,
-} from '../generated/contractLib/dropCore';
+import { ResponseHookMsg } from '../generated/contractLib/dropCore';
 import { stringToPath } from '@cosmjs/crypto';
 import { sleep } from '../helpers/sleep';
+import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
@@ -1342,7 +1340,7 @@ describe('Auto withdrawer', () => {
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('idle');
+        expect(state).toEqual('non_native_rewards_transfer');
       });
       it('wait for the response from puppeteer', async () => {
         let response: ResponseHookMsg;
@@ -1390,11 +1388,53 @@ describe('Auto withdrawer', () => {
           return res[0].coins.length === 1;
         });
       }, 30_000);
+      it('wait for balances and delegations to update', async () => {
+        const [, currentBalancesHeight] =
+          await context.puppeteerContractClient.queryExtension({
+            msg: {
+              balances: {},
+            },
+          });
+        const [, currentDelegationsHeight] =
+          await context.puppeteerContractClient.queryExtension({
+            msg: {
+              delegations: {},
+            },
+          });
+        await waitFor(async () => {
+          const [, nowBalancesHeight] =
+            await context.puppeteerContractClient.queryExtension({
+              msg: {
+                balances: {},
+              },
+            });
+          const [, nowDelegationsHeight] =
+            await context.puppeteerContractClient.queryExtension({
+              msg: {
+                delegations: {},
+              },
+            });
+          return (
+            nowBalancesHeight !== currentBalancesHeight &&
+            nowDelegationsHeight !== currentDelegationsHeight
+          );
+        }, 30_000);
+      });
+      it('tick', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
     });
 
     describe('fourth cycle', () => {
-      let previousResponse: ResponseHookSuccessMsg;
-
       it('update idle interval', async () => {
         const { factoryContractClient, neutronUserAddress } = context;
         const res = await factoryContractClient.updateConfig(
@@ -1441,11 +1481,6 @@ describe('Auto withdrawer', () => {
       });
       it('tick', async () => {
         const { coreContractClient, neutronUserAddress } = context;
-        previousResponse = (
-          (await coreContractClient.queryLastPuppeteerResponse()).response as {
-            success: ResponseHookSuccessMsg;
-          }
-        ).success;
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('claiming');
@@ -1458,32 +1493,22 @@ describe('Auto withdrawer', () => {
               await context.coreContractClient.queryLastPuppeteerResponse()
             ).response;
           } catch (e) {
-            return false;
+            //
           }
-          if (!response || !('success' in response)) {
-            throw new Error(
-              ('error' in response && response.error.details) || 'no response',
-            );
-          }
-          return response.success.request_id > previousResponse.request_id;
-        }, 30_000);
+          return !!response;
+        }, 100_000);
+        expect(response).toBeTruthy();
+        expect<ResponseHookMsg>(response).toHaveProperty('success');
       });
-      it('wait for balance to update', async () => {
-        const [, currentHeight] =
-          (await context.puppeteerContractClient.queryExtension({
-            msg: {
-              balances: {},
-            },
-          })) as any;
-        await waitFor(async () => {
-          const [, nowHeight] =
-            (await context.puppeteerContractClient.queryExtension({
-              msg: {
-                balances: {},
-              },
-            })) as any;
-          return nowHeight !== currentHeight;
-        }, 30_000);
+      it('wait for ICQ update', async () => {
+        await waitForPuppeteerICQ(
+          context.coreContractClient,
+          context.puppeteerContractClient,
+          {
+            waitBalances: true,
+            waitDelegations: false,
+          },
+        );
       });
       it('tick', async () => {
         const { coreContractClient, neutronUserAddress } = context;

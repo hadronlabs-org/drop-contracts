@@ -5,9 +5,15 @@ import { ResponseHookSuccessMsg } from '../generated/contractLib/dropCore';
 const DropCoreClass = DropCore.Client;
 const DropPuppeteerClass = DropPuppeteer.Client;
 
+interface WaitOptions {
+  waitBalances: boolean;
+  waitDelegations: boolean;
+}
+
 export const waitForPuppeteerICQ = async (
-  coreContractClient?: InstanceType<typeof DropCoreClass>,
-  puppeteerContractClient?: InstanceType<typeof DropPuppeteerClass>,
+  coreContractClient: InstanceType<typeof DropCoreClass>,
+  puppeteerContractClient: InstanceType<typeof DropPuppeteerClass>,
+  options: WaitOptions,
 ): Promise<void> => {
   const puppeteerResponse = (
     (await coreContractClient.queryLastPuppeteerResponse()).response as {
@@ -24,6 +30,16 @@ export const waitForPuppeteerICQ = async (
         },
       },
     )) as any;
-    return lastBalanceHeight > puppeteerResponseHeight;
+    const [, lastDeleationsHeight] =
+      (await puppeteerContractClient.queryExtension({
+        msg: {
+          balances: {},
+        },
+      })) as any;
+    return (
+      (!options.waitBalances || lastBalanceHeight >= puppeteerResponseHeight) &&
+      (!options.waitDelegations ||
+        lastDeleationsHeight >= puppeteerResponseHeight)
+    );
   }, 50_000);
 };
