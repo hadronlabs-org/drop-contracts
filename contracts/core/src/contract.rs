@@ -956,7 +956,7 @@ fn execute_update_config(
         attrs.push(attr("puppeteer_contract", puppeteer_contract));
     }
     if let Some(puppeteer_timeout) = new_config.puppeteer_timeout {
-        attrs.push(attr("puppeteer_contract", puppeteer_timeout.to_string()));
+        attrs.push(attr("puppeteer_timeout", puppeteer_timeout.to_string()));
         config.puppeteer_timeout = puppeteer_timeout;
     }
     if let Some(strategy_contract) = new_config.strategy_contract {

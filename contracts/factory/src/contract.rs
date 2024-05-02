@@ -470,7 +470,7 @@ fn execute_update_config(
             info.funds,
         )?),
     }
-    Ok(response("execute-proxy-call", CONTRACT_NAME, attrs).add_messages(messages))
+    Ok(response("execute-update-config", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 fn execute_proxy_msg(
