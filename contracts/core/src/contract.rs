@@ -1,10 +1,9 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, ensure_ne, entry_point, to_json_binary, Addr, Attribute, BankMsg,
-    BankQuery, Binary, Coin, CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo,
-    Order, QueryRequest, Response, StdError, StdResult, Uint128, WasmMsg,
+    attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankMsg, BankQuery,
+    Binary, Coin, CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order,
+    QueryRequest, Response, StdError, StdResult, Uint128, WasmMsg,
 };
-use cw2::set_contract_version;
 use drop_helpers::answer::response;
 use drop_helpers::pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse};
 use drop_puppeteer_base::{
@@ -14,7 +13,10 @@ use drop_puppeteer_base::{
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
-        core::{ExecuteMsg, InstantiateMsg, LastPuppeteerResponse, LastStakerResponse, QueryMsg},
+        core::{
+            ExecuteMsg, InstantiateMsg, LastPuppeteerResponse, LastStakerResponse, MigrateMsg,
+            QueryMsg,
+        },
         token::{
             ConfigResponse as TokenConfigResponse, ExecuteMsg as TokenExecuteMsg,
             QueryMsg as TokenQueryMsg,
@@ -42,14 +44,14 @@ pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let attrs: Vec<Attribute> = vec![
         attr("token_contract", &msg.token_contract),
         attr("puppeteer_contract", &msg.puppeteer_contract),
@@ -88,7 +90,7 @@ pub fn instantiate(
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     Ok(match msg {
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?)?,
@@ -222,7 +224,7 @@ fn query_unbond_batch(deps: Deps<NeutronQuery>, batch_id: Uint128) -> StdResult<
     to_json_binary(&unbond_batches_map().load(deps.storage, batch_id.u128())?)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -1598,4 +1600,21 @@ pub mod check_denom {
 
         Ok(DenomType::LsmShare(trace.base_denom))
     }
+}
+
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }

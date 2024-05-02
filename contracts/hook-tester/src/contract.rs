@@ -1,6 +1,7 @@
+use crate::error::ContractResult;
 use cosmwasm_std::{
-    attr, entry_point, to_json_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
-    Response, StdResult, Uint128, WasmMsg,
+    attr, to_json_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    Uint128, WasmMsg,
 };
 use drop_helpers::answer::response;
 use drop_puppeteer_base::{
@@ -16,9 +17,7 @@ use neutron_sdk::{
     NeutronResult,
 };
 
-use crate::error::ContractResult;
-
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
@@ -31,7 +30,7 @@ pub fn instantiate(
     Ok(response("instantiate", "hook-tester", attrs))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Answers {} => to_json_binary(&ANSWERS.load(deps.storage)?),
@@ -39,7 +38,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
     }
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     env: Env,

@@ -1,26 +1,25 @@
-use cosmwasm_std::{attr, entry_point, to_json_binary, Attribute, CosmosMsg, Deps, Order, WasmMsg};
+use cosmwasm_std::{attr, to_json_binary, Attribute, CosmosMsg, Deps, Order, WasmMsg};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
-use cw2::set_contract_version;
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::response;
 use drop_helpers::pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse};
 use drop_staking_base::error::rewards_manager::ContractResult;
+use drop_staking_base::msg::reward_handler::HandlerExecuteMsg;
 use drop_staking_base::msg::rewards_manager::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use drop_staking_base::state::rewards_manager::{HandlerConfig, REWARDS_HANDLERS};
-
-use drop_staking_base::msg::reward_handler::HandlerExecuteMsg;
+use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let owner = deps.api.addr_validate(&msg.owner)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(owner.as_ref()))?;
 
@@ -31,7 +30,7 @@ pub fn instantiate(
     ))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Ownership {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
@@ -59,7 +58,7 @@ fn query_handlers(deps: Deps, _env: Env) -> StdResult<Binary> {
     to_json_binary(&handlers)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -178,8 +177,19 @@ fn exec_exchange_rewards(deps: DepsMut, env: Env, _info: MessageInfo) -> Contrac
     .add_attributes(attrs))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    deps.api.debug("WASMDEBUG: migrate");
-    Ok(Response::default())
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }

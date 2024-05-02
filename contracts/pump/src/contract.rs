@@ -2,8 +2,8 @@ use crate::error::{ContractError, ContractResult};
 use cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxMsgData;
 use cosmos_sdk_proto::cosmos::base::v1beta1::Coin as ProtoCoin;
 use cosmos_sdk_proto::ibc::applications::transfer::v1::{MsgTransfer, MsgTransferResponse};
-use cosmwasm_std::{attr, entry_point, to_json_binary, Addr, Coin, CosmosMsg, Deps, StdError};
-use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{attr, to_json_binary, Addr, Coin, CosmosMsg, Deps, StdError};
+use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use drop_helpers::answer::response;
 use drop_helpers::ibc_fee::query_ibc_fee;
 use drop_staking_base::msg::pump::{
@@ -15,20 +15,21 @@ use neutron_sdk::bindings::query::NeutronQuery;
 use neutron_sdk::bindings::types::ProtobufAny;
 use neutron_sdk::interchain_txs::helpers::decode_message_response;
 use neutron_sdk::sudo::msg::{RequestPacket, SudoMsg};
-use neutron_sdk::{NeutronError, NeutronResult};
+use neutron_sdk::NeutronError;
 use prost::Message;
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
-) -> NeutronResult<Response<NeutronMsg>> {
+) -> ContractResult<Response<NeutronMsg>> {
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let attrs = vec![
         attr("contract_name", CONTRACT_NAME),
         attr("contract_version", CONTRACT_VERSION),
@@ -58,29 +59,29 @@ pub fn instantiate(
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> NeutronResult<Binary> {
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     match msg {
         QueryMsg::Config {} => query_config(deps),
         QueryMsg::Ica {} => query_ica(deps),
         QueryMsg::Ownership {} => {
             let ownership = cw_ownable::get_ownership(deps.storage)?;
-            to_json_binary(&ownership).map_err(NeutronError::Std)
+            Ok(to_json_binary(&ownership)?)
         }
     }
 }
 
-fn query_config(deps: Deps) -> NeutronResult<Binary> {
+fn query_config(deps: Deps) -> ContractResult<Binary> {
     let config = CONFIG.load(deps.storage)?;
-    to_json_binary(&config).map_err(NeutronError::Std)
+    Ok(to_json_binary(&config)?)
 }
 
-fn query_ica(deps: Deps) -> NeutronResult<Binary> {
+fn query_ica(deps: Deps) -> ContractResult<Binary> {
     let ica = ICA.load(deps.storage)?;
-    to_json_binary(&ica).map_err(NeutronError::Std)
+    Ok(to_json_binary(&ica)?)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -243,14 +244,12 @@ fn compose_msg<T: prost::Message>(
     fee: &IbcFee,
     type_url: String,
     timeout: Option<u64>,
-) -> NeutronResult<NeutronMsg> {
+) -> ContractResult<NeutronMsg> {
     let connection_id = config.connection_id.to_string();
     let mut buf = Vec::with_capacity(in_msg.encoded_len());
-    if let Err(e) = in_msg.encode(&mut buf) {
-        return Err(NeutronError::Std(StdError::generic_err(format!(
-            "Encode error: {e}"
-        ))));
-    }
+    in_msg
+        .encode(&mut buf)
+        .map_err(|e| StdError::generic_err(format!("Encode error: {e}")))?;
     let any_msg = ProtobufAny {
         type_url,
         value: Binary::from(buf),
@@ -266,15 +265,15 @@ fn compose_msg<T: prost::Message>(
     Ok(cosmos_msg)
 }
 
-#[entry_point]
-pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResult<Response> {
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> ContractResult<Response> {
     match msg {
         SudoMsg::Response { request, data } => sudo_response(deps, env, request, data),
         SudoMsg::Error { request, details } => sudo_error(deps, env, request, details),
         SudoMsg::Timeout { request } => sudo_timeout(deps, env, request),
-        SudoMsg::KVQueryResult { .. } | SudoMsg::TxQueryResult { .. } => Err(NeutronError::Std(
-            StdError::generic_err("KVQueryResult and TxQueryResult are not supported"),
-        )),
+        SudoMsg::KVQueryResult { .. } | SudoMsg::TxQueryResult { .. } => {
+            Err(StdError::generic_err("KVQueryResult and TxQueryResult are not supported").into())
+        }
         SudoMsg::OpenAck {
             port_id,
             channel_id,
@@ -298,16 +297,14 @@ pub fn sudo_open_ack(
     _channel_id: String,
     _counterparty_channel_id: String,
     counterparty_version: String,
-) -> NeutronResult<Response> {
+) -> ContractResult<Response> {
     let parsed_version: Result<OpenAckVersion, _> =
         serde_json_wasm::from_str(counterparty_version.as_str());
     if let Ok(parsed_version) = parsed_version {
         ICA.set_address(deps.storage, parsed_version.address)?;
         Ok(Response::default())
     } else {
-        Err(NeutronError::Std(StdError::generic_err(
-            "can't parse version",
-        )))
+        Err(StdError::generic_err("can't parse version").into())
     }
 }
 
@@ -316,7 +313,7 @@ fn sudo_response(
     _env: Env,
     request: RequestPacket,
     data: Binary,
-) -> NeutronResult<Response> {
+) -> ContractResult<Response> {
     let attrs = vec![
         attr("action", "sudo_response"),
         attr("request_id", request.sequence.unwrap_or(0).to_string()),
@@ -325,7 +322,7 @@ fn sudo_response(
         .sequence
         .ok_or_else(|| StdError::generic_err("sequence not found"))?;
 
-    let msg_data: TxMsgData = TxMsgData::decode(data.as_slice())?;
+    let msg_data: TxMsgData = TxMsgData::decode(data.as_slice()).map_err(NeutronError::from)?;
     deps.api
         .debug(&format!("WASMDEBUG: msg_data: data: {msg_data:?}"));
 
@@ -339,9 +336,10 @@ fn sudo_response(
                 deps.api.debug(
                     format!("This type of acknowledgement is not implemented: {item:?}").as_str(),
                 );
-                return Err(NeutronError::Std(StdError::generic_err(
+                return Err(StdError::generic_err(
                     "This type of acknowledgement is not implemented",
-                )));
+                )
+                .into());
             }
         };
     }
@@ -352,7 +350,7 @@ fn sudo_timeout(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     request: RequestPacket,
-) -> NeutronResult<Response> {
+) -> ContractResult<Response> {
     let attrs = vec![
         attr("action", "sudo_timeout"),
         attr("request_id", request.sequence.unwrap_or(0).to_string()),
@@ -370,7 +368,7 @@ fn sudo_error(
     _env: Env,
     request: RequestPacket,
     details: String,
-) -> NeutronResult<Response> {
+) -> ContractResult<Response> {
     let attrs = vec![
         attr("action", "sudo_error"),
         attr("request_id", request.sequence.unwrap_or(0).to_string()),
@@ -387,8 +385,19 @@ fn sudo_error(
     Ok(response("sudo-error", CONTRACT_NAME, attrs))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    deps.api.debug("WASMDEBUG: migrate");
-    Ok(Response::default())
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }

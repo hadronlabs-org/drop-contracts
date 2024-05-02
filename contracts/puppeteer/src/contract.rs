@@ -16,11 +16,10 @@ use cosmos_sdk_proto::cosmos::{
     staking::v1beta1::{MsgDelegate, MsgUndelegate},
 };
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, to_json_binary, Addr, Attribute, CosmosMsg, Deps, Order, Reply,
-    StdError, SubMsg, Timestamp, Uint128, WasmMsg,
+    attr, ensure_eq, to_json_binary, Addr, Attribute, CosmosMsg, Deps, Order, Reply, StdError,
+    SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
-use cw2::set_contract_version;
 use drop_helpers::{
     answer::response,
     ibc_fee::query_ibc_fee,
@@ -64,14 +63,14 @@ const CONTRACT_NAME: &str = concat!("crates.io:drop-neutron-contracts__", env!("
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let owner = deps
         .api
         .addr_validate(&msg.owner.unwrap_or(info.sender.to_string()))?
@@ -107,7 +106,7 @@ pub fn instantiate(
     puppeteer.instantiate(deps, config, owner)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(
     deps: Deps<NeutronQuery>,
     env: Env,
@@ -149,7 +148,7 @@ fn query_non_native_rewards_balances(deps: Deps<NeutronQuery>) -> ContractResult
     to_json_binary(&(data.0, data.1, data.2)).map_err(ContractError::Std)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -927,7 +926,7 @@ fn compose_submsg(
     Ok(submsg)
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn sudo(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -1242,7 +1241,7 @@ fn sudo_timeout(
     Ok(response("sudo-timeout", "puppeteer", attrs).add_message(msg))
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
     let puppeteer_base: PuppeteerBase<'_, Config, KVQueryType> = Puppeteer::default();
     match ReplyMsg::from_reply_id(msg.id) {
@@ -1273,10 +1272,21 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
     }
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    deps.api.debug("WASMDEBUG: migrate");
-    Ok(Response::default())
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }
 
 fn validate_sender(config: &Config, sender: &Addr) -> StdResult<()> {

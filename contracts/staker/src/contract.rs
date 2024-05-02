@@ -5,8 +5,7 @@ use cosmos_sdk_proto::cosmos::staking::v1beta1::MsgDelegate;
 use cosmos_sdk_proto::traits::MessageExt;
 use cosmwasm_schema::serde::Serialize;
 use cosmwasm_std::{
-    attr, ensure, entry_point, to_json_binary, CosmosMsg, Deps, Reply, StdError, SubMsg, Uint128,
-    WasmMsg,
+    attr, ensure, to_json_binary, CosmosMsg, Deps, Reply, StdError, SubMsg, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::ibc_fee::query_ibc_fee;
@@ -34,13 +33,14 @@ const CONTRACT_NAME: &str = concat!("crates.io:drop-neutron-contracts__", env!("
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const LOCAL_DENOM: &str = "untrn";
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> NeutronResult<Response<NeutronMsg>> {
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let attrs = vec![
         attr("contract_name", CONTRACT_NAME),
         attr("contract_version", CONTRACT_VERSION),
@@ -72,7 +72,7 @@ pub fn instantiate(
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> NeutronResult<Binary> {
     match msg {
         QueryMsg::Config {} => query_config(deps),
@@ -123,7 +123,7 @@ fn query_ica(deps: Deps) -> NeutronResult<Binary> {
     to_json_binary(&ica).map_err(NeutronError::Std)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -357,7 +357,7 @@ fn execute_ibc_transfer(
     Ok(response("ibc_transfer", CONTRACT_NAME, attrs).add_submessage(submsg))
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> ContractResult<Response> {
     deps.api
         .debug(format!("WASMDEBUG: STAKER sudo: {:?}", msg).as_str());
@@ -558,13 +558,24 @@ fn sudo_error(
     Ok(response("sudo-error", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    deps.api.debug("WASMDEBUG: migrate");
-    Ok(Response::default())
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
     match ReplyMsg::from_reply_id(msg.id) {
         ReplyMsg::SudoPayload => submit_tx_reply(deps, msg),
