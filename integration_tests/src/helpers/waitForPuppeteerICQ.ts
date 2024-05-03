@@ -1,28 +1,33 @@
 import { waitFor } from './waitFor';
 import { DropCore, DropPuppeteer } from '../generated/contractLib';
 import { ResponseHookSuccessMsg } from '../generated/contractLib/dropCore';
+import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 
 const DropCoreClass = DropCore.Client;
 const DropPuppeteerClass = DropPuppeteer.Client;
 
-interface WaitOptions {
-  waitBalances: boolean;
-  waitDelegations: boolean;
-}
-
 export const waitForPuppeteerICQ = async (
-  coreContractClient: InstanceType<typeof DropCoreClass>,
-  puppeteerContractClient: InstanceType<typeof DropPuppeteerClass>,
-  options: WaitOptions,
+  client: SigningCosmWasmClient,
+  coreContractClient?: InstanceType<typeof DropCoreClass>,
+  puppeteerContractClient?: InstanceType<typeof DropPuppeteerClass>,
 ): Promise<void> => {
   const puppeteerResponse = (
-    (await coreContractClient.queryLastPuppeteerResponse()).response as {
-      success: ResponseHookSuccessMsg;
-    }
-  ).success;
-  const puppeteerResponseHeight = puppeteerResponse.local_height;
+    await coreContractClient.queryLastPuppeteerResponse()
+  ).response as {
+    success: ResponseHookSuccessMsg;
+  };
 
-  return await waitFor(async () => {
+  const block = await client.getBlock();
+
+  let controlHeight = block.header.height;
+
+  if (puppeteerResponse && puppeteerResponse.success) {
+    controlHeight = puppeteerResponse.success.local_height;
+  }
+
+  controlHeight++;
+
+  const waitForBalances = waitFor(async () => {
     const [, lastBalanceHeight] = (await puppeteerContractClient.queryExtension(
       {
         msg: {
@@ -30,16 +35,24 @@ export const waitForPuppeteerICQ = async (
         },
       },
     )) as any;
-    const [, lastDeleationsHeight] =
+    console.log(`waitForBalances: ${lastBalanceHeight}, ${controlHeight}`);
+    return lastBalanceHeight > controlHeight;
+  }, 50_000);
+
+  const waitForDelegations = waitFor(async () => {
+    const [, lastDelegationsHeight] =
       (await puppeteerContractClient.queryExtension({
         msg: {
-          balances: {},
+          delegations: {},
         },
       })) as any;
-    return (
-      (!options.waitBalances || lastBalanceHeight >= puppeteerResponseHeight) &&
-      (!options.waitDelegations ||
-        lastDeleationsHeight >= puppeteerResponseHeight)
+    console.log(
+      `waitForDelegations: ${lastDelegationsHeight}, ${controlHeight}`,
     );
+    return lastDelegationsHeight > controlHeight;
   }, 50_000);
+
+  console.log('waitForPuppeteerICQ 2');
+
+  await Promise.all([waitForBalances, waitForDelegations]);
 };

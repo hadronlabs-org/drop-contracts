@@ -1204,7 +1204,19 @@ describe('Core', () => {
         ]);
       });
       it('tick', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          client,
+          neutronUserAddress,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1233,6 +1245,7 @@ describe('Core', () => {
       });
       it('second tick is failed bc no response from puppeteer yet', async () => {
         const { neutronUserAddress } = context;
+
         await expect(
           context.coreContractClient.tick(
             neutronUserAddress,
@@ -1337,7 +1350,19 @@ describe('Core', () => {
         }, 100_000);
       });
       it('next tick goes to idle', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1377,7 +1402,19 @@ describe('Core', () => {
         await sleep(30_000);
       });
       it('idle tick', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1425,7 +1462,19 @@ describe('Core', () => {
         }, 30_000);
       });
       it('next tick goes to staking', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1450,7 +1499,19 @@ describe('Core', () => {
         }, 100_000);
       });
       it('next tick goes to idle', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          client,
+          neutronUserAddress,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1579,7 +1640,19 @@ describe('Core', () => {
         });
       });
       it('tick', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1863,7 +1936,19 @@ describe('Core', () => {
       });
       describe('transfering', () => {
         it('tick', async () => {
-          const { neutronUserAddress } = context;
+          const {
+            neutronUserAddress,
+            client,
+            coreContractClient,
+            puppeteerContractClient,
+          } = context;
+
+          await waitForPuppeteerICQ(
+            client,
+            coreContractClient,
+            puppeteerContractClient,
+          );
+
           const res = await context.coreContractClient.tick(
             neutronUserAddress,
             1.5,
@@ -1891,12 +1976,9 @@ describe('Core', () => {
         });
         it('wait for ICQ update', async () => {
           await waitForPuppeteerICQ(
+            context.client,
             context.coreContractClient,
             context.puppeteerContractClient,
-            {
-              waitBalances: true,
-              waitDelegations: true,
-            },
           );
         });
         it('one lsm share is gone from the contract balance', async () => {
@@ -1962,12 +2044,9 @@ describe('Core', () => {
         });
         it('wait for ICQ update', async () => {
           await waitForPuppeteerICQ(
+            context.client,
             context.coreContractClient,
             context.puppeteerContractClient,
-            {
-              waitBalances: true,
-              waitDelegations: true,
-            },
           );
         });
         it('second lsm share is gone from the contract balance', async () => {
@@ -2015,17 +2094,15 @@ describe('Core', () => {
         });
         it('tick to idle', async () => {
           const {
+            client,
             neutronUserAddress,
             coreContractClient,
             puppeteerContractClient,
           } = context;
           await waitForPuppeteerICQ(
+            client,
             coreContractClient,
             puppeteerContractClient,
-            {
-              waitBalances: true,
-              waitDelegations: false,
-            },
           );
           const res = await context.coreContractClient.tick(
             neutronUserAddress,
@@ -2050,7 +2127,19 @@ describe('Core', () => {
           expect(state).toEqual('l_s_m_redeem');
         });
         it('imeediately tick again fails', async () => {
-          const { neutronUserAddress } = context;
+          const {
+            neutronUserAddress,
+            client,
+            coreContractClient,
+            puppeteerContractClient,
+          } = context;
+
+          await waitForPuppeteerICQ(
+            client,
+            coreContractClient,
+            puppeteerContractClient,
+          );
+
           await expect(
             context.coreContractClient.tick(
               neutronUserAddress,
