@@ -1586,12 +1586,9 @@ describe('Auto withdrawer', () => {
       });
       it('wait for ICQ update', async () => {
         await waitForPuppeteerICQ(
+          context.client,
           context.coreContractClient,
           context.puppeteerContractClient,
-          {
-            waitBalances: true,
-            waitDelegations: false,
-          },
         );
       });
       it('tick', async () => {
