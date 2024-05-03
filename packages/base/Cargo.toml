@@ -40,3 +40,4 @@ astroport = { workspace = true }
 prost = { workspace = true }
 serde = { workspace = true }
 cw-utils = { workspace = true }
+semver = { workspace = true }

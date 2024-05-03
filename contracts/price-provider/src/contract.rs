@@ -1,6 +1,5 @@
-use cosmwasm_std::{entry_point, to_json_binary, Decimal, Deps};
-use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
-use cw2::set_contract_version;
+use cosmwasm_std::{to_json_binary, Decimal, Deps};
+use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use drop_helpers::answer::response;
 use drop_staking_base::error::price_provider::{ContractError, ContractResult};
 use drop_staking_base::msg::price_provider::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
@@ -9,14 +8,14 @@ use drop_staking_base::state::price_provider::PRICES;
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> ContractResult<Response> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     let owner = deps
         .api
@@ -27,7 +26,7 @@ pub fn instantiate(
     Ok(Response::default())
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     match msg {
         QueryMsg::Price { denom } => query_price(deps, denom),
@@ -45,7 +44,7 @@ fn query_price(deps: Deps, denom: String) -> ContractResult<Binary> {
     to_json_binary(&price).map_err(ContractError::Std)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -97,8 +96,15 @@ fn execute_remove_denom(
     ))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    deps.api.debug("WASMDEBUG: migrate");
-    Ok(Response::default())
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> ContractResult<Response> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }

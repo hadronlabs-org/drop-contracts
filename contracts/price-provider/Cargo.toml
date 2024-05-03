@@ -6,9 +6,9 @@ name = "drop-price-provider"
 version = "1.0.0"
 
 exclude = [
-  # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
-  "contract.wasm",
-  "hash.txt",
+    # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
+    "contract.wasm",
+    "hash.txt",
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -31,3 +31,4 @@ serde-json-wasm = { workspace = true }
 sha2 = { workspace = true }
 drop-staking-base = { workspace = true }
 drop-helpers = { workspace = true }
+semver = { workspace = true }

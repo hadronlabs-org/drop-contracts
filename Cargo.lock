@@ -731,6 +731,7 @@ dependencies = [
  "cw2 1.1.2",
  "drop-helpers",
  "drop-staking-base",
+ "semver",
  "serde-json-wasm 1.0.1",
  "sha2 0.10.8",
 ]
@@ -884,6 +885,7 @@ dependencies = [
  "neutron-sdk",
  "optfield",
  "prost",
+ "semver",
  "serde",
  "thiserror",
 ]
