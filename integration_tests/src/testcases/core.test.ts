@@ -2384,7 +2384,16 @@ describe('Core', () => {
         expect(state).toEqual('idle');
       });
       it('tick to claiming', async () => {
-        const { coreContractClient, neutronUserAddress } = context;
+        const {
+          coreContractClient,
+          neutronUserAddress,
+          puppeteerContractClient,
+        } = context;
+        await waitForPuppeteerICQ(
+          context.client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('claiming');

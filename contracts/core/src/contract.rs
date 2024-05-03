@@ -730,35 +730,8 @@ fn execute_tick_peripheral(
     let response_msg = get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let attrs = vec![attr("action", "tick_peripheral")];
-
-    let (_, balances_height, _): drop_staking_base::msg::puppeteer::BalancesResponse =
-        deps.querier.query_wasm_smart(
-            config.puppeteer_contract.to_string(),
-            &drop_puppeteer_base::msg::QueryMsg::Extension {
-                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
-            },
-        )?;
-    let (_, delegations_height, _): drop_staking_base::msg::puppeteer::DelegationsResponse =
-        deps.querier.query_wasm_smart(
-            config.puppeteer_contract.to_string(),
-            &drop_puppeteer_base::msg::QueryMsg::Extension {
-                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
-            },
-        )?;
-
-    if let drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) = response_msg {
-        if success_msg.local_height > balances_height {
-            return Err(ContractError::PuppeteerBalanceOutdated {
-                ica_height: success_msg.local_height,
-                puppeteer_height: balances_height,
-            });
-        }
-        if success_msg.local_height > delegations_height {
-            return Err(ContractError::PuppeteerDelegationsOutdated {
-                ica_height: success_msg.local_height,
-                puppeteer_height: balances_height,
-            });
-        }
+    if let drop_puppeteer_base::msg::ResponseHookMsg::Success(..) = response_msg {
+        check_latest_icq_responses(deps.as_ref(), config.puppeteer_contract.to_string())?;
     }
     FSM.go_to(deps.storage, ContractState::Idle)?;
     Ok(response("execute-tick_peripheral", CONTRACT_NAME, attrs))
