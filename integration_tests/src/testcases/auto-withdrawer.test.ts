@@ -39,6 +39,7 @@ import {
 } from '../generated/contractLib/dropCore';
 import { stringToPath } from '@cosmjs/crypto';
 import { sleep } from '../helpers/sleep';
+import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
@@ -1011,7 +1012,19 @@ describe('Auto withdrawer', () => {
         ]);
       });
       it('tick', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1072,7 +1085,19 @@ describe('Auto withdrawer', () => {
         }, 100_000);
       });
       it('second tick goes to unbonding', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1108,7 +1133,19 @@ describe('Auto withdrawer', () => {
         }, 100_000);
       });
       it('next tick goes to idle', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1131,7 +1168,19 @@ describe('Auto withdrawer', () => {
         await sleep(30_000);
       });
       it('idle tick', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1179,7 +1228,19 @@ describe('Auto withdrawer', () => {
         }, 30_000);
       });
       it('next tick goes to staking', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1204,7 +1265,19 @@ describe('Auto withdrawer', () => {
         }, 100_000);
       });
       it('next tick goes to idle', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1333,7 +1406,19 @@ describe('Auto withdrawer', () => {
         });
       });
       it('tick', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1486,7 +1571,19 @@ describe('Auto withdrawer', () => {
         }, 30_000);
       });
       it('tick', async () => {
-        const { coreContractClient, neutronUserAddress } = context;
+        const {
+          coreContractClient,
+          neutronUserAddress,
+          client,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('staking_rewards');
