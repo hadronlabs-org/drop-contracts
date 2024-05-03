@@ -313,6 +313,7 @@ fn test_ibc_transfer() {
         msg.clone(),
     )
     .unwrap();
+    println!("{:?}", res);
 
     // assert_eq!(
     //     res,
