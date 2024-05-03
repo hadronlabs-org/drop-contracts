@@ -486,9 +486,7 @@ fn execute_tick(
     let current_state = FSM.get_current_state(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
 
-    println!("before {:?}", config.puppeteer_contract.to_string());
     check_latest_icq_responses(deps.as_ref(), config.puppeteer_contract.to_string())?;
-    println!("after");
 
     match current_state {
         ContractState::Idle => execute_tick_idle(deps.branch(), env, info, &config),
@@ -1174,8 +1172,6 @@ fn check_latest_icq_responses(
 ) -> ContractResult<Response<NeutronMsg>> {
     let last_ica_balance_change_height = LAST_ICA_CHANGE_HEIGHT.load(deps.storage)?;
 
-    println!("puppeteer_contract {:?}", puppeteer_contract);
-
     let (balance, balance_height, _): drop_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             puppeteer_contract.to_string(),
@@ -1183,8 +1179,6 @@ fn check_latest_icq_responses(
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
             },
         )?;
-
-    println!("balance {:?}", balance);
 
     ensure!(
         last_ica_balance_change_height <= balance_height,
@@ -1194,14 +1188,13 @@ fn check_latest_icq_responses(
         }
     );
 
-    let (delegations, delegations_height, _): drop_staking_base::msg::puppeteer::DelegationsResponse =
+    let (_, delegations_height, _): drop_staking_base::msg::puppeteer::DelegationsResponse =
         deps.querier.query_wasm_smart(
             puppeteer_contract,
             &drop_puppeteer_base::msg::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
         )?;
-    println!("delegations {:?}", delegations);
 
     ensure!(
         last_ica_balance_change_height <= delegations_height,
