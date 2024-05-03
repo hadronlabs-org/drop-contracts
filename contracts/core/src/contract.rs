@@ -725,14 +725,11 @@ fn execute_tick_peripheral(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     _info: MessageInfo,
-    config: &Config,
+    _config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let response_msg = get_received_puppeteer_response(deps.as_ref())?;
+    get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let attrs = vec![attr("action", "tick_peripheral")];
-    if let drop_puppeteer_base::msg::ResponseHookMsg::Success(..) = response_msg {
-        check_latest_icq_responses(deps.as_ref(), config.puppeteer_contract.to_string())?;
-    }
     FSM.go_to(deps.storage, ContractState::Idle)?;
     Ok(response("execute-tick_peripheral", CONTRACT_NAME, attrs))
 }

@@ -1710,36 +1710,11 @@ describe('Core', () => {
         });
       }, 30_000);
       it('wait for balances and delegations to update', async () => {
-        const [, currentBalancesHeight] =
-          await context.puppeteerContractClient.queryExtension({
-            msg: {
-              balances: {},
-            },
-          });
-        const [, currentDelegationsHeight] =
-          await context.puppeteerContractClient.queryExtension({
-            msg: {
-              delegations: {},
-            },
-          });
-        await waitFor(async () => {
-          const [, nowBalancesHeight] =
-            await context.puppeteerContractClient.queryExtension({
-              msg: {
-                balances: {},
-              },
-            });
-          const [, nowDelegationsHeight] =
-            await context.puppeteerContractClient.queryExtension({
-              msg: {
-                delegations: {},
-              },
-            });
-          return (
-            nowBalancesHeight !== currentBalancesHeight &&
-            nowDelegationsHeight !== currentDelegationsHeight
-          );
-        }, 30_000);
+        await waitForPuppeteerICQ(
+          context.client,
+          context.coreContractClient,
+          context.puppeteerContractClient,
+        );
       });
       it('tick to idle', async () => {
         const { neutronUserAddress } = context;
@@ -2127,19 +2102,7 @@ describe('Core', () => {
           expect(state).toEqual('l_s_m_redeem');
         });
         it('imeediately tick again fails', async () => {
-          const {
-            neutronUserAddress,
-            client,
-            coreContractClient,
-            puppeteerContractClient,
-          } = context;
-
-          await waitForPuppeteerICQ(
-            client,
-            coreContractClient,
-            puppeteerContractClient,
-          );
-
+          const { neutronUserAddress } = context;
           await expect(
             context.coreContractClient.tick(
               neutronUserAddress,
