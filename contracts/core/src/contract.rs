@@ -1172,7 +1172,7 @@ fn check_latest_icq_responses(
 ) -> ContractResult<Response<NeutronMsg>> {
     let last_ica_balance_change_height = LAST_ICA_CHANGE_HEIGHT.load(deps.storage)?;
 
-    let (balance, balance_height, _): drop_staking_base::msg::puppeteer::BalancesResponse =
+    let (_, balance_height, _): drop_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             puppeteer_contract.to_string(),
             &drop_puppeteer_base::msg::QueryMsg::Extension {
