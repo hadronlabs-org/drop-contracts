@@ -416,6 +416,7 @@ describe('Core Slashing', () => {
           lsm_redeem_max_interval: 60_000,
           bond_limit: '0',
           min_stake_amount: '2',
+          icq_update_delay: 5,
         },
         staker_params: {
           min_stake_amount: '100',

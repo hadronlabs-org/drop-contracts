@@ -38,7 +38,6 @@ pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-const BALANCE_UPDATE_DELAY: u64 = 5;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -652,7 +651,7 @@ fn execute_tick_idle(
                 )?;
 
         ensure!(
-            (env.block.height - local_height) <= BALANCE_UPDATE_DELAY,
+            (env.block.height - local_height) <= config.icq_update_delay,
             ContractError::PuppeteerDelegationsOutdated {
                 ica_height: env.block.height,
                 control_height: local_height

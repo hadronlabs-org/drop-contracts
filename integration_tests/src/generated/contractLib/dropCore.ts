@@ -299,6 +299,7 @@ export interface Config {
   emergency_address?: string | null;
   fee?: Decimal | null;
   fee_address?: string | null;
+  icq_update_delay: number;
   idle_min_interval: number;
   lsm_min_bond_amount: Uint128;
   lsm_redeem_maximum_interval: number;
@@ -472,6 +473,7 @@ export interface InstantiateMsg {
   emergency_address?: string | null;
   fee?: Decimal | null;
   fee_address?: string | null;
+  icq_update_delay: number;
   idle_min_interval: number;
   lsm_min_bond_amount: Uint128;
   lsm_redeem_max_interval: number;

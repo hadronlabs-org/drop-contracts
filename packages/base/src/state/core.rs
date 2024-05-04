@@ -59,6 +59,7 @@ pub struct Config {
     pub fee_address: Option<String>,
     pub emergency_address: Option<String>,
     pub min_stake_amount: Uint128,
+    pub icq_update_delay: u64, // blocks
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

@@ -69,6 +69,7 @@ fn get_default_config(
         bond_limit: None,
         emergency_address: None,
         min_stake_amount: Uint128::new(100),
+        icq_update_delay: 5,
     }
 }
 
@@ -568,6 +569,7 @@ fn test_update_config() {
             emergency_address: Some("old_emergency_address".to_string()),
             min_stake_amount: Uint128::new(1200),
             owner: "admin".to_string(),
+            icq_update_delay: 5,
         },
     )
     .unwrap();
@@ -627,6 +629,7 @@ fn test_update_config() {
         bond_limit: Some(Uint128::new(2)),
         emergency_address: Some("new_emergency_address".to_string()),
         min_stake_amount: Uint128::new(200),
+        icq_update_delay: 5,
     };
 
     let res = execute(

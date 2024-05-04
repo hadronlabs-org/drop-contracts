@@ -420,6 +420,7 @@ describe('Auto withdrawer', () => {
           lsm_redeem_max_interval: 60_000,
           lsm_min_bond_amount: '1',
           min_stake_amount: '2',
+          icq_update_delay: 5,
         },
         staker_params: {
           min_stake_amount: '10000',
