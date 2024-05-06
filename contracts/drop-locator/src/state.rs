@@ -1,9 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cw_storage_plus::Item;
 use cw_storage_plus::Map;
-
-#[cw_serde]
-pub struct Config {}
 
 #[cw_serde]
 pub struct ChainDetails {
@@ -27,5 +23,4 @@ pub struct ChainDetails {
     pub withdrawal_voucher: String,
 }
 
-pub const CONFIG: Item<Config> = Item::new("config");
 pub const STATE: Map<String, ChainDetails> = Map::new("state");

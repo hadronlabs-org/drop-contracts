@@ -1,7 +1,7 @@
 use crate::{
     error::ContractResult,
     msg::{AddChainList, ChainInfo, ExecuteMsg, InstantiateMsg, QueryMsg, RemoveChainList},
-    state::{Config, CONFIG, STATE},
+    state::STATE,
 };
 use cosmwasm_std::{
     attr, entry_point, to_json_binary, Attribute, Binary, Deps, DepsMut, Env, MessageInfo, Order,
@@ -23,7 +23,6 @@ pub fn instantiate(
 ) -> ContractResult<Response<NeutronMsg>> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(info.sender.as_str()))?;
-    CONFIG.save(deps.storage, &Config {})?;
     Ok(response(
         "instantiate",
         CONTRACT_NAME,
