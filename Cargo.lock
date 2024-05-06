@@ -722,6 +722,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-price-provider"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-staking-base",
+ "semver",
+ "serde-json-wasm 1.0.1",
+ "sha2 0.10.8",
+]
+
+[[package]]
 name = "drop-proposal-votes-poc"
 version = "1.0.0"
 dependencies = [
@@ -870,6 +885,7 @@ dependencies = [
  "neutron-sdk",
  "optfield",
  "prost",
+ "semver",
  "serde",
  "thiserror",
 ]

@@ -18,6 +18,7 @@ members = [
     "contracts/staker",
     "contracts/strategy",
     "contracts/token",
+    "contracts/price-provider",
     "contracts/validators-stats",
     "contracts/validators-set",
     "packages/base",
@@ -53,6 +54,7 @@ thiserror = { version = "1.0.56", default-features = false }
 optfield = { version = "0.3.0", default-features = false }
 schemars = { version = "0.8.16", default-features = false }
 astroport = { version = "3.6.1", default-features = false }
+semver = { version = "1.0.22", default-features = false }
 
 drop-puppeteer-base = { path = "./packages/puppeteer-base", default-features = false }
 drop-staking-base = { path = "./packages/base", default-features = false }

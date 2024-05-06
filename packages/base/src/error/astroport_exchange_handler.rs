@@ -17,12 +17,21 @@ pub enum ContractError {
     #[error("unauthorized")]
     Unauthorized,
 
+    #[error("Max spread is zero")]
+    ZeroMaxSpread,
+
+    #[error("Max spread is too big. Max: 0.1")]
+    MaxSpreadTooBig,
+
     #[error("Low balance to perform swap operation. Minimum: {min_amount}{denom}, current: {amount}{denom}")]
     LowBalance {
         min_amount: Uint128,
         amount: Uint128,
         denom: String,
     },
+
+    #[error("Asset price query is failed {details}")]
+    AssetPriceQueryFailed { details: String },
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

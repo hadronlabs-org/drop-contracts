@@ -1,8 +1,8 @@
 [package]
 authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>"]
-description = "Package for Drop Puppeteer Base"
+description = "Contract to provide current price data for defined pairs"
 edition = "2021"
-name = "drop-staking-base"
+name = "drop-price-provider"
 version = "1.0.0"
 
 exclude = [
@@ -25,19 +25,10 @@ library = []
 [dependencies]
 cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
-cw-storage-plus = { workspace = true }
-cosmos-sdk-proto = { workspace = true }
-neutron-sdk = { workspace = true }
-drop-puppeteer-base = { workspace = true }
-drop-helpers = { workspace = true }
-drop-macros = { workspace = true }
-cw721-base = { workspace = true }
-cw721 = { workspace = true }
-thiserror = { workspace = true }
 cw-ownable = { workspace = true }
-optfield = { workspace = true }
-astroport = { workspace = true }
-prost = { workspace = true }
-serde = { workspace = true }
-cw-utils = { workspace = true }
+cw2 = { workspace = true }
+serde-json-wasm = { workspace = true }
+sha2 = { workspace = true }
+drop-staking-base = { workspace = true }
+drop-helpers = { workspace = true }
 semver = { workspace = true }
