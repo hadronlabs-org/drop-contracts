@@ -12,7 +12,7 @@ use crate::state::rewards_manager::HandlerConfig;
 pub enum ExecuteMsg {
     AddHandler { config: HandlerConfig },
     RemoveHandler { denom: String },
-    ExchangeRewards {},
+    ExchangeRewards { denoms: Vec<String> },
 }
 
 #[cw_ownable_query]
