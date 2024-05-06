@@ -31,6 +31,7 @@ pub struct CoreParams {
     pub lsm_redeem_max_interval: u64, //seconds
     pub bond_limit: Option<Uint128>,
     pub min_stake_amount: Uint128,
+    pub icq_update_delay: u64, // blocks
 }
 
 #[cw_serde]

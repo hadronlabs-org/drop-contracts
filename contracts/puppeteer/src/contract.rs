@@ -1031,7 +1031,7 @@ pub fn sudo(
 
 fn sudo_response(
     deps: DepsMut<NeutronQuery>,
-    _env: Env,
+    env: Env,
     request: RequestPacket,
     data: Binary,
 ) -> NeutronResult<Response<NeutronMsg>> {
@@ -1080,6 +1080,7 @@ fn sudo_response(
                 request: request.clone(),
                 transaction: transaction.clone(),
                 answers: answers.clone(),
+                local_height: env.block.height,
             },)
         ))?
     ));
@@ -1093,6 +1094,7 @@ fn sudo_response(
                     request: request.clone(),
                     transaction: transaction.clone(),
                     answers,
+                    local_height: env.block.height,
                 }),
             ))?,
             funds: vec![],

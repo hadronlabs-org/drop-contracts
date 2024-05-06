@@ -30,7 +30,15 @@ export type Decimal = string;
  * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
  */
 export type Addr = string;
-export type ContractState = "idle" | "claiming" | "unbonding" | "staking_rewards" | "staking_bond";
+export type ContractState =
+  | "idle"
+  | "l_s_m_transfer"
+  | "l_s_m_redeem"
+  | "non_native_rewards_transfer"
+  | "claiming"
+  | "unbonding"
+  | "staking_rewards"
+  | "staking_bond";
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
@@ -299,6 +307,7 @@ export interface Config {
   emergency_address?: string | null;
   fee?: Decimal | null;
   fee_address?: string | null;
+  icq_update_delay: number;
   idle_min_interval: number;
   lsm_min_bond_amount: Uint128;
   lsm_redeem_maximum_interval: number;
@@ -324,6 +333,7 @@ export interface LastPuppeteerResponse {
 }
 export interface ResponseHookSuccessMsg {
   answers: ResponseAnswer[];
+  local_height: number;
   request: RequestPacket;
   request_id: number;
   transaction: Transaction;
@@ -471,6 +481,7 @@ export interface InstantiateMsg {
   emergency_address?: string | null;
   fee?: Decimal | null;
   fee_address?: string | null;
+  icq_update_delay: number;
   idle_min_interval: number;
   lsm_min_bond_amount: Uint128;
   lsm_redeem_max_interval: number;

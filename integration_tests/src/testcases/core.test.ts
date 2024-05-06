@@ -35,12 +35,12 @@ import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
 import {
   ResponseHookMsg,
-  ResponseHookSuccessMsg,
   UnbondBatch,
 } from '../generated/contractLib/dropCore';
 import { stringToPath } from '@cosmjs/crypto';
 import { sleep } from '../helpers/sleep';
 import { waitForTx } from '../helpers/waitForTx';
+import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
@@ -424,6 +424,7 @@ describe('Core', () => {
           lsm_redeem_max_interval: 60_000,
           bond_limit: '100000',
           min_stake_amount: '2',
+          icq_update_delay: 5,
         },
         staker_params: {
           min_stake_amount: '10000',
@@ -1204,7 +1205,19 @@ describe('Core', () => {
         ]);
       });
       it('tick', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          client,
+          neutronUserAddress,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1233,6 +1246,7 @@ describe('Core', () => {
       });
       it('second tick is failed bc no response from puppeteer yet', async () => {
         const { neutronUserAddress } = context;
+
         await expect(
           context.coreContractClient.tick(
             neutronUserAddress,
@@ -1337,7 +1351,19 @@ describe('Core', () => {
         }, 100_000);
       });
       it('next tick goes to idle', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1377,7 +1403,19 @@ describe('Core', () => {
         await sleep(30_000);
       });
       it('idle tick', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1425,7 +1463,19 @@ describe('Core', () => {
         }, 30_000);
       });
       it('next tick goes to staking', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1450,7 +1500,19 @@ describe('Core', () => {
         }, 100_000);
       });
       it('next tick goes to idle', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          client,
+          neutronUserAddress,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1579,7 +1641,19 @@ describe('Core', () => {
         });
       });
       it('tick', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1588,7 +1662,7 @@ describe('Core', () => {
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('idle');
+        expect(state).toEqual('non_native_rewards_transfer');
       });
       it('wait for the response from puppeteer', async () => {
         let response: ResponseHookMsg;
@@ -1636,6 +1710,26 @@ describe('Core', () => {
           return res[0].coins.length === 1;
         });
       }, 30_000);
+      it('wait for balances and delegations to update', async () => {
+        await waitForPuppeteerICQ(
+          context.client,
+          context.coreContractClient,
+          context.puppeteerContractClient,
+        );
+      });
+      it('tick to idle', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+
       it('tick should fail', async () => {
         const { neutronUserAddress } = context;
         await expect(
@@ -1818,7 +1912,19 @@ describe('Core', () => {
       });
       describe('transfering', () => {
         it('tick', async () => {
-          const { neutronUserAddress } = context;
+          const {
+            neutronUserAddress,
+            client,
+            coreContractClient,
+            puppeteerContractClient,
+          } = context;
+
+          await waitForPuppeteerICQ(
+            client,
+            coreContractClient,
+            puppeteerContractClient,
+          );
+
           const res = await context.coreContractClient.tick(
             neutronUserAddress,
             1.5,
@@ -1827,7 +1933,29 @@ describe('Core', () => {
           );
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();
-          expect(state).toEqual('idle');
+          expect(state).toEqual('l_s_m_transfer');
+        });
+        it('wait for the response from puppeteer', async () => {
+          let response: ResponseHookMsg;
+          await waitFor(async () => {
+            try {
+              response = (
+                await context.coreContractClient.queryLastPuppeteerResponse()
+              ).response;
+            } catch (e) {
+              //
+            }
+            return !!response;
+          }, 100_000);
+          expect(response).toBeTruthy();
+          expect<ResponseHookMsg>(response).toHaveProperty('success');
+        });
+        it('wait for ICQ update', async () => {
+          await waitForPuppeteerICQ(
+            context.client,
+            context.coreContractClient,
+            context.puppeteerContractClient,
+          );
         });
         it('one lsm share is gone from the contract balance', async () => {
           const balances =
@@ -1851,7 +1979,7 @@ describe('Core', () => {
             return !!pending && pending.length === 1;
           }, 60_000);
         });
-        it('tick', async () => {
+        it('tick to idle', async () => {
           const { neutronUserAddress } = context;
           const res = await context.coreContractClient.tick(
             neutronUserAddress,
@@ -1862,6 +1990,40 @@ describe('Core', () => {
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();
           expect(state).toEqual('idle');
+        });
+        it('tick to lsm transfer', async () => {
+          const { neutronUserAddress } = context;
+          const res = await context.coreContractClient.tick(
+            neutronUserAddress,
+            1.5,
+            undefined,
+            [],
+          );
+          expect(res.transactionHash).toHaveLength(64);
+          const state = await context.coreContractClient.queryContractState();
+          expect(state).toEqual('l_s_m_transfer');
+        });
+        it('wait for the response from puppeteer', async () => {
+          let response: ResponseHookMsg;
+          await waitFor(async () => {
+            try {
+              response = (
+                await context.coreContractClient.queryLastPuppeteerResponse()
+              ).response;
+            } catch (e) {
+              //
+            }
+            return !!response;
+          }, 100_000);
+          expect(response).toBeTruthy();
+          expect<ResponseHookMsg>(response).toHaveProperty('success');
+        });
+        it('wait for ICQ update', async () => {
+          await waitForPuppeteerICQ(
+            context.client,
+            context.coreContractClient,
+            context.puppeteerContractClient,
+          );
         });
         it('second lsm share is gone from the contract balance', async () => {
           const balances =
@@ -1906,8 +2068,18 @@ describe('Core', () => {
             await context.coreContractClient.queryLSMSharesToRedeem();
           expect(pending).toHaveLength(2);
         });
-        it('tick', async () => {
-          const { neutronUserAddress } = context;
+        it('tick to idle', async () => {
+          const {
+            client,
+            neutronUserAddress,
+            coreContractClient,
+            puppeteerContractClient,
+          } = context;
+          await waitForPuppeteerICQ(
+            client,
+            coreContractClient,
+            puppeteerContractClient,
+          );
           const res = await context.coreContractClient.tick(
             neutronUserAddress,
             1.5,
@@ -1918,6 +2090,18 @@ describe('Core', () => {
           const state = await context.coreContractClient.queryContractState();
           expect(state).toEqual('idle');
         });
+        it('tick to redeem', async () => {
+          const { neutronUserAddress } = context;
+          const res = await context.coreContractClient.tick(
+            neutronUserAddress,
+            1.5,
+            undefined,
+            [],
+          );
+          expect(res.transactionHash).toHaveLength(64);
+          const state = await context.coreContractClient.queryContractState();
+          expect(state).toEqual('l_s_m_redeem');
+        });
         it('imeediately tick again fails', async () => {
           const { neutronUserAddress } = context;
           await expect(
@@ -1927,9 +2111,7 @@ describe('Core', () => {
               undefined,
               [],
             ),
-          ).rejects.toThrowError(
-            /Transaction txState is not equal to expected: Idle/,
-          );
+          ).rejects.toThrowError(/Puppeteer response is not received/);
         });
         it('await for pending length decrease', async () => {
           await waitFor(async () => {
@@ -1980,8 +2162,6 @@ describe('Core', () => {
     });
 
     describe('fifth cycle', () => {
-      let previousResponse: ResponseHookSuccessMsg;
-
       it('validate NFT', async () => {
         const { withdrawalVoucherContractClient, neutronUserAddress } = context;
         const vouchers = await withdrawalVoucherContractClient.queryTokens({
@@ -2161,13 +2341,23 @@ describe('Core', () => {
           return icaTs > batchInfo.expected_release;
         }, 50_000);
       });
-      it('tick', async () => {
+      it('tick to idle', async () => {
         const { coreContractClient, neutronUserAddress } = context;
-        previousResponse = (
-          (await coreContractClient.queryLastPuppeteerResponse()).response as {
-            success: ResponseHookSuccessMsg;
-          }
-        ).success;
+        await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+      it('tick to claiming', async () => {
+        const {
+          coreContractClient,
+          neutronUserAddress,
+          puppeteerContractClient,
+        } = context;
+        await waitForPuppeteerICQ(
+          context.client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('claiming');
@@ -2183,10 +2373,7 @@ describe('Core', () => {
             return false;
           }
           if (!response || !('success' in response)) return false;
-          return (
-            (response as { success?: ResponseHookSuccessMsg }).success
-              .request_id > previousResponse.request_id
-          );
+          return true;
         }, 30_000);
       });
       it('wait for balance to update', async () => {
@@ -2206,7 +2393,7 @@ describe('Core', () => {
           return nowHeight !== currentHeight;
         }, 30_000);
       });
-      it('tick', async () => {
+      it('tick to staking_rewards', async () => {
         const { coreContractClient, neutronUserAddress } = context;
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
         const state = await context.coreContractClient.queryContractState();

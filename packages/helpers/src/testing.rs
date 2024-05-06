@@ -121,6 +121,8 @@ impl WasmMockQuerier {
             },
             QueryRequest::Wasm(cosmwasm_std::WasmQuery::Smart { contract_addr, msg }) => {
                 let mut wasm_query_responses = self.wasm_query_responses.borrow_mut();
+                println!("wasm_query_responses contract_addr {:?}", contract_addr);
+
                 let responses = match wasm_query_responses.get_mut(contract_addr) {
                     None => Err(SystemError::UnsupportedRequest {
                         kind: format!(
