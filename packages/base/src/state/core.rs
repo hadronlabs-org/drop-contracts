@@ -118,6 +118,9 @@ pub const LSM_SHARES_TO_REDEEM: Map<String, (String, Uint128)> = Map::new("lsm_s
 #[cw_serde]
 pub enum ContractState {
     Idle,
+    LSMTransfer,
+    LSMRedeem,
+    NonNativeRewardsTransfer,
     Claiming,
     Unbonding,
     StakingRewards,
@@ -125,6 +128,30 @@ pub enum ContractState {
 }
 
 const TRANSITIONS: &[Transition<ContractState>] = &[
+    Transition {
+        from: ContractState::Idle,
+        to: ContractState::LSMTransfer,
+    },
+    Transition {
+        from: ContractState::Idle,
+        to: ContractState::LSMRedeem,
+    },
+    Transition {
+        from: ContractState::Idle,
+        to: ContractState::NonNativeRewardsTransfer,
+    },
+    Transition {
+        from: ContractState::LSMTransfer,
+        to: ContractState::Idle,
+    },
+    Transition {
+        from: ContractState::LSMRedeem,
+        to: ContractState::Idle,
+    },
+    Transition {
+        from: ContractState::NonNativeRewardsTransfer,
+        to: ContractState::Idle,
+    },
     Transition {
         from: ContractState::Idle,
         to: ContractState::Claiming,

@@ -30,7 +30,15 @@ export type Decimal = string;
  * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
  */
 export type Addr = string;
-export type ContractState = "idle" | "claiming" | "unbonding" | "staking_rewards" | "staking_bond";
+export type ContractState =
+  | "idle"
+  | "l_s_m_transfer"
+  | "l_s_m_redeem"
+  | "non_native_rewards_transfer"
+  | "claiming"
+  | "unbonding"
+  | "staking_rewards"
+  | "staking_bond";
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
