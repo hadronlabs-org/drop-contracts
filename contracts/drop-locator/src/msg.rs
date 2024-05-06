@@ -34,6 +34,6 @@ pub struct ChainInfo {
 
 #[cw_serde]
 pub enum QueryMsg {
-    ChainInfo { name: String },
-    ChainsInfo {},
+    Chain { name: String },
+    Chains {},
 }

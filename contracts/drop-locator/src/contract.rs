@@ -34,20 +34,20 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::ChainsInfo {} => query_chains_info(deps),
-        QueryMsg::ChainInfo { name } => query_chain_info(deps, name),
+        QueryMsg::Chains {} => query_chains(deps),
+        QueryMsg::Chain { name } => query_chain(deps, name),
     }
 }
 
-pub fn query_chain_info(deps: Deps<NeutronQuery>, name: String) -> StdResult<Binary> {
-    let chain_info = STATE.load(deps.storage, name.clone())?;
+pub fn query_chain(deps: Deps<NeutronQuery>, name: String) -> StdResult<Binary> {
+    let chain = STATE.load(deps.storage, name.clone())?;
     to_json_binary(&ChainInfo {
         name: name.clone(),
-        details: chain_info.clone(),
+        details: chain.clone(),
     })
 }
 
-pub fn query_chains_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
+pub fn query_chains(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
     let chains: StdResult<Vec<_>> = STATE
         .range_raw(deps.storage, None, None, Order::Ascending)
         .map(|item| {
@@ -57,9 +57,7 @@ pub fn query_chains_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
             })
         })
         .collect();
-
     let chains = chains.unwrap_or_default();
-
     to_json_binary(&chains)
 }
 
@@ -87,7 +85,7 @@ pub fn execute_remove_chains(
         STATE.remove(deps.storage, name.clone());
         attrs.push(attr("remove", name.clone()))
     });
-    Ok(response("execute-remove-chain", CONTRACT_NAME, attrs))
+    Ok(response("execute-remove-chains", CONTRACT_NAME, attrs))
 }
 
 pub fn execute_add_chains(
@@ -107,5 +105,5 @@ pub fn execute_add_chains(
             .unwrap();
         attrs.push(attr("add", add_chain.name.clone()))
     });
-    Ok(response("execute-add-chain", CONTRACT_NAME, attrs))
+    Ok(response("execute-add-chains", CONTRACT_NAME, attrs))
 }
