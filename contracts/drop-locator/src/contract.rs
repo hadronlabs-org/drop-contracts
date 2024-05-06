@@ -1,6 +1,9 @@
 use crate::{
     error::ContractResult,
-    msg::{AddChainInfoList, ChainInfoReponse, ExecuteMsg, InstantiateMsg, QueryMsg},
+    msg::{
+        AddChainInfoList, ChainInfoReponse, ExecuteMsg, InstantiateMsg, QueryMsg,
+        RemoveChainInfoList,
+    },
     state::{Config, CONFIG, STATE},
 };
 use cosmwasm_std::{
@@ -72,7 +75,22 @@ pub fn execute(
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
         ExecuteMsg::AddChainsInfo(msg) => execute_add_chain_info(deps, env, info, msg),
+        ExecuteMsg::RemoveChainsInfo(msg) => execute_remove_chain_info(deps, env, info, msg),
     }
+}
+
+pub fn execute_remove_chain_info(
+    deps: DepsMut,
+    _env: Env,
+    _info: MessageInfo,
+    msg: RemoveChainInfoList,
+) -> ContractResult<Response<NeutronMsg>> {
+    let mut attrs: Vec<Attribute> = Vec::new();
+    msg.names.iter().for_each(|name| {
+        STATE.remove(deps.storage, name.clone());
+        attrs.push(attr("remove-info", name.clone()))
+    });
+    Ok(response("execute-remove-chain-info", CONTRACT_NAME, attrs))
 }
 
 pub fn execute_add_chain_info(

@@ -11,6 +11,11 @@ pub struct AddChainInfo {
 }
 
 #[cw_serde]
+pub struct RemoveChainInfoList {
+    pub names: Vec<String>,
+}
+
+#[cw_serde]
 pub struct AddChainInfoList {
     pub chains: Vec<AddChainInfo>,
 }
@@ -18,6 +23,7 @@ pub struct AddChainInfoList {
 #[cw_serde]
 pub enum ExecuteMsg {
     AddChainsInfo(AddChainInfoList),
+    RemoveChainsInfo(RemoveChainInfoList),
 }
 
 #[cw_serde]
