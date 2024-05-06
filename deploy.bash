@@ -98,6 +98,7 @@ main() {
   pre_deploy_check_ibc_connection
   deploy_wasm_code
   deploy_factory
+  setup_staker_ica
   setup_puppeteer_ica
   deploy_pump
   setup_pump_ica
@@ -113,7 +114,8 @@ main() {
   echo   "[chains.packet_filter]"
   echo   "list = ["
   echo   "  ['icahost', '$puppeteer_ica_counterparty_channel'],"
-  echo   "  ['icahost', '$pump_ica_counterparty_channel']"
+  echo   "  ['icahost', '$pump_ica_counterparty_channel'],"
+  echo   "  ['icahost', '$staker_ica_counterparty_channel']"
   echo   "]"
   echo
   echo   "[[chains]]"
@@ -121,7 +123,8 @@ main() {
   echo   "[chains.packet_filter]"
   echo   "list = ["
   echo   "  ['$puppeteer_ica_port', '$puppeteer_ica_channel'],"
-  echo   "  ['$pump_ica_port', '$pump_ica_channel']"
+  echo   "  ['$pump_ica_port', '$pump_ica_channel'],"
+  echo   "  ['$staker_ica_port', '$staker_ica_channel']"
   echo   "]"
 }
 
@@ -222,12 +225,51 @@ deploy_factory() {
     --from "$DEPLOY_WALLET" "${ntx[@]}"                                     \
       | wait_ntx | jq -r "$(select_attr "wasm-crates.io:drop-staking__drop-factory-instantiate" "_contract_address")")"
   echo "[OK] Factory address: $factory_address"
+  staker_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
+    | jq -r '.data.staker_contract')"
   puppeteer_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.puppeteer_contract')"
   withdrawal_manager_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.withdrawal_manager_contract')"
+  echo "[OK] Staker contract: $staker_address"
   echo "[OK] Puppeteer contract: $puppeteer_address"
   echo "[OK] Withdrawal manager contract: $withdrawal_manager_address"
+}
+
+setup_staker_ica() {
+  register_ica_result="$(neutrond tx wasm execute "$staker_address" '{"register_i_c_a":{}}' \
+    --amount "${IBC_REGISTER_FEE}untrn" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx)"
+  staker_ica_port="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "port_id")")"
+  staker_ica_channel="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "channel_id")")"
+  echo "[OK] Staker ICA configuration: $staker_ica_port/$staker_ica_channel"
+
+  staker_ica_counterparty_channel="$(hermes --config "$HERMES_CONFIG" tx chan-open-try \
+    --dst-chain "$TARGET_CHAIN_ID" --src-chain "$NEUTRON_CHAIN_ID"                   \
+    --dst-connection "$target_side_connection_id"                                    \
+    --dst-port "icahost" --src-port "$staker_ica_port"                               \
+    --src-channel "$staker_ica_channel"                                              \
+      | tr -d ' \n' | sed -rn 's/.*,channel_id:Some\(ChannelId\("(channel-[0-9]+)".*/\1/p')"
+  echo "[OK] Staker ICA counterparty configuration: icahost/$staker_ica_counterparty_channel"
+
+  hermes --config "$HERMES_CONFIG" tx chan-open-ack                                      \
+    --dst-chain "$NEUTRON_CHAIN_ID" --src-chain "$TARGET_CHAIN_ID"                       \
+    --dst-connection "$neutron_side_connection_id"                                       \
+    --dst-port "$staker_ica_port" --src-port "icahost"                                   \
+    --dst-channel "$staker_ica_channel" --src-channel "$staker_ica_counterparty_channel" \
+      | grep "SUCCESS" >/dev/null
+  echo "[OK] Submitted IBC channel open ACK"
+
+  hermes --config "$HERMES_CONFIG" tx chan-open-confirm                                  \
+    --dst-chain "$TARGET_CHAIN_ID" --src-chain "$NEUTRON_CHAIN_ID"                       \
+    --dst-connection "$target_side_connection_id"                                        \
+    --dst-port "icahost" --src-port "$staker_ica_port"                                   \
+    --dst-channel "$staker_ica_counterparty_channel" --src-channel "$staker_ica_channel" \
+      | grep "SUCCESS" >/dev/null
+  echo "[OK] Submitted IBC channel open CONFIRM"
+
+  staker_ica_address="$(neutrond query wasm contract-state smart "$staker_address" '{"ica":{}}' "${nq[@]}" \
+    | jq -r '.data.registered.ica_address')"
+  echo "[OK] Staker ICA address: $staker_ica_address"
 }
 
 setup_puppeteer_ica() {
