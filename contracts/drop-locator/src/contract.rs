@@ -1,9 +1,6 @@
 use crate::{
     error::ContractResult,
-    msg::{
-        AddChainInfoList, ChainInfoReponse, ExecuteMsg, InstantiateMsg, QueryMsg,
-        RemoveChainInfoList,
-    },
+    msg::{AddChainList, ChainInfo, ExecuteMsg, InstantiateMsg, QueryMsg, RemoveChainList},
     state::{Config, CONFIG, STATE},
 };
 use cosmwasm_std::{
@@ -44,7 +41,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
 
 pub fn query_chain_info(deps: Deps<NeutronQuery>, name: String) -> StdResult<Binary> {
     let chain_info = STATE.load(deps.storage, name.clone())?;
-    to_json_binary(&ChainInfoReponse {
+    to_json_binary(&ChainInfo {
         name: name.clone(),
         details: chain_info.clone(),
     })
@@ -54,7 +51,7 @@ pub fn query_chains_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
     let chains: StdResult<Vec<_>> = STATE
         .range_raw(deps.storage, None, None, Order::Ascending)
         .map(|item| {
-            item.map(|(key, value)| ChainInfoReponse {
+            item.map(|(key, value)| ChainInfo {
                 name: String::from_utf8(key).unwrap(),
                 details: value.clone(),
             })
@@ -74,30 +71,30 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::AddChainsInfo(msg) => execute_add_chain_info(deps, env, info, msg),
-        ExecuteMsg::RemoveChainsInfo(msg) => execute_remove_chain_info(deps, env, info, msg),
+        ExecuteMsg::AddChains(msg) => execute_add_chains(deps, env, info, msg),
+        ExecuteMsg::RemoveChains(msg) => execute_remove_chains(deps, env, info, msg),
     }
 }
 
-pub fn execute_remove_chain_info(
+pub fn execute_remove_chains(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    msg: RemoveChainInfoList,
+    msg: RemoveChainList,
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut attrs: Vec<Attribute> = Vec::new();
     msg.names.iter().for_each(|name| {
         STATE.remove(deps.storage, name.clone());
-        attrs.push(attr("remove-info", name.clone()))
+        attrs.push(attr("remove", name.clone()))
     });
-    Ok(response("execute-remove-chain-info", CONTRACT_NAME, attrs))
+    Ok(response("execute-remove-chain", CONTRACT_NAME, attrs))
 }
 
-pub fn execute_add_chain_info(
+pub fn execute_add_chains(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    msg: AddChainInfoList,
+    msg: AddChainList,
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut attrs: Vec<Attribute> = Vec::new();
     msg.chains.iter().for_each(|add_chain| {
@@ -108,7 +105,7 @@ pub fn execute_add_chain_info(
                 &add_chain.details.clone(),
             )
             .unwrap();
-        attrs.push(attr("add-info", add_chain.name.clone()))
+        attrs.push(attr("add", add_chain.name.clone()))
     });
-    Ok(response("execute-add-chain-info", CONTRACT_NAME, attrs))
+    Ok(response("execute-add-chain", CONTRACT_NAME, attrs))
 }

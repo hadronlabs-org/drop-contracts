@@ -1,35 +1,35 @@
-use crate::state::ChainInfo;
+use crate::state::ChainDetails;
 use cosmwasm_schema::cw_serde;
 
 #[cw_serde]
 pub struct InstantiateMsg {}
 
 #[cw_serde]
-pub struct AddChainInfo {
+pub struct AddChain {
     pub name: String,
-    pub details: ChainInfo,
+    pub details: ChainDetails,
 }
 
 #[cw_serde]
-pub struct RemoveChainInfoList {
+pub struct RemoveChainList {
     pub names: Vec<String>,
 }
 
 #[cw_serde]
-pub struct AddChainInfoList {
-    pub chains: Vec<AddChainInfo>,
+pub struct AddChainList {
+    pub chains: Vec<AddChain>,
 }
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    AddChainsInfo(AddChainInfoList),
-    RemoveChainsInfo(RemoveChainInfoList),
+    AddChains(AddChainList),
+    RemoveChains(RemoveChainList),
 }
 
 #[cw_serde]
-pub struct ChainInfoReponse {
+pub struct ChainInfo {
     pub name: String,
-    pub details: ChainInfo,
+    pub details: ChainDetails,
 }
 
 #[cw_serde]

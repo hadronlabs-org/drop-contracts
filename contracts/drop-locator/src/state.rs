@@ -6,7 +6,7 @@ use cw_storage_plus::Map;
 pub struct Config {}
 
 #[cw_serde]
-pub struct ChainInfo {
+pub struct ChainDetails {
     pub astroport_exchange_handler: String,
     pub auto_withdrawer: String,
     pub core: String,
@@ -28,4 +28,4 @@ pub struct ChainInfo {
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
-pub const STATE: Map<String, ChainInfo> = Map::new("state");
+pub const STATE: Map<String, ChainDetails> = Map::new("state");
