@@ -5,20 +5,24 @@ use cosmwasm_schema::cw_serde;
 pub struct InstantiateMsg {}
 
 #[cw_serde]
-pub struct AddChainInfo {
-    pub key: String,
+pub struct AddChainInfoResponse {
+    pub name: String,
     pub chain_info: ChainInfo,
 }
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    AddChainInfo(AddChainInfo),
+    AddChainInfo(AddChainInfoResponse),
 }
 
 #[cw_serde]
-// #[derive(QueryResponses)]
+pub struct ChainInfoReponse {
+    pub name: String,
+    pub chain_info: ChainInfo,
+}
+
+#[cw_serde]
 pub enum QueryMsg {
-    ChainInfo { chain: String },
-    // #[returns(crate::state::STATE)]
-    // ChainsInfo {},
+    ChainInfo { name: String },
+    ChainsInfo {},
 }

@@ -1,10 +1,11 @@
 use crate::{
     error::ContractResult,
-    msg::{AddChainInfo, ExecuteMsg, InstantiateMsg, QueryMsg},
+    msg::{AddChainInfoResponse, ChainInfoReponse, ExecuteMsg, InstantiateMsg, QueryMsg},
     state::{Config, CONFIG, STATE},
 };
 use cosmwasm_std::{
-    attr, entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    attr, entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response,
+    StdResult,
 };
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
@@ -33,25 +34,34 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::ChainInfo { chain } => query_chain_info(deps, chain),
+        QueryMsg::ChainsInfo {} => query_chains_info(deps),
+        QueryMsg::ChainInfo { name } => query_chain_info(deps, name),
     }
 }
 
-pub fn query_chain_info(deps: Deps<NeutronQuery>, chain: String) -> StdResult<Binary> {
-    let chain_info = STATE.load(deps.storage, chain)?;
-    to_json_binary(&chain_info)
+pub fn query_chain_info(deps: Deps<NeutronQuery>, name: String) -> StdResult<Binary> {
+    let chain_info = STATE.load(deps.storage, name.clone())?;
+    to_json_binary(&ChainInfoReponse {
+        name: name.clone(),
+        chain_info: chain_info.clone(),
+    })
 }
 
-// pub fn query_chains_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
-//     let chains: StdResult<Vec<_>> = STATE
-//         .range_raw(deps.storage, None, None, Order::Ascending)
-//         .map(|item| item.map(|(_key, value)| value))
-//         .collect();
+pub fn query_chains_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
+    let chains: StdResult<Vec<_>> = STATE
+        .range_raw(deps.storage, None, None, Order::Ascending)
+        .map(|item| {
+            item.map(|(key, value)| ChainInfoReponse {
+                name: String::from_utf8(key).unwrap(),
+                chain_info: value.clone(),
+            })
+        })
+        .collect();
 
-//     let chains = chains.unwrap_or_default();
+    let chains = chains.unwrap_or_default();
 
-//     to_json_binary(&chains)
-// }
+    to_json_binary(&chains)
+}
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
@@ -69,9 +79,9 @@ pub fn execute_add_chain_info(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    msg: AddChainInfo,
+    msg: AddChainInfoResponse,
 ) -> ContractResult<Response<NeutronMsg>> {
-    STATE.save(deps.storage, msg.key, &msg.chain_info)?;
+    STATE.save(deps.storage, msg.name, &msg.chain_info)?;
     Ok(response(
         "execute-add-chain-info",
         CONTRACT_NAME,
