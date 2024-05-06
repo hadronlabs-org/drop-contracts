@@ -5,6 +5,7 @@ NEUTRON_HOME="../neutron/data/test-1"
 NEUTRON_CHAIN_ID="test-1"
 TARGET_CHAIN_ID="test-2"
 DEPLOY_WALLET="demowallet1"
+KEYRING_BACKEND="test"
 GAS_PRICES="0.005"
 MIN_NTRN_REQUIRED="10"
 # TODO: can we obtain this automatically?
@@ -16,7 +17,7 @@ HERMES_CONFIG="../neutron/network/hermes/config.toml"
 
 declare -a ntx=(
   "--home" "$NEUTRON_HOME"
-  "--keyring-backend" "test"
+  "--keyring-backend" "$KEYRING_BACKEND"
   "--broadcast-mode" "sync"
   "--gas" "auto"
   "--gas-adjustment" "1.5"
@@ -129,7 +130,10 @@ main() {
 }
 
 pre_deploy_check_balance() {
-  deploy_wallet="$(neutrond keys show "$DEPLOY_WALLET" --home "$NEUTRON_HOME" --keyring-backend test --output json | jq -r '.address')"
+  deploy_wallet="$(neutrond keys show "$DEPLOY_WALLET" \
+    --home "$NEUTRON_HOME"                             \
+    --keyring-backend "$KEYRING_BACKEND"               \
+    --output json | jq -r '.address')"
   untrn_balance="$(neutrond query bank balances --denom=untrn "$deploy_wallet" "${nq[@]}" | jq -r '.amount')"
   ntrn_balance="$(echo "$untrn_balance / (10^6)" | bc)"
   ntrn_balance_decimals="$(echo "$untrn_balance % (10^6)" | bc)"
