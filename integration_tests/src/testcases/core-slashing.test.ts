@@ -34,6 +34,7 @@ import { stringToPath } from '@cosmjs/crypto';
 import { sleep } from '../helpers/sleep';
 import dockerCompose from 'docker-compose';
 import { SlashingExtension } from '@cosmjs/stargate/build/modules';
+import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
@@ -409,6 +410,7 @@ describe('Core Slashing', () => {
           lsm_redeem_max_interval: 60_000,
           bond_limit: '0',
           min_stake_amount: '2',
+          icq_update_delay: 5,
         },
         staker_params: {
           min_stake_amount: '100',
@@ -756,7 +758,7 @@ describe('Core Slashing', () => {
       await waitFor(async () => {
         const res = await context.stakerContractClient.queryTxState();
         return res.status === 'idle';
-      }, 80_000);
+      }, 200_000);
       const balances = await context.gaiaClient.getAllBalances(
         context.stakerIcaAddress,
       );
@@ -768,7 +770,19 @@ describe('Core Slashing', () => {
       ]);
     });
     it('tick 1 (staking_bond)', async () => {
-      const { neutronUserAddress } = context;
+      const {
+        neutronUserAddress,
+        client,
+        coreContractClient,
+        puppeteerContractClient,
+      } = context;
+
+      await waitForPuppeteerICQ(
+        client,
+        coreContractClient,
+        puppeteerContractClient,
+      );
+
       await context.coreContractClient.tick(
         neutronUserAddress,
         1.5,
@@ -817,7 +831,19 @@ describe('Core Slashing', () => {
       expect(balance).toEqual(0);
     });
     it('tick 2 (unbonding)', async () => {
-      const { neutronUserAddress } = context;
+      const {
+        neutronUserAddress,
+        client,
+        coreContractClient,
+        puppeteerContractClient,
+      } = context;
+
+      await waitForPuppeteerICQ(
+        client,
+        coreContractClient,
+        puppeteerContractClient,
+      );
+
       await context.coreContractClient.tick(
         neutronUserAddress,
         1.5,
@@ -844,7 +870,19 @@ describe('Core Slashing', () => {
       }, 100_000);
     });
     it('tick 3 (idle)', async () => {
-      const { neutronUserAddress } = context;
+      const {
+        neutronUserAddress,
+        client,
+        coreContractClient,
+        puppeteerContractClient,
+      } = context;
+
+      await waitForPuppeteerICQ(
+        client,
+        coreContractClient,
+        puppeteerContractClient,
+      );
+
       await context.coreContractClient.tick(
         neutronUserAddress,
         1.5,
@@ -907,7 +945,7 @@ describe('Core Slashing', () => {
       await waitFor(async () => {
         const res = await context.stakerContractClient.queryTxState();
         return res.status === 'idle';
-      }, 80_000);
+      }, 200_000);
       const balances = await context.gaiaClient.getAllBalances(
         context.stakerIcaAddress,
       );
@@ -919,7 +957,19 @@ describe('Core Slashing', () => {
       ]);
     });
     it('tick 1 (claiming)', async () => {
-      const { neutronUserAddress } = context;
+      const {
+        neutronUserAddress,
+        client,
+        coreContractClient,
+        puppeteerContractClient,
+      } = context;
+
+      await waitForPuppeteerICQ(
+        client,
+        coreContractClient,
+        puppeteerContractClient,
+      );
+
       await context.coreContractClient.tick(
         neutronUserAddress,
         1.5,
@@ -956,7 +1006,19 @@ describe('Core Slashing', () => {
       }, 30_000);
     });
     it('tick 2 (staking_bond)', async () => {
-      const { neutronUserAddress } = context;
+      const {
+        neutronUserAddress,
+        client,
+        coreContractClient,
+        puppeteerContractClient,
+      } = context;
+
+      await waitForPuppeteerICQ(
+        client,
+        coreContractClient,
+        puppeteerContractClient,
+      );
+
       await context.coreContractClient.tick(
         neutronUserAddress,
         1.5,
@@ -998,7 +1060,19 @@ describe('Core Slashing', () => {
       });
     });
     it('tick 3 (unbonding)', async () => {
-      const { neutronUserAddress } = context;
+      const {
+        neutronUserAddress,
+        client,
+        coreContractClient,
+        puppeteerContractClient,
+      } = context;
+
+      await waitForPuppeteerICQ(
+        client,
+        coreContractClient,
+        puppeteerContractClient,
+      );
+
       await context.coreContractClient.tick(
         neutronUserAddress,
         1.5,
@@ -1025,7 +1099,19 @@ describe('Core Slashing', () => {
       }, 100_000);
     });
     it('tick 4 (idle)', async () => {
-      const { neutronUserAddress } = context;
+      const {
+        neutronUserAddress,
+        client,
+        coreContractClient,
+        puppeteerContractClient,
+      } = context;
+
+      await waitForPuppeteerICQ(
+        client,
+        coreContractClient,
+        puppeteerContractClient,
+      );
+
       await context.coreContractClient.tick(
         neutronUserAddress,
         1.5,
@@ -1119,7 +1205,19 @@ describe('Core Slashing', () => {
     }, 50_000);
   });
   it('tick (claiming)', async () => {
-    const { coreContractClient, neutronUserAddress } = context;
+    const {
+      coreContractClient,
+      neutronUserAddress,
+      client,
+      puppeteerContractClient,
+    } = context;
+
+    await waitForPuppeteerICQ(
+      client,
+      coreContractClient,
+      puppeteerContractClient,
+    );
+
     await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
     const state = await context.coreContractClient.queryContractState();
     expect(state).toEqual('claiming');
@@ -1185,7 +1283,19 @@ describe('Core Slashing', () => {
     });
   });
   it.skip('tick (idle)', async () => {
-    const { coreContractClient, neutronUserAddress } = context;
+    const {
+      coreContractClient,
+      neutronUserAddress,
+      client,
+      puppeteerContractClient,
+    } = context;
+
+    await waitForPuppeteerICQ(
+      client,
+      coreContractClient,
+      puppeteerContractClient,
+    );
+
     await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
     const state = await context.coreContractClient.queryContractState();
     expect(state).toEqual('idle');

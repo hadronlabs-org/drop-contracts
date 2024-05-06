@@ -33,12 +33,10 @@ import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import {
-  ResponseHookMsg,
-  ResponseHookSuccessMsg,
-} from '../generated/contractLib/dropCore';
+import { ResponseHookMsg } from '../generated/contractLib/dropCore';
 import { stringToPath } from '@cosmjs/crypto';
 import { sleep } from '../helpers/sleep';
+import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
@@ -413,6 +411,7 @@ describe('Auto withdrawer', () => {
           lsm_redeem_max_interval: 60_000,
           lsm_min_bond_amount: '1',
           min_stake_amount: '2',
+          icq_update_delay: 5,
         },
         staker_params: {
           min_stake_amount: '10000',
@@ -985,7 +984,19 @@ describe('Auto withdrawer', () => {
         ]);
       });
       it('tick', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1046,7 +1057,19 @@ describe('Auto withdrawer', () => {
         }, 100_000);
       });
       it('second tick goes to unbonding', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1082,7 +1105,19 @@ describe('Auto withdrawer', () => {
         }, 100_000);
       });
       it('next tick goes to idle', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1105,7 +1140,19 @@ describe('Auto withdrawer', () => {
         await sleep(30_000);
       });
       it('idle tick', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1153,7 +1200,19 @@ describe('Auto withdrawer', () => {
         }, 30_000);
       });
       it('next tick goes to staking', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1178,7 +1237,19 @@ describe('Auto withdrawer', () => {
         }, 100_000);
       });
       it('next tick goes to idle', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1307,7 +1378,19 @@ describe('Auto withdrawer', () => {
         });
       });
       it('tick', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1316,7 +1399,7 @@ describe('Auto withdrawer', () => {
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('idle');
+        expect(state).toEqual('non_native_rewards_transfer');
       });
       it('wait for the response from puppeteer', async () => {
         let response: ResponseHookMsg;
@@ -1364,11 +1447,53 @@ describe('Auto withdrawer', () => {
           return res[0].coins.length === 1;
         });
       }, 30_000);
+      it('wait for balances and delegations to update', async () => {
+        const [, currentBalancesHeight] =
+          await context.puppeteerContractClient.queryExtension({
+            msg: {
+              balances: {},
+            },
+          });
+        const [, currentDelegationsHeight] =
+          await context.puppeteerContractClient.queryExtension({
+            msg: {
+              delegations: {},
+            },
+          });
+        await waitFor(async () => {
+          const [, nowBalancesHeight] =
+            await context.puppeteerContractClient.queryExtension({
+              msg: {
+                balances: {},
+              },
+            });
+          const [, nowDelegationsHeight] =
+            await context.puppeteerContractClient.queryExtension({
+              msg: {
+                delegations: {},
+              },
+            });
+          return (
+            nowBalancesHeight !== currentBalancesHeight &&
+            nowDelegationsHeight !== currentDelegationsHeight
+          );
+        }, 30_000);
+      });
+      it('tick', async () => {
+        const { neutronUserAddress } = context;
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
     });
 
     describe('fourth cycle', () => {
-      let previousResponse: ResponseHookSuccessMsg;
-
       it('update idle interval', async () => {
         const { factoryContractClient, neutronUserAddress } = context;
         const res = await factoryContractClient.updateConfig(
@@ -1415,11 +1540,6 @@ describe('Auto withdrawer', () => {
       });
       it('tick', async () => {
         const { coreContractClient, neutronUserAddress } = context;
-        previousResponse = (
-          (await coreContractClient.queryLastPuppeteerResponse()).response as {
-            success: ResponseHookSuccessMsg;
-          }
-        ).success;
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('claiming');
@@ -1432,35 +1552,34 @@ describe('Auto withdrawer', () => {
               await context.coreContractClient.queryLastPuppeteerResponse()
             ).response;
           } catch (e) {
-            return false;
+            //
           }
-          if (!response || !('success' in response)) {
-            throw new Error(
-              ('error' in response && response.error.details) || 'no response',
-            );
-          }
-          return response.success.request_id > previousResponse.request_id;
-        }, 30_000);
+          return !!response;
+        }, 100_000);
+        expect(response).toBeTruthy();
+        expect<ResponseHookMsg>(response).toHaveProperty('success');
       });
-      it('wait for balance to update', async () => {
-        const [, currentHeight] =
-          (await context.puppeteerContractClient.queryExtension({
-            msg: {
-              balances: {},
-            },
-          })) as any;
-        await waitFor(async () => {
-          const [, nowHeight] =
-            (await context.puppeteerContractClient.queryExtension({
-              msg: {
-                balances: {},
-              },
-            })) as any;
-          return nowHeight !== currentHeight;
-        }, 30_000);
+      it('wait for ICQ update', async () => {
+        await waitForPuppeteerICQ(
+          context.client,
+          context.coreContractClient,
+          context.puppeteerContractClient,
+        );
       });
       it('tick', async () => {
-        const { coreContractClient, neutronUserAddress } = context;
+        const {
+          coreContractClient,
+          neutronUserAddress,
+          client,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('staking_rewards');

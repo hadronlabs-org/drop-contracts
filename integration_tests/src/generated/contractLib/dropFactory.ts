@@ -1209,6 +1209,7 @@ export interface CodeIds {
 }
 export interface CoreParams {
   bond_limit?: Uint128 | null;
+  icq_update_delay: number;
   idle_min_interval: number;
   lsm_min_bond_amount: Uint128;
   lsm_redeem_max_interval: number;

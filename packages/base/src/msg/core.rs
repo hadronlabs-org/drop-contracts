@@ -38,6 +38,7 @@ pub struct InstantiateMsg {
     pub fee_address: Option<String>,
     pub emergency_address: Option<String>,
     pub min_stake_amount: Uint128,
+    pub icq_update_delay: u64, // blocks
 }
 
 impl InstantiateMsg {
@@ -80,6 +81,7 @@ impl InstantiateMsg {
             fee_address: self.fee_address,
             emergency_address: self.emergency_address,
             min_stake_amount: self.min_stake_amount,
+            icq_update_delay: self.icq_update_delay,
         })
     }
 }

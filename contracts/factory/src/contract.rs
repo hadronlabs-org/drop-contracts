@@ -288,6 +288,7 @@ pub fn instantiate(
                 fee_address: None,
                 emergency_address: None,
                 min_stake_amount: msg.core_params.min_stake_amount,
+                icq_update_delay: msg.core_params.icq_update_delay,
             })?,
             funds: vec![],
             salt: Binary::from(salt),

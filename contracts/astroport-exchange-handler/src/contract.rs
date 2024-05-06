@@ -3,7 +3,7 @@ use astroport::pair::ExecuteMsg as PairExecuteMsg;
 use astroport::router::ExecuteMsg as RouterExecuteMsg;
 use astroport::router::SwapOperation;
 use cosmwasm_std::{
-    attr, entry_point, to_json_binary, Attribute, CosmosMsg, Deps, Uint128, WasmMsg,
+    attr, entry_point, to_json_binary, Attribute, CosmosMsg, Decimal, Deps, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw_ownable::{get_ownership, update_ownership};
@@ -23,7 +23,7 @@ pub fn instantiate(
     _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
-) -> StdResult<Response> {
+) -> ContractResult<Response> {
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(msg.owner.as_ref()))?;
 
@@ -31,14 +31,24 @@ pub fn instantiate(
     let core_contract = deps.api.addr_validate(&msg.core_contract)?;
     let pair_contract = deps.api.addr_validate(&msg.pair_contract)?;
     let router_contract = deps.api.addr_validate(&msg.router_contract)?;
+    let price_provider_contract = deps.api.addr_validate(&msg.price_provider_contract)?;
+
+    if msg.max_spread.is_zero() {
+        return Err(ContractError::ZeroMaxSpread {});
+    }
+    if msg.max_spread > Decimal::percent(10) {
+        return Err(ContractError::MaxSpreadTooBig {});
+    }
 
     let config = Config {
         cron_address: cron.to_string(),
         core_contract: core_contract.to_string(),
         pair_contract: pair_contract.to_string(),
+        price_provider_contract: price_provider_contract.to_string(),
         router_contract: router_contract.to_string(),
         from_denom: msg.from_denom.clone(),
         min_rewards: msg.min_rewards,
+        max_spread: msg.max_spread,
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -49,6 +59,7 @@ pub fn instantiate(
         [
             attr("core_contract", msg.core_contract),
             attr("cron_address", msg.cron_address),
+            attr("price_provider_contract", msg.price_provider_contract),
             attr("pair_contract", msg.pair_contract),
             attr("router_contract", msg.router_contract),
             attr("from_denom", msg.from_denom),
@@ -73,6 +84,7 @@ fn query_config(deps: Deps, _env: Env) -> StdResult<Binary> {
         core_contract: config.core_contract,
         cron_address: config.cron_address,
         pair_contract: config.pair_contract,
+        price_provider_contract: config.price_provider_contract,
         router_contract: config.router_contract,
         from_denom: config.from_denom,
         min_rewards: config.min_rewards,
@@ -94,20 +106,24 @@ pub fn execute(
         }
         ExecuteMsg::UpdateConfig {
             core_contract,
+            price_provider_contract,
             cron_address,
             router_contract,
             pair_contract,
             from_denom,
             min_rewards,
+            max_spread,
         } => exec_update_config(
             deps,
             info,
             core_contract,
+            price_provider_contract,
             cron_address,
             router_contract,
             pair_contract,
             from_denom,
             min_rewards,
+            max_spread,
         ),
         ExecuteMsg::Exchange {} => exec_exchange(deps, env),
         ExecuteMsg::UpdateSwapOperations { operations } => {
@@ -121,11 +137,13 @@ fn exec_update_config(
     deps: DepsMut,
     info: MessageInfo,
     core_contract: Option<String>,
+    price_provider_contract: Option<String>,
     cron_address: Option<String>,
     router_contract: Option<String>,
     pair_contract: Option<String>,
     from_denom: Option<String>,
     min_rewards: Option<Uint128>,
+    max_spread: Option<Decimal>,
 ) -> ContractResult<Response> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
@@ -136,6 +154,12 @@ fn exec_update_config(
         let core_contract = deps.api.addr_validate(&core_contract)?;
         config.core_contract = core_contract.to_string();
         attrs.push(attr("core_contract", core_contract))
+    }
+
+    if let Some(price_provider_contract) = price_provider_contract {
+        let price_provider_contract = deps.api.addr_validate(&price_provider_contract)?;
+        config.price_provider_contract = price_provider_contract.to_string();
+        attrs.push(attr("price_provider_contract", price_provider_contract))
     }
 
     if let Some(cron_address) = cron_address {
@@ -166,6 +190,11 @@ fn exec_update_config(
         attrs.push(attr("min_rewards", min_rewards))
     }
 
+    if let Some(max_spread) = max_spread {
+        config.max_spread = max_spread;
+        attrs.push(attr("max_spread", max_spread.to_string()))
+    }
+
     CONFIG.save(deps.storage, &config)?;
 
     Ok(response("config_update", CONTRACT_NAME, attrs))
@@ -188,6 +217,18 @@ fn exec_exchange(deps: DepsMut, env: Env) -> ContractResult<Response> {
         });
     }
 
+    let belief_price: Decimal = deps
+        .querier
+        .query_wasm_smart(
+            config.price_provider_contract,
+            &drop_staking_base::msg::price_provider::QueryMsg::Price {
+                denom: from_denom.clone(),
+            },
+        )
+        .map_err(|e| ContractError::AssetPriceQueryFailed {
+            details: e.to_string(),
+        })?;
+
     let mut msgs: Vec<CosmosMsg> = Vec::new();
     let mut attrs: Vec<Attribute> = Vec::new();
 
@@ -200,7 +241,7 @@ fn exec_exchange(deps: DepsMut, env: Env) -> ContractResult<Response> {
                 operations: swap_operations,
                 minimum_receive: None,
                 to: Some(config.core_contract),
-                max_spread: None,
+                max_spread: Some(config.max_spread),
             })?,
             funds: vec![balance.clone()],
         });
@@ -220,8 +261,8 @@ fn exec_exchange(deps: DepsMut, env: Env) -> ContractResult<Response> {
                     amount: balance.amount,
                 },
                 ask_asset_info: None,
-                belief_price: None,
-                max_spread: None,
+                belief_price: Some(belief_price),
+                max_spread: Some(config.max_spread),
                 to: Some(config.core_contract),
             })?,
             funds: vec![balance.clone()],

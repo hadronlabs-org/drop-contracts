@@ -78,7 +78,7 @@ export type UpdateOwnershipArgs =
 
 export interface DropRewardsManagerSchema {
   responses: ArrayOfHandlerConfig | OwnershipForString | PauseInfoResponse;
-  execute: AddHandlerArgs | RemoveHandlerArgs | UpdateOwnershipArgs;
+  execute: AddHandlerArgs | RemoveHandlerArgs | ExchangeRewardsArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
@@ -109,6 +109,9 @@ export interface AddHandlerArgs {
 }
 export interface RemoveHandlerArgs {
   denom: string;
+}
+export interface ExchangeRewardsArgs {
+  denoms: string[];
 }
 export interface InstantiateMsg {
   owner: string;
@@ -177,9 +180,9 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { remove_handler: args }, fee || "auto", memo, funds);
   }
-  exchangeRewards = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  exchangeRewards = async(sender:string, args: ExchangeRewardsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { exchange_rewards: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { exchange_rewards: args }, fee || "auto", memo, funds);
   }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

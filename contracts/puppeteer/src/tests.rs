@@ -518,6 +518,7 @@ fn test_sudo_response_ok() {
                     Box::new(drop_puppeteer_base::msg::ResponseHookMsg::Success(
                         drop_puppeteer_base::msg::ResponseHookSuccessMsg {
                             request_id: 1,
+                            local_height: 12345,
                             request,
                             transaction,
                             answers: vec![drop_puppeteer_base::msg::ResponseAnswer::IBCTransfer(
