@@ -1,11 +1,11 @@
 use crate::{
     error::ContractResult,
-    msg::{AddChainInfoResponse, ChainInfoReponse, ExecuteMsg, InstantiateMsg, QueryMsg},
+    msg::{AddChainInfoList, ChainInfoReponse, ExecuteMsg, InstantiateMsg, QueryMsg},
     state::{Config, CONFIG, STATE},
 };
 use cosmwasm_std::{
-    attr, entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response,
-    StdResult,
+    attr, entry_point, to_json_binary, Attribute, Binary, Deps, DepsMut, Env, MessageInfo, Order,
+    Response, StdResult,
 };
 use cw2::set_contract_version;
 use drop_helpers::answer::response;
@@ -43,7 +43,7 @@ pub fn query_chain_info(deps: Deps<NeutronQuery>, name: String) -> StdResult<Bin
     let chain_info = STATE.load(deps.storage, name.clone())?;
     to_json_binary(&ChainInfoReponse {
         name: name.clone(),
-        chain_info: chain_info.clone(),
+        details: chain_info.clone(),
     })
 }
 
@@ -53,7 +53,7 @@ pub fn query_chains_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
         .map(|item| {
             item.map(|(key, value)| ChainInfoReponse {
                 name: String::from_utf8(key).unwrap(),
-                chain_info: value.clone(),
+                details: value.clone(),
             })
         })
         .collect();
@@ -71,7 +71,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::AddChainInfo(msg) => execute_add_chain_info(deps, env, info, msg),
+        ExecuteMsg::AddChainsInfo(msg) => execute_add_chain_info(deps, env, info, msg),
     }
 }
 
@@ -79,12 +79,18 @@ pub fn execute_add_chain_info(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    msg: AddChainInfoResponse,
+    msg: AddChainInfoList,
 ) -> ContractResult<Response<NeutronMsg>> {
-    STATE.save(deps.storage, msg.name, &msg.chain_info)?;
-    Ok(response(
-        "execute-add-chain-info",
-        CONTRACT_NAME,
-        vec![attr("action", "add-chain-info-call")],
-    ))
+    let mut attrs: Vec<Attribute> = Vec::new();
+    msg.chains.iter().for_each(|add_chain| {
+        STATE
+            .save(
+                deps.storage,
+                add_chain.name.clone(),
+                &add_chain.details.clone(),
+            )
+            .unwrap();
+        attrs.push(attr("add-info", add_chain.name.clone()))
+    });
+    Ok(response("execute-add-chain-info", CONTRACT_NAME, attrs))
 }
