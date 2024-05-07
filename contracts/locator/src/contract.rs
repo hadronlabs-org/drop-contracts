@@ -43,8 +43,8 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
 pub fn query_chain(deps: Deps<NeutronQuery>, name: String) -> StdResult<Binary> {
     let chain = STATE.load(deps.storage, name.clone())?;
     to_json_binary(&ChainInfo {
-        name: name.clone(),
-        details: chain.clone(),
+        name: name,
+        details: chain,
     })
 }
 
