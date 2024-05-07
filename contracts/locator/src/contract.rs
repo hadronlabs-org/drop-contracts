@@ -89,7 +89,10 @@ pub fn execute_remove_chains(
     let mut attrs: Vec<Attribute> = Vec::new();
     msg.names.iter().for_each(|name| {
         STATE.remove(deps.storage, name.clone());
-        attrs.push(attr("remove", name.clone()))
+        match STATE.has(deps.storage, name.clone()) {
+            true => attrs.push(attr("skip", name.clone())),
+            false => attrs.push(attr("remove", name.clone())),
+        }
     });
     Ok(response("execute-remove-chains", CONTRACT_NAME, attrs))
 }
