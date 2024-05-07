@@ -12,7 +12,7 @@ members = [
     "contracts/proposal-votes-poc",
     "contracts/provider-proposals-poc",
     "contracts/pump",
-    "contracts/drop-locator",
+    "contracts/locator",
     "contracts/puppeteer",
     # "contracts/puppeteer-authz",
     "contracts/rewards-manager",

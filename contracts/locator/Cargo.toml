@@ -2,7 +2,7 @@
 authors = ["Vladislav Vasilev <vfaust.thefuture@gmail.com>"]
 description = "Contract to query all Drop contracts"
 edition = "2021"
-name = "drop-locator"
+name = "locator"
 version = "1.0.0"
 
 exclude = [
