@@ -1,6 +1,6 @@
 use crate::{
     error::ContractResult,
-    msg::{AddChain, ChainInfo, ExecuteMsg, InstantiateMsg, QueryMsg},
+    msg::{DropInstance, ExecuteMsg, InstantiateMsg, QueryMsg},
     state::STATE,
 };
 use cosmwasm_std::{
@@ -42,7 +42,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
 
 pub fn query_chain(deps: Deps<NeutronQuery>, name: String) -> StdResult<Binary> {
     let chain = STATE.load(deps.storage, name.clone())?;
-    to_json_binary(&ChainInfo {
+    to_json_binary(&DropInstance {
         name,
         details: chain,
     })
@@ -52,7 +52,7 @@ pub fn query_chains(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
     let chains: StdResult<Vec<_>> = STATE
         .range_raw(deps.storage, None, None, Order::Ascending)
         .map(|item| {
-            item.map(|(key, value)| ChainInfo {
+            item.map(|(key, value)| DropInstance {
                 name: String::from_utf8(key).unwrap(),
                 details: value.clone(),
             })
@@ -98,7 +98,7 @@ pub fn execute_add_chains(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    msg: Vec<AddChain>,
+    msg: Vec<DropInstance>,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut attrs: Vec<Attribute> = Vec::new();
