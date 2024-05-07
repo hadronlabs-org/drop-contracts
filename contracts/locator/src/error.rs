@@ -1,6 +1,5 @@
 use cosmwasm_std::{Instantiate2AddressError, StdError};
 use cw_ownable::OwnershipError;
-use neutron_sdk::NeutronError;
 
 use thiserror::Error;
 
@@ -8,8 +7,6 @@ use thiserror::Error;
 pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
-    #[error("{0}")]
-    NeutronError(#[from] NeutronError),
     #[error("{0}")]
     OwnershipError(#[from] OwnershipError),
     #[error("Could not calculcate instantiate2 address: {0}")]
