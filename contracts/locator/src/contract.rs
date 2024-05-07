@@ -106,10 +106,8 @@ pub fn execute_add_chains(
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut attrs: Vec<Attribute> = Vec::new();
     for chain in msg.chains {
-        match STATE.save(deps.storage, chain.name.clone(), &chain.details.clone()) {
-            Ok(_) => attrs.push(attr("add", chain.name.clone())),
-            Err(_) => attrs.push(attr("skip", chain.name.clone())),
-        }
+        STATE.save(deps.storage, chain.name.clone(), &chain.details)?;
+        attrs.push(attr("add", chain.name))
     }
     Ok(response("execute-add-chains", CONTRACT_NAME, attrs))
 }
