@@ -717,6 +717,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-locator"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-macros",
+ "drop-puppeteer-base",
+ "drop-staking-base",
+ "neutron-sdk",
+ "thiserror",
+]
+
+[[package]]
 name = "drop-macros"
 version = "1.0.0"
 dependencies = [
@@ -1189,23 +1206,6 @@ name = "libc"
 version = "0.2.153"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
-
-[[package]]
-name = "locator"
-version = "1.0.0"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-ownable",
- "cw-storage-plus 1.2.0",
- "cw2 1.1.2",
- "drop-helpers",
- "drop-macros",
- "drop-puppeteer-base",
- "drop-staking-base",
- "neutron-sdk",
- "thiserror",
-]
 
 [[package]]
 name = "neutron-sdk"
