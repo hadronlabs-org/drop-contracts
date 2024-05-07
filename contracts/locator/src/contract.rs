@@ -1,6 +1,6 @@
 use crate::{
     error::ContractResult,
-    msg::{AddChainList, ChainInfo, ExecuteMsg, InstantiateMsg, QueryMsg, RemoveChainList},
+    msg::{AddChain, ChainInfo, ExecuteMsg, InstantiateMsg, QueryMsg},
     state::STATE,
 };
 use cosmwasm_std::{
@@ -43,7 +43,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
 pub fn query_chain(deps: Deps<NeutronQuery>, name: String) -> StdResult<Binary> {
     let chain = STATE.load(deps.storage, name.clone())?;
     to_json_binary(&ChainInfo {
-        name: name,
+        name,
         details: chain,
     })
 }
@@ -70,8 +70,8 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::AddChains(msg) => execute_add_chains(deps, env, info, msg),
-        ExecuteMsg::RemoveChains(msg) => execute_remove_chains(deps, env, info, msg),
+        ExecuteMsg::AddChains { chains } => execute_add_chains(deps, env, info, chains),
+        ExecuteMsg::RemoveChains { names } => execute_remove_chains(deps, env, info, names),
         ExecuteMsg::UpdateOwnership(action) => {
             update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
             Ok(Response::new())
@@ -83,11 +83,11 @@ pub fn execute_remove_chains(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    msg: RemoveChainList,
+    msg: Vec<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut attrs: Vec<Attribute> = Vec::new();
-    msg.names.iter().for_each(|name| {
+    msg.iter().for_each(|name| {
         STATE.remove(deps.storage, name.clone());
         attrs.push(attr("remove", name))
     });
@@ -98,11 +98,11 @@ pub fn execute_add_chains(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    msg: AddChainList,
+    msg: Vec<AddChain>,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut attrs: Vec<Attribute> = Vec::new();
-    for chain in msg.chains {
+    for chain in msg {
         STATE.save(deps.storage, chain.name.clone(), &chain.details)?;
         attrs.push(attr("add", chain.name))
     }
