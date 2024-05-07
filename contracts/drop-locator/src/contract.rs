@@ -8,6 +8,7 @@ use cosmwasm_std::{
     Response, StdResult,
 };
 use cw2::set_contract_version;
+use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::response;
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 
@@ -35,6 +36,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
     match msg {
         QueryMsg::Chains {} => query_chains(deps),
         QueryMsg::Chain { name } => query_chain(deps, name),
+        QueryMsg::Owner {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
     }
 }
 
@@ -70,15 +72,20 @@ pub fn execute(
     match msg {
         ExecuteMsg::AddChains(msg) => execute_add_chains(deps, env, info, msg),
         ExecuteMsg::RemoveChains(msg) => execute_remove_chains(deps, env, info, msg),
+        ExecuteMsg::UpdateOwnership(action) => {
+            update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
+            Ok(Response::new())
+        }
     }
 }
 
 pub fn execute_remove_chains(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: RemoveChainList,
 ) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut attrs: Vec<Attribute> = Vec::new();
     msg.names.iter().for_each(|name| {
         STATE.remove(deps.storage, name.clone());
@@ -90,9 +97,10 @@ pub fn execute_remove_chains(
 pub fn execute_add_chains(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: AddChainList,
 ) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut attrs: Vec<Attribute> = Vec::new();
     msg.chains.iter().for_each(|add_chain| {
         STATE
