@@ -88,7 +88,7 @@ pub fn execute_remove_chains(
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut attrs: Vec<Attribute> = Vec::new();
     msg.iter().for_each(|name| {
-        STATE.remove(deps.storage, name.clone());
+        STATE.remove(deps.storage, name.to_string());
         attrs.push(attr("remove", name))
     });
     Ok(response("execute-remove-chains", CONTRACT_NAME, attrs))
