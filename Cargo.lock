@@ -717,6 +717,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-locator"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-macros",
+ "drop-puppeteer-base",
+ "drop-staking-base",
+ "neutron-sdk",
+ "thiserror",
+]
+
+[[package]]
 name = "drop-macros"
 version = "1.0.0"
 dependencies = [
