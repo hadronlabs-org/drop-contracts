@@ -50,10 +50,10 @@ pub fn query_chain(deps: Deps<NeutronQuery>, name: String) -> StdResult<Binary> 
 
 pub fn query_chains(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
     let chains: StdResult<Vec<_>> = STATE
-        .range_raw(deps.storage, None, None, Order::Ascending)
+        .range(deps.storage, None, None, Order::Ascending)
         .map(|item| {
             item.map(|(key, value)| DropInstance {
-                name: String::from_utf8(key).unwrap(),
+                name: key,
                 details: value.clone(),
             })
         })
