@@ -36,7 +36,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
     match msg {
         QueryMsg::Chains {} => query_chains(deps),
         QueryMsg::Chain { name } => query_chain(deps, name),
-        QueryMsg::Owner {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
+        QueryMsg::Ownership {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
     }
 }
 
