@@ -1,17 +1,16 @@
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, from_json, to_json_binary, Attribute, BankMsg, Binary, Coin,
-    CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
+    attr, ensure_eq, from_json, to_json_binary, Attribute, BankMsg, Binary, Coin, CosmosMsg, Deps,
+    DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
 };
-use cw2::set_contract_version;
 use cw721::NftInfoResponse;
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::{
     answer::response,
-    pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse},
+    pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse},
 };
 use drop_staking_base::{
     msg::{
-        withdrawal_manager::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveNftMsg},
+        withdrawal_manager::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveNftMsg},
         withdrawal_voucher::Extension,
     },
     state::{
@@ -25,14 +24,14 @@ use crate::error::{ContractError, ContractResult};
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(msg.owner.as_ref()))?;
 
     let attrs: Vec<Attribute> = vec![
@@ -52,7 +51,7 @@ pub fn instantiate(
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Ownership {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
@@ -62,14 +61,14 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
 }
 
 fn query_pause_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
-    if is_paused(deps.storage) {
+    if is_paused(deps.storage)? {
         to_json_binary(&PauseInfoResponse::Paused {})
     } else {
         to_json_binary(&PauseInfoResponse::Unpaused {})
     }
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -124,7 +123,7 @@ fn exec_unpause(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
-    unpause(deps.storage)?;
+    unpause(deps.storage);
 
     Ok(response(
         "exec_unpause",
@@ -168,7 +167,7 @@ fn execute_receive_nft_withdraw(
     token_id: String,
     receiver: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    assert_paused(deps.storage)?;
+    pause_guard(deps.storage)?;
 
     let mut attrs = vec![attr("action", "receive_nft")];
     let config = CONFIG.load(deps.storage)?;
@@ -226,4 +225,21 @@ fn execute_receive_nft_withdraw(
         }],
     });
     Ok(response("execute-receive_nft", CONTRACT_NAME, attrs).add_message(msg))
+}
+
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }

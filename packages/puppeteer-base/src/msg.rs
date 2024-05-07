@@ -15,12 +15,6 @@ use schemars::JsonSchema;
 pub enum ExecuteMsg {
     RegisterICA {},
     RegisterQuery {},
-    SetFees {
-        recv_fee: Uint128,
-        ack_fee: Uint128,
-        timeout_fee: Uint128,
-        register_fee: Uint128,
-    },
 }
 
 #[cw_serde]

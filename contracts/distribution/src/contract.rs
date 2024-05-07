@@ -1,32 +1,29 @@
 use cosmwasm_std::{
-    entry_point, to_json_binary, Attribute, Binary, Decimal, Deps, DepsMut, Env, MessageInfo,
-    Response, Uint128,
+    to_json_binary, Attribute, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Response, Uint128,
 };
-use std::ops::Sub;
-
-use cw2::set_contract_version;
 use drop_helpers::answer::response;
 use drop_staking_base::error::distribution::{ContractError, ContractResult};
-use drop_staking_base::msg::distribution::{Delegations, InstantiateMsg, QueryMsg};
-use neutron_sdk::bindings::msg::NeutronMsg;
+use drop_staking_base::msg::distribution::{Delegations, InstantiateMsg, MigrateMsg, QueryMsg};
+use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
+use std::ops::Sub;
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
     _msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     let empty_attr: Vec<Attribute> = Vec::new();
     Ok(response("instantiate", CONTRACT_NAME, empty_attr))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(_deps: Deps, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     match msg {
         QueryMsg::CalcDeposit {
@@ -125,6 +122,23 @@ where
     }
 
     Ok(deposit_changes)
+}
+
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }
 
 #[cfg(test)]

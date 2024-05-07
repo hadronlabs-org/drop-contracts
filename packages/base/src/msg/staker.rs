@@ -1,7 +1,6 @@
 use crate::state::staker::{ConfigOptional, Transaction};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
-use drop_helpers::interchain::IBCFees;
 use neutron_sdk::sudo::msg::RequestPacket;
 
 #[cw_ownable::cw_ownable_query]
@@ -43,7 +42,6 @@ pub enum ExecuteMsg {
 pub struct InstantiateMsg {
     pub connection_id: String,
     pub port_id: String,
-    pub ibc_fees: IBCFees,
     pub timeout: u64,
     pub remote_denom: String,
     pub base_denom: String,

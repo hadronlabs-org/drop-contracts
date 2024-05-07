@@ -394,12 +394,6 @@ describe('Core', () => {
           port_id: 'transfer',
           denom: 'stake',
           update_period: 2,
-          ibc_fees: {
-            timeout_fee: '10000',
-            ack_fee: '10000',
-            recv_fee: '0',
-            register_fee: '1000000',
-          },
         },
         salt: 'salt',
         subdenom: 'drop',
@@ -555,61 +549,6 @@ describe('Core', () => {
       withdrawal_manager: { unpaused: {} },
       core: { unpaused: {} },
       rewards_manager: { unpaused: {} },
-    });
-  });
-
-  it('set fees for puppeteer', async () => {
-    const { neutronUserAddress, factoryContractClient: contractClient } =
-      context;
-    const res = await contractClient.updateConfig(neutronUserAddress, {
-      puppeteer_fees: {
-        timeout_fee: '20000',
-        ack_fee: '10000',
-        recv_fee: '0',
-        register_fee: '1000000',
-      },
-    });
-    expect(res.transactionHash).toHaveLength(64);
-  });
-
-  it('update by factory admin execute', async () => {
-    const { neutronUserAddress, factoryContractClient: contractClient } =
-      context;
-    const res = await contractClient.adminExecute(
-      neutronUserAddress,
-      {
-        msgs: [
-          {
-            wasm: {
-              execute: {
-                contract_addr: context.puppeteerContractClient.contractAddress,
-                msg: Buffer.from(
-                  JSON.stringify({
-                    set_fees: {
-                      timeout_fee: '10000',
-                      ack_fee: '10000',
-                      recv_fee: '0',
-                      register_fee: '1000000',
-                    },
-                  }),
-                ).toString('base64'),
-                funds: [],
-              },
-            },
-          },
-        ],
-      },
-      1.5,
-    );
-    expect(res.transactionHash).toHaveLength(64);
-    const fees: any = await context.puppeteerContractClient.queryExtension({
-      msg: { fees: {} },
-    });
-    expect(fees).toEqual({
-      recv_fee: [{ denom: 'untrn', amount: '0' }],
-      ack_fee: [{ denom: 'untrn', amount: '10000' }],
-      timeout_fee: [{ denom: 'untrn', amount: '10000' }],
-      register_fee: { denom: 'untrn', amount: '1000000' },
     });
   });
 
@@ -1090,12 +1029,6 @@ describe('Core', () => {
           codeId,
           {
             connection_id: 'connection-0',
-            ibc_fees: {
-              timeout_fee: '10000',
-              ack_fee: '10000',
-              recv_fee: '0',
-              register_fee: '1000000',
-            },
             local_denom: 'untrn',
             timeout: {
               local: 60,

@@ -388,12 +388,6 @@ describe('Auto withdrawer', () => {
           port_id: 'transfer',
           denom: 'stake',
           update_period: 2,
-          ibc_fees: {
-            timeout_fee: '10000',
-            ack_fee: '10000',
-            recv_fee: '0',
-            register_fee: '1000000',
-          },
         },
         salt: 'salt',
         subdenom: 'drop',
@@ -499,20 +493,6 @@ describe('Auto withdrawer', () => {
       res.staker_contract,
     );
     context.ldDenom = `factory/${context.tokenContractAddress}/drop`;
-  });
-
-  it('set fees for puppeteer', async () => {
-    const { neutronUserAddress, factoryContractClient: contractClient } =
-      context;
-    const res = await contractClient.updateConfig(neutronUserAddress, {
-      puppeteer_fees: {
-        timeout_fee: '10000',
-        ack_fee: '10000',
-        recv_fee: '0',
-        register_fee: '1000000',
-      },
-    });
-    expect(res.transactionHash).toHaveLength(64);
   });
 
   it('register staker ICA', async () => {
@@ -917,12 +897,6 @@ describe('Auto withdrawer', () => {
           codeId,
           {
             connection_id: 'connection-0',
-            ibc_fees: {
-              timeout_fee: '10000',
-              ack_fee: '10000',
-              recv_fee: '0',
-              register_fee: '1000000',
-            },
             local_denom: 'untrn',
             timeout: {
               local: 60,

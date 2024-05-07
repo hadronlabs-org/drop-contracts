@@ -112,6 +112,15 @@ pub enum ContractError {
 
     #[error("Fee must be in range [0.0, 1.0]")]
     InvalidFee {},
+
+    #[error("Semver parsing error: {0}")]
+    SemVer(String),
+}
+
+impl From<semver::Error> for ContractError {
+    fn from(err: semver::Error) -> Self {
+        Self::SemVer(err.to_string())
+    }
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

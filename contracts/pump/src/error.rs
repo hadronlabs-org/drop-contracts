@@ -1,6 +1,5 @@
 use cosmwasm_std::{OverflowError, StdError};
 use cw_ownable::OwnershipError;
-use cw_utils::PaymentError;
 use neutron_sdk::NeutronError;
 use thiserror::Error;
 
@@ -17,9 +16,6 @@ pub enum ContractError {
 
     #[error("{0}")]
     OverflowError(#[from] OverflowError),
-
-    #[error("{0}")]
-    PaymentError(#[from] PaymentError),
 
     #[error("ICA is not registered")]
     IcaNotRegistered {},
@@ -50,6 +46,15 @@ pub enum ContractError {
 
     #[error("Refundee is not set")]
     RefundeeIsNotSet {},
+
+    #[error("Semver parsing error: {0}")]
+    SemVer(String),
+}
+
+impl From<semver::Error> for ContractError {
+    fn from(err: semver::Error) -> Self {
+        Self::SemVer(err.to_string())
+    }
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

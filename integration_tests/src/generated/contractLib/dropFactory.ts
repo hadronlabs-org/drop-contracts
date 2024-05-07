@@ -16,9 +16,6 @@ export type UpdateConfigArgs =
     }
   | {
       validators_set: ConfigOptional2;
-    }
-  | {
-      puppeteer_fees: FeesMsg;
     };
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
@@ -47,17 +44,11 @@ export type ProxyArgs =
   | {
       core: CoreMsg;
     };
-export type ValidatorSetMsg =
-  | {
-      update_validators: {
-        validators: ValidatorData[];
-      };
-    }
-  | {
-      update_validator: {
-        validator: ValidatorData;
-      };
-    };
+export type ValidatorSetMsg = {
+  update_validators: {
+    validators: ValidatorData[];
+  };
+};
 export type CoreMsg =
   | {
       update_non_native_rewards_receivers: {
@@ -816,12 +807,6 @@ export interface ConfigOptional2 {
   provider_proposals_contract?: string | null;
   stats_contract?: string | null;
 }
-export interface FeesMsg {
-  ack_fee: Uint128;
-  recv_fee: Uint128;
-  register_fee: Uint128;
-  timeout_fee: Uint128;
-}
 export interface ValidatorData {
   valoper_address: string;
   weight: number;
@@ -1238,16 +1223,9 @@ export interface CoreParams {
 export interface RemoteOpts {
   connection_id: string;
   denom: string;
-  ibc_fees: IBCFees;
   port_id: string;
   transfer_channel_id: string;
   update_period: number;
-}
-export interface IBCFees {
-  ack_fee: Uint128;
-  recv_fee: Uint128;
-  register_fee: Uint128;
-  timeout_fee: Uint128;
 }
 export interface StakerParams {
   min_ibc_transfer: Uint128;

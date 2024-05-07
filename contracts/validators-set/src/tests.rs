@@ -158,86 +158,6 @@ fn update_config_ok() {
 }
 
 #[test]
-fn update_validator_wrong_owner() {
-    let mut deps = mock_dependencies(&[]);
-
-    let error = crate::contract::execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("core1", &[]),
-        drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidator {
-            validator: drop_staking_base::msg::validatorset::ValidatorData {
-                valoper_address: "valoper_address".to_string(),
-                weight: 1,
-            },
-        },
-    )
-    .unwrap_err();
-    assert_eq!(
-        error,
-        drop_staking_base::error::validatorset::ContractError::OwnershipError(cw_ownable::OwnershipError::Std(
-            cosmwasm_std::StdError::not_found("type: cw_ownable::Ownership<cosmwasm_std::addresses::Addr>; key: [6F, 77, 6E, 65, 72, 73, 68, 69, 70]")
-        ))
-    );
-}
-
-#[test]
-fn update_validator_ok() {
-    let mut deps = mock_dependencies(&[]);
-
-    let deps_mut = deps.as_mut();
-
-    let _result = cw_ownable::initialize_owner(
-        deps_mut.storage,
-        deps_mut.api,
-        Some(Addr::unchecked("core").as_ref()),
-    );
-
-    let response = crate::contract::execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("core", &[]),
-        drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidator {
-            validator: drop_staking_base::msg::validatorset::ValidatorData {
-                valoper_address: "valoper_address".to_string(),
-                weight: 1,
-            },
-        },
-    )
-    .unwrap();
-    assert_eq!(response.messages.len(), 0);
-
-    let validator = crate::contract::query(
-        deps.as_ref(),
-        mock_env(),
-        drop_staking_base::msg::validatorset::QueryMsg::Validator {
-            valoper: "valoper_address".to_string(),
-        },
-    )
-    .unwrap();
-    assert_eq!(
-        validator,
-        to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
-            validator: Some(drop_staking_base::state::validatorset::ValidatorInfo {
-                valoper_address: "valoper_address".to_string(),
-                weight: 1,
-                last_processed_remote_height: None,
-                last_processed_local_height: None,
-                last_validated_height: None,
-                last_commission_in_range: None,
-                uptime: Decimal::zero(),
-                tombstone: false,
-                jailed_number: None,
-                init_proposal: None,
-                total_passed_proposals: 0,
-                total_voted_proposals: 0,
-            })
-        })
-        .unwrap()
-    );
-}
-
-#[test]
 fn update_validators_wrong_owner() {
     let mut deps = mock_dependencies(&[]);
 
@@ -336,7 +256,7 @@ fn update_validators_ok() {
 }
 
 #[test]
-fn update_validator_info_wrong_sender() {
+fn update_validators_info_wrong_sender() {
     let mut deps = mock_dependencies(&[]);
 
     let deps_mut = deps.as_mut();
@@ -361,11 +281,11 @@ fn update_validator_info_wrong_sender() {
         deps_mut,
         mock_env(),
         mock_info("core", &[]),
-        drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidator {
-            validator: drop_staking_base::msg::validatorset::ValidatorData {
+        drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
+            validators: vec![drop_staking_base::msg::validatorset::ValidatorData {
                 valoper_address: "valoper_address".to_string(),
                 weight: 1,
-            },
+            }],
         },
     )
     .unwrap();
@@ -395,7 +315,7 @@ fn update_validator_info_wrong_sender() {
 }
 
 #[test]
-fn update_validator_info_ok() {
+fn update_validators_info_ok() {
     let mut deps = mock_dependencies(&[]);
 
     let deps_mut = deps.as_mut();
@@ -420,11 +340,11 @@ fn update_validator_info_ok() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidator {
-            validator: drop_staking_base::msg::validatorset::ValidatorData {
+        drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
+            validators: vec![drop_staking_base::msg::validatorset::ValidatorData {
                 valoper_address: "valoper_address".to_string(),
                 weight: 1,
-            },
+            }],
         },
     )
     .unwrap();

@@ -114,9 +114,6 @@ export type QueryExtMsg =
       non_native_rewards_balances: {};
     }
   | {
-      fees: {};
-    }
-  | {
       unbonding_delegations: {};
     }
   | {
@@ -179,7 +176,6 @@ export interface DropPuppeteerSchema {
     | RegisterBalanceAndDelegatorDelegationsQueryArgs
     | RegisterDelegatorUnbondingDelegationsQueryArgs
     | RegisterNonNativeRewardsBalancesQueryArgs
-    | SetFeesArgs
     | DelegateArgs
     | GrantDelegateArgs
     | UndelegateArgs
@@ -231,12 +227,6 @@ export interface RegisterDelegatorUnbondingDelegationsQueryArgs {
 }
 export interface RegisterNonNativeRewardsBalancesQueryArgs {
   denoms: string[];
-}
-export interface SetFeesArgs {
-  ack_fee: Uint128;
-  recv_fee: Uint128;
-  register_fee: Uint128;
-  timeout_fee: Uint128;
 }
 export interface DelegateArgs {
   /**
@@ -307,19 +297,12 @@ export interface ConfigOptional {
 export interface InstantiateMsg {
   allowed_senders: string[];
   connection_id: string;
-  ibc_fees: IBCFees;
   owner?: string | null;
   port_id: string;
   remote_denom: string;
   sdk_version: string;
   transfer_channel_id: string;
   update_period: number;
-}
-export interface IBCFees {
-  ack_fee: Uint128;
-  recv_fee: Uint128;
-  register_fee: Uint128;
-  timeout_fee: Uint128;
 }
 
 
@@ -402,10 +385,6 @@ export class Client {
   registerNonNativeRewardsBalancesQuery = async(sender:string, args: RegisterNonNativeRewardsBalancesQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { register_non_native_rewards_balances_query: args }, fee || "auto", memo, funds);
-  }
-  setFees = async(sender:string, args: SetFeesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { set_fees: args }, fee || "auto", memo, funds);
   }
   delegate = async(sender:string, args: DelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

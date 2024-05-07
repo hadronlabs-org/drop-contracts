@@ -19,9 +19,7 @@ import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
 import { ValidatorState } from '../generated/contractLib/dropValidatorsStats';
-
 import { AuthzExtension } from '@cosmjs/stargate/build/modules/authz/queries';
-
 import { pubkeyToAddress } from '@cosmjs/amino';
 import { SlashingExtension } from '@cosmjs/stargate/build/modules';
 

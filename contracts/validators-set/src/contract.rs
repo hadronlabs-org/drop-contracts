@@ -1,6 +1,5 @@
-use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Attribute, Deps, Order};
+use cosmwasm_std::{attr, ensure_eq, to_json_binary, Attribute, Deps, Order};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
-use cw2::set_contract_version;
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::response;
 use drop_staking_base::error::validatorset::{ContractError, ContractResult};
@@ -18,14 +17,14 @@ use neutron_sdk::bindings::query::NeutronQuery;
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(msg.owner.as_ref()))?;
 
     let stats_contract = deps.api.addr_validate(&msg.stats_contract)?;
@@ -42,7 +41,7 @@ pub fn instantiate(
     ))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     match msg {
         QueryMsg::Ownership {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
@@ -68,7 +67,7 @@ fn query_validators(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     Ok(to_json_binary(&validators)?)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -83,9 +82,6 @@ pub fn execute(
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
         ExecuteMsg::UpdateValidators { validators } => {
             execute_update_validators(deps, info, validators)
-        }
-        ExecuteMsg::UpdateValidator { validator } => {
-            execute_update_validator(deps, info, validator)
         }
         ExecuteMsg::UpdateValidatorsInfo { validators } => {
             execute_update_validators_info(deps, info, validators)
@@ -123,46 +119,6 @@ fn execute_update_config(
     CONFIG.save(deps.storage, &state)?;
 
     Ok(response("update_config", CONTRACT_NAME, Vec::<Attribute>::new()).add_attributes(attrs))
-}
-
-fn execute_update_validator(
-    deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
-    validator: ValidatorData,
-) -> ContractResult<Response<NeutronMsg>> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    // TODO: implement notification of the validator stats contract about new validator
-    let valoper_address = validator.valoper_address.clone();
-
-    VALIDATORS_SET.save(
-        deps.storage,
-        valoper_address.clone(),
-        &ValidatorInfo {
-            valoper_address: validator.valoper_address,
-            weight: validator.weight,
-            last_processed_remote_height: None,
-            last_processed_local_height: None,
-            last_validated_height: None,
-            last_commission_in_range: None,
-            uptime: Default::default(),
-            tombstone: false,
-            jailed_number: None,
-            init_proposal: None,
-            total_passed_proposals: 0,
-            total_voted_proposals: 0,
-        },
-    )?;
-
-    update_validators_list(deps)?;
-
-    Ok(response(
-        "update_validator",
-        CONTRACT_NAME,
-        [
-            attr("address", valoper_address),
-            attr("weight", validator.weight.to_string()),
-        ],
-    ))
 }
 
 fn execute_update_validators(
@@ -345,8 +301,19 @@ fn update_validators_list(deps: DepsMut<NeutronQuery>) -> StdResult<()> {
     Ok(())
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    deps.api.debug("WASMDEBUG: migrate");
-    Ok(Response::default())
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }

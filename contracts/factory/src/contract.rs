@@ -1,13 +1,15 @@
 use crate::{
     error::ContractResult,
-    msg::{ExecuteMsg, InstantiateMsg, ProxyMsg, QueryMsg, UpdateConfigMsg, ValidatorSetMsg},
+    msg::{
+        ExecuteMsg, InstantiateMsg, MigrateMsg, ProxyMsg, QueryMsg, UpdateConfigMsg,
+        ValidatorSetMsg,
+    },
     state::{State, STATE},
 };
 use cosmwasm_std::{
-    attr, entry_point, instantiate2_address, to_json_binary, Attribute, Binary, CodeInfoResponse,
-    CosmosMsg, Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, WasmMsg,
+    attr, instantiate2_address, to_json_binary, Attribute, Binary, CodeInfoResponse, CosmosMsg,
+    Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, WasmMsg,
 };
-use cw2::set_contract_version;
 use drop_helpers::answer::response;
 use drop_staking_base::msg::{
     core::{InstantiateMsg as CoreInstantiateMsg, QueryMsg as CoreQueryMsg},
@@ -31,14 +33,14 @@ use neutron_sdk::{
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(info.sender.as_str()))?;
 
     let mut attrs = vec![
@@ -219,7 +221,6 @@ pub fn instantiate(
                 port_id: msg.remote_opts.port_id.to_string(),
                 transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
                 sdk_version: msg.sdk_version.to_string(),
-                ibc_fees: msg.remote_opts.ibc_fees.clone(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),
@@ -237,7 +238,6 @@ pub fn instantiate(
                 transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
                 base_denom: msg.base_denom.clone(),
                 timeout: msg.core_params.puppeteer_timeout,
-                ibc_fees: msg.remote_opts.ibc_fees,
                 min_ibc_transfer: msg.staker_params.min_ibc_transfer,
                 min_staking_amount: msg.staker_params.min_stake_amount,
             })?,
@@ -333,7 +333,7 @@ pub fn instantiate(
     Ok(response("instantiate", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::State {} => to_json_binary(&STATE.load(deps.storage)?),
@@ -360,7 +360,7 @@ fn query_pause_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
     .map_err(From::from)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -470,18 +470,8 @@ fn execute_update_config(
             drop_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig { new_config },
             info.funds,
         )?),
-        UpdateConfigMsg::PuppeteerFees(fees) => messages.push(get_proxied_message(
-            state.puppeteer_contract,
-            drop_puppeteer_base::msg::ExecuteMsg::SetFees {
-                recv_fee: fees.recv_fee,
-                ack_fee: fees.ack_fee,
-                timeout_fee: fees.timeout_fee,
-                register_fee: fees.register_fee,
-            },
-            info.funds,
-        )?),
     }
-    Ok(response("execute-proxy-call", CONTRACT_NAME, attrs).add_messages(messages))
+    Ok(response("execute-update-config", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 fn execute_proxy_msg(
@@ -510,11 +500,6 @@ fn execute_proxy_msg(
                     info.funds,
                 )?)
             }
-            ValidatorSetMsg::UpdateValidator { validator } => messages.push(get_proxied_message(
-                state.validators_set_contract,
-                drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidator { validator },
-                info.funds,
-            )?),
         },
         ProxyMsg::Core(msg) => match msg {
             crate::msg::CoreMsg::UpdateNonNativeRewardsReceivers { items } => {
@@ -570,4 +555,21 @@ fn get_code_checksum(deps: Deps, code_id: u64) -> NeutronResult<HexBinary> {
 
 fn get_contract_label(base: &str) -> String {
     format!("drop-staking-{}", base)
+}
+
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }

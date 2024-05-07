@@ -1,5 +1,6 @@
 pub mod answer;
 pub mod fsm;
+pub mod ibc_fee;
 pub mod ica;
 pub mod icq;
 pub mod interchain;

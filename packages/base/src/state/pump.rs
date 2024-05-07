@@ -1,7 +1,7 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Addr;
 use cw_storage_plus::Item;
-use drop_helpers::{ica::Ica, interchain::IBCFees};
+use drop_helpers::ica::Ica;
 
 #[cw_serde]
 pub struct PumpTimeout {
@@ -16,7 +16,6 @@ pub struct Config {
     pub dest_port: Option<String>,
     pub connection_id: String,
     pub refundee: Option<Addr>,
-    pub ibc_fees: IBCFees,
     pub timeout: PumpTimeout,
     pub local_denom: String,
 }

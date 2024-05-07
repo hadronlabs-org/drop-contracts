@@ -1,14 +1,13 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Uint128;
 use cw_storage_plus::Item;
-use drop_helpers::{ica::Ica, interchain::IBCFees};
+use drop_helpers::ica::Ica;
 
 #[cw_serde]
 pub struct Config {
     pub port_id: String,
     pub transfer_channel_id: String,
     pub connection_id: String,
-    pub ibc_fees: IBCFees,
     pub timeout: u64,
     pub remote_denom: String,
     pub base_denom: String,
@@ -20,7 +19,6 @@ pub struct Config {
 
 #[cw_serde]
 pub struct ConfigOptional {
-    pub ibc_fees: Option<IBCFees>,
     pub timeout: Option<u64>,
     pub allowed_senders: Option<Vec<String>>,
     pub puppeteer_ica: Option<String>,

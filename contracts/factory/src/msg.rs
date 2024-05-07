@@ -41,18 +41,9 @@ pub struct StakerParams {
 }
 
 #[cw_serde]
-pub struct FeesMsg {
-    pub recv_fee: Uint128,
-    pub ack_fee: Uint128,
-    pub timeout_fee: Uint128,
-    pub register_fee: Uint128,
-}
-
-#[cw_serde]
 pub enum UpdateConfigMsg {
     Core(Box<drop_staking_base::state::core::ConfigOptional>),
     ValidatorsSet(drop_staking_base::state::validatorset::ConfigOptional),
-    PuppeteerFees(FeesMsg),
 }
 
 #[cw_serde]
@@ -74,9 +65,6 @@ pub enum CoreMsg {
 pub enum ValidatorSetMsg {
     UpdateValidators {
         validators: Vec<drop_staking_base::msg::validatorset::ValidatorData>,
-    },
-    UpdateValidator {
-        validator: drop_staking_base::msg::validatorset::ValidatorData,
     },
 }
 

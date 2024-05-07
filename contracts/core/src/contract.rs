@@ -1,18 +1,20 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, ensure_ne, entry_point, to_json_binary, Addr, Attribute, BankMsg,
-    BankQuery, Binary, Coin, CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo,
-    Order, QueryRequest, Response, StdError, StdResult, Uint128, WasmMsg,
+    attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankMsg, BankQuery,
+    Binary, Coin, CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order,
+    QueryRequest, Response, StdError, StdResult, Uint128, WasmMsg,
 };
-use cw2::set_contract_version;
 use drop_helpers::answer::response;
-use drop_helpers::pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse};
+use drop_helpers::pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse};
 use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
 use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
-        core::{ExecuteMsg, InstantiateMsg, LastPuppeteerResponse, LastStakerResponse, QueryMsg},
+        core::{
+            ExecuteMsg, InstantiateMsg, LastPuppeteerResponse, LastStakerResponse, MigrateMsg,
+            QueryMsg,
+        },
         token::{
             ConfigResponse as TokenConfigResponse, ExecuteMsg as TokenExecuteMsg,
             QueryMsg as TokenQueryMsg,
@@ -39,14 +41,14 @@ pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let attrs: Vec<Attribute> = vec![
         attr("token_contract", &msg.token_contract),
         attr("puppeteer_contract", &msg.puppeteer_contract),
@@ -85,7 +87,7 @@ pub fn instantiate(
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     Ok(match msg {
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?)?,
@@ -125,7 +127,7 @@ fn query_pending_lsm_shares(deps: Deps<NeutronQuery>) -> ContractResult<Binary> 
 }
 
 fn query_pause_info(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    if is_paused(deps.storage) {
+    if is_paused(deps.storage)? {
         to_json_binary(&PauseInfoResponse::Paused {}).map_err(From::from)
     } else {
         to_json_binary(&PauseInfoResponse::Unpaused {}).map_err(From::from)
@@ -220,7 +222,7 @@ fn query_unbond_batch(deps: Deps<NeutronQuery>, batch_id: Uint128) -> StdResult<
     to_json_binary(&unbond_batches_map().load(deps.storage, batch_id.u128())?)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -276,7 +278,7 @@ fn exec_unpause(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
-    unpause(deps.storage)?;
+    unpause(deps.storage);
 
     Ok(response(
         "exec_unpause",
@@ -480,7 +482,7 @@ fn execute_tick(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    assert_paused(deps.storage)?;
+    pause_guard(deps.storage)?;
 
     let current_state = FSM.get_current_state(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
@@ -982,7 +984,7 @@ fn execute_update_config(
         attrs.push(attr("puppeteer_contract", puppeteer_contract));
     }
     if let Some(puppeteer_timeout) = new_config.puppeteer_timeout {
-        attrs.push(attr("puppeteer_contract", puppeteer_timeout.to_string()));
+        attrs.push(attr("puppeteer_timeout", puppeteer_timeout.to_string()));
         config.puppeteer_timeout = puppeteer_timeout;
     }
     if let Some(strategy_contract) = new_config.strategy_contract {
@@ -1043,13 +1045,6 @@ fn execute_update_config(
             unbonding_safe_period.to_string(),
         ));
         config.unbonding_safe_period = unbonding_safe_period;
-    }
-    if let Some(unbond_batch_switch_time) = new_config.unbond_batch_switch_time {
-        attrs.push(attr(
-            "unbond_batch_switch_time",
-            unbond_batch_switch_time.to_string(),
-        ));
-        config.unbond_batch_switch_time = unbond_batch_switch_time;
     }
     if let Some(unbond_batch_switch_time) = new_config.unbond_batch_switch_time {
         attrs.push(attr(
@@ -1670,4 +1665,21 @@ pub mod check_denom {
 
         Ok(DenomType::LsmShare(trace.base_denom))
     }
+}
+
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }

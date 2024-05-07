@@ -620,6 +620,7 @@ dependencies = [
  "cw2 1.1.2",
  "drop-helpers",
  "drop-staking-base",
+ "semver",
 ]
 
 [[package]]
@@ -633,6 +634,7 @@ dependencies = [
  "drop-helpers",
  "drop-staking-base",
  "neutron-sdk",
+ "semver",
  "thiserror",
 ]
 
@@ -651,6 +653,7 @@ dependencies = [
  "drop-staking-base",
  "neutron-sdk",
  "prost",
+ "semver",
  "thiserror",
 ]
 
@@ -664,6 +667,7 @@ dependencies = [
  "drop-helpers",
  "drop-staking-base",
  "neutron-sdk",
+ "semver",
 ]
 
 [[package]]
@@ -680,6 +684,7 @@ dependencies = [
  "drop-puppeteer-base",
  "drop-staking-base",
  "neutron-sdk",
+ "semver",
  "thiserror",
 ]
 
@@ -707,6 +712,7 @@ dependencies = [
  "drop-puppeteer-base",
  "drop-staking-base",
  "neutron-sdk",
+ "semver",
  "thiserror",
 ]
 
@@ -753,6 +759,7 @@ dependencies = [
  "prost",
  "prost-types",
  "schemars",
+ "semver",
  "serde",
  "serde-json-wasm 1.0.1",
  "tendermint-proto",
@@ -776,6 +783,7 @@ dependencies = [
  "prost",
  "prost-types",
  "schemars",
+ "semver",
  "serde",
  "serde-json-wasm 1.0.1",
  "tendermint-proto",
@@ -790,11 +798,12 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-ownable",
- "cw-utils 1.0.3",
+ "cw2 1.1.2",
  "drop-helpers",
  "drop-staking-base",
  "neutron-sdk",
  "prost",
+ "semver",
  "serde-json-wasm 1.0.1",
  "thiserror",
 ]
@@ -814,6 +823,7 @@ dependencies = [
  "neutron-sdk",
  "prost",
  "prost-types",
+ "semver",
  "tendermint-proto",
 ]
 
@@ -831,6 +841,7 @@ dependencies = [
  "prost",
  "prost-types",
  "schemars",
+ "semver",
  "serde",
  "serde-json-wasm 1.0.1",
  "thiserror",
@@ -847,6 +858,8 @@ dependencies = [
  "cw2 1.1.2",
  "drop-helpers",
  "drop-staking-base",
+ "neutron-sdk",
+ "semver",
 ]
 
 [[package]]
@@ -857,11 +870,12 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-ownable",
- "cw-utils 1.0.3",
+ "cw2 1.1.2",
  "drop-helpers",
  "drop-staking-base",
  "neutron-sdk",
  "prost",
+ "semver",
  "serde-json-wasm 1.0.1",
  "thiserror",
 ]
@@ -904,6 +918,7 @@ dependencies = [
  "drop-puppeteer-base",
  "drop-staking-base",
  "neutron-sdk",
+ "semver",
  "thiserror",
 ]
 
@@ -920,6 +935,7 @@ dependencies = [
  "drop-helpers",
  "drop-staking-base",
  "neutron-sdk",
+ "semver",
  "thiserror",
 ]
 
@@ -934,6 +950,7 @@ dependencies = [
  "drop-helpers",
  "drop-staking-base",
  "neutron-sdk",
+ "semver",
 ]
 
 [[package]]
@@ -948,6 +965,7 @@ dependencies = [
  "drop-helpers",
  "drop-staking-base",
  "neutron-sdk",
+ "semver",
  "serde-json-wasm 1.0.1",
  "sha2 0.10.8",
 ]
@@ -964,6 +982,7 @@ dependencies = [
  "drop-helpers",
  "drop-staking-base",
  "neutron-sdk",
+ "semver",
  "thiserror",
 ]
 
@@ -976,6 +995,7 @@ dependencies = [
  "cw2 1.1.2",
  "cw721-base 0.18.0",
  "drop-staking-base",
+ "semver",
 ]
 
 [[package]]

@@ -1,7 +1,6 @@
 use bech32::{encode, Bech32, Hrp};
-use cosmwasm_std::{entry_point, to_json_binary, Decimal, Deps, Order, Reply, StdError, SubMsg};
+use cosmwasm_std::{to_json_binary, Decimal, Deps, Order, Reply, StdError, SubMsg};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
-use cw2::set_contract_version;
 use drop_helpers::query_id::get_query_id;
 use drop_staking_base::msg::validatorsstats::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use drop_staking_base::state::validatorsstats::{
@@ -27,14 +26,14 @@ use sha2::{Digest, Sha256};
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> NeutronResult<Response> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     let owner = deps.api.addr_validate(&msg.owner)?;
 
@@ -54,7 +53,7 @@ pub fn instantiate(
     Ok(Response::default())
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::State {} => query_state(deps, env),
@@ -76,7 +75,7 @@ fn query_state(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
     to_json_binary(&validators?)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
@@ -107,7 +106,7 @@ fn register_stats_queries(
     Ok(Response::new().add_submessage(sub_msg))
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn sudo(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -400,7 +399,7 @@ pub fn pubkey_to_address(pubkey: Vec<u8>, prefix: &str) -> StdResult<String> {
     Ok(bech32_addr)
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
     deps.api
         .debug(format!("WASMDEBUG: reply msg: {msg:?}").as_str());
@@ -437,10 +436,25 @@ fn signing_info_reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Respons
     Ok(Response::new())
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    deps.api.debug("WASMDEBUG: migrate");
-    Ok(Response::default())
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> StdResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION
+        .parse()
+        .map_err(|e: semver::Error| StdError::generic_err(e.to_string()))?;
+    let storage_version: semver::Version = cw2::get_contract_version(deps.storage)?
+        .version
+        .parse()
+        .map_err(|e: semver::Error| StdError::generic_err(e.to_string()))?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }
 
 // TODO: add tests

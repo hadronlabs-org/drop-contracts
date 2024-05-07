@@ -1,42 +1,46 @@
+use crate::error::{ContractError, ContractResult};
 use cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec;
 use cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSend;
 use cosmos_sdk_proto::cosmos::staking::v1beta1::MsgDelegate;
 use cosmos_sdk_proto::traits::MessageExt;
 use cosmwasm_schema::serde::Serialize;
 use cosmwasm_std::{
-    attr, coin, ensure, entry_point, to_json_binary, Coin, CosmosMsg, Deps, Reply, StdError,
-    SubMsg, Uint128, WasmMsg,
+    attr, ensure, to_json_binary, CosmosMsg, Deps, Reply, StdError, SubMsg, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
-use cw_utils::must_pay;
-use drop_helpers::answer::response;
-use drop_helpers::interchain::prepare_any_msg;
-use drop_staking_base::msg::staker::{
-    ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion, QueryMsg, ReceiverExecuteMsg,
-    ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg,
+use drop_helpers::ibc_fee::query_ibc_fee;
+use drop_helpers::{answer::response, interchain::prepare_any_msg};
+use drop_staking_base::{
+    msg::staker::{
+        ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion, QueryMsg, ReceiverExecuteMsg,
+        ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg,
+    },
+    state::staker::{
+        Config, ConfigOptional, ReplyMsg, Transaction, TxState, TxStateStatus, CONFIG, ICA, ICA_ID,
+        NON_STAKED_BALANCE, TX_STATE,
+    },
 };
-use drop_staking_base::state::staker::{
-    Config, ConfigOptional, ReplyMsg, Transaction, TxState, TxStateStatus, CONFIG, ICA, ICA_ID,
-    NON_STAKED_BALANCE, TX_STATE,
+use neutron_sdk::{
+    bindings::{
+        msg::{MsgIbcTransferResponse, MsgSubmitTxResponse, NeutronMsg},
+        query::NeutronQuery,
+    },
+    sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg},
+    NeutronError, NeutronResult,
 };
-use neutron_sdk::bindings::msg::{IbcFee, MsgIbcTransferResponse, MsgSubmitTxResponse, NeutronMsg};
-use neutron_sdk::bindings::query::NeutronQuery;
-use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg};
-use neutron_sdk::{NeutronError, NeutronResult};
-
-use crate::error::{ContractError, ContractResult};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const LOCAL_DENOM: &str = "untrn";
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> NeutronResult<Response<NeutronMsg>> {
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let attrs = vec![
         attr("contract_name", CONTRACT_NAME),
         attr("contract_version", CONTRACT_VERSION),
@@ -55,7 +59,6 @@ pub fn instantiate(
             port_id: msg.port_id,
             transfer_channel_id: msg.transfer_channel_id,
             connection_id: msg.connection_id,
-            ibc_fees: msg.ibc_fees,
             timeout: msg.timeout,
             remote_denom: msg.remote_denom,
             base_denom: msg.base_denom,
@@ -69,7 +72,7 @@ pub fn instantiate(
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> NeutronResult<Binary> {
     match msg {
         QueryMsg::Config {} => query_config(deps),
@@ -120,7 +123,7 @@ fn query_ica(deps: Deps) -> NeutronResult<Binary> {
     to_json_binary(&ica).map_err(NeutronError::Std)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -129,9 +132,7 @@ pub fn execute(
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
         ExecuteMsg::RegisterICA {} => execute_register_ica(deps, info),
-        ExecuteMsg::UpdateConfig { new_config } => {
-            execute_update_config(deps, env, info, *new_config)
-        }
+        ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, *new_config),
         ExecuteMsg::UpdateOwnership(action) => {
             cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
             Ok(response::<(&str, &str), _>(
@@ -140,14 +141,13 @@ pub fn execute(
                 [],
             ))
         }
-        ExecuteMsg::IBCTransfer {} => execute_ibc_transfer(deps, env, info),
-        ExecuteMsg::Stake { items } => execute_stake(deps, env, info, items),
+        ExecuteMsg::IBCTransfer {} => execute_ibc_transfer(deps, env),
+        ExecuteMsg::Stake { items } => execute_stake(deps, info, items),
     }
 }
 
 fn execute_update_config(
     deps: DepsMut<NeutronQuery>,
-    _env: Env,
     info: MessageInfo,
     new_config: ConfigOptional,
 ) -> ContractResult<Response<NeutronMsg>> {
@@ -157,9 +157,6 @@ fn execute_update_config(
         attr("action", "update_config"),
         attr("new_config", format!("{:?}", new_config)),
     ];
-    if let Some(ibc_fees) = new_config.ibc_fees {
-        config.ibc_fees = ibc_fees;
-    }
     if let Some(timeout) = new_config.timeout {
         config.timeout = timeout;
     }
@@ -189,28 +186,23 @@ fn execute_register_ica(
         attr("connection_id", &config.connection_id),
         attr("ica_id", ICA_ID),
     ];
-    check_funds(&info, config.ibc_fees.register_fee)?;
-    let register_fee: Uint128 = config.ibc_fees.register_fee;
-    let register_msg = ICA.register(
-        deps.storage,
-        config.connection_id,
-        ICA_ID,
-        coin(register_fee.u128(), LOCAL_DENOM.to_string()),
-    )?;
+    let register_fee = info
+        .funds
+        .into_iter()
+        .find(|f| f.denom == LOCAL_DENOM)
+        .ok_or(ContractError::InvalidFunds {
+            reason: format!("missing fee in denom {}", LOCAL_DENOM),
+        })?;
+    let register_msg = ICA.register(deps.storage, config.connection_id, ICA_ID, register_fee)?;
     Ok(response("register-ica", CONTRACT_NAME, attrs).add_message(register_msg))
 }
 
 fn execute_stake(
     deps: DepsMut<NeutronQuery>,
-    _env: Env,
     info: MessageInfo,
     items: Vec<(String, Uint128)>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
-    check_funds(
-        &info,
-        config.ibc_fees.ack_fee + config.ibc_fees.recv_fee + config.ibc_fees.timeout_fee,
-    )?;
     if !config.allowed_senders.contains(&info.sender.to_string()) {
         return Err(ContractError::Unauthorized {});
     }
@@ -249,11 +241,7 @@ fn execute_stake(
         attr("ica_id", ICA_ID),
         attr("amount", amount.to_string()),
     ];
-    let fee = IbcFee {
-        recv_fee: uint_into_vec_coin(config.ibc_fees.recv_fee, &LOCAL_DENOM.to_string()),
-        ack_fee: uint_into_vec_coin(config.ibc_fees.ack_fee, &LOCAL_DENOM.to_string()),
-        timeout_fee: uint_into_vec_coin(config.ibc_fees.timeout_fee, &LOCAL_DENOM.to_string()),
-    };
+    let fee = query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?;
     let ica = ICA.get_address(deps.storage)?;
     let puppeteer_ica = config
         .puppeteer_ica
@@ -312,13 +300,8 @@ fn execute_stake(
 fn execute_ibc_transfer(
     deps: DepsMut<NeutronQuery>,
     env: Env,
-    info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
-    check_funds(
-        &info,
-        config.ibc_fees.ack_fee + config.ibc_fees.recv_fee + config.ibc_fees.timeout_fee,
-    )?;
     let tx_state = TX_STATE.load(deps.storage)?;
     ensure!(
         tx_state.status == TxStateStatus::Idle,
@@ -344,11 +327,7 @@ fn execute_ibc_transfer(
         attr("ica_id", ICA_ID),
         attr("pending_amount", pending_coin.amount),
     ];
-    let fee = IbcFee {
-        recv_fee: uint_into_vec_coin(config.ibc_fees.recv_fee, &LOCAL_DENOM.to_string()),
-        ack_fee: uint_into_vec_coin(config.ibc_fees.ack_fee, &LOCAL_DENOM.to_string()),
-        timeout_fee: uint_into_vec_coin(config.ibc_fees.timeout_fee, &LOCAL_DENOM.to_string()),
-    };
+    let fee = query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?;
     let ica = ICA.get_address(deps.storage)?;
     let msg = NeutronMsg::IbcTransfer {
         source_port: config.port_id.to_string(),
@@ -378,7 +357,7 @@ fn execute_ibc_transfer(
     Ok(response("ibc_transfer", CONTRACT_NAME, attrs).add_submessage(submsg))
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> ContractResult<Response> {
     deps.api
         .debug(format!("WASMDEBUG: STAKER sudo: {:?}", msg).as_str());
@@ -579,31 +558,24 @@ fn sudo_error(
     Ok(response("sudo-error", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    deps.api.debug("WASMDEBUG: migrate");
-    Ok(Response::default())
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }
 
-fn uint_into_vec_coin(amount: Uint128, denom: &String) -> Vec<Coin> {
-    vec![Coin::new(amount.u128(), denom)]
-}
-
-fn check_funds(info: &MessageInfo, needed_amount: Uint128) -> ContractResult<()> {
-    let info_amount = must_pay(info, LOCAL_DENOM)?;
-    ensure!(
-        info_amount >= needed_amount,
-        ContractError::InvalidFunds {
-            reason: format!(
-                "invalid amount: expected at least {}, got {}",
-                needed_amount, info_amount
-            )
-        }
-    );
-    Ok(())
-}
-
-#[entry_point]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
     match ReplyMsg::from_reply_id(msg.id) {
         ReplyMsg::SudoPayload => submit_tx_reply(deps, msg),
