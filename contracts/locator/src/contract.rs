@@ -58,7 +58,7 @@ pub fn query_chains(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
             })
         })
         .collect();
-    let chains = chains.unwrap_or_default();
+    let chains = chains?;
     to_json_binary(&chains)
 }
 
