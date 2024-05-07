@@ -1,7 +1,7 @@
 use crate::{
     error::ContractResult,
-    msg::{DropInstance, ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::STATE,
+    msg::{ExecuteMsg, FactoryInstance, InstantiateMsg, QueryMsg},
+    state::{DropInstance, STATE},
 };
 use cosmwasm_std::{
     attr, entry_point, to_json_binary, Attribute, Binary, Deps, DepsMut, Env, MessageInfo, Order,
@@ -10,6 +10,7 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::response;
+use drop_staking_base::msg::factory::QueryMsg as FactoryQueryMsg;
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
@@ -37,29 +38,58 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
         QueryMsg::Chains {} => query_chains(deps),
         QueryMsg::Chain { name } => query_chain(deps, name),
         QueryMsg::Ownership {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
+        QueryMsg::FactoryInstance { name } => query_factory_instance(deps, name),
+        QueryMsg::FactoryInstances {} => query_factory_instances(deps),
     }
+}
+
+pub fn query_factory_instance(deps: Deps<NeutronQuery>, name: String) -> StdResult<Binary> {
+    let factory_addr = STATE.load(deps.storage, name)?.factory_addr;
+    to_json_binary(&FactoryInstance {
+        addr: factory_addr.to_string(),
+        contracts: deps
+            .querier
+            .query_wasm_smart(factory_addr.clone(), &FactoryQueryMsg::State {})?,
+    })
+}
+
+pub fn query_factory_instances(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
+    let drop_instances: Vec<FactoryInstance> = STATE
+        .range(deps.storage, None, None, Order::Ascending)
+        .map(|item| {
+            item.map(|(_key, value)| FactoryInstance {
+                addr: value.factory_addr.clone(),
+                contracts: deps
+                    .querier
+                    .query_wasm_smart(value.factory_addr.clone(), &FactoryQueryMsg::State {})
+                    .unwrap(),
+            })
+            .unwrap()
+        })
+        .collect();
+    to_json_binary(&drop_instances)
 }
 
 pub fn query_chain(deps: Deps<NeutronQuery>, name: String) -> StdResult<Binary> {
     let chain = STATE.load(deps.storage, name.clone())?;
     to_json_binary(&DropInstance {
         name,
-        details: chain,
+        factory_addr: chain.factory_addr,
     })
 }
 
 pub fn query_chains(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
-    let chains: StdResult<Vec<_>> = STATE
+    let drop_instances: StdResult<Vec<_>> = STATE
         .range(deps.storage, None, None, Order::Ascending)
         .map(|item| {
             item.map(|(key, value)| DropInstance {
                 name: key,
-                details: value.clone(),
+                factory_addr: value.factory_addr,
             })
         })
         .collect();
-    let chains = chains?;
-    to_json_binary(&chains)
+    let drop_instances = drop_instances?;
+    to_json_binary(&drop_instances)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -103,8 +133,15 @@ pub fn execute_add_chains(
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut attrs: Vec<Attribute> = Vec::new();
     for chain in msg {
-        STATE.save(deps.storage, chain.name.clone(), &chain.details)?;
-        attrs.push(attr("add", chain.name))
+        STATE.save(
+            deps.storage,
+            chain.name.clone(),
+            &DropInstance {
+                name: chain.name.to_string(),
+                factory_addr: chain.factory_addr,
+            },
+        )?;
+        attrs.push(attr("add", chain.name.to_string()))
     }
     Ok(response("execute-add-chains", CONTRACT_NAME, attrs))
 }
