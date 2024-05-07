@@ -1,9 +1,9 @@
-use crate::state::{CodeIds, RemoteOpts};
+use crate::msg::token::DenomMetadata;
+use crate::state::factory::{CodeIds, RemoteOpts};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{CosmosMsg, Uint128};
 use cw_ownable::cw_ownable_execute;
 use drop_macros::pausable;
-use drop_staking_base::msg::token::DenomMetadata;
 use neutron_sdk::bindings::msg::NeutronMsg;
 
 #[cw_serde]
@@ -42,8 +42,8 @@ pub struct StakerParams {
 
 #[cw_serde]
 pub enum UpdateConfigMsg {
-    Core(Box<drop_staking_base::state::core::ConfigOptional>),
-    ValidatorsSet(drop_staking_base::state::validatorset::ConfigOptional),
+    Core(Box<crate::state::core::ConfigOptional>),
+    ValidatorsSet(crate::state::validatorset::ConfigOptional),
 }
 
 #[cw_serde]
@@ -55,7 +55,7 @@ pub enum ProxyMsg {
 #[cw_serde]
 pub enum CoreMsg {
     UpdateNonNativeRewardsReceivers {
-        items: Vec<drop_staking_base::state::core::NonNativeRewardsItem>,
+        items: Vec<crate::state::core::NonNativeRewardsItem>,
     },
     Pause {},
     Unpause {},
@@ -64,7 +64,7 @@ pub enum CoreMsg {
 #[cw_serde]
 pub enum ValidatorSetMsg {
     UpdateValidators {
-        validators: Vec<drop_staking_base::msg::validatorset::ValidatorData>,
+        validators: Vec<crate::msg::validatorset::ValidatorData>,
     },
 }
 
@@ -82,8 +82,8 @@ pub enum MigrateMsg {}
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(crate::state::State)]
+    #[returns(crate::state::factory::State)]
     State {},
-    #[returns(crate::state::PauseInfoResponse)]
+    #[returns(crate::state::factory::PauseInfoResponse)]
     PauseInfo {},
 }
