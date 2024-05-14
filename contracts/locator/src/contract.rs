@@ -4,8 +4,8 @@ use crate::{
     state::{DropInstance, STATE},
 };
 use cosmwasm_std::{
-    attr, entry_point, to_json_binary, Attribute, Binary, Deps, DepsMut, Env, MessageInfo, Order,
-    Response, StdResult,
+    attr, entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response,
+    StdResult,
 };
 use cw2::set_contract_version;
 use cw_ownable::{get_ownership, update_ownership};
@@ -54,19 +54,17 @@ pub fn query_factory_instance(deps: Deps<NeutronQuery>, name: String) -> StdResu
 }
 
 pub fn query_factory_instances(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
-    let drop_instances: Vec<FactoryInstance> = STATE
-        .range(deps.storage, None, None, Order::Ascending)
-        .map(|item| {
-            item.map(|(_key, value)| FactoryInstance {
-                addr: value.factory_addr.clone(),
-                contracts: deps
-                    .querier
-                    .query_wasm_smart(value.factory_addr.clone(), &FactoryQueryMsg::State {})
-                    .unwrap(),
-            })
-            .unwrap()
+    let mut drop_instances: Vec<FactoryInstance> = vec![];
+    for drop_instance in STATE.range(deps.storage, None, None, Order::Ascending) {
+        let factory_addr = drop_instance?.1.factory_addr.clone();
+        drop_instances.push(FactoryInstance {
+            addr: factory_addr.clone(),
+            contracts: deps
+                .querier
+                .query_wasm_smart(factory_addr.clone(), &FactoryQueryMsg::State {})?,
         })
-        .collect();
+    }
+
     to_json_binary(&drop_instances)
 }
 
