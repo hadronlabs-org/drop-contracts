@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 DIR="$(dirname $0)"
 COMMIT_HASH_OR_BRANCH="master"
 cd $DIR

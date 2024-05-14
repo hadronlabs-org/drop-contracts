@@ -4,3 +4,5 @@ target/
 **/schema/
 /artifacts/
 .rtx.toml
+*.lock
+node_modules

@@ -116,12 +116,14 @@ pub fn execute_remove_chains(
     msg: Vec<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let mut attrs: Vec<Attribute> = Vec::new();
     msg.iter().for_each(|name| {
         STATE.remove(deps.storage, name.to_string());
-        attrs.push(attr("remove", name))
     });
-    Ok(response("execute-remove-chains", CONTRACT_NAME, attrs))
+    Ok(response(
+        "execute-remove-chains",
+        CONTRACT_NAME,
+        vec![attr("removed_chains", msg.join(","))],
+    ))
 }
 
 pub fn execute_add_chains(
