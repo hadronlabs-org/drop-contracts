@@ -1,4 +1,5 @@
 # Drop Protocol Contracts
+![Rectangle 161433](https://github.com/hadronlabs-org/drop-contracts/assets/103267218/f0faf991-7954-4e65-8032-73e6e4840ef3)
 
 This repository contains the the smart contracts of Drop Protocol. The project is organized into three main directories:
 
