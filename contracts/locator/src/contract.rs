@@ -133,17 +133,25 @@ pub fn execute_add_chains(
     msg: Vec<DropInstance>,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let mut attrs: Vec<Attribute> = Vec::new();
-    for chain in msg {
+    for chain in &msg {
         STATE.save(
             deps.storage,
             chain.name.clone(),
             &DropInstance {
                 name: chain.name.to_string(),
-                factory_addr: chain.factory_addr,
+                factory_addr: chain.factory_addr.clone(),
             },
         )?;
-        attrs.push(attr("add", chain.name.to_string()))
     }
-    Ok(response("execute-add-chains", CONTRACT_NAME, attrs))
+    Ok(response(
+        "execute-add-chains",
+        CONTRACT_NAME,
+        vec![attr(
+            "added_chains",
+            msg.iter()
+                .map(|element| element.name.clone())
+                .collect::<Vec<String>>()
+                .join(","),
+        )],
+    ))
 }
