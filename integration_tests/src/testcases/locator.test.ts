@@ -30,17 +30,6 @@ import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 
-const DropLocatorClass = DropLocator.Client;
-const DropFactoryClass = DropFactory.Client;
-const DropCoreClass = DropCore.Client;
-const DropPumpClass = DropPump.Client;
-const DropStakerClass = DropStaker.Client;
-const DropPuppeteerClass = DropPuppeteer.Client;
-const DropStrategyClass = DropStrategy.Client;
-const DropWithdrawalVoucherClass = DropWithdrawalVoucher.Client;
-const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
-const DropRewardsManagerClass = DropRewardsManager.Client;
-
 const UNBONDING_TIME = 360;
 
 describe('Locator', () => {
@@ -54,10 +43,14 @@ describe('Locator', () => {
     client?: SigningCosmWasmClient;
     gaiaClient?: SigningStargateClient;
     gaiaQueryClient?: QueryClient & StakingExtension & BankExtension;
-    factories?: string[];
+    contracts: {
+      locator?: string;
+      factories?: string[];
+    };
     codeIds: {
       core?: number;
       token?: number;
+      locator?: number;
       withdrawalVoucher?: number;
       withdrawalManager?: number;
       strategy?: number;
@@ -140,6 +133,17 @@ describe('Locator', () => {
   it('Upload binaries', async () => {
     const { client, account } = context;
     context.codeIds = {};
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_locator.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.locator = res.codeId;
+    }
     {
       const res = await client.upload(
         account.address,
@@ -256,7 +260,6 @@ describe('Locator', () => {
       context.codeIds.factory = res.codeId;
     }
   });
-
   it('Instantiate factory instances', async () => {
     const { client, account, codeIds } = context;
     const factory1_instantiate_message = {
@@ -335,9 +338,24 @@ describe('Locator', () => {
     expect(instantiate1Res.contractAddress).not.toBe(
       instantiate2Res.contractAddress,
     );
-    context.factories = [
+    context.contracts.factories = [
       instantiate1Res.contractAddress,
       instantiate2Res.contractAddress,
     ];
   });
+  it('Instantiate locator contract', async () => {
+    const { client, account, codeIds } = context;
+    const instantiateRes = await DropLocator.Client.instantiate(
+      client,
+      account.address,
+      codeIds.locator,
+      {},
+      'drop-locator',
+      'auto',
+      [],
+    );
+    expect(instantiateRes.contractAddress).toHaveLength(66);
+    context.contracts.locator = instantiateRes.contractAddress;
+  });
+  it('Add factory instances to locator contract', async () => {});
 });
