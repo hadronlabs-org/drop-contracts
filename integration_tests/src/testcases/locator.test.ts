@@ -18,6 +18,9 @@ import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 
+const DropFactoryClass = DropFactory.Client;
+const DropLocatorClass = DropLocator.Client;
+
 const UNBONDING_TIME = 360;
 
 describe('Locator', () => {
@@ -32,8 +35,8 @@ describe('Locator', () => {
     gaiaClient?: SigningStargateClient;
     gaiaQueryClient?: QueryClient & StakingExtension & BankExtension;
     contracts: {
-      locator?: string;
-      factories?: string[];
+      locator?: InstanceType<typeof DropLocatorClass>;
+      factories?: InstanceType<typeof DropFactoryClass>[];
     };
     codeIds: {
       core?: number;
@@ -49,7 +52,7 @@ describe('Locator', () => {
       rewardsManager?: number;
       factory?: number;
     };
-  } = {};
+  } = { contracts: {}, codeIds: {} };
 
   beforeAll(async (t) => {
     context.park = await setupPark(
@@ -120,7 +123,6 @@ describe('Locator', () => {
   });
   it('Upload binaries', async () => {
     const { client, account } = context;
-    context.codeIds = {};
     {
       const res = await client.upload(
         account.address,
@@ -327,8 +329,8 @@ describe('Locator', () => {
       instantiate2Res.contractAddress,
     );
     context.contracts.factories = [
-      instantiate1Res.contractAddress,
-      instantiate2Res.contractAddress,
+      new DropFactory.Client(client, instantiate1Res.contractAddress),
+      new DropFactory.Client(client, instantiate2Res.contractAddress),
     ];
   });
   it('Instantiate locator contract', async () => {
@@ -343,7 +345,59 @@ describe('Locator', () => {
       [],
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
-    context.contracts.locator = instantiateRes.contractAddress;
+    context.contracts.locator = new DropLocator.Client(
+      client,
+      instantiateRes.contractAddress,
+    );
   });
-  it('Add factory instances to locator contract', async () => {});
+  it('Add factory instances to locator contract & Make sure they were added', async () => {
+    const { locator, factories } = context.contracts;
+    const { account } = context;
+    await locator.addChains(
+      account.address,
+      {
+        chains: [
+          {
+            name: 'instance_1',
+            factory_addr: factories[0].contractAddress,
+          },
+          {
+            name: 'instance_2',
+            factory_addr: factories[1].contractAddress,
+          },
+        ],
+      },
+      'auto',
+      '',
+      [],
+    );
+    expect((await locator.queryChains()).length).toEqual(2);
+    expect((await locator.queryFactoryInstances()).length).toEqual(2);
+  });
+  it('Try to remove factory instances from locator contract', async () => {
+    const { locator } = context.contracts;
+    const { account } = context;
+    await locator.removeChains(
+      account.address,
+      {
+        names: ['instance_2'],
+      },
+      'auto',
+      '',
+      [],
+    );
+    expect((await locator.queryChains()).length).toEqual(1);
+    expect((await locator.queryFactoryInstances()).length).toEqual(1);
+    await locator.removeChains(
+      account.address,
+      {
+        names: ['instance_1'],
+      },
+      'auto',
+      '',
+      [],
+    );
+    expect((await locator.queryChains()).length).toEqual(0);
+    expect((await locator.queryFactoryInstances()).length).toEqual(0);
+  });
 });
