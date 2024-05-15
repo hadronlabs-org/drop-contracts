@@ -54,7 +54,7 @@ describe('Locator', () => {
     client?: SigningCosmWasmClient;
     gaiaClient?: SigningStargateClient;
     gaiaQueryClient?: QueryClient & StakingExtension & BankExtension;
-    neutronIBCDenom?: string;
+    factories?: string[];
     codeIds: {
       core?: number;
       token?: number;
@@ -133,17 +133,6 @@ describe('Locator', () => {
     context.neutronUserAddress = (
       await context.neutronWallet.getAccounts()
     )[0].address;
-    await waitFor(async () => {
-      const balances =
-        await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
-          context.neutronUserAddress,
-        );
-      context.neutronIBCDenom = balances.data.balances.find((b) =>
-        b.denom.startsWith('ibc/'),
-      )?.denom;
-      return balances.data.balances.length > 1;
-    }, 50_000);
-    expect(context.neutronIBCDenom).toBeTruthy();
   });
   afterAll(async () => {
     await context.park.stop();
@@ -268,9 +257,9 @@ describe('Locator', () => {
     }
   });
 
-  it('instantiate factory instances', async () => {
+  it('Instantiate factory instances', async () => {
     const { client, account, codeIds } = context;
-    const factory_instantiate_message = {
+    const factory1_instantiate_message = {
       sdk_version: process.env.SDK_VERSION || '0.46.0',
       code_ids: {
         core_code_id: context.codeIds.core,
@@ -302,7 +291,7 @@ describe('Locator', () => {
         uri: null,
         uri_hash: null,
       },
-      base_denom: context.neutronIBCDenom,
+      base_denom: 'context.neutronIBCDenom',
       core_params: {
         idle_min_interval: 40,
         puppeteer_timeout: 60,
@@ -321,15 +310,34 @@ describe('Locator', () => {
         min_ibc_transfer: '10000',
       },
     };
-    const instantiateRes = await DropFactory.Client.instantiate(
+    const factory2_instantiate_message = factory1_instantiate_message;
+    factory2_instantiate_message.salt = '2';
+    const instantiate1Res = await DropFactory.Client.instantiate(
       client,
       account.address,
       codeIds.factory,
-      factory_instantiate_message,
+      factory1_instantiate_message,
       'drop-staking-factory',
       'auto',
       [],
     );
-    console.log(instantiateRes);
+    const instantiate2Res = await DropFactory.Client.instantiate(
+      client,
+      account.address,
+      codeIds.factory,
+      factory2_instantiate_message,
+      'drop-staking-factory',
+      'auto',
+      [],
+    );
+    expect(instantiate1Res.contractAddress).toHaveLength(66);
+    expect(instantiate2Res.contractAddress).toHaveLength(66);
+    expect(instantiate1Res.contractAddress).not.toBe(
+      instantiate2Res.contractAddress,
+    );
+    context.factories = [
+      instantiate1Res.contractAddress,
+      instantiate2Res.contractAddress,
+    ];
   });
 });
