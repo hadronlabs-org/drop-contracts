@@ -1,17 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import {
-  DropLocator,
-  DropFactory,
-  DropCore,
-  DropPump,
-  DropStaker,
-  DropPuppeteer,
-  DropStrategy,
-  DropWithdrawalVoucher,
-  DropWithdrawalManager,
-  DropRewardsManager,
-} from '../generated/contractLib';
-import { waitFor } from '../helpers/waitFor';
+import { DropLocator, DropFactory } from '../generated/contractLib';
 import {
   QueryClient,
   StakingExtension,
