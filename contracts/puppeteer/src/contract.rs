@@ -130,8 +130,23 @@ pub fn query(
                 to_json_binary(&owner).map_err(ContractError::Std)
             }
         },
+        QueryMsg::KVQueryIds {} => query_kv_query_ids(deps),
         _ => Puppeteer::default().query(deps, env, msg),
     }
+}
+
+fn query_kv_query_ids(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+    let kv_query_ids: StdResult<Vec<(_, _)>> = Puppeteer::default()
+        .kv_queries
+        .range(deps.storage, None, None, Order::Ascending)
+        .collect();
+
+    deps.api.debug(&format!(
+        "WASMDEBUG: query_kv_query_ids, kv_query_ids:{:?}",
+        kv_query_ids
+    ));
+
+    Ok(to_json_binary(&kv_query_ids?)?)
 }
 
 fn query_delegations(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {

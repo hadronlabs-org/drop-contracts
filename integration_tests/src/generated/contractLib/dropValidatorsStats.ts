@@ -20,7 +20,7 @@ export type Decimal = string;
 export type ArrayOfValidatorState = ValidatorState[];
 
 export interface DropValidatorsStatsSchema {
-  responses: Config | ArrayOfValidatorState;
+  responses: Config | KVQueryIds | ArrayOfValidatorState;
   execute: RegisterStatsQueriesArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
@@ -32,6 +32,10 @@ export interface Config {
   owner: Addr;
   port_id: string;
   profile_update_period: number;
+}
+export interface KVQueryIds {
+  signing_info_id?: string | null;
+  validator_profile_id?: string | null;
 }
 export interface ValidatorState {
   jailed_number?: number | null;
@@ -88,23 +92,11 @@ export class Client {
     });
     return res;
   }
-  static async instantiate2(
-    client: SigningCosmWasmClient,
-    sender: string,
-    codeId: number,
-    salt: number,
-    initMsg: InstantiateMsg,
-    label: string,
-    fees: StdFee | 'auto' | number,
-    initCoins?: readonly Coin[],
-  ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
-    });
-    return res;
-  }
   queryConfig = async(): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
+  }
+  queryKVQueryIds = async(): Promise<KVQueryIds> => {
+    return this.client.queryContractSmart(this.contractAddress, { k_v_query_ids: {} });
   }
   queryState = async(): Promise<ArrayOfValidatorState> => {
     return this.client.queryContractSmart(this.contractAddress, { state: {} });

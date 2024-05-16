@@ -20,6 +20,8 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     #[returns(crate::state::validatorsstats::Config)]
     Config {},
+    #[returns(crate::state::validatorsstats::KVQueryIds)]
+    KVQueryIds {},
     #[returns(Vec<crate::state::validatorsstats::ValidatorState>)]
     State {},
 }
