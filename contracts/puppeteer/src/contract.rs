@@ -141,11 +141,6 @@ fn query_kv_query_ids(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
         .range(deps.storage, None, None, Order::Ascending)
         .collect();
 
-    deps.api.debug(&format!(
-        "WASMDEBUG: query_kv_query_ids, kv_query_ids:{:?}",
-        kv_query_ids
-    ));
-
     Ok(to_json_binary(&kv_query_ids?)?)
 }
 
