@@ -370,6 +370,24 @@ describe('Locator', () => {
     expect((await locator.queryChains()).length).toEqual(2);
     expect((await locator.queryFactoryInstances()).length).toEqual(2);
   });
+  it('Query factory instances', async () => {
+    const { locator } = context.contracts;
+    const res = [...(await locator.queryFactoryInstances())];
+    expect(res).toHaveLength(2);
+    for (const instance of res) {
+      expect(instance.addr).toHaveLength(66);
+      expect(instance.contracts.token_contract).toHaveLength(66);
+      expect(instance.contracts.core_contract).toHaveLength(66);
+      expect(instance.contracts.puppeteer_contract).toHaveLength(66);
+      expect(instance.contracts.staker_contract).toHaveLength(66);
+      expect(instance.contracts.withdrawal_voucher_contract).toHaveLength(66);
+      expect(instance.contracts.withdrawal_manager_contract).toHaveLength(66);
+      expect(instance.contracts.strategy_contract).toHaveLength(66);
+      expect(instance.contracts.validators_set_contract).toHaveLength(66);
+      expect(instance.contracts.distribution_contract).toHaveLength(66);
+      expect(instance.contracts.rewards_manager_contract).toHaveLength(66);
+    }
+  });
   it('Try to remove factory instances from locator contract', async () => {
     const { locator } = context.contracts;
     const { account } = context;
