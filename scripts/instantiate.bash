@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+
+NEUTRON_RPC="${NEUTRON_RPC:-tcp://0.0.0.0:26657}"
+NEUTRON_HOME="${NEUTRON_HOME:-$HOME/.neutrond}"
+NEUTRON_CHAIN_ID="${NEUTRON_CHAIN_ID:-test-1}"
+TARGET_CHAIN_ID="${TARGET_CHAIN_ID:-test-2}"
+GAS_PRICES="${GAS_PRICES:-0.005}"
+KEYRING_BACKEND="${KEYRING_BACKEND:-test}"
+DEPLOY_WALLET="${DEPLOY_WALLET:-demowallet1}"
+MIN_NTRN_REQUIRED="${MIN_NTRN_REQUIRED:-10}"
+ARTIFACTS_DIR="${ARTIFACTS_DIR:-../artifacts}"
+TARGET_SDK_VERSION="${TARGET_SDK_VERSION:-0.47.10}"
+TARGET_BASE_DENOM="${TARGET_BASE_DENOM:-uatom}"
+NEUTRON_SIDE_TRANSFER_CHANNEL_ID="${NEUTRON_SIDE_TRANSFER_CHANNEL_ID:-channel-788}"
+IBC_REGISTER_FEE="${IBC_REGISTER_FEE:-1000000}"
+
+source ./utils.bash
+
+echo "DEPLOY_WALLET: $DEPLOY_WALLET"
+echo "NEUTRON_RPC: $NEUTRON_RPC"
+
+
+main() {
+  set -euo pipefail
+  IFS=$'\n\t'
+
+  pre_deploy_check_code_ids
+  pre_deploy_check_balance
+  pre_deploy_check_ibc_connection 
+  deploy_factory
+  register_staker_ica
+  print_hermes_command $staker_ica_port $staker_ica_channel
+  wait_ica_address "staker" $staker_address
+
+  register_puppeteer_ica
+  print_hermes_command $puppeteer_ica_port $puppeteer_ica_channel
+  wait_ica_address "puppeteer" $puppeteer_address
+
+  deploy_pump
+  register_pump_ica
+  print_hermes_command $pump_ica_port $pump_ica_channel
+  wait_ica_address "pump" $pump_address
+
+  pump_ica_address="$(neutrond query wasm contract-state smart "$pump_address" '{"ica":{}}' "${nq[@]}" \
+    | jq -r '.data.registered.ica_address')"
+
+  msg='{
+    "update_config":{
+      "core":{
+        "pump_ica_address":"'"$pump_ica_address"'"
+      }
+    }
+  }'
+  neutrond tx wasm execute "$factory_address" "$msg" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx | assert_success
+  echo "[OK] Add pump ICA address to Core config"
+
+  echo
+  echo   "CONTRACTS INSTANTIATION SUCCEDED"
+  echo
+  printf 'export FACTORY_ADDRESS="%s"\n' "$factory_address"
+  printf 'export IBC_DENOM="%s"\n' "$uatom_on_neutron_denom"
+  echo
+  echo   "[[chains]]"
+  printf 'id = "%s"\n' "NEUTRON_CHAIN_ID"
+  echo   "[chains.packet_filter]"
+  echo   "list = ["
+  echo   "  ['$puppeteer_ica_port', '$puppeteer_ica_channel'],"
+  echo   "  ['$pump_ica_port', '$pump_ica_channel'],"
+  echo   "  ['$staker_ica_port', '$staker_ica_channel']"
+  echo   "]"
+  echo
+  echo   "[[chains]]"
+  printf 'id = "%s"\n' "$TARGET_CHAIN_ID"
+  echo   "[chains.packet_filter]"
+  echo   "list = ["
+  echo   "  ['icahost', '<PUPPETEER_COUNTERPARTY_CHANNEL>'],"
+  echo   "  ['icahost', '<PUMP_COUNTERPARTY_CHANNEL>'],"
+  echo   "  ['icahost', '<STAKER_COUNTERPARTY_CHANNEL>']"
+  echo   "]"
+  
+}
+
+exec 3>&1
+error_output="$(main 2>&1 1>&3)"
+exit_code=$?
+exec 3>&-
+
+if [[ ! $exit_code -eq 0 ]]; then
+  echo
+  echo "DEPLOY FAILED WITH CODE $exit_code"
+  echo "Error output:"
+  echo "$error_output"
+fi
+
+exit $exit_code
