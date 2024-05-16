@@ -3,3 +3,5 @@ target/
 **/schema/
 /artifacts/
 .rtx.toml
+scripts/.env.instantiate
+scripts/.env.upload
