@@ -21,8 +21,6 @@ import Cosmopark from '@neutron-org/cosmopark';
 const DropFactoryClass = DropFactory.Client;
 const DropLocatorClass = DropLocator.Client;
 
-const UNBONDING_TIME = 360;
-
 describe('Locator', () => {
   const context: {
     park?: Cosmopark;
