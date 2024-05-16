@@ -66,9 +66,7 @@ describe('Locator', () => {
       {
         neutron: true,
         hermes: {
-          config: {
-            'chains.1.trusting_period': '2m0s',
-          },
+          config: {},
         },
       },
     );
