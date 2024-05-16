@@ -330,7 +330,6 @@ export interface Config {
   min_stake_amount: Uint128;
   pump_ica_address?: string | null;
   puppeteer_contract: Addr;
-  puppeteer_timeout: number;
   remote_denom: string;
   staker_contract: Addr;
   strategy_contract: Addr;
@@ -457,7 +456,6 @@ export interface ConfigOptional {
   min_stake_amount?: Uint128 | null;
   pump_ica_address?: string | null;
   puppeteer_contract?: string | null;
-  puppeteer_timeout?: number | null;
   remote_denom?: string | null;
   staker_contract?: string | null;
   strategy_contract?: string | null;
@@ -504,7 +502,6 @@ export interface InstantiateMsg {
   owner: string;
   pump_ica_address?: string | null;
   puppeteer_contract: string;
-  puppeteer_timeout: number;
   remote_denom: string;
   staker_contract: string;
   strategy_contract: string;
