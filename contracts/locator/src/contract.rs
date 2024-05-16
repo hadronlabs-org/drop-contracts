@@ -61,7 +61,7 @@ pub fn query_factory_instances(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
             addr: factory_addr.clone(),
             contracts: deps
                 .querier
-                .query_wasm_smart(factory_addr.clone(), &FactoryQueryMsg::State {})?,
+                .query_wasm_smart(factory_addr, &FactoryQueryMsg::State {})?,
         })
     }
 
