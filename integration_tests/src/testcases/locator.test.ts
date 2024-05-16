@@ -60,9 +60,7 @@ describe('Locator', () => {
       ['neutron', 'gaia'],
       {
         gaia: {
-          genesis_opts: {
-            'app_state.staking.params.unbonding_time': `${UNBONDING_TIME}s`,
-          },
+          genesis_opts: {},
         },
       },
       {
