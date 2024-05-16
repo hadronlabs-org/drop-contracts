@@ -180,19 +180,19 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
     let mut unprocessed_unbonded_amount = Uint128::zero();
     let batch = unbond_batches_map().load(deps.storage, batch_id)?;
     if batch.status == UnbondBatchStatus::New {
-        unprocessed_unbonded_amount += batch.total_amount;
+        unprocessed_unbonded_amount += batch.expected_native_asset_amount;
     }
     if batch_id > 0 {
         batch_id -= 1;
         let batch = unbond_batches_map().load(deps.storage, batch_id)?;
         if batch.status == UnbondBatchStatus::UnbondRequested {
-            unprocessed_unbonded_amount += batch.total_amount;
+            unprocessed_unbonded_amount += batch.expected_native_asset_amount;
         }
     }
     let failed_batch_id = FAILED_BATCH_ID.may_load(deps.storage)?;
     if let Some(failed_batch_id) = failed_batch_id {
         let failed_batch = unbond_batches_map().load(deps.storage, failed_batch_id)?;
-        unprocessed_unbonded_amount += failed_batch.total_amount;
+        unprocessed_unbonded_amount += failed_batch.expected_native_asset_amount;
     }
     let staker_balance: Uint128 = deps.querier.query_wasm_smart(
         &config.staker_contract,
@@ -332,11 +332,11 @@ fn execute_process_emergency_batch(
         ContractError::BatchNotWithdrawnEmergency {}
     );
     ensure!(
-        batch.expected_amount >= unbonded_amount,
+        batch.expected_native_asset_amount >= unbonded_amount,
         ContractError::UnbondedAmountTooHigh {}
     );
 
-    let slashing_effect = Decimal::from_ratio(unbonded_amount, batch.expected_amount);
+    let slashing_effect = Decimal::from_ratio(unbonded_amount, batch.expected_native_asset_amount);
     batch.status = UnbondBatchStatus::Withdrawn;
     batch.unbonded_amount = Some(unbonded_amount);
     batch.slashing_effect = Some(slashing_effect);
@@ -609,8 +609,8 @@ fn execute_tick_idle(
             unbonding_batches
                 .into_iter()
                 .filter(|(_id, batch)| {
-                    batch.expected_release <= env.block.time.seconds()
-                        && batch.expected_release < ica_balance_local_time
+                    batch.expected_release_time <= env.block.time.seconds()
+                        && batch.expected_release_time < ica_balance_local_time
                 })
                 .collect::<Vec<_>>()
         } else {
@@ -628,13 +628,16 @@ fn execute_tick_idle(
                     .unwrap();
 
                 let (unbonded_amount, slashing_effect) =
-                    if ica_balance < unbonding_batch.expected_amount {
+                    if ica_balance < unbonding_batch.expected_native_asset_amount {
                         (
                             ica_balance,
-                            Decimal::from_ratio(ica_balance, unbonding_batch.expected_amount),
+                            Decimal::from_ratio(
+                                ica_balance,
+                                unbonding_batch.expected_native_asset_amount,
+                            ),
                         )
                     } else {
-                        (unbonding_batch.expected_amount, Decimal::one())
+                        (unbonding_batch.expected_native_asset_amount, Decimal::one())
                     };
                 unbonding_batch.unbonded_amount = Some(unbonded_amount);
                 unbonding_batch.slashing_effect = Some(slashing_effect);
@@ -649,22 +652,23 @@ fn execute_tick_idle(
                 })
             }
             _ => {
-                let total_expected_amount: Uint128 = unbonded_batches
+                let total_native_asset_expected_amount: Uint128 = unbonded_batches
                     .iter()
-                    .map(|(_id, batch)| batch.expected_amount)
+                    .map(|(_id, batch)| batch.expected_native_asset_amount)
                     .sum();
-                let (emergency, recipient, amount) = if ica_balance < total_expected_amount {
-                    (
-                        true,
-                        config
-                            .emergency_address
-                            .clone()
-                            .ok_or(ContractError::EmergencyAddressIsNotSet {})?,
-                        ica_balance,
-                    )
-                } else {
-                    (false, pump_ica_address, total_expected_amount)
-                };
+                let (emergency, recipient, amount) =
+                    if ica_balance < total_native_asset_expected_amount {
+                        (
+                            true,
+                            config
+                                .emergency_address
+                                .clone()
+                                .ok_or(ContractError::EmergencyAddressIsNotSet {})?,
+                            ica_balance,
+                        )
+                    } else {
+                        (false, pump_ica_address, total_native_asset_expected_amount)
+                    };
                 let mut batch_ids = vec![];
                 for (id, mut batch) in unbonded_batches {
                     batch_ids.push(id);
@@ -675,7 +679,7 @@ fn execute_tick_idle(
                         batch.status_timestamps.withdrawing_emergency =
                             Some(env.block.time.seconds());
                     } else {
-                        batch.unbonded_amount = Some(batch.expected_amount);
+                        batch.unbonded_amount = Some(batch.expected_native_asset_amount);
                         batch.slashing_effect = Some(Decimal::one());
                         batch.status = UnbondBatchStatus::Withdrawing;
                         batch.status_timestamps.withdrawing = Some(env.block.time.seconds());
@@ -920,7 +924,8 @@ fn execute_tick_unbonding(
                     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
                     unbond.status = UnbondBatchStatus::Unbonding;
                     unbond.status_timestamps.unbonding = Some(env.block.time.seconds());
-                    unbond.expected_release = env.block.time.seconds() + config.unbonding_period;
+                    unbond.expected_release_time =
+                        env.block.time.seconds() + config.unbonding_period;
                     unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
                     FAILED_BATCH_ID.remove(deps.storage);
                     attrs.push(attr("unbonding", "success"));
@@ -1154,24 +1159,24 @@ fn execute_unbond(
     let unbond_batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
     let ld_denom = LD_DENOM.load(deps.storage)?;
-    let amount = cw_utils::must_pay(&info, &ld_denom)?;
-    BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total - amount))?;
+    let dasset_amount = cw_utils::must_pay(&info, &ld_denom)?;
+    BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total - dasset_amount))?;
     let mut unbond_batch = unbond_batches_map().load(deps.storage, unbond_batch_id)?;
     let exchange_rate = query_exchange_rate(deps.as_ref(), &config)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
-    let expected_amount = amount * exchange_rate;
+    let native_asset_amount = dasset_amount * exchange_rate;
     unbond_batch.total_unbond_items += 1;
-    unbond_batch.total_amount += amount;
-    unbond_batch.expected_amount += expected_amount;
+    unbond_batch.total_dasset_amount_to_withdraw += dasset_amount;
+    unbond_batch.expected_native_asset_amount += native_asset_amount;
 
-    attrs.push(attr("expected_amount", expected_amount.to_string()));
+    attrs.push(attr("expected_amount", native_asset_amount.to_string()));
     unbond_batches_map().save(deps.storage, unbond_batch_id, &unbond_batch)?;
     let extension = Some(Metadata {
         description: Some("Withdrawal voucher".into()),
         name: "LDV voucher".to_string(),
         batch_id: unbond_batch_id.to_string(),
-        amount,
-        expected_amount,
+        amount: dasset_amount,
+        expected_amount: native_asset_amount,
         attributes: Some(vec![
             Trait {
                 display_type: None,
@@ -1181,12 +1186,12 @@ fn execute_unbond(
             Trait {
                 display_type: None,
                 trait_type: "received_amount".to_string(),
-                value: amount.to_string(),
+                value: dasset_amount.to_string(),
             },
             Trait {
                 display_type: None,
                 trait_type: "expected_amount".to_string(),
-                value: expected_amount.to_string(),
+                value: native_asset_amount.to_string(),
             },
             Trait {
                 display_type: None,
@@ -1215,7 +1220,7 @@ fn execute_unbond(
             msg: to_json_binary(&TokenExecuteMsg::Burn {})?,
             funds: vec![Coin {
                 denom: ld_denom,
-                amount,
+                amount: dasset_amount,
             }],
         }),
     ];
@@ -1353,13 +1358,13 @@ fn get_unbonding_msg<T>(
     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
     if (unbond.status_timestamps.new + config.unbond_batch_switch_time < env.block.time.seconds())
         && unbond.total_unbond_items != 0
-        && !unbond.total_amount.is_zero()
+        && !unbond.expected_native_asset_amount.is_zero()
     {
         let calc_withdraw_query_result: Result<Vec<(String, Uint128)>, StdError> =
             deps.querier.query_wasm_smart(
                 config.strategy_contract.to_string(),
                 &drop_staking_base::msg::strategy::QueryMsg::CalcWithdraw {
-                    withdraw: unbond.total_amount,
+                    withdraw: unbond.expected_native_asset_amount,
                 },
             );
 
@@ -1414,7 +1419,7 @@ fn is_unbonding_time_close(
     safe_period: u64,
 ) -> bool {
     for (_id, unbond_batch) in unbonding_batches {
-        let expected = unbond_batch.expected_release;
+        let expected = unbond_batch.expected_release_time;
         if (now < expected) && (now > expected - safe_period) {
             return true;
         }
@@ -1464,11 +1469,11 @@ fn get_ica_balance_by_denom<T: CustomQuery>(
 
 fn new_unbond(now: u64) -> UnbondBatch {
     UnbondBatch {
-        total_amount: Uint128::zero(),
-        expected_amount: Uint128::zero(),
+        total_dasset_amount_to_withdraw: Uint128::zero(),
+        expected_native_asset_amount: Uint128::zero(),
         total_unbond_items: 0,
         status: UnbondBatchStatus::New,
-        expected_release: 0,
+        expected_release_time: 0,
         slashing_effect: None,
         unbonded_amount: None,
         withdrawn_amount: None,
