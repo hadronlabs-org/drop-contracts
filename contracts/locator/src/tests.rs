@@ -30,7 +30,7 @@ fn add_factory_instances() {
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap(); // to update admin for contract
 
-    let expected_factory_state = FactoryState {
+    let factory_state = FactoryState {
         token_contract: String::from("token_contract"),
         core_contract: String::from("core_contract"),
         puppeteer_contract: String::from("puppeteer_contract"),
@@ -43,23 +43,13 @@ fn add_factory_instances() {
         rewards_manager_contract: String::from("rewards_manager_contract"),
     };
 
+    let expected_factory_state = factory_state.clone();
+
     // When we call factory (addr) contract we're expecting to get invalid data as the part of expected behaviour
-    deps.querier.add_wasm_query_response("factory", |msg| {
+    deps.querier.add_wasm_query_response("factory", move |msg| {
         let q: FactoryQueryMsg = from_json(msg).unwrap();
         match q {
-            FactoryQueryMsg::State {} => to_json_binary(&FactoryState {
-                token_contract: String::from("token_contract"),
-                core_contract: String::from("core_contract"),
-                puppeteer_contract: String::from("puppeteer_contract"),
-                staker_contract: String::from("staker_contract"),
-                withdrawal_voucher_contract: String::from("withdrawal_voucher_contract"),
-                withdrawal_manager_contract: String::from("withdrawal_manager_contract"),
-                strategy_contract: String::from("strategy_contract"),
-                validators_set_contract: String::from("validators_set_contract"),
-                distribution_contract: String::from("distribution_contract"),
-                rewards_manager_contract: String::from("rewards_manager_contract"),
-            })
-            .unwrap(),
+            FactoryQueryMsg::State {} => to_json_binary(&factory_state).unwrap(),
             _ => unimplemented!(),
         }
     });
