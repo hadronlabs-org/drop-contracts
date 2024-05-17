@@ -3095,6 +3095,55 @@ fn test_bond_with_receiver() {
 }
 
 #[test]
+fn test_bond_lsm_share_wrong_channel() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_stargate_query_response(
+        "/ibc.applications.transfer.v1.Query/DenomTrace",
+        |_data| {
+            to_json_binary(&QueryDenomTraceResponse {
+                denom_trace: DenomTrace {
+                    path: "transfer/wrong_channel".to_string(),
+                    base_denom: "valoper1/1".to_string(),
+                },
+            })
+            .unwrap()
+        },
+    );
+    let mut env = mock_env();
+    env.block.time = Timestamp::from_seconds(1000);
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+        .unwrap();
+    BONDED_AMOUNT
+        .save(deps.as_mut().storage, &Uint128::zero())
+        .unwrap();
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                600,
+                Uint128::new(100),
+            ),
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        env,
+        mock_info("some", &[Coin::new(1000, "lsm_share")]),
+        ExecuteMsg::Bond {
+            receiver: None,
+            r#ref: None,
+        },
+    );
+    assert!(res.is_err());
+    assert_eq!(res, Err(ContractError::InvalidDenom {}));
+}
+
+#[test]
 fn test_bond_lsm_share_wrong_validator() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.add_stargate_query_response(
@@ -3102,19 +3151,29 @@ fn test_bond_lsm_share_wrong_validator() {
         |_data| {
             to_json_binary(&QueryDenomTraceResponse {
                 denom_trace: DenomTrace {
-                    path: "transfer/channel".to_string(),
-                    base_denom: "valoper1/1".to_string(),
+                    path: "transfer/transfer_channel".to_string(),
+                    base_denom: "outside_valoper1/1".to_string(),
                 },
             })
             .unwrap()
         },
     );
+    let query_called = std::rc::Rc::new(std::cell::RefCell::new(false));
+    let query_called_cb = std::rc::Rc::clone(&query_called);
     deps.querier
-        .add_wasm_query_response("validators_set_contract", |_| {
-            to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
-                validator: None,
-            })
-            .unwrap()
+        .add_wasm_query_response("validators_set_contract", move |request| {
+            let request =
+                from_json::<drop_staking_base::msg::validatorset::QueryMsg>(request).unwrap();
+            if let drop_staking_base::msg::validatorset::QueryMsg::Validator { valoper } = request {
+                assert_eq!(valoper, "outside_valoper1".to_string());
+                query_called_cb.replace(true);
+                to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
+                    validator: None,
+                })
+                .unwrap()
+            } else {
+                unimplemented!()
+            }
         });
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(1000);
@@ -3148,6 +3207,7 @@ fn test_bond_lsm_share_wrong_validator() {
     );
     assert!(res.is_err());
     assert_eq!(res, Err(ContractError::InvalidDenom {}));
+    assert!(*query_called.borrow());
 }
 
 #[test]
