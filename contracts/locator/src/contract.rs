@@ -92,7 +92,7 @@ pub fn query_chains(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
-    deps: DepsMut,
+    deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
@@ -108,7 +108,7 @@ pub fn execute(
 }
 
 pub fn execute_remove_chains(
-    deps: DepsMut,
+    deps: DepsMut<NeutronQuery>,
     _env: Env,
     info: MessageInfo,
     msg: Vec<String>,
@@ -125,7 +125,7 @@ pub fn execute_remove_chains(
 }
 
 pub fn execute_add_chains(
-    deps: DepsMut,
+    deps: DepsMut<NeutronQuery>,
     _env: Env,
     info: MessageInfo,
     msg: Vec<DropInstance>,
