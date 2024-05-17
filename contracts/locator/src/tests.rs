@@ -1,5 +1,3 @@
-use std::env;
-
 use crate::{
     contract,
     msg::{FactoryInstance, InstantiateMsg, QueryMsg},
@@ -7,10 +5,10 @@ use crate::{
 };
 use cosmwasm_std::{
     from_json,
-    testing::{mock_env, mock_info, MockQuerier},
-    to_json_binary, CosmosMsg,
+    testing::{mock_env, mock_info},
+    to_json_binary,
 };
-use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
+use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::msg::factory::QueryMsg as FactoryQueryMsg;
 use drop_staking_base::state::factory::State as FactoryState;
 
