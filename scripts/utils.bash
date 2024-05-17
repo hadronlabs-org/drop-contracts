@@ -289,3 +289,33 @@ deploy_pump() {
       | wait_ntx | jq -r "$(select_attr "instantiate" "_contract_address")")"
   echo "[OK] Pump address: $pump_address"
 }
+
+factory_admin_execute() {
+  local factory_address="$1"
+  local sub_msg="$2"
+  local amount="${3:-0untrn}"
+
+  local msg='{
+    "admin_execute": {
+      "msgs":[
+        '$sub_msg'
+      ]
+    }
+  }'
+
+  neutrond tx wasm execute "$factory_address" "$msg" --amount "$amount" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx | assert_success
+}
+
+factory_proxy_execute() {
+  local factory_address="$1"
+  local sub_msg="$2"
+  local amount="${3:-0untrn}"
+
+  local msg='{
+    "proxy": '$sub_msg'
+  }'
+
+  echo "$msg" | jq '.'
+
+  neutrond tx wasm execute "$factory_address" "$msg" --amount "$amount" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx | assert_success
+}

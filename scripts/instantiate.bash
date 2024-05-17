@@ -13,6 +13,8 @@ TARGET_SDK_VERSION="${TARGET_SDK_VERSION:-0.47.10}"
 TARGET_BASE_DENOM="${TARGET_BASE_DENOM:-uatom}"
 NEUTRON_SIDE_TRANSFER_CHANNEL_ID="${NEUTRON_SIDE_TRANSFER_CHANNEL_ID:-channel-788}"
 IBC_REGISTER_FEE="${IBC_REGISTER_FEE:-1000000}"
+INITIAL_VALIDATORS="${INITIAL_VALIDATORS:-[]}"
+
 
 source ./utils.bash
 
@@ -36,13 +38,69 @@ main() {
   print_hermes_command $puppeteer_ica_port $puppeteer_ica_channel
   wait_ica_address "puppeteer" $puppeteer_address
 
+  update_msg='{
+    "update_config":{
+      "new_config":{
+        "puppeteer_ica":"'"$puppeteer_ica_address"'"
+      }
+    }
+  }'
+
+  msg='{
+    "wasm":{
+      "execute":{
+        "contract_addr":"'"$staker_address"'",
+        "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64)"'",
+        "funds": []
+      }
+    }
+  }'
+
+  factory_admin_execute $factory_address "$msg"
+  echo "[OK] Add Puppeteer ICA address to Staker contract config"
+
+  update_msg='{
+    "grant_delegate":{
+       "grantee":"'"$staker_ica_address"'"
+    }
+  }'
+
+  msg='{
+    "wasm":{
+      "execute":{
+        "contract_addr":"'"$puppeteer_address"'",
+        "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64)"'",
+        "funds": [
+          {
+            "amount": "20000",
+            "denom": "untrn"
+          }
+        ]
+      }
+    }
+  }'
+
+  factory_admin_execute $factory_address "$msg" 20000untrn
+  echo "[OK] Grant staker to delegate funds from puppeteer ICA"
+
+  msg='{
+    "validator_set": {
+      "update_validators": {
+        "validators": '"$INITIAL_VALIDATORS"'
+      }
+    }
+  }'
+
+  factory_proxy_execute $factory_address "$msg" 1000000untrn
+  echo "[OK] Add initial validators to factory"
+
   deploy_pump
   register_pump_ica
   print_hermes_command $pump_ica_port $pump_ica_channel
   wait_ica_address "pump" $pump_address
 
-  pump_ica_address="$(neutrond query wasm contract-state smart "$pump_address" '{"ica":{}}' "${nq[@]}" \
-    | jq -r '.data.registered.ica_address')"
+  # pump_ica_address="$(neutrond query wasm contract-state smart "$pump_address" '{"ica":{}}' "${nq[@]}" \
+  #   | jq -r '.data.registered.ica_address')"
 
   msg='{
     "update_config":{
