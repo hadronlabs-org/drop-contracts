@@ -290,3 +290,46 @@ fn remove_factory_instances() {
 
     assert_eq!(available_chains.len(), 0);
 }
+
+#[test]
+fn ownership_error() {
+    let mut deps = mock_dependencies(&[]);
+
+    {
+        // Add arbitrary chain
+        let msg = crate::msg::ExecuteMsg::AddChains {
+            chains: vec![DropInstance {
+                name: String::from("chain"),
+                factory_addr: String::from("factory"),
+            }],
+        };
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("admin", &[]),
+            msg.clone(),
+        );
+
+        match res {
+            Err(crate::error::ContractError::OwnershipError(..)) => (),
+            _ => panic!("Must return unauthorized error"),
+        }
+    }
+    {
+        // Remove arbitrary chain
+        let msg = crate::msg::ExecuteMsg::RemoveChains {
+            names: vec![String::from("chain")],
+        };
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("admin", &[]),
+            msg.clone(),
+        );
+
+        match res {
+            Err(crate::error::ContractError::OwnershipError(..)) => (),
+            _ => panic!("Must return unauthorized error"),
+        }
+    }
+}
