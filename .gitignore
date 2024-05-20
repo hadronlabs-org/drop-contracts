@@ -5,3 +5,4 @@ target/
 .rtx.toml
 scripts/.env.instantiate
 scripts/.env.upload
+neutron/data/
