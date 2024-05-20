@@ -149,7 +149,7 @@ deploy_factory() {
     },
     "remote_opts":{
       "connection_id":"'"$neutron_side_connection_id"'",
-      "transfer_channel_id":"'"$]"'",
+      "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
       "port_id":"transfer",
       "denom":"'"$TARGET_BASE_DENOM"'",
       "update_period":100
