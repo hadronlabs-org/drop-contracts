@@ -104,6 +104,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
             let config = CONFIG.load(deps.storage)?;
             to_json_binary(&query_exchange_rate(deps, &config)?)?
         }
+        QueryMsg::CurrentUnbondBatch {} => query_current_unbond_batch(deps)?,
         QueryMsg::UnbondBatch { batch_id } => query_unbond_batch(deps, batch_id)?,
         QueryMsg::NonNativeRewardsReceivers {} => {
             to_json_binary(&NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?)?
@@ -216,6 +217,10 @@ fn cache_exchange_rate(
     let exchange_rate = query_exchange_rate(deps.as_ref(), config)?;
     EXCHANGE_RATE.save(deps.storage, &(exchange_rate, env.block.height))?;
     Ok(())
+}
+
+fn query_current_unbond_batch(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
+    to_json_binary(&UNBOND_BATCH_ID.load(deps.storage)?)
 }
 
 fn query_unbond_batch(deps: Deps<NeutronQuery>, batch_id: Uint128) -> StdResult<Binary> {
