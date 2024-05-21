@@ -276,9 +276,8 @@ fn remove_factory_instances() {
             },
         );
 
-        match drop_instance_new {
-            Ok(_) => panic!("There shouldn't be anything!"),
-            Err(..) => (),
+        if drop_instance_new.is_ok() {
+            panic!("There shouldn't be anything!")
         }
     }
 
