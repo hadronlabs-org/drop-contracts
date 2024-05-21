@@ -77,7 +77,7 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropRewardsManagerSchema {
-  responses: ArrayOfHandlerConfig | OwnershipForString | PauseInfoResponse;
+  responses: ArrayOfHandlerConfig | OwnershipFor_String | PauseInfoResponse;
   execute: AddHandlerArgs | RemoveHandlerArgs | ExchangeRewardsArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
@@ -90,7 +90,7 @@ export interface HandlerConfig {
 /**
  * The contract's ownership info
  */
-export interface OwnershipForString {
+export interface OwnershipFor_String {
   /**
    * The contract's current owner. `None` if the ownership has been renounced.
    */
@@ -148,25 +148,10 @@ export class Client {
     });
     return res;
   }
-  static async instantiate2(
-    client: SigningCosmWasmClient,
-    sender: string,
-    codeId: number,
-    salt: number,
-    initMsg: InstantiateMsg,
-    label: string,
-    fees: StdFee | 'auto' | number,
-    initCoins?: readonly Coin[],
-  ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
-    });
-    return res;
-  }
   queryHandlers = async(): Promise<ArrayOfHandlerConfig> => {
     return this.client.queryContractSmart(this.contractAddress, { handlers: {} });
   }
-  queryOwnership = async(): Promise<OwnershipForString> => {
+  queryOwnership = async(): Promise<OwnershipFor_String> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
   }
   queryPauseInfo = async(): Promise<PauseInfoResponse> => {

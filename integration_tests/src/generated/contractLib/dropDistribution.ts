@@ -15,11 +15,11 @@ import { Coin } from "@cosmjs/amino";
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type ArrayOfTupleOfStringAndUint128 = [string, Uint128][];
-export type ArrayOfTupleOfStringAndUint1281 = [string, Uint128][];
+export type ArrayOfTupleOf_StringAnd_Uint128 = [string, Uint128][];
+export type ArrayOfTupleOf_StringAnd_Uint1281 = [string, Uint128][];
 
 export interface DropDistributionSchema {
-  responses: ArrayOfTupleOfStringAndUint128 | ArrayOfTupleOfStringAndUint1281;
+  responses: ArrayOfTupleOf_StringAnd_Uint128 | ArrayOfTupleOf_StringAnd_Uint1281;
   query: CalcDepositArgs | CalcWithdrawArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
@@ -75,25 +75,10 @@ export class Client {
     });
     return res;
   }
-  static async instantiate2(
-    client: SigningCosmWasmClient,
-    sender: string,
-    codeId: number,
-    salt: number,
-    initMsg: InstantiateMsg,
-    label: string,
-    fees: StdFee | 'auto' | number,
-    initCoins?: readonly Coin[],
-  ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
-    });
-    return res;
-  }
-  queryCalcDeposit = async(args: CalcDepositArgs): Promise<ArrayOfTupleOfStringAndUint128> => {
+  queryCalcDeposit = async(args: CalcDepositArgs): Promise<ArrayOfTupleOf_StringAnd_Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { calc_deposit: args });
   }
-  queryCalcWithdraw = async(args: CalcWithdrawArgs): Promise<ArrayOfTupleOfStringAndUint128> => {
+  queryCalcWithdraw = async(args: CalcWithdrawArgs): Promise<ArrayOfTupleOf_StringAnd_Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { calc_withdraw: args });
   }
 }

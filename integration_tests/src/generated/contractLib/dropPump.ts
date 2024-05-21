@@ -82,7 +82,7 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropPumpSchema {
-  responses: Config | IcaState | OwnershipForString;
+  responses: Config | IcaState | OwnershipFor_String;
   execute: PushArgs | RefundArgs | UpdateConfigArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
@@ -103,7 +103,7 @@ export interface PumpTimeout {
 /**
  * The contract's ownership info
  */
-export interface OwnershipForString {
+export interface OwnershipFor_String {
   /**
    * The contract's current owner. `None` if the ownership has been renounced.
    */
@@ -182,28 +182,13 @@ export class Client {
     });
     return res;
   }
-  static async instantiate2(
-    client: SigningCosmWasmClient,
-    sender: string,
-    codeId: number,
-    salt: number,
-    initMsg: InstantiateMsg,
-    label: string,
-    fees: StdFee | 'auto' | number,
-    initCoins?: readonly Coin[],
-  ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
-    });
-    return res;
-  }
   queryConfig = async(): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
   queryIca = async(): Promise<IcaState> => {
     return this.client.queryContractSmart(this.contractAddress, { ica: {} });
   }
-  queryOwnership = async(): Promise<OwnershipForString> => {
+  queryOwnership = async(): Promise<OwnershipFor_String> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
   }
   registerICA = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
