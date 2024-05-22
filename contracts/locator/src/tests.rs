@@ -32,28 +32,28 @@ fn add_factory_instances() {
 
     let expected_factory_states = vec![
         FactoryState {
-            token_contract: String::from("token_contract1"),
-            core_contract: String::from("core_contract1"),
-            puppeteer_contract: String::from("puppeteer_contract1"),
-            staker_contract: String::from("staker_contract1"),
-            withdrawal_voucher_contract: String::from("withdrawal_voucher_contract1"),
-            withdrawal_manager_contract: String::from("withdrawal_manager_contract1"),
-            strategy_contract: String::from("strategy_contract1"),
-            validators_set_contract: String::from("validators_set_contract1"),
-            distribution_contract: String::from("distribution_contract1"),
-            rewards_manager_contract: String::from("rewards_manager_contract1"),
+            token_contract: "token_contract1".to_string(),
+            core_contract: "core_contract1".to_string(),
+            puppeteer_contract: "puppeteer_contract1".to_string(),
+            staker_contract: "staker_contract1".to_string(),
+            withdrawal_voucher_contract: "withdrawal_voucher_contract1".to_string(),
+            withdrawal_manager_contract: "withdrawal_manager_contract1".to_string(),
+            strategy_contract: "strategy_contract1".to_string(),
+            validators_set_contract: "validators_set_contract1".to_string(),
+            distribution_contract: "distribution_contract1".to_string(),
+            rewards_manager_contract: "rewards_manager_contract1".to_string(),
         },
         FactoryState {
-            token_contract: String::from("token_contract2"),
-            core_contract: String::from("core_contract2"),
-            puppeteer_contract: String::from("puppeteer_contract2"),
-            staker_contract: String::from("staker_contract2"),
-            withdrawal_voucher_contract: String::from("withdrawal_voucher_contract2"),
-            withdrawal_manager_contract: String::from("withdrawal_manager_contract2"),
-            strategy_contract: String::from("strategy_contract2"),
-            validators_set_contract: String::from("validators_set_contract2"),
-            distribution_contract: String::from("distribution_contract2"),
-            rewards_manager_contract: String::from("rewards_manager_contract2"),
+            token_contract: "token_contract2".to_string(),
+            core_contract: "core_contract2".to_string(),
+            puppeteer_contract: "puppeteer_contract2".to_string(),
+            staker_contract: "staker_contract2".to_string(),
+            withdrawal_voucher_contract: "withdrawal_voucher_contract2".to_string(),
+            withdrawal_manager_contract: "withdrawal_manager_contract2".to_string(),
+            strategy_contract: "strategy_contract2".to_string(),
+            validators_set_contract: "validators_set_contract2".to_string(),
+            distribution_contract: "distribution_contract2".to_string(),
+            rewards_manager_contract: "rewards_manager_contract2".to_string(),
         },
     ];
 
@@ -81,12 +81,12 @@ fn add_factory_instances() {
     // Drop instance that we'll add and expecting to exist
     let expected_drop_instances = vec![
         DropInstance {
-            name: String::from("chain1"),
-            factory_addr: String::from("factory1"),
+            name: "chain1".to_string(),
+            factory_addr: "factory1".to_string(),
         },
         DropInstance {
-            name: String::from("chain2"),
-            factory_addr: String::from("factory2"),
+            name: "chain2".to_string(),
+            factory_addr: "factory2".to_string(),
         },
     ];
 
@@ -158,28 +158,28 @@ fn remove_factory_instances() {
 
     let expected_factory_states = vec![
         FactoryState {
-            token_contract: String::from("token_contract1"),
-            core_contract: String::from("core_contract1"),
-            puppeteer_contract: String::from("puppeteer_contract1"),
-            staker_contract: String::from("staker_contract1"),
-            withdrawal_voucher_contract: String::from("withdrawal_voucher_contract1"),
-            withdrawal_manager_contract: String::from("withdrawal_manager_contract1"),
-            strategy_contract: String::from("strategy_contract1"),
-            validators_set_contract: String::from("validators_set_contract1"),
-            distribution_contract: String::from("distribution_contract1"),
-            rewards_manager_contract: String::from("rewards_manager_contract1"),
+            token_contract: "token_contract1".to_string(),
+            core_contract: "core_contract1".to_string(),
+            puppeteer_contract: "puppeteer_contract1".to_string(),
+            staker_contract: "staker_contract1".to_string(),
+            withdrawal_voucher_contract: "withdrawal_voucher_contract1".to_string(),
+            withdrawal_manager_contract: "withdrawal_manager_contract1".to_string(),
+            strategy_contract: "strategy_contract1".to_string(),
+            validators_set_contract: "validators_set_contract1".to_string(),
+            distribution_contract: "distribution_contract1".to_string(),
+            rewards_manager_contract: "rewards_manager_contract1".to_string(),
         },
         FactoryState {
-            token_contract: String::from("token_contract2"),
-            core_contract: String::from("core_contract2"),
-            puppeteer_contract: String::from("puppeteer_contract2"),
-            staker_contract: String::from("staker_contract2"),
-            withdrawal_voucher_contract: String::from("withdrawal_voucher_contract2"),
-            withdrawal_manager_contract: String::from("withdrawal_manager_contract2"),
-            strategy_contract: String::from("strategy_contract2"),
-            validators_set_contract: String::from("validators_set_contract2"),
-            distribution_contract: String::from("distribution_contract2"),
-            rewards_manager_contract: String::from("rewards_manager_contract2"),
+            token_contract: "token_contract2".to_string(),
+            core_contract: "core_contract2".to_string(),
+            puppeteer_contract: "puppeteer_contract2".to_string(),
+            staker_contract: "staker_contract2".to_string(),
+            withdrawal_voucher_contract: "withdrawal_voucher_contract2".to_string(),
+            withdrawal_manager_contract: "withdrawal_manager_contract2".to_string(),
+            strategy_contract: "strategy_contract2".to_string(),
+            validators_set_contract: "validators_set_contract2".to_string(),
+            distribution_contract: "distribution_contract2".to_string(),
+            rewards_manager_contract: "rewards_manager_contract2".to_string(),
         },
     ];
 
@@ -206,12 +206,12 @@ fn remove_factory_instances() {
     // Drop instance that we'll add and expecting to exist
     let expected_drop_instances = vec![
         DropInstance {
-            name: String::from("chain1"),
-            factory_addr: String::from("factory1"),
+            name: "chain1".to_string(),
+            factory_addr: "factory1".to_string(),
         },
         DropInstance {
-            name: String::from("chain2"),
-            factory_addr: String::from("factory2"),
+            name: "chain2".to_string(),
+            factory_addr: "factory2".to_string(),
         },
     ];
 
@@ -229,12 +229,12 @@ fn remove_factory_instances() {
 
     let drop_instances = vec![
         DropInstance {
-            name: String::from("chain1"),
-            factory_addr: String::from("factory1"),
+            name: "chain1".to_string(),
+            factory_addr: "factory1".to_string(),
         },
         DropInstance {
-            name: String::from("chain2"),
-            factory_addr: String::from("factory2"),
+            name: "chain2".to_string(),
+            factory_addr: "factory2".to_string(),
         },
     ];
 
@@ -298,8 +298,8 @@ fn ownership_error() {
         // Add arbitrary chain
         let msg = crate::msg::ExecuteMsg::AddChains {
             chains: vec![DropInstance {
-                name: String::from("chain"),
-                factory_addr: String::from("factory"),
+                name: "chain".to_string(),
+                factory_addr: "factory".to_string(),
             }],
         };
         let res = crate::contract::execute(
@@ -317,7 +317,7 @@ fn ownership_error() {
     {
         // Remove arbitrary chain
         let msg = crate::msg::ExecuteMsg::RemoveChains {
-            names: vec![String::from("chain")],
+            names: vec!["chain".to_string()],
         };
         let res = crate::contract::execute(
             deps.as_mut(),
