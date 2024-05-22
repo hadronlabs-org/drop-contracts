@@ -370,7 +370,7 @@ describe('Locator', () => {
   });
   it('Query factory instances', async () => {
     const { locator } = context.contracts;
-    const res = [...(await locator.queryFactoryInstances())];
+    const res = await locator.queryFactoryInstances();
     expect(res).toHaveLength(2);
     for (const instance of res) {
       expect(instance.addr).toHaveLength(66);
