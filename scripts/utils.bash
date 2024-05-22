@@ -167,9 +167,9 @@ deploy_factory() {
     "core_params":{
       "idle_min_interval":60,
       "puppeteer_timeout":120,
-      "unbond_batch_switch_time":259200,
-      "unbonding_safe_period":3600,
-      "unbonding_period":1814400,
+      "unbond_batch_switch_time":'$UNBOND_BATCH_SWITCH_TIME',
+      "unbonding_safe_period":'$UNBONDING_SAFE_PERIOD',
+      "unbonding_period":'$UNBONDING_PERIOD',
       "lsm_redeem_threshold":2,
       "lsm_min_bond_amount":"1",
       "lsm_redeem_max_interval":60000,
