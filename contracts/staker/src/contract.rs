@@ -94,13 +94,7 @@ fn query_tx_state(deps: Deps, _env: Env) -> NeutronResult<Binary> {
 
 fn query_non_staked_balance(deps: Deps, _env: Env) -> NeutronResult<Binary> {
     let balance = NON_STAKED_BALANCE.load(deps.storage)?;
-    let config = CONFIG.load(deps.storage)?;
-    if config.min_staking_amount > balance {
-        return Err(NeutronError::Std(StdError::generic_err(
-            "not enough funds to stake",
-        )));
-    }
-    to_json_binary(&(balance)).map_err(NeutronError::Std)
+    Ok(to_json_binary(&(balance))?)
 }
 
 fn query_all_balance(deps: Deps, env: Env) -> NeutronResult<Binary> {
