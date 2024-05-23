@@ -10,7 +10,12 @@ const CORE_CONTRACT: string = process.env.CORE_CONTRACT;
 const NODE_ADDRESS: string = process.env.NODE_ADDRESS;
 const WALLET_MNEMONIC: string = process.env.WALLET_MNEMONIC;
 
-async function main(): Promise<void> {
+enum Mode {
+  RECENT,
+  FULL,
+}
+
+async function main(mode: Mode): Promise<void> {
   const mainWallet: DirectSecp256k1HdWallet =
     await DirectSecp256k1HdWallet.fromMnemonic(WALLET_MNEMONIC, {
       prefix: "neutron",
@@ -27,29 +32,58 @@ async function main(): Promise<void> {
   const unbonding_period: number = (await drop_client.queryConfig())
     .unbonding_period;
 
-  let current_unbond_batch: string =
-    await drop_client.queryCurrentUnbondBatch();
+  switch (mode) {
+    case Mode.RECENT: {
+      let current_unbond_batch: number = Number(
+        await drop_client.queryCurrentUnbondBatch()
+      );
+      let batch: UnbondBatch = await drop_client.queryUnbondBatch({
+        batch_id: String(current_unbond_batch),
+      });
 
-  let batch: UnbondBatch = await drop_client.queryUnbondBatch({
-    batch_id: current_unbond_batch,
-  });
-
-  while (batch.status !== "withdrawn") {
-    console.log({
-      batch_id: current_unbond_batch,
-      status: batch.status,
-      expected_amount: batch.expected_amount,
-      creation_time: batch.created,
-      expected_finalization_time: Math.floor(
-        batch.created + unbonding_period / 7
-      ),
-      unstaked_amount: batch.unbonded_amount,
-    });
-    current_unbond_batch = String(Number(current_unbond_batch) - 1);
-    batch = await drop_client.queryUnbondBatch({
-      batch_id: current_unbond_batch,
-    });
+      while (current_unbond_batch >= 0 && batch.status !== "withdrawn") {
+        console.log({
+          batch_id: current_unbond_batch,
+          status: batch.status,
+          expected_amount: batch.expected_amount,
+          creation_time: batch.created,
+          expected_finalization_time: Math.floor(
+            batch.created + unbonding_period / 7
+          ),
+          unstaked_amount: batch.withdrawed_amount,
+        });
+        current_unbond_batch -= 1;
+        batch = await drop_client.queryUnbondBatch({
+          batch_id: String(current_unbond_batch),
+        });
+      }
+      break;
+    }
+    case Mode.FULL: {
+      for (
+        let current_unbond_batch: number = Number(
+          await drop_client.queryCurrentUnbondBatch()
+        );
+        current_unbond_batch >= 0;
+        current_unbond_batch -= 1
+      ) {
+        let batch: UnbondBatch = await drop_client.queryUnbondBatch({
+          batch_id: String(current_unbond_batch),
+        });
+        console.log({
+          batch_id: current_unbond_batch,
+          status: batch.status,
+          expected_amount: batch.expected_amount,
+          creation_time: batch.created,
+          expected_finalization_time: Math.floor(
+            batch.created + unbonding_period / 7
+          ),
+          unstaked_amount: batch.withdrawed_amount,
+        });
+      }
+      break;
+    }
   }
 }
 
-main();
+main(Mode.FULL);
