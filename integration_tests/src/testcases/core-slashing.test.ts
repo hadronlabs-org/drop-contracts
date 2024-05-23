@@ -73,9 +73,9 @@ describe('Core Slashing', () => {
     gaiaUserAddress?: string;
     gaiaUserAddress2?: string;
     gaiaQueryClient?: QueryClient &
-    StakingExtension &
-    SlashingExtension &
-    BankExtension;
+      StakingExtension &
+      SlashingExtension &
+      BankExtension;
     neutronClient?: InstanceType<typeof NeutronClient>;
     neutronUserAddress?: string;
     neutronSecondUserAddress?: string;

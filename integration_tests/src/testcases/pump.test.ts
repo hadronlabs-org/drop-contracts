@@ -257,7 +257,7 @@ describe('Pump', () => {
       );
       ibcBalance = parseInt(
         res.data.balances.find((b) => b.denom.startsWith('ibc/'))?.amount ||
-        '0',
+          '0',
       );
       return res.data.balances.length > 1;
     }, 40000);
