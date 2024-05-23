@@ -1184,7 +1184,6 @@ fn test_tick_idle_unbonding_close() {
                 expected_release: 10001,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 1,
             },
         )
@@ -1314,7 +1313,6 @@ fn test_tick_idle_claim_wo_unbond() {
                 expected_release: 9000,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 1,
             },
         )
@@ -1469,7 +1467,6 @@ fn test_tick_idle_claim_with_unbond_transfer() {
                 expected_release: 90000,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 0,
             },
         )
@@ -1931,7 +1928,6 @@ fn test_tick_idle_unbonding() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 0,
             },
         )
@@ -2263,7 +2259,6 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 0,
             },
         )
@@ -2415,7 +2410,6 @@ fn test_tick_claiming_wo_idle() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 0,
             },
         )
@@ -2762,7 +2756,6 @@ fn test_tick_staking_to_unbonding() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 0,
             },
         )
@@ -2887,7 +2880,6 @@ fn test_tick_staking_to_idle() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 0,
             },
         )
@@ -3331,7 +3323,6 @@ fn test_unbond() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 0,
             },
         )
@@ -3428,7 +3419,6 @@ fn test_unbond() {
             expected_release: 0,
             slashing_effect: None,
             unbonded_amount: None,
-            withdrawed_amount: None,
             created: 0,
         }
     );
@@ -3474,7 +3464,6 @@ mod process_emergency_batch {
                         status,
                         slashing_effect: None,
                         unbonded_amount: None,
-                        withdrawed_amount: None,
                         created: 200,
                     },
                 )
@@ -3575,7 +3564,6 @@ mod process_emergency_batch {
                 status: UnbondBatchStatus::Withdrawn,
                 slashing_effect: Some(Decimal::one()),
                 unbonded_amount: Some(Uint128::new(100)),
-                withdrawed_amount: None,
                 created: 200,
             }
         );
@@ -3606,7 +3594,6 @@ mod process_emergency_batch {
                 status: UnbondBatchStatus::Withdrawn,
                 slashing_effect: Some(Decimal::from_ratio(70u128, 100u128)),
                 unbonded_amount: Some(Uint128::new(70)),
-                withdrawed_amount: None,
                 created: 200,
             }
         );
