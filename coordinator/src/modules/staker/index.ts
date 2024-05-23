@@ -1,5 +1,5 @@
 import { ManagerModule } from '../../types/Module';
-import { DropStaker } from '../../generated/contractLib';
+import { DropStaker } from 'drop-ts-client';
 import { StakerConfig } from './types/config';
 import { Context } from '../../types/Context';
 import pino from 'pino';

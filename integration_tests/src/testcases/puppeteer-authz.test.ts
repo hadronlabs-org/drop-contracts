@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-//import { DropPuppeteerAuthz } from '../generated/contractLib';
+//import { DropPuppeteerAuthz } from 'drop-ts-client';
 import {
   QueryClient,
   StakingExtension,
@@ -20,7 +20,7 @@ import { waitFor } from '../helpers/waitFor';
 import {
   DelegationsResponse,
   Transfer,
-} from '../generated/contractLib/dropPuppeteerAuthz';
+} from 'drop-ts-client/lib/src/contractLib/dropPuppeteerAuthz';
 
 import { grantAuthzPermission } from '../helpers/utils';
 import { AuthzExtension } from '@cosmjs/stargate/build/modules/authz/queries';

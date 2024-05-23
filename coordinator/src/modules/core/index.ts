@@ -1,5 +1,5 @@
 import { ManagerModule } from '../../types/Module';
-import { DropPuppeteer, DropCore } from '../../generated/contractLib';
+import { DropPuppeteer, DropCore } from 'drop-ts-client';
 import { PuppeteerConfig } from './types/config';
 import { Context } from '../../types/Context';
 import pino from 'pino';

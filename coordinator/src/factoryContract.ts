@@ -1,8 +1,8 @@
 import pino from 'pino';
 import { logger } from './logger';
-import { DropFactory } from './generated/contractLib';
-import { State } from './generated/contractLib/dropFactory';
+import { DropFactory } from 'drop-ts-client';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
+import { State } from 'drop-ts-client/lib/src/contractLib/dropFactory';
 
 export class FactoryContractHandler {
   private log: pino.Logger;
