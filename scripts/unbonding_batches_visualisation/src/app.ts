@@ -6,14 +6,15 @@ import {
   UnbondBatch,
 } from "../../../integration_tests/src/generated/contractLib/dropCore";
 
-const CORE_CONTRACT: string = process.env.CORE_CONTRACT;
-const NODE_ADDRESS: string = process.env.NODE_ADDRESS;
-const WALLET_MNEMONIC: string = process.env.WALLET_MNEMONIC;
-
 enum Mode {
   RECENT,
   FULL,
 }
+
+const MODE: string = process.env.MODE;
+const CORE_CONTRACT: string = process.env.CORE_CONTRACT;
+const NODE_ADDRESS: string = process.env.NODE_ADDRESS;
+const WALLET_MNEMONIC: string = process.env.WALLET_MNEMONIC;
 
 async function main(mode: Mode): Promise<void> {
   const mainWallet: DirectSecp256k1HdWallet =
@@ -86,4 +87,20 @@ async function main(mode: Mode): Promise<void> {
   }
 }
 
-main(Mode.FULL);
+let mode: Mode;
+
+switch (MODE) {
+  case "RECENT": {
+    mode = Mode.RECENT;
+    break;
+  }
+  case "FULL": {
+    mode = Mode.FULL;
+    break;
+  }
+  default: {
+    throw new Error(`Unknown mode given: ${MODE}`);
+  }
+}
+
+main(mode);
