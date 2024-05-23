@@ -1426,7 +1426,6 @@ fn new_unbond(now: u64) -> UnbondBatch {
         expected_release: 0,
         slashing_effect: None,
         unbonded_amount: None,
-        withdrawed_amount: None,
         created: now,
     }
 }
