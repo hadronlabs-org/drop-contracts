@@ -1,8 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import {
-  DropProviderProposalsPoc,
-  DropProposalVotesPoc,
-} from 'drop-ts-client';
+import { DropProviderProposalsPoc, DropProposalVotesPoc } from 'drop-ts-client';
 import {
   QueryClient,
   StakingExtension,
