@@ -36,7 +36,7 @@ import { waitFor } from '../helpers/waitFor';
 import {
   ResponseHookMsg,
   UnbondBatch,
-} from 'drop-ts-client/lib/src/contractLib/dropCore';
+} from 'drop-ts-client/lib/contractLib/dropCore';
 import { stringToPath } from '@cosmjs/crypto';
 import { sleep } from '../helpers/sleep';
 import { waitForTx } from '../helpers/waitForTx';
