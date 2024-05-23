@@ -37,9 +37,9 @@ describe('Validators stats', () => {
     client?: SigningCosmWasmClient;
     gaiaClient?: SigningCosmWasmClient;
     gaiaQueryClient?: QueryClient &
-    StakingExtension &
-    SlashingExtension &
-    AuthzExtension;
+      StakingExtension &
+      SlashingExtension &
+      AuthzExtension;
     neutronClient?: InstanceType<typeof NeutronClient>;
     firstValidatorAddress?: string;
     secondValidatorAddress?: string;
