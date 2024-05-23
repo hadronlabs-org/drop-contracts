@@ -20,7 +20,7 @@ import { waitFor } from '../helpers/waitFor';
 import {
   DelegationsResponse,
   Transfer,
-} from 'drop-ts-client/lib/src/contractLib/dropPuppeteerAuthz';
+} from 'drop-ts-client/lib/contractLib/dropPuppeteerAuthz';
 
 import { grantAuthzPermission } from '../helpers/utils';
 import { AuthzExtension } from '@cosmjs/stargate/build/modules/authz/queries';

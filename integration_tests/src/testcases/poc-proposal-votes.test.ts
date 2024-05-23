@@ -19,7 +19,7 @@ import fs from 'fs';
 import { stringToPath } from '@cosmjs/crypto';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import { ProposalInfo1 } from 'drop-ts-client/lib/src/contractLib/dropProviderProposalsPoc';
+import { ProposalInfo1 } from 'drop-ts-client/lib/contractLib/dropProviderProposalsPoc';
 
 const DropProviderProposalsClass = DropProviderProposalsPoc.Client;
 const DropProposalVotesClass = DropProposalVotesPoc.Client;

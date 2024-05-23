@@ -20,7 +20,7 @@ import {
   ResponseAnswer,
   ResponseHookErrorMsg,
   ResponseHookSuccessMsg,
-} from 'drop-ts-client/lib/src/contractLib/dropHookTester';
+} from 'drop-ts-client/lib/contractLib/dropHookTester';
 
 const PuppeteerClass = DropPuppeteer.Client;
 const HookTesterClass = DropHookTester.Client;

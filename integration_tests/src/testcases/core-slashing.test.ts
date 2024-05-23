@@ -29,7 +29,7 @@ import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import { UnbondBatch } from 'drop-ts-client/lib/src/contractLib/dropCore';
+import { UnbondBatch } from 'drop-ts-client/lib/contractLib/dropCore';
 import { stringToPath } from '@cosmjs/crypto';
 import { sleep } from '../helpers/sleep';
 import dockerCompose from 'docker-compose';

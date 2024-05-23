@@ -53,7 +53,7 @@ main() {
     "wasm":{
       "execute":{
         "contract_addr":"'"$staker_address"'",
-        "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64)"'",
+        "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64 | tr -d "\n")"'",
         "funds": []
       }
     }
@@ -72,7 +72,7 @@ main() {
     "wasm":{
       "execute":{
         "contract_addr":"'"$puppeteer_address"'",
-        "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64)"'",
+        "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64 | tr -d "\n")"'",
         "funds": [
           {
             "amount": "20000",
