@@ -8,8 +8,7 @@
     "dev": "ts-node src/service.ts",
     "lint": "eslint 'src/**/*.{js,ts}'",
     "lint:fix": "eslint 'src/**/*.{js,ts}' --fix",
-    "format": "prettier --write 'src/**/*.{js,ts,json,css,md}'",
-    "build-ts-client": "ts-node ./src/rebuild-client.ts"
+    "format": "prettier --write 'src/**/*.{js,ts,json,css,md}'"
   },
   "dependencies": {
     "@cosmjs/cosmwasm-stargate": "^0.32.3",
@@ -19,12 +18,12 @@
     "@cosmjs/tendermint-rpc": "^0.32.3",
     "@neutron-org/client-ts": "^1.4.0",
     "pino": "^8.19.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "drop-ts-client": "file:../ts-client"
   },
   "devDependencies": {
     "@types/node": "^20.11.27",
     "@typescript-eslint/eslint-plugin": "^6.4.0",
-    "@neutron-org/contracts2ts": "^1.4.2",
     "eslint": "^8.0.1",
     "eslint-config-prettier": "^9.1.0",
     "eslint-config-standard-with-typescript": "^43.0.1",

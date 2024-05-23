@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { DropValidatorsStats } from '../generated/contractLib';
+import { DropValidatorsStats } from 'drop-ts-client';
 import {
   QueryClient,
   StakingExtension,
@@ -18,7 +18,7 @@ import { stringToPath } from '@cosmjs/crypto';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import { ValidatorState } from '../generated/contractLib/dropValidatorsStats';
+import { ValidatorState } from 'drop-ts-client/lib/src/contractLib/dropValidatorsStats';
 import { AuthzExtension } from '@cosmjs/stargate/build/modules/authz/queries';
 import { pubkeyToAddress } from '@cosmjs/amino';
 import { SlashingExtension } from '@cosmjs/stargate/build/modules';
@@ -37,9 +37,9 @@ describe('Validators stats', () => {
     client?: SigningCosmWasmClient;
     gaiaClient?: SigningCosmWasmClient;
     gaiaQueryClient?: QueryClient &
-      StakingExtension &
-      SlashingExtension &
-      AuthzExtension;
+    StakingExtension &
+    SlashingExtension &
+    AuthzExtension;
     neutronClient?: InstanceType<typeof NeutronClient>;
     firstValidatorAddress?: string;
     secondValidatorAddress?: string;

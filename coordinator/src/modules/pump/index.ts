@@ -1,5 +1,5 @@
 import { ManagerModule } from '../../types/Module';
-import { DropPump } from '../../generated/contractLib';
+import { DropPump } from 'drop-ts-client';
 import { PumpConfig } from './types/config';
 import { Context } from '../../types/Context';
 import { Uint64 } from '@cosmjs/math';

@@ -1,5 +1,5 @@
 import { ManagerModule } from '../../types/Module';
-import { DropValidatorsStats } from '../../generated/contractLib';
+import { DropValidatorsStats } from 'drop-ts-client';
 import { ValidatorsStatsConfig } from './types/config';
 import { Context } from '../../types/Context';
 import pino from 'pino';
