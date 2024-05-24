@@ -60,7 +60,6 @@ export class CoreModule implements ManagerModule {
       `Core contract state: ${coreContractState}, response received: ${puppeteerResponseReceived}`,
     );
 
-    // coreContractState === 'transfering' &&
     if (puppeteerResponseReceived || coreContractState === 'idle') {
       this.log.debug(`Response is received`);
 
@@ -79,12 +78,14 @@ export class CoreModule implements ManagerModule {
 
         await waitBlocks(this.context, 3, this.log);
 
-        await this.coreContractClient.tick(
+        const res = await this.coreContractClient.tick(
           this.context.neutronWalletAddress,
           1.5,
           undefined,
           [],
         );
+
+        this.log.info(`Core contract tick response: ${JSON.stringify(res)}`);
       }
     }
   }
