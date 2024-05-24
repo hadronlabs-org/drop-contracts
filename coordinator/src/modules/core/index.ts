@@ -62,7 +62,11 @@ export class CoreModule implements ManagerModule {
       `Core contract state: ${coreContractState}, response received: ${puppeteerResponseReceived}`,
     );
 
-    if (puppeteerResponseReceived || coreContractState === 'idle') {
+    if (
+      puppeteerResponseReceived ||
+      coreContractState === 'idle' ||
+      coreContractState === 'staking_bond'
+    ) {
       this.log.debug(`Response is received`);
 
       const queryIds = await this.puppeteerContractClient.queryKVQueryIds();
