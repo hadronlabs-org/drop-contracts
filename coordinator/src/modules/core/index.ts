@@ -91,7 +91,7 @@ export class CoreModule implements ManagerModule {
           [],
         );
 
-        this.log.info(`Core contract tick response: ${JSON.stringify(res)}`);
+        this.log.info(`Core contract tick response: ${JSONBig.stringify(res)}`);
       }
     }
   }
