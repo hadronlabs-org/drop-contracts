@@ -53,6 +53,7 @@ export class CoreModule implements ManagerModule {
       await this.coreContractClient.queryLastPuppeteerResponse();
 
     const puppeteerResponseReceived =
+      lastPuppeteerResponse.response &&
       'success' in lastPuppeteerResponse.response;
 
     this.log.debug(
