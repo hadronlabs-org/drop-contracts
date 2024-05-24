@@ -65,7 +65,14 @@ export class CoreModule implements ManagerModule {
     if (
       puppeteerResponseReceived ||
       coreContractState === 'idle' ||
-      coreContractState === 'staking_bond'
+      coreContractState === 'staking_bond' ||
+      coreContractState === 'staking_rewards' ||
+      coreContractState === 'unbonding' ||
+      coreContractState === 'l_s_m_redeem' ||
+      coreContractState === 'l_s_m_transfer' ||
+      coreContractState === 'non_native_rewards_transfer' ||
+      coreContractState === 'claiming' ||
+      coreContractState === 'unbonding'
     ) {
       this.log.debug(`Response is received`);
 
