@@ -451,7 +451,7 @@
     events "^3.3.0"
     protobufjs "^7.2.0"
 
-"@neutron-org/contracts2ts@^1.4.2", "@neutron-org/contracts2ts@^1.4.4":
+"@neutron-org/contracts2ts@^1.4.4":
   version "1.4.4"
   resolved "https://registry.yarnpkg.com/@neutron-org/contracts2ts/-/contracts2ts-1.4.4.tgz#92f21b50514c3e6c740a3eae6bda7cbd347f44fa"
   integrity sha512-mfP5Y+Cr/lfSZ9SF102Q4f3rDxjQdf/2ZZ7bVUw0c3iQoF9FEZX5L+aEkVEv7HCFgA9uPKQzTAQVsF8GWkmkqA==
@@ -1285,6 +1285,8 @@ dotenv@^16.4.5:
 "drop-ts-client@file:../ts-client":
   version "1.0.0"
   dependencies:
+    "@cosmjs/cosmwasm-stargate" "^0.32.3"
+    "@cosmjs/proto-signing" "^0.32.3"
     "@neutron-org/client-ts" "^1.4.0"
     "@neutron-org/contracts2ts" "^1.4.4"
 
