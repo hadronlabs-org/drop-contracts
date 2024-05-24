@@ -51,7 +51,7 @@ async function main(mode: Mode): Promise<void> {
           expected_finalization_time: Math.floor(
             batch.created + unbonding_period / 7
           ),
-          unstaked_amount: batch.withdrawed_amount,
+          unstaked_amount: batch.unbonded_amount,
         });
         current_unbond_batch -= 1;
         batch = await drop_client.queryUnbondBatch({
@@ -79,7 +79,7 @@ async function main(mode: Mode): Promise<void> {
           expected_finalization_time: Math.floor(
             batch.created + unbonding_period / 7
           ),
-          unstaked_amount: batch.withdrawed_amount,
+          unstaked_amount: batch.unbonded_amount,
         });
       }
       break;
