@@ -3,6 +3,8 @@ import { DropPuppeteer, DropCore } from 'drop-ts-client';
 import { PuppeteerConfig } from './types/config';
 import { Context } from '../../types/Context';
 import pino from 'pino';
+import JSONBig from 'json-bigint';
+
 import { runQueryRelayer, waitBlocks } from '../../utils';
 
 const PuppeteerContractClient = DropPuppeteer.Client;
@@ -70,7 +72,7 @@ export class CoreModule implements ManagerModule {
       const queryIdsArray = queryIds.map(([queryId]) => queryId.toString());
 
       this.log.info(
-        `Puppeteer query ids plain: ${JSON.stringify(queryIdsArray)}`,
+        `Puppeteer query ids plain: ${JSONBig.stringify(queryIdsArray)}`,
       );
 
       if (queryIdsArray.length > 0) {
