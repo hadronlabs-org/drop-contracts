@@ -58,24 +58,21 @@ export class CoreModule implements ManagerModule {
       !!lastPuppeteerResponse.response &&
       'success' in lastPuppeteerResponse.response;
 
+    const lastStakerResponse =
+      await this.coreContractClient.queryLastStakerResponse();
+
+    const stakerResponseReceived =
+      !!lastStakerResponse.response && 'success' in lastStakerResponse.response;
+
     this.log.debug(
-      `Core contract state: ${coreContractState}, response received: ${puppeteerResponseReceived}`,
+      `Core contract state: ${coreContractState}, puppeteer response received: ${puppeteerResponseReceived}, staker response received: ${stakerResponseReceived}`,
     );
 
     if (
       puppeteerResponseReceived ||
       coreContractState === 'idle' ||
-      coreContractState === 'staking_bond' ||
-      coreContractState === 'staking_rewards' ||
-      coreContractState === 'unbonding' ||
-      coreContractState === 'l_s_m_redeem' ||
-      coreContractState === 'l_s_m_transfer' ||
-      coreContractState === 'non_native_rewards_transfer' ||
-      coreContractState === 'claiming' ||
-      coreContractState === 'unbonding'
+      (stakerResponseReceived && coreContractState === 'staking_bond')
     ) {
-      this.log.debug(`Response is received`);
-
       const queryIds = await this.puppeteerContractClient.queryKVQueryIds();
 
       this.log.info(`Puppeteer query ids: ${JSON.stringify(queryIds)}`);
