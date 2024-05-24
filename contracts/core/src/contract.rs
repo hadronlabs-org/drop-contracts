@@ -1405,7 +1405,7 @@ fn get_received_staker_response(
 ) -> ContractResult<drop_staking_base::msg::staker::ResponseHookMsg> {
     LAST_STAKER_RESPONSE
         .load(deps.storage)
-        .map_err(|_| ContractError::PuppeteerResponseIsNotReceived {})
+        .map_err(|_| ContractError::StakerResponseIsNotReceived {})
 }
 
 fn is_unbonding_time_close(
