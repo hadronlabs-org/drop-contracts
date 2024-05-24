@@ -4,6 +4,7 @@ import { PumpConfig } from './types/config';
 import { Context } from '../../types/Context';
 import { Uint64 } from '@cosmjs/math';
 import pino from 'pino';
+import JSONBig from 'json-bigint';
 
 const PumpContractClient = DropPump.Client;
 
@@ -68,7 +69,7 @@ export class PumpModule implements ManagerModule {
         ],
       );
 
-      this.log.info('Push response', res);
+      this.log.info(`Push response: ${JSONBig.stringify(res)}`);
     }
   }
 

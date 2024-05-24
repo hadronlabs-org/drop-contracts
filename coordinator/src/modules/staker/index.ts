@@ -3,6 +3,7 @@ import { DropStaker } from 'drop-ts-client';
 import { StakerConfig } from './types/config';
 import { Context } from '../../types/Context';
 import pino from 'pino';
+import JSONBig from 'json-bigint';
 
 const StakerContractClient = DropStaker.Client;
 
@@ -50,7 +51,7 @@ export class StakerModule implements ManagerModule {
       ],
     );
 
-    this.log.info('IBC transfer response', res);
+    this.log.info(`IBC transfer response: ${JSONBig.stringify(res)}`);
   }
 
   prepareConfig(): StakerConfig {
