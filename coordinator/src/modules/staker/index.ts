@@ -38,7 +38,7 @@ export class StakerModule implements ManagerModule {
       }
     }
 
-    await this.contractClient.iBCTransfer(
+    const res = await this.contractClient.iBCTransfer(
       this.context.neutronWalletAddress,
       1.5,
       undefined,
@@ -49,6 +49,8 @@ export class StakerModule implements ManagerModule {
         },
       ],
     );
+
+    this.log.info('IBC transfer response', res);
   }
 
   prepareConfig(): StakerConfig {
