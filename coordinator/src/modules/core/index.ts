@@ -17,7 +17,7 @@ export class CoreModule implements ManagerModule {
   constructor(
     private context: Context,
     private log: pino.Logger,
-  ) { }
+  ) {}
 
   private _config: PuppeteerConfig;
   get config(): PuppeteerConfig {
@@ -49,14 +49,17 @@ export class CoreModule implements ManagerModule {
 
     const coreContractState =
       await this.coreContractClient.queryContractState();
+    const lastPuppeteerResponse =
+      await this.coreContractClient.queryLastPuppeteerResponse();
+
     const puppeteerResponseReceived =
-      !!(await this.coreContractClient.queryLastPuppeteerResponse());
+      'success' in lastPuppeteerResponse.response;
 
     this.log.debug(
       `Core contract state: ${coreContractState}, response received: ${puppeteerResponseReceived}`,
     );
 
-    // coreContractState === 'transfering' && 
+    // coreContractState === 'transfering' &&
     if (puppeteerResponseReceived) {
       this.log.debug(`Response is received`);
 

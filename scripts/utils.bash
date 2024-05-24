@@ -166,7 +166,7 @@ deploy_factory() {
     "base_denom":"'"$uatom_on_neutron_denom"'",
     "core_params":{
       "idle_min_interval":60,
-      "puppeteer_timeout":120,
+      "puppeteer_timeout":'$PUPPETEER_TIMEOUT',
       "unbond_batch_switch_time":'$UNBOND_BATCH_SWITCH_TIME',
       "unbonding_safe_period":'$UNBONDING_SAFE_PERIOD',
       "unbonding_period":'$UNBONDING_PERIOD',
