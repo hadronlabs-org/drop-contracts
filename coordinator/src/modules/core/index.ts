@@ -61,7 +61,7 @@ export class CoreModule implements ManagerModule {
     );
 
     // coreContractState === 'transfering' &&
-    if (puppeteerResponseReceived) {
+    if (puppeteerResponseReceived || coreContractState === 'idle') {
       this.log.debug(`Response is received`);
 
       const queryIds = await this.puppeteerContractClient.queryKVQueryIds();
