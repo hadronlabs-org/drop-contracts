@@ -53,7 +53,7 @@ pub struct InstantiateMsg {
 }
 
 #[cw_serde]
-pub enum MigrateMsg {}
+pub struct MigrateMsg {}
 
 #[cw_serde]
 pub enum ResponseHookMsg {
