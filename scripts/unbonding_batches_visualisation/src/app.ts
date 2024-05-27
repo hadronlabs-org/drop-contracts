@@ -6,6 +6,10 @@ import {
   UnbondBatch,
 } from "../../../integration_tests/src/generated/contractLib/dropCore";
 
+/* There're 2 possible modes for script
+ * RECENT will retrieve all recent batches since it'll meet one 'withdrawn'
+ * FULL will retrieve all batches from current batch to 0-nth
+ */
 enum Mode {
   RECENT,
   FULL,
@@ -16,6 +20,9 @@ const CORE_CONTRACT: string = process.env.CORE_CONTRACT;
 const NODE_ADDRESS: string = process.env.NODE_ADDRESS;
 const WALLET_MNEMONIC: string = process.env.WALLET_MNEMONIC;
 
+/* addLeadingZeros used there to add leading zeros to date
+ * We need date formatting for pretty output
+ */
 function addLeadingZeros(num: number, targetLength: number): string {
   let numStr: string = num.toString();
   while (numStr.length < targetLength) {
@@ -25,6 +32,14 @@ function addLeadingZeros(num: number, targetLength: number): string {
   return numStr;
 }
 
+/*
+ * batch_id - number of batch in contract's order
+ * status - batch.status
+ * expected_amount - batch.expected_amount
+ * creation_time - batch.creation_time
+ * expected_finalization_time - (batch.creation_time + core.config.unbonding_period / 7)
+ * unstaked_amount - batch.unbonded_amount
+ */
 type BatchInfo = {
   batch_id: number;
   status: string;
@@ -34,11 +49,19 @@ type BatchInfo = {
   unstaked_amount: number;
 };
 
+/* Function print_n serves for getting information about 'n' first batches
+ * current_unbond_batch - latest unbonding batch gotten from query
+ * n - first n batches starting from current_unbond_batch
+ * drop_client - drop client generated code from binary, used for queries
+ */
 async function print_n(
   current_unbond_batch: number,
   n: number,
   drop_client: DropCoreClient
 ): Promise<Array<BatchInfo>> {
+  if (current_unbond_batch - n < 0) {
+    return [];
+  }
   const unbonding_period: number = (await drop_client.queryConfig())
     .unbonding_period;
   let arr = [];
@@ -108,6 +131,10 @@ async function main(mode: Mode): Promise<void> {
         batch_id: String(current_unbond_batch),
       });
       let n = 0;
+
+      /* Get amount of batches that haven't withdrawn yet
+       * Provide given n as n-1 since count there starts with 0
+       */
       while (current_unbond_batch >= 0 && batch.status !== "withdrawn") {
         current_unbond_batch -= 1;
         batch = await drop_client.queryUnbondBatch({
