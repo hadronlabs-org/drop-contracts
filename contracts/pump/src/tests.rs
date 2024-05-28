@@ -337,7 +337,8 @@ fn test_push() {
         })
         .unwrap()
     });
-    ICA.set_address(deps.as_mut().storage, "some").unwrap();
+    ICA.set_address(deps.as_mut().storage, "some", "port", "channel")
+        .unwrap();
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();

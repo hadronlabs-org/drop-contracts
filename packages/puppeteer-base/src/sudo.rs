@@ -155,15 +155,16 @@ where
         &self,
         deps: DepsMut<NeutronQuery>,
         _env: Env,
-        _port_id: String,
-        _channel_id: String,
+        port_id: String,
+        channel_id: String,
         _counterparty_channel_id: String,
         counterparty_version: String,
     ) -> NeutronResult<Response<NeutronMsg>> {
         let parsed_version: Result<OpenAckVersion, _> =
             serde_json_wasm::from_str(counterparty_version.as_str());
         if let Ok(parsed_version) = parsed_version {
-            self.ica.set_address(deps.storage, parsed_version.address)?;
+            self.ica
+                .set_address(deps.storage, parsed_version.address, port_id, channel_id)?;
             Ok(Response::default())
         } else {
             Err(NeutronError::Std(StdError::generic_err(
