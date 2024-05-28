@@ -1186,7 +1186,7 @@ describe('Core', () => {
             undefined,
             [],
           ),
-        ).rejects.toThrowError(/Puppeteer response is not received/);
+        ).rejects.toThrowError(/Staker response is not received/);
       });
       it('state of fsm is staking_bond', async () => {
         const state = await context.coreContractClient.queryContractState();
