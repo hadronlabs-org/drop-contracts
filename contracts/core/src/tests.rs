@@ -2602,7 +2602,7 @@ fn test_execute_tick_transfering_no_puppeteer_response() {
         ExecuteMsg::Tick {},
     );
     assert!(res.is_err());
-    assert_eq!(res, Err(ContractError::PuppeteerResponseIsNotReceived {}));
+    assert_eq!(res, Err(ContractError::StakerResponseIsNotReceived {}));
 }
 
 #[test]
