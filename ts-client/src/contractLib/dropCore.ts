@@ -433,7 +433,6 @@ export interface UnbondBatch {
   total_amount: Uint128;
   total_unbond_items: number;
   unbonded_amount?: Uint128 | null;
-  withdrawed_amount?: Uint128 | null;
 }
 export interface UnbondBatchArgs {
   batch_id: Uint128;

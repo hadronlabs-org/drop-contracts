@@ -14,7 +14,9 @@ export type IcaState =
   | ("none" | "in_progress" | "timeout")
   | {
       registered: {
+        channel_id: string;
         ica_address: string;
+        port_id: string;
       };
     };
 /**
