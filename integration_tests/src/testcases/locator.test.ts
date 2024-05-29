@@ -385,6 +385,47 @@ describe('Locator', () => {
       expect(instance.contracts.distribution_contract).toHaveLength(66);
       expect(instance.contracts.rewards_manager_contract).toHaveLength(66);
     }
+    let matches: number = 0;
+    for (const factory of context.contracts.factories) {
+      const factoryState = await factory.queryState();
+      for (let i = 0; i < res.length; i += 1) {
+        const instance = res[i];
+        if (instance.addr === factory.contractAddress) {
+          matches += 1;
+          expect(instance.contracts.token_contract).toBe(
+            factoryState.token_contract,
+          );
+          expect(instance.contracts.core_contract).toBe(
+            factoryState.core_contract,
+          );
+          expect(instance.contracts.puppeteer_contract).toBe(
+            factoryState.puppeteer_contract,
+          );
+          expect(instance.contracts.staker_contract).toBe(
+            factoryState.staker_contract,
+          );
+          expect(instance.contracts.withdrawal_voucher_contract).toBe(
+            factoryState.withdrawal_voucher_contract,
+          );
+          expect(instance.contracts.withdrawal_manager_contract).toBe(
+            factoryState.withdrawal_manager_contract,
+          );
+          expect(instance.contracts.strategy_contract).toBe(
+            factoryState.strategy_contract,
+          );
+          expect(instance.contracts.validators_set_contract).toBe(
+            factoryState.validators_set_contract,
+          );
+          expect(instance.contracts.distribution_contract).toBe(
+            factoryState.distribution_contract,
+          );
+          expect(instance.contracts.rewards_manager_contract).toBe(
+            factoryState.rewards_manager_contract,
+          );
+        }
+      }
+    }
+    expect(matches).toBe(res.length);
   });
   it('Try to remove factory instances from locator contract', async () => {
     const { locator } = context.contracts;
