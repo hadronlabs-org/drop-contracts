@@ -1,11 +1,6 @@
-import {
-  CosmWasmClient,
-  SigningCosmWasmClient,
-  ExecuteResult,
-  InstantiateResult,
-} from '@cosmjs/cosmwasm-stargate';
-import { StdFee } from '@cosmjs/amino';
-import { Coin } from '@cosmjs/amino';
+import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
+import { StdFee } from "@cosmjs/amino";
+import { Coin } from "@cosmjs/amino";
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -49,8 +44,9 @@ export interface CalcWithdrawArgs {
 }
 export interface InstantiateMsg {}
 
+
 function isSigningCosmWasmClient(
-  client: CosmWasmClient | SigningCosmWasmClient,
+  client: CosmWasmClient | SigningCosmWasmClient
 ): client is SigningCosmWasmClient {
   return 'execute' in client;
 }
@@ -58,15 +54,12 @@ function isSigningCosmWasmClient(
 export class Client {
   private readonly client: CosmWasmClient | SigningCosmWasmClient;
   contractAddress: string;
-  constructor(
-    client: CosmWasmClient | SigningCosmWasmClient,
-    contractAddress: string,
-  ) {
+  constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string) {
     this.client = client;
     this.contractAddress = contractAddress;
   }
   mustBeSigningClient() {
-    return new Error('This client is not a SigningCosmWasmClient');
+    return new Error("This client is not a SigningCosmWasmClient");
   }
   static async instantiate(
     client: SigningCosmWasmClient,
@@ -92,31 +85,15 @@ export class Client {
     fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
   ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(
-      sender,
-      codeId,
-      new Uint8Array([salt]),
-      initMsg,
-      label,
-      fees,
-      {
-        ...(initCoins && initCoins.length && { funds: initCoins }),
-      },
-    );
+    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
+      ...(initCoins && initCoins.length && { funds: initCoins }),
+    });
     return res;
   }
-  queryCalcDeposit = async (
-    args: CalcDepositArgs,
-  ): Promise<ArrayOfTupleOfStringAndUint128> => {
-    return this.client.queryContractSmart(this.contractAddress, {
-      calc_deposit: args,
-    });
-  };
-  queryCalcWithdraw = async (
-    args: CalcWithdrawArgs,
-  ): Promise<ArrayOfTupleOfStringAndUint128> => {
-    return this.client.queryContractSmart(this.contractAddress, {
-      calc_withdraw: args,
-    });
-  };
+  queryCalcDeposit = async(args: CalcDepositArgs): Promise<ArrayOfTupleOfStringAndUint128> => {
+    return this.client.queryContractSmart(this.contractAddress, { calc_deposit: args });
+  }
+  queryCalcWithdraw = async(args: CalcWithdrawArgs): Promise<ArrayOfTupleOfStringAndUint128> => {
+    return this.client.queryContractSmart(this.contractAddress, { calc_withdraw: args });
+  }
 }

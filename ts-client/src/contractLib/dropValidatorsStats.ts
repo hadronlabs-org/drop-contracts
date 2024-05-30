@@ -1,11 +1,6 @@
-import {
-  CosmWasmClient,
-  SigningCosmWasmClient,
-  ExecuteResult,
-  InstantiateResult,
-} from '@cosmjs/cosmwasm-stargate';
-import { StdFee } from '@cosmjs/amino';
-import { Coin } from '@cosmjs/amino';
+import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
+import { StdFee } from "@cosmjs/amino";
+import { Coin } from "@cosmjs/amino";
 /**
  * A human readable address.
  *
@@ -66,8 +61,9 @@ export interface InstantiateMsg {
   profile_update_period: number;
 }
 
+
 function isSigningCosmWasmClient(
-  client: CosmWasmClient | SigningCosmWasmClient,
+  client: CosmWasmClient | SigningCosmWasmClient
 ): client is SigningCosmWasmClient {
   return 'execute' in client;
 }
@@ -75,15 +71,12 @@ function isSigningCosmWasmClient(
 export class Client {
   private readonly client: CosmWasmClient | SigningCosmWasmClient;
   contractAddress: string;
-  constructor(
-    client: CosmWasmClient | SigningCosmWasmClient,
-    contractAddress: string,
-  ) {
+  constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string) {
     this.client = client;
     this.contractAddress = contractAddress;
   }
   mustBeSigningClient() {
-    return new Error('This client is not a SigningCosmWasmClient');
+    return new Error("This client is not a SigningCosmWasmClient");
   }
   static async instantiate(
     client: SigningCosmWasmClient,
@@ -109,47 +102,22 @@ export class Client {
     fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
   ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(
-      sender,
-      codeId,
-      new Uint8Array([salt]),
-      initMsg,
-      label,
-      fees,
-      {
-        ...(initCoins && initCoins.length && { funds: initCoins }),
-      },
-    );
+    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
+      ...(initCoins && initCoins.length && { funds: initCoins }),
+    });
     return res;
   }
-  queryConfig = async (): Promise<Config> => {
+  queryConfig = async(): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
-  };
-  queryKVQueryIds = async (): Promise<KvQueryIds> => {
-    return this.client.queryContractSmart(this.contractAddress, {
-      k_v_query_ids: {},
-    });
-  };
-  queryState = async (): Promise<ArrayOfValidatorState> => {
+  }
+  queryKVQueryIds = async(): Promise<KvQueryIds> => {
+    return this.client.queryContractSmart(this.contractAddress, { k_v_query_ids: {} });
+  }
+  queryState = async(): Promise<ArrayOfValidatorState> => {
     return this.client.queryContractSmart(this.contractAddress, { state: {} });
-  };
-  registerStatsQueries = async (
-    sender: string,
-    args: RegisterStatsQueriesArgs,
-    fee?: number | StdFee | 'auto',
-    memo?: string,
-    funds?: Coin[],
-  ): Promise<ExecuteResult> => {
-    if (!isSigningCosmWasmClient(this.client)) {
-      throw this.mustBeSigningClient();
-    }
-    return this.client.execute(
-      sender,
-      this.contractAddress,
-      { register_stats_queries: args },
-      fee || 'auto',
-      memo,
-      funds,
-    );
-  };
+  }
+  registerStatsQueries = async(sender:string, args: RegisterStatsQueriesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { register_stats_queries: args }, fee || "auto", memo, funds);
+  }
 }

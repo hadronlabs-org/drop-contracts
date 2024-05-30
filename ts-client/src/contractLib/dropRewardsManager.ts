@@ -1,11 +1,6 @@
-import {
-  CosmWasmClient,
-  SigningCosmWasmClient,
-  ExecuteResult,
-  InstantiateResult,
-} from '@cosmjs/cosmwasm-stargate';
-import { StdFee } from '@cosmjs/amino';
-import { Coin } from '@cosmjs/amino';
+import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
+import { StdFee } from "@cosmjs/amino";
+import { Coin } from "@cosmjs/amino";
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -78,16 +73,12 @@ export type UpdateOwnershipArgs =
         new_owner: string;
       };
     }
-  | 'accept_ownership'
-  | 'renounce_ownership';
+  | "accept_ownership"
+  | "renounce_ownership";
 
 export interface DropRewardsManagerSchema {
   responses: ArrayOfHandlerConfig | OwnershipForString | PauseInfoResponse;
-  execute:
-    | AddHandlerArgs
-    | RemoveHandlerArgs
-    | ExchangeRewardsArgs
-    | UpdateOwnershipArgs;
+  execute: AddHandlerArgs | RemoveHandlerArgs | ExchangeRewardsArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
@@ -126,8 +117,9 @@ export interface InstantiateMsg {
   owner: string;
 }
 
+
 function isSigningCosmWasmClient(
-  client: CosmWasmClient | SigningCosmWasmClient,
+  client: CosmWasmClient | SigningCosmWasmClient
 ): client is SigningCosmWasmClient {
   return 'execute' in client;
 }
@@ -135,15 +127,12 @@ function isSigningCosmWasmClient(
 export class Client {
   private readonly client: CosmWasmClient | SigningCosmWasmClient;
   contractAddress: string;
-  constructor(
-    client: CosmWasmClient | SigningCosmWasmClient,
-    contractAddress: string,
-  ) {
+  constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string) {
     this.client = client;
     this.contractAddress = contractAddress;
   }
   mustBeSigningClient() {
-    return new Error('This client is not a SigningCosmWasmClient');
+    return new Error("This client is not a SigningCosmWasmClient");
   }
   static async instantiate(
     client: SigningCosmWasmClient,
@@ -169,144 +158,42 @@ export class Client {
     fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
   ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(
-      sender,
-      codeId,
-      new Uint8Array([salt]),
-      initMsg,
-      label,
-      fees,
-      {
-        ...(initCoins && initCoins.length && { funds: initCoins }),
-      },
-    );
+    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
+      ...(initCoins && initCoins.length && { funds: initCoins }),
+    });
     return res;
   }
-  queryHandlers = async (): Promise<ArrayOfHandlerConfig> => {
-    return this.client.queryContractSmart(this.contractAddress, {
-      handlers: {},
-    });
-  };
-  queryOwnership = async (): Promise<OwnershipForString> => {
-    return this.client.queryContractSmart(this.contractAddress, {
-      ownership: {},
-    });
-  };
-  queryPauseInfo = async (): Promise<PauseInfoResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, {
-      pause_info: {},
-    });
-  };
-  addHandler = async (
-    sender: string,
-    args: AddHandlerArgs,
-    fee?: number | StdFee | 'auto',
-    memo?: string,
-    funds?: Coin[],
-  ): Promise<ExecuteResult> => {
-    if (!isSigningCosmWasmClient(this.client)) {
-      throw this.mustBeSigningClient();
-    }
-    return this.client.execute(
-      sender,
-      this.contractAddress,
-      { add_handler: args },
-      fee || 'auto',
-      memo,
-      funds,
-    );
-  };
-  removeHandler = async (
-    sender: string,
-    args: RemoveHandlerArgs,
-    fee?: number | StdFee | 'auto',
-    memo?: string,
-    funds?: Coin[],
-  ): Promise<ExecuteResult> => {
-    if (!isSigningCosmWasmClient(this.client)) {
-      throw this.mustBeSigningClient();
-    }
-    return this.client.execute(
-      sender,
-      this.contractAddress,
-      { remove_handler: args },
-      fee || 'auto',
-      memo,
-      funds,
-    );
-  };
-  exchangeRewards = async (
-    sender: string,
-    args: ExchangeRewardsArgs,
-    fee?: number | StdFee | 'auto',
-    memo?: string,
-    funds?: Coin[],
-  ): Promise<ExecuteResult> => {
-    if (!isSigningCosmWasmClient(this.client)) {
-      throw this.mustBeSigningClient();
-    }
-    return this.client.execute(
-      sender,
-      this.contractAddress,
-      { exchange_rewards: args },
-      fee || 'auto',
-      memo,
-      funds,
-    );
-  };
-  updateOwnership = async (
-    sender: string,
-    args: UpdateOwnershipArgs,
-    fee?: number | StdFee | 'auto',
-    memo?: string,
-    funds?: Coin[],
-  ): Promise<ExecuteResult> => {
-    if (!isSigningCosmWasmClient(this.client)) {
-      throw this.mustBeSigningClient();
-    }
-    return this.client.execute(
-      sender,
-      this.contractAddress,
-      { update_ownership: args },
-      fee || 'auto',
-      memo,
-      funds,
-    );
-  };
-  pause = async (
-    sender: string,
-    fee?: number | StdFee | 'auto',
-    memo?: string,
-    funds?: Coin[],
-  ): Promise<ExecuteResult> => {
-    if (!isSigningCosmWasmClient(this.client)) {
-      throw this.mustBeSigningClient();
-    }
-    return this.client.execute(
-      sender,
-      this.contractAddress,
-      { pause: {} },
-      fee || 'auto',
-      memo,
-      funds,
-    );
-  };
-  unpause = async (
-    sender: string,
-    fee?: number | StdFee | 'auto',
-    memo?: string,
-    funds?: Coin[],
-  ): Promise<ExecuteResult> => {
-    if (!isSigningCosmWasmClient(this.client)) {
-      throw this.mustBeSigningClient();
-    }
-    return this.client.execute(
-      sender,
-      this.contractAddress,
-      { unpause: {} },
-      fee || 'auto',
-      memo,
-      funds,
-    );
-  };
+  queryHandlers = async(): Promise<ArrayOfHandlerConfig> => {
+    return this.client.queryContractSmart(this.contractAddress, { handlers: {} });
+  }
+  queryOwnership = async(): Promise<OwnershipForString> => {
+    return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
+  }
+  queryPauseInfo = async(): Promise<PauseInfoResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
+  }
+  addHandler = async(sender:string, args: AddHandlerArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { add_handler: args }, fee || "auto", memo, funds);
+  }
+  removeHandler = async(sender:string, args: RemoveHandlerArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { remove_handler: args }, fee || "auto", memo, funds);
+  }
+  exchangeRewards = async(sender:string, args: ExchangeRewardsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { exchange_rewards: args }, fee || "auto", memo, funds);
+  }
+  updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
+  }
+  pause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { pause: {} }, fee || "auto", memo, funds);
+  }
+  unpause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { unpause: {} }, fee || "auto", memo, funds);
+  }
 }
