@@ -3,6 +3,10 @@ target/
 **/schema/
 /artifacts/
 .rtx.toml
+
+neutron/data/
+ts-client/node_modules/
+
+coordinator/.env
 scripts/.env.instantiate
 scripts/.env.upload
-neutron/data/
