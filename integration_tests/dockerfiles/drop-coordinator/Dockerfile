@@ -36,6 +36,7 @@ RUN mkdir /coordinator
 COPY --from=node_builder /app/coordinator/ /coordinator/
 
 ENV ICQ_RUN_COMMAND "/usr/local/bin/neutron_query_relayer run"
+WORKDIR /coordinator
 
-ENTRYPOINT ["/coordinator/run.sh"]
+ENTRYPOINT ["./run.sh"]
 

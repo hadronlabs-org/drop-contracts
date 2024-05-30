@@ -14,29 +14,27 @@ export class StakerModule implements ManagerModule {
   constructor(
     private context: Context,
     private log: pino.Logger,
-  ) {
-    this.prepareConfig();
-
-    this.contractClient = new DropStaker.Client(
-      this.context.neutronSigningClient,
-      this.config.contractAddress,
-    );
-  }
+  ) {}
 
   private _config: StakerConfig;
   get config(): StakerConfig {
     return this._config;
   }
 
+  init() {
+    this.prepareConfig();
+
+    if (this.config.contractAddress) {
+      this.contractClient = new DropStaker.Client(
+        this.context.neutronSigningClient,
+        this.config.contractAddress,
+      );
+    }
+  }
+
   async run(): Promise<void> {
-    if (!this.icaAddress) {
-      const res = await this.contractClient.queryIca();
-      if ((res as any).registered && (res as any).registered.ica_address) {
-        this.icaAddress = (res as any).registered.ica_address;
-      } else {
-        this.log.error('ICA address not found');
-        return;
-      }
+    if (!this.contractClient) {
+      this.init();
     }
 
     const res = await this.contractClient.iBCTransfer(
