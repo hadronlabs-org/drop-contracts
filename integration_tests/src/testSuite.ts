@@ -230,8 +230,8 @@ const awaitNeutronChannels = (rest: string, rpc: string): Promise<void> =>
   waitFor(async () => {
     try {
       const client = new NeutronClient({
-        apiURL: `http://${rest}`,
-        rpcURL: `http://${rpc}`,
+        apiURL: rest,
+        rpcURL: rpc,
         prefix: 'neutron',
       });
       const res = await client.IbcCoreChannelV1.query.queryChannels(undefined, {
@@ -392,8 +392,8 @@ export const setupPark = async (
   );
   if (relayers.hermes) {
     await awaitNeutronChannels(
-      `127.0.0.1:${instance.ports['neutron'].rest}`,
-      `127.0.0.1:${instance.ports['neutron'].rpc}`,
+      `http://127.0.0.1:${instance.ports['neutron'].rest}`,
+      `http://127.0.0.1:${instance.ports['neutron'].rpc}`,
     ).catch((e) => {
       console.log(`Failed to await neutron channels: ${e}`);
       throw e;

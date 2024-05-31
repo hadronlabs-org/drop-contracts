@@ -5,15 +5,14 @@ while ! curl -f ${NODE}:1317/cosmos/base/tendermint/v1beta1/blocks/1 >/dev/null 
   sleep 1
 done
 
-if [[ "$MANUAL_MODE" == "true" ]]; then
+echo "Manual mode: $MANUAL_MODE"
+if [ "$MANUAL_MODE" = "true" ]; then
   while true; do
-  :
+    echo "Running query relayer in manual mode..."
+    sleep 10
   done
 else
   echo "Start relayer coordinator"
 
   yarn dev
 fi
-
-
-
