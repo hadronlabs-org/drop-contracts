@@ -62,8 +62,7 @@ async function print_n(
   if (current_unbond_batch - n < 0) {
     return [];
   }
-  const unbonding_period: number = (await drop_client.queryConfig())
-    .unbonding_period;
+  const dropCoreConfig = await drop_client.queryConfig();
   let arr = [];
 
   for (; n >= 0; n -= 1, current_unbond_batch -= 1) {
@@ -82,7 +81,11 @@ async function print_n(
     };
 
     let expected_finalization_time: any = new Date(
-      Math.floor(batch.created + unbonding_period / 7) * 1000
+      Math.floor(
+        batch.created +
+          dropCoreConfig.unbonding_period +
+          dropCoreConfig.unbond_batch_switch_time
+      ) * 1000
     );
     expected_finalization_time = {
       day: addLeadingZeros(expected_finalization_time.getUTCDate(), 2),
@@ -96,9 +99,12 @@ async function print_n(
     arr.push({
       batch_id: current_unbond_batch,
       status: batch.status,
-      expected_amount: batch.expected_amount,
+      expected_amount: batch.status === "new" ? null : batch.expected_amount,
       creation_time: `${creation_time.day}/${creation_time.month}/${creation_time.year}(${creation_time.hours}:${creation_time.minutes}:${creation_time.seconds})`,
-      expected_finalization_time: `${expected_finalization_time.day}/${expected_finalization_time.month}/${expected_finalization_time.year}(${expected_finalization_time.hours}:${expected_finalization_time.minutes}:${expected_finalization_time.seconds})`,
+      expected_finalization_time:
+        batch.status === "new"
+          ? null
+          : `${expected_finalization_time.day}/${expected_finalization_time.month}/${expected_finalization_time.year}(${expected_finalization_time.hours}:${expected_finalization_time.minutes}:${expected_finalization_time.seconds})`,
       unstaked_amount: batch.unbonded_amount,
     });
   }
