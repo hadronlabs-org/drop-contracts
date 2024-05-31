@@ -16,7 +16,7 @@ import {
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
-import { generateWallets, setupPark } from '../testSuite';
+import { awaitBlocks, generateWallets, setupPark } from '../testSuite';
 import { sha256, stringToPath } from '@cosmjs/crypto';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
@@ -26,13 +26,17 @@ import { AuthzExtension } from '@cosmjs/stargate/build/modules/authz/queries';
 import { pubkeyToAddress } from '@cosmjs/amino';
 import { SlashingExtension } from '@cosmjs/stargate/build/modules';
 import { ContractSalt } from '../helpers/salt';
+import { CosmoparkCoordinatorRelayer } from '@neutron-org/cosmopark/lib/relayers/coordinator';
 
 const StatsClass = DropValidatorsStats.Client;
 
 describe('Validators stats', () => {
   let contractBinary: Uint8Array;
+  let validatorProfileQueryId: number;
+  let signingInfoQueryId: number;
   const context: {
     park?: Cosmopark;
+    coordinator?: CosmoparkCoordinatorRelayer;
     contractAddress?: string;
     wallet?: DirectSecp256k1HdWallet;
     gaiaWallet?: DirectSecp256k1HdWallet;
@@ -80,6 +84,7 @@ describe('Validators stats', () => {
       {
         coordinator: {
           environment: {
+            MANUAL_MODE: 'true',
             VALIDATOR_STATS_CONTRACT_ADDRESS: context.contractAddress,
           },
         },
@@ -87,6 +92,11 @@ describe('Validators stats', () => {
       },
       wallets,
     );
+
+    context.coordinator = context.park.relayers.find(
+      (relayer) => relayer.type === 'coordinator',
+    ) as CosmoparkCoordinatorRelayer;
+
     context.gaiaWallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
       {
@@ -162,7 +172,7 @@ describe('Validators stats', () => {
   });
 
   afterAll(async () => {
-    // await context.park.stop();
+    await context.park.stop();
   });
 
   it('instantiate', async () => {
@@ -216,9 +226,35 @@ describe('Validators stats', () => {
       ],
     );
     expect(res.transactionHash).toBeTruthy();
+
+    await waitFor(async () => {
+      const { signing_info_id: _, validator_profile_id } =
+        await context.contractClient.queryKVQueryIds();
+      validatorProfileQueryId = parseInt(validator_profile_id || '0');
+
+      return validatorProfileQueryId > 0;
+    }, 60000);
+
+    await context.coordinator.execInNode(
+      `/usr/local/bin/neutron_query_relayer run -q ${validatorProfileQueryId}`,
+    );
+
+    await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 2);
+
+    await waitFor(async () => {
+      const { signing_info_id, validator_profile_id: _ } =
+        await context.contractClient.queryKVQueryIds();
+      signingInfoQueryId = parseInt(signing_info_id || '0');
+
+      return signingInfoQueryId > 0;
+    }, 60000);
+
+    await context.coordinator.execInNode(
+      `/usr/local/bin/neutron_query_relayer run -q ${validatorProfileQueryId} -q ${signingInfoQueryId}`,
+    );
   });
 
-  it('query delegations query', async () => {
+  it('query validators stats', async () => {
     let validators: ValidatorState[];
 
     const sigingInfos = await context.gaiaQueryClient.slashing.signingInfos();
