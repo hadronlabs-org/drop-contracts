@@ -18,7 +18,6 @@ import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import { ContractSalt } from '../helpers/salt';
 
 const DropPumpClass = DropPump.Client;
 

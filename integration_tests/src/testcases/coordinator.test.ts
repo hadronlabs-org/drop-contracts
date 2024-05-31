@@ -30,7 +30,6 @@ import { waitFor } from '../helpers/waitFor';
 import { ContractSalt } from '../helpers/salt';
 import { sha256, stringToPath } from '@cosmjs/crypto';
 import { MsgTransfer } from 'cosmjs-types/ibc/applications/transfer/v1/tx';
-import { CosmoparkCoordinatorRelayer } from '@neutron-org/cosmopark/lib/relayers/coordinator';
 
 const DropPumpClass = DropPump.Client;
 const DropFactoryClass = DropFactory.Client;
@@ -839,14 +838,6 @@ describe('Coordinator', () => {
 
       it.skip('tick', async () => {
         const { neutronUserAddress } = context;
-        const coreBalances =
-          await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
-            context.coreContractClient.contractAddress,
-          );
-        const neutronUserAddressBalances =
-          await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
-            neutronUserAddress,
-          );
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -859,11 +850,6 @@ describe('Coordinator', () => {
           ],
         );
         expect(res.transactionHash).toHaveLength(64);
-        const eventTypes = res.events.filter(
-          (ev) =>
-            ev.type ===
-            'wasm-crates.io:drop-staking__drop-core-execute-tick_idle',
-        );
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('transfering');
       });

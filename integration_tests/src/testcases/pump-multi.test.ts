@@ -364,8 +364,9 @@ describe('Pump-Multi', () => {
       const res = await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
         neutronSecondUserAddress,
       );
-      balance = res.data.balances.find((b) => b.denom.startsWith('ibc/'))
-        ?.amount;
+      balance = res.data.balances.find((b) =>
+        b.denom.startsWith('ibc/'),
+      )?.amount;
       return res.data.balances.length > 1;
     }, 60_000);
     expect(balance).toBe('1000');

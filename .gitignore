@@ -10,3 +10,4 @@ ts-client/node_modules/
 coordinator/.env
 scripts/.env.instantiate
 scripts/.env.upload
+.vscode/

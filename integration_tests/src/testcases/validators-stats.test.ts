@@ -228,7 +228,7 @@ describe('Validators stats', () => {
     expect(res.transactionHash).toBeTruthy();
 
     await waitFor(async () => {
-      const { signing_info_id: _, validator_profile_id } =
+      const { validator_profile_id } =
         await context.contractClient.queryKVQueryIds();
       validatorProfileQueryId = parseInt(validator_profile_id || '0');
 
@@ -242,7 +242,7 @@ describe('Validators stats', () => {
     await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 2);
 
     await waitFor(async () => {
-      const { signing_info_id, validator_profile_id: _ } =
+      const { signing_info_id } =
         await context.contractClient.queryKVQueryIds();
       signingInfoQueryId = parseInt(signing_info_id || '0');
 
