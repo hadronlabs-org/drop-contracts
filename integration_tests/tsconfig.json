@@ -3,12 +3,10 @@
     "target": "ESNext",
     "types": ["node"],
     "module": "commonjs",
-    "lib": ["esnext","DOM"],
+    "lib": ["esnext", "DOM"],
     "outDir": "lib",
     "resolveJsonModule": true,
     "esModuleInterop": true
   },
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

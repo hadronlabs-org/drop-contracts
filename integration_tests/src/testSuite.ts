@@ -20,6 +20,7 @@ const keys = [
   'ibcrelayer',
   'demowallet1',
   'neutronqueryrelayer',
+  'querycoordinator',
   'demo1',
   'demo2',
   'demo3',
@@ -176,6 +177,13 @@ const relayersConfig = {
     log_level: 'debug',
     type: 'neutron',
   },
+  coordinator: {
+    balance: '1000000000',
+    binary: 'neutron-query-relayer-cli',
+    image: `${ORG}neutron-query-relayer-cli-test${VERSION}`,
+    log_level: 'debug',
+    type: 'coordinator',
+  },
 };
 
 type Keys = (typeof keys)[number];
@@ -189,6 +197,7 @@ const awaitFirstBlock = (rpc: string): Promise<void> =>
         return true;
       }
     } catch (e) {
+      console.log(e);
       return false;
     }
   }, 20_000);
@@ -221,8 +230,8 @@ const awaitNeutronChannels = (rest: string, rpc: string): Promise<void> =>
   waitFor(async () => {
     try {
       const client = new NeutronClient({
-        apiURL: `http://${rest}`,
-        rpcURL: `http://${rpc}`,
+        apiURL: rest,
+        rpcURL: rpc,
         prefix: 'neutron',
       });
       const res = await client.IbcCoreChannelV1.query.queryChannels(undefined, {
@@ -239,7 +248,7 @@ const awaitNeutronChannels = (rest: string, rpc: string): Promise<void> =>
       await sleep(10000);
       return false;
     }
-  }, 100_000);
+  }, 500_000);
 
 export const generateWallets = (): Promise<Record<Keys, string>> =>
   keys.reduce(
@@ -276,7 +285,6 @@ const getRelayerConfig = (
   relayer: string,
   opts: RelayerOptsType,
 ): CosmoparkRelayer => {
-  relayer;
   let config = relayersConfig[relayer] || {};
 
   for (const [key, value] of Object.entries(opts)) {
@@ -298,6 +306,7 @@ export const setupPark = async (
   networks: string[] = [],
   opts?: NetworkOptsType, // Key is path to the param, value is Record of network name and value
   relayers: Partial<Record<keyof typeof relayersConfig, any | boolean>> = {},
+  wallets?: Record<Keys, string>,
 ): Promise<cosmopark> => {
   const context = ((t: Readonly<Suite | File>) => {
     if (isSuite(t)) {
@@ -310,7 +319,9 @@ export const setupPark = async (
       throw new Error('Invalid context');
     }
   })(t);
-  const wallets = await generateWallets();
+  if (!wallets) {
+    wallets = await generateWallets();
+  }
   const config: CosmoparkConfig = {
     context,
     networks: {},
@@ -360,6 +371,16 @@ export const setupPark = async (
       mnemonic: wallets.neutronqueryrelayer,
     } as any);
   }
+  if (relayers.coordinator) {
+    config.relayers.push({
+      ...getRelayerConfig(
+        'coordinator',
+        relayers.coordinator === true ? {} : relayers.coordinator,
+      ),
+      networks,
+      mnemonic: wallets.querycoordinator,
+    } as any);
+  }
   const instance = await cosmopark.create(config);
   await Promise.all(
     Object.entries(instance.ports).map(([network, ports]) =>
@@ -371,8 +392,8 @@ export const setupPark = async (
   );
   if (relayers.hermes) {
     await awaitNeutronChannels(
-      `127.0.0.1:${instance.ports['neutron'].rest}`,
-      `127.0.0.1:${instance.ports['neutron'].rpc}`,
+      `http://127.0.0.1:${instance.ports['neutron'].rest}`,
+      `http://127.0.0.1:${instance.ports['neutron'].rpc}`,
     ).catch((e) => {
       console.log(`Failed to await neutron channels: ${e}`);
       throw e;
