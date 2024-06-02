@@ -1,3 +1,3 @@
 ## Running
 
-Export required variable and run script `export $(grep -v '^#' .env.example | xargs) && ./upload.bash`
+Export required variables and run script `export $(grep -v '^#' .env.upload.example | xargs) && ./upload_contracts.bash`
