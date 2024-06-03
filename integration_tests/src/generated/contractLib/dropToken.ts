@@ -66,7 +66,7 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropTokenSchema {
-  responses: ConfigResponse | OwnershipFor_String;
+  responses: ConfigResponse | OwnershipForString;
   execute: MintArgs | SetTokenMetadataArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
@@ -78,7 +78,7 @@ export interface ConfigResponse {
 /**
  * The contract's ownership info
  */
-export interface OwnershipFor_String {
+export interface OwnershipForString {
   /**
    * The contract's current owner. `None` if the ownership has been renounced.
    */
@@ -167,10 +167,25 @@ export class Client {
     });
     return res;
   }
+  static async instantiate2(
+    client: SigningCosmWasmClient,
+    sender: string,
+    codeId: number,
+    salt: number,
+    initMsg: InstantiateMsg,
+    label: string,
+    fees: StdFee | 'auto' | number,
+    initCoins?: readonly Coin[],
+  ): Promise<InstantiateResult> {
+    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
+      ...(initCoins && initCoins.length && { funds: initCoins }),
+    });
+    return res;
+  }
   queryConfig = async(): Promise<ConfigResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
-  queryOwnership = async(): Promise<OwnershipFor_String> => {
+  queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
   }
   mint = async(sender:string, args: MintArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
