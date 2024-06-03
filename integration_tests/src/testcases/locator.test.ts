@@ -388,8 +388,7 @@ describe('Locator', () => {
     let matches: number = 0;
     for (const factory of context.contracts.factories) {
       const factoryState = await factory.queryState();
-      for (let i = 0; i < res.length; i += 1) {
-        const instance = res[i];
+      for (const instance of res) {
         if (instance.addr === factory.contractAddress) {
           matches += 1;
           expect(instance.contracts.token_contract).toBe(
