@@ -43,6 +43,8 @@ where
     Ica {},
     #[returns(Vec<Transaction>)]
     Transactions {},
+    #[returns(Vec<(u64, String)>)]
+    KVQueryIds {},
     #[returns(cosmwasm_std::Binary)]
     Extension { msg: E },
     #[returns(crate::state::TxState)]

@@ -4,8 +4,8 @@ use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::query_id::get_query_id;
 use drop_staking_base::msg::validatorsstats::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use drop_staking_base::state::validatorsstats::{
-    Config, MissedBlocks, ValidatorMissedBlocksForPeriod, ValidatorState, CONFIG, MISSED_BLOCKS,
-    SIGNING_INFO_QUERY_ID, SIGNING_INFO_REPLY_ID, STATE_MAP, VALCONS_TO_VALOPER,
+    Config, KVQueryIds, MissedBlocks, ValidatorMissedBlocksForPeriod, ValidatorState, CONFIG,
+    MISSED_BLOCKS, SIGNING_INFO_QUERY_ID, SIGNING_INFO_REPLY_ID, STATE_MAP, VALCONS_TO_VALOPER,
     VALIDATOR_PROFILE_QUERY_ID, VALIDATOR_PROFILE_REPLY_ID,
 };
 use neutron_sdk::bindings::query::QueryRegisteredQueryResultResponse;
@@ -58,7 +58,19 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Bin
     match msg {
         QueryMsg::State {} => query_state(deps, env),
         QueryMsg::Config {} => query_config(deps, env),
+        QueryMsg::KVQueryIds {} => query_kv_query_ids(deps, env),
     }
+}
+
+fn query_kv_query_ids(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {
+    to_json_binary(&KVQueryIds {
+        signing_info_id: SIGNING_INFO_QUERY_ID
+            .may_load(deps.storage)?
+            .map(|x| x.to_string()),
+        validator_profile_id: VALIDATOR_PROFILE_QUERY_ID
+            .may_load(deps.storage)?
+            .map(|x| x.to_string()),
+    })
 }
 
 fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> StdResult<Binary> {

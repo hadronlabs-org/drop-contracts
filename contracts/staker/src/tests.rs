@@ -272,7 +272,7 @@ fn test_ibc_transfer() {
     NON_STAKED_BALANCE
         .save(deps.as_mut().storage, &Uint128::zero())
         .unwrap();
-    ICA.set_address(deps.as_mut().storage, "ica_address")
+    ICA.set_address(deps.as_mut().storage, "ica_address", "port", "channel")
         .unwrap();
     let res = execute(
         deps.as_mut(),

@@ -13,6 +13,7 @@ export type IcaState =
         ica_address: string;
       };
     };
+export type ArrayOfTupleOfUint64And_String = [number, string][];
 export type Transaction =
   | {
       delegate: {
@@ -170,7 +171,7 @@ export type Timestamp = Uint64;
 export type Uint64 = string;
 
 export interface DropPuppeteerSchema {
-  responses: ConfigResponse | Binary | IcaState | ArrayOfTransaction | TxState;
+  responses: ConfigResponse | Binary | IcaState | ArrayOfTupleOfUint64And_String | ArrayOfTransaction | TxState;
   query: ExtensionArgs;
   execute:
     | RegisterBalanceAndDelegatorDelegationsQueryArgs
@@ -336,21 +337,6 @@ export class Client {
     });
     return res;
   }
-  static async instantiate2(
-    client: SigningCosmWasmClient,
-    sender: string,
-    codeId: number,
-    salt: number,
-    initMsg: InstantiateMsg,
-    label: string,
-    fees: StdFee | 'auto' | number,
-    initCoins?: readonly Coin[],
-  ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
-    });
-    return res;
-  }
   queryConfig = async(): Promise<ConfigResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
@@ -359,6 +345,9 @@ export class Client {
   }
   queryTransactions = async(): Promise<ArrayOfTransaction> => {
     return this.client.queryContractSmart(this.contractAddress, { transactions: {} });
+  }
+  queryKVQueryIds = async(): Promise<ArrayOfTupleOf_uint64And_String> => {
+    return this.client.queryContractSmart(this.contractAddress, { k_v_query_ids: {} });
   }
   queryExtension = async(args: ExtensionArgs): Promise<Binary> => {
     return this.client.queryContractSmart(this.contractAddress, { extension: args });

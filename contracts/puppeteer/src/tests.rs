@@ -539,7 +539,9 @@ fn test_sudo_response_ok() {
     assert_eq!(
         ica,
         drop_helpers::ica::IcaState::Registered {
-            ica_address: "ica_address".to_string()
+            ica_address: "ica_address".to_string(),
+            port_id: "port".to_string(),
+            channel_id: "channel".to_string(),
         }
     );
     let state = puppeteer_base.tx_state.load(deps.as_ref().storage).unwrap();
@@ -620,7 +622,9 @@ fn test_sudo_response_error() {
     assert_eq!(
         ica,
         drop_helpers::ica::IcaState::Registered {
-            ica_address: "ica_address".to_string()
+            ica_address: "ica_address".to_string(),
+            port_id: "port".to_string(),
+            channel_id: "channel".to_string(),
         }
     );
     let state = puppeteer_base.tx_state.load(deps.as_ref().storage).unwrap();
@@ -652,7 +656,9 @@ fn test_sudo_open_ack() {
     assert_eq!(
         ica,
         drop_helpers::ica::IcaState::Registered {
-            ica_address: "ica_address".to_string()
+            ica_address: "ica_address".to_string(),
+            port_id: "port_id_1".to_string(),
+            channel_id: "channel_1".to_string(),
         }
     );
 }
@@ -752,7 +758,7 @@ fn base_init(deps_mut: &mut DepsMut<NeutronQuery>) -> PuppeteerBase<'static, Con
         .unwrap();
     puppeteer_base
         .ica
-        .set_address(deps_mut.storage, "ica_address")
+        .set_address(deps_mut.storage, "ica_address", "port", "channel")
         .unwrap();
     puppeteer_base
 }

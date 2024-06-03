@@ -15,8 +15,8 @@ import { Coin } from "@cosmjs/amino";
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type ArrayOfTupleOfStringAndUint128 = [string, Uint128][];
-export type ArrayOfTupleOfStringAndUint1281 = [string, Uint128][];
+export type ArrayOfTupleOf_StringAnd_Uint128 = [string, Uint128][];
+export type ArrayOfTupleOf_StringAnd_Uint1281 = [string, Uint128][];
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -68,7 +68,7 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropStrategySchema {
-  responses: ArrayOfTupleOfStringAndUint128 | ArrayOfTupleOfStringAndUint1281 | Config | OwnershipForString;
+  responses: ArrayOfTupleOf_StringAnd_Uint128 | ArrayOfTupleOf_StringAnd_Uint1281 | Config | OwnershipFor_String;
   query: CalcDepositArgs | CalcWithdrawArgs;
   execute: UpdateConfigArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
@@ -83,7 +83,7 @@ export interface Config {
 /**
  * The contract's ownership info
  */
-export interface OwnershipForString {
+export interface OwnershipFor_String {
   /**
    * The contract's current owner. `None` if the ownership has been renounced.
    */
@@ -151,31 +151,16 @@ export class Client {
     });
     return res;
   }
-  static async instantiate2(
-    client: SigningCosmWasmClient,
-    sender: string,
-    codeId: number,
-    salt: number,
-    initMsg: InstantiateMsg,
-    label: string,
-    fees: StdFee | 'auto' | number,
-    initCoins?: readonly Coin[],
-  ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
-    });
-    return res;
-  }
   queryConfig = async(): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
-  queryCalcDeposit = async(args: CalcDepositArgs): Promise<ArrayOfTupleOfStringAndUint128> => {
+  queryCalcDeposit = async(args: CalcDepositArgs): Promise<ArrayOfTupleOf_StringAnd_Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { calc_deposit: args });
   }
-  queryCalcWithdraw = async(args: CalcWithdrawArgs): Promise<ArrayOfTupleOfStringAndUint128> => {
+  queryCalcWithdraw = async(args: CalcWithdrawArgs): Promise<ArrayOfTupleOf_StringAnd_Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { calc_withdraw: args });
   }
-  queryOwnership = async(): Promise<OwnershipForString> => {
+  queryOwnership = async(): Promise<OwnershipFor_String> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
   }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {

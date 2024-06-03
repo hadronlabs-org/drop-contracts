@@ -94,13 +94,7 @@ fn query_tx_state(deps: Deps, _env: Env) -> NeutronResult<Binary> {
 
 fn query_non_staked_balance(deps: Deps, _env: Env) -> NeutronResult<Binary> {
     let balance = NON_STAKED_BALANCE.load(deps.storage)?;
-    let config = CONFIG.load(deps.storage)?;
-    if config.min_staking_amount > balance {
-        return Err(NeutronError::Std(StdError::generic_err(
-            "not enough funds to stake",
-        )));
-    }
-    to_json_binary(&(balance)).map_err(NeutronError::Std)
+    Ok(to_json_binary(&(balance))?)
 }
 
 fn query_all_balance(deps: Deps, env: Env) -> NeutronResult<Binary> {
@@ -385,15 +379,15 @@ pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> ContractResu
 pub fn sudo_open_ack(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
-    _port_id: String,
-    _channel_id: String,
+    port_id: String,
+    channel_id: String,
     _counterparty_channel_id: String,
     counterparty_version: String,
 ) -> ContractResult<Response> {
     let parsed_version: Result<OpenAckVersion, _> =
         serde_json_wasm::from_str(counterparty_version.as_str());
     if let Ok(parsed_version) = parsed_version {
-        ICA.set_address(deps.storage, parsed_version.address)?;
+        ICA.set_address(deps.storage, parsed_version.address, port_id, channel_id)?;
         Ok(Response::default())
     } else {
         Err(ContractError::Std(StdError::generic_err(
