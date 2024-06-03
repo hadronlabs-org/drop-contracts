@@ -1326,8 +1326,7 @@ fn get_unbonding_msg<T>(
         .may_load(deps.storage)?
         .unwrap_or(UNBOND_BATCH_ID.load(deps.storage)?);
     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
-    if (unbond.status_timestamps.new.unwrap() + config.unbond_batch_switch_time
-        < env.block.time.seconds())
+    if (unbond.status_timestamps.new + config.unbond_batch_switch_time < env.block.time.seconds())
         && unbond.total_unbond_items != 0
         && !unbond.total_amount.is_zero()
     {
@@ -1442,7 +1441,7 @@ fn new_unbond(now: u64) -> UnbondBatch {
         unbonded_amount: None,
         withdrawed_amount: None,
         status_timestamps: UnbondBatchStatusTimestamps {
-            new: Some(now),
+            new: now,
             unbond_requested: None,
             unbond_failed: None,
             unbonding: None,

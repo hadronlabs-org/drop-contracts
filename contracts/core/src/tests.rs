@@ -75,7 +75,7 @@ fn get_default_config(
 
 fn get_default_unbond_batch_status_timestamps() -> UnbondBatchStatusTimestamps {
     UnbondBatchStatusTimestamps {
-        new: None,
+        new: 0,
         unbond_requested: None,
         unbond_failed: None,
         unbonding: None,
@@ -1199,7 +1199,7 @@ fn test_tick_idle_unbonding_close() {
                 unbonded_amount: None,
                 withdrawed_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
-                    new: Some(0),
+                    new: 0,
                     unbond_requested: None,
                     unbond_failed: None,
                     unbonding: None,
@@ -1955,7 +1955,7 @@ fn test_tick_idle_unbonding() {
                 unbonded_amount: None,
                 withdrawed_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
-                    new: Some(0),
+                    new: 0,
                     unbond_requested: None,
                     unbond_failed: None,
                     unbonding: None,
@@ -2296,7 +2296,7 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                 unbonded_amount: None,
                 withdrawed_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
-                    new: Some(0),
+                    new: 0,
                     unbond_requested: None,
                     unbond_failed: None,
                     unbonding: None,
@@ -2457,7 +2457,7 @@ fn test_tick_claiming_wo_idle() {
                 unbonded_amount: None,
                 withdrawed_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
-                    new: Some(0),
+                    new: 0,
                     unbond_requested: None,
                     unbond_failed: None,
                     unbonding: None,
@@ -2813,7 +2813,7 @@ fn test_tick_staking_to_unbonding() {
                 unbonded_amount: None,
                 withdrawed_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
-                    new: Some(0),
+                    new: 0,
                     unbond_requested: None,
                     unbond_failed: None,
                     unbonding: None,
@@ -2947,7 +2947,7 @@ fn test_tick_staking_to_idle() {
                 unbonded_amount: None,
                 withdrawed_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
-                    new: Some(0),
+                    new: 0,
                     unbond_requested: None,
                     unbond_failed: None,
                     unbonding: None,
@@ -3585,7 +3585,7 @@ mod process_emergency_batch {
                 unbonded_amount: Some(Uint128::new(100)),
                 withdrawed_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
-                    new: None,
+                    new: 0,
                     unbond_requested: None,
                     unbond_failed: None,
                     unbonding: None,
@@ -3626,7 +3626,7 @@ mod process_emergency_batch {
                 unbonded_amount: Some(Uint128::new(70)),
                 withdrawed_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
-                    new: None,
+                    new: 0,
                     unbond_requested: None,
                     unbond_failed: None,
                     unbonding: None,

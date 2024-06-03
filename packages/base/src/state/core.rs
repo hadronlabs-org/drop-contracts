@@ -79,7 +79,7 @@ pub enum UnbondBatchStatus {
 
 #[cw_serde]
 pub struct UnbondBatchStatusTimestamps {
-    pub new: Option<u64>,
+    pub new: u64,
     pub unbond_requested: Option<u64>,
     pub unbond_failed: Option<u64>,
     pub unbonding: Option<u64>,
