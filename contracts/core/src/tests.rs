@@ -1198,7 +1198,7 @@ fn test_tick_idle_unbonding_close() {
                 slashing_effect: None,
                 unbonded_amount: None,
                 withdrawed_amount: None,
-                creation_details: UnbondBatchStatusTimestamps {
+                status_timestamps: UnbondBatchStatusTimestamps {
                     new: Some(0),
                     unbond_requested: None,
                     unbond_failed: None,
@@ -1337,7 +1337,7 @@ fn test_tick_idle_claim_wo_unbond() {
                 slashing_effect: None,
                 unbonded_amount: None,
                 withdrawed_amount: None,
-                creation_details: get_default_unbond_batch_status_timestamps(),
+                status_timestamps: get_default_unbond_batch_status_timestamps(),
             },
         )
         .unwrap();
@@ -1492,7 +1492,7 @@ fn test_tick_idle_claim_with_unbond_transfer() {
                 slashing_effect: None,
                 unbonded_amount: None,
                 withdrawed_amount: None,
-                creation_details: get_default_unbond_batch_status_timestamps(),
+                status_timestamps: get_default_unbond_batch_status_timestamps(),
             },
         )
         .unwrap();
@@ -1954,7 +1954,7 @@ fn test_tick_idle_unbonding() {
                 slashing_effect: None,
                 unbonded_amount: None,
                 withdrawed_amount: None,
-                creation_details: UnbondBatchStatusTimestamps {
+                status_timestamps: UnbondBatchStatusTimestamps {
                     new: Some(0),
                     unbond_requested: None,
                     unbond_failed: None,
@@ -2295,7 +2295,7 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                 slashing_effect: None,
                 unbonded_amount: None,
                 withdrawed_amount: None,
-                creation_details: UnbondBatchStatusTimestamps {
+                status_timestamps: UnbondBatchStatusTimestamps {
                     new: Some(0),
                     unbond_requested: None,
                     unbond_failed: None,
@@ -2456,7 +2456,7 @@ fn test_tick_claiming_wo_idle() {
                 slashing_effect: None,
                 unbonded_amount: None,
                 withdrawed_amount: None,
-                creation_details: UnbondBatchStatusTimestamps {
+                status_timestamps: UnbondBatchStatusTimestamps {
                     new: Some(0),
                     unbond_requested: None,
                     unbond_failed: None,
@@ -2812,7 +2812,7 @@ fn test_tick_staking_to_unbonding() {
                 slashing_effect: None,
                 unbonded_amount: None,
                 withdrawed_amount: None,
-                creation_details: UnbondBatchStatusTimestamps {
+                status_timestamps: UnbondBatchStatusTimestamps {
                     new: Some(0),
                     unbond_requested: None,
                     unbond_failed: None,
@@ -2946,7 +2946,7 @@ fn test_tick_staking_to_idle() {
                 slashing_effect: None,
                 unbonded_amount: None,
                 withdrawed_amount: None,
-                creation_details: UnbondBatchStatusTimestamps {
+                status_timestamps: UnbondBatchStatusTimestamps {
                     new: Some(0),
                     unbond_requested: None,
                     unbond_failed: None,
@@ -3339,7 +3339,7 @@ fn test_unbond() {
                 slashing_effect: None,
                 unbonded_amount: None,
                 withdrawed_amount: None,
-                creation_details: get_default_unbond_batch_status_timestamps(),
+                status_timestamps: get_default_unbond_batch_status_timestamps(),
             },
         )
         .unwrap();
@@ -3436,7 +3436,7 @@ fn test_unbond() {
             slashing_effect: None,
             unbonded_amount: None,
             withdrawed_amount: None,
-            creation_details: get_default_unbond_batch_status_timestamps(),
+            status_timestamps: get_default_unbond_batch_status_timestamps(),
         }
     );
     let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
@@ -3482,7 +3482,7 @@ mod process_emergency_batch {
                         slashing_effect: None,
                         unbonded_amount: None,
                         withdrawed_amount: None,
-                        creation_details: get_default_unbond_batch_status_timestamps(),
+                        status_timestamps: get_default_unbond_batch_status_timestamps(),
                     },
                 )
                 .unwrap();
@@ -3584,7 +3584,7 @@ mod process_emergency_batch {
                 slashing_effect: Some(Decimal::one()),
                 unbonded_amount: Some(Uint128::new(100)),
                 withdrawed_amount: None,
-                creation_details: UnbondBatchStatusTimestamps {
+                status_timestamps: UnbondBatchStatusTimestamps {
                     new: None,
                     unbond_requested: None,
                     unbond_failed: None,
@@ -3625,7 +3625,7 @@ mod process_emergency_batch {
                 slashing_effect: Some(Decimal::from_ratio(70u128, 100u128)),
                 unbonded_amount: Some(Uint128::new(70)),
                 withdrawed_amount: None,
-                creation_details: UnbondBatchStatusTimestamps {
+                status_timestamps: UnbondBatchStatusTimestamps {
                     new: None,
                     unbond_requested: None,
                     unbond_failed: None,

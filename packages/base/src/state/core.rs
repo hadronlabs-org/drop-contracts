@@ -99,7 +99,7 @@ pub struct UnbondBatch {
     pub slashing_effect: Option<Decimal>,
     pub unbonded_amount: Option<Uint128>,
     pub withdrawed_amount: Option<Uint128>,
-    pub creation_details: UnbondBatchStatusTimestamps,
+    pub status_timestamps: UnbondBatchStatusTimestamps,
 }
 
 pub struct UnbondBatchIndexes<'a> {

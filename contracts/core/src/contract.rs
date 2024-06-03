@@ -336,7 +336,7 @@ fn execute_process_emergency_batch(
     batch.status = UnbondBatchStatus::Withdrawn;
     batch.unbonded_amount = Some(unbonded_amount);
     batch.slashing_effect = Some(slashing_effect);
-    batch.creation_details.withdrawn = Some(env.block.time.seconds());
+    batch.status_timestamps.withdrawn = Some(env.block.time.seconds());
     unbond_batches_map().save(deps.storage, batch_id, &batch)?;
 
     Ok(response(
@@ -607,7 +607,7 @@ fn execute_tick_idle(
                 unbonding_batch.unbonded_amount = Some(unbonded_amount);
                 unbonding_batch.slashing_effect = Some(slashing_effect);
                 unbonding_batch.status = UnbondBatchStatus::Withdrawing;
-                unbonding_batch.creation_details.withdrawing = Some(env.block.time.seconds());
+                unbonding_batch.status_timestamps.withdrawing = Some(env.block.time.seconds());
                 unbond_batches_map().save(deps.storage, id, &unbonding_batch)?;
                 Some(TransferReadyBatchesMsg {
                     batch_ids: vec![id],
@@ -640,13 +640,13 @@ fn execute_tick_idle(
                         batch.unbonded_amount = None;
                         batch.slashing_effect = None;
                         batch.status = UnbondBatchStatus::WithdrawingEmergency;
-                        batch.creation_details.withdrawing_emergency =
+                        batch.status_timestamps.withdrawing_emergency =
                             Some(env.block.time.seconds());
                     } else {
                         batch.unbonded_amount = Some(batch.expected_amount);
                         batch.slashing_effect = Some(Decimal::one());
                         batch.status = UnbondBatchStatus::Withdrawing;
-                        batch.creation_details.withdrawing = Some(env.block.time.seconds());
+                        batch.status_timestamps.withdrawing = Some(env.block.time.seconds());
                     }
                     unbond_batches_map().save(deps.storage, id, &batch)?;
                 }
@@ -770,12 +770,12 @@ fn execute_tick_claiming(
                             attrs.push(attr("batch_id", id.to_string()));
                             if transfer.emergency {
                                 batch.status = UnbondBatchStatus::WithdrawnEmergency;
-                                batch.creation_details.withdrawing_emergency =
+                                batch.status_timestamps.withdrawing_emergency =
                                     Some(env.block.time.seconds());
                                 attrs.push(attr("unbond_batch_status", "withdrawn_emergency"));
                             } else {
                                 batch.status = UnbondBatchStatus::Withdrawn;
-                                batch.creation_details.withdrawn = Some(env.block.time.seconds());
+                                batch.status_timestamps.withdrawn = Some(env.block.time.seconds());
                                 attrs.push(attr("unbond_batch_status", "withdrawn"));
                             }
                             unbond_batches_map().save(deps.storage, id, &batch)?;
@@ -888,7 +888,7 @@ fn execute_tick_unbonding(
                     attrs.push(attr("batch_id", batch_id.to_string()));
                     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
                     unbond.status = UnbondBatchStatus::Unbonding;
-                    unbond.creation_details.unbonding = Some(env.block.time.seconds());
+                    unbond.status_timestamps.unbonding = Some(env.block.time.seconds());
                     unbond.expected_release = env.block.time.seconds() + config.unbonding_period;
                     unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
                     FAILED_BATCH_ID.remove(deps.storage);
@@ -903,7 +903,7 @@ fn execute_tick_unbonding(
                 attrs.push(attr("batch_id", batch_id.to_string()));
                 let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
                 unbond.status = UnbondBatchStatus::UnbondFailed;
-                unbond.creation_details.unbond_failed = Some(env.block.time.seconds());
+                unbond.status_timestamps.unbond_failed = Some(env.block.time.seconds());
                 unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
                 FAILED_BATCH_ID.save(deps.storage, &batch_id)?;
                 attrs.push(attr("unbonding", "failed"));
@@ -1326,7 +1326,7 @@ fn get_unbonding_msg<T>(
         .may_load(deps.storage)?
         .unwrap_or(UNBOND_BATCH_ID.load(deps.storage)?);
     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
-    if (unbond.creation_details.new.unwrap() + config.unbond_batch_switch_time
+    if (unbond.status_timestamps.new.unwrap() + config.unbond_batch_switch_time
         < env.block.time.seconds())
         && unbond.total_unbond_items != 0
         && !unbond.total_amount.is_zero()
@@ -1338,7 +1338,7 @@ fn get_unbonding_msg<T>(
             },
         )?;
         unbond.status = UnbondBatchStatus::UnbondRequested;
-        unbond.creation_details.unbond_requested = Some(env.block.time.seconds());
+        unbond.status_timestamps.unbond_requested = Some(env.block.time.seconds());
         unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
         UNBOND_BATCH_ID.save(deps.storage, &(batch_id + 1))?;
         unbond_batches_map().save(
@@ -1441,7 +1441,7 @@ fn new_unbond(now: u64) -> UnbondBatch {
         slashing_effect: None,
         unbonded_amount: None,
         withdrawed_amount: None,
-        creation_details: UnbondBatchStatusTimestamps {
+        status_timestamps: UnbondBatchStatusTimestamps {
             new: Some(now),
             unbond_requested: None,
             unbond_failed: None,
