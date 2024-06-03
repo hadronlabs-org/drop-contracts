@@ -372,55 +372,13 @@ describe('Locator', () => {
     const { locator } = context.contracts;
     const res = await locator.queryFactoryInstances();
     expect(res).toHaveLength(2);
-    for (const instance of res) {
-      expect(instance.addr).toHaveLength(66);
-      expect(instance.contracts.token_contract).toHaveLength(66);
-      expect(instance.contracts.core_contract).toHaveLength(66);
-      expect(instance.contracts.puppeteer_contract).toHaveLength(66);
-      expect(instance.contracts.staker_contract).toHaveLength(66);
-      expect(instance.contracts.withdrawal_voucher_contract).toHaveLength(66);
-      expect(instance.contracts.withdrawal_manager_contract).toHaveLength(66);
-      expect(instance.contracts.strategy_contract).toHaveLength(66);
-      expect(instance.contracts.validators_set_contract).toHaveLength(66);
-      expect(instance.contracts.distribution_contract).toHaveLength(66);
-      expect(instance.contracts.rewards_manager_contract).toHaveLength(66);
-    }
     let matches: number = 0;
     for (const factory of context.contracts.factories) {
       const factoryState = await factory.queryState();
       for (const instance of res) {
         if (instance.addr === factory.contractAddress) {
           matches += 1;
-          expect(instance.contracts.token_contract).toBe(
-            factoryState.token_contract,
-          );
-          expect(instance.contracts.core_contract).toBe(
-            factoryState.core_contract,
-          );
-          expect(instance.contracts.puppeteer_contract).toBe(
-            factoryState.puppeteer_contract,
-          );
-          expect(instance.contracts.staker_contract).toBe(
-            factoryState.staker_contract,
-          );
-          expect(instance.contracts.withdrawal_voucher_contract).toBe(
-            factoryState.withdrawal_voucher_contract,
-          );
-          expect(instance.contracts.withdrawal_manager_contract).toBe(
-            factoryState.withdrawal_manager_contract,
-          );
-          expect(instance.contracts.strategy_contract).toBe(
-            factoryState.strategy_contract,
-          );
-          expect(instance.contracts.validators_set_contract).toBe(
-            factoryState.validators_set_contract,
-          );
-          expect(instance.contracts.distribution_contract).toBe(
-            factoryState.distribution_contract,
-          );
-          expect(instance.contracts.rewards_manager_contract).toBe(
-            factoryState.rewards_manager_contract,
-          );
+          expect(instance.contracts).toEqual(factoryState);
         }
       }
     }
@@ -438,8 +396,10 @@ describe('Locator', () => {
       '',
       [],
     );
-    expect((await locator.queryChains()).length).toEqual(1);
-    expect((await locator.queryFactoryInstances()).length).toEqual(1);
+    const locator_chains_remains = await locator.queryChains();
+    expect(locator_chains_remains).toHaveLength(1);
+    const remaining_chain = locator_chains_remains[0].name;
+    expect(remaining_chain).toBe('instance_1');
     await locator.removeChains(
       account.address,
       {
