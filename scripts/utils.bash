@@ -319,3 +319,11 @@ factory_proxy_execute() {
 
   neutrond tx wasm execute "$factory_address" "$msg" --amount "$amount" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx | assert_success
 }
+
+get_counterparty_channel_id() {
+  local ica_port="$1"
+  local ica_channel="$2"
+
+  local counterparty_channel_id=$(neutrond q ibc channel end $ica_port $ica_channel "${nq[@]}" | jq -r '.channel.counterparty.channel_id')
+  echo "$counterparty_channel_id"
+}
