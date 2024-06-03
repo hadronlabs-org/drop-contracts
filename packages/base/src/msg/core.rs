@@ -105,6 +105,8 @@ pub enum QueryMsg {
     Owner {},
     #[returns(cosmwasm_std::Decimal)]
     ExchangeRate {},
+    #[returns(Uint128)]
+    CurrentUnbondBatch {},
     #[returns(crate::state::core::UnbondBatch)]
     UnbondBatch { batch_id: Uint128 },
     #[returns(crate::state::core::ContractState)]
@@ -150,4 +152,4 @@ pub enum ExecuteMsg {
 }
 
 #[cw_serde]
-pub enum MigrateMsg {}
+pub struct MigrateMsg {}

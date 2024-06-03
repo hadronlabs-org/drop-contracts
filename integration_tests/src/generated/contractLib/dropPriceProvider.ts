@@ -64,7 +64,7 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropPriceProviderSchema {
-  responses: OwnershipForString | Decimal;
+  responses: OwnershipFor_String | Decimal;
   query: PriceArgs;
   execute: RemoveDenomArgs | SetPriceArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
@@ -73,7 +73,7 @@ export interface DropPriceProviderSchema {
 /**
  * The contract's ownership info
  */
-export interface OwnershipForString {
+export interface OwnershipFor_String {
   /**
    * The contract's current owner. `None` if the ownership has been renounced.
    */
@@ -132,25 +132,10 @@ export class Client {
     });
     return res;
   }
-  static async instantiate2(
-    client: SigningCosmWasmClient,
-    sender: string,
-    codeId: number,
-    salt: number,
-    initMsg: InstantiateMsg,
-    label: string,
-    fees: StdFee | 'auto' | number,
-    initCoins?: readonly Coin[],
-  ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
-    });
-    return res;
-  }
   queryPrice = async(args: PriceArgs): Promise<Decimal> => {
     return this.client.queryContractSmart(this.contractAddress, { price: args });
   }
-  queryOwnership = async(): Promise<OwnershipForString> => {
+  queryOwnership = async(): Promise<OwnershipFor_String> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
   }
   removeDenom = async(sender:string, args: RemoveDenomArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {

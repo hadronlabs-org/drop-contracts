@@ -86,7 +86,6 @@ pub struct UnbondBatch {
     pub status: UnbondBatchStatus,
     pub slashing_effect: Option<Decimal>,
     pub unbonded_amount: Option<Uint128>,
-    pub withdrawed_amount: Option<Uint128>,
     pub created: u64,
 }
 

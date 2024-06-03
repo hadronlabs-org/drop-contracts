@@ -55,4 +55,4 @@ pub struct InstantiateMsg {
 }
 
 #[cw_serde]
-pub enum MigrateMsg {}
+pub struct MigrateMsg {}

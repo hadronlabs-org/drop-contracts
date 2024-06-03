@@ -40,4 +40,4 @@ pub enum ReceiveNftMsg {
 }
 
 #[cw_serde]
-pub enum MigrateMsg {}
+pub struct MigrateMsg {}

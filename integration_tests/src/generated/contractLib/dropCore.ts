@@ -40,12 +40,26 @@ export type ContractState =
   | "staking_rewards"
   | "staking_bond";
 /**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint1281 = string;
+/**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal1 = string;
-export type ArrayOfTupleOfStringAndTupleOfStringAndUint128 = [string, [string, Uint128]][];
+export type ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128 = [string, [string, Uint128]][];
 export type ResponseHookMsg =
   | {
       success: ResponseHookSuccessMsg;
@@ -176,7 +190,7 @@ export type PauseInfoResponse =
   | {
       unpaused: {};
     };
-export type ArrayOfTupleOfStringAndTupleOfStringAndUint1281 = [string, [string, Uint128]][];
+export type ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint1281 = [string, [string, Uint128]][];
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -190,7 +204,7 @@ export type ArrayOfTupleOfStringAndTupleOfStringAndUint1281 = [string, [string, 
  *
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
-export type Uint1281 = string;
+export type Uint1282 = string;
 export type UnbondBatchStatus =
   | "new"
   | "unbond_requested"
@@ -279,15 +293,16 @@ export interface DropCoreSchema {
   responses:
     | Config
     | ContractState
+    | Uint1281
     | Decimal1
-    | ArrayOfTupleOfStringAndTupleOfStringAndUint128
+    | ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128
     | LastPuppeteerResponse
     | LastStakerResponse
     | ArrayOfNonNativeRewardsItem
     | String
     | PauseInfoResponse
-    | ArrayOfTupleOfStringAndTupleOfStringAndUint1281
-    | Uint1281
+    | ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint1281
+    | Uint1282
     | UnbondBatch;
   query: UnbondBatchArgs;
   execute:
@@ -535,21 +550,6 @@ export class Client {
     });
     return res;
   }
-  static async instantiate2(
-    client: SigningCosmWasmClient,
-    sender: string,
-    codeId: number,
-    salt: number,
-    initMsg: InstantiateMsg,
-    label: string,
-    fees: StdFee | 'auto' | number,
-    initCoins?: readonly Coin[],
-  ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
-    });
-    return res;
-  }
   queryConfig = async(): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
@@ -558,6 +558,9 @@ export class Client {
   }
   queryExchangeRate = async(): Promise<Decimal> => {
     return this.client.queryContractSmart(this.contractAddress, { exchange_rate: {} });
+  }
+  queryCurrentUnbondBatch = async(): Promise<Uint128> => {
+    return this.client.queryContractSmart(this.contractAddress, { current_unbond_batch: {} });
   }
   queryUnbondBatch = async(args: UnbondBatchArgs): Promise<UnbondBatch> => {
     return this.client.queryContractSmart(this.contractAddress, { unbond_batch: args });
@@ -574,10 +577,10 @@ export class Client {
   queryNonNativeRewardsReceivers = async(): Promise<ArrayOfNonNativeRewardsItem> => {
     return this.client.queryContractSmart(this.contractAddress, { non_native_rewards_receivers: {} });
   }
-  queryPendingLSMShares = async(): Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128> => {
+  queryPendingLSMShares = async(): Promise<ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { pending_l_s_m_shares: {} });
   }
-  queryLSMSharesToRedeem = async(): Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128> => {
+  queryLSMSharesToRedeem = async(): Promise<ArrayOfTupleOf_StringAnd_TupleOf_StringAnd_Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { l_s_m_shares_to_redeem: {} });
   }
   queryTotalBonded = async(): Promise<Uint128> => {

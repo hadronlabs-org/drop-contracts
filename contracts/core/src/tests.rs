@@ -1184,7 +1184,6 @@ fn test_tick_idle_unbonding_close() {
                 expected_release: 10001,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 1,
             },
         )
@@ -1314,7 +1313,6 @@ fn test_tick_idle_claim_wo_unbond() {
                 expected_release: 9000,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 1,
             },
         )
@@ -1469,7 +1467,6 @@ fn test_tick_idle_claim_with_unbond_transfer() {
                 expected_release: 90000,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 0,
             },
         )
@@ -1931,7 +1928,6 @@ fn test_tick_idle_unbonding() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 0,
             },
         )
@@ -2263,7 +2259,6 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 0,
             },
         )
@@ -2415,7 +2410,6 @@ fn test_tick_claiming_wo_idle() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 0,
             },
         )
@@ -2762,7 +2756,6 @@ fn test_tick_staking_to_unbonding() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 0,
             },
         )
@@ -2887,7 +2880,6 @@ fn test_tick_staking_to_idle() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 0,
             },
         )
@@ -3095,6 +3087,55 @@ fn test_bond_with_receiver() {
 }
 
 #[test]
+fn test_bond_lsm_share_wrong_channel() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_stargate_query_response(
+        "/ibc.applications.transfer.v1.Query/DenomTrace",
+        |_data| {
+            to_json_binary(&QueryDenomTraceResponse {
+                denom_trace: DenomTrace {
+                    path: "transfer/wrong_channel".to_string(),
+                    base_denom: "valoper1/1".to_string(),
+                },
+            })
+            .unwrap()
+        },
+    );
+    let mut env = mock_env();
+    env.block.time = Timestamp::from_seconds(1000);
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+        .unwrap();
+    BONDED_AMOUNT
+        .save(deps.as_mut().storage, &Uint128::zero())
+        .unwrap();
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                600,
+                Uint128::new(100),
+            ),
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        env,
+        mock_info("some", &[Coin::new(1000, "lsm_share")]),
+        ExecuteMsg::Bond {
+            receiver: None,
+            r#ref: None,
+        },
+    );
+    assert!(res.is_err());
+    assert_eq!(res, Err(ContractError::InvalidDenom {}));
+}
+
+#[test]
 fn test_bond_lsm_share_wrong_validator() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.add_stargate_query_response(
@@ -3102,19 +3143,29 @@ fn test_bond_lsm_share_wrong_validator() {
         |_data| {
             to_json_binary(&QueryDenomTraceResponse {
                 denom_trace: DenomTrace {
-                    path: "transfer/channel".to_string(),
-                    base_denom: "valoper1/1".to_string(),
+                    path: "transfer/transfer_channel".to_string(),
+                    base_denom: "outside_valoper1/1".to_string(),
                 },
             })
             .unwrap()
         },
     );
+    let query_called = std::rc::Rc::new(std::cell::RefCell::new(false));
+    let query_called_cb = std::rc::Rc::clone(&query_called);
     deps.querier
-        .add_wasm_query_response("validators_set_contract", |_| {
-            to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
-                validator: None,
-            })
-            .unwrap()
+        .add_wasm_query_response("validators_set_contract", move |request| {
+            let request =
+                from_json::<drop_staking_base::msg::validatorset::QueryMsg>(request).unwrap();
+            if let drop_staking_base::msg::validatorset::QueryMsg::Validator { valoper } = request {
+                assert_eq!(valoper, "outside_valoper1".to_string());
+                query_called_cb.replace(true);
+                to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
+                    validator: None,
+                })
+                .unwrap()
+            } else {
+                unimplemented!()
+            }
         });
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(1000);
@@ -3148,6 +3199,7 @@ fn test_bond_lsm_share_wrong_validator() {
     );
     assert!(res.is_err());
     assert_eq!(res, Err(ContractError::InvalidDenom {}));
+    assert!(*query_called.borrow());
 }
 
 #[test]
@@ -3271,7 +3323,6 @@ fn test_unbond() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
                 created: 0,
             },
         )
@@ -3368,7 +3419,6 @@ fn test_unbond() {
             expected_release: 0,
             slashing_effect: None,
             unbonded_amount: None,
-            withdrawed_amount: None,
             created: 0,
         }
     );
@@ -3414,7 +3464,6 @@ mod process_emergency_batch {
                         status,
                         slashing_effect: None,
                         unbonded_amount: None,
-                        withdrawed_amount: None,
                         created: 200,
                     },
                 )
@@ -3515,7 +3564,6 @@ mod process_emergency_batch {
                 status: UnbondBatchStatus::Withdrawn,
                 slashing_effect: Some(Decimal::one()),
                 unbonded_amount: Some(Uint128::new(100)),
-                withdrawed_amount: None,
                 created: 200,
             }
         );
@@ -3546,7 +3594,6 @@ mod process_emergency_batch {
                 status: UnbondBatchStatus::Withdrawn,
                 slashing_effect: Some(Decimal::from_ratio(70u128, 100u128)),
                 unbonded_amount: Some(Uint128::new(70)),
-                withdrawed_amount: None,
                 created: 200,
             }
         );
