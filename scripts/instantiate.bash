@@ -37,10 +37,13 @@ main() {
   register_staker_ica
   print_hermes_command $staker_ica_port $staker_ica_channel
   wait_ica_address "staker" $staker_address
+  staker_counterparty_channel_id=$(get_counterparty_channel_id $staker_ica_port $staker_ica_channel)
 
   register_puppeteer_ica
   print_hermes_command $puppeteer_ica_port $puppeteer_ica_channel
   wait_ica_address "puppeteer" $puppeteer_address
+  puppeteer_counterparty_channel_id=$(get_counterparty_channel_id $puppeteer_ica_port $puppeteer_ica_channel)
+
 
   update_msg='{
     "update_config":{
@@ -102,9 +105,7 @@ main() {
   register_pump_ica
   print_hermes_command $pump_ica_port $pump_ica_channel
   wait_ica_address "pump" $pump_address
-
-  # pump_ica_address="$(neutrond query wasm contract-state smart "$pump_address" '{"ica":{}}' "${nq[@]}" \
-  #   | jq -r '.data.registered.ica_address')"
+  pump_counterparty_channel_id=$(get_counterparty_channel_id $pump_ica_port $pump_ica_channel)
 
   msg='{
     "update_config":{
@@ -135,9 +136,9 @@ main() {
   printf 'id = "%s"\n' "$TARGET_CHAIN_ID"
   echo   "[chains.packet_filter]"
   echo   "list = ["
-  echo   "  ['icahost', '<PUPPETEER_COUNTERPARTY_CHANNEL>'],"
-  echo   "  ['icahost', '<PUMP_COUNTERPARTY_CHANNEL>'],"
-  echo   "  ['icahost', '<STAKER_COUNTERPARTY_CHANNEL>']"
+  echo   "  ['icahost', '$puppeteer_counterparty_channel_id'],"
+  echo   "  ['icahost', '$pump_counterparty_channel_id'],"
+  echo   "  ['icahost', '$staker_counterparty_channel_id']"
   echo   "]"
   
 }
