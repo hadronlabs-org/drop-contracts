@@ -372,17 +372,15 @@ describe('Locator', () => {
     const { locator } = context.contracts;
     const res = await locator.queryFactoryInstances();
     expect(res).toHaveLength(2);
-    let matches: number = 0;
     for (const factory of context.contracts.factories) {
       const factoryState = await factory.queryState();
       for (const instance of res) {
         if (instance.addr === factory.contractAddress) {
-          matches += 1;
           expect(instance.contracts).toEqual(factoryState);
         }
       }
     }
-    expect(matches).toBe(res.length);
+    expect(context.contracts.factories.length).toBe(res.length);
   });
   it('Try to remove factory instances from locator contract', async () => {
     const { locator } = context.contracts;
