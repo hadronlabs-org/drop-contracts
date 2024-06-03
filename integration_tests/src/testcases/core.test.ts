@@ -995,7 +995,7 @@ describe('Core', () => {
     expect(batch).toBeTruthy();
     expect(batch).toEqual<UnbondBatch>({
       slashing_effect: null,
-      created: expect.any(Number),
+      status_timestamps: expect.any(Object),
       expected_release: 0,
       status: 'new',
       total_amount: '500000',
@@ -1261,7 +1261,7 @@ describe('Core', () => {
         expect(batch).toEqual<UnbondBatch>({
           slashing_effect: null,
           status: 'unbond_requested',
-          created: expect.any(Number),
+          status_timestamps: expect.any(Object),
           expected_release: 0,
           total_amount: '500000',
           expected_amount: '500000',
@@ -1315,7 +1315,7 @@ describe('Core', () => {
         expect(batch).toEqual<UnbondBatch>({
           slashing_effect: null,
           status: 'unbonding',
-          created: expect.any(Number),
+          status_timestamps: expect.any(Object),
           expected_release: expect.any(Number),
           total_amount: '500000',
           expected_amount: '500000',
@@ -2339,7 +2339,7 @@ describe('Core', () => {
         expect(batch).toEqual<UnbondBatch>({
           slashing_effect: '1',
           status: 'withdrawn',
-          created: expect.any(Number),
+          status_timestamps: expect.any(Object),
           expected_release: expect.any(Number),
           total_amount: '500000',
           expected_amount: '500000',

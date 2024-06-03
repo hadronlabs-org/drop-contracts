@@ -901,7 +901,7 @@ describe('Core Slashing', () => {
       expect(batch).toEqual<UnbondBatch>({
         slashing_effect: null,
         status: 'unbonding',
-        created: expect.any(Number),
+        status_timestamps: expect.any(Object),
         expected_release: expect.any(Number),
 
         total_amount: '500',
@@ -1130,7 +1130,7 @@ describe('Core Slashing', () => {
       expect(batch).toEqual<UnbondBatch>({
         slashing_effect: null,
         status: 'unbonding',
-        created: expect.any(Number),
+        status_timestamps: expect.any(Object),
         expected_release: expect.any(Number),
         total_amount: '3000',
         expected_amount: '3000',
@@ -1256,7 +1256,7 @@ describe('Core Slashing', () => {
     expect(batch).toEqual<UnbondBatch>({
       slashing_effect: null,
       status: 'withdrawing_emergency',
-      created: expect.any(Number),
+      status_timestamps: expect.any(Object),
       expected_release: expect.any(Number),
       total_amount: '1000',
       expected_amount: '1000',
@@ -1273,7 +1273,7 @@ describe('Core Slashing', () => {
     expect(batch).toEqual<UnbondBatch>({
       slashing_effect: null,
       status: 'withdrawing_emergency',
-      created: expect.any(Number),
+      status_timestamps: expect.any(Object),
       expected_release: expect.any(Number),
       total_amount: '3000',
       expected_amount: '3499',
@@ -1308,7 +1308,7 @@ describe('Core Slashing', () => {
     expect(batch).toEqual<UnbondBatch>({
       slashing_effect: null,
       status: 'withdrawn_emergency',
-      created: expect.any(Number),
+      status_timestamps: expect.any(Object),
       expected_release: expect.any(Number),
       total_amount: '1000',
       expected_amount: '1000',
@@ -1325,7 +1325,7 @@ describe('Core Slashing', () => {
     expect(batch).toEqual<UnbondBatch>({
       slashing_effect: null,
       status: 'withdrawn_emergency',
-      created: expect.any(Number),
+      status_timestamps: expect.any(Object),
       expected_release: expect.any(Number),
       total_amount: '3000',
       expected_amount: '3499',
