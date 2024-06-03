@@ -374,11 +374,11 @@ describe('Locator', () => {
     expect(res).toHaveLength(2);
     for (const factory of context.contracts.factories) {
       const factoryState = await factory.queryState();
-      for (const instance of res) {
-        if (instance.addr === factory.contractAddress) {
-          expect(instance.contracts).toEqual(factoryState);
-        }
-      }
+      const instance = res.find(
+        (element) => element.addr == factory.contractAddress,
+      );
+      expect(instance).not.toBeUndefined();
+      expect(instance.contracts).toEqual(factoryState);
     }
     expect(context.contracts.factories.length).toBe(res.length);
   });
