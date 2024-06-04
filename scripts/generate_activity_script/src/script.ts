@@ -85,13 +85,10 @@ async function bond_random_amount(
   clientCW: SigningCosmWasmClient,
   drop_instance: DropCoreClient,
   address: string
-): Promise<ActionLog> {
+): Promise<ActionLog | null> {
   let ibc_denom_balance: Coin = await clientCW.getBalance(address, IBC_DENOM);
   if (Number(ibc_denom_balance.amount) === 0) {
-    console.error(
-      `${address} balance of ${IBC_DENOM} is ${ibc_denom_balance.amount}${ibc_denom_balance.denom}, nothing to bond`
-    );
-    process.exit(1);
+    return null;
   }
   const config = await drop_instance.queryConfig();
   const exchange_rate: number = Math.floor(
@@ -108,15 +105,20 @@ async function bond_random_amount(
     Math.random() * (Number(ibc_denom_balance.amount) - min) + min
   );
   if (random_amount > Number(ibc_denom_balance.amount)) {
-    console.error(
-      `${address} balance of ${IBC_DENOM} is ${ibc_denom_balance.amount}${ibc_denom_balance.denom}, it's smaller then minimum (${min})`
-    );
-    process.exit(1);
+    return null;
   }
-  return await bond(drop_instance, address, {
-    amount: String(random_amount),
-    denom: IBC_DENOM,
-  });
+  try {
+    const res = await bond(drop_instance, address, {
+      amount: String(random_amount),
+      denom: IBC_DENOM,
+    });
+    if ((await clientCW.getTx(res.txHash)).code !== 0) {
+      return null;
+    }
+    return res;
+  } catch (e) {
+    return null;
+  }
 }
 
 async function unbond(
@@ -144,23 +146,28 @@ async function unbond_random_amount(
   clientCW: SigningCosmWasmClient,
   drop_instance: DropCoreClient,
   address: string
-): Promise<ActionLog> {
+): Promise<ActionLog | null> {
   let factory_balance: Coin = await clientCW.getBalance(address, FACTORY_DENOM);
   if (Number(factory_balance.amount) === 0) {
-    console.error(
-      `${address} balance of ${FACTORY_DENOM} is ${factory_balance.amount}${factory_balance.denom}, nothing to unbond`
-    );
-    process.exit(1);
+    return null;
   }
 
   let random_amount: number = Math.floor(
     Math.random() * Number(factory_balance.amount) + 1
   );
 
-  return await unbond(drop_instance, address, {
-    amount: String(random_amount),
-    denom: FACTORY_DENOM,
-  });
+  try {
+    const res = await unbond(drop_instance, address, {
+      amount: String(random_amount),
+      denom: FACTORY_DENOM,
+    });
+    if ((await clientCW.getTx(res.txHash)).code !== 0) {
+      return null;
+    }
+    return res;
+  } catch (e) {
+    return null;
+  }
 }
 
 async function send_nft(
@@ -200,7 +207,7 @@ async function withdraw_random_nft(
   clientCW: SigningCosmWasmClient,
   drop_instance: DropCoreClient,
   address: string
-): Promise<ActionLog> {
+): Promise<ActionLog | null> {
   const config = await drop_instance.queryConfig();
   const withdrawal_manager: DropWithdrawalManager = new DropWithdrawalManager(
     clientCW,
@@ -250,19 +257,22 @@ async function withdraw_random_nft(
   }
 
   if (withdrawn_nfts.length === 0) {
-    console.error(`${address} has no withdrawn nfts, nothing to withdraw`);
-    process.exit(1);
+    return null;
   }
 
   const nft_id: string =
     withdrawn_nfts[Math.floor(Math.random() * withdrawn_nfts.length)];
 
-  return await send_nft(
-    withdrawal_voucher,
-    withdrawal_manager,
-    address,
-    nft_id
-  );
+  try {
+    return await send_nft(
+      withdrawal_voucher,
+      withdrawal_manager,
+      address,
+      nft_id
+    );
+  } catch (e) {
+    return null;
+  }
 }
 
 async function main() {
@@ -278,22 +288,53 @@ async function main() {
   let target = new DropCoreClient(clientCW, TARGET);
 
   let mode: MODE = await calculate_mode(BOND_PROB, UNBOND_PROB, WITHDRAW_PROB);
-  switch (mode) {
-    case MODE.WITHDRAW:
-      console.log(
-        await withdraw_random_nft(clientCW, target, mainAccounts[0].address)
-      );
-      break;
-    case MODE.UNBOND:
-      console.log(
-        await unbond_random_amount(clientCW, target, mainAccounts[0].address)
-      );
-      break;
-    case MODE.BOND:
-      console.log(
-        await bond_random_amount(clientCW, target, mainAccounts[0].address)
-      );
-      break;
+  let unused_modes: MODE[] = [MODE.BOND, MODE.UNBOND, MODE.WITHDRAW];
+  let finished: boolean = false;
+  while (!finished && unused_modes.length > 0) {
+    switch (mode) {
+      case MODE.WITHDRAW: {
+        const res = await withdraw_random_nft(
+          clientCW,
+          target,
+          mainAccounts[0].address
+        );
+        if (res !== null) {
+          console.log(res);
+          finished = true;
+        }
+        break;
+      }
+      case MODE.UNBOND: {
+        const res = await unbond_random_amount(
+          clientCW,
+          target,
+          mainAccounts[0].address
+        );
+        if (res !== null) {
+          console.log(res);
+          finished = true;
+        }
+        break;
+      }
+      case MODE.BOND: {
+        const res = await bond_random_amount(
+          clientCW,
+          target,
+          mainAccounts[0].address
+        );
+        if (res !== null) {
+          console.log(res);
+          finished = true;
+        }
+        break;
+      }
+    }
+    unused_modes = unused_modes.filter((element) => element !== mode);
+    mode = unused_modes[Math.floor(Math.random() * unused_modes.length)];
+  }
+  if (unused_modes.length === 0) {
+    console.error("Nothing to bond, unbond or withdraw");
+    process.exit(1);
   }
 }
 
