@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "raw": "node -r ts-node/register --env-file=./.env src/app.ts",
     "start": "node -r ts-node/register --env-file=./.env src/app.ts | jq -r '([\"id\",\"status\",\"expected\",\"creation(UTC)\",\"finalization(UTC)\",\"unstaked\"] | (., map(length*\"-\"))), (.[] | [.batch_id,.status,.expected_amount // \"-\",.creation_time,.expected_finalization_time // \"-\",.unstaked_amount // \"-\"]) | @tsv' --raw-output | column -t"
   },
   "keywords": [],

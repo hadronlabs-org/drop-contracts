@@ -70,7 +70,7 @@ async function print_n(
       batch_id: String(current_unbond_batch),
     });
 
-    let creation_time: any = new Date(batch.created * 1000);
+    let creation_time: any = new Date(batch.status_timestamps.new * 1000);
     creation_time = {
       day: addLeadingZeros(creation_time.getUTCDate(), 2),
       month: addLeadingZeros(creation_time.getUTCMonth(), 2),
@@ -80,33 +80,40 @@ async function print_n(
       seconds: addLeadingZeros(creation_time.getUTCSeconds(), 2),
     };
 
-    let expected_finalization_time: any = new Date(
-      Math.floor(
-        batch.created +
-          dropCoreConfig.unbonding_period +
-          dropCoreConfig.unbond_batch_switch_time
-      ) * 1000
-    );
-    expected_finalization_time = {
-      day: addLeadingZeros(expected_finalization_time.getUTCDate(), 2),
-      month: addLeadingZeros(expected_finalization_time.getUTCMonth(), 2),
-      year: expected_finalization_time.getUTCFullYear(),
-      hours: addLeadingZeros(expected_finalization_time.getUTCHours(), 2),
-      minutes: addLeadingZeros(expected_finalization_time.getUTCMinutes(), 2),
-      seconds: addLeadingZeros(expected_finalization_time.getUTCSeconds(), 2),
-    };
+    if (batch.status !== "new") {
+      let expected_finalization_time: any = new Date(
+        1000 *
+          (batch.status_timestamps.unbond_requested +
+            dropCoreConfig.unbonding_period +
+            dropCoreConfig.unbond_batch_switch_time)
+      );
+      expected_finalization_time = {
+        day: addLeadingZeros(expected_finalization_time.getUTCDate(), 2),
+        month: addLeadingZeros(expected_finalization_time.getUTCMonth(), 2),
+        year: expected_finalization_time.getUTCFullYear(),
+        hours: addLeadingZeros(expected_finalization_time.getUTCHours(), 2),
+        minutes: addLeadingZeros(expected_finalization_time.getUTCMinutes(), 2),
+        seconds: addLeadingZeros(expected_finalization_time.getUTCSeconds(), 2),
+      };
 
-    arr.push({
-      batch_id: current_unbond_batch,
-      status: batch.status,
-      expected_amount: batch.status === "new" ? null : batch.expected_amount,
-      creation_time: `${creation_time.day}/${creation_time.month}/${creation_time.year}(${creation_time.hours}:${creation_time.minutes}:${creation_time.seconds})`,
-      expected_finalization_time:
-        batch.status === "new"
-          ? null
-          : `${expected_finalization_time.day}/${expected_finalization_time.month}/${expected_finalization_time.year}(${expected_finalization_time.hours}:${expected_finalization_time.minutes}:${expected_finalization_time.seconds})`,
-      unstaked_amount: batch.unbonded_amount,
-    });
+      arr.push({
+        batch_id: current_unbond_batch,
+        status: batch.status,
+        expected_amount: batch.expected_amount,
+        creation_time: `${creation_time.day}/${creation_time.month}/${creation_time.year}(${creation_time.hours}:${creation_time.minutes}:${creation_time.seconds})`,
+        expected_finalization_time: `${expected_finalization_time.day}/${expected_finalization_time.month}/${expected_finalization_time.year}(${expected_finalization_time.hours}:${expected_finalization_time.minutes}:${expected_finalization_time.seconds})`,
+        unstaked_amount: batch.unbonded_amount,
+      });
+    } else {
+      arr.push({
+        batch_id: current_unbond_batch,
+        status: batch.status,
+        expected_amount: batch.expected_amount,
+        creation_time: `${creation_time.day}/${creation_time.month}/${creation_time.year}(${creation_time.hours}:${creation_time.minutes}:${creation_time.seconds})`,
+        expected_finalization_time: null,
+        unstaked_amount: batch.unbonded_amount,
+      });
+    }
   }
 
   return arr;
@@ -141,14 +148,14 @@ async function main(mode: Mode): Promise<void> {
       /* Get amount of batches that haven't withdrawn yet
        * Provide given n as n-1 since count there starts with 0
        */
-      while (current_unbond_batch >= 0 && batch.status !== "withdrawn") {
+      while (current_unbond_batch > 0 && batch.status !== "withdrawn") {
         current_unbond_batch -= 1;
         batch = await drop_client.queryUnbondBatch({
           batch_id: String(current_unbond_batch),
         });
         n += 1;
       }
-      res = await print_n(unbond_batch_height, n - 1, drop_client);
+      res = await print_n(unbond_batch_height, n, drop_client);
       break;
     }
     case Mode.FULL: {
