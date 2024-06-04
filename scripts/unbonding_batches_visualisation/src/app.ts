@@ -155,7 +155,7 @@ async function main(mode: Mode): Promise<void> {
         });
         n += 1;
       }
-      res = await print_n(unbond_batch_height, n, drop_client);
+      res = await print_n(unbond_batch_height, n == 0 ? 0 : n - 1, drop_client);
       break;
     }
     case Mode.FULL: {
