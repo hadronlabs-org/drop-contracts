@@ -35,7 +35,6 @@ export const waitForPuppeteerICQ = async (
         },
       },
     )) as any;
-    console.log(`waitForBalances: ${lastBalanceHeight}, ${controlHeight}`);
     return lastBalanceHeight > controlHeight;
   }, 50_000);
 
@@ -46,13 +45,8 @@ export const waitForPuppeteerICQ = async (
           delegations: {},
         },
       })) as any;
-    console.log(
-      `waitForDelegations: ${lastDelegationsHeight}, ${controlHeight}`,
-    );
     return lastDelegationsHeight > controlHeight;
   }, 50_000);
-
-  console.log('waitForPuppeteerICQ 2');
 
   await Promise.all([waitForBalances, waitForDelegations]);
 };

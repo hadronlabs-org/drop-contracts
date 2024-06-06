@@ -2454,5 +2454,127 @@ describe('Core', () => {
         expect(parseInt(balance.data.balance.amount)).toBe(300000);
       });
     });
+
+    describe('sixth cycle (unbond before delegation)', () => {
+      it('tick to idle', async () => {
+        const { coreContractClient, neutronUserAddress } = context;
+        await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+      it('tick to claiming', async () => {
+        const {
+          coreContractClient,
+          neutronUserAddress,
+          puppeteerContractClient,
+        } = context;
+        await waitForPuppeteerICQ(
+          context.client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+        await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('claiming');
+      });
+      it('wait for the response from puppeteer', async () => {
+        let response: ResponseHookMsg;
+        await waitFor(async () => {
+          try {
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
+          } catch (e) {
+            return false;
+          }
+          if (!response || !('success' in response)) return false;
+          return true;
+        }, 30_000);
+      });
+      it('tick to staking_rewards', async () => {
+        const {
+          client,
+          coreContractClient,
+          neutronUserAddress,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('staking_rewards');
+      });
+      it('bond and unbond ibc coins', async () => {
+        const {
+          coreContractClient,
+          ldDenom,
+          neutronUserAddress,
+          neutronIBCDenom,
+        } = context;
+        let res = await coreContractClient.bond(
+          neutronUserAddress,
+          {},
+          1.6,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: neutronIBCDenom,
+            },
+          ],
+        );
+
+        expect(res.transactionHash).toHaveLength(64);
+
+        await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 1);
+
+        res = await context.stakerContractClient.iBCTransfer(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [{ amount: '20000', denom: 'untrn' }],
+        );
+
+        expect(res.transactionHash).toHaveLength(64);
+
+        await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 1);
+
+        res = await coreContractClient.unbond(
+          neutronUserAddress,
+          1.6,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: ldDenom,
+            },
+          ],
+        );
+
+        expect(res.transactionHash).toHaveLength(64);
+      });
+      it('tick to idle', async () => {
+        const {
+          client,
+          coreContractClient,
+          neutronUserAddress,
+          puppeteerContractClient,
+        } = context;
+        await waitForPuppeteerICQ(
+          client,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+    });
   });
 });
