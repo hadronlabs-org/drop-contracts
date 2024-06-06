@@ -55,7 +55,7 @@ async function print_n(
 
   for (; n >= 0; n -= 1, current_unbond_batch -= 1) {
     let batch: UnbondBatch = await drop_client.queryUnbondBatch({
-      batch_id: String(current_unbond_batch),
+      batch_id: current_unbond_batch.toString(),
     });
 
     const creation_date: any = new Date(batch.status_timestamps.new * 1000);
@@ -136,7 +136,7 @@ async function main(mode: Mode): Promise<void> {
       );
       let current_unbond_batch: number = unbond_batch_height;
       let batch: UnbondBatch = await drop_client.queryUnbondBatch({
-        batch_id: String(current_unbond_batch),
+        batch_id: current_unbond_batch.toString(),
       });
       let n = 0;
 
@@ -146,7 +146,7 @@ async function main(mode: Mode): Promise<void> {
       while (current_unbond_batch > 0 && batch.status !== "withdrawn") {
         current_unbond_batch -= 1;
         batch = await drop_client.queryUnbondBatch({
-          batch_id: String(current_unbond_batch),
+          batch_id: current_unbond_batch.toString(),
         });
         n += 1;
       }
