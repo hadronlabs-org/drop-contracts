@@ -31,10 +31,10 @@ const WALLET_MNEMONIC: string = process.env.WALLET_MNEMONIC;
 type BatchInfo = {
   batch_id: number;
   status: string;
-  expected_amount: number;
+  expected_amount: string;
   creation_time: string;
   expected_finalization_time: string;
-  unstaked_amount: number;
+  unstaked_amount: string;
 };
 
 /* Function print_n serves for getting information about 'n' first batches
@@ -51,7 +51,7 @@ async function print_n(
     return [];
   }
   const dropCoreConfig = await drop_client.queryConfig();
-  let arr = [];
+  let arr: Array<BatchInfo> = [];
 
   for (; n >= 0; n -= 1, current_unbond_batch -= 1) {
     let batch: UnbondBatch = await drop_client.queryUnbondBatch({
@@ -68,7 +68,7 @@ async function print_n(
       seconds: creation_date.getUTCSeconds().toString().padStart(2, "0"),
     };
 
-    let batch_details = {
+    let batch_details: BatchInfo = {
       batch_id: current_unbond_batch,
       status: batch.status,
       expected_amount: batch.expected_amount,
