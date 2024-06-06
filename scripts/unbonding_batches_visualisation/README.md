@@ -16,3 +16,9 @@ To manage script config, open _.env_ file
 - CORE_CONTRACT is an address of protocol's core contract that we're using to query batches
 - NODE_ADDRESS node address to interact with given smart contract
 - WALLET_MNEMONIC no transactions are executed from this script. We need this field only to init DirectSecp256k1HdWallet, so it doesn't matter what this field contain
+
+if you want to get pretty table of contents in your terminal, use the following command:
+
+```bash
+node -r ts-node/register --env-file=./.env src/app.ts | jq -r '(["id","status","expected","creation(UTC)","finalization(UTC)","unstaked"] | (., map(length*"-"))), (.[] | [.batch_id,.status,.expected_amount // "-",.creation_time,.expected_finalization_time // "-",.unstaked_amount // "-"]) | @tsv' --raw-output | column -t
+```
