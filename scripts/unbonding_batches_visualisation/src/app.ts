@@ -70,50 +70,57 @@ async function print_n(
       batch_id: String(current_unbond_batch),
     });
 
-    let creation_time: any = new Date(batch.status_timestamps.new * 1000);
-    creation_time = {
-      day: addLeadingZeros(creation_time.getUTCDate(), 2),
-      month: addLeadingZeros(creation_time.getUTCMonth(), 2),
-      year: creation_time.getUTCFullYear(),
-      hours: addLeadingZeros(creation_time.getUTCHours(), 2),
-      minutes: addLeadingZeros(creation_time.getUTCMinutes(), 2),
-      seconds: addLeadingZeros(creation_time.getUTCSeconds(), 2),
+    const creation_date: any = new Date(batch.status_timestamps.new * 1000);
+    const creation_time = {
+      day: creation_date.getUTCDate().toString().padStart(2, "0"),
+      month: creation_date.getUTCMonth().toString().padStart(2, "0"),
+      year: creation_date.getUTCFullYear(),
+      hours: creation_date.getUTCHours().toString().padStart(2, "0"),
+      minutes: creation_date.getUTCMinutes().toString().padStart(2, "0"),
+      seconds: creation_date.getUTCSeconds().toString().padStart(2, "0"),
     };
 
+    let batch_details = {
+      batch_id: current_unbond_batch,
+      status: batch.status,
+      expected_amount: batch.expected_amount,
+      creation_time: `${creation_time.day}/${creation_time.month}/${creation_time.year}(${creation_time.hours}:${creation_time.minutes}:${creation_time.seconds})`,
+      expected_finalization_time: null,
+      unstaked_amount: batch.unbonded_amount,
+    };
     if (batch.status !== "new") {
-      let expected_finalization_time: any = new Date(
+      const expected_finalization_date = new Date(
         1000 *
           (batch.status_timestamps.unbond_requested +
             dropCoreConfig.unbonding_period +
             dropCoreConfig.unbond_batch_switch_time)
       );
-      expected_finalization_time = {
-        day: addLeadingZeros(expected_finalization_time.getUTCDate(), 2),
-        month: addLeadingZeros(expected_finalization_time.getUTCMonth(), 2),
-        year: expected_finalization_time.getUTCFullYear(),
-        hours: addLeadingZeros(expected_finalization_time.getUTCHours(), 2),
-        minutes: addLeadingZeros(expected_finalization_time.getUTCMinutes(), 2),
-        seconds: addLeadingZeros(expected_finalization_time.getUTCSeconds(), 2),
+      const expected_finalization_time = {
+        day: expected_finalization_date
+          .getUTCDate()
+          .toString()
+          .padStart(2, "0"),
+        month: expected_finalization_date
+          .getUTCMonth()
+          .toString()
+          .padStart(2, "0"),
+        year: expected_finalization_date.getUTCFullYear(),
+        hours: expected_finalization_date
+          .getUTCHours()
+          .toString()
+          .padStart(2, "0"),
+        minutes: expected_finalization_date
+          .getUTCMinutes()
+          .toString()
+          .padStart(2, "0"),
+        seconds: expected_finalization_date
+          .getUTCSeconds()
+          .toString()
+          .padStart(2, "0"),
       };
-
-      arr.push({
-        batch_id: current_unbond_batch,
-        status: batch.status,
-        expected_amount: batch.expected_amount,
-        creation_time: `${creation_time.day}/${creation_time.month}/${creation_time.year}(${creation_time.hours}:${creation_time.minutes}:${creation_time.seconds})`,
-        expected_finalization_time: `${expected_finalization_time.day}/${expected_finalization_time.month}/${expected_finalization_time.year}(${expected_finalization_time.hours}:${expected_finalization_time.minutes}:${expected_finalization_time.seconds})`,
-        unstaked_amount: batch.unbonded_amount,
-      });
-    } else {
-      arr.push({
-        batch_id: current_unbond_batch,
-        status: batch.status,
-        expected_amount: batch.expected_amount,
-        creation_time: `${creation_time.day}/${creation_time.month}/${creation_time.year}(${creation_time.hours}:${creation_time.minutes}:${creation_time.seconds})`,
-        expected_finalization_time: null,
-        unstaked_amount: batch.unbonded_amount,
-      });
+      batch_details.expected_finalization_time = `${expected_finalization_time.day}/${expected_finalization_time.month}/${expected_finalization_time.year}(${expected_finalization_time.hours}:${expected_finalization_time.minutes}:${expected_finalization_time.seconds})`;
     }
+    arr.push(batch_details);
   }
 
   return arr;
