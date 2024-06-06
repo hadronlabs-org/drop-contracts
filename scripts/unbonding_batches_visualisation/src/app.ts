@@ -20,18 +20,6 @@ const CORE_CONTRACT: string = process.env.CORE_CONTRACT;
 const NODE_ADDRESS: string = process.env.NODE_ADDRESS;
 const WALLET_MNEMONIC: string = process.env.WALLET_MNEMONIC;
 
-/* addLeadingZeros used there to add leading zeros to date
- * We need date formatting for pretty output
- */
-function addLeadingZeros(num: number, targetLength: number): string {
-  let numStr: string = num.toString();
-  while (numStr.length < targetLength) {
-    numStr = "0" + numStr;
-  }
-
-  return numStr;
-}
-
 /*
  * batch_id - number of batch in contract's order
  * status - batch.status
