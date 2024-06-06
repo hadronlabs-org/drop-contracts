@@ -58,7 +58,7 @@ async function print_n(
       batch_id: current_unbond_batch.toString(),
     });
 
-    const creation_date: any = new Date(batch.status_timestamps.new * 1000);
+    const creation_date = new Date(batch.status_timestamps.new * 1000);
     const creation_time = {
       day: creation_date.getUTCDate().toString().padStart(2, "0"),
       month: creation_date.getUTCMonth().toString().padStart(2, "0"),
@@ -131,10 +131,10 @@ async function main(mode: Mode): Promise<void> {
 
   switch (mode) {
     case Mode.RECENT: {
-      let unbond_batch_height: number = Number(
+      let unbond_batch_height = Number(
         await drop_client.queryCurrentUnbondBatch()
       );
-      let current_unbond_batch: number = unbond_batch_height;
+      let current_unbond_batch = unbond_batch_height;
       let batch: UnbondBatch = await drop_client.queryUnbondBatch({
         batch_id: current_unbond_batch.toString(),
       });
@@ -154,7 +154,7 @@ async function main(mode: Mode): Promise<void> {
       break;
     }
     case Mode.FULL: {
-      let current_unbond_batch: number = Number(
+      let current_unbond_batch = Number(
         await drop_client.queryCurrentUnbondBatch()
       );
       res = await print_n(
