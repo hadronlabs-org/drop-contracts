@@ -47,7 +47,7 @@ async function print_n(
   n: number,
   drop_client: DropCoreClient
 ): Promise<Array<BatchInfo>> {
-  if (current_unbond_batch - n < 0) {
+  if (current_unbond_batch < n) {
     return [];
   }
   const dropCoreConfig = await drop_client.queryConfig();
