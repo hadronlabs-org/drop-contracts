@@ -6,7 +6,8 @@ import { Client as DropWithdrawalManager } from "../../../integration_tests/src/
 import { Client as DropWithdrawalVoucher } from "../../../integration_tests/src/generated/contractLib/dropWithdrawalVoucher";
 
 const FACTORY_DENOM: string = process.env.FACTORY_DENOM;
-const IBC_DENOM: string = process.env.IBC_DENOM;
+const STAKE_IBC_DENOM: string = process.env.STAKE_IBC_DENOM;
+const ATOM_IBC_DENOM: string = process.env.ATOM_IBC_DENOM;
 const TARGET: string = process.env.TARGET;
 const MNEMONIC: string = process.env.MNEMONIC;
 const NODE_ADDRESS: string = process.env.NODE_ADDRESS;
@@ -14,6 +15,7 @@ const NODE_ADDRESS: string = process.env.NODE_ADDRESS;
 const BOND_PROB: number = Number(process.env.BOND_PROB);
 const UNBOND_PROB: number = Number(process.env.UNBOND_PROB);
 const WITHDRAW_PROB: number = Number(process.env.WITHDRAW_PROB);
+const LSM_SHARE_BOND_PROB: number = Number(process.env.LSM_SHARE_BOND_PROB);
 
 /* Sum of provided probabitions should be equal to 1
  * Each of provided probabitions used to calculate first method to execute
@@ -21,9 +23,9 @@ const WITHDRAW_PROB: number = Number(process.env.WITHDRAW_PROB);
  * With equal probabition for each of remaining methods
  * In short, given probabitions are only used to choose first method to try to execute
  */
-if (BOND_PROB + UNBOND_PROB + WITHDRAW_PROB !== 1) {
+if (BOND_PROB + UNBOND_PROB + WITHDRAW_PROB + LSM_SHARE_BOND_PROB !== 1) {
   console.error(
-    `BOND_PROB(${BOND_PROB}) + UNBOND_PROB(${UNBOND_PROB}) + WITHDRAW_PROB(${WITHDRAW_PROB}) != 1`
+    `BOND_PROB(${BOND_PROB}) + UNBOND_PROB(${UNBOND_PROB}) + WITHDRAW_PROB(${WITHDRAW_PROB}) + LSM_SHARE_BOND_PROB(${LSM_SHARE_BOND_PROB}) != 1`
   );
   process.exit(1);
 }
@@ -32,12 +34,14 @@ enum MODE {
   BOND = "BOND",
   UNBOND = "UNBOND",
   WITHDRAW = "SEND_NFT",
+  LSM_SHARE_BOND = "LSM_SHARE_BOND",
 }
 
 async function calculate_mode(
   bond_p: number,
   unbond_p: number,
-  withdraw_p: number
+  withdraw_p: number,
+  lsm_share_bond_p: number
 ): Promise<MODE> {
   let r: number = Math.random();
   if (r < bond_p) {
@@ -46,6 +50,8 @@ async function calculate_mode(
     return MODE.UNBOND;
   } else if (r < bond_p + unbond_p + withdraw_p) {
     return MODE.WITHDRAW;
+  } else if (r < bond_p + unbond_p + withdraw_p + lsm_share_bond_p) {
+    return MODE.LSM_SHARE_BOND;
   } else {
     console.error(
       `bond_p + unbond_p + withdraw_p = ${bond_p + unbond_p + withdraw_p}, it should be eq to 1`
@@ -54,33 +60,18 @@ async function calculate_mode(
   }
 }
 
-/* Action log used as output from script. Here:
- * mode: on of possible modes (BOND, UNBOND, SEND_NFT)
- * funds: amount and denom of funds used in smart contract execution
- *  - if it's BOND, then funds.denom field is IBC_DENOM and funds.amount chosen randomly
- *  - if it's UNBOND, then funds.denom field is FACTORY_DENOM and funds.amount chosen randomly
- *  - if it's SEND_NFT, then funds.nft_id is one of the possible ID's (possible ID's can be queried from withdrawal_voucher contract)
- * txHash: transaction hash if it succeeded
- * details: null if mode is BOND or UNBOND and object with batch_id field if SEND_NFT. batch_id here staying for ID of batch bonded to chosen nft
- */
-type ActionLog = {
+type BondActionLog = {
   mode: MODE;
-  funds:
-    | Coin
-    | {
-        nft_id: string;
-      };
+  funds: Coin;
   txHash: string;
-  details: null | {
-    batch_id: number;
-  };
+  details: null;
 };
 
 async function bond(
   drop_instance: DropCoreClient,
   address: string,
   fund: Coin
-): Promise<ActionLog> {
+): Promise<BondActionLog> {
   return {
     details: null,
     mode: MODE.BOND,
@@ -104,11 +95,14 @@ async function bond_random_amount(
   clientCW: SigningCosmWasmClient,
   drop_instance: DropCoreClient,
   address: string
-): Promise<ActionLog | null> {
+): Promise<BondActionLog | null> {
   /* If here is nothing to bond on our balance, then just return null
    * Other random method will be tried to call then
    */
-  let ibc_denom_balance: Coin = await clientCW.getBalance(address, IBC_DENOM);
+  let ibc_denom_balance: Coin = await clientCW.getBalance(
+    address,
+    STAKE_IBC_DENOM
+  );
   if (Number(ibc_denom_balance.amount) === 0) {
     return null;
   }
@@ -140,7 +134,7 @@ async function bond_random_amount(
   try {
     const res = await bond(drop_instance, address, {
       amount: String(random_amount),
-      denom: IBC_DENOM,
+      denom: STAKE_IBC_DENOM,
     });
     if ((await clientCW.getTx(res.txHash)).code !== 0) {
       return null;
@@ -151,11 +145,18 @@ async function bond_random_amount(
   }
 }
 
+type UnbondActionLog = {
+  mode: MODE;
+  funds: Coin;
+  txHash: string;
+  details: null;
+};
+
 async function unbond(
   drop_instance: DropCoreClient,
   address: string,
   fund: Coin
-): Promise<ActionLog> {
+): Promise<UnbondActionLog> {
   return {
     details: null,
     mode: MODE.UNBOND,
@@ -179,7 +180,7 @@ async function unbond_random_amount(
   clientCW: SigningCosmWasmClient,
   drop_instance: DropCoreClient,
   address: string
-): Promise<ActionLog | null> {
+): Promise<UnbondActionLog | null> {
   /* If here is nothing to bond on our balance, then just return null
    * Other random method will be tried to call then
    */
@@ -208,12 +209,23 @@ async function unbond_random_amount(
   }
 }
 
+type WithdrawActionLog = {
+  mode: MODE;
+  funds: {
+    nft_id: string;
+  };
+  txHash: string;
+  details: {
+    batch_id: number;
+  };
+};
+
 async function send_nft(
   withdrawal_voucher: DropWithdrawalVoucher,
   withdrawal_manager: DropWithdrawalManager,
   address: string,
   nft_id: string
-): Promise<ActionLog> {
+): Promise<WithdrawActionLog> {
   const nft_info = await withdrawal_voucher.queryNftInfo({ token_id: nft_id });
   const batch_id: number = Number(nft_info.extension.batch_id);
 
@@ -253,7 +265,7 @@ async function withdraw_random_nft(
   clientCW: SigningCosmWasmClient,
   drop_instance: DropCoreClient,
   address: string
-): Promise<ActionLog | null> {
+): Promise<WithdrawActionLog | null> {
   /* Get both withdrawal_manager and withdrawal_voucher wrappers based on querying config method
    * We need them to execute send_nft method on withdrawal_voucher with withdrawal_manager as the recepient
    * To withdraw our unbonded tokens we need to work with withdrawal_voucher' send_nft method
@@ -333,6 +345,40 @@ async function withdraw_random_nft(
   }
 }
 
+type LSMShareBondActionLog = {
+  mode: MODE;
+  funds: {
+    ibc: Coin;
+    tokenized_share: Coin;
+    ibc_tokenized_share: Coin;
+  };
+  txHash: {
+    bridge: string;
+    stake: string;
+    brdige_back: string;
+    stake_tokenized_share: string;
+  };
+  details: {
+    validator_cosmvaloper: string;
+  };
+};
+
+async function lsm_share_bond(
+  clientCW: SigningCosmWasmClient,
+  drop_instance: DropCoreClient,
+  address: string
+): Promise<LSMShareBondActionLog | null> {
+  return;
+}
+
+async function lsm_share_bond_random_amount(
+  clientCW: SigningCosmWasmClient,
+  drop_instance: DropCoreClient,
+  address: string
+): Promise<LSMShareBondActionLog | null> {
+  return;
+}
+
 async function main() {
   let mainWallet: DirectSecp256k1HdWallet =
     await DirectSecp256k1HdWallet.fromMnemonic(MNEMONIC, {
@@ -350,8 +396,18 @@ async function main() {
    * If randomly chosen method'll fall then with equal possibility choose another possible method from unused_modes
    * If each of possible methods fall then our job here's done, print appropriate message and call process.exit() with code 1
    */
-  let mode: MODE = await calculate_mode(BOND_PROB, UNBOND_PROB, WITHDRAW_PROB);
-  let unused_modes: MODE[] = [MODE.BOND, MODE.UNBOND, MODE.WITHDRAW];
+  let mode: MODE = await calculate_mode(
+    BOND_PROB,
+    UNBOND_PROB,
+    WITHDRAW_PROB,
+    LSM_SHARE_BOND_PROB
+  );
+  let unused_modes: MODE[] = [
+    MODE.BOND,
+    MODE.UNBOND,
+    MODE.WITHDRAW,
+    MODE.LSM_SHARE_BOND,
+  ];
   let finished: boolean = false;
   while (!finished && unused_modes.length > 0) {
     switch (mode) {
@@ -381,6 +437,18 @@ async function main() {
       }
       case MODE.BOND: {
         const res = await bond_random_amount(
+          clientCW,
+          target,
+          mainAccounts[0].address
+        );
+        if (res !== null) {
+          console.log(res);
+          finished = true;
+        }
+        break;
+      }
+      case MODE.LSM_SHARE_BOND: {
+        const res = await lsm_share_bond_random_amount(
           clientCW,
           target,
           mainAccounts[0].address
