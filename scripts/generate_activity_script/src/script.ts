@@ -1,16 +1,72 @@
 import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { AccountData, DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
+import {
+  AccountData,
+  DirectSecp256k1HdWallet,
+  Registry,
+  GeneratedType,
+} from "@cosmjs/proto-signing";
+import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx";
+import { Coin as BankCoin } from "cosmjs-types/cosmos/base/v1beta1/coin";
+import { MsgTransfer } from "cosmjs-types/ibc/applications/transfer/v1/tx";
 import { GasPrice, Coin } from "@cosmjs/stargate";
 import { Client as DropCoreClient } from "../../../integration_tests/src/generated/contractLib/dropCore";
 import { Client as DropWithdrawalManager } from "../../../integration_tests/src/generated/contractLib/dropWithdrawalManager";
 import { Client as DropWithdrawalVoucher } from "../../../integration_tests/src/generated/contractLib/dropWithdrawalVoucher";
+import { Client as DropValidatorsSet } from "../../../integration_tests/src/generated/contractLib/dropValidatorsSet";
+import { BinaryReader, BinaryWriter } from "cosmjs-types/binary";
+import { DeepPartial, Exact } from "cosmjs-types/helpers";
+import { MsgDelegate } from "cosmjs-types/cosmos/staking/v1beta1/tx";
 
+type MsgTokenizeShares = {
+  delegator_address: string;
+  validator_address: string;
+  amount: BankCoin;
+  tokenized_share_owner: string;
+};
+
+// We need only to encode such messages
+export const MsgTokenizeShares = {
+  typeUrl: "/cosmos.staking.v1beta1.MsgTokenizeShares",
+  encode(
+    message: MsgTokenizeShares,
+    writer: BinaryWriter = BinaryWriter.create()
+  ): BinaryWriter {
+    console.log(message);
+    writer.uint32(10).string(message.delegator_address);
+    writer.uint32(18).string(message.validator_address);
+    BankCoin.encode(message.amount, writer.uint32(26).fork()).ldelim();
+    writer.uint32(34).string(message.tokenized_share_owner);
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): any {
+    console.log("decode");
+    return {};
+  },
+  fromPartial<I extends Exact<DeepPartial<MsgTokenizeShares>, I>>(
+    object: I
+  ): MsgTokenizeShares {
+    return {
+      delegator_address: object.delegator_address,
+      validator_address: object.validator_address,
+      amount: BankCoin.fromPartial(object.amount),
+      tokenized_share_owner: object.tokenized_share_owner,
+    };
+  },
+};
+
+const CORE_CONTRACT: string = process.env.CORE_CONTRACT;
+
+const NEUTRON_MNEMONIC: string = process.env.NEUTRON_MNEMONIC;
+const TARGET_MNEMONIC: string = process.env.TARGET_MNEMONIC;
+const NEUTRON_PREFIX: string = process.env.NEUTRON_PREFIX;
+const TARGET_PREFIX: string = process.env.TARGET_PREFIX;
+
+const TARGET_NATIVE_DENOM: string = process.env.TARGET_NATIVE_DENOM;
+const TARGET_IBC_DENOM: string = process.env.TARGET_IBC_DENOM;
 const FACTORY_DENOM: string = process.env.FACTORY_DENOM;
-const STAKE_IBC_DENOM: string = process.env.STAKE_IBC_DENOM;
-const ATOM_IBC_DENOM: string = process.env.ATOM_IBC_DENOM;
-const TARGET: string = process.env.TARGET;
-const MNEMONIC: string = process.env.MNEMONIC;
-const NODE_ADDRESS: string = process.env.NODE_ADDRESS;
+
+const NEUTRON_NODE_ADDRESS: string = process.env.NEUTRON_NODE_ADDRESS;
+const TARGET_NODE_ADDRESS: string = process.env.TARGET_NODE_ADDRESS;
 
 const BOND_PROB: number = Number(process.env.BOND_PROB);
 const UNBOND_PROB: number = Number(process.env.UNBOND_PROB);
@@ -60,6 +116,17 @@ async function calculate_mode(
   }
 }
 
+type Wallet = {
+  mainWallet?: DirectSecp256k1HdWallet;
+  clientCW?: SigningCosmWasmClient;
+  mainAccounts?: readonly AccountData[];
+};
+
+type Wallets = {
+  neutronWallet: Wallet;
+  targetWallet: Wallet;
+};
+
 type BondActionLog = {
   mode: MODE;
   funds: Coin;
@@ -92,16 +159,17 @@ async function bond(
  * We'll just try another method in core
  */
 async function bond_random_amount(
-  clientCW: SigningCosmWasmClient,
-  drop_instance: DropCoreClient,
-  address: string
+  neutronWallet: Wallet,
+  drop_instance: DropCoreClient
 ): Promise<BondActionLog | null> {
+  const address: string = neutronWallet.mainAccounts[0].address;
+
   /* If here is nothing to bond on our balance, then just return null
    * Other random method will be tried to call then
    */
-  let ibc_denom_balance: Coin = await clientCW.getBalance(
+  let ibc_denom_balance: Coin = await neutronWallet.clientCW.getBalance(
     address,
-    STAKE_IBC_DENOM
+    TARGET_IBC_DENOM
   );
   if (Number(ibc_denom_balance.amount) === 0) {
     return null;
@@ -134,9 +202,9 @@ async function bond_random_amount(
   try {
     const res = await bond(drop_instance, address, {
       amount: String(random_amount),
-      denom: STAKE_IBC_DENOM,
+      denom: TARGET_IBC_DENOM,
     });
-    if ((await clientCW.getTx(res.txHash)).code !== 0) {
+    if ((await neutronWallet.clientCW.getTx(res.txHash)).code !== 0) {
       return null;
     }
     return res;
@@ -177,14 +245,17 @@ async function unbond(
  * We'll just try another method in core
  */
 async function unbond_random_amount(
-  clientCW: SigningCosmWasmClient,
-  drop_instance: DropCoreClient,
-  address: string
+  neutronWallet: Wallet,
+  drop_instance: DropCoreClient
 ): Promise<UnbondActionLog | null> {
+  const address: string = neutronWallet.mainAccounts[0].address;
   /* If here is nothing to bond on our balance, then just return null
    * Other random method will be tried to call then
    */
-  let factory_balance: Coin = await clientCW.getBalance(address, FACTORY_DENOM);
+  let factory_balance: Coin = await neutronWallet.clientCW.getBalance(
+    address,
+    FACTORY_DENOM
+  );
   if (Number(factory_balance.amount) === 0) {
     return null;
   }
@@ -200,7 +271,7 @@ async function unbond_random_amount(
       amount: String(random_amount),
       denom: FACTORY_DENOM,
     });
-    if ((await clientCW.getTx(res.txHash)).code !== 0) {
+    if ((await neutronWallet.clientCW.getTx(res.txHash)).code !== 0) {
       return null;
     }
     return res;
@@ -262,21 +333,21 @@ async function send_nft(
  * We'll just try another method in core
  */
 async function withdraw_random_nft(
-  clientCW: SigningCosmWasmClient,
-  drop_instance: DropCoreClient,
-  address: string
+  neutronWallet: Wallet,
+  drop_instance: DropCoreClient
 ): Promise<WithdrawActionLog | null> {
+  const address: string = neutronWallet.mainAccounts[0].address;
   /* Get both withdrawal_manager and withdrawal_voucher wrappers based on querying config method
    * We need them to execute send_nft method on withdrawal_voucher with withdrawal_manager as the recepient
    * To withdraw our unbonded tokens we need to work with withdrawal_voucher' send_nft method
    */
   const config = await drop_instance.queryConfig();
   const withdrawal_manager: DropWithdrawalManager = new DropWithdrawalManager(
-    clientCW,
+    neutronWallet.clientCW,
     config.withdrawal_manager_contract
   );
   const withdrawal_voucher: DropWithdrawalVoucher = new DropWithdrawalVoucher(
-    clientCW,
+    neutronWallet.clientCW,
     config.withdrawal_voucher_contract
   );
 
@@ -364,32 +435,142 @@ type LSMShareBondActionLog = {
 };
 
 async function lsm_share_bond(
-  clientCW: SigningCosmWasmClient,
-  drop_instance: DropCoreClient,
-  address: string
+  wallets: Wallets,
+  drop_instance: DropCoreClient
 ): Promise<LSMShareBondActionLog | null> {
+  const remote_chain_balance = Number(
+    (
+      await wallets.targetWallet.clientCW.getBalance(
+        wallets.targetWallet.mainAccounts[0].address,
+        TARGET_NATIVE_DENOM
+      )
+    ).amount
+  );
+  // For some reason it's not working properly with 1 conventional unit in remote chain (https://www.mintscan.io/cosmoshub-testnet/tx/72632F1594285A0D23D878E781B3B8533D44DE87CF3FAAD7C440E5374DF9DEDA?height=22040761)
+  // But works well with cu >= 2 (https://www.mintscan.io/cosmoshub-testnet/tx/698B451AA918294009EDBB813EE98B759D8DAAEDCB4E0789A07590B19C3615AC?height=22040981)
+  // Idk but it seems like it's kind of bug in client
+  const random_amount_delegate = Math.floor(
+    Math.random() *
+      (remote_chain_balance >= 100_000_000_000
+        ? 100_000_000_000
+        : remote_chain_balance - 2) +
+      2
+  );
+  const core_config = await drop_instance.queryConfig();
+  const drop_validators_set: DropValidatorsSet = new DropValidatorsSet(
+    wallets.neutronWallet.clientCW,
+    core_config.validators_set_contract
+  );
+  const validator_list: Array<string> = (
+    await drop_validators_set.queryValidators()
+  ).map((element) => element.valoper_address);
+  const random_validator =
+    validator_list[Math.floor(Math.random() * validator_list.length)];
+  console.log(random_amount_delegate.toString(), random_validator);
+  await wallets.targetWallet.clientCW.delegateTokens(
+    wallets.targetWallet.mainAccounts[0].address,
+    random_validator,
+    {
+      denom: "stake",
+      amount: random_amount_delegate.toString(),
+    },
+    {
+      amount: [
+        {
+          denom: "stake",
+          amount: "4000",
+        },
+      ],
+      gas: "400000",
+    },
+    ""
+  );
+  await wallets.targetWallet.clientCW.signAndBroadcastSync(
+    wallets.targetWallet.mainAccounts[0].address,
+    [
+      {
+        typeUrl: "/cosmos.staking.v1beta1.MsgTokenizeShares",
+        value: {
+          delegator_address: wallets.targetWallet.mainAccounts[0].address,
+          validator_address: random_validator,
+          amount: {
+            denom: "stake",
+            amount: random_amount_delegate.toString(),
+          },
+          tokenized_share_owner: wallets.targetWallet.mainAccounts[0].address,
+        },
+      },
+    ],
+    {
+      gas: "400000",
+      amount: [
+        {
+          denom: "stake",
+          amount: "4000",
+        },
+      ],
+    },
+    ""
+  );
   return;
 }
 
 async function lsm_share_bond_random_amount(
-  clientCW: SigningCosmWasmClient,
-  drop_instance: DropCoreClient,
-  address: string
+  wallets: Wallets,
+  drop_instance: DropCoreClient
 ): Promise<LSMShareBondActionLog | null> {
+  lsm_share_bond(wallets, drop_instance);
   return;
 }
 
 async function main() {
-  let mainWallet: DirectSecp256k1HdWallet =
-    await DirectSecp256k1HdWallet.fromMnemonic(MNEMONIC, {
-      prefix: "neutron",
-    });
-  let clientCW: SigningCosmWasmClient =
-    await SigningCosmWasmClient.connectWithSigner(NODE_ADDRESS, mainWallet, {
+  const neutronWallet: Wallet = {};
+  neutronWallet.mainWallet = await DirectSecp256k1HdWallet.fromMnemonic(
+    NEUTRON_MNEMONIC,
+    {
+      prefix: NEUTRON_PREFIX,
+    }
+  );
+  neutronWallet.clientCW = await SigningCosmWasmClient.connectWithSigner(
+    NEUTRON_NODE_ADDRESS,
+    neutronWallet.mainWallet,
+    {
       gasPrice: GasPrice.fromString("0.75untrn"),
-    });
-  let mainAccounts: readonly AccountData[] = await mainWallet.getAccounts();
-  let target = new DropCoreClient(clientCW, TARGET);
+    }
+  );
+  neutronWallet.mainAccounts = await neutronWallet.mainWallet.getAccounts();
+
+  const targetWallet: Wallet = {};
+  targetWallet.mainWallet = await DirectSecp256k1HdWallet.fromMnemonic(
+    TARGET_MNEMONIC,
+    {
+      prefix: TARGET_PREFIX,
+    }
+  );
+  targetWallet.clientCW = await SigningCosmWasmClient.connectWithSigner(
+    TARGET_NODE_ADDRESS,
+    targetWallet.mainWallet,
+    {
+      gasPrice: GasPrice.fromString("0.75untrn"),
+      registry: new Registry(
+        new Map<string, GeneratedType>([
+          ["/cosmos.base.v1beta1.Coin", BankCoin],
+          ["/cosmos.bank.v1beta1.MsgSend", MsgSend],
+          ["/ibc.applications.transfer.v1.MsgTransfer", MsgTransfer],
+          ["/cosmos.staking.v1beta1.MsgTokenizeShares", MsgTokenizeShares],
+          ["/cosmos.staking.v1beta1.MsgDelegate", MsgDelegate],
+        ])
+      ),
+    }
+  );
+  targetWallet.mainAccounts = await targetWallet.mainWallet.getAccounts();
+
+  const wallets: Wallets = {
+    neutronWallet: neutronWallet,
+    targetWallet: targetWallet,
+  };
+
+  let core_contract = new DropCoreClient(neutronWallet.clientCW, CORE_CONTRACT);
 
   /* Randombly choose the method we'll try to execute based on provided parameters
    * Variable unused_modes is array of modes we haven't yet executed. We'll try each of them if previous call falled
@@ -411,48 +592,32 @@ async function main() {
   let finished: boolean = false;
   while (!finished && unused_modes.length > 0) {
     switch (mode) {
-      case MODE.WITHDRAW: {
-        const res = await withdraw_random_nft(
-          clientCW,
-          target,
-          mainAccounts[0].address
-        );
-        if (res !== null) {
-          console.log(res);
-          finished = true;
-        }
-        break;
-      }
-      case MODE.UNBOND: {
-        const res = await unbond_random_amount(
-          clientCW,
-          target,
-          mainAccounts[0].address
-        );
-        if (res !== null) {
-          console.log(res);
-          finished = true;
-        }
-        break;
-      }
-      case MODE.BOND: {
-        const res = await bond_random_amount(
-          clientCW,
-          target,
-          mainAccounts[0].address
-        );
-        if (res !== null) {
-          console.log(res);
-          finished = true;
-        }
-        break;
-      }
+      // case MODE.WITHDRAW: {
+      //   const res = await withdraw_random_nft(neutronWallet, core_contract);
+      //   if (res !== null) {
+      //     console.log(res);
+      //     finished = true;
+      //   }
+      //   break;
+      // }
+      // case MODE.UNBOND: {
+      //   const res = await unbond_random_amount(neutronWallet, core_contract);
+      //   if (res !== null) {
+      //     console.log(res);
+      //     finished = true;
+      //   }
+      //   break;
+      // }
+      // case MODE.BOND: {
+      //   const res = await bond_random_amount(neutronWallet, core_contract);
+      //   if (res !== null) {
+      //     console.log(res);
+      //     finished = true;
+      //   }
+      //   break;
+      // }
       case MODE.LSM_SHARE_BOND: {
-        const res = await lsm_share_bond_random_amount(
-          clientCW,
-          target,
-          mainAccounts[0].address
-        );
+        const res = await lsm_share_bond_random_amount(wallets, core_contract);
         if (res !== null) {
           console.log(res);
           finished = true;
