@@ -485,7 +485,7 @@ async function lsm_share_bond(
   ).map((element) => element.valoper_address);
   const random_validator =
     validator_list[Math.floor(Math.random() * validator_list.length)];
-  const last_lsm_denom = await get_last_lsm_denom(wallets.targetWallet);
+  const last_lsm_denom: string = await get_last_lsm_denom(wallets.targetWallet);
 
   try {
     await wallets.targetWallet.clientCW.delegateTokens(
@@ -538,9 +538,55 @@ async function lsm_share_bond(
     );
   } catch (e) {}
 
-  while ((await get_last_lsm_denom(wallets.targetWallet)) === last_lsm_denom) {
+  let last_lsm_denom_after_ts: string = await get_last_lsm_denom(
+    wallets.targetWallet
+  );
+
+  while (last_lsm_denom_after_ts === last_lsm_denom) {
+    last_lsm_denom_after_ts = await get_last_lsm_denom(wallets.targetWallet);
     await sleep(5000);
   }
+
+  const last_lsm_denom_after_ts_amount: string = (
+    await wallets.targetWallet.clientCW.getBalance(
+      wallets.targetWallet.mainAccounts[0].address,
+      last_lsm_denom_after_ts
+    )
+  ).amount;
+
+  await wallets.targetWallet.clientSG.signAndBroadcastSync(
+    wallets.targetWallet.mainAccounts[0].address,
+    [
+      {
+        typeUrl: "/ibc.applications.transfer.v1.MsgTransfer",
+        value: {
+          sourcePort: "transfer",
+          sourceChannel: "channel-3457",
+          token: {
+            denom: last_lsm_denom_after_ts,
+            amount: last_lsm_denom_after_ts_amount,
+          },
+          sender: wallets.targetWallet.mainAccounts[0].address,
+          receiver: wallets.neutronWallet.mainAccounts[0].address,
+          timeoutHeight: "0",
+          timeoutTimestamp: String(
+            Math.floor(Date.now() / 1000) * 1e9 + 10 * 60 * 1e9
+          ),
+        },
+      },
+    ],
+    {
+      gas: "400000",
+      amount: [
+        {
+          denom: TARGET_NATIVE_DENOM,
+          amount: "4000",
+        },
+      ],
+    },
+    ""
+  );
+
   return;
 }
 
