@@ -1,4 +1,5 @@
 import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
+import { SigningStargateClient } from "@cosmjs/stargate";
 import {
   AccountData,
   DirectSecp256k1HdWallet,
@@ -16,6 +17,7 @@ import { Client as DropValidatorsSet } from "../../../integration_tests/src/gene
 import { BinaryReader, BinaryWriter } from "cosmjs-types/binary";
 import { DeepPartial, Exact } from "cosmjs-types/helpers";
 import { MsgDelegate } from "cosmjs-types/cosmos/staking/v1beta1/tx";
+import { sleep } from "../../../integration_tests/src/helpers/sleep";
 
 type MsgTokenizeShares = {
   delegator_address: string;
@@ -31,7 +33,6 @@ export const MsgTokenizeShares = {
     message: MsgTokenizeShares,
     writer: BinaryWriter = BinaryWriter.create()
   ): BinaryWriter {
-    console.log(message);
     writer.uint32(10).string(message.delegator_address);
     writer.uint32(18).string(message.validator_address);
     BankCoin.encode(message.amount, writer.uint32(26).fork()).ldelim();
@@ -119,6 +120,7 @@ async function calculate_mode(
 type Wallet = {
   mainWallet?: DirectSecp256k1HdWallet;
   clientCW?: SigningCosmWasmClient;
+  clientSG?: SigningStargateClient;
   mainAccounts?: readonly AccountData[];
 };
 
@@ -434,6 +436,20 @@ type LSMShareBondActionLog = {
   };
 };
 
+async function get_last_lsm_denom(wallet: Wallet): Promise<string> {
+  return (await wallet.clientSG.getAllBalances(wallet.mainAccounts[0].address))
+    .filter((balance) => balance.denom.includes("cosmosvaloper"))
+    .map((balance) => {
+      return {
+        denom: balance.denom,
+        token_share_id: Number(balance.denom.split("/")[1]),
+      };
+    })
+    .reduce((maxId, current) => {
+      return maxId.token_share_id > current.token_share_id ? maxId : current;
+    }).denom;
+}
+
 async function lsm_share_bond(
   wallets: Wallets,
   drop_instance: DropCoreClient
@@ -446,6 +462,9 @@ async function lsm_share_bond(
       )
     ).amount
   );
+  if (remote_chain_balance <= 8002) {
+    return null;
+  }
   // For some reason it's not working properly with 1 conventional unit in remote chain (https://www.mintscan.io/cosmoshub-testnet/tx/72632F1594285A0D23D878E781B3B8533D44DE87CF3FAAD7C440E5374DF9DEDA?height=22040761)
   // But works well with cu >= 2 (https://www.mintscan.io/cosmoshub-testnet/tx/698B451AA918294009EDBB813EE98B759D8DAAEDCB4E0789A07590B19C3615AC?height=22040981)
   // Idk but it seems like it's kind of bug in client
@@ -453,7 +472,7 @@ async function lsm_share_bond(
     Math.random() *
       (remote_chain_balance >= 100_000_000_000
         ? 100_000_000_000
-        : remote_chain_balance - 2) +
+        : remote_chain_balance - 8002) +
       2
   );
   const core_config = await drop_instance.queryConfig();
@@ -466,52 +485,62 @@ async function lsm_share_bond(
   ).map((element) => element.valoper_address);
   const random_validator =
     validator_list[Math.floor(Math.random() * validator_list.length)];
-  console.log(random_amount_delegate.toString(), random_validator);
-  await wallets.targetWallet.clientCW.delegateTokens(
-    wallets.targetWallet.mainAccounts[0].address,
-    random_validator,
-    {
-      denom: "stake",
-      amount: random_amount_delegate.toString(),
-    },
-    {
-      amount: [
-        {
-          denom: "stake",
-          amount: "4000",
-        },
-      ],
-      gas: "400000",
-    },
-    ""
-  );
-  await wallets.targetWallet.clientCW.signAndBroadcastSync(
-    wallets.targetWallet.mainAccounts[0].address,
-    [
+  const last_lsm_denom = await get_last_lsm_denom(wallets.targetWallet);
+
+  try {
+    await wallets.targetWallet.clientCW.delegateTokens(
+      wallets.targetWallet.mainAccounts[0].address,
+      random_validator,
       {
-        typeUrl: "/cosmos.staking.v1beta1.MsgTokenizeShares",
-        value: {
-          delegator_address: wallets.targetWallet.mainAccounts[0].address,
-          validator_address: random_validator,
-          amount: {
-            denom: "stake",
-            amount: random_amount_delegate.toString(),
-          },
-          tokenized_share_owner: wallets.targetWallet.mainAccounts[0].address,
-        },
+        denom: TARGET_NATIVE_DENOM,
+        amount: random_amount_delegate.toString(),
       },
-    ],
-    {
-      gas: "400000",
-      amount: [
+      {
+        amount: [
+          {
+            denom: TARGET_NATIVE_DENOM,
+            amount: "4000",
+          },
+        ],
+        gas: "400000",
+      },
+      ""
+    );
+  } catch (e) {}
+
+  try {
+    await wallets.targetWallet.clientCW.signAndBroadcastSync(
+      wallets.targetWallet.mainAccounts[0].address,
+      [
         {
-          denom: "stake",
-          amount: "4000",
+          typeUrl: "/cosmos.staking.v1beta1.MsgTokenizeShares",
+          value: {
+            delegator_address: wallets.targetWallet.mainAccounts[0].address,
+            validator_address: random_validator,
+            amount: {
+              denom: TARGET_NATIVE_DENOM,
+              amount: random_amount_delegate.toString(),
+            },
+            tokenized_share_owner: wallets.targetWallet.mainAccounts[0].address,
+          },
         },
       ],
-    },
-    ""
-  );
+      {
+        gas: "400000",
+        amount: [
+          {
+            denom: TARGET_NATIVE_DENOM,
+            amount: "4000",
+          },
+        ],
+      },
+      ""
+    );
+  } catch (e) {}
+
+  while ((await get_last_lsm_denom(wallets.targetWallet)) === last_lsm_denom) {
+    await sleep(5000);
+  }
   return;
 }
 
@@ -538,6 +567,13 @@ async function main() {
       gasPrice: GasPrice.fromString("0.75untrn"),
     }
   );
+  neutronWallet.clientSG = await SigningStargateClient.connectWithSigner(
+    NEUTRON_NODE_ADDRESS,
+    neutronWallet.mainWallet,
+    {
+      gasPrice: GasPrice.fromString("0.75untrn"),
+    }
+  );
   neutronWallet.mainAccounts = await neutronWallet.mainWallet.getAccounts();
 
   const targetWallet: Wallet = {};
@@ -551,7 +587,6 @@ async function main() {
     TARGET_NODE_ADDRESS,
     targetWallet.mainWallet,
     {
-      gasPrice: GasPrice.fromString("0.75untrn"),
       registry: new Registry(
         new Map<string, GeneratedType>([
           ["/cosmos.base.v1beta1.Coin", BankCoin],
@@ -562,6 +597,10 @@ async function main() {
         ])
       ),
     }
+  );
+  targetWallet.clientSG = await SigningStargateClient.connectWithSigner(
+    TARGET_NODE_ADDRESS,
+    targetWallet.mainWallet
   );
   targetWallet.mainAccounts = await targetWallet.mainWallet.getAccounts();
 
