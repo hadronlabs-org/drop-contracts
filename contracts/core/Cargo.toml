@@ -36,3 +36,6 @@ prost = { workspace = true }
 cosmos-sdk-proto = { workspace = true }
 cw-utils = { workspace = true }
 semver = { workspace = true }
+
+[dev-dependencies]
+cw-multi-test = { workspace = true }
