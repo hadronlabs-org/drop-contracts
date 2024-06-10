@@ -3136,19 +3136,6 @@ fn test_bond_lsm_share_wrong_channel() {
     assert_eq!(res, Err(ContractError::InvalidDenom {}));
 }
 
-fn get_default_new_unbond(now: u64) -> UnbondBatch {
-    UnbondBatch {
-        total_amount: Uint128::zero(),
-        expected_amount: Uint128::zero(),
-        total_unbond_items: 0,
-        status: UnbondBatchStatus::New,
-        expected_release: 0,
-        slashing_effect: None,
-        unbonded_amount: None,
-        created: now,
-    }
-}
-
 #[test]
 fn test_bond_lsm_share_increase_exchange_rate() {
     let mut deps = mock_dependencies(&[Coin {
@@ -3238,7 +3225,16 @@ fn test_bond_lsm_share_increase_exchange_rate() {
         .save(
             &mut deps.storage,
             0,
-            &get_default_new_unbond(env.block.time.seconds()),
+            &UnbondBatch {
+                total_amount: Uint128::zero(),
+                expected_amount: Uint128::zero(),
+                total_unbond_items: 0,
+                status: UnbondBatchStatus::New,
+                expected_release: 0,
+                slashing_effect: None,
+                unbonded_amount: None,
+                created: env.block.time.seconds(),
+            },
         )
         .unwrap();
     let res = execute(
@@ -3259,7 +3255,7 @@ fn test_bond_lsm_share_increase_exchange_rate() {
         .value
         .parse::<u64>()
         .unwrap();
-    assert_ne!(issue_amount, 0);
+    assert_eq!(issue_amount, 100500);
 }
 
 #[test]
