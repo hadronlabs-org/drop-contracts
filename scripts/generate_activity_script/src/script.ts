@@ -462,7 +462,19 @@ async function lsm_share_bond(
       )
     ).amount
   );
-  if (remote_chain_balance <= 8002) {
+  if (remote_chain_balance <= 12002) {
+    return null;
+  }
+
+  const neutron_chain_balance = Number(
+    (
+      await wallets.neutronWallet.clientCW.getBalance(
+        wallets.neutronWallet.mainAccounts[0].address,
+        "untrn"
+      )
+    ).amount
+  );
+  if (neutron_chain_balance <= 16000) {
     return null;
   }
   // For some reason it's not working properly with 1 conventional unit in remote chain (https://www.mintscan.io/cosmoshub-testnet/tx/72632F1594285A0D23D878E781B3B8533D44DE87CF3FAAD7C440E5374DF9DEDA?height=22040761)
@@ -472,7 +484,7 @@ async function lsm_share_bond(
     Math.random() *
       (remote_chain_balance >= 100_000_000_000
         ? 100_000_000_000
-        : remote_chain_balance - 8002) +
+        : remote_chain_balance - 12002) +
       2
   );
   const core_config = await drop_instance.queryConfig();
@@ -487,106 +499,158 @@ async function lsm_share_bond(
     validator_list[Math.floor(Math.random() * validator_list.length)];
   const last_lsm_denom: string = await get_last_lsm_denom(wallets.targetWallet);
 
-  try {
-    await wallets.targetWallet.clientCW.delegateTokens(
-      wallets.targetWallet.mainAccounts[0].address,
-      random_validator,
+  // try {
+  //   await wallets.targetWallet.clientCW.delegateTokens(
+  //     wallets.targetWallet.mainAccounts[0].address,
+  //     random_validator,
+  //     {
+  //       denom: TARGET_NATIVE_DENOM,
+  //       amount: random_amount_delegate.toString(),
+  //     },
+  //     {
+  //       amount: [
+  //         {
+  //           denom: TARGET_NATIVE_DENOM,
+  //           amount: "4000",
+  //         },
+  //       ],
+  //       gas: "400000",
+  //     },
+  //     ""
+  //   );
+  // } catch (e) {}
+
+  // try {
+  //   await wallets.targetWallet.clientCW.signAndBroadcastSync(
+  //     wallets.targetWallet.mainAccounts[0].address,
+  //     [
+  //       {
+  //         typeUrl: "/cosmos.staking.v1beta1.MsgTokenizeShares",
+  //         value: {
+  //           delegator_address: wallets.targetWallet.mainAccounts[0].address,
+  //           validator_address: random_validator,
+  //           amount: {
+  //             denom: TARGET_NATIVE_DENOM,
+  //             amount: random_amount_delegate.toString(),
+  //           },
+  //           tokenized_share_owner: wallets.targetWallet.mainAccounts[0].address,
+  //         },
+  //       },
+  //     ],
+  //     {
+  //       gas: "400000",
+  //       amount: [
+  //         {
+  //           denom: TARGET_NATIVE_DENOM,
+  //           amount: "4000",
+  //         },
+  //       ],
+  //     },
+  //     ""
+  //   );
+  // } catch (e) {}
+
+  // let last_lsm_denom_after_ts: string = await get_last_lsm_denom(
+  //   wallets.targetWallet
+  // );
+
+  // while (last_lsm_denom_after_ts === last_lsm_denom) {
+  //   last_lsm_denom_after_ts = await get_last_lsm_denom(wallets.targetWallet);
+  //   await sleep(5000);
+  // }
+
+  // const last_lsm_denom_after_ts_amount: string = (
+  //   await wallets.targetWallet.clientCW.getBalance(
+  //     wallets.targetWallet.mainAccounts[0].address,
+  //     last_lsm_denom_after_ts
+  //   )
+  // ).amount;
+
+  // const current_neutron_balances =
+  //   await wallets.neutronWallet.clientSG.getAllBalances(
+  //     wallets.neutronWallet.mainAccounts[0].address
+  //   );
+
+  // await wallets.targetWallet.clientSG.signAndBroadcastSync(
+  //   wallets.targetWallet.mainAccounts[0].address,
+  //   [
+  //     {
+  //       typeUrl: "/ibc.applications.transfer.v1.MsgTransfer",
+  //       value: {
+  //         sourcePort: "transfer",
+  //         sourceChannel: "channel-3457",
+  //         token: {
+  //           denom: last_lsm_denom_after_ts,
+  //           amount: last_lsm_denom_after_ts_amount,
+  //         },
+  //         sender: wallets.targetWallet.mainAccounts[0].address,
+  //         receiver: wallets.neutronWallet.mainAccounts[0].address,
+  //         timeoutHeight: "0",
+  //         timeoutTimestamp: String(
+  //           Math.floor(Date.now() / 1000) * 1e9 + 10 * 60 * 1e9
+  //         ),
+  //       },
+  //     },
+  //   ],
+  //   {
+  //     gas: "400000",
+  //     amount: [
+  //       {
+  //         denom: TARGET_NATIVE_DENOM,
+  //         amount: "4000",
+  //       },
+  //     ],
+  //   },
+  //   ""
+  // );
+
+  // let current_balances_after_ibc_transfer =
+  //   await wallets.neutronWallet.clientSG.getAllBalances(
+  //     wallets.neutronWallet.mainAccounts[0].address
+  //   );
+
+  // while (
+  //   current_neutron_balances.length ===
+  //   current_balances_after_ibc_transfer.length
+  // ) {
+  //   await sleep(5000);
+  //   current_balances_after_ibc_transfer =
+  //     await wallets.neutronWallet.clientSG.getAllBalances(
+  //       wallets.neutronWallet.mainAccounts[0].address
+  //     );
+  // }
+
+  // const tokenized_share_ibc_denom = current_balances_after_ibc_transfer.find(
+  //   (balance) => balance.amount === last_lsm_denom_after_ts_amount
+  // );
+
+  console.log(
+    await drop_instance.bond(
+      wallets.neutronWallet.mainAccounts[0].address,
+      {},
       {
-        denom: TARGET_NATIVE_DENOM,
-        amount: random_amount_delegate.toString(),
-      },
-      {
+        gas: "800000",
         amount: [
           {
-            denom: TARGET_NATIVE_DENOM,
-            amount: "4000",
+            denom: "untrn",
+            amount: "16000",
           },
         ],
-        gas: "400000",
       },
-      ""
-    );
-  } catch (e) {}
-
-  try {
-    await wallets.targetWallet.clientCW.signAndBroadcastSync(
-      wallets.targetWallet.mainAccounts[0].address,
+      "",
       [
         {
-          typeUrl: "/cosmos.staking.v1beta1.MsgTokenizeShares",
-          value: {
-            delegator_address: wallets.targetWallet.mainAccounts[0].address,
-            validator_address: random_validator,
-            amount: {
-              denom: TARGET_NATIVE_DENOM,
-              amount: random_amount_delegate.toString(),
-            },
-            tokenized_share_owner: wallets.targetWallet.mainAccounts[0].address,
-          },
+          denom:
+            "ibc/14005DBBDF4871BB70A7424C3D1CD6E99503600183D3BACCADB4EBA75C5C93FD",
+          amount: "95008",
         },
-      ],
-      {
-        gas: "400000",
-        amount: [
-          {
-            denom: TARGET_NATIVE_DENOM,
-            amount: "4000",
-          },
-        ],
-      },
-      ""
-    );
-  } catch (e) {}
-
-  let last_lsm_denom_after_ts: string = await get_last_lsm_denom(
-    wallets.targetWallet
-  );
-
-  while (last_lsm_denom_after_ts === last_lsm_denom) {
-    last_lsm_denom_after_ts = await get_last_lsm_denom(wallets.targetWallet);
-    await sleep(5000);
-  }
-
-  const last_lsm_denom_after_ts_amount: string = (
-    await wallets.targetWallet.clientCW.getBalance(
-      wallets.targetWallet.mainAccounts[0].address,
-      last_lsm_denom_after_ts
+        // {
+        //   denom: tokenized_share_ibc_denom.denom,
+        //   amount: tokenized_share_ibc_denom.amount,
+        // },
+      ]
     )
-  ).amount;
-
-  await wallets.targetWallet.clientSG.signAndBroadcastSync(
-    wallets.targetWallet.mainAccounts[0].address,
-    [
-      {
-        typeUrl: "/ibc.applications.transfer.v1.MsgTransfer",
-        value: {
-          sourcePort: "transfer",
-          sourceChannel: "channel-3457",
-          token: {
-            denom: last_lsm_denom_after_ts,
-            amount: last_lsm_denom_after_ts_amount,
-          },
-          sender: wallets.targetWallet.mainAccounts[0].address,
-          receiver: wallets.neutronWallet.mainAccounts[0].address,
-          timeoutHeight: "0",
-          timeoutTimestamp: String(
-            Math.floor(Date.now() / 1000) * 1e9 + 10 * 60 * 1e9
-          ),
-        },
-      },
-    ],
-    {
-      gas: "400000",
-      amount: [
-        {
-          denom: TARGET_NATIVE_DENOM,
-          amount: "4000",
-        },
-      ],
-    },
-    ""
   );
-
   return;
 }
 
