@@ -1318,12 +1318,20 @@ fn get_unbonding_msg<T>(
         && unbond.total_unbond_items != 0
         && !unbond.total_amount.is_zero()
     {
-        let undelegations: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
-            config.strategy_contract.to_string(),
-            &drop_staking_base::msg::strategy::QueryMsg::CalcWithdraw {
-                withdraw: unbond.total_amount,
-            },
-        )?;
+        let calc_withdraw_query_result: Result<Vec<(String, Uint128)>, StdError> =
+            deps.querier.query_wasm_smart(
+                config.strategy_contract.to_string(),
+                &drop_staking_base::msg::strategy::QueryMsg::CalcWithdraw {
+                    withdraw: unbond.total_amount,
+                },
+            );
+
+        if calc_withdraw_query_result.is_err() {
+            return Ok(None);
+        }
+
+        let undelegations: Vec<(String, Uint128)> = calc_withdraw_query_result?;
+
         unbond.status = UnbondBatchStatus::UnbondRequested;
         unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
         UNBOND_BATCH_ID.save(deps.storage, &(batch_id + 1))?;
