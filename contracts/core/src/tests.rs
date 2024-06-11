@@ -3308,7 +3308,8 @@ fn test_bond_lsm_share_increase_exchange_rate() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                created: env.block.time.seconds(),
+                withdrawed_amount: None,
+                status_timestamps: get_default_unbond_batch_status_timestamps(),
             },
         )
         .unwrap();
