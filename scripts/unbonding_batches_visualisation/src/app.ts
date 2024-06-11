@@ -34,10 +34,8 @@ type CoreBatchInformaion = {
   details: UnbondBatch;
 };
 
-/* Function print_n serves for getting information about 'n' first batches
- * current_unbond_batch - latest unbonding batch gotten from query
- * n - first n batches starting from current_unbond_batch
- * drop_client - drop client generated code from binary, used for queries
+/* Function create_batch_info serves for collecting
+ * all important information about batch into 1 single structure
  */
 async function create_batch_info(
   dropCoreConfig: DropCoreConfig,
