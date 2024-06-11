@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "raw": "node -r ts-node/register --env-file=./.env src/app.ts"
+    "start": "node -r ts-node/register --env-file=./.env src/app.ts"
   },
   "keywords": [],
   "author": "",

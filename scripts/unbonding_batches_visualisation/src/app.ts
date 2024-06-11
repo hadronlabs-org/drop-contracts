@@ -92,8 +92,9 @@ async function create_batch_info(
   return batch_details;
 }
 
-async function handle_recent(
-  drop_client: DropCoreClient
+async function handle_batches(
+  drop_client: DropCoreClient,
+  callback?: (batch: UnbondBatch) => boolean
 ): Promise<Array<BatchInfo>> {
   const res: Array<BatchInfo> = [];
   const config = await drop_client.queryConfig();
@@ -105,32 +106,9 @@ async function handle_recent(
     const batch = await drop_client.queryUnbondBatch({
       batch_id: current_batch.toString(),
     });
-    if (batch.status === "withdrawn") {
+    if (callback && callback(batch)) {
       break;
     }
-    res.push(
-      await create_batch_info(config, {
-        batch_id: current_batch,
-        details: batch,
-      })
-    );
-  }
-  return res;
-}
-
-async function handle_full(
-  drop_client: DropCoreClient
-): Promise<Array<BatchInfo>> {
-  const res: Array<BatchInfo> = [];
-  const config = await drop_client.queryConfig();
-  for (
-    let current_batch = Number(await drop_client.queryCurrentUnbondBatch());
-    current_batch >= 0;
-    current_batch -= 1
-  ) {
-    const batch = await drop_client.queryUnbondBatch({
-      batch_id: current_batch.toString(),
-    });
     res.push(
       await create_batch_info(config, {
         batch_id: current_batch,
@@ -162,11 +140,14 @@ async function main(mode: string): Promise<void> {
 
   switch (mode) {
     case "RECENT": {
-      res = await handle_recent(drop_client);
+      res = await handle_batches(
+        drop_client,
+        (batch) => batch.status === "withdrawn"
+      );
       break;
     }
     case "FULL": {
-      res = await handle_full(drop_client);
+      res = await handle_batches(drop_client);
       break;
     }
     default: {
