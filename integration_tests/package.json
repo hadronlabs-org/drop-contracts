@@ -8,6 +8,7 @@
     "test:poc-provider-proposals": "vitest --run poc-provider-proposals.test.ts --bail 1",
     "test:poc-proposal-votes": "vitest --run poc-proposal-votes.test.ts --bail 1",
     "test:core": "vitest --run core.test.ts --bail 1",
+    "test:locator": "vitest --run locator.test.ts --bail 1",
     "test:core:slashing": "vitest --run core-slashing.test.ts --bail 1",
     "test:pump": "vitest --run pump.test.ts --bail 1",
     "test:pump-multi": "vitest --run pump-multi.test.ts --bail 1",

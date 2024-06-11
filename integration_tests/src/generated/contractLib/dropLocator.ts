@@ -1,22 +1,8 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
-/**
- * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u128` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
- *
- * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
- *
- * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
- */
-export type Uint128 = string;
-export type ArrayOfTupleOfStringAndUint128 = [string, Uint128][];
-export type ArrayOfTupleOfStringAndUint1281 = [string, Uint128][];
+export type ArrayOfDropInstance = DropInstance1[];
+export type ArrayOfFactoryInstance = FactoryInstance1[];
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -67,18 +53,40 @@ export type UpdateOwnershipArgs =
   | "accept_ownership"
   | "renounce_ownership";
 
-export interface DropStrategySchema {
-  responses: ArrayOfTupleOfStringAndUint128 | ArrayOfTupleOfStringAndUint1281 | Config | OwnershipForString;
-  query: CalcDepositArgs | CalcWithdrawArgs;
-  execute: UpdateConfigArgs | UpdateOwnershipArgs;
+export interface DropLocatorSchema {
+  responses: DropInstance | ArrayOfDropInstance | FactoryInstance | ArrayOfFactoryInstance | OwnershipForString;
+  query: FactoryInstanceArgs | ChainArgs;
+  execute: AddChainsArgs | RemoveChainsArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
-export interface Config {
-  denom: string;
-  distribution_address: string;
-  puppeteer_address: string;
-  validator_set_address: string;
+export interface DropInstance {
+  factory_addr: string;
+  name: string;
+}
+export interface DropInstance1 {
+  factory_addr: string;
+  name: string;
+}
+export interface FactoryInstance {
+  addr: string;
+  contracts: State;
+}
+export interface State {
+  core_contract: string;
+  distribution_contract: string;
+  puppeteer_contract: string;
+  rewards_manager_contract: string;
+  staker_contract: string;
+  strategy_contract: string;
+  token_contract: string;
+  validators_set_contract: string;
+  withdrawal_manager_contract: string;
+  withdrawal_voucher_contract: string;
+}
+export interface FactoryInstance1 {
+  addr: string;
+  contracts: State;
 }
 /**
  * The contract's ownership info
@@ -97,28 +105,19 @@ export interface OwnershipForString {
    */
   pending_owner?: string | null;
 }
-export interface CalcDepositArgs {
-  deposit: Uint128;
+export interface FactoryInstanceArgs {
+  name: string;
 }
-export interface CalcWithdrawArgs {
-  withdraw: Uint128;
+export interface ChainArgs {
+  name: string;
 }
-export interface UpdateConfigArgs {
-  new_config: ConfigOptional;
+export interface AddChainsArgs {
+  chains: DropInstance1[];
 }
-export interface ConfigOptional {
-  denom?: string | null;
-  distribution_address?: string | null;
-  puppeteer_address?: string | null;
-  validator_set_address?: string | null;
+export interface RemoveChainsArgs {
+  names: string[];
 }
-export interface InstantiateMsg {
-  denom: string;
-  distribution_address: string;
-  owner: string;
-  puppeteer_address: string;
-  validator_set_address: string;
-}
+export interface InstantiateMsg {}
 
 
 function isSigningCosmWasmClient(
@@ -166,21 +165,28 @@ export class Client {
     });
     return res;
   }
-  queryConfig = async(): Promise<Config> => {
-    return this.client.queryContractSmart(this.contractAddress, { config: {} });
+  queryFactoryInstance = async(args: FactoryInstanceArgs): Promise<FactoryInstance> => {
+    return this.client.queryContractSmart(this.contractAddress, { factory_instance: args });
   }
-  queryCalcDeposit = async(args: CalcDepositArgs): Promise<ArrayOfTupleOfStringAndUint128> => {
-    return this.client.queryContractSmart(this.contractAddress, { calc_deposit: args });
+  queryFactoryInstances = async(): Promise<ArrayOfFactoryInstance> => {
+    return this.client.queryContractSmart(this.contractAddress, { factory_instances: {} });
   }
-  queryCalcWithdraw = async(args: CalcWithdrawArgs): Promise<ArrayOfTupleOfStringAndUint128> => {
-    return this.client.queryContractSmart(this.contractAddress, { calc_withdraw: args });
+  queryChain = async(args: ChainArgs): Promise<DropInstance> => {
+    return this.client.queryContractSmart(this.contractAddress, { chain: args });
+  }
+  queryChains = async(): Promise<ArrayOfDropInstance> => {
+    return this.client.queryContractSmart(this.contractAddress, { chains: {} });
   }
   queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
   }
-  updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  addChains = async(sender:string, args: AddChainsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { add_chains: args }, fee || "auto", memo, funds);
+  }
+  removeChains = async(sender:string, args: RemoveChainsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { remove_chains: args }, fee || "auto", memo, funds);
   }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

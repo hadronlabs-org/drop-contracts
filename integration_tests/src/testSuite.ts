@@ -363,7 +363,7 @@ export const setupPark = async (
   const instance = await cosmopark.create(config);
   await Promise.all(
     Object.entries(instance.ports).map(([network, ports]) =>
-      awaitFirstBlock(`127.0.0.1:${ports.rpc}`).catch((e) => {
+      awaitFirstBlock(`http://127.0.0.1:${ports.rpc}`).catch((e) => {
         console.log(`Failed to await first block for ${network}: ${e}`);
         throw e;
       }),

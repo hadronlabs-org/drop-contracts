@@ -1,11 +1,3 @@
-use crate::{
-    error::ContractResult,
-    msg::{
-        ExecuteMsg, InstantiateMsg, MigrateMsg, ProxyMsg, QueryMsg, UpdateConfigMsg,
-        ValidatorSetMsg,
-    },
-    state::{State, STATE},
-};
 use cosmwasm_std::{
     attr, instantiate2_address, to_json_binary, Attribute, Binary, CodeInfoResponse, CosmosMsg,
     Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, WasmMsg,
@@ -24,6 +16,14 @@ use drop_staking_base::msg::{
         InstantiateMsg as WithdrawalManagerInstantiateMsg, QueryMsg as WithdrawalManagerQueryMsg,
     },
     withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
+};
+use drop_staking_base::{
+    error::factory::ContractResult,
+    msg::factory::{
+        ExecuteMsg, InstantiateMsg, MigrateMsg, ProxyMsg, QueryMsg, UpdateConfigMsg,
+        ValidatorSetMsg,
+    },
+    state::factory::{State, STATE},
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -344,7 +344,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
 fn query_pause_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
     let state = STATE.load(deps.storage)?;
 
-    to_json_binary(&crate::state::PauseInfoResponse {
+    to_json_binary(&drop_staking_base::state::factory::PauseInfoResponse {
         core: deps
             .querier
             .query_wasm_smart(state.core_contract, &CoreQueryMsg::PauseInfo {})?,
@@ -502,7 +502,7 @@ fn execute_proxy_msg(
             }
         },
         ProxyMsg::Core(msg) => match msg {
-            crate::msg::CoreMsg::UpdateNonNativeRewardsReceivers { items } => {
+            drop_staking_base::msg::factory::CoreMsg::UpdateNonNativeRewardsReceivers { items } => {
                 messages.push(get_proxied_message(
                     state.core_contract,
                     drop_staking_base::msg::core::ExecuteMsg::UpdateNonNativeRewardsReceivers {
@@ -517,14 +517,14 @@ fn execute_proxy_msg(
                             denoms: items.iter().map(|one|{one.denom.to_string()}).collect() }, info.funds)?
                 );
             }
-            crate::msg::CoreMsg::Pause {} => {
+            drop_staking_base::msg::factory::CoreMsg::Pause {} => {
                 messages.push(get_proxied_message(
                     state.core_contract,
                     drop_staking_base::msg::core::ExecuteMsg::Pause {},
                     vec![],
                 )?);
             }
-            crate::msg::CoreMsg::Unpause {} => {
+            drop_staking_base::msg::factory::CoreMsg::Unpause {} => {
                 messages.push(get_proxied_message(
                     state.core_contract,
                     drop_staking_base::msg::core::ExecuteMsg::Unpause {},

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 DIR="$(dirname $0)"
 cd $DIR
 git clone -b foxpy/low-submission-margin-period https://github.com/neutron-org/neutron-query-relayer

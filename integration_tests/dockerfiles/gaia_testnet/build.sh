@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 DIR="$(dirname $0)"
 cd $DIR
 VERSION=$(cat ../../package.json | jq -r '.version')
