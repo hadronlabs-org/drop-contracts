@@ -368,11 +368,19 @@ describe('Locator', () => {
     expect((await locator.queryChains()).length).toEqual(2);
     expect((await locator.queryFactoryInstances()).length).toEqual(2);
   });
-  it('Check length of array of factory instances', async () => {
+  it('Query factory instances', async () => {
     const { locator } = context.contracts;
     const res = await locator.queryFactoryInstances();
     expect(res).toHaveLength(2);
-    expect(res.length).toBe(context.contracts.factories.length);
+    for (const factory of context.contracts.factories) {
+      const factoryState = await factory.queryState();
+      const instance = res.find(
+        (element) => element.addr == factory.contractAddress,
+      );
+      expect(instance).not.toBeUndefined();
+      expect(instance.contracts).toEqual(factoryState);
+    }
+    expect(context.contracts.factories.length).toBe(res.length);
   });
   it('Try to remove factory instances from locator contract', async () => {
     const { locator } = context.contracts;
