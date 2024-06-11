@@ -10,6 +10,7 @@ use cosmwasm_std::{
 };
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
 use drop_puppeteer_base::state::RedeemShareItem;
+use drop_staking_base::msg::staker::QueryMsg as StakerQueryMsg;
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
@@ -3208,6 +3209,128 @@ fn test_bond_lsm_share_wrong_channel() {
     );
     assert!(res.is_err());
     assert_eq!(res, Err(ContractError::InvalidDenom {}));
+}
+
+#[test]
+fn test_bond_lsm_share_increase_exchange_rate() {
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "ld_denom".to_string(),
+        amount: Uint128::new(1),
+    }]);
+    deps.querier.add_stargate_query_response(
+        "/ibc.applications.transfer.v1.Query/DenomTrace",
+        |_data| {
+            to_json_binary(&QueryDenomTraceResponse {
+                denom_trace: DenomTrace {
+                    path: "transfer/transfer_channel".to_string(),
+                    base_denom: "valoper1/1".to_string(),
+                },
+            })
+            .unwrap()
+        },
+    );
+    deps.querier
+        .add_wasm_query_response("validators_set_contract", |_| {
+            to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
+                validator: Some(drop_staking_base::state::validatorset::ValidatorInfo {
+                    valoper_address: "valoper1".to_string(),
+                    weight: 1u64,
+                    last_processed_remote_height: None,
+                    last_processed_local_height: None,
+                    last_validated_height: None,
+                    last_commission_in_range: None,
+                    uptime: Decimal::one(),
+                    tombstone: false,
+                    jailed_number: None,
+                    init_proposal: None,
+                    total_passed_proposals: 0u64,
+                    total_voted_proposals: 0u64,
+                }),
+            })
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("staker_contract", |data| {
+            let req: StakerQueryMsg = from_json(data).unwrap();
+            match req {
+                StakerQueryMsg::AllBalance {} => to_json_binary(&Uint128::new(1)).unwrap(),
+                _ => unimplemented!(),
+            }
+        });
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&(
+                neutron_sdk::interchain_queries::v045::types::Delegations {
+                    delegations: vec![],
+                },
+                0,
+                cosmwasm_std::Timestamp::from_nanos(1_000_000_202),
+            ))
+            .unwrap()
+        });
+    let mut env = mock_env();
+    env.block.time = Timestamp::from_seconds(1000);
+    TOTAL_LSM_SHARES
+        .save(deps.as_mut().storage, &0u128)
+        .unwrap();
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+        .unwrap();
+    BONDED_AMOUNT
+        .save(deps.as_mut().storage, &Uint128::zero())
+        .unwrap();
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                600,
+                Uint128::new(1),
+            ),
+        )
+        .unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
+        .unwrap();
+    UNBOND_BATCH_ID.save(&mut deps.storage, &0).unwrap();
+    unbond_batches_map()
+        .save(
+            &mut deps.storage,
+            0,
+            &UnbondBatch {
+                total_amount: Uint128::zero(),
+                expected_amount: Uint128::zero(),
+                total_unbond_items: 0,
+                status: UnbondBatchStatus::New,
+                expected_release: 0,
+                slashing_effect: None,
+                unbonded_amount: None,
+                created: env.block.time.seconds(),
+            },
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        env,
+        mock_info("some", &[Coin::new(100500, "lsm_share")]),
+        ExecuteMsg::Bond {
+            receiver: None,
+            r#ref: None,
+        },
+    )
+    .unwrap();
+    let issue_amount = res.events[0]
+        .attributes
+        .iter()
+        .find(|attribute| attribute.key == "issue_amount")
+        .unwrap()
+        .value
+        .parse::<u64>()
+        .unwrap();
+    assert_eq!(issue_amount, 100500);
 }
 
 #[test]
