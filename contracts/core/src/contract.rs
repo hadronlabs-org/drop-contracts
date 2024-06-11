@@ -919,6 +919,10 @@ fn execute_bond(
     BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total + amount))?;
     let denom_type = check_denom::check_denom(&deps.as_ref(), &denom, &config)?;
     let mut msgs = vec![];
+    let mut attrs = vec![attr("action", "bond")];
+    let exchange_rate = query_exchange_rate(deps.as_ref(), &config)?;
+    attrs.push(attr("exchange_rate", exchange_rate.to_string()));
+
     if let check_denom::DenomType::LsmShare(remote_denom) = denom_type {
         if amount < config.lsm_min_bond_amount {
             return Err(ContractError::LSMBondAmountIsBelowMinimum {
@@ -939,11 +943,6 @@ fn execute_bond(
             amount: vec![Coin::new(amount.u128(), denom)],
         }));
     }
-
-    let mut attrs = vec![attr("action", "bond")];
-
-    let exchange_rate = query_exchange_rate(deps.as_ref(), &config)?;
-    attrs.push(attr("exchange_rate", exchange_rate.to_string()));
 
     let issue_amount = amount * (Decimal::one() / exchange_rate);
     attrs.push(attr("issue_amount", issue_amount.to_string()));
