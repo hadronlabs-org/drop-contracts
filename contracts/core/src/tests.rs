@@ -20,10 +20,10 @@ use drop_staking_base::{
     },
     state::core::{
         unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem,
-        UnbondBatch, UnbondBatchStatus, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FSM,
-        LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LD_DENOM,
-        LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, TOTAL_LSM_SHARES,
-        UNBOND_BATCH_ID,
+        UnbondBatch, UnbondBatchStatus, UnbondBatchStatusTimestamps, BONDED_AMOUNT, CONFIG,
+        EXCHANGE_RATE, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM,
+        LAST_PUPPETEER_RESPONSE, LD_DENOM, LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG,
+        PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
     },
 };
 use neutron_sdk::{
@@ -71,6 +71,19 @@ fn get_default_config(
         emergency_address: None,
         min_stake_amount: Uint128::new(100),
         icq_update_delay: 5,
+    }
+}
+
+fn get_default_unbond_batch_status_timestamps() -> UnbondBatchStatusTimestamps {
+    UnbondBatchStatusTimestamps {
+        new: 0,
+        unbond_requested: None,
+        unbond_failed: None,
+        unbonding: None,
+        withdrawing: None,
+        withdrawn: None,
+        withdrawing_emergency: None,
+        withdrawn_emergency: None,
     }
 }
 
@@ -1185,7 +1198,17 @@ fn test_tick_idle_unbonding_close() {
                 expected_release: 10001,
                 slashing_effect: None,
                 unbonded_amount: None,
-                created: 1,
+                withdrawed_amount: None,
+                status_timestamps: UnbondBatchStatusTimestamps {
+                    new: 0,
+                    unbond_requested: None,
+                    unbond_failed: None,
+                    unbonding: None,
+                    withdrawing: None,
+                    withdrawn: None,
+                    withdrawing_emergency: None,
+                    withdrawn_emergency: None,
+                },
             },
         )
         .unwrap();
@@ -1314,7 +1337,8 @@ fn test_tick_idle_claim_wo_unbond() {
                 expected_release: 9000,
                 slashing_effect: None,
                 unbonded_amount: None,
-                created: 1,
+                withdrawed_amount: None,
+                status_timestamps: get_default_unbond_batch_status_timestamps(),
             },
         )
         .unwrap();
@@ -1468,7 +1492,8 @@ fn test_tick_idle_claim_with_unbond_transfer() {
                 expected_release: 90000,
                 slashing_effect: None,
                 unbonded_amount: None,
-                created: 0,
+                withdrawed_amount: None,
+                status_timestamps: get_default_unbond_batch_status_timestamps(),
             },
         )
         .unwrap();
@@ -1929,7 +1954,17 @@ fn test_tick_idle_unbonding() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                created: 0,
+                withdrawed_amount: None,
+                status_timestamps: UnbondBatchStatusTimestamps {
+                    new: 0,
+                    unbond_requested: None,
+                    unbond_failed: None,
+                    unbonding: None,
+                    withdrawing: None,
+                    withdrawn: None,
+                    withdrawing_emergency: None,
+                    withdrawn_emergency: None,
+                },
             },
         )
         .unwrap();
@@ -2260,7 +2295,17 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                created: 0,
+                withdrawed_amount: None,
+                status_timestamps: UnbondBatchStatusTimestamps {
+                    new: 0,
+                    unbond_requested: None,
+                    unbond_failed: None,
+                    unbonding: None,
+                    withdrawing: None,
+                    withdrawn: None,
+                    withdrawing_emergency: None,
+                    withdrawn_emergency: None,
+                },
             },
         )
         .unwrap();
@@ -2411,7 +2456,17 @@ fn test_tick_claiming_wo_idle() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                created: 0,
+                withdrawed_amount: None,
+                status_timestamps: UnbondBatchStatusTimestamps {
+                    new: 0,
+                    unbond_requested: None,
+                    unbond_failed: None,
+                    unbonding: None,
+                    withdrawing: None,
+                    withdrawn: None,
+                    withdrawing_emergency: None,
+                    withdrawn_emergency: None,
+                },
             },
         )
         .unwrap();
@@ -2757,7 +2812,17 @@ fn test_tick_staking_to_unbonding() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                created: 0,
+                withdrawed_amount: None,
+                status_timestamps: UnbondBatchStatusTimestamps {
+                    new: 0,
+                    unbond_requested: None,
+                    unbond_failed: None,
+                    unbonding: None,
+                    withdrawing: None,
+                    withdrawn: None,
+                    withdrawing_emergency: None,
+                    withdrawn_emergency: None,
+                },
             },
         )
         .unwrap();
@@ -2881,7 +2946,17 @@ fn test_tick_staking_to_idle() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                created: 0,
+                withdrawed_amount: None,
+                status_timestamps: UnbondBatchStatusTimestamps {
+                    new: 0,
+                    unbond_requested: None,
+                    unbond_failed: None,
+                    unbonding: None,
+                    withdrawing: None,
+                    withdrawn: None,
+                    withdrawing_emergency: None,
+                    withdrawn_emergency: None,
+                },
             },
         )
         .unwrap();
@@ -3233,7 +3308,8 @@ fn test_bond_lsm_share_increase_exchange_rate() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                created: env.block.time.seconds(),
+                withdrawed_amount: None,
+                status_timestamps: get_default_unbond_batch_status_timestamps(),
             },
         )
         .unwrap();
@@ -3446,7 +3522,8 @@ fn test_unbond() {
                 expected_release: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                created: 0,
+                withdrawed_amount: None,
+                status_timestamps: get_default_unbond_batch_status_timestamps(),
             },
         )
         .unwrap();
@@ -3542,7 +3619,8 @@ fn test_unbond() {
             expected_release: 0,
             slashing_effect: None,
             unbonded_amount: None,
-            created: 0,
+            withdrawed_amount: None,
+            status_timestamps: get_default_unbond_batch_status_timestamps(),
         }
     );
     let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
@@ -3587,7 +3665,8 @@ mod process_emergency_batch {
                         status,
                         slashing_effect: None,
                         unbonded_amount: None,
-                        created: 200,
+                        withdrawed_amount: None,
+                        status_timestamps: get_default_unbond_batch_status_timestamps(),
                     },
                 )
                 .unwrap();
@@ -3665,9 +3744,10 @@ mod process_emergency_batch {
     #[test]
     fn no_slashing() {
         let mut deps = setup(UnbondBatchStatus::WithdrawnEmergency);
+        let shared_mock_env = mock_env();
         execute(
             deps.as_mut(),
-            mock_env(),
+            shared_mock_env.clone(),
             mock_info("owner", &[]),
             ExecuteMsg::ProcessEmergencyBatch {
                 batch_id: 2,
@@ -3687,7 +3767,17 @@ mod process_emergency_batch {
                 status: UnbondBatchStatus::Withdrawn,
                 slashing_effect: Some(Decimal::one()),
                 unbonded_amount: Some(Uint128::new(100)),
-                created: 200,
+                withdrawed_amount: None,
+                status_timestamps: UnbondBatchStatusTimestamps {
+                    new: 0,
+                    unbond_requested: None,
+                    unbond_failed: None,
+                    unbonding: None,
+                    withdrawing: None,
+                    withdrawn: Some(shared_mock_env.block.time.seconds()),
+                    withdrawing_emergency: None,
+                    withdrawn_emergency: None,
+                },
             }
         );
     }
@@ -3695,9 +3785,10 @@ mod process_emergency_batch {
     #[test]
     fn some_slashing() {
         let mut deps = setup(UnbondBatchStatus::WithdrawnEmergency);
+        let shared_mock_env = mock_env();
         execute(
             deps.as_mut(),
-            mock_env(),
+            shared_mock_env.clone(),
             mock_info("owner", &[]),
             ExecuteMsg::ProcessEmergencyBatch {
                 batch_id: 2,
@@ -3717,7 +3808,17 @@ mod process_emergency_batch {
                 status: UnbondBatchStatus::Withdrawn,
                 slashing_effect: Some(Decimal::from_ratio(70u128, 100u128)),
                 unbonded_amount: Some(Uint128::new(70)),
-                created: 200,
+                withdrawed_amount: None,
+                status_timestamps: UnbondBatchStatusTimestamps {
+                    new: 0,
+                    unbond_requested: None,
+                    unbond_failed: None,
+                    unbonding: None,
+                    withdrawing: None,
+                    withdrawn: Some(shared_mock_env.block.time.seconds()),
+                    withdrawing_emergency: None,
+                    withdrawn_emergency: None,
+                },
             }
         );
     }

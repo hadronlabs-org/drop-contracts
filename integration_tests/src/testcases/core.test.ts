@@ -995,13 +995,14 @@ describe('Core', () => {
     expect(batch).toBeTruthy();
     expect(batch).toEqual<UnbondBatch>({
       slashing_effect: null,
-      created: expect.any(Number),
+      status_timestamps: expect.any(Object),
       expected_release: 0,
       status: 'new',
       total_amount: '500000',
       expected_amount: '500000',
       total_unbond_items: 2,
       unbonded_amount: null,
+      withdrawed_amount: null,
     });
   });
   describe('state machine', () => {
@@ -1260,12 +1261,13 @@ describe('Core', () => {
         expect(batch).toEqual<UnbondBatch>({
           slashing_effect: null,
           status: 'unbond_requested',
-          created: expect.any(Number),
+          status_timestamps: expect.any(Object),
           expected_release: 0,
           total_amount: '500000',
           expected_amount: '500000',
           total_unbond_items: 2,
           unbonded_amount: null,
+          withdrawed_amount: null,
         });
       });
       it('wait for response from puppeteer', async () => {
@@ -1313,12 +1315,13 @@ describe('Core', () => {
         expect(batch).toEqual<UnbondBatch>({
           slashing_effect: null,
           status: 'unbonding',
-          created: expect.any(Number),
+          status_timestamps: expect.any(Object),
           expected_release: expect.any(Number),
           total_amount: '500000',
           expected_amount: '500000',
           total_unbond_items: 2,
           unbonded_amount: null,
+          withdrawed_amount: null,
         });
       });
     });
@@ -2336,12 +2339,13 @@ describe('Core', () => {
         expect(batch).toEqual<UnbondBatch>({
           slashing_effect: '1',
           status: 'withdrawn',
-          created: expect.any(Number),
+          status_timestamps: expect.any(Object),
           expected_release: expect.any(Number),
           total_amount: '500000',
           expected_amount: '500000',
           total_unbond_items: 2,
           unbonded_amount: '500000',
+          withdrawed_amount: null,
         });
       });
       it('withdraw with non funded withdrawal manager', async () => {

@@ -901,13 +901,13 @@ describe('Core Slashing', () => {
       expect(batch).toEqual<UnbondBatch>({
         slashing_effect: null,
         status: 'unbonding',
-        created: expect.any(Number),
+        status_timestamps: expect.any(Object),
         expected_release: expect.any(Number),
-
         total_amount: '500',
         expected_amount: '500',
         total_unbond_items: 1,
         unbonded_amount: null,
+        withdrawed_amount: null,
       });
     });
   });
@@ -1129,12 +1129,13 @@ describe('Core Slashing', () => {
       expect(batch).toEqual<UnbondBatch>({
         slashing_effect: null,
         status: 'unbonding',
-        created: expect.any(Number),
+        status_timestamps: expect.any(Object),
         expected_release: expect.any(Number),
         total_amount: '3000',
         expected_amount: '3000',
         total_unbond_items: 1,
         unbonded_amount: null,
+        withdrawed_amount: null,
       });
     });
   });
@@ -1254,12 +1255,13 @@ describe('Core Slashing', () => {
     expect(batch).toEqual<UnbondBatch>({
       slashing_effect: null,
       status: 'withdrawing_emergency',
-      created: expect.any(Number),
+      status_timestamps: expect.any(Object),
       expected_release: expect.any(Number),
       total_amount: '1000',
       expected_amount: '1000',
       total_unbond_items: 1,
       unbonded_amount: null,
+      withdrawed_amount: null,
     });
   });
   it.skip('verify that unbonding batch 1 is in withdrawing emergency state', async () => {
@@ -1270,12 +1272,13 @@ describe('Core Slashing', () => {
     expect(batch).toEqual<UnbondBatch>({
       slashing_effect: null,
       status: 'withdrawing_emergency',
-      created: expect.any(Number),
+      status_timestamps: expect.any(Object),
       expected_release: expect.any(Number),
       total_amount: '3000',
       expected_amount: '3499',
       total_unbond_items: 1,
       unbonded_amount: null,
+      withdrawed_amount: null,
     });
   });
   it.skip('tick (idle)', async () => {
@@ -1304,12 +1307,13 @@ describe('Core Slashing', () => {
     expect(batch).toEqual<UnbondBatch>({
       slashing_effect: null,
       status: 'withdrawn_emergency',
-      created: expect.any(Number),
+      status_timestamps: expect.any(Object),
       expected_release: expect.any(Number),
       total_amount: '1000',
       expected_amount: '1000',
       total_unbond_items: 1,
       unbonded_amount: null,
+      withdrawed_amount: null,
     });
   });
   it.skip('verify that unbonding batch 1 is in withdrawn emergency state', async () => {
@@ -1320,12 +1324,13 @@ describe('Core Slashing', () => {
     expect(batch).toEqual<UnbondBatch>({
       slashing_effect: null,
       status: 'withdrawn_emergency',
-      created: expect.any(Number),
+      status_timestamps: expect.any(Object),
       expected_release: expect.any(Number),
       total_amount: '3000',
       expected_amount: '3499',
       total_unbond_items: 1,
       unbonded_amount: null,
+      withdrawed_amount: null,
     });
   });
 

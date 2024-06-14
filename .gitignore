@@ -3,3 +3,6 @@ target/
 **/schema/
 /artifacts/
 .rtx.toml
+.vscode
+node_modules
+.env

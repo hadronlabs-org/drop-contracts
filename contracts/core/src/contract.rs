@@ -24,10 +24,11 @@ use drop_staking_base::{
     state::{
         core::{
             unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem,
-            UnbondBatch, UnbondBatchStatus, BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID,
-            FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE,
-            LAST_STAKER_RESPONSE, LD_DENOM, LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG,
-            PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+            UnbondBatch, UnbondBatchStatus, UnbondBatchStatusTimestamps, BONDED_AMOUNT, CONFIG,
+            EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL,
+            LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE, LD_DENOM,
+            LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, TOTAL_LSM_SHARES,
+            UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
         withdrawal_voucher::{Metadata, Trait},
@@ -250,7 +251,7 @@ pub fn execute(
         ExecuteMsg::ProcessEmergencyBatch {
             batch_id,
             unbonded_amount,
-        } => execute_process_emergency_batch(deps, info, batch_id, unbonded_amount),
+        } => execute_process_emergency_batch(deps, info, env, batch_id, unbonded_amount),
         ExecuteMsg::UpdateNonNativeRewardsReceivers { items } => {
             execute_set_non_native_rewards_receivers(deps, env, info, items)
         }
@@ -309,6 +310,7 @@ fn execute_reset_bonded_amount(
 fn execute_process_emergency_batch(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
+    env: Env,
     batch_id: u128,
     unbonded_amount: Uint128,
 ) -> ContractResult<Response<NeutronMsg>> {
@@ -334,6 +336,7 @@ fn execute_process_emergency_batch(
     batch.status = UnbondBatchStatus::Withdrawn;
     batch.unbonded_amount = Some(unbonded_amount);
     batch.slashing_effect = Some(slashing_effect);
+    batch.status_timestamps.withdrawn = Some(env.block.time.seconds());
     unbond_batches_map().save(deps.storage, batch_id, &batch)?;
 
     Ok(response(
@@ -604,6 +607,7 @@ fn execute_tick_idle(
                 unbonding_batch.unbonded_amount = Some(unbonded_amount);
                 unbonding_batch.slashing_effect = Some(slashing_effect);
                 unbonding_batch.status = UnbondBatchStatus::Withdrawing;
+                unbonding_batch.status_timestamps.withdrawing = Some(env.block.time.seconds());
                 unbond_batches_map().save(deps.storage, id, &unbonding_batch)?;
                 Some(TransferReadyBatchesMsg {
                     batch_ids: vec![id],
@@ -636,10 +640,13 @@ fn execute_tick_idle(
                         batch.unbonded_amount = None;
                         batch.slashing_effect = None;
                         batch.status = UnbondBatchStatus::WithdrawingEmergency;
+                        batch.status_timestamps.withdrawing_emergency =
+                            Some(env.block.time.seconds());
                     } else {
                         batch.unbonded_amount = Some(batch.expected_amount);
                         batch.slashing_effect = Some(Decimal::one());
                         batch.status = UnbondBatchStatus::Withdrawing;
+                        batch.status_timestamps.withdrawing = Some(env.block.time.seconds());
                     }
                     unbond_batches_map().save(deps.storage, id, &batch)?;
                 }
@@ -763,9 +770,12 @@ fn execute_tick_claiming(
                             attrs.push(attr("batch_id", id.to_string()));
                             if transfer.emergency {
                                 batch.status = UnbondBatchStatus::WithdrawnEmergency;
+                                batch.status_timestamps.withdrawing_emergency =
+                                    Some(env.block.time.seconds());
                                 attrs.push(attr("unbond_batch_status", "withdrawn_emergency"));
                             } else {
                                 batch.status = UnbondBatchStatus::Withdrawn;
+                                batch.status_timestamps.withdrawn = Some(env.block.time.seconds());
                                 attrs.push(attr("unbond_batch_status", "withdrawn"));
                             }
                             unbond_batches_map().save(deps.storage, id, &batch)?;
@@ -878,6 +888,7 @@ fn execute_tick_unbonding(
                     attrs.push(attr("batch_id", batch_id.to_string()));
                     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
                     unbond.status = UnbondBatchStatus::Unbonding;
+                    unbond.status_timestamps.unbonding = Some(env.block.time.seconds());
                     unbond.expected_release = env.block.time.seconds() + config.unbonding_period;
                     unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
                     FAILED_BATCH_ID.remove(deps.storage);
@@ -892,6 +903,7 @@ fn execute_tick_unbonding(
                 attrs.push(attr("batch_id", batch_id.to_string()));
                 let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
                 unbond.status = UnbondBatchStatus::UnbondFailed;
+                unbond.status_timestamps.unbond_failed = Some(env.block.time.seconds());
                 unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
                 FAILED_BATCH_ID.save(deps.storage, &batch_id)?;
                 attrs.push(attr("unbonding", "failed"));
@@ -1313,7 +1325,7 @@ fn get_unbonding_msg<T>(
         .may_load(deps.storage)?
         .unwrap_or(UNBOND_BATCH_ID.load(deps.storage)?);
     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
-    if (unbond.created + config.unbond_batch_switch_time < env.block.time.seconds())
+    if (unbond.status_timestamps.new + config.unbond_batch_switch_time < env.block.time.seconds())
         && unbond.total_unbond_items != 0
         && !unbond.total_amount.is_zero()
     {
@@ -1332,6 +1344,7 @@ fn get_unbonding_msg<T>(
         let undelegations: Vec<(String, Uint128)> = calc_withdraw_query_result?;
 
         unbond.status = UnbondBatchStatus::UnbondRequested;
+        unbond.status_timestamps.unbond_requested = Some(env.block.time.seconds());
         unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
         UNBOND_BATCH_ID.save(deps.storage, &(batch_id + 1))?;
         unbond_batches_map().save(
@@ -1433,7 +1446,17 @@ fn new_unbond(now: u64) -> UnbondBatch {
         expected_release: 0,
         slashing_effect: None,
         unbonded_amount: None,
-        created: now,
+        withdrawed_amount: None,
+        status_timestamps: UnbondBatchStatusTimestamps {
+            new: now,
+            unbond_requested: None,
+            unbond_failed: None,
+            unbonding: None,
+            withdrawing: None,
+            withdrawn: None,
+            withdrawing_emergency: None,
+            withdrawn_emergency: None,
+        },
     }
 }
 

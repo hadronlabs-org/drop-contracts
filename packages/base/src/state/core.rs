@@ -78,6 +78,18 @@ pub enum UnbondBatchStatus {
 }
 
 #[cw_serde]
+pub struct UnbondBatchStatusTimestamps {
+    pub new: u64,
+    pub unbond_requested: Option<u64>,
+    pub unbond_failed: Option<u64>,
+    pub unbonding: Option<u64>,
+    pub withdrawing: Option<u64>,
+    pub withdrawn: Option<u64>,
+    pub withdrawing_emergency: Option<u64>,
+    pub withdrawn_emergency: Option<u64>,
+}
+
+#[cw_serde]
 pub struct UnbondBatch {
     pub total_amount: Uint128,
     pub expected_amount: Uint128,
@@ -86,7 +98,8 @@ pub struct UnbondBatch {
     pub status: UnbondBatchStatus,
     pub slashing_effect: Option<Decimal>,
     pub unbonded_amount: Option<Uint128>,
-    pub created: u64,
+    pub withdrawed_amount: Option<Uint128>,
+    pub status_timestamps: UnbondBatchStatusTimestamps,
 }
 
 pub struct UnbondBatchIndexes<'a> {

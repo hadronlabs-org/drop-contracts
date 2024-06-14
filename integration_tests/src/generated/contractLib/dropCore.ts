@@ -425,15 +425,25 @@ export interface NonNativeRewardsItem {
   min_amount: Uint128;
 }
 export interface UnbondBatch {
-  created: number;
   expected_amount: Uint128;
   expected_release: number;
   slashing_effect?: Decimal | null;
   status: UnbondBatchStatus;
+  status_timestamps: UnbondBatchStatusTimestamps;
   total_amount: Uint128;
   total_unbond_items: number;
   unbonded_amount?: Uint128 | null;
   withdrawed_amount?: Uint128 | null;
+}
+export interface UnbondBatchStatusTimestamps {
+  new: number;
+  unbond_failed?: number | null;
+  unbond_requested?: number | null;
+  unbonding?: number | null;
+  withdrawing?: number | null;
+  withdrawing_emergency?: number | null;
+  withdrawn?: number | null;
+  withdrawn_emergency?: number | null;
 }
 export interface UnbondBatchArgs {
   batch_id: Uint128;
