@@ -11,6 +11,7 @@ ARTIFACTS_DIR="${ARTIFACTS_DIR:-../artifacts}"
 FACTORY_ADDRESS="${FACTORY_ADDRESS:-$1}"
 CONTRACT_NAME="${CONTRACT_NAME:-$2}"
 CONTRACT_ADDRESS="${CONTRACT_ADDRESS:-$3}"
+CODE_ID=$4
 
 source ./utils.bash
 
@@ -19,7 +20,12 @@ main() {
   set -euo pipefail
   IFS=$'\n\t'
 
-  store_code "$CONTRACT_NAME"
+  if [[ -z $CODE_ID ]]; then
+    store_code "$CONTRACT_NAME"
+  else
+    declare -g "${CONTRACT_NAME}_code_id=$CODE_ID"
+  fi
+
   code_id="${CONTRACT_NAME}_code_id"
   echo "[OK] Contract uploaded successfully. Code ID: ${!code_id}"
 
