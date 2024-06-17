@@ -1051,6 +1051,10 @@ fn sudo_response(
     };
 
     let client_state = query_client_state(&deps.as_ref(), channel_id, port_id)?;
+    deps.api.debug(&format!(
+        "WASMDEBUG_STATE: client_state: {client_state:?}",
+        client_state = client_state
+    ));
     let remote_height = client_state
         .proof_height
         .ok_or_else(|| StdError::generic_err("proof_height not found"))?
@@ -1150,10 +1154,8 @@ fn get_answers_from_msg_data(
                 ResponseAnswer::UnknownResponse {}
             }
         };
-        deps.api.debug(&format!(
-            "WASMDEBUG: sudo_response: answer: {answer:?}",
-            answer = answer
-        ));
+        deps.api
+            .debug(&format!("WASMDEBUG: sudo_response: answer: {answer:?}",));
         answers.push(answer);
     }
     Ok(answers)
@@ -1180,8 +1182,6 @@ fn sudo_error(
     let puppeteer_base: PuppeteerBase<'_, Config, KVQueryType> = Puppeteer::default();
     deps.api.debug(&format!(
         "WASMDEBUG: sudo_error: request: {request:?} details: {details:?}",
-        request = request,
-        details = details
     ));
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
     puppeteer_base.validate_tx_waiting_state(deps.as_ref())?;
@@ -1342,10 +1342,10 @@ pub struct ChannelClientStateResponse {
 
 fn query_client_state(
     deps: &Deps<NeutronQuery>,
-    port_id: String,
     channel_id: String,
+    port_id: String,
 ) -> StdResult<ChannelClientStateResponse> {
-    deps.querier
+    let state = deps.querier
         .query(&QueryRequest::Stargate {
             path: "/ibc.core.channel.v1.Query/ChannelClientState".to_string(),
             data: cosmos_sdk_proto::ibc::core::channel::v1::QueryChannelClientStateRequest {
@@ -1359,5 +1359,10 @@ fn query_client_state(
             StdError::generic_err(format!(
                 "Query channel state for channel {channel_id} and port {port_id} failed: {e}, perhaps, this is wrong channel_id/port_id?"
             ))
-        })
+        });
+
+    deps.api
+        .debug(&format!("WASMDEBUG: query_client_state: {state:?}"));
+
+    state
 }
