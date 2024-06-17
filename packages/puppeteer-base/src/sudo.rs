@@ -1,13 +1,13 @@
 use crate::{
     msg::OpenAckVersion,
     r#trait::PuppeteerReconstruct,
-    state::{BaseConfig, PuppeteerBase, Transfer},
+    state::{BalancesAndDelegationsState, BaseConfig, PuppeteerBase, Transfer},
 };
 use cosmos_sdk_proto::cosmos::{
     bank::v1beta1::MsgSend,
     tx::v1beta1::{TxBody, TxRaw},
 };
-use cosmwasm_std::{Binary, DepsMut, Env, Response, StdError, Timestamp};
+use cosmwasm_std::{Binary, DepsMut, Env, Response, StdError};
 use cw_storage_plus::Index;
 use neutron_sdk::{
     bindings::{
@@ -102,7 +102,7 @@ where
         env: Env,
         query_id: u64,
         version: &str,
-        storage: cw_storage_plus::Item<'a, (X, u64, Timestamp)>,
+        storage: cw_storage_plus::Item<'a, BalancesAndDelegationsState<X>>,
     ) -> NeutronResult<Response<NeutronMsg>> {
         let registered_query_result = get_raw_interchain_query_result(deps.as_ref(), query_id)?;
         deps.api.debug(&format!(
@@ -112,9 +112,17 @@ where
         let data =
             PuppeteerReconstruct::reconstruct(&registered_query_result.result.kv_results, version)?;
 
-        let height = env.block.height;
+        let height = registered_query_result.result.height;
         let timestamp = env.block.time;
-        storage.save(deps.storage, &(data, height, timestamp))?;
+        storage.save(
+            deps.storage,
+            &BalancesAndDelegationsState::<X> {
+                data,
+                remote_height: height,
+                local_height: env.block.height,
+                timestamp,
+            },
+        )?;
         Ok(Response::default())
     }
 

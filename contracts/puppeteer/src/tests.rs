@@ -3,8 +3,15 @@ use cosmwasm_std::{
     coins,
     testing::{mock_env, mock_info},
     to_json_binary, Addr, Binary, CosmosMsg, DepsMut, Event, Response, StdError, SubMsg, Uint128,
+    Uint64,
 };
-use drop_helpers::testing::mock_dependencies;
+use drop_helpers::{
+    ibc_client_state::{
+        ChannelClientStateResponse, ClientState, Fraction, Height, IdentifiedClientState,
+    },
+    // ibc_client_state::ChannelClientStateResponse,
+    testing::mock_dependencies,
+};
 use drop_puppeteer_base::state::{PuppeteerBase, ReplyMsg};
 use drop_staking_base::{
     msg::puppeteer::InstantiateMsg,
@@ -474,6 +481,44 @@ fn test_sudo_response_tx_state_wrong() {
 #[test]
 fn test_sudo_response_ok() {
     let mut deps = mock_dependencies(&[]);
+
+    deps.querier.add_stargate_query_response(
+        "/ibc.core.channel.v1.Query/ChannelClientState",
+        |_data| {
+            to_json_binary(&ChannelClientStateResponse {
+                identified_client_state: Some(IdentifiedClientState {
+                    client_id: "07-tendermint-0".to_string(),
+                    client_state: ClientState {
+                        chain_id: "test-1".to_string(),
+                        type_url: "type_url".to_string(),
+                        trust_level: Fraction {
+                            numerator: Uint64::from(1u64),
+                            denominator: Uint64::from(3u64),
+                        },
+                        trusting_period: Some("1000".to_string()),
+                        unbonding_period: Some("1500".to_string()),
+                        max_clock_drift: Some("1000".to_string()),
+                        frozen_height: None,
+                        latest_height: Some(Height {
+                            revision_number: Uint64::from(0u64),
+                            revision_height: Uint64::from(54321u64),
+                        }),
+                        proof_specs: vec![],
+                        upgrade_path: vec![],
+                        allow_update_after_expiry: true,
+                        allow_update_after_misbehaviour: true,
+                    },
+                }),
+                proof: None,
+                proof_height: Height {
+                    revision_number: Uint64::from(0u64),
+                    revision_height: Uint64::from(33333u64),
+                },
+            })
+            .unwrap()
+        },
+    );
+
     let puppeteer_base = base_init(&mut deps.as_mut());
     let request = neutron_sdk::sudo::msg::RequestPacket {
         sequence: Some(1u64),
@@ -519,6 +564,7 @@ fn test_sudo_response_ok() {
                         drop_puppeteer_base::msg::ResponseHookSuccessMsg {
                             request_id: 1,
                             local_height: 12345,
+                            remote_height: 54321,
                             request,
                             transaction,
                             answers: vec![drop_puppeteer_base::msg::ResponseAnswer::IBCTransfer(

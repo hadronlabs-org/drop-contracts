@@ -1,7 +1,7 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Timestamp};
+use cosmwasm_std::Addr;
 use cw_storage_plus::Item;
-use drop_puppeteer_base::state::BaseConfig;
+use drop_puppeteer_base::state::{BalancesAndDelegationsState, BaseConfig};
 
 use crate::msg::puppeteer::{BalancesAndDelegations, MultiBalances};
 
@@ -46,8 +46,10 @@ pub enum KVQueryType {
     NonNativeRewardsBalances,
 }
 
-pub const NON_NATIVE_REWARD_BALANCES: Item<(MultiBalances, u64, Timestamp)> =
+pub const CONFIG: Item<Config> = Item::new("config");
+
+pub const NON_NATIVE_REWARD_BALANCES: Item<BalancesAndDelegationsState<MultiBalances>> =
     Item::new("non_native_reward_balances");
 
-pub const DELEGATIONS_AND_BALANCE: Item<(BalancesAndDelegations, u64, Timestamp)> =
+pub const DELEGATIONS_AND_BALANCE: Item<BalancesAndDelegationsState<BalancesAndDelegations>> =
     Item::new("delegations_and_balance");

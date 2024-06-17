@@ -121,6 +121,7 @@ export interface DropHookTesterSchema {
 export interface ResponseHookSuccessMsg {
     answers: ResponseAnswer[];
     local_height: number;
+    remote_height: number;
     request: RequestPacket;
     request_id: number;
     transaction: Transaction;

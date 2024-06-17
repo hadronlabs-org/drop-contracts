@@ -114,10 +114,24 @@ impl ExecuteMsg {
 #[cw_serde]
 pub struct MigrateMsg {}
 
-pub type Height = u64;
+pub type RemoteHeight = u64;
+pub type LocalHeight = u64;
 
-pub type DelegationsResponse = (Delegations, Height, Timestamp);
-pub type BalancesResponse = (Balances, Height, Timestamp);
+#[cw_serde]
+pub struct DelegationsResponse {
+    pub delegations: Delegations,
+    pub remote_height: u64,
+    pub local_height: u64,
+    pub timestamp: Timestamp,
+}
+
+#[cw_serde]
+pub struct BalancesResponse {
+    pub balances: Balances,
+    pub remote_height: u64,
+    pub local_height: u64,
+    pub timestamp: Timestamp,
+}
 
 #[cw_ownable_query]
 #[cw_serde]

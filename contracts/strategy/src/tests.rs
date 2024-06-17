@@ -92,13 +92,14 @@ fn puppeteer_query(
                     };
                     delegations_amount.push(delegation);
                 }
-                let delegations = (
-                    Delegations {
+                let delegations = drop_staking_base::msg::puppeteer::DelegationsResponse {
+                    delegations: Delegations {
                         delegations: delegations_amount,
                     },
-                    0u64,
-                    Timestamp::default(),
-                );
+                    remote_height: 0u64,
+                    local_height: 0u64,
+                    timestamp: Timestamp::default(),
+                };
                 Ok(to_json_binary(&delegations)?)
             }
             _ => todo!(),

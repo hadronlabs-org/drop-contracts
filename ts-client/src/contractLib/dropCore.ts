@@ -350,6 +350,7 @@ export interface LastPuppeteerResponse {
 export interface ResponseHookSuccessMsg {
   answers: ResponseAnswer[];
   local_height: number;
+  remote_height: number;
   request: RequestPacket;
   request_id: number;
   transaction: Transaction;
@@ -509,6 +510,7 @@ export interface UpdateWithdrawnAmountArgs {
 }
 export interface ResponseHookSuccessMsg2 {
   local_height: number;
+  remote_height: number;
   request: RequestPacket;
   request_id: number;
   transaction: Transaction2;

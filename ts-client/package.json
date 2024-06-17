@@ -5,7 +5,7 @@
   "main": "lib/contractLib/index.js",
   "scripts": {
     "build": "tsc",
-    "generate": "ts-node ./src/rebuild-client.ts"
+    "generate": "ts-node ./src/rebuild-client.ts && yarn build"
   },
   "dependencies": {
     "@neutron-org/client-ts": "^1.4.0",

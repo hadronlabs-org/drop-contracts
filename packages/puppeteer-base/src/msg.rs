@@ -77,6 +77,7 @@ pub struct ResponseHookSuccessMsg {
     pub transaction: Transaction,
     pub answers: Vec<ResponseAnswer>,
     pub local_height: u64,
+    pub remote_height: u64,
 }
 #[cw_serde]
 pub struct ResponseHookErrorMsg {
