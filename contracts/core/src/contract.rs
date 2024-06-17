@@ -405,7 +405,7 @@ fn execute_puppeteer_hook(
     );
     match msg.clone() {
         drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) => {
-            LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &success_msg.local_height)?;
+            LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &success_msg.remote_height)?;
             match &success_msg.transaction {
                 drop_puppeteer_base::msg::Transaction::IBCTransfer {
                     denom,

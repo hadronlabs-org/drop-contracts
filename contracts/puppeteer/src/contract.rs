@@ -15,9 +15,10 @@ use cosmos_sdk_proto::cosmos::{
     base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
     staking::v1beta1::{MsgDelegate, MsgUndelegate},
 };
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    attr, ensure_eq, to_json_binary, Addr, Attribute, CosmosMsg, Deps, Order, Reply, StdError,
-    SubMsg, Timestamp, Uint128, WasmMsg,
+    attr, ensure_eq, to_json_binary, Addr, Attribute, CosmosMsg, Deps, Order, QueryRequest, Reply,
+    StdError, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{
@@ -1012,6 +1013,14 @@ fn sudo_response(
     let seq_id = request
         .sequence
         .ok_or_else(|| StdError::generic_err("sequence not found"))?;
+    let channel_id = request
+        .clone()
+        .source_channel
+        .ok_or_else(|| StdError::generic_err("source_channel not found"))?;
+    let port_id = request
+        .clone()
+        .source_port
+        .ok_or_else(|| StdError::generic_err("source_port not found"))?;
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
     puppeteer_base.validate_tx_waiting_state(deps.as_ref())?;
     let reply_to = tx_state
@@ -1040,6 +1049,13 @@ fn sudo_response(
             get_answers_from_msg_data(deps.as_ref(), msg_data)?
         }
     };
+
+    let client_state = query_client_state(&deps.as_ref(), channel_id, port_id)?;
+    let remote_height = client_state
+        .proof_height
+        .ok_or_else(|| StdError::generic_err("proof_height not found"))?
+        .revision_height;
+
     deps.api.debug(&format!(
         "WASMDEBUG: json: {request:?}",
         request = to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
@@ -1049,6 +1065,7 @@ fn sudo_response(
                 transaction: transaction.clone(),
                 answers: answers.clone(),
                 local_height: env.block.height,
+                remote_height,
             },)
         ))?
     ));
@@ -1063,6 +1080,7 @@ fn sudo_response(
                     transaction: transaction.clone(),
                     answers,
                     local_height: env.block.height,
+                    remote_height,
                 }),
             ))?,
             funds: vec![],
@@ -1307,4 +1325,39 @@ fn validate_sender(config: &Config, sender: &Addr) -> StdResult<()> {
     } else {
         Err(StdError::generic_err("Sender is not allowed"))
     }
+}
+
+// XXX: cosmos_sdk_proto defines these structures for me,
+// yet they don't derive serde::de::DeserializeOwned,
+// so I have to redefine them here manually >:(
+#[cw_serde]
+pub struct Height {
+    pub revision_number: u64,
+    pub revision_height: u64,
+}
+#[cw_serde]
+pub struct ChannelClientStateResponse {
+    pub proof_height: Option<Height>,
+}
+
+fn query_client_state(
+    deps: &Deps<NeutronQuery>,
+    port_id: String,
+    channel_id: String,
+) -> StdResult<ChannelClientStateResponse> {
+    deps.querier
+        .query(&QueryRequest::Stargate {
+            path: "/ibc.core.channel.v1.Query/ChannelClientState".to_string(),
+            data: cosmos_sdk_proto::ibc::core::channel::v1::QueryChannelClientStateRequest {
+                port_id: port_id.clone(),
+                channel_id: channel_id.clone(),
+            }
+                .encode_to_vec()
+                .into(),
+        })
+        .map_err(|e| {
+            StdError::generic_err(format!(
+                "Query channel state for channel {channel_id} and port {port_id} failed: {e}, perhaps, this is wrong channel_id/port_id?"
+            ))
+        })
 }

@@ -2128,6 +2128,7 @@ fn test_tick_claiming_wo_transfer_stake() {
                     request_id: 0u64,
                     request: null_request_packet(),
                     local_height: 9u64,
+                    remote_height: 9u64,
                     transaction:
                         drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
                             interchain_account_id: "ica".to_string(),
@@ -2266,6 +2267,7 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                     request_id: 0u64,
                     request: null_request_packet(),
                     local_height: 9u64,
+                    remote_height: 9u64,
                     transaction:
                         drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
                             interchain_account_id: "ica".to_string(),
@@ -2427,6 +2429,7 @@ fn test_tick_claiming_wo_idle() {
                     request_id: 0u64,
                     request: null_request_packet(),
                     local_height: 9u64,
+                    remote_height: 9u64,
                     transaction:
                         drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
                             interchain_account_id: "ica".to_string(),
@@ -2711,6 +2714,7 @@ fn test_tick_staking_to_unbonding() {
                     request_id: 0u64,
                     request: null_request_packet(),
                     local_height: 9u64,
+                    remote_height: 9u64,
                     transaction: drop_puppeteer_base::msg::Transaction::IBCTransfer {
                         denom: "remote_denom".to_string(),
                         amount: 0u128,
@@ -2871,6 +2875,7 @@ fn test_tick_staking_to_idle() {
                     request_id: 0u64,
                     request: null_request_packet(),
                     local_height: 9u64,
+                    remote_height: 9u64,
                     transaction: drop_puppeteer_base::msg::Transaction::IBCTransfer {
                         denom: "remote_denom".to_string(),
                         amount: 0u128,
