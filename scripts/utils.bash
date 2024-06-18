@@ -54,7 +54,7 @@ wait_tx() {
 }
 
 select_attr() {
-  printf '.logs[0].events[] | select(.type == "%s").attributes[] | select(.key == "%s").value' "$1" "$2"
+  printf '.events[] | select(.type == "%s").attributes[] | select(.key == "%s").value' "$1" "$2"
 }
 
 assert_success() {
