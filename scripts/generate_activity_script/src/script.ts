@@ -189,9 +189,6 @@ async function send_nft(
   address: string,
   nft_id: string
 ): Promise<Action> {
-  const nft_info = await withdrawal_voucher.queryNftInfo({ token_id: nft_id });
-  const batch_id: number = Number(nft_info.extension.batch_id);
-
   /* To withdraw unbonded amount we need to send nft to the withdrawal_manager contract
    * To do that we need to call send method on withdrawal_voucher contract (which is NFT contract underhood)
    * Field msg here is encoded base64 json object { "withdraw": {} }
