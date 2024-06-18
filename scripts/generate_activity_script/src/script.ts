@@ -1,89 +1,32 @@
 import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { SigningStargateClient } from "@cosmjs/stargate";
-import {
-  AccountData,
-  DirectSecp256k1HdWallet,
-  Registry,
-  GeneratedType,
-} from "@cosmjs/proto-signing";
-import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx";
-import { Coin as BankCoin } from "cosmjs-types/cosmos/base/v1beta1/coin";
-import { MsgTransfer } from "cosmjs-types/ibc/applications/transfer/v1/tx";
+import { AccountData, DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
 import { GasPrice, Coin } from "@cosmjs/stargate";
 import { Client as DropCoreClient } from "../../../integration_tests/src/generated/contractLib/dropCore";
 import { Client as DropWithdrawalManager } from "../../../integration_tests/src/generated/contractLib/dropWithdrawalManager";
 import { Client as DropWithdrawalVoucher } from "../../../integration_tests/src/generated/contractLib/dropWithdrawalVoucher";
-import { Client as DropValidatorsSet } from "../../../integration_tests/src/generated/contractLib/dropValidatorsSet";
-import { BinaryReader, BinaryWriter } from "cosmjs-types/binary";
-import { DeepPartial, Exact } from "cosmjs-types/helpers";
-import { MsgDelegate } from "cosmjs-types/cosmos/staking/v1beta1/tx";
-import { sleep } from "../../../integration_tests/src/helpers/sleep";
-
-type MsgTokenizeShares = {
-  delegator_address: string;
-  validator_address: string;
-  amount: BankCoin;
-  tokenized_share_owner: string;
-};
-
-// We need only to encode such messages
-export const MsgTokenizeShares = {
-  typeUrl: "/cosmos.staking.v1beta1.MsgTokenizeShares",
-  encode(
-    message: MsgTokenizeShares,
-    writer: BinaryWriter = BinaryWriter.create()
-  ): BinaryWriter {
-    writer.uint32(10).string(message.delegator_address);
-    writer.uint32(18).string(message.validator_address);
-    BankCoin.encode(message.amount, writer.uint32(26).fork()).ldelim();
-    writer.uint32(34).string(message.tokenized_share_owner);
-    return writer;
-  },
-  decode(input: BinaryReader | Uint8Array, length?: number): any {
-    console.log("decode");
-    return {};
-  },
-  fromPartial<I extends Exact<DeepPartial<MsgTokenizeShares>, I>>(
-    object: I
-  ): MsgTokenizeShares {
-    return {
-      delegator_address: object.delegator_address,
-      validator_address: object.validator_address,
-      amount: BankCoin.fromPartial(object.amount),
-      tokenized_share_owner: object.tokenized_share_owner,
-    };
-  },
-};
 
 const CORE_CONTRACT: string = process.env.CORE_CONTRACT;
 
-const NEUTRON_MNEMONIC: string = process.env.NEUTRON_MNEMONIC;
-const TARGET_MNEMONIC: string = process.env.TARGET_MNEMONIC;
-const NEUTRON_PREFIX: string = process.env.NEUTRON_PREFIX;
-const TARGET_PREFIX: string = process.env.TARGET_PREFIX;
-
-const TARGET_NATIVE_DENOM: string = process.env.TARGET_NATIVE_DENOM;
-const TARGET_IBC_DENOM: string = process.env.TARGET_IBC_DENOM;
+const MNEMONIC: string = process.env.MNEMONIC;
+const BASE_DENOM: string = process.env.BASE_DENOM;
 const FACTORY_DENOM: string = process.env.FACTORY_DENOM;
-
 const NEUTRON_NODE_ADDRESS: string = process.env.NEUTRON_NODE_ADDRESS;
-const TARGET_NODE_ADDRESS: string = process.env.TARGET_NODE_ADDRESS;
 
 const BOND_PROB: number = Number(process.env.BOND_PROB);
 const UNBOND_PROB: number = Number(process.env.UNBOND_PROB);
 const WITHDRAW_PROB: number = Number(process.env.WITHDRAW_PROB);
-const LSM_SHARE_BOND_PROB: number = Number(process.env.LSM_SHARE_BOND_PROB);
 
-/* Sum of provided probabitions should be equal to 1
- * Each of provided probabitions used to calculate first method to execute
- * If chosen method falls with code != 0 then 1 of other possible methods will be executed
- * With equal probabition for each of remaining methods
- * In short, given probabitions are only used to choose first method to try to execute
- */
-if (BOND_PROB + UNBOND_PROB + WITHDRAW_PROB + LSM_SHARE_BOND_PROB !== 1) {
-  console.error(
-    `BOND_PROB(${BOND_PROB}) + UNBOND_PROB(${UNBOND_PROB}) + WITHDRAW_PROB(${WITHDRAW_PROB}) + LSM_SHARE_BOND_PROB(${LSM_SHARE_BOND_PROB}) != 1`
-  );
+if ((0 <= BOND_PROB && BOND_PROB <= 1) === false) {
+  console.error(`0 <= BOND_PROB(${BOND_PROB}) <= 1 != true`);
+  process.exit(1);
+}
+if ((0 <= UNBOND_PROB && UNBOND_PROB <= 1) === false) {
+  console.error(`0 <= UNBOND_PROB(${UNBOND_PROB}) <= 1 != true`);
+  process.exit(1);
+}
+if ((0 <= WITHDRAW_PROB && WITHDRAW_PROB <= 1) === false) {
+  console.error(`0 <= WITHDRAW_PROB(${WITHDRAW_PROB}) <= 1 != true`);
   process.exit(1);
 }
 
@@ -91,30 +34,6 @@ enum MODE {
   BOND = "BOND",
   UNBOND = "UNBOND",
   WITHDRAW = "SEND_NFT",
-  LSM_SHARE_BOND = "LSM_SHARE_BOND",
-}
-
-async function calculate_mode(
-  bond_p: number,
-  unbond_p: number,
-  withdraw_p: number,
-  lsm_share_bond_p: number
-): Promise<MODE> {
-  let r: number = Math.random();
-  if (r < bond_p) {
-    return MODE.BOND;
-  } else if (r < bond_p + unbond_p) {
-    return MODE.UNBOND;
-  } else if (r < bond_p + unbond_p + withdraw_p) {
-    return MODE.WITHDRAW;
-  } else if (r < bond_p + unbond_p + withdraw_p + lsm_share_bond_p) {
-    return MODE.LSM_SHARE_BOND;
-  } else {
-    console.error(
-      `bond_p + unbond_p + withdraw_p = ${bond_p + unbond_p + withdraw_p}, it should be eq to 1`
-    );
-    process.exit(1);
-  }
 }
 
 type Wallet = {
@@ -124,27 +43,18 @@ type Wallet = {
   mainAccounts?: readonly AccountData[];
 };
 
-type Wallets = {
-  neutronWallet: Wallet;
-  targetWallet: Wallet;
-};
-
-type BondActionLog = {
+type Action = {
   mode: MODE;
-  funds: Coin;
   txHash: string;
-  details: null;
 };
 
 async function bond(
   drop_instance: DropCoreClient,
   address: string,
   fund: Coin
-): Promise<BondActionLog> {
+): Promise<Action> {
   return {
-    details: null,
     mode: MODE.BOND,
-    funds: fund,
     txHash: (
       await drop_instance.bond(address, {}, "auto", "", [
         {
@@ -163,7 +73,7 @@ async function bond(
 async function bond_random_amount(
   neutronWallet: Wallet,
   drop_instance: DropCoreClient
-): Promise<BondActionLog | null> {
+): Promise<Action | null> {
   const address: string = neutronWallet.mainAccounts[0].address;
 
   /* If here is nothing to bond on our balance, then just return null
@@ -171,7 +81,7 @@ async function bond_random_amount(
    */
   let ibc_denom_balance: Coin = await neutronWallet.clientCW.getBalance(
     address,
-    TARGET_IBC_DENOM
+    BASE_DENOM
   );
   if (Number(ibc_denom_balance.amount) === 0) {
     return null;
@@ -204,7 +114,7 @@ async function bond_random_amount(
   try {
     const res = await bond(drop_instance, address, {
       amount: String(random_amount),
-      denom: TARGET_IBC_DENOM,
+      denom: BASE_DENOM,
     });
     if ((await neutronWallet.clientCW.getTx(res.txHash)).code !== 0) {
       return null;
@@ -215,22 +125,13 @@ async function bond_random_amount(
   }
 }
 
-type UnbondActionLog = {
-  mode: MODE;
-  funds: Coin;
-  txHash: string;
-  details: null;
-};
-
 async function unbond(
   drop_instance: DropCoreClient,
   address: string,
   fund: Coin
-): Promise<UnbondActionLog> {
+): Promise<Action> {
   return {
-    details: null,
     mode: MODE.UNBOND,
-    funds: fund,
     txHash: (
       await drop_instance.unbond(address, "auto", "", [
         {
@@ -249,7 +150,7 @@ async function unbond(
 async function unbond_random_amount(
   neutronWallet: Wallet,
   drop_instance: DropCoreClient
-): Promise<UnbondActionLog | null> {
+): Promise<Action | null> {
   const address: string = neutronWallet.mainAccounts[0].address;
   /* If here is nothing to bond on our balance, then just return null
    * Other random method will be tried to call then
@@ -282,23 +183,12 @@ async function unbond_random_amount(
   }
 }
 
-type WithdrawActionLog = {
-  mode: MODE;
-  funds: {
-    nft_id: string;
-  };
-  txHash: string;
-  details: {
-    batch_id: number;
-  };
-};
-
 async function send_nft(
   withdrawal_voucher: DropWithdrawalVoucher,
   withdrawal_manager: DropWithdrawalManager,
   address: string,
   nft_id: string
-): Promise<WithdrawActionLog> {
+): Promise<Action> {
   const nft_info = await withdrawal_voucher.queryNftInfo({ token_id: nft_id });
   const batch_id: number = Number(nft_info.extension.batch_id);
 
@@ -307,13 +197,7 @@ async function send_nft(
    * Field msg here is encoded base64 json object { "withdraw": {} }
    */
   return {
-    details: {
-      batch_id: batch_id,
-    },
     mode: MODE.WITHDRAW,
-    funds: {
-      nft_id: nft_id,
-    },
     txHash: (
       await withdrawal_voucher.sendNft(
         address,
@@ -337,7 +221,7 @@ async function send_nft(
 async function withdraw_random_nft(
   neutronWallet: Wallet,
   drop_instance: DropCoreClient
-): Promise<WithdrawActionLog | null> {
+): Promise<Action | null> {
   const address: string = neutronWallet.mainAccounts[0].address;
   /* Get both withdrawal_manager and withdrawal_voucher wrappers based on querying config method
    * We need them to execute send_nft method on withdrawal_voucher with withdrawal_manager as the recepient
@@ -418,256 +302,12 @@ async function withdraw_random_nft(
   }
 }
 
-type LSMShareBondActionLog = {
-  mode: MODE;
-  funds: {
-    ibc: Coin;
-    tokenized_share: Coin;
-    ibc_tokenized_share: Coin;
-  };
-  txHash: {
-    bridge: string;
-    stake: string;
-    brdige_back: string;
-    stake_tokenized_share: string;
-  };
-  details: {
-    validator_cosmvaloper: string;
-  };
-};
-
-async function get_last_lsm_denom(wallet: Wallet): Promise<string> {
-  return (await wallet.clientSG.getAllBalances(wallet.mainAccounts[0].address))
-    .filter((balance) => balance.denom.includes("cosmosvaloper"))
-    .map((balance) => {
-      return {
-        denom: balance.denom,
-        token_share_id: Number(balance.denom.split("/")[1]),
-      };
-    })
-    .reduce((maxId, current) => {
-      return maxId.token_share_id > current.token_share_id ? maxId : current;
-    }).denom;
-}
-
-async function lsm_share_bond(
-  wallets: Wallets,
-  drop_instance: DropCoreClient
-): Promise<LSMShareBondActionLog | null> {
-  const remote_chain_balance = Number(
-    (
-      await wallets.targetWallet.clientCW.getBalance(
-        wallets.targetWallet.mainAccounts[0].address,
-        TARGET_NATIVE_DENOM
-      )
-    ).amount
-  );
-  if (remote_chain_balance <= 12002) {
-    return null;
-  }
-
-  const neutron_chain_balance = Number(
-    (
-      await wallets.neutronWallet.clientCW.getBalance(
-        wallets.neutronWallet.mainAccounts[0].address,
-        "untrn"
-      )
-    ).amount
-  );
-  if (neutron_chain_balance <= 16000) {
-    return null;
-  }
-  // For some reason it's not working properly with 1 conventional unit in remote chain (https://www.mintscan.io/cosmoshub-testnet/tx/72632F1594285A0D23D878E781B3B8533D44DE87CF3FAAD7C440E5374DF9DEDA?height=22040761)
-  // But works well with cu >= 2 (https://www.mintscan.io/cosmoshub-testnet/tx/698B451AA918294009EDBB813EE98B759D8DAAEDCB4E0789A07590B19C3615AC?height=22040981)
-  // Idk but it seems like it's kind of bug in client
-  const random_amount_delegate = Math.floor(
-    Math.random() *
-      (remote_chain_balance >= 100_000_000_000
-        ? 100_000_000_000
-        : remote_chain_balance - 12002) +
-      2
-  );
-  const core_config = await drop_instance.queryConfig();
-  const drop_validators_set: DropValidatorsSet = new DropValidatorsSet(
-    wallets.neutronWallet.clientCW,
-    core_config.validators_set_contract
-  );
-  const validator_list: Array<string> = (
-    await drop_validators_set.queryValidators()
-  ).map((element) => element.valoper_address);
-  const random_validator =
-    validator_list[Math.floor(Math.random() * validator_list.length)];
-  const last_lsm_denom: string = await get_last_lsm_denom(wallets.targetWallet);
-
-  // try {
-  //   await wallets.targetWallet.clientCW.delegateTokens(
-  //     wallets.targetWallet.mainAccounts[0].address,
-  //     random_validator,
-  //     {
-  //       denom: TARGET_NATIVE_DENOM,
-  //       amount: random_amount_delegate.toString(),
-  //     },
-  //     {
-  //       amount: [
-  //         {
-  //           denom: TARGET_NATIVE_DENOM,
-  //           amount: "4000",
-  //         },
-  //       ],
-  //       gas: "400000",
-  //     },
-  //     ""
-  //   );
-  // } catch (e) {}
-
-  // try {
-  //   await wallets.targetWallet.clientCW.signAndBroadcastSync(
-  //     wallets.targetWallet.mainAccounts[0].address,
-  //     [
-  //       {
-  //         typeUrl: "/cosmos.staking.v1beta1.MsgTokenizeShares",
-  //         value: {
-  //           delegator_address: wallets.targetWallet.mainAccounts[0].address,
-  //           validator_address: random_validator,
-  //           amount: {
-  //             denom: TARGET_NATIVE_DENOM,
-  //             amount: random_amount_delegate.toString(),
-  //           },
-  //           tokenized_share_owner: wallets.targetWallet.mainAccounts[0].address,
-  //         },
-  //       },
-  //     ],
-  //     {
-  //       gas: "400000",
-  //       amount: [
-  //         {
-  //           denom: TARGET_NATIVE_DENOM,
-  //           amount: "4000",
-  //         },
-  //       ],
-  //     },
-  //     ""
-  //   );
-  // } catch (e) {}
-
-  // let last_lsm_denom_after_ts: string = await get_last_lsm_denom(
-  //   wallets.targetWallet
-  // );
-
-  // while (last_lsm_denom_after_ts === last_lsm_denom) {
-  //   last_lsm_denom_after_ts = await get_last_lsm_denom(wallets.targetWallet);
-  //   await sleep(5000);
-  // }
-
-  // const last_lsm_denom_after_ts_amount: string = (
-  //   await wallets.targetWallet.clientCW.getBalance(
-  //     wallets.targetWallet.mainAccounts[0].address,
-  //     last_lsm_denom_after_ts
-  //   )
-  // ).amount;
-
-  // const current_neutron_balances =
-  //   await wallets.neutronWallet.clientSG.getAllBalances(
-  //     wallets.neutronWallet.mainAccounts[0].address
-  //   );
-
-  // await wallets.targetWallet.clientSG.signAndBroadcastSync(
-  //   wallets.targetWallet.mainAccounts[0].address,
-  //   [
-  //     {
-  //       typeUrl: "/ibc.applications.transfer.v1.MsgTransfer",
-  //       value: {
-  //         sourcePort: "transfer",
-  //         sourceChannel: "channel-3457",
-  //         token: {
-  //           denom: last_lsm_denom_after_ts,
-  //           amount: last_lsm_denom_after_ts_amount,
-  //         },
-  //         sender: wallets.targetWallet.mainAccounts[0].address,
-  //         receiver: wallets.neutronWallet.mainAccounts[0].address,
-  //         timeoutHeight: "0",
-  //         timeoutTimestamp: String(
-  //           Math.floor(Date.now() / 1000) * 1e9 + 10 * 60 * 1e9
-  //         ),
-  //       },
-  //     },
-  //   ],
-  //   {
-  //     gas: "400000",
-  //     amount: [
-  //       {
-  //         denom: TARGET_NATIVE_DENOM,
-  //         amount: "4000",
-  //       },
-  //     ],
-  //   },
-  //   ""
-  // );
-
-  // let current_balances_after_ibc_transfer =
-  //   await wallets.neutronWallet.clientSG.getAllBalances(
-  //     wallets.neutronWallet.mainAccounts[0].address
-  //   );
-
-  // while (
-  //   current_neutron_balances.length ===
-  //   current_balances_after_ibc_transfer.length
-  // ) {
-  //   await sleep(5000);
-  //   current_balances_after_ibc_transfer =
-  //     await wallets.neutronWallet.clientSG.getAllBalances(
-  //       wallets.neutronWallet.mainAccounts[0].address
-  //     );
-  // }
-
-  // const tokenized_share_ibc_denom = current_balances_after_ibc_transfer.find(
-  //   (balance) => balance.amount === last_lsm_denom_after_ts_amount
-  // );
-
-  console.log(
-    await drop_instance.bond(
-      wallets.neutronWallet.mainAccounts[0].address,
-      {},
-      {
-        gas: "800000",
-        amount: [
-          {
-            denom: "untrn",
-            amount: "16000",
-          },
-        ],
-      },
-      "",
-      [
-        {
-          denom:
-            "ibc/14005DBBDF4871BB70A7424C3D1CD6E99503600183D3BACCADB4EBA75C5C93FD",
-          amount: "95008",
-        },
-        // {
-        //   denom: tokenized_share_ibc_denom.denom,
-        //   amount: tokenized_share_ibc_denom.amount,
-        // },
-      ]
-    )
-  );
-  return;
-}
-
-async function lsm_share_bond_random_amount(
-  wallets: Wallets,
-  drop_instance: DropCoreClient
-): Promise<LSMShareBondActionLog | null> {
-  lsm_share_bond(wallets, drop_instance);
-  return;
-}
-
 async function main() {
   const neutronWallet: Wallet = {};
   neutronWallet.mainWallet = await DirectSecp256k1HdWallet.fromMnemonic(
-    NEUTRON_MNEMONIC,
+    MNEMONIC,
     {
-      prefix: NEUTRON_PREFIX,
+      prefix: "neutron",
     }
   );
   neutronWallet.clientCW = await SigningCosmWasmClient.connectWithSigner(
@@ -686,101 +326,27 @@ async function main() {
   );
   neutronWallet.mainAccounts = await neutronWallet.mainWallet.getAccounts();
 
-  const targetWallet: Wallet = {};
-  targetWallet.mainWallet = await DirectSecp256k1HdWallet.fromMnemonic(
-    TARGET_MNEMONIC,
-    {
-      prefix: TARGET_PREFIX,
-    }
-  );
-  targetWallet.clientCW = await SigningCosmWasmClient.connectWithSigner(
-    TARGET_NODE_ADDRESS,
-    targetWallet.mainWallet,
-    {
-      registry: new Registry(
-        new Map<string, GeneratedType>([
-          ["/cosmos.base.v1beta1.Coin", BankCoin],
-          ["/cosmos.bank.v1beta1.MsgSend", MsgSend],
-          ["/ibc.applications.transfer.v1.MsgTransfer", MsgTransfer],
-          ["/cosmos.staking.v1beta1.MsgTokenizeShares", MsgTokenizeShares],
-          ["/cosmos.staking.v1beta1.MsgDelegate", MsgDelegate],
-        ])
-      ),
-    }
-  );
-  targetWallet.clientSG = await SigningStargateClient.connectWithSigner(
-    TARGET_NODE_ADDRESS,
-    targetWallet.mainWallet
-  );
-  targetWallet.mainAccounts = await targetWallet.mainWallet.getAccounts();
-
-  const wallets: Wallets = {
-    neutronWallet: neutronWallet,
-    targetWallet: targetWallet,
-  };
-
   let core_contract = new DropCoreClient(neutronWallet.clientCW, CORE_CONTRACT);
-
-  /* Randombly choose the method we'll try to execute based on provided parameters
-   * Variable unused_modes is array of modes we haven't yet executed. We'll try each of them if previous call falled
-   * If randomly chosen method'll fall then with equal possibility choose another possible method from unused_modes
-   * If each of possible methods fall then our job here's done, print appropriate message and call process.exit() with code 1
-   */
-  let mode: MODE = await calculate_mode(
-    BOND_PROB,
-    UNBOND_PROB,
-    WITHDRAW_PROB,
-    LSM_SHARE_BOND_PROB
-  );
-  let unused_modes: MODE[] = [
-    MODE.BOND,
-    MODE.UNBOND,
-    MODE.WITHDRAW,
-    MODE.LSM_SHARE_BOND,
-  ];
-  let finished: boolean = false;
-  while (!finished && unused_modes.length > 0) {
-    switch (mode) {
-      // case MODE.WITHDRAW: {
-      //   const res = await withdraw_random_nft(neutronWallet, core_contract);
-      //   if (res !== null) {
-      //     console.log(res);
-      //     finished = true;
-      //   }
-      //   break;
-      // }
-      // case MODE.UNBOND: {
-      //   const res = await unbond_random_amount(neutronWallet, core_contract);
-      //   if (res !== null) {
-      //     console.log(res);
-      //     finished = true;
-      //   }
-      //   break;
-      // }
-      // case MODE.BOND: {
-      //   const res = await bond_random_amount(neutronWallet, core_contract);
-      //   if (res !== null) {
-      //     console.log(res);
-      //     finished = true;
-      //   }
-      //   break;
-      // }
-      case MODE.LSM_SHARE_BOND: {
-        const res = await lsm_share_bond_random_amount(wallets, core_contract);
-        if (res !== null) {
-          console.log(res);
-          finished = true;
-        }
-        break;
-      }
+  const logs: Array<Action> = [];
+  if (Math.random() <= BOND_PROB) {
+    const res = await withdraw_random_nft(neutronWallet, core_contract);
+    if (res !== null) {
+      logs.push(res);
     }
-    unused_modes = unused_modes.filter((element) => element !== mode);
-    mode = unused_modes[Math.floor(Math.random() * unused_modes.length)];
   }
-  if (unused_modes.length === 0) {
-    console.error("Nothing to bond, unbond or withdraw");
-    process.exit(1);
+  if (Math.random() <= UNBOND_PROB) {
+    const res = await unbond_random_amount(neutronWallet, core_contract);
+    if (res !== null) {
+      logs.push(res);
+    }
   }
+  if (Math.random() <= WITHDRAW_PROB) {
+    const res = await bond_random_amount(neutronWallet, core_contract);
+    if (res !== null) {
+      logs.push(res);
+    }
+  }
+  console.log(logs);
 }
 
 main();
