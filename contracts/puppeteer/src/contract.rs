@@ -15,14 +15,14 @@ use cosmos_sdk_proto::cosmos::{
     base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
     staking::v1beta1::{MsgDelegate, MsgUndelegate},
 };
-use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    attr, ensure_eq, to_json_binary, Addr, Attribute, CosmosMsg, Deps, Order, QueryRequest, Reply,
-    StdError, SubMsg, Timestamp, Uint128, WasmMsg,
+    attr, ensure_eq, to_json_binary, Addr, Attribute, CosmosMsg, Deps, Order, Reply, StdError,
+    SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{
     answer::response,
+    ibc_client_state::query_client_state,
     ibc_fee::query_ibc_fee,
     icq::{
         new_delegations_and_balance_query_msg, new_multiple_balances_query_msg,
@@ -1051,10 +1051,6 @@ fn sudo_response(
     };
 
     let client_state = query_client_state(&deps.as_ref(), channel_id, port_id)?;
-    deps.api.debug(&format!(
-        "WASMDEBUG_STATE: client_state: {client_state:?}",
-        client_state = client_state
-    ));
     let remote_height = client_state
         .proof_height
         .ok_or_else(|| StdError::generic_err("proof_height not found"))?
@@ -1325,44 +1321,4 @@ fn validate_sender(config: &Config, sender: &Addr) -> StdResult<()> {
     } else {
         Err(StdError::generic_err("Sender is not allowed"))
     }
-}
-
-// XXX: cosmos_sdk_proto defines these structures for me,
-// yet they don't derive serde::de::DeserializeOwned,
-// so I have to redefine them here manually >:(
-#[cw_serde]
-pub struct Height {
-    pub revision_number: u64,
-    pub revision_height: u64,
-}
-#[cw_serde]
-pub struct ChannelClientStateResponse {
-    pub proof_height: Option<Height>,
-}
-
-fn query_client_state(
-    deps: &Deps<NeutronQuery>,
-    channel_id: String,
-    port_id: String,
-) -> StdResult<ChannelClientStateResponse> {
-    let state = deps.querier
-        .query(&QueryRequest::Stargate {
-            path: "/ibc.core.channel.v1.Query/ChannelClientState".to_string(),
-            data: cosmos_sdk_proto::ibc::core::channel::v1::QueryChannelClientStateRequest {
-                port_id: port_id.clone(),
-                channel_id: channel_id.clone(),
-            }
-                .encode_to_vec()
-                .into(),
-        })
-        .map_err(|e| {
-            StdError::generic_err(format!(
-                "Query channel state for channel {channel_id} and port {port_id} failed: {e}, perhaps, this is wrong channel_id/port_id?"
-            ))
-        });
-
-    deps.api
-        .debug(&format!("WASMDEBUG: query_client_state: {state:?}"));
-
-    state
 }

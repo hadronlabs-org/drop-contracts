@@ -1,10 +1,13 @@
-use crate::contract::{ChannelClientStateResponse, Height, Puppeteer};
+use crate::contract::Puppeteer;
 use cosmwasm_std::{
     coins,
     testing::{mock_env, mock_info},
     to_json_binary, Addr, Binary, CosmosMsg, DepsMut, Event, Response, StdError, SubMsg, Uint128,
 };
-use drop_helpers::testing::mock_dependencies;
+use drop_helpers::{
+    ibc_client_state::{ChannelClientStateResponse, Height},
+    testing::mock_dependencies,
+};
 use drop_puppeteer_base::state::{PuppeteerBase, ReplyMsg};
 use drop_staking_base::{
     msg::puppeteer::InstantiateMsg,

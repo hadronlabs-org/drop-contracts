@@ -67,6 +67,7 @@ pub struct ResponseHookSuccessMsg {
     pub request: RequestPacket,
     pub transaction: Transaction,
     pub local_height: u64,
+    pub remote_height: u64,
 }
 #[cw_serde]
 pub struct ResponseHookErrorMsg {

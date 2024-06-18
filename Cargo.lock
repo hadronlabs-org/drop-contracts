@@ -692,6 +692,7 @@ dependencies = [
 name = "drop-helpers"
 version = "1.0.0"
 dependencies = [
+ "cosmos-sdk-proto",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus 1.2.0",

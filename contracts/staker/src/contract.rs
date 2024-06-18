@@ -8,6 +8,7 @@ use cosmwasm_std::{
     attr, ensure, to_json_binary, CosmosMsg, Deps, Reply, StdError, SubMsg, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
+use drop_helpers::ibc_client_state::query_client_state;
 use drop_helpers::ibc_fee::query_ibc_fee;
 use drop_helpers::{answer::response, interchain::prepare_any_msg};
 use drop_staking_base::{
@@ -409,6 +410,14 @@ fn sudo_response(
     let seq_id = request
         .sequence
         .ok_or_else(|| StdError::generic_err("sequence not found"))?;
+    let channel_id = request
+        .clone()
+        .source_channel
+        .ok_or_else(|| StdError::generic_err("source_channel not found"))?;
+    let port_id = request
+        .clone()
+        .source_port
+        .ok_or_else(|| StdError::generic_err("source_port not found"))?;
     let tx_state = TX_STATE.load(deps.storage)?;
     ensure!(
         tx_state.seq_id == Some(seq_id),
@@ -430,6 +439,13 @@ fn sudo_response(
         NON_STAKED_BALANCE.update(deps.storage, |balance| StdResult::Ok(balance - amount))?;
     }
     TX_STATE.save(deps.storage, &TxState::default())?;
+
+    let client_state = query_client_state(&deps.as_ref(), channel_id, port_id)?;
+    let remote_height = client_state
+        .proof_height
+        .ok_or_else(|| StdError::generic_err("proof_height not found"))?
+        .revision_height;
+
     let mut msgs = vec![];
     if let Some(reply_to) = reply_to {
         msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
@@ -440,6 +456,7 @@ fn sudo_response(
                     request: request.clone(),
                     transaction: transaction.clone(),
                     local_height: env.block.height,
+                    remote_height,
                 },
             )))?,
             funds: vec![],
