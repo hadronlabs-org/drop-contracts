@@ -17,6 +17,10 @@ const BOND_PROB: number = Number(process.env.BOND_PROB);
 const UNBOND_PROB: number = Number(process.env.UNBOND_PROB);
 const WITHDRAW_PROB: number = Number(process.env.WITHDRAW_PROB);
 
+/*
+ * Each of given probabilities should be in interval [0, 1]
+ * According to given probabilities relevant actions will be choosed with appropriate probability
+ */
 if ((0 <= BOND_PROB && BOND_PROB <= 1) === false) {
   console.error(`0 <= BOND_PROB(${BOND_PROB}) <= 1 != true`);
   process.exit(1);
