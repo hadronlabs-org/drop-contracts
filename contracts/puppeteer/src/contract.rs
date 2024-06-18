@@ -61,7 +61,6 @@ pub type Puppeteer<'a> = PuppeteerBase<'a, Config, KVQueryType>;
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
@@ -88,6 +87,7 @@ pub fn instantiate(
         allowed_senders,
         transfer_channel_id: msg.transfer_channel_id,
         sdk_version: msg.sdk_version,
+        timeout: msg.timeout,
     };
     DELEGATIONS_AND_BALANCE.save(
         deps.storage,
@@ -170,49 +170,34 @@ pub fn execute(
         ExecuteMsg::Delegate {
             items,
             fee,
-            timeout,
             reply_to,
-        } => execute_delegate(deps, info, items, fee, timeout, reply_to),
+        } => execute_delegate(deps, info, items, fee, reply_to),
         ExecuteMsg::Undelegate {
             items,
             batch_id,
-            timeout,
             reply_to,
-        } => execute_undelegate(deps, info, items, batch_id, timeout, reply_to),
+        } => execute_undelegate(deps, info, items, batch_id, reply_to),
         ExecuteMsg::Redelegate {
             validator_from,
             validator_to,
             amount,
-            timeout,
             reply_to,
-        } => execute_redelegate(
-            deps,
-            info,
-            validator_from,
-            validator_to,
-            amount,
-            timeout,
-            reply_to,
-        ),
+        } => execute_redelegate(deps, info, validator_from, validator_to, amount, reply_to),
         ExecuteMsg::TokenizeShare {
             validator,
             amount,
-            timeout,
             reply_to,
-        } => execute_tokenize_share(deps, info, validator, amount, timeout, reply_to),
-        ExecuteMsg::RedeemShares {
-            items,
-            timeout,
-            reply_to,
-        } => execute_redeem_shares(deps, info, items, timeout, reply_to),
+        } => execute_tokenize_share(deps, info, validator, amount, reply_to),
+        ExecuteMsg::RedeemShares { items, reply_to } => {
+            execute_redeem_shares(deps, info, items, reply_to)
+        }
         ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
             validators,
             transfer,
-            timeout,
             reply_to,
-        } => execute_claim_rewards_and_optionaly_transfer(
-            deps, info, validators, transfer, timeout, reply_to,
-        ),
+        } => {
+            execute_claim_rewards_and_optionaly_transfer(deps, info, validators, transfer, reply_to)
+        }
         ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators } => {
             register_balance_delegations_query(deps, info, validators)
         }
@@ -222,25 +207,17 @@ pub fn execute(
         ExecuteMsg::RegisterNonNativeRewardsBalancesQuery { denoms } => {
             register_non_native_rewards_balances_query(deps, info, denoms)
         }
-        ExecuteMsg::IBCTransfer {
-            timeout,
-            reply_to,
-            reason,
-        } => execute_ibc_transfer(deps, env, info, reason, timeout, reply_to),
-        ExecuteMsg::Transfer {
-            items,
-            timeout,
-            reply_to,
-        } => execute_transfer(deps, info, items, timeout, reply_to),
+        ExecuteMsg::IBCTransfer { reply_to, reason } => {
+            execute_ibc_transfer(deps, env, info, reason, reply_to)
+        }
+        ExecuteMsg::Transfer { items, reply_to } => execute_transfer(deps, info, items, reply_to),
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
         ExecuteMsg::UpdateOwnership(action) => {
             let attrs = vec![attr("action", "update_ownership")];
             cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
             Ok(response("update_ownership", CONTRACT_NAME, attrs))
         }
-        ExecuteMsg::GrantDelegate { grantee, timeout } => {
-            execute_grant_delegate(deps, env, info, grantee, timeout)
-        }
+        ExecuteMsg::GrantDelegate { grantee } => execute_grant_delegate(deps, env, info, grantee),
         _ => puppeteer_base.execute(deps, env, info, msg.to_base_enum()),
     }
 }
@@ -295,6 +272,10 @@ fn execute_update_config(
         config.sdk_version = sdk_version.clone();
         attrs.push(attr("sdk_version", sdk_version))
     }
+    if let Some(timeout) = new_config.timeout {
+        attrs.push(attr("timeout", timeout.to_string()));
+        config.timeout = timeout;
+    }
 
     puppeteer_base.update_config(deps.into_empty(), &config)?;
 
@@ -306,7 +287,6 @@ fn execute_ibc_transfer(
     env: Env,
     info: MessageInfo,
     reason: IBCTransferReason,
-    timeout: u64,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
@@ -340,7 +320,7 @@ fn execute_ibc_transfer(
             revision_number: None,
             revision_height: None,
         },
-        timeout_timestamp: env.block.time.plus_seconds(timeout).nanos(),
+        timeout_timestamp: env.block.time.plus_seconds(config.timeout).nanos(),
         memo: "".to_string(),
         fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
     };
@@ -508,7 +488,6 @@ fn execute_delegate(
     info: MessageInfo,
     items: Vec<(String, Uint128)>,
     fee: Option<(String, Uint128)>,
-    timeout: Option<u64>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
@@ -556,7 +535,6 @@ fn execute_delegate(
             denom: config.remote_denom,
             items,
         },
-        timeout,
         reply_to,
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
@@ -569,7 +547,6 @@ fn execute_grant_delegate(
     env: Env,
     info: MessageInfo,
     grantee: String,
-    timeout: Option<u64>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
     let config: Config = puppeteer_base.config.load(deps.storage)?;
@@ -612,7 +589,6 @@ fn execute_grant_delegate(
             interchain_account_id: ica.to_string(),
             grantee,
         },
-        timeout,
         "".to_string(),
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
@@ -624,7 +600,6 @@ fn execute_transfer(
     mut deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
     items: Vec<(String, cosmwasm_std::Coin)>,
-    timeout: Option<u64>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
@@ -660,7 +635,6 @@ fn execute_transfer(
             interchain_account_id: ICA_ID.to_string(),
             items,
         },
-        timeout,
         reply_to,
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
@@ -673,7 +647,6 @@ fn execute_claim_rewards_and_optionaly_transfer(
     info: MessageInfo,
     validators: Vec<String>,
     transfer: Option<TransferReadyBatchesMsg>,
-    timeout: Option<u64>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
@@ -717,7 +690,6 @@ fn execute_claim_rewards_and_optionaly_transfer(
             denom: config.remote_denom.to_string(),
             transfer,
         },
-        timeout,
         reply_to,
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
@@ -730,7 +702,6 @@ fn execute_undelegate(
     info: MessageInfo,
     items: Vec<(String, Uint128)>,
     batch_id: u128,
-    timeout: Option<u64>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
@@ -762,7 +733,6 @@ fn execute_undelegate(
             batch_id,
             items,
         },
-        timeout,
         reply_to,
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
@@ -776,7 +746,6 @@ fn execute_redelegate(
     validator_from: String,
     validator_to: String,
     amount: Uint128,
-    timeout: Option<u64>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
@@ -809,7 +778,6 @@ fn execute_redelegate(
             denom: config.remote_denom,
             amount: amount.into(),
         },
-        timeout,
         reply_to,
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
@@ -822,7 +790,6 @@ fn execute_tokenize_share(
     info: MessageInfo,
     validator: String,
     amount: Uint128,
-    timeout: Option<u64>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
@@ -853,7 +820,6 @@ fn execute_tokenize_share(
             denom: config.remote_denom,
             amount: amount.into(),
         },
-        timeout,
         reply_to,
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
@@ -865,7 +831,6 @@ fn execute_redeem_shares(
     mut deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
     items: Vec<RedeemShareItem>,
-    timeout: Option<u64>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let attrs = vec![
@@ -897,7 +862,6 @@ fn execute_redeem_shares(
             interchain_account_id: ICA_ID.to_string(),
             items,
         },
-        timeout,
         reply_to,
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
@@ -911,7 +875,6 @@ fn compose_submsg(
     config: Config,
     any_msgs: Vec<ProtobufAny>,
     transaction: Transaction,
-    timeout: Option<u64>,
     reply_to: String,
     reply_id: u64,
 ) -> NeutronResult<SubMsg<NeutronMsg>> {
@@ -923,7 +886,7 @@ fn compose_submsg(
         ICA_ID.to_string(),
         any_msgs,
         "".to_string(),
-        timeout.unwrap_or(DEFAULT_TIMEOUT_SECONDS),
+        config.timeout,
         ibc_fee,
     );
     let submsg = puppeteer_base.msg_with_sudo_callback(

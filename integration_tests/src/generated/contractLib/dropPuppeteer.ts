@@ -10,10 +10,12 @@ export type IcaState =
   | ("none" | "in_progress" | "timeout")
   | {
       registered: {
+        channel_id: string;
         ica_address: string;
+        port_id: string;
       };
     };
-export type ArrayOfTupleOfUint64And_String = [number, string][];
+export type ArrayOfTupleOfUint64AndString = [number, string][];
 export type Transaction =
   | {
       delegate: {
@@ -171,7 +173,7 @@ export type Timestamp = Uint64;
 export type Uint64 = string;
 
 export interface DropPuppeteerSchema {
-  responses: ConfigResponse | Binary | IcaState | ArrayOfTupleOfUint64And_String | ArrayOfTransaction | TxState;
+  responses: ConfigResponse | Binary | IcaState | ArrayOfTupleOfUint64AndString | ArrayOfTransaction | TxState;
   query: ExtensionArgs;
   execute:
     | RegisterBalanceAndDelegatorDelegationsQueryArgs
@@ -237,49 +239,40 @@ export interface DelegateArgs {
   fee?: [string, Uint128] | null;
   items: [string, Uint128][];
   reply_to: string;
-  timeout?: number | null;
 }
 export interface GrantDelegateArgs {
   grantee: string;
-  timeout?: number | null;
 }
 export interface UndelegateArgs {
   batch_id: number;
   items: [string, Uint128][];
   reply_to: string;
-  timeout?: number | null;
 }
 export interface RedelegateArgs {
   amount: Uint128;
   reply_to: string;
-  timeout?: number | null;
   validator_from: string;
   validator_to: string;
 }
 export interface TokenizeShareArgs {
   amount: Uint128;
   reply_to: string;
-  timeout?: number | null;
   validator: string;
 }
 export interface RedeemSharesArgs {
   items: RedeemShareItem[];
   reply_to: string;
-  timeout?: number | null;
 }
 export interface IBCTransferArgs {
   reason: IBCTransferReason;
   reply_to: string;
-  timeout: number;
 }
 export interface TransferArgs {
   items: [string, Coin][];
   reply_to: string;
-  timeout?: number | null;
 }
 export interface ClaimRewardsAndOptionalyTransferArgs {
   reply_to: string;
-  timeout?: number | null;
   transfer?: TransferReadyBatchesMsg | null;
   validators: string[];
 }
@@ -292,6 +285,7 @@ export interface ConfigOptional {
   port_id?: string | null;
   remote_denom?: string | null;
   sdk_version?: string | null;
+  timeout?: number | null;
   transfer_channel_id?: string | null;
   update_period?: number | null;
 }
@@ -302,6 +296,7 @@ export interface InstantiateMsg {
   port_id: string;
   remote_denom: string;
   sdk_version: string;
+  timeout: number;
   transfer_channel_id: string;
   update_period: number;
 }
@@ -337,6 +332,21 @@ export class Client {
     });
     return res;
   }
+  static async instantiate2(
+    client: SigningCosmWasmClient,
+    sender: string,
+    codeId: number,
+    salt: number,
+    initMsg: InstantiateMsg,
+    label: string,
+    fees: StdFee | 'auto' | number,
+    initCoins?: readonly Coin[],
+  ): Promise<InstantiateResult> {
+    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
+      ...(initCoins && initCoins.length && { funds: initCoins }),
+    });
+    return res;
+  }
   queryConfig = async(): Promise<ConfigResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
@@ -346,7 +356,7 @@ export class Client {
   queryTransactions = async(): Promise<ArrayOfTransaction> => {
     return this.client.queryContractSmart(this.contractAddress, { transactions: {} });
   }
-  queryKVQueryIds = async(): Promise<ArrayOfTupleOf_uint64And_String> => {
+  queryKVQueryIds = async(): Promise<ArrayOfTupleOfUint64AndString> => {
     return this.client.queryContractSmart(this.contractAddress, { k_v_query_ids: {} });
   }
   queryExtension = async(args: ExtensionArgs): Promise<Binary> => {

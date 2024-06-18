@@ -221,29 +221,24 @@ export interface SetConfigArgs {
 }
 export interface DelegateArgs {
   amount: Uint128;
-  timeout?: number | null;
   validator: string;
 }
 export interface UndelegateArgs {
   amount: Uint128;
-  timeout?: number | null;
   validator: string;
 }
 export interface RedelegateArgs {
   amount: Uint128;
-  timeout?: number | null;
   validator_from: string;
   validator_to: string;
 }
 export interface TokenizeShareArgs {
   amount: Uint128;
-  timeout?: number | null;
   validator: string;
 }
 export interface RedeemShareArgs {
   amount: Uint128;
   denom: string;
-  timeout?: number | null;
   validator: string;
 }
 export interface InstantiateMsg {}
@@ -275,6 +270,21 @@ export class Client {
     initCoins?: readonly Coin[],
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
+      ...(initCoins && initCoins.length && { funds: initCoins }),
+    });
+    return res;
+  }
+  static async instantiate2(
+    client: SigningCosmWasmClient,
+    sender: string,
+    codeId: number,
+    salt: number,
+    initMsg: InstantiateMsg,
+    label: string,
+    fees: StdFee | 'auto' | number,
+    initCoins?: readonly Coin[],
+  ): Promise<InstantiateResult> {
+    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
       ...(initCoins && initCoins.length && { funds: initCoins }),
     });
     return res;

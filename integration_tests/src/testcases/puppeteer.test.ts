@@ -148,6 +148,7 @@ describe('Interchain puppeteer', () => {
           remote_denom: 'wrong',
           owner: account.address,
           transfer_channel_id: 'channel-0',
+          timeout: 60,
           allowed_senders: [
             context.hookContractClient.contractAddress,
             account.address,
@@ -176,6 +177,7 @@ describe('Interchain puppeteer', () => {
       update_period: 10,
       remote_denom: 'wrong',
       sdk_version: '0.46.0',
+      timeout: 60,
       allowed_senders: [
         context.hookContractClient.contractAddress,
         context.account.address,
@@ -206,6 +208,7 @@ describe('Interchain puppeteer', () => {
       update_period: 10,
       remote_denom: 'stake',
       sdk_version: '0.46.0',
+      timeout: 60,
       allowed_senders: [
         context.hookContractClient.contractAddress,
         account.address,
@@ -347,7 +350,6 @@ describe('Interchain puppeteer', () => {
       {
         validator: context.firstValidatorAddress,
         amount: '100000',
-        timeout: 1000,
       },
       1.5,
       undefined,
@@ -364,7 +366,6 @@ describe('Interchain puppeteer', () => {
         {
           validator: context.firstValidatorAddress,
           amount: '100000',
-          timeout: 1000,
         },
         1.5,
         undefined,
@@ -395,7 +396,6 @@ describe('Interchain puppeteer', () => {
       {
         validator: context.firstValidatorAddress,
         amount: '1000',
-        timeout: 600,
       },
       1.5,
       undefined,
@@ -432,7 +432,6 @@ describe('Interchain puppeteer', () => {
         validator_from: context.firstValidatorAddress,
         validator_to: context.secondValidatorAddress,
         amount: '10000',
-        timeout: 600,
       },
       1.5,
       undefined,
@@ -468,7 +467,6 @@ describe('Interchain puppeteer', () => {
       {
         validator: context.firstValidatorAddress,
         amount: '5000',
-        timeout: 600,
       },
       1.5,
       undefined,
@@ -504,7 +502,6 @@ describe('Interchain puppeteer', () => {
       {
         validator: context.firstValidatorAddress,
         amount: '5000',
-        timeout: 600,
         denom: `${context.firstValidatorAddress}/1`,
       },
       1.5,
@@ -663,7 +660,6 @@ describe('Interchain puppeteer', () => {
       {
         validator: context.firstValidatorAddress,
         amount: '10000000000000',
-        timeout: 1000,
       },
       1.5,
       undefined,
@@ -684,14 +680,16 @@ describe('Interchain puppeteer', () => {
     );
   });
   it('send with timeout', async () => {
-    const { hookContractClient, account } = context;
+    const { hookContractClient, account, contractClient } = context;
     await context.park.restartRelayer('hermes', 0);
+    await contractClient.updateConfig(account.address, {
+      new_config: { timeout: 1 },
+    });
     const res = await hookContractClient.delegate(
       account.address,
       {
         validator: context.firstValidatorAddress,
         amount: '1000',
-        timeout: 1,
       },
       1.5,
       undefined,

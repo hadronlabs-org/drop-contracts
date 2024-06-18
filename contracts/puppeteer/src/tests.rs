@@ -34,6 +34,7 @@ fn test_instantiate() {
         allowed_senders: vec!["allowed_sender".to_string()],
         transfer_channel_id: "transfer_channel_id".to_string(),
         sdk_version: "0.45.0".to_string(),
+        timeout: 100u64,
     };
     let env = mock_env();
     let res =
@@ -61,6 +62,7 @@ fn test_update_config() {
             connection_id: Some("new_connection_id".to_string()),
             port_id: Some("new_port_id".to_string()),
             sdk_version: Some("0.47.0".to_string()),
+            timeout: Some(101u64),
         },
     };
     let deps_mut = deps.as_mut();
@@ -80,6 +82,7 @@ fn test_update_config() {
                     ("allowed_senders", "1"),
                     ("transfer_channel_id", "new_transfer_channel_id"),
                     ("sdk_version", "0.47.0"),
+                    ("timeout", "101"),
                 ])
         )
     );
@@ -94,6 +97,7 @@ fn test_update_config() {
             allowed_senders: vec![Addr::unchecked("new_allowed_sender")],
             transfer_channel_id: "new_transfer_channel_id".to_string(),
             sdk_version: "0.47.0".to_string(),
+            timeout: 101u64,
         }
     );
 }
@@ -112,7 +116,6 @@ fn test_execute_delegate() {
         items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
         fee: None,
         reply_to: "some_reply_to".to_string(),
-        timeout: Some(100u64),
     };
     let env = mock_env();
     let res = crate::contract::execute(
@@ -190,7 +193,6 @@ fn test_execute_grant_delegate() {
     let pupeteer_base = base_init(&mut deps.as_mut());
     let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::GrantDelegate {
         grantee: "grantee".to_string(),
-        timeout: Some(100u64),
     };
     let res = crate::contract::execute(
         deps.as_mut(),
@@ -279,7 +281,6 @@ fn test_execute_undelegate() {
         batch_id: 0u128,
         items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
         reply_to: "some_reply_to".to_string(),
-        timeout: Some(100u64),
     };
     let env = mock_env();
     let res = crate::contract::execute(
@@ -362,7 +363,6 @@ fn test_execute_redeem_share() {
             remote_denom: "remote_denom".to_string(),
             local_denom: "local_denom".to_string(),
         }],
-        timeout: Some(100u64),
         reply_to: "some_reply_to".to_string(),
     };
     let env = mock_env();
@@ -746,6 +746,7 @@ fn get_base_config() -> Config {
         allowed_senders: vec![Addr::unchecked("allowed_sender")],
         transfer_channel_id: "transfer_channel_id".to_string(),
         sdk_version: "0.45.0".to_string(),
+        timeout: 100u64,
     }
 }
 

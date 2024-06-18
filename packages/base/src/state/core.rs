@@ -9,7 +9,6 @@ use drop_puppeteer_base::msg::ResponseHookMsg as PuppeteerResponseHookMsg;
 pub struct ConfigOptional {
     pub token_contract: Option<String>,
     pub puppeteer_contract: Option<String>,
-    pub puppeteer_timeout: Option<u64>,
     pub strategy_contract: Option<String>,
     pub staker_contract: Option<String>,
     pub withdrawal_voucher_contract: Option<String>,
@@ -37,7 +36,6 @@ pub struct ConfigOptional {
 pub struct Config {
     pub token_contract: Addr,
     pub puppeteer_contract: Addr,
-    pub puppeteer_timeout: u64, //seconds
     pub strategy_contract: Addr,
     pub staker_contract: Addr,
     pub withdrawal_voucher_contract: Addr,

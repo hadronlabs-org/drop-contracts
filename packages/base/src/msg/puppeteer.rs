@@ -38,6 +38,7 @@ pub struct InstantiateMsg {
     pub allowed_senders: Vec<String>,
     pub transfer_channel_id: String,
     pub sdk_version: String,
+    pub timeout: u64,
 }
 
 #[cw_ownable_execute]
@@ -57,51 +58,42 @@ pub enum ExecuteMsg {
     Delegate {
         items: Vec<(String, Uint128)>,
         fee: Option<(String, Uint128)>,
-        timeout: Option<u64>,
         reply_to: String,
     },
     GrantDelegate {
         grantee: String,
-        timeout: Option<u64>,
     },
     Undelegate {
         items: Vec<(String, Uint128)>,
         batch_id: u128,
-        timeout: Option<u64>,
         reply_to: String,
     },
     Redelegate {
         validator_from: String,
         validator_to: String,
         amount: Uint128,
-        timeout: Option<u64>,
         reply_to: String,
     },
     TokenizeShare {
         validator: String,
         amount: Uint128,
-        timeout: Option<u64>,
         reply_to: String,
     },
     RedeemShares {
         items: Vec<RedeemShareItem>,
-        timeout: Option<u64>,
         reply_to: String,
     },
     IBCTransfer {
-        timeout: u64,
         reason: IBCTransferReason,
         reply_to: String,
     },
     Transfer {
         items: Vec<(String, cosmwasm_std::Coin)>,
-        timeout: Option<u64>,
         reply_to: String,
     },
     ClaimRewardsAndOptionalyTransfer {
         validators: Vec<String>,
         transfer: Option<TransferReadyBatchesMsg>,
-        timeout: Option<u64>,
         reply_to: String,
     },
     UpdateConfig {

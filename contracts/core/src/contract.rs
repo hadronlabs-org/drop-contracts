@@ -720,7 +720,6 @@ fn execute_tick_idle(
                     &drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
                         validators: validators_to_claim,
                         transfer,
-                        timeout: Some(config.puppeteer_timeout),
                         reply_to: env.contract.address.to_string(),
                     },
                 )?,
@@ -995,10 +994,6 @@ fn execute_update_config(
     if let Some(puppeteer_contract) = new_config.puppeteer_contract {
         config.puppeteer_contract = deps.api.addr_validate(&puppeteer_contract)?;
         attrs.push(attr("puppeteer_contract", puppeteer_contract));
-    }
-    if let Some(puppeteer_timeout) = new_config.puppeteer_timeout {
-        attrs.push(attr("puppeteer_timeout", puppeteer_timeout.to_string()));
-        config.puppeteer_timeout = puppeteer_timeout;
     }
     if let Some(strategy_contract) = new_config.strategy_contract {
         config.strategy_contract = deps.api.addr_validate(&strategy_contract)?;
@@ -1307,7 +1302,6 @@ pub fn get_stake_rewards_msg<T>(
         msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
             items: to_delegate,
             fee: staking_fee,
-            timeout: Some(config.puppeteer_timeout),
             reply_to: env.contract.address.to_string(),
         })?,
         funds,
@@ -1357,7 +1351,6 @@ fn get_unbonding_msg<T>(
             msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
                 items: undelegations,
                 batch_id,
-                timeout: Some(config.puppeteer_timeout),
                 reply_to: env.contract.address.to_string(),
             })?,
             funds,
@@ -1530,7 +1523,6 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
         contract_addr: config.puppeteer_contract.into_string(),
         msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
             items,
-            timeout: Some(config.puppeteer_timeout),
             reply_to: env.contract.address.to_string(),
         })?,
         funds: info.funds,
@@ -1570,7 +1562,6 @@ fn get_pending_redeem_msg<T>(
         msg: to_json_binary(
             &drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
                 items,
-                timeout: Some(config.puppeteer_timeout),
                 reply_to: env.contract.address.to_string(),
             },
         )?,
@@ -1592,7 +1583,6 @@ fn get_pending_lsm_share_msg<T, X: CustomQuery>(
                 msg: to_json_binary(
                     &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
                         reason: IBCTransferReason::LSMShare,
-                        timeout: config.puppeteer_timeout,
                         reply_to: env.contract.address.to_string(),
                     },
                 )?,

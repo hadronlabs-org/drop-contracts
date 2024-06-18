@@ -14,17 +14,19 @@ pub struct ConfigOptional {
     pub allowed_senders: Option<Vec<String>>,
     pub transfer_channel_id: Option<String>,
     pub sdk_version: Option<String>,
+    pub timeout: Option<u64>,
 }
 
 #[cw_serde]
 pub struct Config {
     pub connection_id: String,
     pub port_id: String,
-    pub update_period: u64,
+    pub update_period: u64, // update period in seconds for ICQ queries
     pub remote_denom: String,
     pub allowed_senders: Vec<Addr>,
     pub transfer_channel_id: String,
     pub sdk_version: String,
+    pub timeout: u64, // timeout for interchain transactions in seconts
 }
 
 impl BaseConfig for Config {
