@@ -15,25 +15,23 @@ import { Coin } from "@cosmjs/amino";
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type ArrayOfIdealDelegation = IdealDelegation[];
-export type ArrayOfIdealDelegation1 = IdealDelegation[];
+export type ArrayOfTupleOf_StringAnd_Uint128 = [string, Uint128][];
+export type ArrayOfTupleOf_StringAnd_Uint1281 = [string, Uint128][];
 
 export interface DropDistributionSchema {
-  responses: ArrayOfIdealDelegation | ArrayOfIdealDelegation1;
+  responses: ArrayOfTupleOf_StringAnd_Uint128 | ArrayOfTupleOf_StringAnd_Uint1281;
   query: CalcDepositArgs | CalcWithdrawArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
-export interface IdealDelegation {
-  current_stake: Uint128;
-  ideal_stake: Uint128;
-  stake_change: Uint128;
-  valoper_address: string;
-  weight: number;
-}
 export interface CalcDepositArgs {
-  delegations: Delegation[];
+  delegations: Delegations;
   deposit: Uint128;
+}
+export interface Delegations {
+  delegations: Delegation[];
+  total: Uint128;
+  total_weight: number;
 }
 export interface Delegation {
   stake: Uint128;
@@ -41,7 +39,7 @@ export interface Delegation {
   weight: number;
 }
 export interface CalcWithdrawArgs {
-  delegations: Delegation[];
+  delegations: Delegations;
   withdraw: Uint128;
 }
 export interface InstantiateMsg {}
@@ -77,10 +75,10 @@ export class Client {
     });
     return res;
   }
-  queryCalcDeposit = async(args: CalcDepositArgs): Promise<ArrayOfIdealDelegation> => {
+  queryCalcDeposit = async(args: CalcDepositArgs): Promise<ArrayOfTupleOf_StringAnd_Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { calc_deposit: args });
   }
-  queryCalcWithdraw = async(args: CalcWithdrawArgs): Promise<ArrayOfIdealDelegation> => {
+  queryCalcWithdraw = async(args: CalcWithdrawArgs): Promise<ArrayOfTupleOf_StringAnd_Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { calc_withdraw: args });
   }
 }

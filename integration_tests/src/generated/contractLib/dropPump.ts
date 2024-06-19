@@ -10,6 +10,50 @@ import { StdFee } from "@cosmjs/amino";
  * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
  */
 export type Addr = string;
+export type IcaState =
+  | ("none" | "in_progress" | "timeout")
+  | {
+      registered: {
+        ica_address: string;
+      };
+    };
+/**
+ * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
+ */
+export type Expiration =
+  | {
+      at_height: number;
+    }
+  | {
+      at_time: Timestamp;
+    }
+  | {
+      never: {};
+    };
+/**
+ * A point in time in nanosecond precision.
+ *
+ * This type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.
+ *
+ * ## Examples
+ *
+ * ``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);
+ *
+ * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
+ */
+export type Timestamp = Uint64;
+/**
+ * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u64` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
+ *
+ * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
+ */
+export type Uint64 = string;
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -24,17 +68,22 @@ export type Addr = string;
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type IcaState =
-  | ("none" | "in_progress" | "timeout")
+/**
+ * Actions that can be taken to alter the contract's ownership
+ */
+export type UpdateOwnershipArgs =
   | {
-      registered: {
-        ica_address: string;
+      transfer_ownership: {
+        expiry?: Expiration | null;
+        new_owner: string;
       };
-    };
+    }
+  | "accept_ownership"
+  | "renounce_ownership";
 
 export interface DropPumpSchema {
-  responses: Config | IcaState;
-  execute: PushArgs | UpdateConfigArgs;
+  responses: Config | IcaState | OwnershipFor_String;
+  execute: PushArgs | RefundArgs | UpdateConfigArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
@@ -43,21 +92,30 @@ export interface Config {
   dest_address?: Addr | null;
   dest_channel?: string | null;
   dest_port?: string | null;
-  ibc_fees: IBCFees;
   local_denom: string;
-  owner: Addr;
   refundee?: Addr | null;
   timeout: PumpTimeout;
-}
-export interface IBCFees {
-  ack_fee: Uint128;
-  recv_fee: Uint128;
-  register_fee: Uint128;
-  timeout_fee: Uint128;
 }
 export interface PumpTimeout {
   local?: number | null;
   remote: number;
+}
+/**
+ * The contract's ownership info
+ */
+export interface OwnershipFor_String {
+  /**
+   * The contract's current owner. `None` if the ownership has been renounced.
+   */
+  owner?: string | null;
+  /**
+   * The deadline for the pending owner to accept the ownership. `None` if there isn't a pending ownership transfer, or if a transfer exists and it doesn't have a deadline.
+   */
+  pending_expiry?: Expiration | null;
+  /**
+   * The account who has been proposed to take over the ownership. `None` if there isn't a pending ownership transfer.
+   */
+  pending_owner?: string | null;
 }
 export interface PushArgs {
   coins: Coin[];
@@ -67,16 +125,17 @@ export interface Coin {
   denom: string;
   [k: string]: unknown;
 }
+export interface RefundArgs {
+  coins: Coin[];
+}
 export interface UpdateConfigArgs {
   new_config: UpdateConfigMsg;
 }
 export interface UpdateConfigMsg {
-  admin?: string | null;
   connection_id?: string | null;
   dest_address?: string | null;
   dest_channel?: string | null;
   dest_port?: string | null;
-  ibc_fees?: IBCFees | null;
   local_denom?: string | null;
   refundee?: string | null;
   timeout?: PumpTimeout | null;
@@ -86,7 +145,6 @@ export interface InstantiateMsg {
   dest_address?: string | null;
   dest_channel?: string | null;
   dest_port?: string | null;
-  ibc_fees: IBCFees;
   local_denom: string;
   owner?: string | null;
   refundee?: string | null;
@@ -130,6 +188,9 @@ export class Client {
   queryIca = async(): Promise<IcaState> => {
     return this.client.queryContractSmart(this.contractAddress, { ica: {} });
   }
+  queryOwnership = async(): Promise<OwnershipFor_String> => {
+    return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
+  }
   registerICA = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { register_i_c_a: {} }, fee || "auto", memo, funds);
@@ -138,12 +199,16 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { push: args }, fee || "auto", memo, funds);
   }
-  refund = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  refund = async(sender:string, args: RefundArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { refund: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { refund: args }, fee || "auto", memo, funds);
   }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+  }
+  updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
   }
 }

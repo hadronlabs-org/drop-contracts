@@ -34,6 +34,7 @@ describe('Interchain puppeteer', () => {
     contractClient?: InstanceType<typeof PuppeteerClass>;
     hookContractClient?: InstanceType<typeof HookTesterClass>;
     account?: AccountData;
+    gaiaAccount?: AccountData;
     icaAddress?: string;
     client?: SigningCosmWasmClient;
     gaiaClient?: SigningCosmWasmClient;
@@ -64,6 +65,7 @@ describe('Interchain puppeteer', () => {
         prefix: 'cosmos',
       },
     );
+    context.gaiaAccount = (await context.gaiaWallet.getAccounts())[0];
     context.account = (await context.wallet.getAccounts())[0];
     context.neutronClient = new NeutronClient({
       apiURL: `http://127.0.0.1:${context.park.ports.neutron.rest}`,
@@ -146,7 +148,10 @@ describe('Interchain puppeteer', () => {
           remote_denom: 'wrong',
           owner: account.address,
           transfer_channel_id: 'channel-0',
-          allowed_senders: [context.hookContractClient.contractAddress],
+          allowed_senders: [
+            context.hookContractClient.contractAddress,
+            account.address,
+          ],
         },
         'label',
         'auto',
@@ -162,18 +167,19 @@ describe('Interchain puppeteer', () => {
   });
 
   it('query configuration data', async () => {
-    const { contractClient, account } = context;
+    const { contractClient } = context;
     const config = await contractClient.queryConfig();
 
-    expect(config).toEqual({
+    expect<typeof config>(config).toEqual({
       connection_id: 'connection-0',
       port_id: 'transfer',
       update_period: 10,
       remote_denom: 'wrong',
       sdk_version: '0.46.0',
-      owner: account.address,
-      allowed_senders: [context.hookContractClient.contractAddress],
-      proxy_address: null,
+      allowed_senders: [
+        context.hookContractClient.contractAddress,
+        context.account.address,
+      ],
       transfer_channel_id: 'channel-0',
     });
   });
@@ -200,9 +206,10 @@ describe('Interchain puppeteer', () => {
       update_period: 10,
       remote_denom: 'stake',
       sdk_version: '0.46.0',
-      owner: account.address,
-      allowed_senders: [context.hookContractClient.contractAddress],
-      proxy_address: null,
+      allowed_senders: [
+        context.hookContractClient.contractAddress,
+        account.address,
+      ],
       transfer_channel_id: 'channel-0',
     });
   });
@@ -213,21 +220,6 @@ describe('Interchain puppeteer', () => {
       {
         puppeteer_addr: context.contractClient.contractAddress,
       },
-    );
-    expect(res.transactionHash).toBeTruthy();
-  });
-
-  it('set fees', async () => {
-    const { contractClient, account } = context;
-    const res = await contractClient.setFees(
-      account.address,
-      {
-        timeout_fee: '10000',
-        ack_fee: '10000',
-        recv_fee: '0',
-        register_fee: '1000000',
-      },
-      1.5,
     );
     expect(res.transactionHash).toBeTruthy();
   });
@@ -576,12 +568,11 @@ describe('Interchain puppeteer', () => {
     );
     expect(res.transactionHash).toBeTruthy();
   });
-
   it('query delegations query', async () => {
     let delegations = [];
     let height = 0;
     await waitFor(async () => {
-      const [d, h] = (await context.contractClient.queryExtention({
+      const [d, h] = (await context.contractClient.queryExtension({
         msg: { delegations: {} },
       })) as unknown as any[];
       delegations = d.delegations;
@@ -611,11 +602,10 @@ describe('Interchain puppeteer', () => {
     expected.sort((a, b) => a.validator.localeCompare(b.validator)); //fml
     expect(delegations).toMatchObject(expected);
   });
-
   it('query unbonding delegations query', async () => {
     await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 4);
 
-    const unbonding_delegations = (await context.contractClient.queryExtention({
+    const unbonding_delegations = (await context.contractClient.queryExtension({
       msg: { unbonding_delegations: {} },
     })) as unknown as any[];
     unbonding_delegations.sort((a, b) =>
@@ -642,7 +632,29 @@ describe('Interchain puppeteer', () => {
     ); //fml
     expect(unbonding_delegations).toMatchObject(expected);
   });
-
+  it('grant access to some account', async () => {
+    const { contractClient, account } = context;
+    const res = await contractClient.grantDelegate(
+      account.address,
+      {
+        grantee: (await context.gaiaWallet.getAccounts())[0].address,
+      },
+      1.5,
+    );
+    expect(res.transactionHash).toBeTruthy();
+  });
+  it('wait for grant to be processed', async () => {
+    await waitFor(async () => {
+      const res = await context.contractClient.queryTxState();
+      return res.status === 'idle';
+    }, 100_000);
+    const res = await context.park.executeInNetwork(
+      'gaia',
+      `${context.park.config.networks['gaia'].binary} query authz grants-by-grantee ${context.gaiaAccount.address} --output json`,
+    );
+    const out = JSON.parse(res.out);
+    expect(out.grants).toHaveLength(1);
+  });
   it('send a failing delegation', async () => {
     const { hookContractClient, account } = context;
 
@@ -694,7 +706,7 @@ describe('Interchain puppeteer', () => {
     await waitFor(async () => {
       res = await hookContractClient.queryErrors();
       return res.length > 1;
-    }, 80_000);
+    }, 160_000);
     expect(res.length).toEqual(2);
     expect(res[1].details).toEqual('Timeout');
   });

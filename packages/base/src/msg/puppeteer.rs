@@ -1,5 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{from_json, Addr, Decimal, Timestamp, Uint128};
+use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 use drop_helpers::version::version_to_u32;
 use std::ops::Div;
 use std::str::FromStr;
@@ -33,12 +34,13 @@ pub struct InstantiateMsg {
     pub port_id: String,
     pub update_period: u64,
     pub remote_denom: String,
-    pub owner: String,
+    pub owner: Option<String>,
     pub allowed_senders: Vec<String>,
     pub transfer_channel_id: String,
     pub sdk_version: String,
 }
 
+#[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
     RegisterICA {},
@@ -52,16 +54,15 @@ pub enum ExecuteMsg {
     RegisterNonNativeRewardsBalancesQuery {
         denoms: Vec<String>,
     },
-    SetFees {
-        recv_fee: Uint128,
-        ack_fee: Uint128,
-        timeout_fee: Uint128,
-        register_fee: Uint128,
-    },
     Delegate {
         items: Vec<(String, Uint128)>,
+        fee: Option<(String, Uint128)>,
         timeout: Option<u64>,
         reply_to: String,
+    },
+    GrantDelegate {
+        grantee: String,
+        timeout: Option<u64>,
     },
     Undelegate {
         items: Vec<(String, Uint128)>,
@@ -113,17 +114,6 @@ impl ExecuteMsg {
         match self {
             ExecuteMsg::RegisterICA {} => BaseExecuteMsg::RegisterICA {},
             ExecuteMsg::RegisterQuery {} => BaseExecuteMsg::RegisterQuery {},
-            ExecuteMsg::SetFees {
-                recv_fee,
-                ack_fee,
-                timeout_fee,
-                register_fee,
-            } => BaseExecuteMsg::SetFees {
-                recv_fee: *recv_fee,
-                ack_fee: *ack_fee,
-                timeout_fee: *timeout_fee,
-                register_fee: *register_fee,
-            },
             _ => unimplemented!(),
         }
     }
@@ -137,14 +127,7 @@ pub type Height = u64;
 pub type DelegationsResponse = (Delegations, Height, Timestamp);
 pub type BalancesResponse = (Balances, Height, Timestamp);
 
-#[cw_serde]
-pub struct FeesResponse {
-    pub recv_fee: Vec<cosmwasm_std::Coin>,
-    pub ack_fee: Vec<cosmwasm_std::Coin>,
-    pub timeout_fee: Vec<cosmwasm_std::Coin>,
-    pub register_fee: cosmwasm_std::Coin,
-}
-
+#[cw_ownable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryExtMsg {
@@ -154,8 +137,6 @@ pub enum QueryExtMsg {
     Balances {},
     #[returns(BalancesResponse)]
     NonNativeRewardsBalances {},
-    #[returns(FeesResponse)]
-    Fees {},
     #[returns(Vec<drop_puppeteer_base::state::UnbondingDelegation>)]
     UnbondingDelegations {},
 }
