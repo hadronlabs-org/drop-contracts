@@ -2,12 +2,13 @@ import { waitFor } from './waitFor';
 import { DropCore, DropPuppeteer } from '../generated/contractLib';
 import { ResponseHookSuccessMsg } from '../generated/contractLib/dropCore';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
+import { SigningStargateClient } from '@cosmjs/stargate';
 
 const DropCoreClass = DropCore.Client;
 const DropPuppeteerClass = DropPuppeteer.Client;
 
 export const waitForPuppeteerICQ = async (
-  client: SigningCosmWasmClient,
+  client: SigningStargateClient | SigningCosmWasmClient,
   coreContractClient?: InstanceType<typeof DropCoreClass>,
   puppeteerContractClient?: InstanceType<typeof DropPuppeteerClass>,
 ): Promise<void> => {
@@ -22,10 +23,12 @@ export const waitForPuppeteerICQ = async (
   let controlHeight = block.header.height;
 
   if (puppeteerResponse && puppeteerResponse.success) {
-    controlHeight = puppeteerResponse.success.local_height;
+    controlHeight = puppeteerResponse.success.remote_height;
   }
 
   controlHeight++;
+
+  console.log('Control height:', controlHeight);
 
   const waitForBalances = waitFor(async () => {
     const [, lastBalanceHeight] = (await puppeteerContractClient.queryExtension(
@@ -35,6 +38,8 @@ export const waitForPuppeteerICQ = async (
         },
       },
     )) as any;
+
+    console.log('Last balance height:', lastBalanceHeight);
     return lastBalanceHeight > controlHeight;
   }, 50_000);
 
@@ -45,6 +50,7 @@ export const waitForPuppeteerICQ = async (
           delegations: {},
         },
       })) as any;
+    console.log('Last delegations height:', lastDelegationsHeight);
     return lastDelegationsHeight > controlHeight;
   }, 50_000);
 

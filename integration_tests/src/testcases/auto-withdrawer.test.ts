@@ -179,7 +179,7 @@ describe('Auto withdrawer', () => {
   });
 
   afterAll(async () => {
-    // await context.park.stop();
+    await context.park.stop();
   });
 
   it('transfer tokens to neutron', async () => {
@@ -986,13 +986,19 @@ describe('Auto withdrawer', () => {
       it('tick', async () => {
         const {
           neutronUserAddress,
+          gaiaClient,
           client,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
+        const gaiaBlock = (await gaiaClient.getBlock()).header.height;
+        const clientBlock = (await client.getBlock()).header.height;
+        console.log('gaia block', gaiaBlock);
+        console.log('client block', clientBlock);
+
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1059,13 +1065,13 @@ describe('Auto withdrawer', () => {
       it('second tick goes to unbonding', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1108,12 +1114,18 @@ describe('Auto withdrawer', () => {
         const {
           neutronUserAddress,
           client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
+        const gaiaBlock = (await gaiaClient.getBlock()).header.height;
+        const clientBlock = (await client.getBlock()).header.height;
+        console.log('gaia block', gaiaBlock);
+        console.log('client block', clientBlock);
+
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1142,13 +1154,13 @@ describe('Auto withdrawer', () => {
       it('idle tick', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1202,13 +1214,13 @@ describe('Auto withdrawer', () => {
       it('next tick goes to staking', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1239,13 +1251,13 @@ describe('Auto withdrawer', () => {
       it('next tick goes to idle', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1380,13 +1392,13 @@ describe('Auto withdrawer', () => {
       it('tick', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1561,7 +1573,7 @@ describe('Auto withdrawer', () => {
       });
       it('wait for ICQ update', async () => {
         await waitForPuppeteerICQ(
-          context.client,
+          context.gaiaClient,
           context.coreContractClient,
           context.puppeteerContractClient,
         );
@@ -1570,12 +1582,12 @@ describe('Auto withdrawer', () => {
         const {
           coreContractClient,
           neutronUserAddress,
-          client,
+          gaiaClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );

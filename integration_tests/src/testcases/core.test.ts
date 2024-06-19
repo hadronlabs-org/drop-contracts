@@ -1139,14 +1139,14 @@ describe('Core', () => {
       });
       it('tick', async () => {
         const {
-          client,
+          gaiaClient,
           neutronUserAddress,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1286,13 +1286,13 @@ describe('Core', () => {
       it('next tick goes to idle', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1338,13 +1338,13 @@ describe('Core', () => {
       it('idle tick', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1398,13 +1398,13 @@ describe('Core', () => {
       it('next tick goes to staking', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1434,14 +1434,14 @@ describe('Core', () => {
       });
       it('next tick goes to idle', async () => {
         const {
-          client,
+          gaiaClient,
           neutronUserAddress,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1576,13 +1576,13 @@ describe('Core', () => {
       it('tick', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1645,7 +1645,7 @@ describe('Core', () => {
       }, 30_000);
       it('wait for balances and delegations to update', async () => {
         await waitForPuppeteerICQ(
-          context.client,
+          context.gaiaClient,
           context.coreContractClient,
           context.puppeteerContractClient,
         );
@@ -1847,13 +1847,13 @@ describe('Core', () => {
         it('tick', async () => {
           const {
             neutronUserAddress,
-            client,
+            gaiaClient,
             coreContractClient,
             puppeteerContractClient,
           } = context;
 
           await waitForPuppeteerICQ(
-            client,
+            gaiaClient,
             coreContractClient,
             puppeteerContractClient,
           );
@@ -1885,7 +1885,7 @@ describe('Core', () => {
         });
         it('wait for ICQ update', async () => {
           await waitForPuppeteerICQ(
-            context.client,
+            context.gaiaClient,
             context.coreContractClient,
             context.puppeteerContractClient,
           );
@@ -1953,7 +1953,7 @@ describe('Core', () => {
         });
         it('wait for ICQ update', async () => {
           await waitForPuppeteerICQ(
-            context.client,
+            context.gaiaClient,
             context.coreContractClient,
             context.puppeteerContractClient,
           );
@@ -2003,13 +2003,13 @@ describe('Core', () => {
         });
         it('tick to idle', async () => {
           const {
-            client,
+            gaiaClient,
             neutronUserAddress,
             coreContractClient,
             puppeteerContractClient,
           } = context;
           await waitForPuppeteerICQ(
-            client,
+            gaiaClient,
             coreContractClient,
             puppeteerContractClient,
           );
@@ -2287,7 +2287,7 @@ describe('Core', () => {
           puppeteerContractClient,
         } = context;
         await waitForPuppeteerICQ(
-          context.client,
+          context.gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -2473,7 +2473,7 @@ describe('Core', () => {
           puppeteerContractClient,
         } = context;
         await waitForPuppeteerICQ(
-          context.client,
+          context.gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -2497,14 +2497,14 @@ describe('Core', () => {
       });
       it('tick to staking_rewards', async () => {
         const {
-          client,
+          gaiaClient,
           coreContractClient,
           neutronUserAddress,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -2564,13 +2564,13 @@ describe('Core', () => {
       });
       it('tick to idle', async () => {
         const {
-          client,
+          gaiaClient,
           coreContractClient,
           neutronUserAddress,
           puppeteerContractClient,
         } = context;
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );

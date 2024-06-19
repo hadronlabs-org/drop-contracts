@@ -772,13 +772,13 @@ describe('Core Slashing', () => {
     it('tick 1 (staking_bond)', async () => {
       const {
         neutronUserAddress,
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       } = context;
 
       await waitForPuppeteerICQ(
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       );
@@ -833,13 +833,13 @@ describe('Core Slashing', () => {
     it('tick 2 (unbonding)', async () => {
       const {
         neutronUserAddress,
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       } = context;
 
       await waitForPuppeteerICQ(
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       );
@@ -872,13 +872,13 @@ describe('Core Slashing', () => {
     it('tick 3 (idle)', async () => {
       const {
         neutronUserAddress,
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       } = context;
 
       await waitForPuppeteerICQ(
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       );
@@ -958,13 +958,13 @@ describe('Core Slashing', () => {
     it('tick 1 (claiming)', async () => {
       const {
         neutronUserAddress,
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       } = context;
 
       await waitForPuppeteerICQ(
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       );
@@ -1007,13 +1007,13 @@ describe('Core Slashing', () => {
     it('tick 2 (staking_bond)', async () => {
       const {
         neutronUserAddress,
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       } = context;
 
       await waitForPuppeteerICQ(
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       );
@@ -1061,13 +1061,13 @@ describe('Core Slashing', () => {
     it('tick 3 (unbonding)', async () => {
       const {
         neutronUserAddress,
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       } = context;
 
       await waitForPuppeteerICQ(
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       );
@@ -1100,13 +1100,13 @@ describe('Core Slashing', () => {
     it('tick 4 (idle)', async () => {
       const {
         neutronUserAddress,
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       } = context;
 
       await waitForPuppeteerICQ(
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       );
@@ -1207,12 +1207,12 @@ describe('Core Slashing', () => {
     const {
       coreContractClient,
       neutronUserAddress,
-      client,
+      gaiaClient,
       puppeteerContractClient,
     } = context;
 
     await waitForPuppeteerICQ(
-      client,
+      gaiaClient,
       coreContractClient,
       puppeteerContractClient,
     );
@@ -1285,12 +1285,12 @@ describe('Core Slashing', () => {
     const {
       coreContractClient,
       neutronUserAddress,
-      client,
+      gaiaClient,
       puppeteerContractClient,
     } = context;
 
     await waitForPuppeteerICQ(
-      client,
+      gaiaClient,
       coreContractClient,
       puppeteerContractClient,
     );
