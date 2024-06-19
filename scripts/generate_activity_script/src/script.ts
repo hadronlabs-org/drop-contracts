@@ -329,7 +329,7 @@ async function main() {
 
   let core_contract = new DropCoreClient(neutronWallet.clientCW, CORE_CONTRACT);
   const logs: Array<Action> = [];
-  if (Math.random() <= BOND_PROB) {
+  if (Math.random() <= WITHDRAW_PROB) {
     const res = await withdraw_random_nft(neutronWallet, core_contract);
     if (res !== null) {
       logs.push(res);
@@ -341,7 +341,7 @@ async function main() {
       logs.push(res);
     }
   }
-  if (Math.random() <= WITHDRAW_PROB) {
+  if (Math.random() <= BOND_PROB) {
     const res = await bond_random_amount(neutronWallet, core_contract);
     if (res !== null) {
       logs.push(res);
