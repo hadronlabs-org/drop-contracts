@@ -53,14 +53,14 @@ type Action = {
 };
 
 async function bond(
-  drop_instance: DropCoreClient,
+  dropInstance: DropCoreClient,
   address: string,
   fund: Coin
 ): Promise<Action> {
   return {
     mode: MODE.BOND,
     txHash: (
-      await drop_instance.bond(address, {}, "auto", "", [
+      await dropInstance.bond(address, {}, "auto", "", [
         {
           amount: fund.amount,
           denom: fund.denom,
@@ -74,38 +74,38 @@ async function bond(
  * We don't really need to know type of error here since it isn't crucial for us,
  * We'll just try another method in core
  */
-async function bond_random_amount(
+async function bondRandomAmount(
   neutronWallet: Wallet,
-  drop_instance: DropCoreClient
+  dropInstance: DropCoreClient
 ): Promise<Action | null> {
   const address: string = neutronWallet.mainAccounts[0].address;
 
   /* If here is nothing to bond on our balance, then just return null
    * Other random method will be tried to call then
    */
-  let ibc_denom_balance: Coin = await neutronWallet.clientCW.getBalance(
+  let IBCDenomBalance: Coin = await neutronWallet.clientCW.getBalance(
     address,
     BASE_DENOM
   );
-  if (Number(ibc_denom_balance.amount) === 0) {
+  if (Number(IBCDenomBalance.amount) === 0) {
     return null;
   }
 
-  const config = await drop_instance.queryConfig();
-  const exchange_rate: number = Math.floor(
-    Number(await drop_instance.queryExchangeRate())
+  const config = await dropInstance.queryConfig();
+  const exchangeRate: number = Math.floor(
+    Number(await dropInstance.queryExchangeRate())
   );
-  const min_exchange_rate: number = exchange_rate + 1;
+  const minExchangeRate: number = exchangeRate + 1;
 
   /* Minimum amount of funds that we can send to core contract while bonding
    * Is either lsm_min_bond_amount (which is typically set in 1) or current exchange_rate parameter
    * Here we're choosing the biggest value of these two to avoid further errors
    */
   const min: number =
-    Number(config.lsm_min_bond_amount) < min_exchange_rate
-      ? min_exchange_rate
+    Number(config.lsm_min_bond_amount) < minExchangeRate
+      ? minExchangeRate
       : Number(config.lsm_min_bond_amount);
-  if (min > Number(ibc_denom_balance.amount)) {
+  if (min > Number(IBCDenomBalance.amount)) {
     return null;
   }
 
@@ -113,10 +113,10 @@ async function bond_random_amount(
    * It's content and return null, script will try to call another method
    */
   let random_amount: number = Math.floor(
-    Math.random() * (Number(ibc_denom_balance.amount) - min) + min
+    Math.random() * (Number(IBCDenomBalance.amount) - min) + min
   );
   try {
-    const res = await bond(drop_instance, address, {
+    const res = await bond(dropInstance, address, {
       amount: String(random_amount),
       denom: BASE_DENOM,
     });
@@ -130,14 +130,14 @@ async function bond_random_amount(
 }
 
 async function unbond(
-  drop_instance: DropCoreClient,
+  dropInstance: DropCoreClient,
   address: string,
   fund: Coin
 ): Promise<Action> {
   return {
     mode: MODE.UNBOND,
     txHash: (
-      await drop_instance.unbond(address, "auto", "", [
+      await dropInstance.unbond(address, "auto", "", [
         {
           amount: fund.amount,
           denom: fund.denom,
@@ -151,31 +151,31 @@ async function unbond(
  * We don't really need to know type of error here since it isn't crucial for us,
  * We'll just try another method in core
  */
-async function unbond_random_amount(
+async function unbondRandomAmount(
   neutronWallet: Wallet,
-  drop_instance: DropCoreClient
+  dropInstance: DropCoreClient
 ): Promise<Action | null> {
   const address: string = neutronWallet.mainAccounts[0].address;
   /* If here is nothing to bond on our balance, then just return null
    * Other random method will be tried to call then
    */
-  let factory_balance: Coin = await neutronWallet.clientCW.getBalance(
+  let factoryBalance: Coin = await neutronWallet.clientCW.getBalance(
     address,
     FACTORY_DENOM
   );
-  if (Number(factory_balance.amount) === 0) {
+  if (Number(factoryBalance.amount) === 0) {
     return null;
   }
 
   /* If any error occured when executing method then just ignore
    * It's content and return null, script will try to call another method
    */
-  let random_amount: number = Math.floor(
-    Math.random() * Number(factory_balance.amount) + 1
+  let randomAmount: number = Math.floor(
+    Math.random() * Number(factoryBalance.amount) + 1
   );
   try {
-    const res = await unbond(drop_instance, address, {
-      amount: String(random_amount),
+    const res = await unbond(dropInstance, address, {
+      amount: String(randomAmount),
       denom: FACTORY_DENOM,
     });
     if ((await neutronWallet.clientCW.getTx(res.txHash)).code !== 0) {
@@ -187,11 +187,11 @@ async function unbond_random_amount(
   }
 }
 
-async function send_nft(
-  withdrawal_voucher: DropWithdrawalVoucher,
-  withdrawal_manager: DropWithdrawalManager,
+async function sendNFT(
+  withdrawalVoucher: DropWithdrawalVoucher,
+  withdrawalManager: DropWithdrawalManager,
   address: string,
-  nft_id: string
+  NFTID: string
 ): Promise<Action> {
   /* To withdraw unbonded amount we need to send nft to the withdrawal_manager contract
    * To do that we need to call send method on withdrawal_voucher contract (which is NFT contract underhood)
@@ -200,11 +200,11 @@ async function send_nft(
   return {
     mode: MODE.WITHDRAW,
     txHash: (
-      await withdrawal_voucher.sendNft(
+      await withdrawalVoucher.sendNft(
         address,
         {
-          contract: withdrawal_manager.contractAddress,
-          token_id: nft_id,
+          contract: withdrawalManager.contractAddress,
+          token_id: NFTID,
           msg: "eyJ3aXRoZHJhdyI6e319",
         },
         "auto",
@@ -219,21 +219,21 @@ async function send_nft(
  * We don't really need to know type of error here since it isn't crucial for us,
  * We'll just try another method in core
  */
-async function withdraw_random_nft(
+async function withdrawRandomNFT(
   neutronWallet: Wallet,
-  drop_instance: DropCoreClient
+  dropInstance: DropCoreClient
 ): Promise<Action | null> {
   const address: string = neutronWallet.mainAccounts[0].address;
   /* Get both withdrawal_manager and withdrawal_voucher wrappers based on querying config method
    * We need them to execute send_nft method on withdrawal_voucher with withdrawal_manager as the recepient
    * To withdraw our unbonded tokens we need to work with withdrawal_voucher' send_nft method
    */
-  const config = await drop_instance.queryConfig();
-  const withdrawal_manager: DropWithdrawalManager = new DropWithdrawalManager(
+  const config = await dropInstance.queryConfig();
+  const withdrawalManager: DropWithdrawalManager = new DropWithdrawalManager(
     neutronWallet.clientCW,
     config.withdrawal_manager_contract
   );
-  const withdrawal_voucher: DropWithdrawalVoucher = new DropWithdrawalVoucher(
+  const withdrawalVoucher: DropWithdrawalVoucher = new DropWithdrawalVoucher(
     neutronWallet.clientCW,
     config.withdrawal_voucher_contract
   );
@@ -242,46 +242,46 @@ async function withdraw_random_nft(
    * Get details for each gotten NFT in 2-nd loop
    * Check batch status for each batch_id, filter who hasn't withdrawed yet in 3-rd loop
    */
-  let owned_nfts = (await withdrawal_voucher.queryTokens({ owner: address }))
+  let ownedNFTs = (await withdrawalVoucher.queryTokens({ owner: address }))
     .tokens;
-  let current_nft_list = owned_nfts;
-  while (current_nft_list.length !== 0) {
-    current_nft_list = (
-      await withdrawal_voucher.queryTokens({
+  let currentNFTList = ownedNFTs;
+  while (currentNFTList.length !== 0) {
+    currentNFTList = (
+      await withdrawalVoucher.queryTokens({
         owner: address,
-        start_after: current_nft_list[current_nft_list.length - 1],
+        start_after: currentNFTList[currentNFTList.length - 1],
       })
     ).tokens;
-    owned_nfts = owned_nfts.concat(current_nft_list);
+    ownedNFTs = ownedNFTs.concat(currentNFTList);
   }
-  const owned_nfts_detailed = [];
-  for (const nft of owned_nfts) {
-    owned_nfts_detailed.push({
-      nft_id: nft,
+  const ownedNFTsDetailed = [];
+  for (const NFT of ownedNFTs) {
+    ownedNFTsDetailed.push({
+      nft_id: NFT,
       details: {
-        ...(await withdrawal_voucher.queryNftInfo({
-          token_id: nft,
+        ...(await withdrawalVoucher.queryNftInfo({
+          token_id: NFT,
         })),
       },
     });
   }
-  const withdrawn_nfts = [];
-  for (const nft_detailed of owned_nfts_detailed) {
+  const withdrawnNFTs = [];
+  for (const NFTDetailed of ownedNFTsDetailed) {
     if (
       (
-        await drop_instance.queryUnbondBatch({
-          batch_id: nft_detailed.details.extension.batch_id,
+        await dropInstance.queryUnbondBatch({
+          batch_id: NFTDetailed.details.extension.batch_id,
         })
       ).status === "withdrawn"
     ) {
-      withdrawn_nfts.push(nft_detailed.nft_id);
+      withdrawnNFTs.push(NFTDetailed.nft_id);
     }
   }
 
   /* Nothing to withdraw
    * Return null and try another method in contract
    */
-  if (withdrawn_nfts.length === 0) {
+  if (withdrawnNFTs.length === 0) {
     return null;
   }
 
@@ -289,15 +289,10 @@ async function withdraw_random_nft(
    * If any error occured when executing method then just ignore
    * It's content and return null, script will try to call another method
    */
-  const nft_id: string =
-    withdrawn_nfts[Math.floor(Math.random() * withdrawn_nfts.length)];
+  const NFTID: string =
+    withdrawnNFTs[Math.floor(Math.random() * withdrawnNFTs.length)];
   try {
-    return await send_nft(
-      withdrawal_voucher,
-      withdrawal_manager,
-      address,
-      nft_id
-    );
+    return await sendNFT(withdrawalVoucher, withdrawalManager, address, NFTID);
   } catch (e) {
     return null;
   }
@@ -330,19 +325,19 @@ async function main() {
   let core_contract = new DropCoreClient(neutronWallet.clientCW, CORE_CONTRACT);
   const logs: Array<Action> = [];
   if (Math.random() <= WITHDRAW_PROB) {
-    const res = await withdraw_random_nft(neutronWallet, core_contract);
+    const res = await withdrawRandomNFT(neutronWallet, core_contract);
     if (res !== null) {
       logs.push(res);
     }
   }
   if (Math.random() <= UNBOND_PROB) {
-    const res = await unbond_random_amount(neutronWallet, core_contract);
+    const res = await unbondRandomAmount(neutronWallet, core_contract);
     if (res !== null) {
       logs.push(res);
     }
   }
   if (Math.random() <= BOND_PROB) {
-    const res = await bond_random_amount(neutronWallet, core_contract);
+    const res = await bondRandomAmount(neutronWallet, core_contract);
     if (res !== null) {
       logs.push(res);
     }
