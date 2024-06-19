@@ -1055,7 +1055,7 @@ fn sudo_response(
     //     .proof_height
     //     .ok_or_else(|| StdError::generic_err("proof_height not found"))?
     //     .revision_height;
-    let remote_height = client_state.proof_height.revision_height;
+    let remote_height = client_state.proof_height.revision_height.u64();
 
     deps.api.debug(&format!(
         "WASMDEBUG: json: {request:?}",
