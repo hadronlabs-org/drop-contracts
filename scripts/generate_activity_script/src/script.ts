@@ -83,7 +83,7 @@ async function bondRandomAmount(
   /* If here is nothing to bond on our balance, then just return null
    * Other random method will be tried to call then
    */
-  let IBCDenomBalance: Coin = await neutronWallet.clientCW.getBalance(
+  const IBCDenomBalance: Coin = await neutronWallet.clientCW.getBalance(
     address,
     BASE_DENOM
   );
@@ -112,7 +112,7 @@ async function bondRandomAmount(
   /* If any error occured when executing method then just ignore
    * It's content and return null, script will try to call another method
    */
-  let random_amount: number = Math.floor(
+  const random_amount: number = Math.floor(
     Math.random() * (Number(IBCDenomBalance.amount) - min) + min
   );
   try {
@@ -160,7 +160,7 @@ async function unbondRandomAmount(
   /* If here is nothing to bond on our balance, then just return null
    * Other random method will be tried to call then
    */
-  let factoryBalance: Coin = await neutronWallet.clientCW.getBalance(
+  const factoryBalance: Coin = await neutronWallet.clientCW.getBalance(
     address,
     FACTORY_DENOM
   );
@@ -171,7 +171,7 @@ async function unbondRandomAmount(
   /* If any error occured when executing method then just ignore
    * It's content and return null, script will try to call another method
    */
-  let randomAmount: number = Math.floor(
+  const randomAmount: number = Math.floor(
     Math.random() * Number(factoryBalance.amount) + 1
   );
   try {
@@ -320,7 +320,10 @@ async function main() {
   );
   neutronWallet.mainAccounts = await neutronWallet.mainWallet.getAccounts();
 
-  let core_contract = new DropCoreClient(neutronWallet.clientCW, CORE_CONTRACT);
+  const core_contract = new DropCoreClient(
+    neutronWallet.clientCW,
+    CORE_CONTRACT
+  );
   const logs: Array<Action> = [];
   if (Math.random() <= WITHDRAW_PROB) {
     const res = await withdrawRandomNFT(neutronWallet, core_contract);
