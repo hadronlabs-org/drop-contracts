@@ -3,10 +3,10 @@
 This script introducing random protocol's execution calls
 
 To prepare script, run:
-`npm install`
+`yarn install`
 
 To run script, run;
-`npm run start`
+`yarn run start`
 
 To manage script config, open _.env_ file
 
