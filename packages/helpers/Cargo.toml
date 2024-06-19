@@ -31,4 +31,5 @@ cosmwasm-schema = { workspace = true }
 thiserror = { workspace = true }
 cw-storage-plus = { workspace = true }
 serde = { workspace = true }
+schemars = { workspace = true }
 prost = { workspace = true }

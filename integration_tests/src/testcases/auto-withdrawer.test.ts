@@ -179,7 +179,7 @@ describe('Auto withdrawer', () => {
   });
 
   afterAll(async () => {
-    await context.park.stop();
+    // await context.park.stop();
   });
 
   it('transfer tokens to neutron', async () => {

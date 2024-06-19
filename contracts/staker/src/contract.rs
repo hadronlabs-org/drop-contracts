@@ -441,10 +441,11 @@ fn sudo_response(
     TX_STATE.save(deps.storage, &TxState::default())?;
 
     let client_state = query_client_state(&deps.as_ref(), channel_id, port_id)?;
-    let remote_height = client_state
-        .proof_height
-        .ok_or_else(|| StdError::generic_err("proof_height not found"))?
-        .revision_height;
+    // let remote_height = client_state
+    //     .proof_height
+    //     .ok_or_else(|| StdError::generic_err("proof_height not found"))?
+    //     .revision_height;
+    let remote_height = client_state.proof_height.revision_height;
 
     let mut msgs = vec![];
     if let Some(reply_to) = reply_to {
