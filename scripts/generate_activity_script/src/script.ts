@@ -70,7 +70,7 @@ async function bond(
   };
 }
 
-/* Function returns ActionLog if transaction succeeded and null if any error or problem occurred
+/* Function returns Action if transaction succeeded and null if any error or problem occurred
  * We don't really need to know type of error here since it isn't crucial for us,
  * We'll just try another method in core
  */
@@ -148,7 +148,7 @@ async function unbond(
   };
 }
 
-/* Function returns ActionLog if transaction succeeded and null if any error or problem occurred
+/* Function returns Action if transaction succeeded and null if any error or problem occurred
  * We don't really need to know type of error here since it isn't crucial for us,
  * We'll just try another method in core
  */
@@ -217,7 +217,7 @@ async function sendNFT(
   };
 }
 
-/* Function returns ActionLog if transaction succeeded and null if any error or problem occurred
+/* Function returns Action if transaction succeeded and null if any error or problem occurred
  * We don't really need to know type of error here since it isn't crucial for us,
  * We'll just try another method in core
  */
