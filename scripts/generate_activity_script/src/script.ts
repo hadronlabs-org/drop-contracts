@@ -179,7 +179,8 @@ async function unbondRandomAmount(
       amount: String(randomAmount),
       denom: FACTORY_DENOM,
     });
-    if ((await neutronWallet.clientCW.getTx(res.txHash)).code !== 0) {
+    const { code } = await neutronWallet.clientCW.getTx(res.txHash);
+    if (code !== 0) {
       return null;
     }
     return res;
@@ -243,38 +244,34 @@ async function withdrawRandomNFT(
    * Get details for each gotten NFT in 2-nd loop
    * Check batch status for each batch_id, filter who hasn't withdrawed yet in 3-rd loop
    */
-  let ownedNFTs = (await withdrawalVoucher.queryTokens({ owner: address }))
-    .tokens;
-  let currentNFTList = ownedNFTs;
-  while (currentNFTList.length !== 0) {
-    currentNFTList = (
-      await withdrawalVoucher.queryTokens({
-        owner: address,
-        start_after: currentNFTList[currentNFTList.length - 1],
-      })
-    ).tokens;
-    ownedNFTs = ownedNFTs.concat(currentNFTList);
+  let ownedNFTs = [];
+  while (true) {
+    const startAfter =
+      ownedNFTs.length > 0 ? ownedNFTs[ownedNFTs.length - 1] : undefined;
+    const { tokens } = await withdrawalVoucher.queryTokens({
+      owner: address,
+      ...(startAfter && { start_after: startAfter }),
+    });
+    if (tokens.length === 0) {
+      break;
+    }
+    ownedNFTs = ownedNFTs.concat(tokens);
   }
   const ownedNFTsDetailed = [];
   for (const NFT of ownedNFTs) {
     ownedNFTsDetailed.push({
       nft_id: NFT,
-      details: {
-        ...(await withdrawalVoucher.queryNftInfo({
-          token_id: NFT,
-        })),
-      },
+      details: await withdrawalVoucher.queryNftInfo({
+        token_id: NFT,
+      }),
     });
   }
   const withdrawnNFTs = [];
   for (const NFTDetailed of ownedNFTsDetailed) {
-    if (
-      (
-        await dropInstance.queryUnbondBatch({
-          batch_id: NFTDetailed.details.extension.batch_id,
-        })
-      ).status === "withdrawn"
-    ) {
+    const { status } = await dropInstance.queryUnbondBatch({
+      batch_id: NFTDetailed.details.extension.batch_id,
+    });
+    if (status === "withdrawn") {
       withdrawnNFTs.push(NFTDetailed.nft_id);
     }
   }
