@@ -120,7 +120,8 @@ async function bondRandomAmount(
       amount: String(random_amount),
       denom: BASE_DENOM,
     });
-    if ((await neutronWallet.clientCW.getTx(res.txHash)).code !== 0) {
+    const { code } = await neutronWallet.clientCW.getTx(res.txHash);
+    if (code !== 0) {
       return null;
     }
     return res;
