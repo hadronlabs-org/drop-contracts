@@ -13,6 +13,9 @@ const BASE_DENOM: string = process.env.BASE_DENOM;
 const FACTORY_DENOM: string = process.env.FACTORY_DENOM;
 const NEUTRON_NODE_ADDRESS: string = process.env.NEUTRON_NODE_ADDRESS;
 
+const MAX_BOND: number = Number(process.env.MAX_BOND);
+const MAX_UNBOND: number = Number(process.env.MAX_UNBOND);
+
 const BOND_PROB: number = Number(process.env.BOND_PROB);
 const UNBOND_PROB: number = Number(process.env.UNBOND_PROB);
 const WITHDRAW_PROB: number = Number(process.env.WITHDRAW_PROB);
@@ -108,13 +111,23 @@ async function bondRandomAmount(
   if (min > Number(IBCDenomBalance.amount)) {
     return null;
   }
+  if (min > MAX_BOND) {
+    return null;
+  }
+
+  /* Maximum amount of funds that we can send to core contract while bonding
+   * Is either our current balance in case if it's lower then MAX_BOND parameter
+   * or MAX_BOND otherwise.
+   */
+  const max: number =
+    Number(IBCDenomBalance.amount) < MAX_BOND
+      ? Number(IBCDenomBalance.amount)
+      : MAX_BOND;
 
   /* If any error occured when executing method then just ignore
    * It's content and return null, script will try to call another method
    */
-  const random_amount: number = Math.floor(
-    Math.random() * (Number(IBCDenomBalance.amount) - min) + min
-  );
+  const random_amount: number = Math.floor(Math.random() * (max - min) + min);
   try {
     const res = await bond(dropInstance, address, {
       amount: String(random_amount),
@@ -343,12 +356,14 @@ async function main() {
       logs.push(res);
     }
   }
-  console.log({
-    neutron: {
-      address: neutronWallet.mainAccounts[0].address,
-      logs: logs,
-    },
-  });
+  console.log(
+    JSON.stringify({
+      neutron: {
+        address: neutronWallet.mainAccounts[0].address,
+        logs: logs,
+      },
+    })
+  );
 }
 
 main();
