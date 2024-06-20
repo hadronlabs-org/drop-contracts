@@ -8,8 +8,10 @@ use cosmwasm_std::{
     attr, ensure, to_json_binary, CosmosMsg, Deps, Reply, StdError, SubMsg, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
-use drop_helpers::ibc_fee::query_ibc_fee;
-use drop_helpers::{answer::response, interchain::prepare_any_msg};
+use drop_helpers::{
+    answer::response, ibc_fee::query_ibc_fee, interchain::prepare_any_msg,
+    validation::validate_addresses,
+};
 use drop_staking_base::{
     msg::staker::{
         ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion, QueryMsg, ReceiverExecuteMsg,
@@ -53,6 +55,11 @@ pub fn instantiate(
         Some(msg.owner.unwrap_or(info.sender.to_string()).as_str()),
     )?;
     TX_STATE.save(deps.storage, &TxState::default())?;
+    let allowed_senders = validate_addresses(
+        deps.as_ref().into_empty(),
+        msg.allowed_senders.as_ref(),
+        None,
+    )?;
     CONFIG.save(
         deps.storage,
         &Config {
@@ -62,7 +69,7 @@ pub fn instantiate(
             timeout: msg.timeout,
             remote_denom: msg.remote_denom,
             base_denom: msg.base_denom,
-            allowed_senders: msg.allowed_senders,
+            allowed_senders,
             puppeteer_ica: None,
             min_ibc_transfer: msg.min_ibc_transfer,
             min_staking_amount: msg.min_staking_amount,
@@ -155,6 +162,8 @@ fn execute_update_config(
         config.timeout = timeout;
     }
     if let Some(allowed_senders) = new_config.allowed_senders {
+        let allowed_senders =
+            validate_addresses(deps.as_ref().into_empty(), allowed_senders.as_ref(), None)?;
         config.allowed_senders = allowed_senders;
     }
     if let Some(puppeteer_ica) = new_config.puppeteer_ica {
@@ -197,7 +206,7 @@ fn execute_stake(
     items: Vec<(String, Uint128)>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
-    if !config.allowed_senders.contains(&info.sender.to_string()) {
+    if !config.allowed_senders.contains(&info.sender) {
         return Err(ContractError::Unauthorized {});
     }
     let tx_state = TX_STATE.load(deps.storage)?;

@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::Uint128;
+use cosmwasm_std::{Addr, Uint128};
 use cw_storage_plus::Item;
 use drop_helpers::ica::Ica;
 
@@ -11,7 +11,7 @@ pub struct Config {
     pub timeout: u64,
     pub remote_denom: String,
     pub base_denom: String,
-    pub allowed_senders: Vec<String>,
+    pub allowed_senders: Vec<Addr>,
     pub puppeteer_ica: Option<String>,
     pub min_ibc_transfer: Uint128,
     pub min_staking_amount: Uint128,
