@@ -397,12 +397,6 @@ pub fn sudo_open_ack(
     }
 }
 
-#[test]
-fn test() {
-    let x = Binary::from_base64("ClVpY2Fjb250cm9sbGVyLW5ldXRyb24xODhxNXE4YWs1enpjd2h4N3N0eDZ6N3FmODJ3dWU2bDJjM2ZldnZxNGZ0eDVndmN3eWFzcTh2czR2ai5EUk9QEgljaGFubmVsLTI=").unwrap();
-    println!("{:?}", x);
-}
-
 fn sudo_response(
     deps: DepsMut<NeutronQuery>,
     env: Env,
