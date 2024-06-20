@@ -333,7 +333,11 @@ async function withdrawRandomNFT(
    * Return null and try another method in contract
    */
   if (withdrawnNFTs.length === 0) {
-    return null;
+    return {
+      mode: MODE.WITHDRAW,
+      txHash: null,
+      reason: "Nothing to withdraw",
+    };
   }
 
   /* Pick up random NFT from given NFT list and try to withdraw it
@@ -343,9 +347,27 @@ async function withdrawRandomNFT(
   const NFTID: string =
     withdrawnNFTs[Math.floor(Math.random() * withdrawnNFTs.length)];
   try {
-    return await sendNFT(withdrawalVoucher, withdrawalManager, address, NFTID);
+    const res = await sendNFT(
+      withdrawalVoucher,
+      withdrawalManager,
+      address,
+      NFTID
+    );
+    const { code, hash } = await neutronWallet.clientCW.getTx(res.txHash);
+    if (code !== 0) {
+      return {
+        mode: MODE.WITHDRAW,
+        txHash: hash,
+        reason: "Check up given hash",
+      };
+    }
+    return res;
   } catch (e) {
-    return null;
+    return {
+      mode: MODE.WITHDRAW,
+      txHash: null,
+      reason: e.message,
+    };
   }
 }
 
