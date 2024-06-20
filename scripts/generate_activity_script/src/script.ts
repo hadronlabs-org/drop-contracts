@@ -67,7 +67,7 @@ async function bond(
   dropInstance: DropCoreClient,
   address: string,
   fund: Coin
-): Promise<Action> {
+): Promise<ActionLog> {
   const { transactionHash } = await dropInstance.bond(address, {}, "auto", "", [
     {
       amount: fund.amount,
@@ -174,7 +174,7 @@ async function unbond(
   dropInstance: DropCoreClient,
   address: string,
   fund: Coin
-): Promise<Action> {
+): Promise<ActionLog> {
   const { transactionHash } = await dropInstance.unbond(address, "auto", "", [
     {
       amount: fund.amount,
@@ -248,7 +248,7 @@ async function sendNFT(
   withdrawalManager: DropWithdrawalManager,
   address: string,
   NFTID: string
-): Promise<Action> {
+): Promise<ActionLog> {
   const { transactionHash } = await withdrawalVoucher.sendNft(
     address,
     {
