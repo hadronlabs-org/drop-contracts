@@ -343,7 +343,10 @@ async function main() {
       logs.push(res);
     }
   }
-  console.log(logs);
+  console.log({
+    neutron_addr: neutronWallet.mainAccounts[0].address,
+    logs: logs,
+  });
 }
 
 main();
