@@ -60,16 +60,15 @@ async function bond(
   address: string,
   fund: Coin
 ): Promise<Action> {
+  const { transactionHash } = await dropInstance.bond(address, {}, "auto", "", [
+    {
+      amount: fund.amount,
+      denom: fund.denom,
+    },
+  ]);
   return {
     mode: MODE.BOND,
-    txHash: (
-      await dropInstance.bond(address, {}, "auto", "", [
-        {
-          amount: fund.amount,
-          denom: fund.denom,
-        },
-      ])
-    ).transactionHash,
+    txHash: transactionHash,
   };
 }
 
@@ -148,16 +147,15 @@ async function unbond(
   address: string,
   fund: Coin
 ): Promise<Action> {
+  const { transactionHash } = await dropInstance.unbond(address, "auto", "", [
+    {
+      amount: fund.amount,
+      denom: fund.denom,
+    },
+  ]);
   return {
     mode: MODE.UNBOND,
-    txHash: (
-      await dropInstance.unbond(address, "auto", "", [
-        {
-          amount: fund.amount,
-          denom: fund.denom,
-        },
-      ])
-    ).transactionHash,
+    txHash: transactionHash,
   };
 }
 
@@ -181,12 +179,15 @@ async function unbondRandomAmount(
     return null;
   }
 
+  const max: number =
+    Number(factoryBalance.amount) < MAX_UNBOND
+      ? Number(factoryBalance.amount)
+      : MAX_UNBOND;
+
   /* If any error occured when executing method then just ignore
    * It's content and return null, script will try to call another method
    */
-  const randomAmount: number = Math.floor(
-    Math.random() * Number(factoryBalance.amount) + 1
-  );
+  const randomAmount: number = Math.floor(Math.random() * Number(max) + 1);
   try {
     const res = await unbond(dropInstance, address, {
       amount: String(randomAmount),
@@ -208,25 +209,24 @@ async function sendNFT(
   address: string,
   NFTID: string
 ): Promise<Action> {
+  const { transactionHash } = await withdrawalVoucher.sendNft(
+    address,
+    {
+      contract: withdrawalManager.contractAddress,
+      token_id: NFTID,
+      msg: "eyJ3aXRoZHJhdyI6e319",
+    },
+    "auto",
+    "",
+    []
+  );
   /* To withdraw unbonded amount we need to send nft to the withdrawal_manager contract
    * To do that we need to call send method on withdrawal_voucher contract (which is NFT contract underhood)
    * Field msg here is encoded base64 json object { "withdraw": {} }
    */
   return {
     mode: MODE.WITHDRAW,
-    txHash: (
-      await withdrawalVoucher.sendNft(
-        address,
-        {
-          contract: withdrawalManager.contractAddress,
-          token_id: NFTID,
-          msg: "eyJ3aXRoZHJhdyI6e319",
-        },
-        "auto",
-        "",
-        []
-      )
-    ).transactionHash,
+    txHash: transactionHash,
   };
 }
 
