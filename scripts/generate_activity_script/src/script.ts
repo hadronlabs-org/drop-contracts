@@ -421,9 +421,11 @@ async function main() {
   const logs: Array<Action> = [];
   while (actions.length !== 0) {
     const randomIndex = Math.floor(Math.random() * actions.length);
-    logs.push(await actions[randomIndex]());
+    const res = await actions[randomIndex]();
+    res && logs.push(res);
     actions.splice(randomIndex, 1);
   }
+
   console.log(
     JSON.stringify({
       neutron: {
