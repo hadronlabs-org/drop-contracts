@@ -87,7 +87,7 @@ async function bond(
 async function bondRandomAmount(
   neutronWallet: Wallet,
   dropInstance: DropCoreClient
-): Promise<Action | null> {
+): Promise<Action> {
   const address: string = neutronWallet.mainAccounts[0].address;
 
   /* If here is nothing to bond on our balance, then just return null
@@ -194,7 +194,7 @@ async function unbond(
 async function unbondRandomAmount(
   neutronWallet: Wallet,
   dropInstance: DropCoreClient
-): Promise<Action | null> {
+): Promise<Action> {
   const address: string = neutronWallet.mainAccounts[0].address;
   /* If here is nothing to bond on our balance, then just return null
    * Other random method will be tried to call then
@@ -277,7 +277,7 @@ async function sendNFT(
 async function withdrawRandomNFT(
   neutronWallet: Wallet,
   dropInstance: DropCoreClient
-): Promise<Action | null> {
+): Promise<Action> {
   const address: string = neutronWallet.mainAccounts[0].address;
   /* Get both withdrawal_manager and withdrawal_voucher wrappers based on querying config method
    * We need them to execute send_nft method on withdrawal_voucher with withdrawal_manager as the recepient
