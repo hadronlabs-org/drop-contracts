@@ -399,24 +399,30 @@ async function main() {
     neutronWallet.clientCW,
     CORE_CONTRACT
   );
+
+  const actions: Array<() => Promise<Action>> = [
+    async (): Promise<Action> => {
+      if (Math.random() <= WITHDRAW_PROB) {
+        return await withdrawRandomNFT(neutronWallet, core_contract);
+      }
+    },
+    async (): Promise<Action> => {
+      if (Math.random() <= UNBOND_PROB) {
+        return await unbondRandomAmount(neutronWallet, core_contract);
+      }
+    },
+    async (): Promise<Action> => {
+      if (Math.random() <= BOND_PROB) {
+        return await bondRandomAmount(neutronWallet, core_contract);
+      }
+    },
+  ];
+
   const logs: Array<Action> = [];
-  if (Math.random() <= WITHDRAW_PROB) {
-    const res = await withdrawRandomNFT(neutronWallet, core_contract);
-    if (res !== null) {
-      logs.push(res);
-    }
-  }
-  if (Math.random() <= UNBOND_PROB) {
-    const res = await unbondRandomAmount(neutronWallet, core_contract);
-    if (res !== null) {
-      logs.push(res);
-    }
-  }
-  if (Math.random() <= BOND_PROB) {
-    const res = await bondRandomAmount(neutronWallet, core_contract);
-    if (res !== null) {
-      logs.push(res);
-    }
+  while (actions.length !== 0) {
+    const randomIndex = Math.floor(Math.random() * actions.length);
+    logs.push(await actions[randomIndex]());
+    actions.splice(randomIndex, 1);
   }
   console.log(
     JSON.stringify({
