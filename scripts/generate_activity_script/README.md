@@ -18,3 +18,5 @@ To manage script config, open _.env_ file
 - BOND_PROB = probabition 'bond' method will be called on core contract
 - UNBOND_PROB = probabition 'unbond' method will be called on core contract
 - WITHDRAW_PROB = probabition 'send_nft' method will be called on withdrawal_voucher contract
+- MAX_BOND = Maximum BASE_DENOM amount that we can bond. If current balance lower then MAX_BOND, then MAX_BOND is current BASE_DENOM balance
+- MAX_UNBOND = Maximum FACTORY_DENOM amount that we can unbond. If current balance lower then MAX_UNBOND, then MAX_unBOND is current FACTORY_DENOM balance
