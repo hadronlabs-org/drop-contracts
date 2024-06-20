@@ -50,10 +50,18 @@ type Wallet = {
   mainAccounts?: readonly AccountData[];
 };
 
-type Action = {
+type ActionLog = {
   mode: MODE;
   txHash: string;
 };
+
+type ErrorLog = {
+  mode: MODE;
+  txHash: string | null;
+  reason: string;
+};
+
+type Action = ActionLog | ErrorLog;
 
 async function bond(
   dropInstance: DropCoreClient,
@@ -90,7 +98,11 @@ async function bondRandomAmount(
     BASE_DENOM
   );
   if (Number(IBCDenomBalance.amount) === 0) {
-    return null;
+    return {
+      mode: MODE.BOND,
+      txHash: null,
+      reason: `Nothing to bond, ${BASE_DENOM} balance is 0`,
+    };
   }
 
   const config = await dropInstance.queryConfig();
@@ -108,10 +120,18 @@ async function bondRandomAmount(
       ? minExchangeRate
       : Number(config.lsm_min_bond_amount);
   if (min > Number(IBCDenomBalance.amount)) {
-    return null;
+    return {
+      mode: MODE.BOND,
+      txHash: null,
+      reason: `Nothing to bond, ${BASE_DENOM} balance is lower then min(${min}) (this value either exchange rate or config.lsm_min_bond_amount)`,
+    };
   }
   if (min > MAX_BOND) {
-    return null;
+    return {
+      mode: MODE.BOND,
+      txHash: null,
+      reason: `MAX_BOND lower then min(${min}) (this value either exchange rate or config.lsm_min_bond_amount)`,
+    };
   }
 
   /* Maximum amount of funds that we can send to core contract while bonding
@@ -132,13 +152,21 @@ async function bondRandomAmount(
       amount: String(random_amount),
       denom: BASE_DENOM,
     });
-    const { code } = await neutronWallet.clientCW.getTx(res.txHash);
+    const { code, hash } = await neutronWallet.clientCW.getTx(res.txHash);
     if (code !== 0) {
-      return null;
+      return {
+        mode: MODE.BOND,
+        txHash: hash,
+        reason: "Check up given hash",
+      };
     }
     return res;
   } catch (e) {
-    return null;
+    return {
+      mode: MODE.BOND,
+      txHash: null,
+      reason: e.message,
+    };
   }
 }
 
@@ -176,7 +204,11 @@ async function unbondRandomAmount(
     FACTORY_DENOM
   );
   if (Number(factoryBalance.amount) === 0) {
-    return null;
+    return {
+      mode: MODE.UNBOND,
+      txHash: null,
+      reason: `Nothing to unbond, ${FACTORY_DENOM} balance is 0`,
+    };
   }
 
   const max: number =
@@ -193,13 +225,21 @@ async function unbondRandomAmount(
       amount: String(randomAmount),
       denom: FACTORY_DENOM,
     });
-    const { code } = await neutronWallet.clientCW.getTx(res.txHash);
+    const { code, hash } = await neutronWallet.clientCW.getTx(res.txHash);
     if (code !== 0) {
-      return null;
+      return {
+        mode: MODE.UNBOND,
+        txHash: hash,
+        reason: "Check up given hash",
+      };
     }
     return res;
   } catch (e) {
-    return null;
+    return {
+      mode: MODE.UNBOND,
+      txHash: null,
+      reason: e.message,
+    };
   }
 }
 
