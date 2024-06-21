@@ -423,10 +423,7 @@ async function IBCToTransfer(
         value: {
           sourcePort: port,
           sourceChannel: channel,
-          token: {
-            denom: amount.denom,
-            amount: amount.amount,
-          },
+          token: amount,
           sender: addressFrom,
           receiver: addressTo,
           timeoutHeight: "0",
@@ -539,6 +536,41 @@ async function randomIBCToTransfer(
   }
 }
 
+async function delegateTokens(
+  clientSG: SigningStargateClient,
+  addressFrom: string,
+  randomValidator: string,
+  amount: Coin
+): Promise<Action> {
+  const transactionHash = await clientSG.signAndBroadcastSync(
+    addressFrom,
+    [
+      {
+        typeUrl: "/cosmos.staking.v1beta1.MsgDelegate",
+        value: {
+          delegatorAddress: addressFrom,
+          validatorAddress: randomValidator,
+          amount: amount,
+        },
+      },
+    ],
+    {
+      gas: "400000",
+      amount: [
+        {
+          denom: TARGET_DENOM,
+          amount: "4000",
+        },
+      ],
+    },
+    ""
+  );
+  return {
+    mode: TargetAction.PROCESS_LSM_SHARES_DELEGATE,
+    txHash: transactionHash,
+  };
+}
+
 async function processLSMShares(
   neutronWallet: Wallet,
   targetWallet: Wallet,
@@ -573,6 +605,19 @@ async function processLSMShares(
   const transferedAmount =
     Number(targetDenomBalanceAfter.amount) -
     Number(targetDenomBalanceBefore.amount);
+
+  const config = await dropCore.queryConfig();
+  const dropValidatorsSet: DropValidatorsSet = new DropValidatorsSet(
+    neutronWallet.clientCW,
+    config.validators_set_contract
+  );
+  const whitelistedValidators: Array<string> = (
+    await dropValidatorsSet.queryValidators()
+  ).map((validator) => validator.valoper_address);
+  const randomValidator: string =
+    whitelistedValidators[
+      Math.floor(Math.random() * whitelistedValidators.length)
+    ];
 
   return [logRandomIBCToTransfer];
 }
