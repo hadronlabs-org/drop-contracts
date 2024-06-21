@@ -29,6 +29,10 @@ const TARGET_DENOM: string = process.env.TARGET_DENOM;
 
 const MAX_BOND: number = Number(process.env.MAX_BOND);
 const MAX_UNBOND: number = Number(process.env.MAX_UNBOND);
+const MAX_LSM_PROCESS: number = Number(process.env.MAX_LSM_PROCESS);
+
+const IBC_CHANNEL_TO: string = process.env.IBC_CHANNEL_TO;
+const IBC_CHANNEL_FROM: string = process.env.IBC_CHANNEL_FROM;
 
 const BOND_PROB: number = Number(process.env.BOND_PROB);
 const UNBOND_PROB: number = Number(process.env.UNBOND_PROB);
@@ -406,7 +410,7 @@ async function ibc_to_transfer(
   address_to: string,
   channel: string,
   port: string,
-  amount: number
+  amount: Coin
 ): Promise<Action> {
   const transactionHash = await clientSG.signAndBroadcastSync(
     address_from,
@@ -417,8 +421,8 @@ async function ibc_to_transfer(
           sourcePort: port,
           sourceChannel: channel,
           token: {
-            denom: BASE_DENOM,
-            amount: amount,
+            denom: amount.denom,
+            amount: amount.amount,
           },
           sender: address_from,
           receiver: address_to,
@@ -444,6 +448,86 @@ async function ibc_to_transfer(
     txHash: transactionHash,
     mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
   };
+}
+
+async function random_ibc_to_transfer(
+  dropCore: DropCoreClient,
+  neutronWallet: Wallet,
+  address_from: string,
+  address_to: string
+): Promise<Action> {
+  const baseDenomBalance: Coin = await neutronWallet.clientCW.getBalance(
+    address_from,
+    BASE_DENOM
+  );
+  if (Number(baseDenomBalance.amount) === 0) {
+    return {
+      mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
+      txHash: null,
+      reason: `Nothing to transfer via IBC, ${BASE_DENOM} balance is 0`,
+    };
+  }
+
+  const exchangeRate: number = Math.floor(
+    Number(await dropCore.queryExchangeRate())
+  );
+  const minExchangeRate: number = exchangeRate + 1;
+  const config = await dropCore.queryConfig();
+
+  const min: number =
+    Number(config.lsm_min_bond_amount) < minExchangeRate
+      ? minExchangeRate
+      : Number(config.lsm_min_bond_amount);
+  if (min > Number(baseDenomBalance.amount)) {
+    return {
+      mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
+      txHash: null,
+      reason: `Nothing to send via IBC, ${BASE_DENOM} balance is lower then min(${min}) (this value either exchange rate or config.lsm_min_bond_amount)`,
+    };
+  }
+  if (min > MAX_LSM_PROCESS) {
+    return {
+      mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
+      txHash: null,
+      reason: `MAX_LSM_PROCESS lower then min(${min}) (this value either exchange rate or config.lsm_min_bond_amount)`,
+    };
+  }
+
+  const max: number =
+    Number(baseDenomBalance.amount) < MAX_LSM_PROCESS
+      ? Number(baseDenomBalance.amount)
+      : MAX_LSM_PROCESS;
+
+  const randomAmount: number = Math.floor(Math.random() * (max - min) + min);
+
+  try {
+    const res = await ibc_to_transfer(
+      neutronWallet.clientSG,
+      address_from,
+      address_to,
+      IBC_CHANNEL_TO,
+      "transfer",
+      {
+        denom: BASE_DENOM,
+        amount: String(randomAmount),
+      }
+    );
+    const { code, hash } = await neutronWallet.clientCW.getTx(res.txHash);
+    if (code !== 0) {
+      return {
+        mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
+        txHash: hash,
+        reason: "Check up given hash",
+      };
+    }
+    return res;
+  } catch (e) {
+    return {
+      mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
+      txHash: null,
+      reason: e.message,
+    };
+  }
 }
 
 async function processLSMShares(
