@@ -16,6 +16,8 @@ import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx";
 import { MsgDelegate } from "cosmjs-types/cosmos/staking/v1beta1/tx";
 import { MsgTransfer } from "cosmjs-types/ibc/applications/transfer/v1/tx";
 
+import { sleep } from "../../../integration_tests/src/helpers/sleep";
+
 const CORE_CONTRACT: string = process.env.CORE_CONTRACT;
 
 const MNEMONIC: string = process.env.MNEMONIC;
@@ -404,7 +406,7 @@ async function withdrawRandomNFT(
   }
 }
 
-async function ibc_to_transfer(
+async function IBCToTransfer(
   clientSG: SigningStargateClient,
   address_from: string,
   address_to: string,
@@ -427,9 +429,7 @@ async function ibc_to_transfer(
           sender: address_from,
           receiver: address_to,
           timeoutHeight: "0",
-          timeoutTimestamp: String(
-            Math.floor(Date.now() / 1000) * 1e9 + 10 * 60 * 1e9
-          ),
+          timeoutTimestamp: String(Date.now() + 60 * 10e3),
         },
       },
     ],
@@ -450,7 +450,7 @@ async function ibc_to_transfer(
   };
 }
 
-async function random_ibc_to_transfer(
+async function randomIBCToTransfer(
   dropCore: DropCoreClient,
   neutronWallet: Wallet,
   address_from: string,
@@ -501,7 +501,7 @@ async function random_ibc_to_transfer(
   const randomAmount: number = Math.floor(Math.random() * (max - min) + min);
 
   try {
-    const res = await ibc_to_transfer(
+    const res = await IBCToTransfer(
       neutronWallet.clientSG,
       address_from,
       address_to,
@@ -512,6 +512,7 @@ async function random_ibc_to_transfer(
         amount: String(randomAmount),
       }
     );
+    await sleep(5000);
     const { code, hash } = await neutronWallet.clientCW.getTx(res.txHash);
     if (code !== 0) {
       return {
@@ -535,13 +536,13 @@ async function processLSMShares(
   targetWallet: Wallet,
   dropCore: DropCoreClient
 ): Promise<Array<Action>> {
-  return [
-    {
-      mode: TargetAction.PROCESS_LSM_SHARES_DELEGATE,
-      txHash: null,
-      reason: null,
-    },
-  ];
+  const logRandomIBCToTransfer = await randomIBCToTransfer(
+    dropCore,
+    neutronWallet,
+    neutronWallet.mainAccounts[0].address,
+    targetWallet.mainAccounts[0].address
+  );
+  return [logRandomIBCToTransfer];
 }
 
 async function main() {
