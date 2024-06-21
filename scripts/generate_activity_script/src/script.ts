@@ -875,15 +875,30 @@ async function processLSMShares(
 
   await sleep(5000);
 
-  const bondAction: Action = await bond(
-    dropCore,
-    neutronWallet.mainAccounts[0].address,
-    {
+  let bondAction: Action;
+  try {
+    bondAction = await bond(dropCore, neutronWallet.mainAccounts[0].address, {
       denom: newDenom,
       amount: String(transferedAmount),
+    });
+    const { code, hash } = await neutronWallet.clientCW.getTx(
+      bondAction.txHash
+    );
+    if (code !== 0) {
+      bondAction = {
+        mode: NeutronAction.PROCESS_LSM_SHARES_BOND,
+        txHash: hash,
+        reason: "Check up given hash",
+      };
     }
-  );
-  bondAction.mode = NeutronAction.PROCESS_LSM_SHARES_BOND;
+    bondAction.mode = NeutronAction.PROCESS_LSM_SHARES_BOND;
+  } catch (e) {
+    bondAction = {
+      mode: NeutronAction.PROCESS_LSM_SHARES_BOND,
+      txHash: null,
+      reason: e.message,
+    };
+  }
 
   return [
     randomIBCToTransferAction,
