@@ -623,6 +623,49 @@ async function tokenizeShares(
   }
 }
 
+async function IBCFromTransfer(
+  clientSG: SigningStargateClient,
+  addressFrom: string,
+  addressTo: string,
+  channel: string,
+  port: string,
+  amount: Coin
+): Promise<Action> {
+  const transactionHash = await clientSG.signAndBroadcastSync(
+    addressFrom,
+    [
+      {
+        typeUrl: "/ibc.applications.transfer.v1.MsgTransfer",
+        value: {
+          sourcePort: port,
+          sourceChannel: channel,
+          token: amount,
+          sender: addressFrom,
+          receiver: addressTo,
+          timeoutHeight: "0",
+          timeoutTimestamp: String(
+            Math.floor(Date.now() / 1000) * 1e9 + 10 * 60 * 1e9
+          ),
+        },
+      },
+    ],
+    {
+      gas: "400000",
+      amount: [
+        {
+          denom: TARGET_DENOM,
+          amount: "4000",
+        },
+      ],
+    },
+    ""
+  );
+  return {
+    txHash: transactionHash,
+    mode: TargetAction.PROCESS_LSM_SHARES_IBC_FROM,
+  };
+}
+
 async function processLSMShares(
   neutronWallet: Wallet,
   targetWallet: Wallet,
