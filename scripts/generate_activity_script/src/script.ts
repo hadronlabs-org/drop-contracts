@@ -8,6 +8,7 @@ import {
 } from "@cosmjs/proto-signing";
 import { GasPrice, Coin } from "@cosmjs/stargate";
 import { Client as DropCoreClient } from "../../../integration_tests/src/generated/contractLib/dropCore";
+import { Client as DropValidatorsSet } from "../../../integration_tests/src/generated/contractLib/dropValidatorsSet";
 import { Client as DropWithdrawalManager } from "../../../integration_tests/src/generated/contractLib/dropWithdrawalManager";
 import { Client as DropWithdrawalVoucher } from "../../../integration_tests/src/generated/contractLib/dropWithdrawalVoucher";
 
@@ -572,6 +573,7 @@ async function processLSMShares(
   const transferedAmount =
     Number(targetDenomBalanceAfter.amount) -
     Number(targetDenomBalanceBefore.amount);
+
   return [logRandomIBCToTransfer];
 }
 
