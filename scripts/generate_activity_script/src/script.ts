@@ -674,6 +674,8 @@ async function processLSMShares(
       Math.floor(Math.random() * whitelistedValidators.length)
     ];
 
+  await sleep(5000);
+
   const delegateTokensAction: Action = await delegateTokens(
     targetWallet.clientSG,
     targetWallet.mainAccounts[0].address,
@@ -687,7 +689,22 @@ async function processLSMShares(
     return [logRandomIBCToTransfer, delegateTokensAction];
   }
 
-  return [logRandomIBCToTransfer, delegateTokensAction];
+  await sleep(5000);
+
+  const tokenizeSharesAction: Action = await tokenizeShares(
+    targetWallet.clientSG,
+    randomValidator,
+    targetWallet.mainAccounts[0].address,
+    {
+      denom: TARGET_DENOM,
+      amount: String(transferedAmount),
+    }
+  );
+  if (tokenizeSharesAction["reason"] !== undefined) {
+    return [logRandomIBCToTransfer, delegateTokensAction, tokenizeSharesAction];
+  }
+
+  return [logRandomIBCToTransfer, delegateTokensAction, tokenizeSharesAction];
 }
 
 async function main() {
