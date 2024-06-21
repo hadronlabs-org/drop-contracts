@@ -58,6 +58,10 @@ if ((0 <= WITHDRAW_PROB && WITHDRAW_PROB <= 1) === false) {
   console.error(`0 <= WITHDRAW_PROB(${WITHDRAW_PROB}) <= 1 != true`);
   process.exit(1);
 }
+if ((0 <= PROCESS_LSM_PROB && PROCESS_LSM_PROB <= 1) === false) {
+  console.error(`0 <= PROCESS_LSM_PROB(${PROCESS_LSM_PROB}) <= 1 != true`);
+  process.exit(1);
+}
 
 function isInstance<T extends object>(value: string, type: T): type is T {
   return Object.values(type).includes(value);
