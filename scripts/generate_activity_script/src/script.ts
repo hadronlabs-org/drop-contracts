@@ -665,6 +665,32 @@ async function IBCFromTransfer(
     mode: TargetAction.PROCESS_LSM_SHARES_IBC_FROM,
   };
 }
+async function lastTokenizeShareDenom(
+  targetWallet: Wallet
+): Promise<string | null> {
+  const allBalances = await targetWallet.clientSG.getAllBalances(
+    targetWallet.mainAccounts[0].address
+  );
+  const filteredBalances = allBalances.filter((balance) =>
+    balance.denom.includes("cosmosvaloper")
+  );
+  if (filteredBalances.length === 0) {
+    return null;
+  }
+  if (filteredBalances.length === 1) {
+    return filteredBalances[0].denom;
+  }
+  return filteredBalances
+    .map((balance) => {
+      return {
+        denom: balance.denom,
+        token_share_id: Number(balance.denom.split("/")[1]),
+      };
+    })
+    .reduce((maxId, current) => {
+      return maxId.token_share_id > current.token_share_id ? maxId : current;
+    }).denom;
+}
 
 async function processLSMShares(
   neutronWallet: Wallet,
