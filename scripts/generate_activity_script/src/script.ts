@@ -1,5 +1,5 @@
 import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { SigningStargateClient } from "@cosmjs/stargate";
+import { IndexedTx, SigningStargateClient } from "@cosmjs/stargate";
 import {
   AccountData,
   DirectSecp256k1HdWallet,
@@ -514,8 +514,13 @@ async function randomIBCToTransfer(
         amount: String(randomAmount),
       }
     );
-    await sleep(5000);
-    const { code, hash } = await neutronWallet.clientCW.getTx(res.txHash);
+    let txDetails: IndexedTx = await neutronWallet.clientCW.getTx(res.txHash);
+    while (txDetails === null) {
+      await sleep(5000);
+      txDetails = await neutronWallet.clientCW.getTx(res.txHash);
+    }
+
+    const { code, hash } = txDetails;
     if (code !== 0) {
       return {
         mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
