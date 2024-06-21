@@ -408,7 +408,9 @@ async function withdrawRandomNFT(
 }
 
 /* Function dedicated to do IBC transfer
- * This function used by two other functions: IBCToTransfer and IBCFromTransfer
+ * This function used by two other functions in this script:
+ *  - IBCToTransfer
+ *  - IBCFromTransfer
  */
 async function IBCTransfer(
   clientSG: SigningStargateClient,
@@ -445,7 +447,7 @@ async function IBCTransfer(
   );
 }
 
-/* Function dedicated to do IBC transfer from neutron to remote chain
+/* Function dedicated to do IBC transfer from Neutron to Remote Chain
  * Function handles any exceptions from the inner call and provides with message if some
  */
 async function IBCToTransfer(
@@ -593,6 +595,10 @@ async function randomIBCToTransfer(
   }
 }
 
+/* Function dedicated to delegate tokens
+ * Original function SigningStargateClient.delegateTokens does not provide txHash in return
+ * It's a reason why we're forced to use custom message type and broadcast it
+ */
 async function delegateTokens(
   clientSG: SigningStargateClient,
   addressFrom: string,
@@ -629,6 +635,9 @@ async function delegateTokens(
     };
   } catch (e) {
     return {
+      /* If any exception occurred when broadcasting then return ErrorLog
+       * And provide the error message
+       */
       mode: TargetAction.PROCESS_LSM_SHARES_DELEGATE,
       txHash: null,
       reason: e.message,
@@ -636,6 +645,12 @@ async function delegateTokens(
   }
 }
 
+/* Function dedicated to tokenize deligated tokens into shares
+ * There is no such custom message in cosmjs library so we generated this type from protobuf by our own
+ * And provided it into clientSG registry in main function.
+ * protoc call:
+ * protoc --plugin="protoc-gen-ts=./node_modules/.bin/protoc-gen-ts_proto" --ts_opt=esModuleInterop=true messages.proto --ts_out=./ts-proto --proto_path=...
+ */
 async function tokenizeShares(
   clientSG: SigningStargateClient,
   validatorAddress: string,
@@ -673,6 +688,9 @@ async function tokenizeShares(
     };
   } catch (e) {
     return {
+      /* If any exception occurred when broadcasting then return ErrorLog
+       * And provide the error message
+       */
       mode: TargetAction.PROCESS_LSM_SHARES_TOKENIZE_SHARES,
       txHash: null,
       reason: e.message,
@@ -680,6 +698,9 @@ async function tokenizeShares(
   }
 }
 
+/* Function dedicated to do IBC transfer of tokenized shares
+ * Back to Neutron from Remote Chain
+ */
 async function IBCFromTransfer(
   clientSG: SigningStargateClient,
   addressFrom: string,
@@ -707,6 +728,9 @@ async function IBCFromTransfer(
     };
   } catch (e) {
     return {
+      /* If any exception occurred when broadcasting then return ErrorLog
+       * And provide the error message
+       */
       mode: TargetAction.PROCESS_LSM_SHARES_IBC_FROM,
       txHash: null,
       reason: e.message,
@@ -714,6 +738,12 @@ async function IBCFromTransfer(
   }
 }
 
+/* Function dedicated to reveal which tokenized share ID is the latest on our account
+ * To get it we're iterating over all tokens with cosmosvaloper in their name and getting ID after / character
+ * Comparing them by value and then returning the latest full not-splitted denom
+ * If there is no denom with cosmosvaloper in it's name then return null
+ * SigningStargateClient.getAllBalances includes the pagination with next_key's
+ */
 async function lastTokenizeShareDenom(
   targetWallet: Wallet
 ): Promise<string | null> {
@@ -741,6 +771,18 @@ async function lastTokenizeShareDenom(
     }).denom;
 }
 
+/* Function dedicated to process LSM shares transactions. It's the longest function in this script
+ * This function includes 5 different actions:
+ *  - IBC transfer from Neutron to Remote Chain
+ *  - Delegation of this amount to validator from whitelist
+ *  - Tokenization of delegation from previous step into Shares
+ *  - IBC transfer back to Neutron from Remote Chain
+ *  - Bond Tokenized Shares
+ * Each of these actions processed separately including all specifics
+ * If one of these transactions falled on certain step then:
+ *  - Nothing happens in future and already executed transactions won't be somehow reverted
+ *  - This function sends back the ActionLog from all successfully executed transactions back to main with 1 ErrorLog from failed transaction
+ */
 async function processLSMShares(
   neutronWallet: Wallet,
   targetWallet: Wallet,
