@@ -126,7 +126,7 @@ async function bondRandomAmount(
 ): Promise<Action> {
   const address: string = neutronWallet.mainAccounts[0].address;
 
-  /* If here is nothing to bond on our balance, then just return null
+  /* If here is nothing to bond on our balance, then just return ErrorLog
    * Other random method will be tried to call then
    */
   const IBCDenomBalance: Coin = await neutronWallet.clientCW.getBalance(
@@ -232,7 +232,7 @@ async function unbondRandomAmount(
   dropInstance: DropCoreClient
 ): Promise<Action> {
   const address: string = neutronWallet.mainAccounts[0].address;
-  /* If here is nothing to bond on our balance, then just return null
+  /* If here is nothing to bond on our balance, then just return ErrorLog
    * Other random method will be tried to call then
    */
   const factoryBalance: Coin = await neutronWallet.clientCW.getBalance(
@@ -407,6 +407,9 @@ async function withdrawRandomNFT(
   }
 }
 
+/* Function dedicated to do IBC transfer
+ * This function used by two other functions: IBCToTransfer and IBCFromTransfer
+ */
 async function IBCTransfer(
   clientSG: SigningStargateClient,
   addressFrom: string,
@@ -442,6 +445,9 @@ async function IBCTransfer(
   );
 }
 
+/* Function dedicated to do IBC transfer from neutron to remote chain
+ * Function handles any exceptions from the inner call and provides with message if some
+ */
 async function IBCToTransfer(
   clientSG: SigningStargateClient,
   addressFrom: string,
@@ -476,6 +482,10 @@ async function IBCToTransfer(
   }
 }
 
+/* Function dedicated to choose the random amount of tokens that we want to send in processLSMShares function
+ * MAX_LSM_PROCESS from .env is the maximum amount of tokens that this function can choose to send
+ * If current balance lower than MAX_LSM_PROCESS, then MAX_LSM_PROCESS is current balance
+ */
 async function randomIBCToTransfer(
   dropCore: DropCoreClient,
   neutronWallet: Wallet,
@@ -486,6 +496,9 @@ async function randomIBCToTransfer(
     address_from,
     BASE_DENOM
   );
+  /* If here is nothing to send on our balance, then just return ErrorLog
+   * Other random method will be tried to call then
+   */
   if (Number(baseDenomBalance.amount) === 0) {
     return {
       mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
@@ -500,6 +513,10 @@ async function randomIBCToTransfer(
   const minExchangeRate: number = exchangeRate + 1;
   const config = await dropCore.queryConfig();
 
+  /* min is a minimum amount of tokens that this function can randomly choose from interval
+   * It's either a config.lsm_min_bond_amount or minExchangeRate depends on
+   * What is bigger (the biggest here is a chosen minimum)
+   */
   const min: number =
     Number(config.lsm_min_bond_amount) < minExchangeRate
       ? minExchangeRate
@@ -519,14 +536,19 @@ async function randomIBCToTransfer(
     };
   }
 
+  /* max is a maximum amount of tokens that this function can randomly choose from interval
+   * It's either a MAX_LSM_PROCESS or current BASE_DENOM balance depends on
+   * What is less (the smaller here is a chosen maximum)
+   */
   const max: number =
     Number(baseDenomBalance.amount) < MAX_LSM_PROCESS
       ? Number(baseDenomBalance.amount)
       : MAX_LSM_PROCESS;
 
   const randomAmount: number = Math.floor(Math.random() * (max - min) + min);
-
   try {
+    /* By default in our case it's always "transfer" port
+     */
     const res = await IBCToTransfer(
       neutronWallet.clientSG,
       address_from,
@@ -544,6 +566,12 @@ async function randomIBCToTransfer(
       txDetails = await neutronWallet.clientCW.getTx(res.txHash);
     }
 
+    /* Check for the error code in given transaction
+     * If it's not a zero return ErrorLog and hint that the transaction should be checked
+     * BTW, since neutron nodes collecting the transaction details here we can check for the eny errors
+     * On the remote chain it either could be possible or no.
+     * It's a reason why we check it here and don't check in IBCFromTransfer function
+     */
     const { code, hash } = txDetails;
     if (code !== 0) {
       return {
@@ -554,6 +582,9 @@ async function randomIBCToTransfer(
     }
     return res;
   } catch (e) {
+    /* If any exception occurred when broadcasting then return ErrorLog
+     * And provide the error message
+     */
     return {
       mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
       txHash: null,
