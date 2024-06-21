@@ -632,14 +632,14 @@ async function processLSMShares(
     targetWallet.mainAccounts[0].address,
     TARGET_DENOM
   );
-  const logRandomIBCToTransfer: Action = await randomIBCToTransfer(
+  const randomIBCToTransferAction: Action = await randomIBCToTransfer(
     dropCore,
     neutronWallet,
     neutronWallet.mainAccounts[0].address,
     targetWallet.mainAccounts[0].address
   );
-  if (logRandomIBCToTransfer["reason"] !== undefined) {
-    return [logRandomIBCToTransfer];
+  if (randomIBCToTransferAction["reason"] !== undefined) {
+    return [randomIBCToTransferAction];
   }
 
   let targetDenomBalanceAfter: Coin;
@@ -685,8 +685,8 @@ async function processLSMShares(
       amount: String(transferedAmount),
     }
   );
-  if (logRandomIBCToTransfer["reason"] !== undefined) {
-    return [logRandomIBCToTransfer, delegateTokensAction];
+  if (delegateTokensAction["reason"] !== undefined) {
+    return [randomIBCToTransferAction, delegateTokensAction];
   }
 
   await sleep(5000);
@@ -701,10 +701,18 @@ async function processLSMShares(
     }
   );
   if (tokenizeSharesAction["reason"] !== undefined) {
-    return [logRandomIBCToTransfer, delegateTokensAction, tokenizeSharesAction];
+    return [
+      randomIBCToTransferAction,
+      delegateTokensAction,
+      tokenizeSharesAction,
+    ];
   }
 
-  return [logRandomIBCToTransfer, delegateTokensAction, tokenizeSharesAction];
+  return [
+    randomIBCToTransferAction,
+    delegateTokensAction,
+    tokenizeSharesAction,
+  ];
 }
 
 async function main() {
