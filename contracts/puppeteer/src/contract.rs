@@ -22,6 +22,7 @@ use cosmwasm_std::{
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{
     answer::response,
+    ibc_client_state::query_client_state,
     ibc_fee::query_ibc_fee,
     icq::{
         new_delegations_and_balance_query_msg, new_multiple_balances_query_msg,
@@ -1012,6 +1013,14 @@ fn sudo_response(
     let seq_id = request
         .sequence
         .ok_or_else(|| StdError::generic_err("sequence not found"))?;
+    let channel_id = request
+        .clone()
+        .source_channel
+        .ok_or_else(|| StdError::generic_err("source_channel not found"))?;
+    let port_id = request
+        .clone()
+        .source_port
+        .ok_or_else(|| StdError::generic_err("source_port not found"))?;
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
     puppeteer_base.validate_tx_waiting_state(deps.as_ref())?;
     let reply_to = tx_state
@@ -1040,6 +1049,16 @@ fn sudo_response(
             get_answers_from_msg_data(deps.as_ref(), msg_data)?
         }
     };
+
+    let client_state = query_client_state(&deps.as_ref(), channel_id, port_id)?;
+    let remote_height = client_state
+        .identified_client_state
+        .ok_or_else(|| StdError::generic_err("IBC client state identified_client_state not found"))?
+        .client_state
+        .latest_height
+        .ok_or_else(|| StdError::generic_err("IBC client state latest_height not found"))?
+        .revision_height;
+
     deps.api.debug(&format!(
         "WASMDEBUG: json: {request:?}",
         request = to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
@@ -1049,6 +1068,7 @@ fn sudo_response(
                 transaction: transaction.clone(),
                 answers: answers.clone(),
                 local_height: env.block.height,
+                remote_height: remote_height.u64(),
             },)
         ))?
     ));
@@ -1063,6 +1083,7 @@ fn sudo_response(
                     transaction: transaction.clone(),
                     answers,
                     local_height: env.block.height,
+                    remote_height: remote_height.u64(),
                 }),
             ))?,
             funds: vec![],
@@ -1132,10 +1153,8 @@ fn get_answers_from_msg_data(
                 ResponseAnswer::UnknownResponse {}
             }
         };
-        deps.api.debug(&format!(
-            "WASMDEBUG: sudo_response: answer: {answer:?}",
-            answer = answer
-        ));
+        deps.api
+            .debug(&format!("WASMDEBUG: sudo_response: answer: {answer:?}",));
         answers.push(answer);
     }
     Ok(answers)
@@ -1162,8 +1181,6 @@ fn sudo_error(
     let puppeteer_base: PuppeteerBase<'_, Config, KVQueryType> = Puppeteer::default();
     deps.api.debug(&format!(
         "WASMDEBUG: sudo_error: request: {request:?} details: {details:?}",
-        request = request,
-        details = details
     ));
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
     puppeteer_base.validate_tx_waiting_state(deps.as_ref())?;

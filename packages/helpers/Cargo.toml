@@ -23,6 +23,7 @@ backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
+cosmos-sdk-proto = { workspace = true }
 cosmwasm-std = { workspace = true }
 serde-json-wasm = { workspace = true }
 neutron-sdk = { workspace = true }
@@ -30,4 +31,5 @@ cosmwasm-schema = { workspace = true }
 thiserror = { workspace = true }
 cw-storage-plus = { workspace = true }
 serde = { workspace = true }
+schemars = { workspace = true }
 prost = { workspace = true }

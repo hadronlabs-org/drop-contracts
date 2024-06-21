@@ -112,7 +112,7 @@ where
         let data =
             PuppeteerReconstruct::reconstruct(&registered_query_result.result.kv_results, version)?;
 
-        let height = env.block.height;
+        let height = registered_query_result.result.height;
         let timestamp = env.block.time;
         storage.save(deps.storage, &(data, height, timestamp))?;
         Ok(Response::default())

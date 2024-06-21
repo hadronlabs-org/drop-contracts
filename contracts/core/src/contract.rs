@@ -405,7 +405,7 @@ fn execute_puppeteer_hook(
     );
     match msg.clone() {
         drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) => {
-            LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &success_msg.local_height)?;
+            LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &success_msg.remote_height)?;
             match &success_msg.transaction {
                 drop_puppeteer_base::msg::Transaction::IBCTransfer {
                     denom,
@@ -566,7 +566,7 @@ fn execute_tick_idle(
             .pump_ica_address
             .clone()
             .ok_or(ContractError::PumpIcaAddressIsNotSet {})?;
-        let (ica_balance, _local_height, ica_balance_local_time) = get_ica_balance_by_denom(
+        let (ica_balance, _remote_height, ica_balance_local_time) = get_ica_balance_by_denom(
             deps.as_ref(),
             config.puppeteer_contract.as_ref(),
             &config.remote_denom,
@@ -664,7 +664,7 @@ fn execute_tick_idle(
             &drop_staking_base::msg::validatorset::QueryMsg::Validators {},
         )?;
 
-        let (delegations, local_height, _) =
+        let (delegations, _remote_height, _) =
             deps.querier
                 .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
                     config.puppeteer_contract.to_string(),
@@ -672,14 +672,6 @@ fn execute_tick_idle(
                         msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
                     },
                 )?;
-
-        ensure!(
-            (env.block.height - local_height) <= config.icq_update_delay,
-            ContractError::PuppeteerDelegationsOutdated {
-                ica_height: env.block.height,
-                control_height: local_height
-            }
-        );
 
         let validators_map = validators
             .iter()
@@ -824,9 +816,9 @@ fn execute_tick_staking_bond(
                     msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
                 },
             )?;
-        if response.local_height > puppeteer_height {
+        if response.remote_height > puppeteer_height {
             return Err(ContractError::PuppeteerBalanceOutdated {
-                ica_height: response.local_height,
+                ica_height: response.remote_height,
                 control_height: puppeteer_height,
             });
         }

@@ -151,6 +151,7 @@ export interface DropHookTesterSchema {
 export interface ResponseHookSuccessMsg {
   answers: ResponseAnswer[];
   local_height: number;
+  remote_height: number;
   request: RequestPacket;
   request_id: number;
   transaction: Transaction;
@@ -275,6 +276,21 @@ export class Client {
     initCoins?: readonly Coin[],
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
+      ...(initCoins && initCoins.length && { funds: initCoins }),
+    });
+    return res;
+  }
+  static async instantiate2(
+    client: SigningCosmWasmClient,
+    sender: string,
+    codeId: number,
+    salt: number,
+    initMsg: InstantiateMsg,
+    label: string,
+    fees: StdFee | 'auto' | number,
+    initCoins?: readonly Coin[],
+  ): Promise<InstantiateResult> {
+    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
       ...(initCoins && initCoins.length && { funds: initCoins }),
     });
     return res;
