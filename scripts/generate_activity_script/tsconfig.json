@@ -6,7 +6,10 @@
     "lib": ["esnext", "DOM"],
     "outDir": "lib",
     "resolveJsonModule": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "paths": {
+      "@messages": ["./src/ts-proto/messages"]
+    }
   },
   "exclude": ["node_modules"]
 }

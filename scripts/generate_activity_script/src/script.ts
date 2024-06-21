@@ -5,6 +5,7 @@ import { GasPrice, Coin } from "@cosmjs/stargate";
 import { Client as DropCoreClient } from "../../../integration_tests/src/generated/contractLib/dropCore";
 import { Client as DropWithdrawalManager } from "../../../integration_tests/src/generated/contractLib/dropWithdrawalManager";
 import { Client as DropWithdrawalVoucher } from "../../../integration_tests/src/generated/contractLib/dropWithdrawalVoucher";
+import { MsgTokenizeShares } from "@messages";
 
 const CORE_CONTRACT: string = process.env.CORE_CONTRACT;
 
