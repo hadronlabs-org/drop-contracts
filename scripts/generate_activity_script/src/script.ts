@@ -56,6 +56,11 @@ enum MODE {
   BOND = "BOND",
   UNBOND = "UNBOND",
   WITHDRAW = "SEND_NFT",
+  PROCESS_LSM_SHARES_IBC_TO = "PROCESS_LSM_SHARES.IBC_TO",
+  PROCESS_LSM_SHARES_IBC_FROM = "PROCESS_LSM_SHARES.IBC_FROM",
+  PROCESS_LSM_SHARES_DELEGATE = "PROCESS_LSM_SHARES.DELEGATE",
+  PROCESS_LSM_SHARES_TOKENIZE_SHARES = "PROCESS_LSM_SHARES.TOKENIZE_SHARES",
+  PROCESS_LSM_SHARES_BOND = "PROCESS_LSM_SHARES.BOND",
 }
 
 type Wallet = {
@@ -386,6 +391,20 @@ async function withdrawRandomNFT(
   }
 }
 
+async function processLSMShares(
+  neutronWallet: Wallet,
+  targetWallet: Wallet,
+  dropCore: DropCoreClient
+): Promise<Array<Action>> {
+  return [
+    {
+      mode: MODE.PROCESS_LSM_SHARES_DELEGATE,
+      txHash: null,
+      reason: null,
+    },
+  ];
+}
+
 async function main() {
   const neutronWallet: Wallet = {};
   neutronWallet.mainWallet = await DirectSecp256k1HdWallet.fromMnemonic(
@@ -446,29 +465,49 @@ async function main() {
     CORE_CONTRACT
   );
 
-  const actions: Array<() => Promise<Action>> = [
-    async (): Promise<Action> => {
+  const actions: Array<() => Promise<Array<Action>>> = [
+    async (): Promise<Array<Action>> => {
+      if (Math.random() <= PROCESS_LSM_PROB) {
+        return await processLSMShares(
+          neutronWallet,
+          targetWallet,
+          coreСontract
+        );
+      }
+    },
+    async (): Promise<Array<Action>> => {
       if (Math.random() <= WITHDRAW_PROB) {
-        return await withdrawRandomNFT(neutronWallet, coreСontract);
+        return [await withdrawRandomNFT(neutronWallet, coreСontract)];
       }
     },
-    async (): Promise<Action> => {
+    async (): Promise<Array<Action>> => {
       if (Math.random() <= UNBOND_PROB) {
-        return await unbondRandomAmount(neutronWallet, coreСontract);
+        return [await unbondRandomAmount(neutronWallet, coreСontract)];
       }
     },
-    async (): Promise<Action> => {
+    async (): Promise<Array<Action>> => {
       if (Math.random() <= BOND_PROB) {
-        return await bondRandomAmount(neutronWallet, coreСontract);
+        return [await bondRandomAmount(neutronWallet, coreСontract)];
       }
     },
   ];
 
-  const logs: Array<Action> = [];
+  const neutronLogs: Array<Action> = [];
+  const targetLogs: Array<Action> = [];
   while (actions.length !== 0) {
     const randomIndex = Math.floor(Math.random() * actions.length);
-    const res = await actions[randomIndex]();
-    res && logs.push(res);
+    const logs = await actions[randomIndex]();
+    for (const log of logs) {
+      if (
+        log.mode === MODE.PROCESS_LSM_SHARES_DELEGATE ||
+        log.mode === MODE.PROCESS_LSM_SHARES_IBC_FROM ||
+        log.mode === MODE.PROCESS_LSM_SHARES_TOKENIZE_SHARES
+      ) {
+        targetLogs.push(log);
+      } else {
+        neutronLogs.push(log);
+      }
+    }
     actions.splice(randomIndex, 1);
   }
 
@@ -476,7 +515,11 @@ async function main() {
     JSON.stringify({
       neutron: {
         address: neutronWallet.mainAccounts[0].address,
-        logs: logs,
+        logs: neutronLogs,
+      },
+      target: {
+        address: targetWallet.mainAccounts[0].address,
+        logs: targetLogs,
       },
     })
   );
