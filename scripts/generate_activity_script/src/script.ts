@@ -579,6 +579,50 @@ async function delegateTokens(
   }
 }
 
+async function tokenizeShares(
+  clientSG: SigningStargateClient,
+  validatorAddress: string,
+  addressFrom: string,
+  amount: Coin
+): Promise<Action> {
+  try {
+    const transactionHash = await clientSG.signAndBroadcastSync(
+      addressFrom,
+      [
+        {
+          typeUrl: "/cosmos.staking.v1beta1.MsgTokenizeShares",
+          value: {
+            delegatorAddress: addressFrom,
+            validatorAddress: validatorAddress,
+            amount: amount,
+            tokenizedShareOwner: addressFrom,
+          },
+        },
+      ],
+      {
+        gas: "400000",
+        amount: [
+          {
+            denom: TARGET_DENOM,
+            amount: "4000",
+          },
+        ],
+      },
+      ""
+    );
+    return {
+      mode: TargetAction.PROCESS_LSM_SHARES_TOKENIZE_SHARES,
+      txHash: transactionHash,
+    };
+  } catch (e) {
+    return {
+      mode: TargetAction.PROCESS_LSM_SHARES_TOKENIZE_SHARES,
+      txHash: null,
+      reason: e.message,
+    };
+  }
+}
+
 async function processLSMShares(
   neutronWallet: Wallet,
   targetWallet: Wallet,
