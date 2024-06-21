@@ -146,10 +146,10 @@ async function bondRandomAmount(
   /* If any error occured when executing method then just ignore
    * It's content and return null, script will try to call another method
    */
-  const random_amount: number = Math.floor(Math.random() * (max - min) + min);
+  const randomAmount: number = Math.floor(Math.random() * (max - min) + min);
   try {
     const res = await bond(dropInstance, address, {
-      amount: String(random_amount),
+      amount: String(randomAmount),
       denom: BASE_DENOM,
     });
     const { code, hash } = await neutronWallet.clientCW.getTx(res.txHash);
