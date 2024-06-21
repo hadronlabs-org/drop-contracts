@@ -400,6 +400,52 @@ async function withdrawRandomNFT(
   }
 }
 
+async function ibc_to_transfer(
+  clientSG: SigningStargateClient,
+  address_from: string,
+  address_to: string,
+  channel: string,
+  port: string,
+  amount: number
+): Promise<Action> {
+  const transactionHash = await clientSG.signAndBroadcastSync(
+    address_from,
+    [
+      {
+        typeUrl: "/ibc.applications.transfer.v1.MsgTransfer",
+        value: {
+          sourcePort: port,
+          sourceChannel: channel,
+          token: {
+            denom: BASE_DENOM,
+            amount: amount,
+          },
+          sender: address_from,
+          receiver: address_to,
+          timeoutHeight: "0",
+          timeoutTimestamp: String(
+            Math.floor(Date.now() / 1000) * 1e9 + 10 * 60 * 1e9
+          ),
+        },
+      },
+    ],
+    {
+      gas: "400000",
+      amount: [
+        {
+          denom: "untrn",
+          amount: "4000",
+        },
+      ],
+    },
+    ""
+  );
+  return {
+    txHash: transactionHash,
+    mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
+  };
+}
+
 async function processLSMShares(
   neutronWallet: Wallet,
   targetWallet: Wallet,
@@ -433,6 +479,11 @@ async function main() {
     NEUTRON_NODE_ADDRESS,
     neutronWallet.mainWallet,
     {
+      registry: new Registry(
+        new Map<string, GeneratedType>([
+          ["/ibc.applications.transfer.v1.MsgTransfer", MsgTransfer],
+        ])
+      ),
       gasPrice: GasPrice.fromString("0.75untrn"),
     }
   );
