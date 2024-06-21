@@ -395,7 +395,7 @@ async function main() {
   );
   neutronWallet.mainAccounts = await neutronWallet.mainWallet.getAccounts();
 
-  const core_contract = new DropCoreClient(
+  const coreСontract = new DropCoreClient(
     neutronWallet.clientCW,
     CORE_CONTRACT
   );
@@ -403,17 +403,17 @@ async function main() {
   const actions: Array<() => Promise<Action>> = [
     async (): Promise<Action> => {
       if (Math.random() <= WITHDRAW_PROB) {
-        return await withdrawRandomNFT(neutronWallet, core_contract);
+        return await withdrawRandomNFT(neutronWallet, coreСontract);
       }
     },
     async (): Promise<Action> => {
       if (Math.random() <= UNBOND_PROB) {
-        return await unbondRandomAmount(neutronWallet, core_contract);
+        return await unbondRandomAmount(neutronWallet, coreСontract);
       }
     },
     async (): Promise<Action> => {
       if (Math.random() <= BOND_PROB) {
-        return await bondRandomAmount(neutronWallet, core_contract);
+        return await bondRandomAmount(neutronWallet, coreСontract);
       }
     },
   ];
