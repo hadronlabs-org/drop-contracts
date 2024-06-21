@@ -52,10 +52,7 @@ if ((0 <= WITHDRAW_PROB && WITHDRAW_PROB <= 1) === false) {
   process.exit(1);
 }
 
-function isInstance<T extends object>(
-  value: string | number,
-  type: T
-): type is T {
+function isInstance<T extends object>(value: string, type: T): type is T {
   return Object.values(type).includes(value);
 }
 
