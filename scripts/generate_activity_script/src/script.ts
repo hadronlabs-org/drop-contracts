@@ -52,16 +52,28 @@ if ((0 <= WITHDRAW_PROB && WITHDRAW_PROB <= 1) === false) {
   process.exit(1);
 }
 
-enum MODE {
+function isInstance<T extends object>(
+  value: string | number,
+  type: T
+): type is T {
+  return Object.values(type).includes(value);
+}
+
+enum NeutronAction {
   BOND = "BOND",
   UNBOND = "UNBOND",
   WITHDRAW = "SEND_NFT",
   PROCESS_LSM_SHARES_IBC_TO = "PROCESS_LSM_SHARES.IBC_TO",
+  PROCESS_LSM_SHARES_BOND = "PROCESS_LSM_SHARES.BOND",
+}
+
+enum TargetAction {
   PROCESS_LSM_SHARES_IBC_FROM = "PROCESS_LSM_SHARES.IBC_FROM",
   PROCESS_LSM_SHARES_DELEGATE = "PROCESS_LSM_SHARES.DELEGATE",
   PROCESS_LSM_SHARES_TOKENIZE_SHARES = "PROCESS_LSM_SHARES.TOKENIZE_SHARES",
-  PROCESS_LSM_SHARES_BOND = "PROCESS_LSM_SHARES.BOND",
 }
+
+type MODE = NeutronAction | TargetAction;
 
 type Wallet = {
   mainWallet?: DirectSecp256k1HdWallet;
@@ -95,7 +107,7 @@ async function bond(
     },
   ]);
   return {
-    mode: MODE.BOND,
+    mode: NeutronAction.BOND,
     txHash: transactionHash,
   };
 }
@@ -119,7 +131,7 @@ async function bondRandomAmount(
   );
   if (Number(IBCDenomBalance.amount) === 0) {
     return {
-      mode: MODE.BOND,
+      mode: NeutronAction.BOND,
       txHash: null,
       reason: `Nothing to bond, ${BASE_DENOM} balance is 0`,
     };
@@ -141,14 +153,14 @@ async function bondRandomAmount(
       : Number(config.lsm_min_bond_amount);
   if (min > Number(IBCDenomBalance.amount)) {
     return {
-      mode: MODE.BOND,
+      mode: NeutronAction.BOND,
       txHash: null,
       reason: `Nothing to bond, ${BASE_DENOM} balance is lower then min(${min}) (this value either exchange rate or config.lsm_min_bond_amount)`,
     };
   }
   if (min > MAX_BOND) {
     return {
-      mode: MODE.BOND,
+      mode: NeutronAction.BOND,
       txHash: null,
       reason: `MAX_BOND lower then min(${min}) (this value either exchange rate or config.lsm_min_bond_amount)`,
     };
@@ -175,7 +187,7 @@ async function bondRandomAmount(
     const { code, hash } = await neutronWallet.clientCW.getTx(res.txHash);
     if (code !== 0) {
       return {
-        mode: MODE.BOND,
+        mode: NeutronAction.BOND,
         txHash: hash,
         reason: "Check up given hash",
       };
@@ -183,7 +195,7 @@ async function bondRandomAmount(
     return res;
   } catch (e) {
     return {
-      mode: MODE.BOND,
+      mode: NeutronAction.BOND,
       txHash: null,
       reason: e.message,
     };
@@ -202,7 +214,7 @@ async function unbond(
     },
   ]);
   return {
-    mode: MODE.UNBOND,
+    mode: NeutronAction.UNBOND,
     txHash: transactionHash,
   };
 }
@@ -225,7 +237,7 @@ async function unbondRandomAmount(
   );
   if (Number(factoryBalance.amount) === 0) {
     return {
-      mode: MODE.UNBOND,
+      mode: NeutronAction.UNBOND,
       txHash: null,
       reason: `Nothing to unbond, ${FACTORY_DENOM} balance is 0`,
     };
@@ -248,7 +260,7 @@ async function unbondRandomAmount(
     const { code, hash } = await neutronWallet.clientCW.getTx(res.txHash);
     if (code !== 0) {
       return {
-        mode: MODE.UNBOND,
+        mode: NeutronAction.UNBOND,
         txHash: hash,
         reason: "Check up given hash",
       };
@@ -256,7 +268,7 @@ async function unbondRandomAmount(
     return res;
   } catch (e) {
     return {
-      mode: MODE.UNBOND,
+      mode: NeutronAction.UNBOND,
       txHash: null,
       reason: e.message,
     };
@@ -285,7 +297,7 @@ async function sendNFT(
    * Field msg here is encoded base64 json object { "withdraw": {} }
    */
   return {
-    mode: MODE.WITHDRAW,
+    mode: NeutronAction.WITHDRAW,
     txHash: transactionHash,
   };
 }
@@ -354,7 +366,7 @@ async function withdrawRandomNFT(
    */
   if (withdrawnNFTs.length === 0) {
     return {
-      mode: MODE.WITHDRAW,
+      mode: NeutronAction.WITHDRAW,
       txHash: null,
       reason: "Nothing to withdraw",
     };
@@ -376,7 +388,7 @@ async function withdrawRandomNFT(
     const { code, hash } = await neutronWallet.clientCW.getTx(res.txHash);
     if (code !== 0) {
       return {
-        mode: MODE.WITHDRAW,
+        mode: NeutronAction.WITHDRAW,
         txHash: hash,
         reason: "Check up given hash",
       };
@@ -384,7 +396,7 @@ async function withdrawRandomNFT(
     return res;
   } catch (e) {
     return {
-      mode: MODE.WITHDRAW,
+      mode: NeutronAction.WITHDRAW,
       txHash: null,
       reason: e.message,
     };
@@ -398,7 +410,7 @@ async function processLSMShares(
 ): Promise<Array<Action>> {
   return [
     {
-      mode: MODE.PROCESS_LSM_SHARES_DELEGATE,
+      mode: TargetAction.PROCESS_LSM_SHARES_DELEGATE,
       txHash: null,
       reason: null,
     },
@@ -498,11 +510,7 @@ async function main() {
     const randomIndex = Math.floor(Math.random() * actions.length);
     const logs = await actions[randomIndex]();
     for (const log of logs) {
-      if (
-        log.mode === MODE.PROCESS_LSM_SHARES_DELEGATE ||
-        log.mode === MODE.PROCESS_LSM_SHARES_IBC_FROM ||
-        log.mode === MODE.PROCESS_LSM_SHARES_TOKENIZE_SHARES
-      ) {
+      if (isInstance(log.mode, TargetAction)) {
         targetLogs.push(log);
       } else {
         neutronLogs.push(log);
