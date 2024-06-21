@@ -3,6 +3,7 @@ import { SigningStargateClient } from "@cosmjs/stargate";
 import {
   AccountData,
   DirectSecp256k1HdWallet,
+  GeneratedType,
   Registry,
 } from "@cosmjs/proto-signing";
 import { GasPrice, Coin } from "@cosmjs/stargate";
@@ -21,6 +22,10 @@ const MNEMONIC: string = process.env.MNEMONIC;
 const BASE_DENOM: string = process.env.BASE_DENOM;
 const FACTORY_DENOM: string = process.env.FACTORY_DENOM;
 const NEUTRON_NODE_ADDRESS: string = process.env.NEUTRON_NODE_ADDRESS;
+const TARGET_NODE_ADDRESS: string = process.env.TARGET_NODE_ADDRESS;
+
+const TARGET_CHAIN_PREFIX: string = process.env.TARGET_CHAIN_PREFIX;
+const TARGET_DENOM: string = process.env.TARGET_DENOM;
 
 const MAX_BOND: number = Number(process.env.MAX_BOND);
 const MAX_UNBOND: number = Number(process.env.MAX_UNBOND);
@@ -28,6 +33,7 @@ const MAX_UNBOND: number = Number(process.env.MAX_UNBOND);
 const BOND_PROB: number = Number(process.env.BOND_PROB);
 const UNBOND_PROB: number = Number(process.env.UNBOND_PROB);
 const WITHDRAW_PROB: number = Number(process.env.WITHDRAW_PROB);
+const PROCESS_LSM_PROB: number = Number(process.env.PROCESS_LSM_PROB);
 
 /*
  * Each of given probabilities should be in interval [0, 1]
@@ -403,6 +409,37 @@ async function main() {
     }
   );
   neutronWallet.mainAccounts = await neutronWallet.mainWallet.getAccounts();
+
+  const targetWallet: Wallet = {};
+  targetWallet.mainWallet = await DirectSecp256k1HdWallet.fromMnemonic(
+    MNEMONIC,
+    {
+      prefix: TARGET_CHAIN_PREFIX,
+    }
+  );
+  targetWallet.clientCW = await SigningCosmWasmClient.connectWithSigner(
+    TARGET_NODE_ADDRESS,
+    targetWallet.mainWallet,
+    {
+      gasPrice: GasPrice.fromString(`0.75${TARGET_DENOM}`),
+    }
+  );
+  targetWallet.clientSG = await SigningStargateClient.connectWithSigner(
+    NEUTRON_NODE_ADDRESS,
+    neutronWallet.mainWallet,
+    {
+      registry: new Registry(
+        new Map<string, GeneratedType>([
+          ["/cosmos.bank.v1beta1.MsgSend", MsgSend],
+          ["/ibc.applications.transfer.v1.MsgTransfer", MsgTransfer],
+          ["/cosmos.staking.v1beta1.MsgTokenizeShares", MsgTokenizeShares],
+          ["/cosmos.staking.v1beta1.MsgDelegate", MsgDelegate],
+        ])
+      ),
+      gasPrice: GasPrice.fromString(`0.75${TARGET_DENOM}`),
+    }
+  );
+  targetWallet.mainAccounts = await targetWallet.mainWallet.getAccounts();
 
   const coreСontract = new DropCoreClient(
     neutronWallet.clientCW,
