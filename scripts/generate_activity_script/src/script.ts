@@ -408,14 +408,14 @@ async function withdrawRandomNFT(
 
 async function IBCToTransfer(
   clientSG: SigningStargateClient,
-  address_from: string,
-  address_to: string,
+  addressFrom: string,
+  addressTo: string,
   channel: string,
   port: string,
   amount: Coin
 ): Promise<Action> {
   const transactionHash = await clientSG.signAndBroadcastSync(
-    address_from,
+    addressFrom,
     [
       {
         typeUrl: "/ibc.applications.transfer.v1.MsgTransfer",
@@ -426,8 +426,8 @@ async function IBCToTransfer(
             denom: amount.denom,
             amount: amount.amount,
           },
-          sender: address_from,
-          receiver: address_to,
+          sender: addressFrom,
+          receiver: addressTo,
           timeoutHeight: "0",
           timeoutTimestamp: String(Date.now() + 60 * 10e3),
         },
