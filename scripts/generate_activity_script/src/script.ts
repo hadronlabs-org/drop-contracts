@@ -483,21 +483,25 @@ async function main() {
           coreСontract
         );
       }
+      return [];
     },
     async (): Promise<Array<Action>> => {
       if (Math.random() <= WITHDRAW_PROB) {
         return [await withdrawRandomNFT(neutronWallet, coreСontract)];
       }
+      return [];
     },
     async (): Promise<Array<Action>> => {
       if (Math.random() <= UNBOND_PROB) {
         return [await unbondRandomAmount(neutronWallet, coreСontract)];
       }
+      return [];
     },
     async (): Promise<Array<Action>> => {
       if (Math.random() <= BOND_PROB) {
         return [await bondRandomAmount(neutronWallet, coreСontract)];
       }
+      return [];
     },
   ];
 
