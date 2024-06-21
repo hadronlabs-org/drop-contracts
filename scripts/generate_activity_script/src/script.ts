@@ -788,6 +788,11 @@ async function processLSMShares(
   targetWallet: Wallet,
   dropCore: DropCoreClient
 ): Promise<Array<Action>> {
+  /* === IBC transfer from Neutron to Remote Chain Action === */
+  /* To understand how many tokens have been sent we need to
+   * Memorize how many tokens we've had before IBC transfer
+   * Such solution gives us an opportunity not to touch randomIBCToTransfer function return type
+   */
   const targetDenomBalanceBefore = await targetWallet.clientCW.getBalance(
     targetWallet.mainAccounts[0].address,
     TARGET_DENOM
@@ -798,10 +803,16 @@ async function processLSMShares(
     neutronWallet.mainAccounts[0].address,
     targetWallet.mainAccounts[0].address
   );
+  /* If any error occured during execution (iow ErrorLog's just returned)
+   * Then stop the execution and return lastest ErrorLog
+   */
   if (randomIBCToTransferAction["reason"] !== undefined) {
     return [randomIBCToTransferAction];
   }
 
+  /* Wait untill current balance won't be changed
+   * Once changed break the loop
+   */
   let targetDenomBalanceAfter: Coin;
   while (true) {
     targetDenomBalanceAfter = await targetWallet.clientCW.getBalance(
@@ -817,6 +828,10 @@ async function processLSMShares(
       break;
     }
   }
+
+  /* Calculate the difference - it's the transfered amount
+   * That we're searching for
+   */
   const transferedAmount =
     Number(targetDenomBalanceAfter.amount) -
     Number(targetDenomBalanceBefore.amount);
@@ -835,7 +850,7 @@ async function processLSMShares(
     ];
 
   await sleep(5000);
-
+  /* === Delegation of this amount to validator from whitelist === */
   const delegateTokensAction: Action = await delegateTokens(
     targetWallet.clientSG,
     targetWallet.mainAccounts[0].address,
@@ -845,15 +860,25 @@ async function processLSMShares(
       amount: String(transferedAmount),
     }
   );
+  /* If any error occured during execution (iow ErrorLog's just returned)
+   * Then stop the execution and return all previous successful transactions
+   * And lastest ErrorLog at the end
+   */
   if (delegateTokensAction["reason"] !== undefined) {
     return [randomIBCToTransferAction, delegateTokensAction];
   }
 
+  /* We need to understand what is the latest tokenized share we'll have
+   * after TokenizeShare message execution
+   * We're going to use the same trick here. We're memorizing the latest tokenized share (if no such then it's null)
+   * And right after execution we're calling the same function to get the latest tokenized share
+   */
   const lastLSMBeforeTokenizeSharesAction =
     await lastTokenizeShareDenom(targetWallet);
 
   await sleep(10000);
 
+  /* === Tokenization of delegation from previous step into Shares === */
   const tokenizeSharesAction: Action = await tokenizeShares(
     targetWallet.clientSG,
     randomValidator,
@@ -863,6 +888,10 @@ async function processLSMShares(
       amount: String(transferedAmount),
     }
   );
+  /* If any error occured during execution (iow ErrorLog's just returned)
+   * Then stop the execution and return all previous successful transactions
+   * And lastest ErrorLog at the end
+   */
   if (tokenizeSharesAction["reason"] !== undefined) {
     return [
       randomIBCToTransferAction,
@@ -871,9 +900,12 @@ async function processLSMShares(
     ];
   }
 
+  /* Right after the execution depends on had we any tokenized share before
+   * Go through while loop and get the latest tokenized share denom which will be used
+   * In further IBCFromTransfer
+   */
   let lastLSMAfterTokenizeSharesAction =
     await lastTokenizeShareDenom(targetWallet);
-
   if (lastLSMBeforeTokenizeSharesAction === null) {
     while (lastLSMAfterTokenizeSharesAction === null) {
       await sleep(5000);
@@ -896,12 +928,18 @@ async function processLSMShares(
 
   await sleep(5000);
 
+  /* In order to reveal what's the latest IBC denom on Neutron chain is
+   * We're using the same method. Before IBCFromTransfer we're memorizing the current denom list
+   * After the execution we'll compare neutronDenomsBeforeIBCFromSend and neutronDenomsAfterIBCFromSend arrays length
+   * To get the new denom on Neutron
+   */
   const neutronDenomsBeforeIBCFromSend: Array<string> = (
     await neutronWallet.clientSG.getAllBalances(
       neutronWallet.mainAccounts[0].address
     )
   ).map((coin) => coin.denom);
 
+  /* === IBC transfer back to Neutron from Remote Chain === */
   const IBCFromTransferAction: Action = await IBCFromTransfer(
     targetWallet.clientSG,
     targetWallet.mainAccounts[0].address,
@@ -924,6 +962,9 @@ async function processLSMShares(
 
   await sleep(5000);
 
+  /* Iterate over the new denoms and wait until
+   * New denom'll appear in the list
+   */
   let neutronDenomsAfterIBCFromSend: Array<string> = [];
   while (true) {
     neutronDenomsAfterIBCFromSend = (
@@ -942,18 +983,27 @@ async function processLSMShares(
     }
   }
 
+  /* Get this denom by array's difference
+   */
   const newDenom: string = neutronDenomsAfterIBCFromSend.filter(
     (denom) => !neutronDenomsBeforeIBCFromSend.includes(denom)
   )[0];
 
   await sleep(5000);
 
+  /* === Bond Tokenized Shares === */
   let bondAction: Action;
   try {
     bondAction = await bond(dropCore, neutronWallet.mainAccounts[0].address, {
       denom: newDenom,
       amount: String(transferedAmount),
     });
+    /* It's the Neutron and we definetely know that transactions are indexed here
+     * So then we're querying status code of the bond executin and depends on the code
+     * Returning either ErrorLog or ActionLog
+     * Also, not forgetting to set bondAction.mode into NeutronAction.PROCESS_LSM_SHARES_BOND
+     * Since it's just NeutronAction.BOND by default
+     */
     const { code, hash } = await neutronWallet.clientCW.getTx(
       bondAction.txHash
     );
@@ -966,6 +1016,9 @@ async function processLSMShares(
     }
     bondAction.mode = NeutronAction.PROCESS_LSM_SHARES_BOND;
   } catch (e) {
+    /* If any exception occurred when broadcasting then set bondAction into ErrorLog
+     * And provide the error message
+     */
     bondAction = {
       mode: NeutronAction.PROCESS_LSM_SHARES_BOND,
       txHash: null,
