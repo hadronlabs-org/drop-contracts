@@ -1054,6 +1054,9 @@ async function main() {
     NEUTRON_NODE_ADDRESS,
     neutronWallet.mainWallet,
     {
+      /* Because of SigningStargateClient has no IBC transfer method by default,
+       * We have to use custom registry here
+       */
       registry: new Registry(
         new Map<string, GeneratedType>([
           ["/ibc.applications.transfer.v1.MsgTransfer", MsgTransfer],
@@ -1082,6 +1085,12 @@ async function main() {
     TARGET_NODE_ADDRESS,
     targetWallet.mainWallet,
     {
+      /* Because of:
+       *  - SigningStargateClient has no IBC transfer method by default
+       *  - SigningStargateClient has no MsgTokenizeShares method by default
+       * We've to use custom registry with additional message types
+       * That we need in LSM Share processing
+       */
       registry: new Registry(
         new Map<string, GeneratedType>([
           ["/cosmos.bank.v1beta1.MsgSend", MsgSend],
@@ -1099,7 +1108,6 @@ async function main() {
     neutronWallet.clientCW,
     CORE_CONTRACT
   );
-
   const actions: Array<() => Promise<Array<Action>>> = [
     async (): Promise<Array<Action>> => {
       if (Math.random() <= PROCESS_LSM_PROB) {
@@ -1136,6 +1144,9 @@ async function main() {
   while (actions.length !== 0) {
     const randomIndex = Math.floor(Math.random() * actions.length);
     const logs = await actions[randomIndex]();
+    /* Depending on what the mode of given log we sort it out into
+     * Either neutronLogs or targetLogs
+     */
     for (const log of logs) {
       if (isInstance(log.mode, TargetAction)) {
         targetLogs.push(log);
