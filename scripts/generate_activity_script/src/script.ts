@@ -542,33 +542,41 @@ async function delegateTokens(
   randomValidator: string,
   amount: Coin
 ): Promise<Action> {
-  const transactionHash = await clientSG.signAndBroadcastSync(
-    addressFrom,
-    [
-      {
-        typeUrl: "/cosmos.staking.v1beta1.MsgDelegate",
-        value: {
-          delegatorAddress: addressFrom,
-          validatorAddress: randomValidator,
-          amount: amount,
-        },
-      },
-    ],
-    {
-      gas: "400000",
-      amount: [
+  try {
+    const transactionHash = await clientSG.signAndBroadcastSync(
+      addressFrom,
+      [
         {
-          denom: TARGET_DENOM,
-          amount: "4000",
+          typeUrl: "/cosmos.staking.v1beta1.MsgDelegate",
+          value: {
+            delegatorAddress: addressFrom,
+            validatorAddress: randomValidator,
+            amount: amount,
+          },
         },
       ],
-    },
-    ""
-  );
-  return {
-    mode: TargetAction.PROCESS_LSM_SHARES_DELEGATE,
-    txHash: transactionHash,
-  };
+      {
+        gas: "400000",
+        amount: [
+          {
+            denom: TARGET_DENOM,
+            amount: "4000",
+          },
+        ],
+      },
+      ""
+    );
+    return {
+      mode: TargetAction.PROCESS_LSM_SHARES_DELEGATE,
+      txHash: transactionHash,
+    };
+  } catch (e) {
+    return {
+      mode: TargetAction.PROCESS_LSM_SHARES_DELEGATE,
+      txHash: null,
+      reason: e.message,
+    };
+  }
 }
 
 async function processLSMShares(
@@ -619,7 +627,20 @@ async function processLSMShares(
       Math.floor(Math.random() * whitelistedValidators.length)
     ];
 
-  return [logRandomIBCToTransfer];
+  const delegateTokensAction: Action = await delegateTokens(
+    targetWallet.clientSG,
+    targetWallet.mainAccounts[0].address,
+    randomValidator,
+    {
+      denom: TARGET_DENOM,
+      amount: String(transferedAmount),
+    }
+  );
+  if (logRandomIBCToTransfer["reason"] !== undefined) {
+    return [logRandomIBCToTransfer, delegateTokensAction];
+  }
+
+  return [logRandomIBCToTransfer, delegateTokensAction];
 }
 
 async function main() {
@@ -666,8 +687,8 @@ async function main() {
     }
   );
   targetWallet.clientSG = await SigningStargateClient.connectWithSigner(
-    NEUTRON_NODE_ADDRESS,
-    neutronWallet.mainWallet,
+    TARGET_NODE_ADDRESS,
+    targetWallet.mainWallet,
     {
       registry: new Registry(
         new Map<string, GeneratedType>([
