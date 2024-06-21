@@ -604,7 +604,10 @@ async function processLSMShares(
       targetWallet.mainAccounts[0].address,
       TARGET_DENOM
     );
-    if (targetDenomBalanceBefore === targetDenomBalanceAfter) {
+    if (
+      Number(targetDenomBalanceBefore.amount) ===
+      Number(targetDenomBalanceAfter.amount)
+    ) {
       await sleep(5000);
     } else {
       break;
