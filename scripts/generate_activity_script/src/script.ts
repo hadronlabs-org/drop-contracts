@@ -421,7 +421,7 @@ async function IBCTransfer(
   amount: Coin,
   fee: Coin
 ): Promise<string> {
-  return await clientSG.signAndBroadcastSync(
+  const { transactionHash } = await clientSG.signAndBroadcast(
     addressFrom,
     [
       {
@@ -445,6 +445,8 @@ async function IBCTransfer(
     },
     ""
   );
+
+  return transactionHash;
 }
 
 /* Function dedicated to do IBC transfer from Neutron to Remote Chain
@@ -606,7 +608,7 @@ async function delegateTokens(
   amount: Coin
 ): Promise<Action> {
   try {
-    const transactionHash = await clientSG.signAndBroadcastSync(
+    const { transactionHash } = await clientSG.signAndBroadcast(
       addressFrom,
       [
         {
@@ -658,7 +660,7 @@ async function tokenizeShares(
   amount: Coin
 ): Promise<Action> {
   try {
-    const transactionHash = await clientSG.signAndBroadcastSync(
+    const { transactionHash } = await clientSG.signAndBroadcast(
       addressFrom,
       [
         {
@@ -849,7 +851,6 @@ async function processLSMShares(
       Math.floor(Math.random() * whitelistedValidators.length)
     ];
 
-  await sleep(5000);
   /* === Delegation of this amount to validator from whitelist === */
   const delegateTokensAction: Action = await delegateTokens(
     targetWallet.clientSG,
@@ -867,16 +868,6 @@ async function processLSMShares(
   if (delegateTokensAction["reason"] !== undefined) {
     return [randomIBCToTransferAction, delegateTokensAction];
   }
-
-  /* We need to understand what is the latest tokenized share we'll have
-   * after TokenizeShare message execution
-   * We're going to use the same trick here. We're memorizing the latest tokenized share (if no such then it's null)
-   * And right after execution we're calling the same function to get the latest tokenized share
-   */
-  const lastLSMBeforeTokenizeSharesAction =
-    await lastTokenizeShareDenom(targetWallet);
-
-  await sleep(10000);
 
   /* === Tokenization of delegation from previous step into Shares === */
   const tokenizeSharesAction: Action = await tokenizeShares(
@@ -906,27 +897,6 @@ async function processLSMShares(
    */
   let lastLSMAfterTokenizeSharesAction =
     await lastTokenizeShareDenom(targetWallet);
-  if (lastLSMBeforeTokenizeSharesAction === null) {
-    while (lastLSMAfterTokenizeSharesAction === null) {
-      await sleep(5000);
-      lastLSMAfterTokenizeSharesAction =
-        await lastTokenizeShareDenom(targetWallet);
-    }
-  } else {
-    while (true) {
-      if (
-        lastLSMBeforeTokenizeSharesAction === lastLSMAfterTokenizeSharesAction
-      ) {
-        await sleep(5000);
-        lastLSMAfterTokenizeSharesAction =
-          await lastTokenizeShareDenom(targetWallet);
-      } else {
-        break;
-      }
-    }
-  }
-
-  await sleep(5000);
 
   /* In order to reveal what's the latest IBC denom on Neutron chain is
    * We're using the same method. Before IBCFromTransfer we're memorizing the current denom list
@@ -960,8 +930,6 @@ async function processLSMShares(
     ];
   }
 
-  await sleep(5000);
-
   /* Iterate over the new denoms and wait until
    * New denom'll appear in the list
    */
@@ -972,7 +940,6 @@ async function processLSMShares(
         neutronWallet.mainAccounts[0].address
       )
     ).map((coin) => coin.denom);
-
     if (
       neutronDenomsAfterIBCFromSend.length ===
       neutronDenomsBeforeIBCFromSend.length
@@ -988,8 +955,6 @@ async function processLSMShares(
   const newDenom: string = neutronDenomsAfterIBCFromSend.filter(
     (denom) => !neutronDenomsBeforeIBCFromSend.includes(denom)
   )[0];
-
-  await sleep(5000);
 
   /* === Bond Tokenized Shares === */
   let bondAction: Action;
