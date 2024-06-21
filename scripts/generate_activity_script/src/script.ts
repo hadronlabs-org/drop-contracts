@@ -1,6 +1,10 @@
 import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { SigningStargateClient } from "@cosmjs/stargate";
-import { AccountData, DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
+import {
+  AccountData,
+  DirectSecp256k1HdWallet,
+  Registry,
+} from "@cosmjs/proto-signing";
 import { GasPrice, Coin } from "@cosmjs/stargate";
 import { Client as DropCoreClient } from "../../../integration_tests/src/generated/contractLib/dropCore";
 import { Client as DropWithdrawalManager } from "../../../integration_tests/src/generated/contractLib/dropWithdrawalManager";
