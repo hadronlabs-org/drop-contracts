@@ -751,6 +751,8 @@ async function processLSMShares(
     ];
   }
 
+  await sleep(5000);
+
   const IBCFromTransferAction: Action = await IBCFromTransfer(
     targetWallet.clientSG,
     targetWallet.mainAccounts[0].address,
