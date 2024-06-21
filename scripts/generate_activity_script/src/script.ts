@@ -407,15 +407,16 @@ async function withdrawRandomNFT(
   }
 }
 
-async function IBCToTransfer(
+async function IBCTransfer(
   clientSG: SigningStargateClient,
   addressFrom: string,
   addressTo: string,
   channel: string,
   port: string,
-  amount: Coin
-): Promise<Action> {
-  const transactionHash = await clientSG.signAndBroadcastSync(
+  amount: Coin,
+  fee: Coin
+): Promise<string> {
+  return await clientSG.signAndBroadcastSync(
     addressFrom,
     [
       {
@@ -435,19 +436,44 @@ async function IBCToTransfer(
     ],
     {
       gas: "400000",
-      amount: [
-        {
-          denom: "untrn",
-          amount: "4000",
-        },
-      ],
+      amount: [fee],
     },
     ""
   );
-  return {
-    txHash: transactionHash,
-    mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
-  };
+}
+
+async function IBCToTransfer(
+  clientSG: SigningStargateClient,
+  addressFrom: string,
+  addressTo: string,
+  channel: string,
+  port: string,
+  amount: Coin
+) {
+  try {
+    const txHash = await IBCTransfer(
+      clientSG,
+      addressFrom,
+      addressTo,
+      channel,
+      port,
+      amount,
+      {
+        denom: "untrn",
+        amount: "4000",
+      }
+    );
+    return {
+      mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
+      txHash: txHash,
+    };
+  } catch (e) {
+    return {
+      mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
+      txHash: null,
+      reason: e.message,
+    };
+  }
 }
 
 async function randomIBCToTransfer(
@@ -630,41 +656,33 @@ async function IBCFromTransfer(
   channel: string,
   port: string,
   amount: Coin
-): Promise<Action> {
-  const transactionHash = await clientSG.signAndBroadcastSync(
-    addressFrom,
-    [
+) {
+  try {
+    const txHash = await IBCTransfer(
+      clientSG,
+      addressFrom,
+      addressTo,
+      channel,
+      port,
+      amount,
       {
-        typeUrl: "/ibc.applications.transfer.v1.MsgTransfer",
-        value: {
-          sourcePort: port,
-          sourceChannel: channel,
-          token: amount,
-          sender: addressFrom,
-          receiver: addressTo,
-          timeoutHeight: "0",
-          timeoutTimestamp: String(
-            Math.floor(Date.now() / 1000) * 1e9 + 10 * 60 * 1e9
-          ),
-        },
-      },
-    ],
-    {
-      gas: "400000",
-      amount: [
-        {
-          denom: TARGET_DENOM,
-          amount: "4000",
-        },
-      ],
-    },
-    ""
-  );
-  return {
-    txHash: transactionHash,
-    mode: TargetAction.PROCESS_LSM_SHARES_IBC_FROM,
-  };
+        denom: TARGET_DENOM,
+        amount: "4000",
+      }
+    );
+    return {
+      mode: TargetAction.PROCESS_LSM_SHARES_IBC_FROM,
+      txHash: txHash,
+    };
+  } catch (e) {
+    return {
+      mode: TargetAction.PROCESS_LSM_SHARES_IBC_FROM,
+      txHash: null,
+      reason: e.message,
+    };
+  }
 }
+
 async function lastTokenizeShareDenom(
   targetWallet: Wallet
 ): Promise<string | null> {
