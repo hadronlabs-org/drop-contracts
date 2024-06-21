@@ -758,7 +758,10 @@ async function processLSMShares(
     return [randomIBCToTransferAction, delegateTokensAction];
   }
 
-  await sleep(5000);
+  const lastLSMBeforeTokenizeSharesAction =
+    await lastTokenizeShareDenom(targetWallet);
+
+  await sleep(10000);
 
   const tokenizeSharesAction: Action = await tokenizeShares(
     targetWallet.clientSG,
@@ -777,6 +780,29 @@ async function processLSMShares(
     ];
   }
 
+  let lastLSMAfterTokenizeSharesAction =
+    await lastTokenizeShareDenom(targetWallet);
+
+  if (lastLSMBeforeTokenizeSharesAction === null) {
+    while (lastLSMAfterTokenizeSharesAction === null) {
+      await sleep(5000);
+      lastLSMAfterTokenizeSharesAction =
+        await lastTokenizeShareDenom(targetWallet);
+    }
+  } else {
+    while (true) {
+      if (
+        lastLSMBeforeTokenizeSharesAction === lastLSMAfterTokenizeSharesAction
+      ) {
+        await sleep(5000);
+        lastLSMAfterTokenizeSharesAction =
+          await lastTokenizeShareDenom(targetWallet);
+      } else {
+        break;
+      }
+    }
+  }
+
   await sleep(5000);
 
   const IBCFromTransferAction: Action = await IBCFromTransfer(
@@ -786,7 +812,7 @@ async function processLSMShares(
     IBC_CHANNEL_FROM,
     "transfer",
     {
-      denom: TARGET_DENOM,
+      denom: lastLSMAfterTokenizeSharesAction,
       amount: String(transferedAmount),
     }
   );
