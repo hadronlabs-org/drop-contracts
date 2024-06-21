@@ -411,6 +411,7 @@ async function withdrawRandomNFT(
  * This function used by two other functions in this script:
  *  - IBCToTransfer
  *  - IBCFromTransfer
+ * We've to use signAndBroadcast instead of sendIbcTokens since second is deprecated
  */
 async function IBCTransfer(
   clientSG: SigningStargateClient,
@@ -608,18 +609,10 @@ async function delegateTokens(
   amount: Coin
 ): Promise<Action> {
   try {
-    const { transactionHash } = await clientSG.signAndBroadcast(
+    const { transactionHash } = await clientSG.delegateTokens(
       addressFrom,
-      [
-        {
-          typeUrl: "/cosmos.staking.v1beta1.MsgDelegate",
-          value: {
-            delegatorAddress: addressFrom,
-            validatorAddress: randomValidator,
-            amount: amount,
-          },
-        },
-      ],
+      randomValidator,
+      amount,
       {
         gas: "400000",
         amount: [
