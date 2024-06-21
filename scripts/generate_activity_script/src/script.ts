@@ -823,6 +823,12 @@ async function processLSMShares(
 
   await sleep(5000);
 
+  const neutronDenomsBeforeIBCFromSend: Array<string> = (
+    await neutronWallet.clientSG.getAllBalances(
+      neutronWallet.mainAccounts[0].address
+    )
+  ).map((coin) => coin.denom);
+
   const IBCFromTransferAction: Action = await IBCFromTransfer(
     targetWallet.clientSG,
     targetWallet.mainAccounts[0].address,
@@ -842,6 +848,30 @@ async function processLSMShares(
       IBCFromTransferAction,
     ];
   }
+
+  await sleep(5000);
+
+  let neutronDenomsAfterIBCFromSend: Array<string> = [];
+  while (true) {
+    neutronDenomsAfterIBCFromSend = (
+      await neutronWallet.clientSG.getAllBalances(
+        neutronWallet.mainAccounts[0].address
+      )
+    ).map((coin) => coin.denom);
+
+    if (
+      neutronDenomsAfterIBCFromSend.length ===
+      neutronDenomsBeforeIBCFromSend.length
+    ) {
+      await sleep(5000);
+    } else {
+      break;
+    }
+  }
+
+  const newDenom: string = neutronDenomsAfterIBCFromSend.filter(
+    (denom) => !neutronDenomsBeforeIBCFromSend.includes(denom)
+  )[0];
 
   return [
     randomIBCToTransferAction,
