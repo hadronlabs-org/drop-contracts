@@ -538,12 +538,35 @@ async function processLSMShares(
   targetWallet: Wallet,
   dropCore: DropCoreClient
 ): Promise<Array<Action>> {
-  const logRandomIBCToTransfer = await randomIBCToTransfer(
+  const targetDenomBalanceBefore = await targetWallet.clientCW.getBalance(
+    targetWallet.mainAccounts[0].address,
+    TARGET_DENOM
+  );
+  const logRandomIBCToTransfer: Action = await randomIBCToTransfer(
     dropCore,
     neutronWallet,
     neutronWallet.mainAccounts[0].address,
     targetWallet.mainAccounts[0].address
   );
+  if (logRandomIBCToTransfer["reason"] !== undefined) {
+    return [logRandomIBCToTransfer];
+  }
+
+  let targetDenomBalanceAfter: Coin;
+  while (true) {
+    targetDenomBalanceAfter = await targetWallet.clientCW.getBalance(
+      targetWallet.mainAccounts[0].address,
+      TARGET_DENOM
+    );
+    if (targetDenomBalanceBefore === targetDenomBalanceAfter) {
+      await sleep(5000);
+    } else {
+      break;
+    }
+  }
+  const transferedAmount =
+    Number(targetDenomBalanceAfter.amount) -
+    Number(targetDenomBalanceBefore.amount);
   return [logRandomIBCToTransfer];
 }
 
