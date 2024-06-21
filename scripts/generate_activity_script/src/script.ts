@@ -751,10 +751,23 @@ async function processLSMShares(
     ];
   }
 
+  const IBCFromTransferAction: Action = await IBCFromTransfer(
+    targetWallet.clientSG,
+    targetWallet.mainAccounts[0].address,
+    neutronWallet.mainAccounts[0].address,
+    IBC_CHANNEL_FROM,
+    "transfer",
+    {
+      denom: TARGET_DENOM,
+      amount: String(transferedAmount),
+    }
+  );
+
   return [
     randomIBCToTransferAction,
     delegateTokensAction,
     tokenizeSharesAction,
+    IBCFromTransferAction,
   ];
 }
 
