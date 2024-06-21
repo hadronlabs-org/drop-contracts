@@ -873,11 +873,24 @@ async function processLSMShares(
     (denom) => !neutronDenomsBeforeIBCFromSend.includes(denom)
   )[0];
 
+  await sleep(5000);
+
+  const bondAction: Action = await bond(
+    dropCore,
+    neutronWallet.mainAccounts[0].address,
+    {
+      denom: newDenom,
+      amount: String(transferedAmount),
+    }
+  );
+  bondAction.mode = NeutronAction.PROCESS_LSM_SHARES_BOND;
+
   return [
     randomIBCToTransferAction,
     delegateTokensAction,
     tokenizeSharesAction,
     IBCFromTransferAction,
+    bondAction,
   ];
 }
 
