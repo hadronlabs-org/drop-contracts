@@ -834,6 +834,14 @@ async function processLSMShares(
       amount: String(transferedAmount),
     }
   );
+  if (IBCFromTransferAction["reason"] !== undefined) {
+    return [
+      randomIBCToTransferAction,
+      delegateTokensAction,
+      tokenizeSharesAction,
+      IBCFromTransferAction,
+    ];
+  }
 
   return [
     randomIBCToTransferAction,
