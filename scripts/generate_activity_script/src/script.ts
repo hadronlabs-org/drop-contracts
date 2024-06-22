@@ -445,7 +445,7 @@ async function IBCTransfer(
       },
     ],
     {
-      gas: "400000",
+      gas: "200000",
       amount: [fee],
     },
     ""
@@ -475,7 +475,7 @@ async function IBCToTransfer(
       amount,
       {
         denom: "untrn",
-        amount: "4000",
+        amount: "2000",
       }
     );
     return {
@@ -718,7 +718,7 @@ async function IBCFromTransfer(
       amount,
       {
         denom: TARGET_DENOM,
-        amount: "4000",
+        amount: "2000",
       }
     );
     return {
