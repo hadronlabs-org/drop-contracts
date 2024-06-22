@@ -888,17 +888,17 @@ async function processLSMShares(
     ];
   }
 
-  /* Right after the execution depends on had we any tokenized share before
-   * Go through while loop and get the latest tokenized share denom which will be used
-   * In further IBCFromTransfer
+  /* Latest tokenized share is our denom that we're looking for
+   * We need it to do IBC send back to Neutron from remote chain
    */
   let lastLSMAfterTokenizeSharesAction =
     await lastTokenizeShareDenom(targetWallet);
 
   /* In order to reveal what's the latest IBC denom on Neutron chain is
-   * We're using the same method. Before IBCFromTransfer we're memorizing the current denom list
+   * We're using the same method as in previous IBC send
+   * Before IBCFromTransfer we're memorizing the current denom list
    * After the execution we'll compare neutronDenomsBeforeIBCFromSend and neutronDenomsAfterIBCFromSend arrays length
-   * To get the new denom on Neutron
+   * To get the new IBC denom on Neutron
    */
   const neutronDenomsBeforeIBCFromSend: Array<string> = (
     await neutronWallet.clientSG.getAllBalances(
