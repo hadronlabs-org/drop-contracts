@@ -822,7 +822,7 @@ async function processLSMShares(
       Number(targetDenomBalanceBefore.amount) ===
       Number(targetDenomBalanceAfter.amount)
     ) {
-      await sleep(5000);
+      await sleep(2000);
     } else {
       break;
     }
@@ -940,7 +940,7 @@ async function processLSMShares(
       neutronCoinsAfterIBCFromSend.length ===
       neutronDenomsBeforeIBCFromSend.length
     ) {
-      await sleep(5000);
+      await sleep(2000);
     } else {
       neutronDenomsAfterIBCFromSend = neutronCoinsAfterIBCFromSend.map(
         (coin) => coin.denom
