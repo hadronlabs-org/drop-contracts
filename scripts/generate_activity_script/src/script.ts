@@ -932,17 +932,19 @@ async function processLSMShares(
    */
   let neutronDenomsAfterIBCFromSend: Array<string> = [];
   while (true) {
-    neutronDenomsAfterIBCFromSend = (
+    const neutronCoinsAfterIBCFromSend =
       await neutronWallet.clientSG.getAllBalances(
         neutronWallet.mainAccounts[0].address
-      )
-    ).map((coin) => coin.denom);
+      );
     if (
-      neutronDenomsAfterIBCFromSend.length ===
+      neutronCoinsAfterIBCFromSend.length ===
       neutronDenomsBeforeIBCFromSend.length
     ) {
       await sleep(5000);
     } else {
+      neutronDenomsAfterIBCFromSend = neutronCoinsAfterIBCFromSend.map(
+        (coin) => coin.denom
+      );
       break;
     }
   }
