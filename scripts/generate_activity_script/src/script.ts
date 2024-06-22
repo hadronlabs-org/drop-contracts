@@ -671,11 +671,11 @@ async function tokenizeShares(
         },
       ],
       {
-        gas: "400000",
+        gas: "100000",
         amount: [
           {
             denom: TARGET_DENOM,
-            amount: "4000",
+            amount: "1000",
           },
         ],
       },
