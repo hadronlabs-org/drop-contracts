@@ -506,11 +506,11 @@ async function IBCToTransfer(
 async function randomIBCToTransfer(
   dropCore: DropCoreClient,
   neutronWallet: Wallet,
-  address_from: string,
-  address_to: string
+  addressFrom: string,
+  addressTo: string
 ): Promise<Action> {
   const baseDenomBalance: Coin = await neutronWallet.clientCW.getBalance(
-    address_from,
+    addressFrom,
     BASE_DENOM
   );
   /* If here is nothing to send on our balance, then just return ErrorLog
@@ -568,8 +568,8 @@ async function randomIBCToTransfer(
      */
     const res = await IBCToTransfer(
       neutronWallet.clientSG,
-      address_from,
-      address_to,
+      addressFrom,
+      addressTo,
       IBC_CHANNEL_TO,
       "transfer",
       {
