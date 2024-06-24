@@ -120,9 +120,7 @@ async function bond(
   };
 }
 
-/* Function returns Action if transaction succeeded and null if any error or problem occurred
- * We don't really need to know type of error here since it isn't crucial for us,
- * We'll just try another method in core
+/* Function returns ActionLog if transaction succeeded and throws an error if any problem occurred
  */
 async function bondRandomAmount(
   neutronWallet: Wallet,
@@ -130,8 +128,7 @@ async function bondRandomAmount(
 ): Promise<ActionLog> {
   const address: string = neutronWallet.mainAccounts[0].address;
 
-  /* If here is nothing to bond on our balance, then just return ErrorLog
-   * Other random method will be tried to call then
+  /* If here is nothing to bond on our balance, then just throw an error
    */
   const IBCDenomBalance: Coin = await neutronWallet.clientCW.getBalance(
     address,
@@ -171,9 +168,6 @@ async function bondRandomAmount(
       ? Number(IBCDenomBalance.amount)
       : MAX_BOND;
 
-  /* If any error occured when executing method then just ignore
-   * It's content and return null, script will try to call another method
-   */
   const randomAmount: number = Math.floor(Math.random() * (max - min) + min);
 
   const res = await bond(dropInstance, address, {
@@ -204,17 +198,14 @@ async function unbond(
   };
 }
 
-/* Function returns Action if transaction succeeded and null if any error or problem occurred
- * We don't really need to know type of error here since it isn't crucial for us,
- * We'll just try another method in core
+/* Function returns ActionLog if transaction succeeded and throws an error if any problem occurred
  */
 async function unbondRandomAmount(
   neutronWallet: Wallet,
   dropInstance: DropCoreClient
 ): Promise<ActionLog> {
   const address: string = neutronWallet.mainAccounts[0].address;
-  /* If here is nothing to bond on our balance, then just return ErrorLog
-   * Other random method will be tried to call then
+  /* If here is nothing to bond on our balance, then just throw an error
    */
   const factoryBalance: Coin = await neutronWallet.clientCW.getBalance(
     address,
@@ -229,9 +220,6 @@ async function unbondRandomAmount(
       ? Number(factoryBalance.amount)
       : MAX_UNBOND;
 
-  /* If any error occured when executing method then just ignore
-   * It's content and return null, script will try to call another method
-   */
   const randomAmount: number = Math.floor(Math.random() * Number(max) + 1);
   const res = await unbond(dropInstance, address, {
     amount: String(randomAmount),
@@ -250,6 +238,10 @@ async function sendNFT(
   address: string,
   NFTID: string
 ): Promise<ActionLog> {
+  /* To withdraw unbonded amount we need to send nft to the withdrawal_manager contract
+   * To do that we need to call send method on withdrawal_voucher contract (which is NFT contract underhood)
+   * Field msg here is encoded base64 json object { "withdraw": {} }
+   */
   const { transactionHash } = await withdrawalVoucher.sendNft(
     address,
     {
@@ -261,19 +253,13 @@ async function sendNFT(
     "",
     []
   );
-  /* To withdraw unbonded amount we need to send nft to the withdrawal_manager contract
-   * To do that we need to call send method on withdrawal_voucher contract (which is NFT contract underhood)
-   * Field msg here is encoded base64 json object { "withdraw": {} }
-   */
   return {
     mode: NeutronAction.WITHDRAW,
     txHash: transactionHash,
   };
 }
 
-/* Function returns Action if transaction succeeded and null if any error or problem occurred
- * We don't really need to know type of error here since it isn't crucial for us,
- * We'll just try another method in core
+/* Function returns Action if transaction succeeded and throws an error if any problem occurred
  */
 async function withdrawRandomNFT(
   neutronWallet: Wallet,
@@ -331,7 +317,7 @@ async function withdrawRandomNFT(
   }
 
   /* Nothing to withdraw
-   * Return null and try another method in contract
+   * Throw an exception
    */
   if (withdrawnNFTs.length === 0) {
     throw "Nothing to withdraw";
@@ -401,7 +387,7 @@ async function IBCTransfer(
 }
 
 /* Function dedicated to do IBC transfer from Neutron to Remote Chain
- * Function handles any exceptions from the inner call and provides with message if some
+ * Function doesn't handle any exceptions from the inner call
  */
 async function IBCToTransfer(
   clientSG: SigningStargateClient,
@@ -443,8 +429,7 @@ async function randomIBCToTransfer(
     addressFrom,
     BASE_DENOM
   );
-  /* If here is nothing to send on our balance, then just return ErrorLog
-   * Other random method will be tried to call then
+  /* If here is nothing to send on our balance, then just throw an error
    */
   if (Number(baseDenomBalance.amount) === 0) {
     throw `Nothing to transfer via IBC, ${BASE_DENOM} balance is 0`;
@@ -502,9 +487,9 @@ async function randomIBCToTransfer(
   }
 
   /* Check for the error code in given transaction
-   * If it's not a zero return ErrorLog and hint that the transaction should be checked
-   * BTW, since neutron nodes collecting the transaction details here we can check for the eny errors
-   * On the remote chain it either could be possible or no.
+   * If it's not a zero then throw an error and hint that the transaction should be checked
+   * BTW, since neutron nodes're collecting the transaction details here we can check for the eny errors
+   * On the remote chain it either could be possible or not (because protobuf structs may differ).
    * It's a reason why we check it here and don't check in IBCFromTransfer function
    */
   const { code, hash } = txDetails;
@@ -659,7 +644,7 @@ async function lastTokenizeShareDenom(
  * Each of these actions processed separately including all specifics
  * If one of these transactions falled on certain step then:
  *  - Nothing happens in future and already executed transactions won't be somehow reverted
- *  - This function sends back the ActionLog from all successfully executed transactions back to main with 1 ErrorLog from failed transaction
+ *  - This function sends back the Array<ActionLog> with all successfully executed transactions back to main
  */
 async function processLSMShares(
   neutronWallet: Wallet,
@@ -813,7 +798,7 @@ async function processLSMShares(
   );
   /* It's the Neutron and we definetely know that transactions are indexed here
    * So then we're querying status code of the bond executin and depends on the code
-   * Returning either ErrorLog or ActionLog
+   * Return either ActionLog or throw an exception
    * Also, not forgetting to set bondAction.mode into NeutronAction.PROCESS_LSM_SHARES_BOND
    * Since it's just NeutronAction.BOND by default
    */
