@@ -103,14 +103,6 @@ type ActionLog = {
   txHash: string;
 };
 
-type ErrorLog = {
-  mode: MODE;
-  txHash: string | null;
-  reason: string;
-};
-
-type Action = ActionLog | ErrorLog;
-
 async function bond(
   dropInstance: DropCoreClient,
   address: string,
@@ -135,7 +127,7 @@ async function bond(
 async function bondRandomAmount(
   neutronWallet: Wallet,
   dropInstance: DropCoreClient
-): Promise<Action> {
+): Promise<ActionLog> {
   const address: string = neutronWallet.mainAccounts[0].address;
 
   /* If here is nothing to bond on our balance, then just return ErrorLog
@@ -146,11 +138,7 @@ async function bondRandomAmount(
     BASE_DENOM
   );
   if (Number(IBCDenomBalance.amount) === 0) {
-    return {
-      mode: NeutronAction.BOND,
-      txHash: null,
-      reason: `Nothing to bond, ${BASE_DENOM} balance is 0`,
-    };
+    throw `Nothing to bond, ${BASE_DENOM} balance is 0`;
   }
 
   const config = await dropInstance.queryConfig();
@@ -168,18 +156,10 @@ async function bondRandomAmount(
       ? minExchangeRate
       : Number(config.lsm_min_bond_amount);
   if (min > Number(IBCDenomBalance.amount)) {
-    return {
-      mode: NeutronAction.BOND,
-      txHash: null,
-      reason: `Nothing to bond, ${BASE_DENOM} balance is lower then min(${min}) (this value either exchange rate or config.lsm_min_bond_amount)`,
-    };
+    throw `Nothing to bond, ${BASE_DENOM} balance is lower then min(${min}) (this value either exchange rate or config.lsm_min_bond_amount)`;
   }
   if (min > MAX_BOND) {
-    return {
-      mode: NeutronAction.BOND,
-      txHash: null,
-      reason: `MAX_BOND lower then min(${min}) (this value either exchange rate or config.lsm_min_bond_amount)`,
-    };
+    throw `MAX_BOND lower then min(${min}) (this value either exchange rate or config.lsm_min_bond_amount)`;
   }
 
   /* Maximum amount of funds that we can send to core contract while bonding
@@ -195,27 +175,16 @@ async function bondRandomAmount(
    * It's content and return null, script will try to call another method
    */
   const randomAmount: number = Math.floor(Math.random() * (max - min) + min);
-  try {
-    const res = await bond(dropInstance, address, {
-      amount: String(randomAmount),
-      denom: BASE_DENOM,
-    });
-    const { code, hash } = await neutronWallet.clientCW.getTx(res.txHash);
-    if (code !== 0) {
-      return {
-        mode: NeutronAction.BOND,
-        txHash: hash,
-        reason: "Check up given hash",
-      };
-    }
-    return res;
-  } catch (e) {
-    return {
-      mode: NeutronAction.BOND,
-      txHash: null,
-      reason: e.message,
-    };
+
+  const res = await bond(dropInstance, address, {
+    amount: String(randomAmount),
+    denom: BASE_DENOM,
+  });
+  const { code, hash } = await neutronWallet.clientCW.getTx(res.txHash);
+  if (code !== 0) {
+    throw `Check up given hash${hash}`;
   }
+  return res;
 }
 
 async function unbond(
@@ -242,7 +211,7 @@ async function unbond(
 async function unbondRandomAmount(
   neutronWallet: Wallet,
   dropInstance: DropCoreClient
-): Promise<Action> {
+): Promise<ActionLog> {
   const address: string = neutronWallet.mainAccounts[0].address;
   /* If here is nothing to bond on our balance, then just return ErrorLog
    * Other random method will be tried to call then
@@ -252,11 +221,7 @@ async function unbondRandomAmount(
     FACTORY_DENOM
   );
   if (Number(factoryBalance.amount) === 0) {
-    return {
-      mode: NeutronAction.UNBOND,
-      txHash: null,
-      reason: `Nothing to unbond, ${FACTORY_DENOM} balance is 0`,
-    };
+    throw `Nothing to unbond, ${FACTORY_DENOM} balance is 0`;
   }
 
   const max: number =
@@ -268,27 +233,15 @@ async function unbondRandomAmount(
    * It's content and return null, script will try to call another method
    */
   const randomAmount: number = Math.floor(Math.random() * Number(max) + 1);
-  try {
-    const res = await unbond(dropInstance, address, {
-      amount: String(randomAmount),
-      denom: FACTORY_DENOM,
-    });
-    const { code, hash } = await neutronWallet.clientCW.getTx(res.txHash);
-    if (code !== 0) {
-      return {
-        mode: NeutronAction.UNBOND,
-        txHash: hash,
-        reason: "Check up given hash",
-      };
-    }
-    return res;
-  } catch (e) {
-    return {
-      mode: NeutronAction.UNBOND,
-      txHash: null,
-      reason: e.message,
-    };
+  const res = await unbond(dropInstance, address, {
+    amount: String(randomAmount),
+    denom: FACTORY_DENOM,
+  });
+  const { code, hash } = await neutronWallet.clientCW.getTx(res.txHash);
+  if (code !== 0) {
+    throw `Check up given hash ${hash}`;
   }
+  return res;
 }
 
 async function sendNFT(
@@ -325,7 +278,7 @@ async function sendNFT(
 async function withdrawRandomNFT(
   neutronWallet: Wallet,
   dropInstance: DropCoreClient
-): Promise<Action> {
+): Promise<ActionLog> {
   const address: string = neutronWallet.mainAccounts[0].address;
   /* Get both withdrawal_manager and withdrawal_voucher wrappers based on querying config method
    * We need them to execute send_nft method on withdrawal_voucher with withdrawal_manager as the recepient
@@ -381,11 +334,7 @@ async function withdrawRandomNFT(
    * Return null and try another method in contract
    */
   if (withdrawnNFTs.length === 0) {
-    return {
-      mode: NeutronAction.WITHDRAW,
-      txHash: null,
-      reason: "Nothing to withdraw",
-    };
+    throw "Nothing to withdraw";
   }
 
   /* Pick up random NFT from given NFT list and try to withdraw it
@@ -394,29 +343,18 @@ async function withdrawRandomNFT(
    */
   const NFTID: string =
     withdrawnNFTs[Math.floor(Math.random() * withdrawnNFTs.length)];
-  try {
-    const res = await sendNFT(
-      withdrawalVoucher,
-      withdrawalManager,
-      address,
-      NFTID
-    );
-    const { code, hash } = await neutronWallet.clientCW.getTx(res.txHash);
-    if (code !== 0) {
-      return {
-        mode: NeutronAction.WITHDRAW,
-        txHash: hash,
-        reason: "Check up given hash",
-      };
-    }
-    return res;
-  } catch (e) {
-    return {
-      mode: NeutronAction.WITHDRAW,
-      txHash: null,
-      reason: e.message,
-    };
+
+  const res = await sendNFT(
+    withdrawalVoucher,
+    withdrawalManager,
+    address,
+    NFTID
+  );
+  const { code, hash } = await neutronWallet.clientCW.getTx(res.txHash);
+  if (code !== 0) {
+    throw `Check up given hash ${hash}`;
   }
+  return res;
 }
 
 /* Function dedicated to do IBC transfer
@@ -473,30 +411,22 @@ async function IBCToTransfer(
   port: string,
   amount: Coin
 ) {
-  try {
-    const txHash = await IBCTransfer(
-      clientSG,
-      addressFrom,
-      addressTo,
-      channel,
-      port,
-      amount,
-      {
-        denom: "untrn",
-        amount: "2000",
-      }
-    );
-    return {
-      mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
-      txHash: txHash,
-    };
-  } catch (e) {
-    return {
-      mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
-      txHash: null,
-      reason: e.message,
-    };
-  }
+  const txHash = await IBCTransfer(
+    clientSG,
+    addressFrom,
+    addressTo,
+    channel,
+    port,
+    amount,
+    {
+      denom: "untrn",
+      amount: "2000",
+    }
+  );
+  return {
+    mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
+    txHash: txHash,
+  };
 }
 
 /* Function dedicated to choose the random amount of tokens that we want to send in processLSMShares function
@@ -508,7 +438,7 @@ async function randomIBCToTransfer(
   neutronWallet: Wallet,
   addressFrom: string,
   addressTo: string
-): Promise<Action> {
+): Promise<ActionLog> {
   const baseDenomBalance: Coin = await neutronWallet.clientCW.getBalance(
     addressFrom,
     BASE_DENOM
@@ -517,11 +447,7 @@ async function randomIBCToTransfer(
    * Other random method will be tried to call then
    */
   if (Number(baseDenomBalance.amount) === 0) {
-    return {
-      mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
-      txHash: null,
-      reason: `Nothing to transfer via IBC, ${BASE_DENOM} balance is 0`,
-    };
+    throw `Nothing to transfer via IBC, ${BASE_DENOM} balance is 0`;
   }
 
   const exchangeRate: number = Math.floor(
@@ -539,18 +465,10 @@ async function randomIBCToTransfer(
       ? minExchangeRate
       : Number(config.lsm_min_bond_amount);
   if (min > Number(baseDenomBalance.amount)) {
-    return {
-      mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
-      txHash: null,
-      reason: `Nothing to send via IBC, ${BASE_DENOM} balance is lower then min(${min}) (this value either exchange rate or config.lsm_min_bond_amount)`,
-    };
+    throw `Nothing to send via IBC, ${BASE_DENOM} balance is lower then min(${min}) (this value either exchange rate or config.lsm_min_bond_amount)`;
   }
   if (min > MAX_LSM_PROCESS) {
-    return {
-      mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
-      txHash: null,
-      reason: `MAX_LSM_PROCESS lower then min(${min}) (this value either exchange rate or config.lsm_min_bond_amount)`,
-    };
+    throw `MAX_LSM_PROCESS lower then min(${min}) (this value either exchange rate or config.lsm_min_bond_amount)`;
   }
 
   /* max is a maximum amount of tokens that this function can randomly choose from interval
@@ -563,51 +481,37 @@ async function randomIBCToTransfer(
       : MAX_LSM_PROCESS;
 
   const randomAmount: number = Math.floor(Math.random() * (max - min) + min);
-  try {
-    /* By default in our case it's always "transfer" port
-     */
-    const res = await IBCToTransfer(
-      neutronWallet.clientSG,
-      addressFrom,
-      addressTo,
-      IBC_CHANNEL_TO,
-      "transfer",
-      {
-        denom: BASE_DENOM,
-        amount: String(randomAmount),
-      }
-    );
-    let txDetails: IndexedTx = await neutronWallet.clientCW.getTx(res.txHash);
-    while (txDetails === null) {
-      await sleep(5000);
-      txDetails = await neutronWallet.clientCW.getTx(res.txHash);
-    }
 
-    /* Check for the error code in given transaction
-     * If it's not a zero return ErrorLog and hint that the transaction should be checked
-     * BTW, since neutron nodes collecting the transaction details here we can check for the eny errors
-     * On the remote chain it either could be possible or no.
-     * It's a reason why we check it here and don't check in IBCFromTransfer function
-     */
-    const { code, hash } = txDetails;
-    if (code !== 0) {
-      return {
-        mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
-        txHash: hash,
-        reason: "Check up given hash",
-      };
+  /* By default in our case it's always "transfer" port
+   */
+  const res = await IBCToTransfer(
+    neutronWallet.clientSG,
+    addressFrom,
+    addressTo,
+    IBC_CHANNEL_TO,
+    "transfer",
+    {
+      denom: BASE_DENOM,
+      amount: String(randomAmount),
     }
-    return res;
-  } catch (e) {
-    /* If any exception occurred when broadcasting then return ErrorLog
-     * And provide the error message
-     */
-    return {
-      mode: NeutronAction.PROCESS_LSM_SHARES_IBC_TO,
-      txHash: null,
-      reason: e.message,
-    };
+  );
+  let txDetails: IndexedTx = await neutronWallet.clientCW.getTx(res.txHash);
+  while (txDetails === null) {
+    await sleep(5000);
+    txDetails = await neutronWallet.clientCW.getTx(res.txHash);
   }
+
+  /* Check for the error code in given transaction
+   * If it's not a zero return ErrorLog and hint that the transaction should be checked
+   * BTW, since neutron nodes collecting the transaction details here we can check for the eny errors
+   * On the remote chain it either could be possible or no.
+   * It's a reason why we check it here and don't check in IBCFromTransfer function
+   */
+  const { code, hash } = txDetails;
+  if (code !== 0) {
+    `Check up given hash ${hash}`;
+  }
+  return res;
 }
 
 /* Function dedicated to delegate tokens
@@ -619,37 +523,26 @@ async function delegateTokens(
   addressFrom: string,
   randomValidator: string,
   amount: Coin
-): Promise<Action> {
-  try {
-    const { transactionHash } = await clientSG.delegateTokens(
-      addressFrom,
-      randomValidator,
-      amount,
-      {
-        gas: "100000",
-        amount: [
-          {
-            denom: TARGET_DENOM,
-            amount: "1000",
-          },
-        ],
-      },
-      ""
-    );
-    return {
-      mode: TargetAction.PROCESS_LSM_SHARES_DELEGATE,
-      txHash: transactionHash,
-    };
-  } catch (e) {
-    return {
-      /* If any exception occurred when broadcasting then return ErrorLog
-       * And provide the error message
-       */
-      mode: TargetAction.PROCESS_LSM_SHARES_DELEGATE,
-      txHash: null,
-      reason: e.message,
-    };
-  }
+): Promise<ActionLog> {
+  const { transactionHash } = await clientSG.delegateTokens(
+    addressFrom,
+    randomValidator,
+    amount,
+    {
+      gas: "100000",
+      amount: [
+        {
+          denom: TARGET_DENOM,
+          amount: "1000",
+        },
+      ],
+    },
+    ""
+  );
+  return {
+    mode: TargetAction.PROCESS_LSM_SHARES_DELEGATE,
+    txHash: transactionHash,
+  };
 }
 
 /* Function dedicated to tokenize deligated tokens into shares
@@ -663,46 +556,35 @@ async function tokenizeShares(
   validatorAddress: string,
   addressFrom: string,
   amount: Coin
-): Promise<Action> {
-  try {
-    const { transactionHash } = await clientSG.signAndBroadcast(
-      addressFrom,
-      [
+): Promise<ActionLog> {
+  const { transactionHash } = await clientSG.signAndBroadcast(
+    addressFrom,
+    [
+      {
+        typeUrl: "/cosmos.staking.v1beta1.MsgTokenizeShares",
+        value: {
+          delegatorAddress: addressFrom,
+          validatorAddress: validatorAddress,
+          amount: amount,
+          tokenizedShareOwner: addressFrom,
+        },
+      },
+    ],
+    {
+      gas: "100000",
+      amount: [
         {
-          typeUrl: "/cosmos.staking.v1beta1.MsgTokenizeShares",
-          value: {
-            delegatorAddress: addressFrom,
-            validatorAddress: validatorAddress,
-            amount: amount,
-            tokenizedShareOwner: addressFrom,
-          },
+          denom: TARGET_DENOM,
+          amount: "1000",
         },
       ],
-      {
-        gas: "100000",
-        amount: [
-          {
-            denom: TARGET_DENOM,
-            amount: "1000",
-          },
-        ],
-      },
-      ""
-    );
-    return {
-      mode: TargetAction.PROCESS_LSM_SHARES_TOKENIZE_SHARES,
-      txHash: transactionHash,
-    };
-  } catch (e) {
-    return {
-      /* If any exception occurred when broadcasting then return ErrorLog
-       * And provide the error message
-       */
-      mode: TargetAction.PROCESS_LSM_SHARES_TOKENIZE_SHARES,
-      txHash: null,
-      reason: e.message,
-    };
-  }
+    },
+    ""
+  );
+  return {
+    mode: TargetAction.PROCESS_LSM_SHARES_TOKENIZE_SHARES,
+    txHash: transactionHash,
+  };
 }
 
 /* Function dedicated to do IBC transfer of tokenized shares
@@ -716,33 +598,22 @@ async function IBCFromTransfer(
   port: string,
   amount: Coin
 ) {
-  try {
-    const txHash = await IBCTransfer(
-      clientSG,
-      addressFrom,
-      addressTo,
-      channel,
-      port,
-      amount,
-      {
-        denom: TARGET_DENOM,
-        amount: "2000",
-      }
-    );
-    return {
-      mode: TargetAction.PROCESS_LSM_SHARES_IBC_FROM,
-      txHash: txHash,
-    };
-  } catch (e) {
-    return {
-      /* If any exception occurred when broadcasting then return ErrorLog
-       * And provide the error message
-       */
-      mode: TargetAction.PROCESS_LSM_SHARES_IBC_FROM,
-      txHash: null,
-      reason: e.message,
-    };
-  }
+  const txHash = await IBCTransfer(
+    clientSG,
+    addressFrom,
+    addressTo,
+    channel,
+    port,
+    amount,
+    {
+      denom: TARGET_DENOM,
+      amount: "2000",
+    }
+  );
+  return {
+    mode: TargetAction.PROCESS_LSM_SHARES_IBC_FROM,
+    txHash: txHash,
+  };
 }
 
 /* Function dedicated to reveal which tokenized share ID is the latest on our account
@@ -794,7 +665,7 @@ async function processLSMShares(
   neutronWallet: Wallet,
   targetWallet: Wallet,
   dropCore: DropCoreClient
-): Promise<Array<Action>> {
+): Promise<Array<ActionLog>> {
   /* === IBC transfer from Neutron to Remote Chain Action === */
   /* To understand how many tokens have been sent we need to
    * Memorize how many tokens we've had before IBC transfer
@@ -804,18 +675,12 @@ async function processLSMShares(
     targetWallet.mainAccounts[0].address,
     TARGET_DENOM
   );
-  const randomIBCToTransferAction: Action = await randomIBCToTransfer(
+  const randomIBCToTransferAction: ActionLog = await randomIBCToTransfer(
     dropCore,
     neutronWallet,
     neutronWallet.mainAccounts[0].address,
     targetWallet.mainAccounts[0].address
   );
-  /* If any error occured during execution (iow ErrorLog's just returned)
-   * Then stop the execution and return lastest ErrorLog
-   */
-  if (randomIBCToTransferAction["reason"] !== undefined) {
-    return [randomIBCToTransferAction];
-  }
 
   /* Wait untill current balance won't be changed
    * Once changed break the loop
@@ -857,7 +722,7 @@ async function processLSMShares(
     ];
 
   /* === Delegation of this amount to validator from whitelist === */
-  const delegateTokensAction: Action = await delegateTokens(
+  const delegateTokensAction: ActionLog = await delegateTokens(
     targetWallet.clientSG,
     targetWallet.mainAccounts[0].address,
     randomValidator,
@@ -866,16 +731,9 @@ async function processLSMShares(
       amount: String(transferedAmount),
     }
   );
-  /* If any error occured during execution (iow ErrorLog's just returned)
-   * Then stop the execution and return all previous successful transactions
-   * And lastest ErrorLog at the end
-   */
-  if (delegateTokensAction["reason"] !== undefined) {
-    return [randomIBCToTransferAction, delegateTokensAction];
-  }
 
   /* === Tokenization of delegation from previous step into Shares === */
-  const tokenizeSharesAction: Action = await tokenizeShares(
+  const tokenizeSharesAction: ActionLog = await tokenizeShares(
     targetWallet.clientSG,
     randomValidator,
     targetWallet.mainAccounts[0].address,
@@ -884,17 +742,6 @@ async function processLSMShares(
       amount: String(transferedAmount),
     }
   );
-  /* If any error occured during execution (iow ErrorLog's just returned)
-   * Then stop the execution and return all previous successful transactions
-   * And lastest ErrorLog at the end
-   */
-  if (tokenizeSharesAction["reason"] !== undefined) {
-    return [
-      randomIBCToTransferAction,
-      delegateTokensAction,
-      tokenizeSharesAction,
-    ];
-  }
 
   /* Latest tokenized share is our denom that we're looking for
    * We need it to do IBC send back to Neutron from remote chain
@@ -915,7 +762,7 @@ async function processLSMShares(
   ).map((coin) => coin.denom);
 
   /* === IBC transfer back to Neutron from Remote Chain === */
-  const IBCFromTransferAction: Action = await IBCFromTransfer(
+  const IBCFromTransferAction: ActionLog = await IBCFromTransfer(
     targetWallet.clientSG,
     targetWallet.mainAccounts[0].address,
     neutronWallet.mainAccounts[0].address,
@@ -926,14 +773,6 @@ async function processLSMShares(
       amount: String(transferedAmount),
     }
   );
-  if (IBCFromTransferAction["reason"] !== undefined) {
-    return [
-      randomIBCToTransferAction,
-      delegateTokensAction,
-      tokenizeSharesAction,
-      IBCFromTransferAction,
-    ];
-  }
 
   /* Iterate over the new denoms and wait until
    * New denom'll appear in the list
@@ -964,39 +803,25 @@ async function processLSMShares(
   )[0];
 
   /* === Bond Tokenized Shares === */
-  let bondAction: Action;
-  try {
-    bondAction = await bond(dropCore, neutronWallet.mainAccounts[0].address, {
+  let bondAction: ActionLog = await bond(
+    dropCore,
+    neutronWallet.mainAccounts[0].address,
+    {
       denom: newDenom,
       amount: String(transferedAmount),
-    });
-    /* It's the Neutron and we definetely know that transactions are indexed here
-     * So then we're querying status code of the bond executin and depends on the code
-     * Returning either ErrorLog or ActionLog
-     * Also, not forgetting to set bondAction.mode into NeutronAction.PROCESS_LSM_SHARES_BOND
-     * Since it's just NeutronAction.BOND by default
-     */
-    const { code, hash } = await neutronWallet.clientCW.getTx(
-      bondAction.txHash
-    );
-    if (code !== 0) {
-      bondAction = {
-        mode: NeutronAction.PROCESS_LSM_SHARES_BOND,
-        txHash: hash,
-        reason: "Check up given hash",
-      };
     }
-    bondAction.mode = NeutronAction.PROCESS_LSM_SHARES_BOND;
-  } catch (e) {
-    /* If any exception occurred when broadcasting then set bondAction into ErrorLog
-     * And provide the error message
-     */
-    bondAction = {
-      mode: NeutronAction.PROCESS_LSM_SHARES_BOND,
-      txHash: null,
-      reason: e.message,
-    };
+  );
+  /* It's the Neutron and we definetely know that transactions are indexed here
+   * So then we're querying status code of the bond executin and depends on the code
+   * Returning either ErrorLog or ActionLog
+   * Also, not forgetting to set bondAction.mode into NeutronAction.PROCESS_LSM_SHARES_BOND
+   * Since it's just NeutronAction.BOND by default
+   */
+  const { code, hash } = await neutronWallet.clientCW.getTx(bondAction.txHash);
+  if (code !== 0) {
+    throw `Check up given hash ${hash}`;
   }
+  bondAction.mode = NeutronAction.PROCESS_LSM_SHARES_BOND;
 
   return [
     randomIBCToTransferAction,
@@ -1080,8 +905,8 @@ async function main() {
     neutronWallet.clientCW,
     CORE_CONTRACT
   );
-  const actions: Array<() => Promise<Array<Action>>> = [
-    async (): Promise<Array<Action>> => {
+  const actions: Array<() => Promise<Array<ActionLog>>> = [
+    async (): Promise<Array<ActionLog>> => {
       if (Math.random() <= PROCESS_LSM_PROB) {
         return await processLSMShares(
           neutronWallet,
@@ -1091,19 +916,19 @@ async function main() {
       }
       return [];
     },
-    async (): Promise<Array<Action>> => {
+    async (): Promise<Array<ActionLog>> => {
       if (Math.random() <= WITHDRAW_PROB) {
         return [await withdrawRandomNFT(neutronWallet, coreСontract)];
       }
       return [];
     },
-    async (): Promise<Array<Action>> => {
+    async (): Promise<Array<ActionLog>> => {
       if (Math.random() <= UNBOND_PROB) {
         return [await unbondRandomAmount(neutronWallet, coreСontract)];
       }
       return [];
     },
-    async (): Promise<Array<Action>> => {
+    async (): Promise<Array<ActionLog>> => {
       if (Math.random() <= BOND_PROB) {
         return [await bondRandomAmount(neutronWallet, coreСontract)];
       }
@@ -1111,8 +936,8 @@ async function main() {
     },
   ];
 
-  const neutronLogs: Array<Action> = [];
-  const targetLogs: Array<Action> = [];
+  const neutronLogs: Array<ActionLog> = [];
+  const targetLogs: Array<ActionLog> = [];
   while (actions.length !== 0) {
     const randomIndex = Math.floor(Math.random() * actions.length);
     const logs = await actions[randomIndex]();
