@@ -47,19 +47,27 @@ const PROCESS_LSM_PROB: number = Number(process.env.PROCESS_LSM_PROB);
  * According to given probabilities relevant actions will be choosed with appropriate probability
  */
 if ((0 <= BOND_PROB && BOND_PROB <= 1) === false) {
-  console.error(`0 <= BOND_PROB(${BOND_PROB}) <= 1 != true`);
+  console.error(
+    `BOND_PROB should be in interval 0 <= BOND_PROB(${BOND_PROB}) <= 1`
+  );
   process.exit(1);
 }
 if ((0 <= UNBOND_PROB && UNBOND_PROB <= 1) === false) {
-  console.error(`0 <= UNBOND_PROB(${UNBOND_PROB}) <= 1 != true`);
+  console.error(
+    `UNBOND_PROB should be in interval 0 <= UNBOND_PROB(${UNBOND_PROB}) <= 1`
+  );
   process.exit(1);
 }
 if ((0 <= WITHDRAW_PROB && WITHDRAW_PROB <= 1) === false) {
-  console.error(`0 <= WITHDRAW_PROB(${WITHDRAW_PROB}) <= 1 != true`);
+  console.error(
+    `WITHDRAW_PROB should be in interval 0 <= WITHDRAW_PROB(${WITHDRAW_PROB}) <= 1`
+  );
   process.exit(1);
 }
 if ((0 <= PROCESS_LSM_PROB && PROCESS_LSM_PROB <= 1) === false) {
-  console.error(`0 <= PROCESS_LSM_PROB(${PROCESS_LSM_PROB}) <= 1 != true`);
+  console.error(
+    `PROCESS_LSM_PROB should be in interval 0 <= PROCESS_LSM_PROB(${PROCESS_LSM_PROB}) <= 1`
+  );
   process.exit(1);
 }
 
