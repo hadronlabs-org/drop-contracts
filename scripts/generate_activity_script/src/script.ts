@@ -371,7 +371,7 @@ async function IBCTransfer(
           receiver: addressTo,
           timeoutHeight: "0",
           timeoutTimestamp: String(
-            Math.floor(Date.now() / 1000) * 1e9 + 10 * 60 * 1e9
+            (Math.floor(Date.now() / 1000) + 10 * 60) * 1e9
           ),
         },
       },
