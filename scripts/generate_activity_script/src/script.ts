@@ -37,38 +37,34 @@ const MAX_LSM_PROCESS: number = Number(process.env.MAX_LSM_PROCESS);
 const IBC_CHANNEL_TO: string = process.env.IBC_CHANNEL_TO;
 const IBC_CHANNEL_FROM: string = process.env.IBC_CHANNEL_FROM;
 
-const BOND_PROB: number = Number(process.env.BOND_PROB);
-const UNBOND_PROB: number = Number(process.env.UNBOND_PROB);
-const WITHDRAW_PROB: number = Number(process.env.WITHDRAW_PROB);
-const PROCESS_LSM_PROB: number = Number(process.env.PROCESS_LSM_PROB);
+const BOND_PROB: number = isNaN(Number(process.env.BOND_PROB))
+  ? 0
+  : Number(process.env.BOND_PROB);
+const UNBOND_PROB: number = isNaN(Number(process.env.UNBOND_PROB))
+  ? 0
+  : Number(process.env.BOND_PROB);
+const WITHDRAW_PROB: number = isNaN(Number(process.env.WITHDRAW_PROB))
+  ? 0
+  : Number(process.env.BOND_PROB);
+const PROCESS_LSM_PROB: number = isNaN(Number(process.env.PROCESS_LSM_PROB))
+  ? 0
+  : Number(process.env.PROCESS_LSM_PROB);
 
 /*
  * Each of given probabilities should be in interval [0, 1]
  * According to given probabilities relevant actions will be choosed with appropriate probability
  */
 if ((0 <= BOND_PROB && BOND_PROB <= 1) === false) {
-  console.error(
-    `BOND_PROB should be in interval 0 <= BOND_PROB(${BOND_PROB}) <= 1`
-  );
-  process.exit(1);
+  throw `BOND_PROB should be in interval 0 <= BOND_PROB(${BOND_PROB}) <= 1`;
 }
 if ((0 <= UNBOND_PROB && UNBOND_PROB <= 1) === false) {
-  console.error(
-    `UNBOND_PROB should be in interval 0 <= UNBOND_PROB(${UNBOND_PROB}) <= 1`
-  );
-  process.exit(1);
+  throw `UNBOND_PROB should be in interval 0 <= UNBOND_PROB(${UNBOND_PROB}) <= 1`;
 }
 if ((0 <= WITHDRAW_PROB && WITHDRAW_PROB <= 1) === false) {
-  console.error(
-    `WITHDRAW_PROB should be in interval 0 <= WITHDRAW_PROB(${WITHDRAW_PROB}) <= 1`
-  );
-  process.exit(1);
+  throw `WITHDRAW_PROB should be in interval 0 <= WITHDRAW_PROB(${WITHDRAW_PROB}) <= 1`;
 }
 if ((0 <= PROCESS_LSM_PROB && PROCESS_LSM_PROB <= 1) === false) {
-  console.error(
-    `PROCESS_LSM_PROB should be in interval 0 <= PROCESS_LSM_PROB(${PROCESS_LSM_PROB}) <= 1`
-  );
-  process.exit(1);
+  throw `PROCESS_LSM_PROB should be in interval 0 <= PROCESS_LSM_PROB(${PROCESS_LSM_PROB}) <= 1`;
 }
 
 function isInstance<T extends object>(value: string, type: T): type is T {
