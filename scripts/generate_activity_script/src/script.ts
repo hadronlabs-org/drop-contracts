@@ -200,8 +200,10 @@ async function unbondRandomAmount(
     throw `Nothing to unbond, ${FACTORY_DENOM} balance is 0`;
   }
 
-  const maxBond: number = Math.min(Number(factoryBalance.amount), MAX_UNBOND);
-  const randomAmount: number = Math.floor(Math.random() * Number(maxBond) + 1);
+  const maxUnbond: number = Math.min(Number(factoryBalance.amount), MAX_UNBOND);
+  const randomAmount: number = Math.floor(
+    Math.random() * Number(maxUnbond) + 1
+  );
   const res = await unbond(dropInstance, address, {
     amount: String(randomAmount),
     denom: FACTORY_DENOM,
@@ -426,27 +428,27 @@ async function randomIBCToTransfer(
    * It's either a config.lsm_min_bond_amount or minExchangeRate depends on
    * What is bigger (the biggest here is a chosen minimum)
    */
-  const minBond: number = Math.max(
+  const minIBCSend: number = Math.max(
     Number(config.lsm_min_bond_amount),
     minExchangeRate
   );
-  if (minBond > Number(baseDenomBalance.amount)) {
-    throw `Nothing to send via IBC, ${BASE_DENOM} balance is lower then min(${minBond}) (this value either exchange rate or config.lsm_min_bond_amount)`;
+  if (minIBCSend > Number(baseDenomBalance.amount)) {
+    throw `Nothing to send via IBC, ${BASE_DENOM} balance is lower then min(${minIBCSend}) (this value either exchange rate or config.lsm_min_bond_amount)`;
   }
-  if (minBond > MAX_LSM_PROCESS) {
-    throw `MAX_LSM_PROCESS lower then min(${minBond}) (this value either exchange rate or config.lsm_min_bond_amount)`;
+  if (minIBCSend > MAX_LSM_PROCESS) {
+    throw `MAX_LSM_PROCESS lower then min(${minIBCSend}) (this value either exchange rate or config.lsm_min_bond_amount)`;
   }
 
   /* max is a maximum amount of tokens that this function can randomly choose from interval
    * It's either a MAX_LSM_PROCESS or current BASE_DENOM balance depends on
    * What is less (the smaller here is a chosen maximum)
    */
-  const maxBond: number = Math.min(
+  const maxIBCSend: number = Math.min(
     Number(baseDenomBalance.amount),
     MAX_LSM_PROCESS
   );
   const randomAmount: number = Math.floor(
-    Math.random() * (maxBond - minBond) + minBond
+    Math.random() * (maxIBCSend - minIBCSend) + minIBCSend
   );
 
   /* By default in our case it's always "transfer" port
