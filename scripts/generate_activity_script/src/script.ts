@@ -136,10 +136,10 @@ async function bondRandomAmount(
    * Is either lsm_min_bond_amount (which is typically set in 1) or current exchange_rate parameter
    * Here we're choosing the biggest value of these two to avoid further errors
    */
-  const min: number =
-    Number(config.lsm_min_bond_amount) < minExchangeRate
-      ? minExchangeRate
-      : Number(config.lsm_min_bond_amount);
+  const min: number = Math.max(
+    Number(config.lsm_min_bond_amount),
+    minExchangeRate
+  );
   if (min > Number(IBCDenomBalance.amount)) {
     throw `Nothing to bond, ${BASE_DENOM} balance is lower then min(${min}) (this value either exchange rate or config.lsm_min_bond_amount)`;
   }
@@ -151,13 +151,8 @@ async function bondRandomAmount(
    * Is either our current balance in case if it's lower then MAX_BOND parameter
    * or MAX_BOND otherwise.
    */
-  const max: number =
-    Number(IBCDenomBalance.amount) < MAX_BOND
-      ? Number(IBCDenomBalance.amount)
-      : MAX_BOND;
-
+  const max: number = Math.min(Number(IBCDenomBalance.amount), MAX_BOND);
   const randomAmount: number = Math.floor(Math.random() * (max - min) + min);
-
   const res = await bond(dropInstance, address, {
     amount: String(randomAmount),
     denom: BASE_DENOM,
@@ -203,11 +198,7 @@ async function unbondRandomAmount(
     throw `Nothing to unbond, ${FACTORY_DENOM} balance is 0`;
   }
 
-  const max: number =
-    Number(factoryBalance.amount) < MAX_UNBOND
-      ? Number(factoryBalance.amount)
-      : MAX_UNBOND;
-
+  const max: number = Math.min(Number(factoryBalance.amount), MAX_UNBOND);
   const randomAmount: number = Math.floor(Math.random() * Number(max) + 1);
   const res = await unbond(dropInstance, address, {
     amount: String(randomAmount),
@@ -433,10 +424,10 @@ async function randomIBCToTransfer(
    * It's either a config.lsm_min_bond_amount or minExchangeRate depends on
    * What is bigger (the biggest here is a chosen minimum)
    */
-  const min: number =
-    Number(config.lsm_min_bond_amount) < minExchangeRate
-      ? minExchangeRate
-      : Number(config.lsm_min_bond_amount);
+  const min: number = Math.max(
+    Number(config.lsm_min_bond_amount),
+    minExchangeRate
+  );
   if (min > Number(baseDenomBalance.amount)) {
     throw `Nothing to send via IBC, ${BASE_DENOM} balance is lower then min(${min}) (this value either exchange rate or config.lsm_min_bond_amount)`;
   }
@@ -448,11 +439,10 @@ async function randomIBCToTransfer(
    * It's either a MAX_LSM_PROCESS or current BASE_DENOM balance depends on
    * What is less (the smaller here is a chosen maximum)
    */
-  const max: number =
-    Number(baseDenomBalance.amount) < MAX_LSM_PROCESS
-      ? Number(baseDenomBalance.amount)
-      : MAX_LSM_PROCESS;
-
+  const max: number = Math.min(
+    Number(baseDenomBalance.amount),
+    MAX_LSM_PROCESS
+  );
   const randomAmount: number = Math.floor(Math.random() * (max - min) + min);
 
   /* By default in our case it's always "transfer" port
