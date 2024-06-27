@@ -179,7 +179,7 @@ describe('Interchain puppeteer', () => {
       allowed_senders: [
         context.hookContractClient.contractAddress,
         context.account.address,
-      ],
+      ].sort(),
       transfer_channel_id: 'channel-0',
     });
   });
@@ -209,7 +209,7 @@ describe('Interchain puppeteer', () => {
       allowed_senders: [
         context.hookContractClient.contractAddress,
         account.address,
-      ],
+      ].sort(),
       transfer_channel_id: 'channel-0',
     });
   });
