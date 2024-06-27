@@ -37,18 +37,10 @@ const MAX_LSM_PROCESS: number = Number(process.env.MAX_LSM_PROCESS);
 const IBC_CHANNEL_TO: string = process.env.IBC_CHANNEL_TO;
 const IBC_CHANNEL_FROM: string = process.env.IBC_CHANNEL_FROM;
 
-const BOND_PROB: number = isNaN(Number(process.env.BOND_PROB))
-  ? 0
-  : Number(process.env.BOND_PROB);
-const UNBOND_PROB: number = isNaN(Number(process.env.UNBOND_PROB))
-  ? 0
-  : Number(process.env.BOND_PROB);
-const WITHDRAW_PROB: number = isNaN(Number(process.env.WITHDRAW_PROB))
-  ? 0
-  : Number(process.env.BOND_PROB);
-const PROCESS_LSM_PROB: number = isNaN(Number(process.env.PROCESS_LSM_PROB))
-  ? 0
-  : Number(process.env.PROCESS_LSM_PROB);
+const BOND_PROB: number = parseFloat(process.env.BOND_PROB) || 0;
+const UNBOND_PROB: number = parseFloat(process.env.UNBOND_PROB) || 0;
+const WITHDRAW_PROB: number = parseFloat(process.env.WITHDRAW_PROB) || 0;
+const PROCESS_LSM_PROB: number = parseFloat(process.env.PROCESS_LSM_PROB) || 0;
 
 /*
  * Each of given probabilities should be in interval [0, 1]
