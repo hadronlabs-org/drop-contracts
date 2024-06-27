@@ -124,7 +124,7 @@ async function bondRandomAmount(
     BASE_DENOM
   );
   if (Number(IBCDenomBalance.amount) === 0) {
-    throw `Nothing to bond, ${BASE_DENOM} balance is 0`;
+    throw `[${neutronWallet.mainAccounts[0].address}] Nothing to bond, ${BASE_DENOM} balance is 0`;
   }
 
   const config = await dropInstance.queryConfig();
@@ -142,10 +142,10 @@ async function bondRandomAmount(
     minExchangeRate
   );
   if (minBond > Number(IBCDenomBalance.amount)) {
-    throw `Nothing to bond, ${BASE_DENOM} balance is lower then min(${minBond}) (this value either exchange rate or config.lsm_min_bond_amount)`;
+    throw `[${neutronWallet.mainAccounts[0].address}] Nothing to bond, ${BASE_DENOM} balance is lower then min(${minBond}) (this value either exchange rate or config.lsm_min_bond_amount)`;
   }
   if (minBond > MAX_BOND) {
-    throw `MAX_BOND lower then min(${minBond}) (this value either exchange rate or config.lsm_min_bond_amount)`;
+    throw `[${neutronWallet.mainAccounts[0].address}] MAX_BOND lower then min(${minBond}) (this value either exchange rate or config.lsm_min_bond_amount)`;
   }
 
   /* Maximum amount of funds that we can send to core contract while bonding
@@ -162,7 +162,7 @@ async function bondRandomAmount(
   });
   const { code, hash } = await neutronWallet.clientCW.getTx(res.txHash);
   if (code !== 0) {
-    throw `Check up given hash${hash}`;
+    throw `[${neutronWallet.mainAccounts[0].address}] Check up given hash ${hash}`;
   }
   return res;
 }
@@ -198,7 +198,7 @@ async function unbondRandomAmount(
     FACTORY_DENOM
   );
   if (Number(factoryBalance.amount) === 0) {
-    throw `Nothing to unbond, ${FACTORY_DENOM} balance is 0`;
+    throw `[${neutronWallet.mainAccounts[0].address}] Nothing to unbond, ${FACTORY_DENOM} balance is 0`;
   }
 
   const maxUnbond: number = Math.min(Number(factoryBalance.amount), MAX_UNBOND);
@@ -304,7 +304,7 @@ async function withdrawRandomNFT(
    * Throw an exception
    */
   if (withdrawnNFTs.length === 0) {
-    throw "Nothing to withdraw";
+    throw `[${neutronWallet.mainAccounts[0].address}] Nothing to withdraw`;
   }
 
   /* Pick up random NFT from given NFT list and try to withdraw it
@@ -416,7 +416,7 @@ async function randomIBCToTransfer(
   /* If here is nothing to send on our balance, then just throw an error
    */
   if (Number(baseDenomBalance.amount) === 0) {
-    throw `Nothing to transfer via IBC, ${BASE_DENOM} balance is 0`;
+    throw `[${neutronWallet.mainAccounts[0].address}] Nothing to transfer via IBC, ${BASE_DENOM} balance is 0`;
   }
 
   const exchangeRate: number = Math.floor(
@@ -434,10 +434,10 @@ async function randomIBCToTransfer(
     minExchangeRate
   );
   if (minIBCSend > Number(baseDenomBalance.amount)) {
-    throw `Nothing to send via IBC, ${BASE_DENOM} balance is lower then min(${minIBCSend}) (this value either exchange rate or config.lsm_min_bond_amount)`;
+    throw `[${neutronWallet.mainAccounts[0].address}] Nothing to send via IBC, ${BASE_DENOM} balance is lower then min(${minIBCSend}) (this value either exchange rate or config.lsm_min_bond_amount)`;
   }
   if (minIBCSend > MAX_LSM_PROCESS) {
-    throw `MAX_LSM_PROCESS lower then min(${minIBCSend}) (this value either exchange rate or config.lsm_min_bond_amount)`;
+    throw `[${neutronWallet.mainAccounts[0].address}] MAX_LSM_PROCESS lower then min(${minIBCSend}) (this value either exchange rate or config.lsm_min_bond_amount)`;
   }
 
   /* max is a maximum amount of tokens that this function can randomly choose from interval
@@ -691,27 +691,37 @@ async function processLSMShares(
       Math.floor(Math.random() * whitelistedValidators.length)
     ];
 
-  /* === Delegation of this amount to validator from whitelist === */
-  const delegateTokensAction: ActionLog = await delegateTokens(
-    targetWallet.clientSG,
-    targetWallet.mainAccounts[0].address,
-    randomValidator,
-    {
-      denom: TARGET_DENOM,
-      amount: String(transferedAmount),
-    }
-  );
+  let delegateTokensAction: ActionLog;
+  try {
+    /* === Delegation of this amount to validator from whitelist === */
+    delegateTokensAction = await delegateTokens(
+      targetWallet.clientSG,
+      targetWallet.mainAccounts[0].address,
+      randomValidator,
+      {
+        denom: TARGET_DENOM,
+        amount: String(transferedAmount),
+      }
+    );
+  } catch (e) {
+    throw `[${targetWallet.mainAccounts[0].address}] ${e.message}`;
+  }
 
-  /* === Tokenization of delegation from previous step into Shares === */
-  const tokenizeSharesAction: ActionLog = await tokenizeShares(
-    targetWallet.clientSG,
-    randomValidator,
-    targetWallet.mainAccounts[0].address,
-    {
-      denom: TARGET_DENOM,
-      amount: String(transferedAmount),
-    }
-  );
+  let tokenizeSharesAction: ActionLog;
+  try {
+    /* === Tokenization of delegation from previous step into Shares === */
+    tokenizeSharesAction = await tokenizeShares(
+      targetWallet.clientSG,
+      randomValidator,
+      targetWallet.mainAccounts[0].address,
+      {
+        denom: TARGET_DENOM,
+        amount: String(transferedAmount),
+      }
+    );
+  } catch (e) {
+    throw `[${targetWallet.mainAccounts[0].address}] ${e.message}`;
+  }
 
   /* Latest tokenized share is our denom that we're looking for
    * We need it to do IBC send back to Neutron from remote chain
@@ -731,18 +741,23 @@ async function processLSMShares(
     )
   ).map((coin) => coin.denom);
 
-  /* === IBC transfer back to Neutron from Remote Chain === */
-  const IBCFromTransferAction: ActionLog = await IBCFromTransfer(
-    targetWallet.clientSG,
-    targetWallet.mainAccounts[0].address,
-    neutronWallet.mainAccounts[0].address,
-    IBC_CHANNEL_FROM,
-    "transfer",
-    {
-      denom: lastLSMAfterTokenizeSharesAction,
-      amount: String(transferedAmount),
-    }
-  );
+  let IBCFromTransferAction: ActionLog;
+  try {
+    /* === IBC transfer back to Neutron from Remote Chain === */
+    IBCFromTransferAction = await IBCFromTransfer(
+      targetWallet.clientSG,
+      targetWallet.mainAccounts[0].address,
+      neutronWallet.mainAccounts[0].address,
+      IBC_CHANNEL_FROM,
+      "transfer",
+      {
+        denom: lastLSMAfterTokenizeSharesAction,
+        amount: String(transferedAmount),
+      }
+    );
+  } catch (e) {
+    throw `[${targetWallet.mainAccounts[0].address}] ${e.message}`;
+  }
 
   /* Iterate over the new denoms and wait until
    * New denom'll appear in the list
