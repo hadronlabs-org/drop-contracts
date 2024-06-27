@@ -401,7 +401,6 @@ describe('Core Slashing', () => {
         base_denom: context.neutronIBCDenom,
         core_params: {
           idle_min_interval: 10,
-          puppeteer_timeout: 60,
           unbond_batch_switch_time: 60,
           unbonding_safe_period: 10,
           unbonding_period: 360,
@@ -412,7 +411,11 @@ describe('Core Slashing', () => {
           min_stake_amount: '2',
           icq_update_delay: 5,
         },
+        puppeteer_params: {
+          timeout: 60,
+        },
         staker_params: {
+          timeout: 60,
           min_stake_amount: '100',
           min_ibc_transfer: '100',
         },

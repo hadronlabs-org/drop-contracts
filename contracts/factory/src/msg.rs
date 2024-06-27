@@ -17,12 +17,16 @@ pub struct InstantiateMsg {
     pub base_denom: String,
     pub core_params: CoreParams,
     pub staker_params: StakerParams,
+    pub puppeteer_params: PuppeteerParams,
 }
 
 #[cw_serde]
+pub struct PuppeteerParams {
+    pub timeout: u64,
+}
+#[cw_serde]
 pub struct CoreParams {
     pub idle_min_interval: u64,
-    pub puppeteer_timeout: u64,
     pub unbonding_period: u64,
     pub unbonding_safe_period: u64,
     pub unbond_batch_switch_time: u64,
@@ -38,6 +42,7 @@ pub struct CoreParams {
 pub struct StakerParams {
     pub min_stake_amount: Uint128,
     pub min_ibc_transfer: Uint128,
+    pub timeout: u64,
 }
 
 #[cw_serde]

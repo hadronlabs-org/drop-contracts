@@ -48,7 +48,6 @@ fn get_default_config(
     Config {
         token_contract: Addr::unchecked("token_contract"),
         puppeteer_contract: Addr::unchecked(MOCK_PUPPETEER_CONTRACT_ADDR),
-        puppeteer_timeout: 60,
         strategy_contract: Addr::unchecked(MOCK_STRATEGY_CONTRACT_ADDR),
         withdrawal_voucher_contract: Addr::unchecked("withdrawal_voucher_contract"),
         withdrawal_manager_contract: Addr::unchecked("withdrawal_manager_contract"),
@@ -164,7 +163,6 @@ fn get_non_native_rewards_and_fee_transfer_msg_success() {
                         }
                     )
                 ],
-                timeout: Some(60),
                 reply_to: "cosmos2contract".to_string()
             })
             .unwrap(),
@@ -241,7 +239,6 @@ fn get_non_native_rewards_and_fee_transfer_msg_zero_fee() {
                         amount: Uint128::new(150)
                     }
                 )],
-                timeout: Some(60),
                 reply_to: "cosmos2contract".to_string()
             })
             .unwrap(),
@@ -386,7 +383,6 @@ fn get_stake_msg_success() {
             msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
                 items: vec![("valoper_address".to_string(), Uint128::new(180))],
                 fee: Some(("fee_address".to_string(), Uint128::new(20))),
-                timeout: Some(60),
                 reply_to: "cosmos2contract".to_string(),
             })
             .unwrap(),
@@ -458,7 +454,6 @@ fn get_stake_msg_zero_fee() {
             msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
                 items: vec![("valoper_address".to_string(), Uint128::new(200))],
                 fee: None,
-                timeout: Some(60),
                 reply_to: "cosmos2contract".to_string(),
             })
             .unwrap(),
@@ -560,7 +555,6 @@ fn test_update_config() {
         InstantiateMsg {
             token_contract: "old_token_contract".to_string(),
             puppeteer_contract: "old_puppeteer_contract".to_string(),
-            puppeteer_timeout: 10,
             strategy_contract: "old_strategy_contract".to_string(),
             staker_contract: "old_staker_contract".to_string(),
             withdrawal_voucher_contract: "old_withdrawal_voucher_contract".to_string(),
@@ -595,7 +589,6 @@ fn test_update_config() {
     let new_config = ConfigOptional {
         token_contract: Some("new_token_contract".to_string()),
         puppeteer_contract: Some("new_puppeteer_contract".to_string()),
-        puppeteer_timeout: Some(100),
         strategy_contract: Some("new_strategy_contract".to_string()),
         staker_contract: Some("new_staker_contract".to_string()),
         withdrawal_voucher_contract: Some("new_withdrawal_voucher_contract".to_string()),
@@ -621,7 +614,6 @@ fn test_update_config() {
     let expected_config = Config {
         token_contract: Addr::unchecked("new_token_contract"),
         puppeteer_contract: Addr::unchecked("new_puppeteer_contract"),
-        puppeteer_timeout: 100,
         staker_contract: Addr::unchecked("new_staker_contract"),
         strategy_contract: Addr::unchecked("new_strategy_contract"),
         withdrawal_voucher_contract: Addr::unchecked("new_withdrawal_voucher_contract"),
@@ -852,7 +844,6 @@ fn test_execute_tick_idle_non_native_rewards() {
                             },
                         ),
                     ],
-                    timeout: Some(60),
                     reply_to: "cosmos2contract".to_string(),
                 })
                 .unwrap(),
@@ -942,7 +933,6 @@ fn test_execute_tick_idle_get_pending_lsm_shares_transfer() {
                 contract_addr: "puppeteer_contract".to_string(),
                 msg: to_json_binary(
                     &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
-                        timeout: 60,
                         reason: drop_puppeteer_base::msg::IBCTransferReason::LSMShare,
                         reply_to: "cosmos2contract".to_string(),
                     }
@@ -1093,7 +1083,6 @@ fn test_idle_tick_pending_lsm_redeem() {
                                 local_denom: "remote_denom_share3".to_string()
                             }
                         ],
-                        timeout: Some(60),
                         reply_to: "cosmos2contract".to_string()
                     }
                 )
@@ -1368,7 +1357,6 @@ fn test_tick_idle_claim_wo_unbond() {
                 msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
                     validators: vec!["valoper_address".to_string()], 
                     transfer: None,
-                    timeout: Some(60),
                     reply_to: "cosmos2contract".to_string() 
                 }).unwrap(),
                 funds: vec![Coin::new(1000, "untrn")],
@@ -1517,8 +1505,7 @@ fn test_tick_idle_claim_with_unbond_transfer() {
             msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
                 validators: vec!["valoper_address".to_string()], 
                 transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg{ batch_ids: vec![0u128], emergency: false, amount: Uint128::from(200u128), recipient: "pump_address".to_string() }), 
-                timeout: Some(60),
-                reply_to: "cosmos2contract".to_string() 
+                reply_to: "cosmos2contract".to_string()                 
             }).unwrap(), funds: vec![Coin::new(1000, "untrn")] })))
     );
 }
@@ -1811,7 +1798,6 @@ fn test_tick_idle_staking() {
                 msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
                     items: vec![("valoper_address".to_string(), Uint128::from(200u128))],
                     fee: Some(("fee_address".to_string(), Uint128::new(20))),
-                    timeout: Some(60u64),
                     reply_to: "cosmos2contract".to_string()
                 })
                 .unwrap(),
@@ -1995,7 +1981,6 @@ fn test_tick_idle_unbonding() {
                 msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
                     batch_id: 0u128,
                     items: vec![("valoper_address".to_string(), Uint128::from(1000u128))],
-                    timeout: Some(60u64),
                     reply_to: "cosmos2contract".to_string()
                 })
                 .unwrap(),
@@ -2165,7 +2150,6 @@ fn test_tick_claiming_wo_transfer_stake() {
                 msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
                     items: vec![("valoper_address".to_string(), Uint128::from(200u128))],
                     fee: None,
-                    timeout: Some(60u64),
                     reply_to: "cosmos2contract".to_string()
                 })
                 .unwrap(),
@@ -2330,7 +2314,6 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                 msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
                     items: vec![("valoper_address".to_string(), Uint128::from(1000u128))],
                     batch_id: 0u128,
-                    timeout: Some(60u64),
                     reply_to: "cosmos2contract".to_string()
                 })
                 .unwrap(),
@@ -2847,7 +2830,6 @@ fn test_tick_staking_to_unbonding() {
                 msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
                     items: vec![("valoper_address".to_string(), Uint128::from(1000u128))],
                     batch_id: 0u128,
-                    timeout: Some(60u64),
                     reply_to: "cosmos2contract".to_string()
                 })
                 .unwrap(),

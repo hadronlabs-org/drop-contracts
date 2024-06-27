@@ -13,29 +13,24 @@ pub enum ExecuteMsg {
     Delegate {
         validator: String,
         amount: Uint128,
-        timeout: Option<u64>,
     },
     Undelegate {
         validator: String,
         amount: Uint128,
-        timeout: Option<u64>,
     },
     Redelegate {
         validator_from: String,
         validator_to: String,
         amount: Uint128,
-        timeout: Option<u64>,
     },
     TokenizeShare {
         validator: String,
         amount: Uint128,
-        timeout: Option<u64>,
     },
     RedeemShare {
         validator: String,
         amount: Uint128,
         denom: String,
-        timeout: Option<u64>,
     },
     PuppeteerHook(Box<ResponseHookMsg>),
 }

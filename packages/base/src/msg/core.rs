@@ -15,7 +15,6 @@ use drop_puppeteer_base::msg::ResponseHookMsg as PuppeteerResponseHookMsg;
 pub struct InstantiateMsg {
     pub token_contract: String,
     pub puppeteer_contract: String,
-    pub puppeteer_timeout: u64,
     pub strategy_contract: String,
     pub staker_contract: String,
     pub withdrawal_voucher_contract: String,
@@ -51,7 +50,6 @@ impl InstantiateMsg {
         Ok(Config {
             token_contract: deps.api.addr_validate(&self.token_contract)?,
             puppeteer_contract: deps.api.addr_validate(&self.puppeteer_contract)?,
-            puppeteer_timeout: self.puppeteer_timeout,
             strategy_contract: deps.api.addr_validate(&self.strategy_contract)?,
             staker_contract: deps.api.addr_validate(&self.staker_contract)?,
             withdrawal_voucher_contract: deps
