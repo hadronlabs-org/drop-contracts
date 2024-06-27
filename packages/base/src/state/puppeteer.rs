@@ -26,7 +26,7 @@ pub struct Config {
     pub allowed_senders: Vec<Addr>,
     pub transfer_channel_id: String,
     pub sdk_version: String,
-    pub timeout: u64, // timeout for interchain transactions in seconts
+    pub timeout: u64, // timeout for interchain transactions in seconds
 }
 
 impl BaseConfig for Config {
