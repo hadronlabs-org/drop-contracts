@@ -18,6 +18,7 @@ import { MsgDelegate } from "cosmjs-types/cosmos/staking/v1beta1/tx";
 import { MsgTransfer } from "cosmjs-types/ibc/applications/transfer/v1/tx";
 
 import { sleep } from "../../../integration_tests/src/helpers/sleep";
+import { waitForTx } from "../../../integration_tests/src/helpers/waitForTx";
 
 const CORE_CONTRACT: string = process.env.CORE_CONTRACT;
 
@@ -365,7 +366,7 @@ async function IBCTransfer(
     },
     ""
   );
-
+  await waitForTx(clientSG, transactionHash);
   return transactionHash;
 }
 
@@ -498,11 +499,11 @@ async function delegateTokens(
     randomValidator,
     amount,
     {
-      gas: "100000",
+      gas: "300000",
       amount: [
         {
           denom: TARGET_DENOM,
-          amount: "1000",
+          amount: "3000",
         },
       ],
     },
@@ -540,11 +541,11 @@ async function tokenizeShares(
       },
     ],
     {
-      gas: "100000",
+      gas: "400000",
       amount: [
         {
           denom: TARGET_DENOM,
-          amount: "1000",
+          amount: "4000",
         },
       ],
     },
