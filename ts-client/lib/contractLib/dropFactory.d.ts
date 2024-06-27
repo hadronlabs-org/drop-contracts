@@ -1145,9 +1145,6 @@ export interface CoreParams {
     unbonding_period: number;
     unbonding_safe_period: number;
 }
-export interface PuppeteerParams {
-  timeout: number;
-}
 export interface RemoteOpts {
     connection_id: string;
     denom: string;
