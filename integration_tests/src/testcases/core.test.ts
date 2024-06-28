@@ -2256,7 +2256,8 @@ describe('Core', () => {
         });
         const currentTime = Math.floor(Date.now() / 1000);
         if (batchInfo.expected_release_time > currentTime) {
-          const diffMs = (batchInfo.expected_release_time - currentTime + 1) * 1000;
+          const diffMs =
+            (batchInfo.expected_release_time - currentTime + 1) * 1000;
           await sleep(diffMs);
         }
       });
