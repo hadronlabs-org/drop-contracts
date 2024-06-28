@@ -101,62 +101,6 @@ main() {
   factory_proxy_execute $factory_address "$msg" 1000000untrn
   echo "[OK] Add initial validators to factory"
 
-  update_msg='{
-    "update_config":{
-      "new_config":{
-        "puppeteer_ica":"'"$puppeteer_ica_address"'"
-      }
-    }
-  }'
-
-  msg='{
-    "wasm":{
-      "execute":{
-        "contract_addr":"'"$staker_address"'",
-        "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64 | tr -d "\n")"'",
-        "funds": []
-      }
-    }
-  }'
-
-  factory_admin_execute $factory_address "$msg"
-  echo "[OK] Add Puppeteer ICA address to Staker contract config"
-
-  update_msg='{
-    "grant_delegate":{
-       "grantee":"'"$staker_ica_address"'"
-    }
-  }'
-
-  msg='{
-    "wasm":{
-      "execute":{
-        "contract_addr":"'"$puppeteer_address"'",
-        "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64 | tr -d "\n")"'",
-        "funds": [
-          {
-            "amount": "20000",
-            "denom": "untrn"
-          }
-        ]
-      }
-    }
-  }'
-
-  factory_admin_execute $factory_address "$msg" 20000untrn
-  echo "[OK] Grant staker to delegate funds from puppeteer ICA"
-
-  msg='{
-    "validator_set": {
-      "update_validators": {
-        "validators": '"$INITIAL_VALIDATORS"'
-      }
-    }
-  }'
-
-  factory_proxy_execute $factory_address "$msg" 1000000untrn
-  echo "[OK] Add initial validators to factory"
-
   deploy_pump
   register_pump_ica
   print_hermes_command $pump_ica_port $pump_ica_channel
