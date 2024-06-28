@@ -61,11 +61,6 @@ export class CoreModule implements ManagerModule {
 
     const stakerResponseReceived = !!lastStakerResponse.response;
 
-    const lastStakerResponse =
-      await this.coreContractClient.queryLastStakerResponse();
-
-    const stakerResponseReceived = !!lastStakerResponse.response;
-
     this.log.debug(
       `Core contract state: ${coreContractState}, puppeteer response received: ${puppeteerResponseReceived}, staker response received: ${stakerResponseReceived}`,
     );
