@@ -201,49 +201,40 @@ export interface DelegateArgs {
     fee?: [string, Uint128] | null;
     items: [string, Uint128][];
     reply_to: string;
-    timeout?: number | null;
 }
 export interface GrantDelegateArgs {
     grantee: string;
-    timeout?: number | null;
 }
 export interface UndelegateArgs {
     batch_id: number;
     items: [string, Uint128][];
     reply_to: string;
-    timeout?: number | null;
 }
 export interface RedelegateArgs {
     amount: Uint128;
     reply_to: string;
-    timeout?: number | null;
     validator_from: string;
     validator_to: string;
 }
 export interface TokenizeShareArgs {
     amount: Uint128;
     reply_to: string;
-    timeout?: number | null;
     validator: string;
 }
 export interface RedeemSharesArgs {
     items: RedeemShareItem[];
     reply_to: string;
-    timeout?: number | null;
 }
 export interface IBCTransferArgs {
     reason: IBCTransferReason;
     reply_to: string;
-    timeout: number;
 }
 export interface TransferArgs {
     items: [string, Coin][];
     reply_to: string;
-    timeout?: number | null;
 }
 export interface ClaimRewardsAndOptionalyTransferArgs {
     reply_to: string;
-    timeout?: number | null;
     transfer?: TransferReadyBatchesMsg | null;
     validators: string[];
 }
@@ -256,6 +247,7 @@ export interface ConfigOptional {
     port_id?: string | null;
     remote_denom?: string | null;
     sdk_version?: string | null;
+    timeout?: number | null;
     transfer_channel_id?: string | null;
     update_period?: number | null;
 }
@@ -266,6 +258,7 @@ export interface InstantiateMsg {
     port_id: string;
     remote_denom: string;
     sdk_version: string;
+    timeout: number;
     transfer_channel_id: string;
     update_period: number;
 }

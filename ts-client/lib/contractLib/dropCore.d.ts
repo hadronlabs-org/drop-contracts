@@ -257,7 +257,6 @@ export interface Config {
     min_stake_amount: Uint128;
     pump_ica_address?: string | null;
     puppeteer_contract: Addr;
-    puppeteer_timeout: number;
     remote_denom: string;
     staker_contract: Addr;
     strategy_contract: Addr;
@@ -356,14 +355,25 @@ export interface NonNativeRewardsItem {
     min_amount: Uint128;
 }
 export interface UnbondBatch {
-    created: number;
-    expected_amount: Uint128;
-    expected_release: number;
+    expected_native_asset_amount: Uint128;
+    expected_release_time: number;
     slashing_effect?: Decimal | null;
     status: UnbondBatchStatus;
-    total_amount: Uint128;
+    status_timestamps: UnbondBatchStatusTimestamps;
+    total_dasset_amount_to_withdraw: Uint128;
     total_unbond_items: number;
     unbonded_amount?: Uint128 | null;
+    withdrawed_amount?: Uint128 | null;
+}
+export interface UnbondBatchStatusTimestamps {
+    new: number;
+    unbond_failed?: number | null;
+    unbond_requested?: number | null;
+    unbonding?: number | null;
+    withdrawing?: number | null;
+    withdrawing_emergency?: number | null;
+    withdrawn?: number | null;
+    withdrawn_emergency?: number | null;
 }
 export interface UnbondBatchArgs {
     batch_id: Uint128;
@@ -388,7 +398,6 @@ export interface ConfigOptional {
     min_stake_amount?: Uint128 | null;
     pump_ica_address?: string | null;
     puppeteer_contract?: string | null;
-    puppeteer_timeout?: number | null;
     remote_denom?: string | null;
     staker_contract?: string | null;
     strategy_contract?: string | null;
@@ -435,7 +444,6 @@ export interface InstantiateMsg {
     owner: string;
     pump_ica_address?: string | null;
     puppeteer_contract: string;
-    puppeteer_timeout: number;
     remote_denom: string;
     staker_contract: string;
     strategy_contract: string;
