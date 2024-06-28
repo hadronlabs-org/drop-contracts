@@ -166,9 +166,9 @@ deploy_factory() {
     "base_denom":"'"$uatom_on_neutron_denom"'",
     "core_params":{
       "idle_min_interval":60,
-      "unbond_batch_switch_time":'$UNBOND_BATCH_SWITCH_TIME',
-      "unbonding_safe_period":'$UNBONDING_SAFE_PERIOD',
-      "unbonding_period":'$UNBONDING_PERIOD',
+      "unbond_batch_switch_time":'"$UNBOND_BATCH_SWITCH_TIME"',
+      "unbonding_safe_period":'"$UNBONDING_SAFE_PERIOD"',
+      "unbonding_period":'"$UNBONDING_PERIOD"',
       "lsm_redeem_threshold":2,
       "lsm_min_bond_amount":"1",
       "lsm_redeem_max_interval":60000,
@@ -179,10 +179,10 @@ deploy_factory() {
     "staker_params":{
       "min_stake_amount":"10000",
       "min_ibc_transfer":"10000",
-      "timeout":'$STAKER_TIMEOUT'
+      "timeout":'"$STAKER_TIMEOUT"'
     },
     "puppeteer_params":{
-      "timeout":'$PUPPETEER_TIMEOUT'
+      "timeout":'"$PUPPETEER_TIMEOUT"'
     }
   }'
   factory_address="$(neutrond tx wasm instantiate "$factory_code_id" "$msg" \
@@ -202,9 +202,13 @@ deploy_factory() {
   echo "[OK] Withdrawal manager contract: $withdrawal_manager_address"
 }
 
+get_ibc_register_fee() {
+  neutrond query interchaintxs params "${nq[@]}" | jq -r '.params.register_fee[] | select(.denom=="untrn") | .amount'
+}
+
 register_staker_ica() {
   register_ica_result="$(neutrond tx wasm execute "$staker_address" '{"register_i_c_a":{}}' \
-    --amount "${IBC_REGISTER_FEE}untrn" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx)"
+    --amount "$(get_ibc_register_fee)untrn" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx)"
   staker_ica_port="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "port_id")")"
   staker_ica_channel="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "channel_id")")"
   echo "[OK] Staker ICA configuration: $staker_ica_port/$staker_ica_channel"
@@ -212,7 +216,7 @@ register_staker_ica() {
 
 register_puppeteer_ica() {
   register_ica_result="$(neutrond tx wasm execute "$puppeteer_address" '{"register_i_c_a":{}}' \
-    --amount "${IBC_REGISTER_FEE}untrn" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx)"
+    --amount "$(get_ibc_register_fee)untrn" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx)"
   puppeteer_ica_port="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "port_id")")"
   puppeteer_ica_channel="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "channel_id")")"
   echo "[OK] Puppeteer ICA configuration: $puppeteer_ica_port/$puppeteer_ica_channel"
@@ -220,7 +224,7 @@ register_puppeteer_ica() {
 
 register_pump_ica() {
   register_ica_result="$(neutrond tx wasm execute "$pump_address" '{"register_i_c_a":{}}' \
-    --amount "${IBC_REGISTER_FEE}untrn" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx)"
+    --amount "$(get_ibc_register_fee)untrn" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx)"
   pump_ica_port="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "port_id")")"
   pump_ica_channel="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "channel_id")")"
   echo "[OK] Pump ICA configuration: $pump_ica_port/$pump_ica_channel"
