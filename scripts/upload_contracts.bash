@@ -13,6 +13,7 @@ source ./utils.bash
 
 echo "DEPLOY_WALLET: $DEPLOY_WALLET"
 echo "NEUTRON_RPC: $NEUTRON_RPC"
+echo "NEUTRON_HOME: $NEUTRON_HOME"
 
 
 main() {
