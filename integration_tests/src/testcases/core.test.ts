@@ -999,10 +999,10 @@ describe('Core', () => {
     expect(batch).toEqual<UnbondBatch>({
       slashing_effect: null,
       status_timestamps: expect.any(Object),
-      expected_release: 0,
+      expected_release_time: 0,
       status: 'new',
-      total_amount: '500000',
-      expected_amount: '500000',
+      total_dasset_amount_to_withdraw: '500000',
+      expected_native_asset_amount: '500000',
       total_unbond_items: 2,
       unbonded_amount: null,
       withdrawed_amount: null,
@@ -1265,9 +1265,9 @@ describe('Core', () => {
           slashing_effect: null,
           status: 'unbond_requested',
           status_timestamps: expect.any(Object),
-          expected_release: 0,
-          total_amount: '500000',
-          expected_amount: '500000',
+          expected_release_time: 0,
+          total_dasset_amount_to_withdraw: '500000',
+          expected_native_asset_amount: '500000',
           total_unbond_items: 2,
           unbonded_amount: null,
           withdrawed_amount: null,
@@ -1319,9 +1319,9 @@ describe('Core', () => {
           slashing_effect: null,
           status: 'unbonding',
           status_timestamps: expect.any(Object),
-          expected_release: expect.any(Number),
-          total_amount: '500000',
-          expected_amount: '500000',
+          expected_release_time: expect.any(Number),
+          total_dasset_amount_to_withdraw: '500000',
+          expected_native_asset_amount: '500000',
           total_unbond_items: 2,
           unbonded_amount: null,
           withdrawed_amount: null,
@@ -2255,8 +2255,8 @@ describe('Core', () => {
           batch_id: '0',
         });
         const currentTime = Math.floor(Date.now() / 1000);
-        if (batchInfo.expected_release > currentTime) {
-          const diffMs = (batchInfo.expected_release - currentTime + 1) * 1000;
+        if (batchInfo.expected_release_time > currentTime) {
+          const diffMs = (batchInfo.expected_release_time - currentTime + 1) * 1000;
           await sleep(diffMs);
         }
       });
@@ -2274,7 +2274,7 @@ describe('Core', () => {
               })) as any
             )[2] / 1e9,
           );
-          return icaTs > batchInfo.expected_release;
+          return icaTs > batchInfo.expected_release_time;
         }, 50_000);
       });
       it('tick to idle', async () => {
@@ -2343,9 +2343,9 @@ describe('Core', () => {
           slashing_effect: '1',
           status: 'withdrawn',
           status_timestamps: expect.any(Object),
-          expected_release: expect.any(Number),
-          total_amount: '500000',
-          expected_amount: '500000',
+          expected_release_time: expect.any(Number),
+          total_dasset_amount_to_withdraw: '500000',
+          expected_native_asset_amount: '500000',
           total_unbond_items: 2,
           unbonded_amount: '500000',
           withdrawed_amount: null,
