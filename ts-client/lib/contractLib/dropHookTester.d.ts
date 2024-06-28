@@ -195,29 +195,24 @@ export interface SetConfigArgs {
 }
 export interface DelegateArgs {
     amount: Uint128;
-    timeout?: number | null;
     validator: string;
 }
 export interface UndelegateArgs {
     amount: Uint128;
-    timeout?: number | null;
     validator: string;
 }
 export interface RedelegateArgs {
     amount: Uint128;
-    timeout?: number | null;
     validator_from: string;
     validator_to: string;
 }
 export interface TokenizeShareArgs {
     amount: Uint128;
-    timeout?: number | null;
     validator: string;
 }
 export interface RedeemShareArgs {
     amount: Uint128;
     denom: string;
-    timeout?: number | null;
     validator: string;
 }
 export interface InstantiateMsg {
