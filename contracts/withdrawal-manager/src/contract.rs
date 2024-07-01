@@ -224,6 +224,15 @@ fn execute_receive_nft_withdraw(
             amount: payout_amount,
         }],
     });
+
+    deps.querier.query_wasm_smart(
+        &config.core_contract,
+        &drop_staking_base::msg::core::ExecuteMsg::UpdateWithdrawnAmount {
+            batch_id,
+            withdrawn_amount: payout_amount,
+        },
+    )?;
+
     Ok(response("execute-receive_nft", CONTRACT_NAME, attrs).add_message(msg))
 }
 
