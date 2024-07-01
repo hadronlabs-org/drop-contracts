@@ -43,6 +43,9 @@ const UNBOND_PROB: number = parseFloat(process.env.UNBOND_PROB) || 0;
 const WITHDRAW_PROB: number = parseFloat(process.env.WITHDRAW_PROB) || 0;
 const PROCESS_LSM_PROB: number = parseFloat(process.env.PROCESS_LSM_PROB) || 0;
 
+const TARGET_GASPRICE: number = parseFloat(process.env.TARGET_GASPRICE);
+const NEUTRON_GASPRICE: number = parseFloat(process.env.NEUTRON_GASPRICE);
+
 /*
  * Each of given probabilities should be in interval [0, 1]
  * According to given probabilities relevant actions will be choosed with appropriate probability
