@@ -89,9 +89,9 @@ pub struct UnbondBatchStatusTimestamps {
 
 #[cw_serde]
 pub struct UnbondBatch {
-    pub total_amount: Uint128,
-    pub expected_amount: Uint128,
-    pub expected_release: u64,
+    pub total_dasset_amount_to_withdraw: Uint128,
+    pub expected_native_asset_amount: Uint128,
+    pub expected_release_time: u64,
     pub total_unbond_items: u64,
     pub status: UnbondBatchStatus,
     pub slashing_effect: Option<Decimal>,
