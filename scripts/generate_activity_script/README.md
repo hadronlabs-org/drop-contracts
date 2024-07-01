@@ -28,4 +28,4 @@ To manage script config, open _.env_ file
 - IBC_CHANNEL_TO = IBC channel to send from neutron to remote chain
 - IBC_CHANNEL_FROM = IBC channel to send from remote chain to neutron
 - NEUTRON_GASPRICE = Gas price on Neutron chain
-- Target_GASPRICE = Gas price on target chain
+- TARGET_GASPRICE = Gas price on target chain
