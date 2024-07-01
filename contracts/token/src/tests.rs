@@ -7,10 +7,10 @@ use cosmos_sdk_proto::{
     prost::Message,
 };
 use cosmwasm_std::{
-    attr, coin, from_json,
-    testing::{mock_env, mock_info, MockQuerier, MOCK_CONTRACT_ADDR},
-    to_json_binary, Addr, Binary, ContractResult, CosmosMsg, Event, Querier, QuerierResult,
-    QueryRequest, Reply, ReplyOn, SubMsgResult, SystemError, Uint128,
+    attr, coin,
+    testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR},
+    to_json_binary, Addr, Binary, CosmosMsg, Event, QueryRequest, Reply, ReplyOn, SubMsgResult,
+    Uint128,
 };
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::{
@@ -37,7 +37,7 @@ fn sample_metadata() -> DenomMetadata {
 
 #[test]
 fn instantiate() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
     let response = contract::instantiate(
         deps.as_mut(),
         mock_env(),
@@ -82,7 +82,7 @@ fn instantiate() {
 
 #[test]
 fn reply_unknown_id() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
     let error = contract::reply(
         deps.as_mut(),
         mock_env(),
@@ -97,43 +97,22 @@ fn reply_unknown_id() {
 
 #[test]
 fn reply() {
-    #[derive(Default)]
-    struct CustomMockQuerier {}
-    impl Querier for CustomMockQuerier {
-        fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
-            let request =
-                match from_json::<QueryRequest<NeutronQuery>>(bin_request).map_err(move |err| {
-                    QuerierResult::Err(SystemError::InvalidRequest {
-                        error: format!("Parsing query request: {}", err),
-                        request: bin_request.into(),
-                    })
-                }) {
-                    Ok(v) => v,
-                    Err(e) => return e,
-                };
-            match request {
-                QueryRequest::Custom(request) => match request {
-                    NeutronQuery::FullDenom {
-                        creator_addr,
-                        subdenom,
-                    } => {
-                        assert_eq!(creator_addr, MOCK_CONTRACT_ADDR);
-                        assert_eq!(subdenom, "subdenom");
-                        QuerierResult::Ok(ContractResult::Ok(
-                            to_json_binary(&FullDenomResponse {
-                                denom: "factory/subdenom".to_string(),
-                            })
-                            .unwrap(),
-                        ))
-                    }
-                    _ => unimplemented!(),
-                },
-                _ => unimplemented!(),
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_custom_query_response(|request| match request {
+            QueryRequest::Custom(NeutronQuery::FullDenom {
+                creator_addr,
+                subdenom,
+            }) => {
+                assert_eq!(creator_addr, MOCK_CONTRACT_ADDR);
+                assert_eq!(subdenom, "subdenom");
+                to_json_binary(&FullDenomResponse {
+                    denom: "factory/subdenom".to_string(),
+                })
+                .unwrap()
             }
-        }
-    }
-
-    let mut deps = mock_dependencies::<CustomMockQuerier>();
+            _ => unimplemented!(),
+        });
     DENOM
         .save(deps.as_mut().storage, &String::from("subdenom"))
         .unwrap();
@@ -204,7 +183,7 @@ fn reply() {
 
 #[test]
 fn mint_zero() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
@@ -227,7 +206,7 @@ fn mint_zero() {
 
 #[test]
 fn mint() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
@@ -265,7 +244,7 @@ fn mint() {
 
 #[test]
 fn mint_stranger() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
@@ -289,7 +268,7 @@ fn mint_stranger() {
 
 #[test]
 fn burn_zero() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
@@ -312,7 +291,7 @@ fn burn_zero() {
 
 #[test]
 fn burn_multiple_coins() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
@@ -335,7 +314,7 @@ fn burn_multiple_coins() {
 
 #[test]
 fn burn_invalid_coin() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
@@ -358,7 +337,7 @@ fn burn_invalid_coin() {
 
 #[test]
 fn burn() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
@@ -392,7 +371,7 @@ fn burn() {
 
 #[test]
 fn burn_stranger() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
@@ -413,7 +392,7 @@ fn burn_stranger() {
 
 #[test]
 fn query_config() {
-    let mut deps = mock_dependencies::<MockQuerier>();
+    let mut deps = mock_dependencies(&[]);
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();

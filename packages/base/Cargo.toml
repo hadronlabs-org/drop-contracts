@@ -6,9 +6,9 @@ name = "drop-staking-base"
 version = "1.0.0"
 
 exclude = [
-  # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
-  "contract.wasm",
-  "hash.txt",
+    # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
+    "contract.wasm",
+    "hash.txt",
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -39,3 +39,5 @@ optfield = { workspace = true }
 astroport = { workspace = true }
 prost = { workspace = true }
 serde = { workspace = true }
+cw-utils = { workspace = true }
+semver = { workspace = true }

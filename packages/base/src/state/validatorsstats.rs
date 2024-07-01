@@ -14,6 +14,12 @@ pub struct Config {
 }
 
 #[cw_serde]
+pub struct KVQueryIds {
+    pub signing_info_id: Option<String>,
+    pub validator_profile_id: Option<String>,
+}
+
+#[cw_serde]
 pub struct ValidatorState {
     pub valoper_address: String,
     pub valcons_address: String,

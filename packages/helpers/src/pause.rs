@@ -1,44 +1,42 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{StdResult, Storage};
+use cosmwasm_std::{StdError, StdResult, Storage};
 use cw_storage_plus::Item;
 use thiserror::Error;
 
 const PAUSED: Item<bool> = Item::new("paused");
 
 /// Set contract on pause.
-pub fn set_pause(storage: &mut dyn Storage) -> StdResult<bool> {
+pub fn set_pause(storage: &mut dyn Storage) -> StdResult<()> {
     PAUSED.save(storage, &true)?;
-    Ok(true)
+    Ok(())
 }
 
 /// Unpause the contract.
-pub fn unpause(storage: &mut dyn Storage) -> StdResult<bool> {
-    PAUSED.remove(storage);
-    Ok(true)
+pub fn unpause(storage: &mut dyn Storage) {
+    PAUSED.remove(storage)
 }
 
-/// Check if the contract is paused.
-pub fn is_paused(storage: &dyn Storage) -> bool {
-    PAUSED
-        .may_load(storage)
-        .unwrap_or_default()
-        .unwrap_or_default()
+/// Return paused/unpaused state.
+pub fn is_paused(storage: &dyn Storage) -> StdResult<bool> {
+    Ok(PAUSED.may_load(storage)?.unwrap_or(false))
 }
 
-/// Assert that an account is the contract's current owner.
-pub fn assert_paused(store: &dyn Storage) -> Result<(), PauseError> {
-    // the sender must be the current owner
-    if is_paused(store) {
+/// Check that contract is not paused. If it is, return error.
+pub fn pause_guard(store: &dyn Storage) -> Result<(), PauseError> {
+    if is_paused(store)? {
         return Err(PauseError::Paused {});
     }
 
     Ok(())
 }
 
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(Error, Debug, PartialEq)]
 pub enum PauseError {
     #[error("Contract execution is paused")]
     Paused {},
+
+    #[error("{0}")]
+    Std(#[from] StdError),
 }
 
 /// Information about if the contract is currently paused.

@@ -48,8 +48,8 @@ pub enum ContractError {
     #[error("Unbonding time is too close")]
     UnbondingTimeIsClose {},
 
-    #[error("Pump address is not set")]
-    PumpAddressIsNotSet {},
+    #[error("Pump ICA address is not set")]
+    PumpIcaAddressIsNotSet {},
 
     #[error("Emergency address is not set")]
     EmergencyAddressIsNotSet {},
@@ -69,17 +69,29 @@ pub enum ContractError {
     #[error("Puppeteer response is not received")]
     PuppeteerResponseIsNotReceived {},
 
+    #[error("Staker response is not received")]
+    StakerResponseIsNotReceived {},
+
     #[error("Unbonded amount is not set")]
     UnbondedAmountIsNotSet {},
 
     #[error("Non Native rewards denom not found {denom}")]
     NonNativeRewardsDenomNotFound { denom: String },
 
-    #[error("Puppeteer balance is outdated: ICA balance height {ica_height}, puppeteer balance height {puppeteer_height}")]
+    #[error(
+        "Puppeteer balance is outdated: ICA height {ica_height}, control height {control_height}"
+    )]
     PuppeteerBalanceOutdated {
         ica_height: u64,
-        puppeteer_height: u64,
+        control_height: u64,
     },
+
+    #[error("Puppeteer delegations is outdated: ICA height {ica_height}, control height {control_height}")]
+    PuppeteerDelegationsOutdated {
+        ica_height: u64,
+        control_height: u64,
+    },
+
     #[error("Bond limit exceeded")]
     BondLimitExceeded {},
 
@@ -88,6 +100,27 @@ pub enum ContractError {
 
     #[error(transparent)]
     PauseError(#[from] PauseError),
+
+    #[error("Unbonded amount must not be zero")]
+    UnbondedAmountZero {},
+
+    #[error("Requested batch is not in WithdrawnEmergency state")]
+    BatchNotWithdrawnEmergency {},
+
+    #[error("Unbonded amount must be less or equal to expected amount")]
+    UnbondedAmountTooHigh {},
+
+    #[error("Fee must be in range [0.0, 1.0]")]
+    InvalidFee {},
+
+    #[error("Semver parsing error: {0}")]
+    SemVer(String),
+}
+
+impl From<semver::Error> for ContractError {
+    fn from(err: semver::Error) -> Self {
+        Self::SemVer(err.to_string())
+    }
 }
 
 pub type ContractResult<T> = Result<T, ContractError>;

@@ -82,12 +82,11 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropValidatorsSetSchema {
-  responses: Config | OwnershipFor_String | ValidatorResponse | ArrayOfValidatorInfo;
+  responses: Config | OwnershipForString | ValidatorResponse | ArrayOfValidatorInfo;
   query: ValidatorArgs;
   execute:
     | UpdateConfigArgs
     | UpdateValidatorsArgs
-    | UpdateValidatorArgs
     | UpdateValidatorsInfoArgs
     | UpdateValidatorsVotingArgs
     | UpdateOwnershipArgs;
@@ -95,14 +94,13 @@ export interface DropValidatorsSetSchema {
   [k: string]: unknown;
 }
 export interface Config {
-  owner: Addr;
   provider_proposals_contract?: Addr | null;
   stats_contract: Addr;
 }
 /**
  * The contract's ownership info
  */
-export interface OwnershipFor_String {
+export interface OwnershipForString {
   /**
    * The contract's current owner. `None` if the ownership has been renounced.
    */
@@ -140,9 +138,8 @@ export interface UpdateConfigArgs {
   new_config: ConfigOptional;
 }
 export interface ConfigOptional {
-  owner?: Addr | null;
-  provider_proposals_contract?: Addr | null;
-  stats_contract?: Addr | null;
+  provider_proposals_contract?: string | null;
+  stats_contract?: string | null;
 }
 export interface UpdateValidatorsArgs {
   validators: ValidatorData[];
@@ -150,9 +147,6 @@ export interface UpdateValidatorsArgs {
 export interface ValidatorData {
   valoper_address: string;
   weight: number;
-}
-export interface UpdateValidatorArgs {
-  validator: ValidatorData;
 }
 export interface UpdateValidatorsInfoArgs {
   validators: ValidatorInfoUpdate[];
@@ -258,6 +252,21 @@ export class Client {
     });
     return res;
   }
+  static async instantiate2(
+    client: SigningCosmWasmClient,
+    sender: string,
+    codeId: number,
+    salt: number,
+    initMsg: InstantiateMsg,
+    label: string,
+    fees: StdFee | 'auto' | number,
+    initCoins?: readonly Coin[],
+  ): Promise<InstantiateResult> {
+    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
+      ...(initCoins && initCoins.length && { funds: initCoins }),
+    });
+    return res;
+  }
   queryConfig = async(): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
@@ -267,7 +276,7 @@ export class Client {
   queryValidators = async(): Promise<ArrayOfValidatorInfo> => {
     return this.client.queryContractSmart(this.contractAddress, { validators: {} });
   }
-  queryOwnership = async(): Promise<OwnershipFor_String> => {
+  queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
   }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
@@ -277,10 +286,6 @@ export class Client {
   updateValidators = async(sender:string, args: UpdateValidatorsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_validators: args }, fee || "auto", memo, funds);
-  }
-  updateValidator = async(sender:string, args: UpdateValidatorArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_validator: args }, fee || "auto", memo, funds);
   }
   updateValidatorsInfo = async(sender:string, args: UpdateValidatorsInfoArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

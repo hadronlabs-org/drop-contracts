@@ -1,8 +1,8 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Coin, Uint128};
+use cosmwasm_std::Uint128;
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, UniqueIndex};
 use drop_helpers::ica::Ica;
-use neutron_sdk::{bindings::msg::IbcFee, interchain_queries::v045::types::UnbondingEntry};
+use neutron_sdk::interchain_queries::v045::types::UnbondingEntry;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::msg::Transaction;
@@ -17,8 +17,6 @@ where
     pub recipient_transfers: Item<'a, Vec<Transfer>>,
     pub transfer_channel_id: Item<'a, String>,
     pub tx_state: Item<'a, TxState>,
-    pub ibc_fee: Item<'a, IbcFee>,
-    pub register_fee: Item<'a, Coin>,
     pub kv_queries: Map<'a, u64, U>,
     pub unbonding_delegations:
         IndexedMap<'a, &'a str, UnbondingDelegation, UnbondingDelegationIndexes<'a>>,
@@ -46,8 +44,6 @@ where
             ica: Ica::new("ica"),
             recipient_transfers: Item::new("transfers"),
             tx_state: Item::new("sudo_payload"),
-            ibc_fee: Item::new("ibc_fee"),
-            register_fee: Item::new("register_fee"),
             transfer_channel_id: Item::new("transfer_channel_id"),
             kv_queries: Map::new("kv_queries"),
             unbonding_delegations: IndexedMap::new(
@@ -67,14 +63,12 @@ where
 }
 
 pub trait BaseConfig {
-    fn owner(&self) -> &str;
     fn connection_id(&self) -> String;
     fn update_period(&self) -> u64;
 }
 
 #[cw_serde]
 pub struct ConfigResponse {
-    pub owner: String,
     pub connection_id: String,
     pub update_period: u64,
 }

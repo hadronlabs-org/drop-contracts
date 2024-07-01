@@ -1,6 +1,5 @@
-use cosmwasm_std::{attr, ensure_eq, entry_point, to_json_binary, Attribute, Deps, Order};
+use cosmwasm_std::{attr, ensure_eq, to_json_binary, Attribute, Deps, Order};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
-use cw2::set_contract_version;
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::response;
 use drop_staking_base::error::validatorset::{ContractError, ContractResult};
@@ -10,45 +9,39 @@ use drop_staking_base::msg::validatorset::{
 };
 use drop_staking_base::state::provider_proposals::ProposalInfo;
 use drop_staking_base::state::validatorset::{
-    Config, ConfigOptional, ValidatorInfo, CONFIG, VALIDATORS_SET,
+    Config, ConfigOptional, ValidatorInfo, CONFIG, VALIDATORS_LIST, VALIDATORS_SET,
 };
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
-
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-
-    let owner = deps.api.addr_validate(&msg.owner)?;
-    let stats_contract = deps.api.addr_validate(&msg.stats_contract)?;
-
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(msg.owner.as_ref()))?;
 
+    let stats_contract = deps.api.addr_validate(&msg.stats_contract)?;
     let config = &Config {
-        owner: owner.clone(),
         stats_contract: stats_contract.clone(),
         provider_proposals_contract: None,
     };
-
     CONFIG.save(deps.storage, config)?;
 
     Ok(response(
         "instantiate",
         CONTRACT_NAME,
-        [attr("owner", owner), attr("stats_contract", stats_contract)],
+        [attr("stats_contract", stats_contract)],
     ))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     match msg {
         QueryMsg::Ownership {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
@@ -70,15 +63,11 @@ fn query_validator(deps: Deps<NeutronQuery>, valoper: String) -> ContractResult<
 }
 
 fn query_validators(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let validators: StdResult<Vec<_>> = VALIDATORS_SET
-        .range_raw(deps.storage, None, None, Order::Ascending)
-        .map(|item| item.map(|(_key, value)| value))
-        .collect();
-
-    Ok(to_json_binary(&validators?)?)
+    let validators = VALIDATORS_LIST.load(deps.storage)?;
+    Ok(to_json_binary(&validators)?)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -93,9 +82,6 @@ pub fn execute(
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
         ExecuteMsg::UpdateValidators { validators } => {
             execute_update_validators(deps, info, validators)
-        }
-        ExecuteMsg::UpdateValidator { validator } => {
-            execute_update_validator(deps, info, validator)
         }
         ExecuteMsg::UpdateValidatorsInfo { validators } => {
             execute_update_validators_info(deps, info, validators)
@@ -114,71 +100,25 @@ fn execute_update_config(
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     let mut state = CONFIG.load(deps.storage)?;
-
     let mut attrs: Vec<Attribute> = Vec::new();
 
-    if let Some(owner) = new_config.owner {
-        if owner != state.owner {
-            state.owner = owner.clone();
-            cw_ownable::initialize_owner(deps.storage, deps.api, Some(state.owner.as_ref()))?;
-        }
-        attrs.push(attr("owner", owner.to_string()))
-    }
-
     if let Some(stats_contract) = new_config.stats_contract {
-        state.stats_contract = stats_contract.clone();
+        state.stats_contract = deps.api.addr_validate(&stats_contract)?;
         attrs.push(attr("stats_contract", stats_contract))
     }
 
-    if new_config.provider_proposals_contract.is_some() {
-        state.provider_proposals_contract = new_config.provider_proposals_contract.clone();
+    if let Some(provider_proposals_contract) = new_config.provider_proposals_contract {
+        state.provider_proposals_contract =
+            Some(deps.api.addr_validate(&provider_proposals_contract)?);
         attrs.push(attr(
             "provider_proposals_contract",
-            new_config.provider_proposals_contract.unwrap().to_string(),
-        ))
+            provider_proposals_contract,
+        ));
     }
 
     CONFIG.save(deps.storage, &state)?;
 
     Ok(response("update_config", CONTRACT_NAME, Vec::<Attribute>::new()).add_attributes(attrs))
-}
-
-fn execute_update_validator(
-    deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
-    validator: ValidatorData,
-) -> ContractResult<Response<NeutronMsg>> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    // TODO: implement notification of the validator stats contract about new validator
-    let valoper_address = validator.valoper_address.clone();
-
-    VALIDATORS_SET.save(
-        deps.storage,
-        valoper_address.clone(),
-        &ValidatorInfo {
-            valoper_address: validator.valoper_address,
-            weight: validator.weight,
-            last_processed_remote_height: None,
-            last_processed_local_height: None,
-            last_validated_height: None,
-            last_commission_in_range: None,
-            uptime: Default::default(),
-            tombstone: false,
-            jailed_number: None,
-            init_proposal: None,
-            total_passed_proposals: 0,
-            total_voted_proposals: 0,
-        },
-    )?;
-
-    Ok(response(
-        "update_validator",
-        CONTRACT_NAME,
-        [
-            attr("address", valoper_address),
-            attr("weight", validator.weight.to_string()),
-        ],
-    ))
 }
 
 fn execute_update_validators(
@@ -216,6 +156,8 @@ fn execute_update_validators(
         )?;
     }
 
+    update_validators_list(deps)?;
+
     Ok(response(
         "update_validators",
         CONTRACT_NAME,
@@ -249,17 +191,30 @@ fn execute_update_validators_info(
         if update.last_commission_in_range.is_some() {
             validator.last_commission_in_range = update.last_commission_in_range;
         }
-        if update.last_processed_local_height.is_some() {
-            validator.last_processed_local_height = update.last_processed_local_height;
+
+        if let Some(last_processed_local_height) = update.last_processed_local_height {
+            validator.last_processed_local_height = Some(
+                last_processed_local_height
+                    .max(validator.last_processed_local_height.unwrap_or_default()),
+            );
         }
-        if update.last_processed_remote_height.is_some() {
-            validator.last_processed_remote_height = update.last_processed_remote_height;
+
+        if let Some(last_processed_remote_height) = update.last_processed_remote_height {
+            validator.last_processed_remote_height = Some(
+                last_processed_remote_height
+                    .max(validator.last_processed_remote_height.unwrap_or_default()),
+            );
         }
-        if update.last_validated_height.is_some() {
-            validator.last_validated_height = update.last_validated_height;
+
+        if let Some(last_validated_height) = update.last_validated_height {
+            validator.last_validated_height = Some(
+                last_validated_height.max(validator.last_validated_height.unwrap_or_default()),
+            );
         }
-        if update.jailed_number.is_some() {
-            validator.jailed_number = update.jailed_number;
+
+        if let Some(jailed_number) = update.jailed_number {
+            validator.jailed_number =
+                Some(jailed_number.max(validator.jailed_number.unwrap_or_default()));
         }
 
         validator.uptime = update.uptime;
@@ -267,6 +222,8 @@ fn execute_update_validators_info(
 
         VALIDATORS_SET.save(deps.storage, validator.valoper_address.clone(), &validator)?;
     }
+
+    update_validators_list(deps)?;
 
     Ok(response(
         "update_validators_info",
@@ -321,6 +278,8 @@ fn execute_update_validators_voting(
         }
     }
 
+    update_validators_list(deps)?;
+
     Ok(response(
         "execute_update_validators_voting",
         CONTRACT_NAME,
@@ -331,8 +290,30 @@ fn execute_update_validators_voting(
     ))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    deps.api.debug("WASMDEBUG: migrate");
-    Ok(Response::default())
+fn update_validators_list(deps: DepsMut<NeutronQuery>) -> StdResult<()> {
+    let validators: StdResult<Vec<_>> = VALIDATORS_SET
+        .range_raw(deps.storage, None, None, Order::Ascending)
+        .map(|item| item.map(|(_key, value)| value))
+        .collect();
+
+    VALIDATORS_LIST.save(deps.storage, &validators.unwrap_or_default())?;
+
+    Ok(())
+}
+
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }

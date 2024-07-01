@@ -6,9 +6,9 @@ name = "drop-provider-proposals-poc"
 version = "1.0.0"
 
 exclude = [
-  # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
-  "contract.wasm",
-  "hash.txt",
+    # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
+    "contract.wasm",
+    "hash.txt",
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -28,7 +28,6 @@ prost = { workspace = true }
 prost-types = { workspace = true }
 tendermint-proto = { workspace = true }
 thiserror = { workspace = true }
-
 cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
 cw2 = { workspace = true }
@@ -37,10 +36,10 @@ cw-ownable = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde-json-wasm = { workspace = true }
-
 neutron-sdk = { workspace = true }
 drop-staking-base = { workspace = true }
 drop-helpers = { workspace = true }
+semver = { workspace = true }
 
 [dev-dependencies]
 cw-multi-test = { workspace = true }

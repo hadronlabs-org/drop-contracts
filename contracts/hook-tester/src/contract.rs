@@ -1,6 +1,7 @@
+use crate::error::ContractResult;
 use cosmwasm_std::{
-    attr, entry_point, to_json_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
-    Response, StdResult, Uint128, WasmMsg,
+    attr, to_json_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    Uint128, WasmMsg,
 };
 use drop_helpers::answer::response;
 use drop_puppeteer_base::{
@@ -16,9 +17,7 @@ use neutron_sdk::{
     NeutronResult,
 };
 
-use crate::error::ContractResult;
-
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
@@ -31,7 +30,7 @@ pub fn instantiate(
     Ok(response("instantiate", "hook-tester", attrs))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Answers {} => to_json_binary(&ANSWERS.load(deps.storage)?),
@@ -39,7 +38,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
     }
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -50,33 +49,25 @@ pub fn execute(
         ExecuteMsg::SetConfig { puppeteer_addr } => {
             execute_set_config(deps, env, info, puppeteer_addr)
         }
-        ExecuteMsg::Delegate {
-            validator,
-            amount,
-            timeout,
-        } => execute_delegate(deps, env, info, validator, amount, timeout),
-        ExecuteMsg::Undelegate {
-            validator,
-            amount,
-            timeout,
-        } => execute_undelegate(deps, env, validator, amount, timeout),
+        ExecuteMsg::Delegate { validator, amount } => {
+            execute_delegate(deps, env, info, validator, amount)
+        }
+        ExecuteMsg::Undelegate { validator, amount } => {
+            execute_undelegate(deps, env, validator, amount)
+        }
         ExecuteMsg::Redelegate {
             validator_from,
             validator_to,
             amount,
-            timeout,
-        } => execute_redelegate(deps, env, validator_from, validator_to, amount, timeout),
-        ExecuteMsg::TokenizeShare {
-            validator,
-            amount,
-            timeout,
-        } => execute_tokenize_share(deps, env, validator, amount, timeout),
+        } => execute_redelegate(deps, env, validator_from, validator_to, amount),
+        ExecuteMsg::TokenizeShare { validator, amount } => {
+            execute_tokenize_share(deps, env, validator, amount)
+        }
         ExecuteMsg::RedeemShare {
             validator,
             amount,
             denom,
-            timeout,
-        } => execute_redeem_share(deps, env, validator, amount, denom, timeout),
+        } => execute_redeem_share(deps, env, validator, amount, denom),
         ExecuteMsg::PuppeteerHook(hook_msg) => match *hook_msg {
             ResponseHookMsg::Success(success_msg) => hook_success(deps, env, info, success_msg),
             ResponseHookMsg::Error(error_msg) => hook_error(deps, env, info, error_msg),
@@ -133,7 +124,6 @@ fn execute_delegate(
     info: MessageInfo,
     validator: String,
     amount: Uint128,
-    timeout: Option<u64>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let attrs = vec![
@@ -146,7 +136,7 @@ fn execute_delegate(
         contract_addr: config.puppeteer_addr,
         msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
             items: vec![(validator, amount)],
-            timeout,
+            fee: None,
             reply_to: env.contract.address.to_string(),
         })?,
         funds: info.funds,
@@ -159,7 +149,6 @@ fn execute_undelegate(
     env: Env,
     validator: String,
     amount: Uint128,
-    timeout: Option<u64>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let attrs = vec![
@@ -171,7 +160,6 @@ fn execute_undelegate(
         contract_addr: config.puppeteer_addr,
         msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
             items: vec![(validator, amount)],
-            timeout,
             batch_id: 0,
             reply_to: env.contract.address.to_string(),
         })?,
@@ -186,7 +174,6 @@ fn execute_redelegate(
     validator_from: String,
     validator_to: String,
     amount: Uint128,
-    timeout: Option<u64>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let attrs = vec![
@@ -201,7 +188,6 @@ fn execute_redelegate(
             validator_from,
             validator_to,
             amount,
-            timeout,
             reply_to: env.contract.address.to_string(),
         })?,
         funds: vec![],
@@ -214,7 +200,6 @@ fn execute_tokenize_share(
     env: Env,
     validator: String,
     amount: Uint128,
-    timeout: Option<u64>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let attrs = vec![
@@ -228,7 +213,6 @@ fn execute_tokenize_share(
             &drop_staking_base::msg::puppeteer::ExecuteMsg::TokenizeShare {
                 validator,
                 amount,
-                timeout,
                 reply_to: env.contract.address.to_string(),
             },
         )?,
@@ -243,7 +227,6 @@ fn execute_redeem_share(
     validator: String,
     amount: Uint128,
     denom: String,
-    timeout: Option<u64>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let attrs = vec![
@@ -261,7 +244,6 @@ fn execute_redeem_share(
                     amount,
                     local_denom: "some".to_string(),
                 }],
-                timeout,
                 reply_to: env.contract.address.to_string(),
             },
         )?,

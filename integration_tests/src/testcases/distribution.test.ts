@@ -10,8 +10,6 @@ import { GasPrice } from '@cosmjs/stargate';
 import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
-import { waitFor } from '../helpers/waitFor';
-import { IdealDelegation } from '../generated/contractLib/dropDistribution';
 
 const SetClass = DropDistribution.Client;
 
@@ -85,81 +83,45 @@ describe('Distribution', () => {
 
   it('query deposit calculation', async () => {
     const { contractClient } = context;
-    let res: IdealDelegation[] = [];
-    await waitFor(async () => {
-      res = await contractClient.queryCalcDeposit({
-        deposit: '100',
+    const res = await contractClient.queryCalcDeposit({
+      deposit: '100',
+      delegations: {
+        total: '141',
+        total_weight: 70,
         delegations: [
           { valoper_address: 'valoper1', stake: '15', weight: 10 },
           { valoper_address: 'valoper2', stake: '70', weight: 20 },
           { valoper_address: 'valoper3', stake: '56', weight: 40 },
         ],
-      });
-      return res.length > 0;
-    }, 60_000);
+      },
+    });
 
     expect(res).toEqual([
-      {
-        valoper_address: 'valoper1',
-        ideal_stake: '35',
-        current_stake: '15',
-        stake_change: '20',
-        weight: 10,
-      },
-      {
-        valoper_address: 'valoper2',
-        ideal_stake: '69',
-        current_stake: '70',
-        stake_change: '1',
-        weight: 20,
-      },
-      {
-        valoper_address: 'valoper3',
-        ideal_stake: '137',
-        current_stake: '56',
-        stake_change: '79',
-        weight: 40,
-      },
+      ['valoper1', '20'],
+      ['valoper2', '1'],
+      ['valoper3', '79'],
     ]);
   });
 
   it('query withdraw calculation', async () => {
     const { contractClient } = context;
-    let res: IdealDelegation[] = [];
-    await waitFor(async () => {
-      res = await contractClient.queryCalcWithdraw({
-        withdraw: '50',
+    const res = await contractClient.queryCalcWithdraw({
+      withdraw: '50',
+      delegations: {
+        total: '750',
+        total_weight: 70,
         delegations: [
           { valoper_address: 'valoper1', stake: '100', weight: 10 },
           { valoper_address: 'valoper2', stake: '250', weight: 20 },
           { valoper_address: 'valoper3', stake: '400', weight: 40 },
         ],
-      });
-      return res.length > 0;
-    }, 60_000);
+      },
+    });
 
     expect(res).toEqual([
-      {
-        valoper_address: 'valoper1',
-        ideal_stake: '100',
-        current_stake: '100',
-        stake_change: '1',
-        weight: 10,
-      },
-      {
-        valoper_address: 'valoper2',
-        ideal_stake: '200',
-        current_stake: '250',
-        stake_change: '48',
-        weight: 20,
-      },
-      {
-        valoper_address: 'valoper3',
-        ideal_stake: '400',
-        current_stake: '400',
-        stake_change: '1',
-        weight: 40,
-      },
+      ['valoper1', '1'],
+      ['valoper2', '48'],
+      ['valoper3', '1'],
     ]);
   });
 });
