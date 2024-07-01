@@ -910,7 +910,7 @@ describe('Core Slashing', () => {
         expected_amount: '500',
         total_unbond_items: 1,
         unbonded_amount: null,
-        withdrawed_amount: null,
+        withdrawn_amount: null,
       });
     });
   });
@@ -1138,7 +1138,7 @@ describe('Core Slashing', () => {
         expected_amount: '3000',
         total_unbond_items: 1,
         unbonded_amount: null,
-        withdrawed_amount: null,
+        withdrawn_amount: null,
       });
     });
   });
@@ -1264,7 +1264,7 @@ describe('Core Slashing', () => {
       expected_amount: '1000',
       total_unbond_items: 1,
       unbonded_amount: null,
-      withdrawed_amount: null,
+      withdrawn_amount: null,
     });
   });
   it.skip('verify that unbonding batch 1 is in withdrawing emergency state', async () => {
@@ -1281,7 +1281,7 @@ describe('Core Slashing', () => {
       expected_amount: '3499',
       total_unbond_items: 1,
       unbonded_amount: null,
-      withdrawed_amount: null,
+      withdrawn_amount: null,
     });
   });
   it.skip('tick (idle)', async () => {
@@ -1316,7 +1316,7 @@ describe('Core Slashing', () => {
       expected_amount: '1000',
       total_unbond_items: 1,
       unbonded_amount: null,
-      withdrawed_amount: null,
+      withdrawn_amount: null,
     });
   });
   it.skip('verify that unbonding batch 1 is in withdrawn emergency state', async () => {
@@ -1333,7 +1333,7 @@ describe('Core Slashing', () => {
       expected_amount: '3499',
       total_unbond_items: 1,
       unbonded_amount: null,
-      withdrawed_amount: null,
+      withdrawn_amount: null,
     });
   });
 

@@ -139,6 +139,10 @@ pub enum ExecuteMsg {
     UpdateNonNativeRewardsReceivers {
         items: Vec<NonNativeRewardsItem>,
     },
+    UpdateWithdrawnAmount {
+        batch_id: u128,
+        withdrawn_amount: Uint128
+    },
     Tick {},
     PuppeteerHook(Box<PuppeteerResponseHookMsg>),
     StakerHook(Box<StakerResponseHookMsg>),
