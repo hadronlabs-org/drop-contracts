@@ -482,6 +482,10 @@ export interface ConfigOptional {
 export interface UpdateNonNativeRewardsReceiversArgs {
   items: NonNativeRewardsItem[];
 }
+export interface UpdateWithdrawnAmountArgs {
+  batch_id: number;
+  withdrawn_amount: Uint128;
+}
 export interface ResponseHookSuccessMsg2 {
   local_height: number;
   request: RequestPacket;
@@ -626,6 +630,10 @@ export class Client {
   updateNonNativeRewardsReceivers = async(sender:string, args: UpdateNonNativeRewardsReceiversArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_non_native_rewards_receivers: args }, fee || "auto", memo, funds);
+  }
+  updateWithdrawnAmount = async(sender:string, args: UpdateWithdrawnAmountArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+    if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { update_withdrawn_amount: args }, fee || "auto", memo, funds);
   }
   tick = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

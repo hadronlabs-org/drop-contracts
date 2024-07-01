@@ -255,9 +255,10 @@ pub fn execute(
         ExecuteMsg::UpdateNonNativeRewardsReceivers { items } => {
             execute_set_non_native_rewards_receivers(deps, env, info, items)
         }
-        ExecuteMsg::UpdateWithdrawnAmount { batch_id, withdrawn_amount } => {
-            execute_update_withdrawn_amount(deps, env, info, batch_id, withdrawn_amount)
-        }
+        ExecuteMsg::UpdateWithdrawnAmount {
+            batch_id,
+            withdrawn_amount,
+        } => execute_update_withdrawn_amount(deps, env, info, batch_id, withdrawn_amount),
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::PuppeteerHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
         ExecuteMsg::StakerHook(msg) => execute_staker_hook(deps, env, info, *msg),

@@ -141,7 +141,7 @@ pub enum ExecuteMsg {
     },
     UpdateWithdrawnAmount {
         batch_id: u128,
-        withdrawn_amount: Uint128
+        withdrawn_amount: Uint128,
     },
     Tick {},
     PuppeteerHook(Box<PuppeteerResponseHookMsg>),
