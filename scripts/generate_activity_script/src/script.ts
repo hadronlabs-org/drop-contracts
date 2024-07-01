@@ -43,6 +43,9 @@ const UNBOND_PROB: number = parseFloat(process.env.UNBOND_PROB) || 0;
 const WITHDRAW_PROB: number = parseFloat(process.env.WITHDRAW_PROB) || 0;
 const PROCESS_LSM_PROB: number = parseFloat(process.env.PROCESS_LSM_PROB) || 0;
 
+const TARGET_GASPRICE: number = parseFloat(process.env.TARGET_GASPRICE);
+const NEUTRON_GASPRICE: number = parseFloat(process.env.NEUTRON_GASPRICE);
+
 /*
  * Each of given probabilities should be in interval [0, 1]
  * According to given probabilities relevant actions will be choosed with appropriate probability
@@ -829,7 +832,7 @@ async function main() {
     NEUTRON_NODE_ADDRESS,
     neutronWallet.mainWallet,
     {
-      gasPrice: GasPrice.fromString("0.75untrn"),
+      gasPrice: GasPrice.fromString(`${NEUTRON_GASPRICE}untrn`),
     }
   );
   neutronWallet.clientSG = await SigningStargateClient.connectWithSigner(
@@ -844,7 +847,7 @@ async function main() {
           ["/ibc.applications.transfer.v1.MsgTransfer", MsgTransfer],
         ])
       ),
-      gasPrice: GasPrice.fromString("0.75untrn"),
+      gasPrice: GasPrice.fromString(`${NEUTRON_GASPRICE}untrn`),
     }
   );
   neutronWallet.mainAccounts = await neutronWallet.mainWallet.getAccounts();
@@ -860,7 +863,7 @@ async function main() {
     TARGET_NODE_ADDRESS,
     targetWallet.mainWallet,
     {
-      gasPrice: GasPrice.fromString(`0.75${TARGET_DENOM}`),
+      gasPrice: GasPrice.fromString(`${TARGET_GASPRICE}${TARGET_DENOM}`),
     }
   );
   targetWallet.clientSG = await SigningStargateClient.connectWithSigner(
@@ -881,7 +884,7 @@ async function main() {
           ["/cosmos.staking.v1beta1.MsgDelegate", MsgDelegate],
         ])
       ),
-      gasPrice: GasPrice.fromString(`0.75${TARGET_DENOM}`),
+      gasPrice: GasPrice.fromString(`${TARGET_GASPRICE}${TARGET_DENOM}`),
     }
   );
   targetWallet.mainAccounts = await targetWallet.mainWallet.getAccounts();

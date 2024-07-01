@@ -27,3 +27,5 @@ To manage script config, open _.env_ file
 - TARGET_DENOM = Base denom on remote chain
 - IBC_CHANNEL_TO = IBC channel to send from neutron to remote chain
 - IBC_CHANNEL_FROM = IBC channel to send from remote chain to neutron
+- NEUTRON_GASPRICE = Gas price on Neutron chain
+- TARGET_GASPRICE = Gas price on target chain
