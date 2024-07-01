@@ -652,6 +652,61 @@ fn test_update_config() {
 }
 
 #[test]
+fn test_update_withdrawn_amount() {
+    let mut deps = mock_dependencies(&[]);
+
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                10,
+                10_000_000_000,
+                10,
+                6000,
+                Uint128::one(),
+            ),
+        )
+        .unwrap();
+
+    unbond_batches_map()
+        .save(
+            deps.as_mut().storage,
+            0,
+            &UnbondBatch {
+                total_amount: Uint128::from(1000u128),
+                expected_amount: Uint128::from(1000u128),
+                total_unbond_items: 1,
+                status: UnbondBatchStatus::Unbonding,
+                expected_release: 9000,
+                slashing_effect: None,
+                unbonded_amount: None,
+                withdrawn_amount: None,
+                status_timestamps: get_default_unbond_batch_status_timestamps(),
+            },
+        )
+        .unwrap();
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env().clone(),
+        mock_info("withdrawal_manager_contract", &[]),
+        ExecuteMsg::UpdateWithdrawnAmount {
+            batch_id: 0,
+            withdrawn_amount: Uint128::from(1001u128),
+        },
+    );
+    assert!(res.is_ok());
+
+    let new_withdrawn_amount = unbond_batches_map()
+        .load(deps.as_mut().storage, 0)
+        .unwrap()
+        .withdrawn_amount;
+    assert_eq!(new_withdrawn_amount, Some(Uint128::from(1001u128)));
+}
+
+#[test]
 fn test_execute_reset_bonded_amount() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
