@@ -1,0 +1,20 @@
+{
+  "name": "drop-ts-client",
+  "version": "1.0.0",
+  "license": "MIT",
+  "main": "lib/contractLib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "generate": "ts-node ./src/rebuild-client.ts"
+  },
+  "dependencies": {
+    "@neutron-org/client-ts": "^1.4.0",
+    "@neutron-org/contracts2ts": "^1.4.4",
+    "@cosmjs/cosmwasm-stargate": "^0.32.3",
+    "@cosmjs/proto-signing": "^0.32.3"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.2"
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { DropDistribution } from '../generated/contractLib';
+import { DropDistribution } from 'drop-ts-client';
 
 import { join } from 'path';
 

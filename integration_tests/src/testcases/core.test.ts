@@ -9,7 +9,7 @@ import {
   DropWithdrawalVoucher,
   DropRewardsManager,
   DropStaker,
-} from '../generated/contractLib';
+} from 'drop-ts-client';
 import {
   QueryClient,
   StakingExtension,
@@ -36,7 +36,7 @@ import { waitFor } from '../helpers/waitFor';
 import {
   ResponseHookMsg,
   UnbondBatch,
-} from '../generated/contractLib/dropCore';
+} from 'drop-ts-client/lib/contractLib/dropCore';
 import { stringToPath } from '@cosmjs/crypto';
 import { sleep } from '../helpers/sleep';
 import { waitForTx } from '../helpers/waitForTx';
@@ -1190,7 +1190,7 @@ describe('Core', () => {
             undefined,
             [],
           ),
-        ).rejects.toThrowError(/Puppeteer response is not received/);
+        ).rejects.toThrowError(/Staker response is not received/);
       });
       it('state of fsm is staking_bond', async () => {
         const state = await context.coreContractClient.queryContractState();

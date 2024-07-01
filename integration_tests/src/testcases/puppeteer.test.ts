@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { DropPuppeteer, DropHookTester } from '../generated/contractLib';
+import { DropPuppeteer, DropHookTester } from 'drop-ts-client';
 import {
   QueryClient,
   StakingExtension,
@@ -20,7 +20,7 @@ import {
   ResponseAnswer,
   ResponseHookErrorMsg,
   ResponseHookSuccessMsg,
-} from '../generated/contractLib/dropHookTester';
+} from 'drop-ts-client/lib/contractLib/dropHookTester';
 
 const PuppeteerClass = DropPuppeteer.Client;
 const HookTesterClass = DropHookTester.Client;
