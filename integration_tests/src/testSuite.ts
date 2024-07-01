@@ -183,6 +183,12 @@ type Keys = (typeof keys)[number];
 const awaitFirstBlock = (rpc: string): Promise<void> =>
   waitFor(async () => {
     try {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), 5000);
+      await fetch(rpc, {
+        method: 'GET',
+        signal: controller.signal,
+      });
       console.log(`Connecting to ${rpc}`);
       const client = await StargateClient.connect(rpc);
       console.log(`Connected to ${rpc}`);
