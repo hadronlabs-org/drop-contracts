@@ -832,7 +832,7 @@ async function main() {
     NEUTRON_NODE_ADDRESS,
     neutronWallet.mainWallet,
     {
-      gasPrice: GasPrice.fromString("0.75untrn"),
+      gasPrice: GasPrice.fromString(`${NEUTRON_GASPRICE}untrn`),
     }
   );
   neutronWallet.clientSG = await SigningStargateClient.connectWithSigner(
@@ -847,7 +847,7 @@ async function main() {
           ["/ibc.applications.transfer.v1.MsgTransfer", MsgTransfer],
         ])
       ),
-      gasPrice: GasPrice.fromString("0.75untrn"),
+      gasPrice: GasPrice.fromString(`${NEUTRON_GASPRICE}untrn`),
     }
   );
   neutronWallet.mainAccounts = await neutronWallet.mainWallet.getAccounts();
@@ -863,7 +863,7 @@ async function main() {
     TARGET_NODE_ADDRESS,
     targetWallet.mainWallet,
     {
-      gasPrice: GasPrice.fromString(`0.75${TARGET_DENOM}`),
+      gasPrice: GasPrice.fromString(`${TARGET_GASPRICE}${TARGET_DENOM}`),
     }
   );
   targetWallet.clientSG = await SigningStargateClient.connectWithSigner(
@@ -884,7 +884,7 @@ async function main() {
           ["/cosmos.staking.v1beta1.MsgDelegate", MsgDelegate],
         ])
       ),
-      gasPrice: GasPrice.fromString(`0.75${TARGET_DENOM}`),
+      gasPrice: GasPrice.fromString(`${TARGET_GASPRICE}${TARGET_DENOM}`),
     }
   );
   targetWallet.mainAccounts = await targetWallet.mainWallet.getAccounts();
