@@ -790,7 +790,6 @@ export interface ConfigOptional {
   min_stake_amount?: Uint128 | null;
   pump_ica_address?: string | null;
   puppeteer_contract?: string | null;
-  puppeteer_timeout?: number | null;
   remote_denom?: string | null;
   staker_contract?: string | null;
   strategy_contract?: string | null;
@@ -1188,6 +1187,7 @@ export interface InstantiateMsg {
   base_denom: string;
   code_ids: CodeIds;
   core_params: CoreParams;
+  puppeteer_params: PuppeteerParams;
   remote_opts: RemoteOpts;
   salt: string;
   sdk_version: string;
@@ -1215,10 +1215,12 @@ export interface CoreParams {
   lsm_redeem_max_interval: number;
   lsm_redeem_threshold: number;
   min_stake_amount: Uint128;
-  puppeteer_timeout: number;
   unbond_batch_switch_time: number;
   unbonding_period: number;
   unbonding_safe_period: number;
+}
+export interface PuppeteerParams {
+  timeout: number;
 }
 export interface RemoteOpts {
   connection_id: string;
@@ -1230,6 +1232,7 @@ export interface RemoteOpts {
 export interface StakerParams {
   min_ibc_transfer: Uint128;
   min_stake_amount: Uint128;
+  timeout: number;
 }
 export interface DenomMetadata {
   /**
