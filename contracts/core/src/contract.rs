@@ -549,7 +549,7 @@ fn execute_tick_idle(
             } else {
                 attrs.push(attr("knot", "041"));
                 if let Some(lsm_msg) =
-                    get_pending_lsm_share_msg(deps.branch(), config, &env, info.funds.clone())?
+                    get_pending_lsm_share_msg(deps.as_ref(), config, &env, info.funds.clone())?
                 {
                     messages.push(lsm_msg);
                     attrs.push(attr("knot", "042"));
@@ -1586,7 +1586,7 @@ fn get_pending_redeem_msg<T>(
 }
 
 fn get_pending_lsm_share_msg<T, X: CustomQuery>(
-    deps: DepsMut<X>,
+    deps: Deps<X>,
     config: &Config,
     env: &Env,
     funds: Vec<cosmwasm_std::Coin>,
