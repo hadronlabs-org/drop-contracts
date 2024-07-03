@@ -216,24 +216,24 @@ fn execute_stake(
             reason: "tx_state is not idle".to_string()
         }
     );
-    let amount = NON_STAKED_BALANCE.load(deps.storage)?;
+    let non_staked_balance = NON_STAKED_BALANCE.load(deps.storage)?;
     ensure!(
-        amount > Uint128::zero(),
+        non_staked_balance > Uint128::zero(),
         ContractError::InvalidFunds {
             reason: "no funds to stake".to_string()
         }
     );
-    let sum = items
+    let amount_to_stake = items
         .iter()
         .fold(Uint128::zero(), |acc, (_, amount)| acc + *amount);
     ensure!(
-        sum >= config.min_staking_amount,
+        amount_to_stake >= config.min_staking_amount,
         ContractError::InvalidFunds {
             reason: "amount is less than min_staking_amount".to_string()
         }
     );
     ensure!(
-        amount >= sum,
+        non_staked_balance >= amount_to_stake,
         ContractError::InvalidFunds {
             reason: "not enough funds to stake".to_string()
         }
@@ -242,7 +242,7 @@ fn execute_stake(
         attr("action", "stake"),
         attr("connection_id", &config.connection_id),
         attr("ica_id", ICA_ID),
-        attr("amount", amount.to_string()),
+        attr("amount_to_stake", amount_to_stake.to_string()),
     ];
     let fee = query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?;
     let ica = ICA.get_address(deps.storage)?;
@@ -275,7 +275,7 @@ fn execute_stake(
         to_address: puppeteer_ica,
         amount: vec![cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
             denom: config.remote_denom.to_string(),
-            amount: sum.to_string(),
+            amount: amount_to_stake.to_string(),
         }],
     };
     let any_msgs: Vec<neutron_sdk::bindings::types::ProtobufAny> = vec![
@@ -293,7 +293,9 @@ fn execute_stake(
     let submsg: SubMsg<NeutronMsg> = msg_with_sudo_callback(
         deps,
         cosmos_msg,
-        Transaction::Stake { amount },
+        Transaction::Stake {
+            amount: non_staked_balance,
+        },
         ReplyMsg::SudoPayload.to_reply_id(),
         Some(info.sender.to_string()),
     )?;
