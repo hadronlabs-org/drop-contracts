@@ -521,30 +521,45 @@ fn execute_tick_idle(
     info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let mut attrs = vec![attr("action", "tick_idle")];
+    let mut attrs = vec![attr("action", "tick_idle"), attr("knot", "001")];
     let last_idle_call = LAST_IDLE_CALL.load(deps.storage)?;
     let mut messages = vec![];
+    attrs.push(attr("knot", "000"));
     cache_exchange_rate(deps.branch(), env.clone(), config)?;
+    attrs.push(attr("knot", "003"));
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
         //process non-native rewards
+        attrs.push(attr("knot", "033"));
         if let Some(transfer_msg) =
             get_non_native_rewards_and_fee_transfer_msg(deps.as_ref(), info.clone(), &env)?
         {
             messages.push(transfer_msg);
+            attrs.push(attr("knot", "034"));
             FSM.go_to(deps.storage, ContractState::NonNativeRewardsTransfer)?;
-        } else if let Some(lsm_msg) =
-            get_pending_redeem_msg(deps.as_ref(), config, &env, info.funds.clone())?
-        {
-            messages.push(lsm_msg);
-            FSM.go_to(deps.storage, ContractState::LSMRedeem)?;
-        } else if let Some(lsm_msg) =
-            get_pending_lsm_share_msg(deps.branch(), config, &env, info.funds.clone())?
-        {
-            messages.push(lsm_msg);
-            FSM.go_to(deps.storage, ContractState::LSMTransfer)?;
+            attrs.push(attr("knot", "035"));
         } else {
-            //return error if none
-            return Err(ContractError::IdleMinIntervalIsNotReached {});
+            attrs.push(attr("knot", "036"));
+            if let Some(lsm_msg) =
+                get_pending_redeem_msg(deps.as_ref(), config, &env, info.funds.clone())?
+            {
+                messages.push(lsm_msg);
+                attrs.push(attr("knot", "037"));
+                FSM.go_to(deps.storage, ContractState::LSMRedeem)?;
+                attrs.push(attr("knot", "038"));
+            } else {
+                attrs.push(attr("knot", "041"));
+                if let Some(lsm_msg) =
+                    get_pending_lsm_share_msg(deps.branch(), config, &env, info.funds.clone())?
+                {
+                    messages.push(lsm_msg);
+                    attrs.push(attr("knot", "042"));
+                    FSM.go_to(deps.storage, ContractState::LSMTransfer)?;
+                    attrs.push(attr("knot", "043"));
+                } else {
+                    //return error if none
+                    return Err(ContractError::IdleMinIntervalIsNotReached {});
+                }
+            }
         }
     } else {
         let unbonding_batches = unbond_batches_map()
@@ -553,6 +568,7 @@ fn execute_tick_idle(
             .prefix(UnbondBatchStatus::Unbonding as u8)
             .range(deps.storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<_>>>()?;
+        attrs.push(attr("knot", "005"));
         ensure!(
             !is_unbonding_time_close(
                 &unbonding_batches,
@@ -729,6 +745,7 @@ fn execute_tick_idle(
             attrs.push(attr("state", "claiming"));
         }
         LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
+        attrs.push(attr("knot", "004"));
     }
     Ok(response("execute-tick_idle", CONTRACT_NAME, attrs).add_messages(messages))
 }
@@ -739,9 +756,9 @@ fn execute_tick_peripheral(
     _info: MessageInfo,
     _config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let attrs = vec![attr("action", "tick_peripheral"), attr("knot", "001")];
     get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
-    let attrs = vec![attr("action", "tick_peripheral")];
     FSM.go_to(deps.storage, ContractState::Idle)?;
     Ok(response("execute-tick_peripheral", CONTRACT_NAME, attrs))
 }
@@ -752,9 +769,9 @@ fn execute_tick_claiming(
     info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let mut attrs = vec![attr("action", "tick_claiming"), attr("knot", "001")];
     let response_msg = get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
-    let mut attrs = vec![attr("action", "tick_claiming")];
     let mut messages = vec![];
     match response_msg {
         drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) => {
@@ -814,6 +831,7 @@ fn execute_tick_staking_bond(
     info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let mut attrs = vec![attr("action", "tick_staking_bond"), attr("knot", "001")];
     let response_msg = get_received_staker_response(deps.as_ref())?;
     if let drop_staking_base::msg::staker::ResponseHookMsg::Success(response) = response_msg {
         let (_, puppeteer_height, _): drop_staking_base::msg::puppeteer::BalancesResponse =
@@ -832,8 +850,6 @@ fn execute_tick_staking_bond(
     }
     LAST_STAKER_RESPONSE.remove(deps.storage);
     let mut messages = vec![];
-    let mut attrs = vec![];
-    attrs.push(attr("action", "tick_staking_bond"));
     if let Some(stake_msg) = get_stake_rewards_msg(deps.as_ref(), &env, config, &info)? {
         messages.push(stake_msg);
         FSM.go_to(deps.storage, ContractState::StakingRewards)?;
@@ -855,9 +871,9 @@ fn execute_tick_staking_rewards(
     info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let mut attrs = vec![attr("action", "tick_staking"), attr("knot", "001")];
     let _response_msg = get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
-    let mut attrs = vec![attr("action", "tick_staking")];
     let mut messages = vec![];
     let unbond_message = get_unbonding_msg(deps.branch(), &env, config, &info)?;
     if let Some(unbond_message) = unbond_message {
@@ -877,8 +893,8 @@ fn execute_tick_unbonding(
     _info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let mut attrs = vec![attr("action", "tick_unbonding"), attr("knot", "001")];
     let res = get_received_puppeteer_response(deps.as_ref())?;
-    let mut attrs = vec![attr("action", "tick_unbonding")];
     match res {
         drop_puppeteer_base::msg::ResponseHookMsg::Success(response) => {
             match response.transaction {
