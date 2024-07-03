@@ -1634,6 +1634,14 @@ describe('Auto withdrawer', () => {
         );
         expect(res.transactionHash).toHaveLength(64);
 
+        const batchId = await context.coreContractClient.queryCurrentUnbondBatch();
+        console.log(batchId);
+        const batch = await context.coreContractClient.queryUnbondBatch({
+          batch_id: batchId,
+        });
+        console.log(batch);
+        expect(batch.withdrawn_amount).eq(20000);
+
         const balance =
           await neutronClient.CosmosBankV1Beta1.query.queryBalance(
             neutronUserAddress,

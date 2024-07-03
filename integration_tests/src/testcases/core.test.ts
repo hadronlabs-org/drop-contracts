@@ -1008,6 +1008,33 @@ describe('Core', () => {
       withdrawn_amount: null,
     });
   });
+
+  it('update withdrawn amount for unbonding batch', async () => {
+    await context.coreContractClient.updateWithdrawnAmount(
+      context.withdrawalManagerContractClient.contractAddress,
+      {
+        batch_id: 0,
+        withdrawn_amount: '1001',
+      },
+    );
+
+    const batch = await context.coreContractClient.queryUnbondBatch({
+      batch_id: '0',
+    });
+    expect(batch).toBeTruthy();
+    expect(batch).toEqual<UnbondBatch>({
+      slashing_effect: null,
+      status_timestamps: expect.any(Object),
+      expected_release: 0,
+      status: 'new',
+      total_amount: '500000',
+      expected_amount: '500000',
+      total_unbond_items: 2,
+      unbonded_amount: null,
+      withdrawn_amount: null,
+    });
+  });
+
   describe('state machine', () => {
     const ica: { balance?: number } = {};
     describe('prepare', () => {
