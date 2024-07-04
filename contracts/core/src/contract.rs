@@ -780,23 +780,22 @@ fn execute_tick_peripheral(
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut attrs = vec![attr("action", "tick_peripheral"), attr("knot", "001")];
     let res = get_received_puppeteer_response(deps.as_ref())?;
-    match res {
-        drop_puppeteer_base::msg::ResponseHookMsg::Success(msg) => match msg.transaction {
+
+    if let drop_puppeteer_base::msg::ResponseHookMsg::Success(msg) = res {
+        match msg.transaction {
             drop_puppeteer_base::msg::Transaction::RedeemShares { .. } => {
                 attrs.push(attr("knot", "038"))
             }
-            drop_puppeteer_base::msg::Transaction::IBCTransfer { reason, .. } => match reason {
-                IBCTransferReason::LSMShare => {
+            drop_puppeteer_base::msg::Transaction::IBCTransfer { reason, .. } => {
+                if reason == IBCTransferReason::LSMShare {
                     attrs.push(attr("knot", "043"));
                 }
-                _ => {}
-            },
+            }
             drop_puppeteer_base::msg::Transaction::Transfer { .. } => {
                 attrs.push(attr("knot", "035"));
             }
             _ => {}
-        },
-        _ => {}
+        }
     }
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     FSM.go_to(deps.storage, ContractState::Idle)?;
