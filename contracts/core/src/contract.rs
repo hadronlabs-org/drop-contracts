@@ -529,6 +529,7 @@ fn execute_tick_idle(
     let last_idle_call = LAST_IDLE_CALL.load(deps.storage)?;
     let mut messages = vec![];
     cache_exchange_rate(deps.branch(), env.clone(), config)?;
+    attrs.push(attr("knot", "002"));
     attrs.push(attr("knot", "003"));
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
         //process non-native rewards
