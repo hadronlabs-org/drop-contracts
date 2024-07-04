@@ -607,7 +607,10 @@ fn execute_tick_idle(
 
         attrs.push(attr("knot", "007"));
         let transfer: Option<TransferReadyBatchesMsg> = match unbonded_batches.len() {
-            0 => None, // we have nothing to do
+            0 => {
+                attrs.push(attr("knot", "045"));
+                None
+            } // we have nothing to do
             1 => {
                 let (id, mut unbonding_batch) = unbonded_batches
                     .into_iter()
@@ -672,7 +675,7 @@ fn execute_tick_idle(
                     }
                     unbond_batches_map().save(deps.storage, id, &batch)?;
                 }
-                attrs.push(attr("knot", "008"));
+                attrs.push(attr("knot", "046"));
                 Some(TransferReadyBatchesMsg {
                     batch_ids,
                     emergency,
@@ -736,12 +739,14 @@ fn execute_tick_idle(
                     attrs.push(attr("knot", "022"));
                     attrs.push(attr("state", "staking_rewards"));
                 } else {
-                    attrs.push(attr("knot", "022"));
+                    attrs.push(attr("knot", "024"));
                     if let Some(unbond_message) =
                         get_unbonding_msg(deps.branch(), &env, config, &info)?
                     {
                         messages.push(unbond_message);
+                        attrs.push(attr("knot", "028"));
                         FSM.go_to(deps.storage, ContractState::Unbonding)?;
+                        attrs.push(attr("knot", "029"));
                         attrs.push(attr("state", "unbonding"));
                     } else {
                         attrs.push(attr("state", "idle"));

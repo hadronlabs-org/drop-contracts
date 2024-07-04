@@ -1,0 +1,110 @@
+digraph G {
+    K001 [label = "K001\ncheck icq response freshness";shape = "diamond";];
+    K000 [label = "K000\nidle";];
+    K002 [label = "K002\ncache exchange rate";shape = "box";];
+    K003 [label = "K003\ncheck last idle call\nidle_min_interval reached";shape = "diamond";];
+    
+    K033 [label = "K033\nis there some non-native rewards";shape = "diamond";];
+    K034 [label = "K034\ntransfer non-native rewards msg";shape = "box";];
+    K035 [label = "K035\nNonNativeRewardsTransfer";];
+    
+    K036 [label = "K036\nis there pending LSM shares\nto redeem";shape = "diamond";];
+    K037 [label = "K037\nredeem pending LSM shares msg";shape = "box";];
+    K038 [label = "K038\nLSMRedeem";];
+    
+    K041 [label = "K041\nis there pending LSM shares\nto transfer";shape = "diamond";];
+    K042 [label = "K042\ntransfer pending LSM shares msg";shape = "box";];
+    K043 [label = "K043\nLSMTransfer";];
+    
+    K005 [label = "K005\nUnbondingTimeIsClose?";shape = "diamond";];
+    K007 [label = "K007\nHow many unbonding\nbatches ready to transfer?";shape = "hexagon";];
+    K008 [label = "K008\n compose TransferReadyBatchesMsg";shape = "box";];
+    K045 [label = "K045\nNo batched ready";shape = "box";];
+    K046 [label = "K046\n compose TransferReadyBatchesMsg\nmany batches";shape = "box";];
+    
+    K009 [label = "K009\nAre delegations fresh";shape = "diamond";];
+    K010 [label = "K010\nAny validators to claim";shape = "diamond";];
+    
+    K015 [label = "K015\nAnything to stake";shape = "diamond";];
+    K016 [label = "K016\ncompose Stake msg";shape = "box";];
+    K017 [label = "K017\nStakingBond";];
+    
+    K020 [label = "K020\nRewards to stake";shape = "diamond";];
+    K021 [label = "K021\ncompose Stake rewards msg";shape = "box";];
+    K022 [label = "K022\nStakingRewards";];
+    
+    K024 [label = "K024\nAny batch to be unbonded?";shape = "diamond";];
+    K028 [label = "K028\ncompose unbond msg";shape = "box";];
+    K029 [label = "K029\nUnbonding";];
+    
+    K011 [label = "K011\ncompose Claim msg";shape = "box";];
+    K012 [label = "K012\nClaiming";];
+    K004 [label = "K004\nUpdate last idle call";];
+    
+    ERR [label = "exit";];
+    
+    K001 -> K000;
+    K000 -> K002;
+    K002 -> K003;
+    K003 -> K033 [taillabel = "no";];
+    
+    K033 -> K034 [taillabel = "yes";];
+    K034 -> K035;
+    K033 -> K036 [taillabel = "no";];
+    K036 -> K037 [taillabel = "yes";];
+    K037 -> K038;
+    K036 -> K041 [taillabel = "no";];
+    K041 -> K042 [taillabel = "yes";];
+    K042 -> K043;
+    K041 -> ERR [taillabel = "no";];
+    
+    K003 -> K005 [taillabel = "yes";];
+    K005 -> ERR [taillabel = "yes";];
+    K005 -> K007 [taillabel = "no";];
+    
+    K007 -> K045 [taillabel = "0";];
+    K007 -> K008 [taillabel = "1";];
+    K007 -> K046 [taillabel = ">1";];
+    
+    K045 -> K009;
+    K008 -> K009;
+    K046 -> K009;
+    
+    K009 -> ERR [taillabel = "no";];
+    K009 -> K010 [taillabel = "yes";];
+    K010 -> K015 [taillabel = "no";];
+    K015 -> K016 [taillabel = "yes";];
+    K016 -> K017;
+    
+    K015 -> K020 [taillabel = "no";];
+    K020 -> K021 [taillabel = "yes";];
+    K021 -> K022;
+    
+    K020 -> K024 [taillabel = "no";];
+    K024 -> K028 [taillabel = "yes";];
+    K028 -> K029;
+    
+    K024 -> K000 [taillabel = "no";];
+    K010 -> K011 [taillabel = "no";];
+    K011 -> K012;
+    K012 -> K004;
+    
+    K000 -> K004;
+    K029 -> K004;
+    K022 -> K004;
+    K017 -> K004;
+    
+    K001 -> K038;
+    K038 -> K000;
+    
+    K001 -> K043;
+    K043 -> K000;
+    
+    K001 -> K035;
+    K035 -> K000;
+    
+    K001 -> K015;
+    K001 -> K020;
+    K001 -> K022;
+    K001 -> K029;
+}
