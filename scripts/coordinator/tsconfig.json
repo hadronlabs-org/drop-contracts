@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "types": ["node"],
+    "module": "commonjs",
+    "lib": ["esnext", "DOM"],
+    "outDir": "lib",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "paths": {
+      "drop-ts-client": ["../../ts-client/src/contractLib/index.ts"],
+      "drop-ts-client/*": ["../../ts-client/*"]
+    }
+  },
+  "include": ["src"],
+  "ts-node": {
+    "require": ["tsconfig-paths/register"]
+  },
+  "exclude": ["node_modules"]
+}
