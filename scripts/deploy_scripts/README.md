@@ -4,7 +4,7 @@ This directory contains several scripts to assist in deployment of Drop protocol
 are those you will need to run.
 
 | Script                    | Purpose                                                                                                             |
-|---------------------------|---------------------------------------------------------------------------------------------------------------------|
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | **upload_contracts.bash** | Stores wasm code of all Drop contracts on Neutron chain                                                             |
 | **instantiate.bash**      | Creates instance of Drop protocol, waits until ICA addresses are registered and sets them in protocol configuration |
 | utils.bash                | Universal library used across deployment scripts. You don't need to execute it by yourself                          |
@@ -22,7 +22,7 @@ uploaded contracts will correspond to commit hash you are currently on.
 Copy `.env.upload.example` to `.env.upload`, then configure it according to this table:
 
 | Parameter           | Suggested testnet value                    | Suggested mainnet value                   | Description                                                                                           |
-|---------------------|--------------------------------------------|-------------------------------------------|-------------------------------------------------------------------------------------------------------|
+| ------------------- | ------------------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `NEUTRON_RPC`       | `https://rpc-falcron.pion-1.ntrn.tech:443` | `https://rpc.novel.remedy.tm.p2p.org:443` | Neutron public RPCs taken from chain registry                                                         |
 | `GAS_PRICES`        | `0.02`                                     | `0.01`                                    | In case if deployment is too slow and fails on tx timeout, try increasing this value                  |
 | `NEUTRON_CHAIN_ID`  | `pion-1`                                   | `neutron-1`                               |                                                                                                       |
@@ -30,7 +30,7 @@ Copy `.env.upload.example` to `.env.upload`, then configure it according to this
 | `KEYRING_BACKEND`   |                                            |                                           | Set it to `test`, `os` or whatever backend is in use                                                  |
 | `DEPLOY_WALLET`     |                                            |                                           | Set it to name of the wallet you would like to deploy protocol from and then use it as protocol admin |
 | `MIN_NTRN_REQUIRED` | `10`                                       | `10`                                      | Scripts check if you have enough funds before doing anything. Generally, better not touch this value  |
-| `ARTIFACTS_DIR`     | `../artifacts`                             | `../artifacts`                            | Only change it in case if you have moved somewhere either scripts dir or contracts dir                |
+| `ARTIFACTS_DIR`     | `../../artifacts`                          | `../../artifacts`                         | Only change it in case if you have moved somewhere either scripts dir or contracts dir                |
 
 ### Execution
 
@@ -47,7 +47,7 @@ After script is finished, please save its output, you will need it for `instanti
 Copy `.env.instantiate.example` to `.env.instantiate`, then configure it according to this table:
 
 | Parameter                          | Suggested testnet value                    | Suggested mainnet value                   | Description                                                                                                                   |
-|------------------------------------|--------------------------------------------|-------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| ---------------------------------- | ------------------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `NEUTRON_RPC`                      | `https://rpc-falcron.pion-1.ntrn.tech:443` | `https://rpc.novel.remedy.tm.p2p.org:443` | Neutron public RPCs taken from chain registry                                                                                 |
 | `GAS_PRICES`                       | `0.02`                                     | `0.01`                                    | In case if deployment is too slow and fails on tx timeout, try increasing this value                                          |
 | `NEUTRON_CHAIN_ID`                 | `pion-1`                                   | `neutron-1`                               |                                                                                                                               |
@@ -64,7 +64,7 @@ Copy `.env.instantiate.example` to `.env.instantiate`, then configure it accordi
 | `UNBOND_BATCH_SWITCH_TIME`         |                                            |                                           | Divide `UNBONDING_PERIOD` by 7                                                                                                |
 | `PUPPETEER_TIMEOUT`                | `1209600`                                  | `1209600`                                 | 14 days is a good default                                                                                                     |
 | `STAKER_TIMEOUT`                   | `1209600`                                  | `1209600`                                 | 14 days is a good default                                                                                                     |
-| `ARTIFACTS_DIR`                    | `../artifacts`                             | `../artifacts`                            | Only change it in case if you have moved somewhere either scripts dir or contracts dir                                        |
+| `ARTIFACTS_DIR`                    | `../../artifacts`                          | `../../artifacts`                         | Only change it in case if you have moved somewhere either scripts dir or contracts dir                                        |
 | `INITIAL_VALIDATORS`               |                                            |                                           | Set it to validators to stake to, format is as follows: `[{"valoper_address":"cosmosvaloper1...","weight":"10"},...]`         |
 | `*_code_id`                        |                                            |                                           | Set it to code ID taken from output of upload.bash                                                                            |
 
