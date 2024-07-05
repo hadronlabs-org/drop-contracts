@@ -255,6 +255,10 @@ pub fn execute(
         ExecuteMsg::UpdateNonNativeRewardsReceivers { items } => {
             execute_set_non_native_rewards_receivers(deps, env, info, items)
         }
+        ExecuteMsg::UpdateWithdrawnAmount {
+            batch_id,
+            withdrawn_amount,
+        } => execute_update_withdrawn_amount(deps, env, info, batch_id, withdrawn_amount),
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::PuppeteerHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
         ExecuteMsg::StakerHook(msg) => execute_staker_hook(deps, env, info, *msg),
@@ -368,6 +372,34 @@ fn execute_set_non_native_rewards_receivers(
         "execute-set_non_native_rewards_receivers",
         CONTRACT_NAME,
         vec![attr("action", "set_non_native_rewards_receivers")],
+    ))
+}
+
+fn execute_update_withdrawn_amount(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    info: MessageInfo,
+    batch_id: u128,
+    withdrawn_amount: Uint128,
+) -> ContractResult<Response<NeutronMsg>> {
+    let config = CONFIG.load(deps.storage)?;
+    if info.sender != config.withdrawal_manager_contract {
+        return Err(ContractError::Unauthorized {});
+    }
+
+    let mut batch = unbond_batches_map().load(deps.storage, batch_id)?;
+    ensure_eq!(
+        batch.status,
+        UnbondBatchStatus::Withdrawn,
+        ContractError::BatchNotWithdrawn {}
+    );
+    batch.withdrawn_amount = Some(batch.withdrawn_amount.unwrap_or_default() + withdrawn_amount);
+    unbond_batches_map().save(deps.storage, batch_id, &batch)?;
+
+    Ok(response(
+        "execute-update_withdrawn_amount",
+        CONTRACT_NAME,
+        vec![attr("action", "update_withdrawn_amount")],
     ))
 }
 
@@ -1439,7 +1471,7 @@ fn new_unbond(now: u64) -> UnbondBatch {
         expected_release: 0,
         slashing_effect: None,
         unbonded_amount: None,
-        withdrawed_amount: None,
+        withdrawn_amount: None,
         status_timestamps: UnbondBatchStatusTimestamps {
             new: now,
             unbond_requested: None,
