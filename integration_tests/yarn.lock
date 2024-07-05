@@ -1755,6 +1755,11 @@ doctrine@^3.0.0:
   dependencies:
     esutils "^2.0.2"
 
+dotparser@^1.1.1:
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/dotparser/-/dotparser-1.1.1.tgz#c474942f329638b44ddb3dff27e9a6385dbab2f9"
+  integrity sha512-8ojhUts0HbLnXJgjTiJOddwVVBUk6hg4SJ5kGiuhzgK/f+y79TiWvICwx1oCWlVbBC8YI3nEaIQg9fjGYbGBXw==
+
 eastasianwidth@^0.2.0:
   version "0.2.0"
   resolved "https://registry.yarnpkg.com/eastasianwidth/-/eastasianwidth-0.2.0.tgz#696ce2ec0aa0e6ea93a397ffcf24aa7840c827cb"
