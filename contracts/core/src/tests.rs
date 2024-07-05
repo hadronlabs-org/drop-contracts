@@ -670,40 +670,66 @@ fn test_update_withdrawn_amount() {
         )
         .unwrap();
 
+    let withdrawn_batch = &UnbondBatch {
+        total_amount: Uint128::from(1001u128),
+        expected_amount: Uint128::from(1001u128),
+        total_unbond_items: 1,
+        status: UnbondBatchStatus::Withdrawn,
+        expected_release: 9000,
+        slashing_effect: None,
+        unbonded_amount: None,
+        withdrawn_amount: None,
+        status_timestamps: get_default_unbond_batch_status_timestamps(),
+    };
+
+    let unbonding_batch = &UnbondBatch {
+        total_amount: Uint128::from(2002u128),
+        expected_amount: Uint128::from(2002u128),
+        total_unbond_items: 1,
+        status: UnbondBatchStatus::Unbonding,
+        expected_release: 9000,
+        slashing_effect: None,
+        unbonded_amount: None,
+        withdrawn_amount: None,
+        status_timestamps: get_default_unbond_batch_status_timestamps(),
+    };
+
     unbond_batches_map()
-        .save(
-            deps.as_mut().storage,
-            0,
-            &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
-                total_unbond_items: 1,
-                status: UnbondBatchStatus::Unbonding,
-                expected_release: 9000,
-                slashing_effect: None,
-                unbonded_amount: None,
-                withdrawn_amount: None,
-                status_timestamps: get_default_unbond_batch_status_timestamps(),
-            },
-        )
+        .save(deps.as_mut().storage, 1, withdrawn_batch)
         .unwrap();
 
-    let res = execute(
+    unbond_batches_map()
+        .save(deps.as_mut().storage, 0, unbonding_batch)
+        .unwrap();
+
+    let withdrawn_res = execute(
+        deps.as_mut(),
+        mock_env().clone(),
+        mock_info("withdrawal_manager_contract", &[]),
+        ExecuteMsg::UpdateWithdrawnAmount {
+            batch_id: 1,
+            withdrawn_amount: Uint128::from(1001u128),
+        },
+    );
+    assert!(withdrawn_res.is_ok());
+
+    let new_withdrawn_amount = unbond_batches_map()
+        .load(deps.as_mut().storage, 1)
+        .unwrap()
+        .withdrawn_amount;
+    assert_eq!(new_withdrawn_amount, Some(Uint128::from(1001u128)));
+
+    let unbonding_err = execute(
         deps.as_mut(),
         mock_env().clone(),
         mock_info("withdrawal_manager_contract", &[]),
         ExecuteMsg::UpdateWithdrawnAmount {
             batch_id: 0,
-            withdrawn_amount: Uint128::from(1001u128),
+            withdrawn_amount: Uint128::from(2002u128),
         },
-    );
-    assert!(res.is_ok());
-
-    let new_withdrawn_amount = unbond_batches_map()
-        .load(deps.as_mut().storage, 0)
-        .unwrap()
-        .withdrawn_amount;
-    assert_eq!(new_withdrawn_amount, Some(Uint128::from(1001u128)));
+    )
+    .unwrap_err();
+    assert_eq!(unbonding_err, ContractError::BatchNotWithdrawn {});
 }
 
 #[test]

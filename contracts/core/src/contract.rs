@@ -388,6 +388,11 @@ fn execute_update_withdrawn_amount(
     }
 
     let mut batch = unbond_batches_map().load(deps.storage, batch_id)?;
+    ensure_eq!(
+        batch.status,
+        UnbondBatchStatus::Withdrawn,
+        ContractError::BatchNotWithdrawn {}
+    );
     batch.withdrawn_amount = Some(batch.withdrawn_amount.unwrap_or_default() + withdrawn_amount);
     unbond_batches_map().save(deps.storage, batch_id, &batch)?;
 
