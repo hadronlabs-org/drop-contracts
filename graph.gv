@@ -1,5 +1,4 @@
 digraph G {
-    K001 [label = "K001\ncheck icq response freshness";shape = "diamond";];
     K000 [label = "K000\nidle";];
     K002 [label = "K002\ncache exchange rate";shape = "box";];
     K003 [label = "K003\ncheck last idle call\nidle_min_interval reached";shape = "diamond";];
@@ -19,7 +18,6 @@ digraph G {
     K005 [label = "K005\nUnbondingTimeIsClose?";shape = "diamond";];
     K007 [label = "K007\nHow many unbonding\nbatches ready to transfer?";shape = "hexagon";];
     K008 [label = "K008\n compose TransferReadyBatchesMsg";shape = "box";];
-    K045 [label = "K045\nNo batched ready";shape = "box";];
     K046 [label = "K046\n compose TransferReadyBatchesMsg\nmany batches";shape = "box";];
     
     K009 [label = "K009\nAre delegations fresh";shape = "diamond";];
@@ -43,7 +41,6 @@ digraph G {
     
     ERR [label = "exit";];
     
-    K001 -> K000;
     K000 -> K002;
     K002 -> K003;
     K003 -> K033 [taillabel = "no";];
@@ -58,15 +55,15 @@ digraph G {
     K042 -> K043;
     K041 -> ERR [taillabel = "no";];
     
-    K003 -> K005 [taillabel = "yes";];
+    K003 -> K004 [taillabel = "yes";];
+    K004 -> K005;
     K005 -> ERR [taillabel = "yes";];
     K005 -> K007 [taillabel = "no";];
     
-    K007 -> K045 [taillabel = "0";];
     K007 -> K008 [taillabel = "1";];
     K007 -> K046 [taillabel = ">1";];
-    
-    K045 -> K009;
+    K007 -> K009 [taillabel = "no";];
+
     K008 -> K009;
     K046 -> K009;
     
@@ -85,26 +82,10 @@ digraph G {
     K028 -> K029;
     
     K024 -> K000 [taillabel = "no";];
-    K010 -> K011 [taillabel = "no";];
+    K010 -> K011 [taillabel = "yes";];
     K011 -> K012;
-    K012 -> K004;
     
-    K000 -> K004;
-    K029 -> K004;
-    K022 -> K004;
-    K017 -> K004;
-    
-    K001 -> K038;
     K038 -> K000;
-    
-    K001 -> K043;
     K043 -> K000;
-    
-    K001 -> K035;
     K035 -> K000;
-    
-    K001 -> K015;
-    K001 -> K020;
-    K001 -> K022;
-    K001 -> K029;
 }
