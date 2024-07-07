@@ -824,6 +824,7 @@ fn execute_tick_claiming(
                     transfer,
                     ..
                 } => {
+                    attrs.push(attr("knot", "013"));
                     if let Some(transfer) = transfer {
                         for id in transfer.batch_ids {
                             let mut batch = unbond_batches_map().load(deps.storage, id)?;
@@ -838,6 +839,7 @@ fn execute_tick_claiming(
                                 batch.status_timestamps.withdrawn = Some(env.block.time.seconds());
                                 attrs.push(attr("unbond_batch_status", "withdrawn"));
                             }
+                            attrs.push(attr("knot", "014"));
                             unbond_batches_map().save(deps.storage, id, &batch)?;
                         }
                     }
@@ -1410,12 +1412,20 @@ fn get_unbonding_msg<T>(
     env: &Env,
     config: &Config,
     info: &MessageInfo,
-) -> ContractResult<Option<CosmosMsg<T>>> {
+) -> ContractResult<(Option<CosmosMsg<T>>, Vec<cosmwasm_std::Attribute>)> {
+    let mut attrs = vec![];
     let funds = info.funds.clone();
+    attrs.push(attr("knot", "024"));
     let batch_id = FAILED_BATCH_ID
         .may_load(deps.storage)?
         .unwrap_or(UNBOND_BATCH_ID.load(deps.storage)?);
     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
+    if unbond.status == UnbondBatchStatus::UnbondFailed {
+        attrs.push(attr("knot", "025"));
+    } else {
+        attrs.push(attr("knot", "026"));
+    }
+    attrs.push(attr("knot", "027"));
     if (unbond.status_timestamps.new + config.unbond_batch_switch_time < env.block.time.seconds())
         && unbond.total_unbond_items != 0
         && !unbond.total_amount.is_zero()
@@ -1429,21 +1439,23 @@ fn get_unbonding_msg<T>(
             );
 
         if calc_withdraw_query_result.is_err() {
-            return Ok(None);
+            return Ok((None, attrs));
         }
 
         let undelegations: Vec<(String, Uint128)> = calc_withdraw_query_result?;
 
+        attrs.push(attr("knot", "045"));
         unbond.status = UnbondBatchStatus::UnbondRequested;
         unbond.status_timestamps.unbond_requested = Some(env.block.time.seconds());
         unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
+        attrs.push(attr("knot", "046"));
         UNBOND_BATCH_ID.save(deps.storage, &(batch_id + 1))?;
         unbond_batches_map().save(
             deps.storage,
             batch_id + 1,
             &new_unbond(env.block.time.seconds()),
         )?;
-        Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
+        Ok((Some(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.puppeteer_contract.to_string(),
             msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
                 items: undelegations,
@@ -1451,9 +1463,9 @@ fn get_unbonding_msg<T>(
                 reply_to: env.contract.address.to_string(),
             })?,
             funds,
-        })))
+        })), attrs))
     } else {
-        Ok(None)
+        Ok((None, attrs))
     }
 }
 
