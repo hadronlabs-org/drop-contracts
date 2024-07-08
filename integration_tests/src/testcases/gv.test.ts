@@ -40,6 +40,25 @@ const parseAST = (tree: Graph[]): Record<string, MyNode> => {
   }
   const graph = tree[0];
   for (const item of graph.children) {
+    if (item.type === 'subgraph') {
+      for (const subItem of item.children) {
+        if (subItem.type === 'node_stmt') {
+          out[subItem.node_id.id] = {
+            id: subItem.node_id.id.toString(),
+            label: subItem.attr_list
+              .find((attr) => attr.id === 'label')
+              ?.eq.toString(),
+            shape:
+              subItem.attr_list
+                .find((attr) => attr.id === 'shape')
+                ?.eq.toString() || 'ellipse',
+            outs: [],
+          };
+        }
+      }
+    }
+  }
+  for (const item of graph.children) {
     if (item.type === 'node_stmt') {
       out[item.node_id.id] = {
         id: item.node_id.id.toString(),
@@ -73,7 +92,6 @@ describe('graphviz', () => {
     expect(parsedTree.hasPath(['a', 'b'])).toBe(false);
     expect(
       parsedTree.hasPath([
-        'K001',
         'K000',
         'K002',
         'K003',
@@ -85,24 +103,28 @@ describe('graphviz', () => {
         'K011',
         'K012',
         'K004',
-      ]),
-    ).toBe(true);
-    expect(
-      parsedTree.hasPath([
-        'K001',
-        'K000',
-        'K002',
-        'K003',
-        'K005',
-        'K007',
-        'K045',
-        'K009',
-        'K010',
-        'K011',
-        'K012',
-        'K004',
-        'K001',
       ]),
     ).toBe(false);
+    expect(
+      parsedTree.hasPath([
+        'K000',
+        'K002',
+        'K003',
+        'K004',
+        'K005',
+        'K007',
+        'K048',
+        'K009',
+        'K010',
+        'K011',
+        'K012',
+        'K047',
+        'K013',
+        'K014',
+        'K015',
+        'K016',
+        'K017',
+      ]),
+    ).toBe(true);
   });
 });
