@@ -843,6 +843,16 @@ fn execute_tick_claiming(
         }
         drop_puppeteer_base::msg::ResponseHookMsg::Error(err) => {
             attrs.push(attr("error_on_claiming", format!("{:?}", err)));
+            match err.transaction {
+                drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
+                    ..
+                } => {
+                    FSM.go_to(deps.storage, ContractState::Idle)?;
+                    attrs.push(attr("knot", "000"));
+                    return Ok(response("execute-tick_claiming", CONTRACT_NAME, attrs));
+                }
+                _ => return Err(ContractError::InvalidTransaction {}),
+            }
         }
     }
     attrs.push(attr("knot", "015"));
