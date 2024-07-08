@@ -521,11 +521,7 @@ fn execute_tick_idle(
     info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let mut attrs = vec![
-        attr("action", "tick_idle"),
-        attr("knot", "001"),
-        attr("knot", "000"),
-    ];
+    let mut attrs = vec![attr("action", "tick_idle"), attr("knot", "000")];
     let last_idle_call = LAST_IDLE_CALL.load(deps.storage)?;
     let mut messages = vec![];
     cache_exchange_rate(deps.branch(), env.clone(), config)?;
@@ -566,6 +562,8 @@ fn execute_tick_idle(
             }
         }
     } else {
+        LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
+        attrs.push(attr("knot", "004"));
         let unbonding_batches = unbond_batches_map()
             .idx
             .status
@@ -607,10 +605,7 @@ fn execute_tick_idle(
 
         attrs.push(attr("knot", "007"));
         let transfer: Option<TransferReadyBatchesMsg> = match unbonded_batches.len() {
-            0 => {
-                attrs.push(attr("knot", "045"));
-                None
-            } // we have nothing to do
+            0 => None, // we have nothing to do
             1 => {
                 let (id, mut unbonding_batch) = unbonded_batches
                     .into_iter()
@@ -738,20 +733,17 @@ fn execute_tick_idle(
                     FSM.go_to(deps.storage, ContractState::StakingRewards)?;
                     attrs.push(attr("knot", "022"));
                     attrs.push(attr("state", "staking_rewards"));
+                } else if let Some(unbond_message) =
+                    get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
+                {
+                    messages.push(unbond_message);
+                    attrs.push(attr("knot", "028"));
+                    FSM.go_to(deps.storage, ContractState::Unbonding)?;
+                    attrs.push(attr("knot", "029"));
+                    attrs.push(attr("state", "unbonding"));
                 } else {
-                    attrs.push(attr("knot", "024"));
-                    if let Some(unbond_message) =
-                        get_unbonding_msg(deps.branch(), &env, config, &info)?
-                    {
-                        messages.push(unbond_message);
-                        attrs.push(attr("knot", "028"));
-                        FSM.go_to(deps.storage, ContractState::Unbonding)?;
-                        attrs.push(attr("knot", "029"));
-                        attrs.push(attr("state", "unbonding"));
-                    } else {
-                        attrs.push(attr("state", "idle"));
-                        attrs.push(attr("knot", "000"));
-                    }
+                    attrs.push(attr("state", "idle"));
+                    attrs.push(attr("knot", "000"));
                 }
             }
         } else {
@@ -772,8 +764,6 @@ fn execute_tick_idle(
             attrs.push(attr("knot", "012"));
             attrs.push(attr("state", "claiming"));
         }
-        LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
-        attrs.push(attr("knot", "004"));
     }
     Ok(response("execute-tick_idle", CONTRACT_NAME, attrs).add_messages(messages))
 }
@@ -784,7 +774,7 @@ fn execute_tick_peripheral(
     _info: MessageInfo,
     _config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let mut attrs = vec![attr("action", "tick_peripheral"), attr("knot", "001")];
+    let mut attrs = vec![attr("action", "tick_peripheral")];
     let res = get_received_puppeteer_response(deps.as_ref())?;
 
     if let drop_puppeteer_base::msg::ResponseHookMsg::Success(msg) = res {
@@ -815,17 +805,20 @@ fn execute_tick_claiming(
     info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let mut attrs = vec![attr("action", "tick_claiming"), attr("knot", "001")];
+    let mut attrs = vec![attr("action", "tick_claiming")];
+    attrs.push(attr("knot", "012"));
     let response_msg = get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut messages = vec![];
     match response_msg {
         drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) => {
+            attrs.push(attr("knot", "047"));
             match success_msg.transaction {
                 drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
                     transfer,
                     ..
                 } => {
+                    attrs.push(attr("knot", "013"));
                     if let Some(transfer) = transfer {
                         for id in transfer.batch_ids {
                             let mut batch = unbond_batches_map().load(deps.storage, id)?;
@@ -840,6 +833,7 @@ fn execute_tick_claiming(
                                 batch.status_timestamps.withdrawn = Some(env.block.time.seconds());
                                 attrs.push(attr("unbond_batch_status", "withdrawn"));
                             }
+                            attrs.push(attr("knot", "014"));
                             unbond_batches_map().save(deps.storage, id, &batch)?;
                         }
                     }
@@ -866,19 +860,18 @@ fn execute_tick_claiming(
             FSM.go_to(deps.storage, ContractState::StakingRewards)?;
             attrs.push(attr("knot", "022"));
             attrs.push(attr("state", "staking_rewards"));
+        } else if let Some(unbond_message) =
+            get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
+        {
+            messages.push(unbond_message);
+            attrs.push(attr("knot", "028"));
+            FSM.go_to(deps.storage, ContractState::Unbonding)?;
+            attrs.push(attr("knot", "029"));
+            attrs.push(attr("state", "unbonding"));
         } else {
-            attrs.push(attr("knot", "024"));
-            if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info)? {
-                messages.push(unbond_message);
-                attrs.push(attr("knot", "028"));
-                FSM.go_to(deps.storage, ContractState::Unbonding)?;
-                attrs.push(attr("knot", "029"));
-                attrs.push(attr("state", "unbonding"));
-            } else {
-                FSM.go_to(deps.storage, ContractState::Idle)?;
-                attrs.push(attr("knot", "000"));
-                attrs.push(attr("state", "idle"));
-            }
+            FSM.go_to(deps.storage, ContractState::Idle)?;
+            attrs.push(attr("knot", "000"));
+            attrs.push(attr("state", "idle"));
         }
     }
 
@@ -891,7 +884,7 @@ fn execute_tick_staking_bond(
     info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let mut attrs = vec![attr("action", "tick_staking_bond"), attr("knot", "001")];
+    let mut attrs = vec![attr("action", "tick_staking_bond")];
     let response_msg = get_received_staker_response(deps.as_ref())?;
     if let drop_staking_base::msg::staker::ResponseHookMsg::Success(response) = response_msg {
         let (_, puppeteer_height, _): drop_staking_base::msg::puppeteer::BalancesResponse =
@@ -917,20 +910,20 @@ fn execute_tick_staking_bond(
         FSM.go_to(deps.storage, ContractState::StakingRewards)?;
         attrs.push(attr("knot", "022"));
         attrs.push(attr("state", "staking_rewards"));
+    } else if let Some(unbond_message) =
+        get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
+    {
+        messages.push(unbond_message);
+        attrs.push(attr("knot", "028"));
+        FSM.go_to(deps.storage, ContractState::Unbonding)?;
+        attrs.push(attr("knot", "029"));
+        attrs.push(attr("state", "unbonding"));
     } else {
-        attrs.push(attr("knot", "024"));
-        if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info)? {
-            messages.push(unbond_message);
-            attrs.push(attr("knot", "028"));
-            FSM.go_to(deps.storage, ContractState::Unbonding)?;
-            attrs.push(attr("knot", "029"));
-            attrs.push(attr("state", "unbonding"));
-        } else {
-            FSM.go_to(deps.storage, ContractState::Idle)?;
-            attrs.push(attr("knot", "000"));
-            attrs.push(attr("state", "idle"));
-        }
+        FSM.go_to(deps.storage, ContractState::Idle)?;
+        attrs.push(attr("knot", "000"));
+        attrs.push(attr("state", "idle"));
     }
+
     Ok(response("execute-tick_transfering", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
@@ -940,17 +933,12 @@ fn execute_tick_staking_rewards(
     info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let mut attrs = vec![
-        attr("action", "tick_staking"),
-        attr("knot", "001"),
-        attr("knot", "022"),
-    ];
+    let mut attrs = vec![attr("action", "tick_staking"), attr("knot", "022")];
     let _response_msg = get_received_puppeteer_response(deps.as_ref())?;
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut messages = vec![];
-    attrs.push(attr("knot", "024"));
-    let unbond_message = get_unbonding_msg(deps.branch(), &env, config, &info)?;
-    if let Some(unbond_message) = unbond_message {
+    if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
+    {
         messages.push(unbond_message);
         attrs.push(attr("knot", "028"));
         FSM.go_to(deps.storage, ContractState::Unbonding)?;
@@ -970,11 +958,7 @@ fn execute_tick_unbonding(
     _info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let mut attrs = vec![
-        attr("action", "tick_unbonding"),
-        attr("knot", "001"),
-        attr("knot", "029"),
-    ];
+    let mut attrs = vec![attr("action", "tick_unbonding"), attr("knot", "029")];
     let res = get_received_puppeteer_response(deps.as_ref())?;
     match res {
         drop_puppeteer_base::msg::ResponseHookMsg::Success(response) => {
@@ -1414,12 +1398,20 @@ fn get_unbonding_msg<T>(
     env: &Env,
     config: &Config,
     info: &MessageInfo,
+    attrs: &mut Vec<cosmwasm_std::Attribute>,
 ) -> ContractResult<Option<CosmosMsg<T>>> {
     let funds = info.funds.clone();
+    attrs.push(attr("knot", "024"));
     let batch_id = FAILED_BATCH_ID
         .may_load(deps.storage)?
         .unwrap_or(UNBOND_BATCH_ID.load(deps.storage)?);
     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
+    if unbond.status == UnbondBatchStatus::UnbondFailed {
+        attrs.push(attr("knot", "025"));
+    } else {
+        attrs.push(attr("knot", "026"));
+    }
+    attrs.push(attr("knot", "027"));
     if (unbond.status_timestamps.new + config.unbond_batch_switch_time < env.block.time.seconds())
         && unbond.total_unbond_items != 0
         && !unbond.total_amount.is_zero()
@@ -1438,9 +1430,11 @@ fn get_unbonding_msg<T>(
 
         let undelegations: Vec<(String, Uint128)> = calc_withdraw_query_result?;
 
+        attrs.push(attr("knot", "045"));
         unbond.status = UnbondBatchStatus::UnbondRequested;
         unbond.status_timestamps.unbond_requested = Some(env.block.time.seconds());
         unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
+        attrs.push(attr("knot", "046"));
         UNBOND_BATCH_ID.save(deps.storage, &(batch_id + 1))?;
         unbond_batches_map().save(
             deps.storage,

@@ -811,7 +811,6 @@ fn test_execute_tick_idle_non_native_rewards() {
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(
                     vec![
                         ("action", "tick_idle"),
-                        ("knot", "001"),
                         ("knot", "000"),
                         ("knot", "002"),
                         ("knot", "003"),
@@ -939,7 +938,6 @@ fn test_execute_tick_idle_get_pending_lsm_shares_transfer() {
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(
                     vec![
                         ("action", "tick_idle"),
-                        ("knot", "001"),
                         ("knot", "000"),
                         ("knot", "002"),
                         ("knot", "003"),
@@ -1084,7 +1082,6 @@ fn test_idle_tick_pending_lsm_redeem() {
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(
                     vec![
                         ("action", "tick_idle"),
-                        ("knot", "001"),
                         ("knot", "000"),
                         ("knot", "002"),
                         ("knot", "003"),
@@ -1380,20 +1377,18 @@ fn test_tick_idle_claim_wo_unbond() {
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(
                     vec![
                         ("action", "tick_idle"),
-                        ("knot", "001"),
                         ("knot", "000"),
                         ("knot", "002"),
                         ("knot", "003"),
+                        ("knot", "004"),
                         ("knot", "005"),
                         ("knot", "007"),
-                        ("knot", "045"),
                         ("knot", "009"),
                         ("knot", "010"),
                         ("validators_to_claim", "valoper_address"),
                         ("knot", "011"),
                         ("knot", "012"),
                         ("state", "claiming"),
-                        ("knot", "004"),
                     ]
                 )
             )
@@ -1544,10 +1539,10 @@ fn test_tick_idle_claim_with_unbond_transfer() {
         Response::new()
         .add_event(Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(vec![
             ("action", "tick_idle" ),
-            ("knot", "001"),
             ("knot", "000"),
             ("knot", "002"),
             ("knot", "003"),
+            ("knot", "004"),
             ("knot", "005"),
             ("knot", "007"),
             ("knot", "008"),
@@ -1557,7 +1552,6 @@ fn test_tick_idle_claim_with_unbond_transfer() {
             ("knot", "011"),
             ("knot", "012"),
             ("state",  "claiming"),
-            ("knot", "004"),
         ]))
         .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "puppeteer_contract".to_string(), 
@@ -1694,13 +1688,12 @@ fn test_tick_idle_staking_bond() {
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(
                     vec![
                         ("action", "tick_idle"),
-                        ("knot", "001"),
                         ("knot", "000"),
                         ("knot", "002"),
                         ("knot", "003"),
+                        ("knot", "004"),
                         ("knot", "005"),
                         ("knot", "007"),
-                        ("knot", "045"),
                         ("knot", "009"),
                         ("knot", "010"),
                         ("validators_to_claim", "empty"),
@@ -1708,7 +1701,6 @@ fn test_tick_idle_staking_bond() {
                         ("knot", "016"),
                         ("knot", "017"),
                         ("state", "staking_bond"),
-                        ("knot", "004"),
                     ]
                 )
             )
@@ -1860,13 +1852,12 @@ fn test_tick_idle_staking() {
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(
                     vec![
                         ("action", "tick_idle"),
-                        ("knot", "001"),
                         ("knot", "000"),
                         ("knot", "002"),
                         ("knot", "003"),
+                        ("knot", "004"),
                         ("knot", "005"),
                         ("knot", "007"),
-                        ("knot", "045"),
                         ("knot", "009"),
                         ("knot", "010"),
                         ("validators_to_claim", "empty"),
@@ -1875,7 +1866,6 @@ fn test_tick_idle_staking() {
                         ("knot", "021"),
                         ("knot", "022"),
                         ("state", "staking_rewards"),
-                        ("knot", "004"),
                     ]
                 )
             )
@@ -2057,23 +2047,25 @@ fn test_tick_idle_unbonding() {
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(
                     vec![
                         ("action", "tick_idle"),
-                        ("knot", "001"),
                         ("knot", "000"),
                         ("knot", "002"),
                         ("knot", "003"),
+                        ("knot", "004"),
                         ("knot", "005"),
                         ("knot", "007"),
-                        ("knot", "045"),
                         ("knot", "009"),
                         ("knot", "010"),
                         ("validators_to_claim", "empty"),
                         ("knot", "015"),
                         ("knot", "020"),
                         ("knot", "024"),
+                        ("knot", "026"),
+                        ("knot", "027"),
+                        ("knot", "045"),
+                        ("knot", "046"),
                         ("knot", "028"),
                         ("knot", "029"),
                         ("state", "unbonding"),
-                        ("knot", "004"),
                     ]
                 )
             )
@@ -2243,7 +2235,9 @@ fn test_tick_claiming_wo_transfer_stake() {
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_claiming")
                     .add_attributes(vec![
                         ("action", "tick_claiming"),
-                        ("knot", "001"),
+                        ("knot", "012"),
+                        ("knot", "047"),
+                        ("knot", "013"),
                         ("knot", "015"),
                         ("knot", "020"),
                         ("knot", "021"),
@@ -2415,10 +2409,16 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_claiming")
                     .add_attributes(vec![
                         ("action", "tick_claiming"),
-                        ("knot", "001"),
+                        ("knot", "012"),
+                        ("knot", "047"),
+                        ("knot", "013"),
                         ("knot", "015"),
                         ("knot", "020"),
                         ("knot", "024"),
+                        ("knot", "026"),
+                        ("knot", "027"),
+                        ("knot", "045"),
+                        ("knot", "046"),
                         ("knot", "028"),
                         ("knot", "029"),
                         ("state", "unbonding")
@@ -2584,10 +2584,14 @@ fn test_tick_claiming_wo_idle() {
             Event::new("crates.io:drop-staking__drop-core-execute-tick_claiming").add_attributes(
                 vec![
                     ("action", "tick_claiming"),
-                    ("knot", "001"),
+                    ("knot", "012"),
+                    ("knot", "047"),
+                    ("knot", "013"),
                     ("knot", "015"),
                     ("knot", "020"),
                     ("knot", "024"),
+                    ("knot", "026"),
+                    ("knot", "027"),
                     ("knot", "000"),
                     ("state", "idle")
                 ]
@@ -2949,9 +2953,12 @@ fn test_tick_staking_to_unbonding() {
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_staking")
                     .add_attributes(vec![
                         ("action", "tick_staking"),
-                        ("knot", "001"),
                         ("knot", "022"),
                         ("knot", "024"),
+                        ("knot", "026"),
+                        ("knot", "027"),
+                        ("knot", "045"),
+                        ("knot", "046"),
                         ("knot", "028"),
                         ("knot", "029"),
                         ("state", "unbonding"),
@@ -3089,9 +3096,10 @@ fn test_tick_staking_to_idle() {
             Event::new("crates.io:drop-staking__drop-core-execute-tick_staking").add_attributes(
                 vec![
                     ("action", "tick_staking"),
-                    ("knot", "001"),
                     ("knot", "022"),
                     ("knot", "024"),
+                    ("knot", "026"),
+                    ("knot", "027"),
                     ("knot", "000"),
                     ("state", "idle"),
                 ]
