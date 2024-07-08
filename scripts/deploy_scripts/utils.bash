@@ -150,35 +150,35 @@ deploy_factory() {
     "remote_opts":{
       "connection_id":"'"$neutron_side_connection_id"'",
       "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
-      "port_id":"transfer",
+      "port_id":"'"$NEUTRON_SIDE_PORT_ID"'",
       "denom":"'"$TARGET_BASE_DENOM"'",
-      "update_period":100
+      "update_period":'$NEUTRON_SIDE_UPDATE_PERIOD'
     },
-    "salt":"salt",
-    "subdenom":"drop",
+    "salt":"'"$SALT"'",
+    "subdenom":"'"$SUBDENOM"'",
     "token_metadata":{
-      "description":"Drop token",
-      "display":"drop",
-      "exponent":6,
-      "name":"Drop liquid staking token",
-      "symbol":"DROP"
+      "description":"'"$TOKEN_METADATA_DESCRIPTION"'",
+      "display":"'"$TOKEN_METADATA_DISPLAY"'",
+      "exponent":"'"$TOKEN_METADATA_EXPONENT"'",
+      "name":"'"$TOKEN_METADATA_NAME"'",
+      "symbol":"'"$TOKEN_METADATA_SYMBOL"'"
     },
     "base_denom":"'"$uatom_on_neutron_denom"'",
     "core_params":{
-      "idle_min_interval":60,
+      "idle_min_interval":'$CORE_PARAMS_IDLE_MIN_INTERVAL',
       "unbond_batch_switch_time":'"$UNBOND_BATCH_SWITCH_TIME"',
       "unbonding_safe_period":'"$UNBONDING_SAFE_PERIOD"',
       "unbonding_period":'"$UNBONDING_PERIOD"',
-      "lsm_redeem_threshold":2,
-      "lsm_min_bond_amount":"1",
-      "lsm_redeem_max_interval":60000,
-      "bond_limit":"0",
-      "min_stake_amount":"2",
-      "icq_update_delay": 5
+      "lsm_redeem_threshold":'$CORE_PARAMS_LSM_REDEEM_THRESHOLD',
+      "lsm_min_bond_amount":"'"$CORE_PARAMS_LSM_MIN_BOND_AMOUNT"'",
+      "lsm_redeem_max_interval":'$CORE_PARAMS_LSM_REDEEM_MAX_INTERVAL',
+      "bond_limit":"'"$CORE_PARAMS_BOND_LIMIT"'",
+      "min_stake_amount":"'"$CORE_PARAMS_MIN_STAKE_AMOUNT"'",
+      "icq_update_delay": '$CORE_PARAMS_ICQ_UPDATE_DELAY'
     },
     "staker_params":{
-      "min_stake_amount":"10000",
-      "min_ibc_transfer":"10000",
+      "min_stake_amount":"'"$STAKER_PARAMS_MIN_STAKE_AMOUN"'",
+      "min_ibc_transfer":"'"$STAKER_PARAMS_MIN_IBC_TRANSFER"'",
       "timeout":'"$STAKER_TIMEOUT"'
     },
     "puppeteer_params":{

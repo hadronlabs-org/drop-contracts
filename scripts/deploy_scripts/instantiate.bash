@@ -19,6 +19,24 @@ UNBOND_BATCH_SWITCH_TIME="${UNBOND_BATCH_SWITCH_TIME:?Variable should be explici
 PUPPETEER_TIMEOUT="${PUPPETEER_TIMEOUT:?Variable should be explicitly specified}"
 STAKER_TIMEOUT="${STAKER_TIMEOUT:?Variable should be explicitly specified}"
 
+NEUTRON_SIDE_PORT_ID="${NEUTRON_SIDE_PORT_ID:?Variable should explicitly specified}"
+NEUTRON_SIDE_UPDATE_PERIOD="${NEUTRON_SIDE_UPDATE_PERIOD:?Variable should explicitly specified}"
+SALT="${SALT:?Variable should explicitly specified}"
+SUBDENOM="${SUBDENOM:?Variable should explicitly specified}"
+TOKEN_METADATA_DESCRIPTION="${TOKEN_METADATA_DESCRIPTION:?Variable should explicitly specified}"
+TOKEN_METADATA_DISPLAY="${TOKEN_METADATA_DISPLAY:?Variable should explicitly specified}"
+TOKEN_METADATA_EXPONENT="${TOKEN_METADATA_EXPONENT:?Variable should explicitly specified}"
+TOKEN_METADATA_NAME="${TOKEN_METADATA_NAME:?Variable should explicitly specified}"
+TOKEN_METADATA_SYMBOL="${TOKEN_METADATA_SYMBOL:?Variable should explicitly specified}"
+CORE_PARAMS_IDLE_MIN_INTERVAL="${CORE_PARAMS_IDLE_MIN_INTERVAL:?Variable should explicitly specified}"
+CORE_PARAMS_LSM_REDEEM_THRESHOLD="${CORE_PARAMS_LSM_REDEEM_THRESHOLD:?Variable should explicitly specified}"
+CORE_PARAMS_LSM_MIN_BOND_AMOUNT="${CORE_PARAMS_LSM_MIN_BOND_AMOUNT:?Variable should explicitly specified}"
+CORE_PARAMS_LSM_REDEEM_MAX_INTERVAL="${CORE_PARAMS_LSM_REDEEM_MAX_INTERVAL:?Variable should explicitly specified}"
+CORE_PARAMS_BOND_LIMIT="${CORE_PARAMS_BOND_LIMIT:?Variable should explicitly specified}"
+CORE_PARAMS_MIN_STAKE_AMOUNT="${CORE_PARAMS_MIN_STAKE_AMOUNT:?Variable should explicitly specified}"
+CORE_PARAMS_ICQ_UPDATE_DELAY="${CORE_PARAMS_ICQ_UPDATE_DELAY:?Variable should explicitly specified}"
+STAKER_PARAMS_MIN_STAKE_AMOUN="${STAKER_PARAMS_MIN_STAKE_AMOUN:?Variable should explicitly specified}"
+STAKER_PARAMS_MIN_IBC_TRANSFER="${STAKER_PARAMS_MIN_IBC_TRANSFER:?Variable should explicitly specified}"
 
 source ./utils.bash
 
