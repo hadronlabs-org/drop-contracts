@@ -607,21 +607,21 @@ async function getAllBalanesWithPagination(
   address: string,
   endpoint: string
 ): Promise<Array<Coin>> {
-  const q_client = QueryClient.withExtensions(
+  const queryClient = QueryClient.withExtensions(
     await connectComet(endpoint),
     setupAuthExtension,
     setupBankExtension,
     setupStakingExtension,
     setupTxExtension
   );
-  const rpc = createProtobufRpcClient(q_client);
-  const queryService = new QueryClientImpl(rpc);
+  const RPC = createProtobufRpcClient(queryClient);
+  const queryService = new QueryClientImpl(RPC);
 
   let balances: Array<Coin> = [];
   let key: any = null;
 
   while (key !== undefined) {
-    let current_response: QueryAllBalancesResponse =
+    let currentResponse: QueryAllBalancesResponse =
       await queryService.AllBalances(
         QueryAllBalancesRequest.fromPartial({
           address: address,
@@ -631,9 +631,9 @@ async function getAllBalanesWithPagination(
         })
       );
 
-    balances.push(...current_response.balances);
-    key = current_response.pagination?.nextKey.length
-      ? current_response.pagination?.nextKey
+    balances.push(...currentResponse.balances);
+    key = currentResponse.pagination?.nextKey.length
+      ? currentResponse.pagination?.nextKey
       : undefined;
   }
   return balances;
