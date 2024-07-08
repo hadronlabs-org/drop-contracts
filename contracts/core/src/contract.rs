@@ -670,7 +670,7 @@ fn execute_tick_idle(
                     }
                     unbond_batches_map().save(deps.storage, id, &batch)?;
                 }
-                attrs.push(attr("knot", "046"));
+                attrs.push(attr("knot", "048"));
                 Some(TransferReadyBatchesMsg {
                     batch_ids,
                     emergency,

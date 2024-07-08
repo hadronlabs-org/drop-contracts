@@ -46,12 +46,11 @@ export const instrumentCoreClass = (c: CoreClass) => {
       .returnClient()
       .getTx(res.transactionHash)) as IndexedTx;
     const knots = tx.events
-      .map((e) =>
-        e.attributes.filter((a) => a.key === 'knot').map((a) => `K${a.value}`),
-      )
-      .flat();
-    if (!parsedTree.hasPath(knots)) {
-      throw new Error('Invalid Knot path ' + knots.join(' -> '));
+      .map((e) => e.attributes.filter((a) => a.key === 'knot'))
+      .flat()
+      .map((a) => `K${a.value}`);
+    if (!parsedTree.hasPath([...knots])) {
+      throw new Error(`Invalid Knot path ${knots.join(' -> ')}`);
     }
     return res;
   };
