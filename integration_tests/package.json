@@ -31,11 +31,11 @@
     "lint:fix": "eslint ./src -f compact --fix"
   },
   "dependencies": {
-    "@cosmjs/amino": "^0.32.1",
-    "@cosmjs/cosmwasm-stargate": "^0.32.1",
-    "@cosmjs/proto-signing": "^0.32.1",
-    "@cosmjs/stargate": "^0.32.1",
-    "@cosmjs/tendermint-rpc": "^0.32.1",
+    "@cosmjs/amino": "^0.32.4",
+    "@cosmjs/cosmwasm-stargate": "^0.32.4",
+    "@cosmjs/proto-signing": "^0.32.4",
+    "@cosmjs/stargate": "^0.32.4",
+    "@cosmjs/tendermint-rpc": "^0.32.4",
     "@neutron-org/client-ts": "^1.4.0",
     "@neutron-org/contracts2ts": "^1.4.4",
     "@neutron-org/cosmopark": "^1.6.3",

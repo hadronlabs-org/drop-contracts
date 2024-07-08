@@ -19,6 +19,7 @@ const keys = [
   'hermes',
   'ibcrelayer',
   'demowallet1',
+  'demowallet2',
   'neutronqueryrelayer',
   'demo1',
   'demo2',
@@ -183,6 +184,12 @@ type Keys = (typeof keys)[number];
 const awaitFirstBlock = (rpc: string): Promise<void> =>
   waitFor(async () => {
     try {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), 1000);
+      await fetch(rpc, {
+        method: 'GET',
+        signal: controller.signal,
+      });
       const client = await StargateClient.connect(rpc);
       const block = await client.getBlock();
       if (block.header.height > 1) {
@@ -321,6 +328,10 @@ export const setupPark = async (
         mnemonic: wallets.demowallet1,
         balance: '1000000000',
       },
+      demowallet2: {
+        mnemonic: wallets.demowallet2,
+        balance: '1000000000',
+      },
       demo1: { mnemonic: wallets.demo1, balance: '1000000000' },
       demo2: { mnemonic: wallets.demo2, balance: '1000000000' },
       demo3: { mnemonic: wallets.demo3, balance: '1000000000' },
@@ -363,7 +374,7 @@ export const setupPark = async (
   const instance = await cosmopark.create(config);
   await Promise.all(
     Object.entries(instance.ports).map(([network, ports]) =>
-      awaitFirstBlock(`127.0.0.1:${ports.rpc}`).catch((e) => {
+      awaitFirstBlock(`http://127.0.0.1:${ports.rpc}`).catch((e) => {
         console.log(`Failed to await first block for ${network}: ${e}`);
         throw e;
       }),
