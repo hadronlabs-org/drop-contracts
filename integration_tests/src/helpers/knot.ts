@@ -19,6 +19,18 @@ function returnClient() {
   return this.client;
 }
 
+/**
+ * The instrumentCoreClass function enhances a CoreClass instance by overriding its tick method to:
+ *
+ *	1.	Call the original tick method.
+ *	2.	Bind and use a returnClient method to wait for the transaction and fetch its details.
+ *	3.	Extract and validate knot attributes from the transaction events against a parsedTree.
+ *	4.	Throw an error if the knots form an invalid path.
+ *	5.	Return the result of the original tick method.
+ *
+ * @param c CoreClass instance
+ * @returns CoreClass instance
+ */
 export const instrumentCoreClass = (c: CoreClass) => {
   const originalTick = c.tick;
   c.tick = async (
