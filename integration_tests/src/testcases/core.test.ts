@@ -1005,9 +1005,10 @@ describe('Core', () => {
       expected_native_asset_amount: '500000',
       total_unbond_items: 2,
       unbonded_amount: null,
-      withdrawed_amount: null,
+      withdrawn_amount: null,
     });
   });
+
   describe('state machine', () => {
     const ica: { balance?: number } = {};
     describe('prepare', () => {
@@ -1270,7 +1271,7 @@ describe('Core', () => {
           expected_native_asset_amount: '500000',
           total_unbond_items: 2,
           unbonded_amount: null,
-          withdrawed_amount: null,
+          withdrawn_amount: null,
         });
       });
       it('wait for response from puppeteer', async () => {
@@ -1324,7 +1325,7 @@ describe('Core', () => {
           expected_native_asset_amount: '500000',
           total_unbond_items: 2,
           unbonded_amount: null,
-          withdrawed_amount: null,
+          withdrawn_amount: null,
         });
       });
     });
@@ -2349,7 +2350,7 @@ describe('Core', () => {
           expected_native_asset_amount: '500000',
           total_unbond_items: 2,
           unbonded_amount: '500000',
-          withdrawed_amount: null,
+          withdrawn_amount: null,
         });
       });
       it('withdraw with non funded withdrawal manager', async () => {

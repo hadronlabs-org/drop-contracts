@@ -104,6 +104,9 @@ pub enum ContractError {
     #[error("Unbonded amount must not be zero")]
     UnbondedAmountZero {},
 
+    #[error("Requested batch is not in Withdrawn state")]
+    BatchNotWithdrawn {},
+
     #[error("Requested batch is not in WithdrawnEmergency state")]
     BatchNotWithdrawnEmergency {},
 

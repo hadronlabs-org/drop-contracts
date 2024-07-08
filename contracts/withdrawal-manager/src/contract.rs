@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     attr, ensure_eq, from_json, to_json_binary, Attribute, BankMsg, Binary, Coin, CosmosMsg, Deps,
-    DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
+    DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use cw721::NftInfoResponse;
 use cw_ownable::{get_ownership, update_ownership};
@@ -217,14 +217,26 @@ fn execute_receive_nft_withdraw(
     attrs.push(attr("payout_amount", payout_amount.to_string()));
     attrs.push(attr("to_address", &to_address));
 
-    let msg = CosmosMsg::Bank(BankMsg::Send {
+    let mut messages = vec![CosmosMsg::Bank(BankMsg::Send {
         to_address,
         amount: vec![Coin {
             denom: config.base_denom,
             amount: payout_amount,
         }],
-    });
-    Ok(response("execute-receive_nft", CONTRACT_NAME, attrs).add_message(msg))
+    })];
+
+    messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.core_contract.to_string(),
+        msg: to_json_binary(
+            &drop_staking_base::msg::core::ExecuteMsg::UpdateWithdrawnAmount {
+                batch_id,
+                withdrawn_amount: payout_amount,
+            },
+        )?,
+        funds: info.funds,
+    }));
+
+    Ok(response("execute-receive_nft", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]

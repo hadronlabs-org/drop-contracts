@@ -1614,6 +1614,7 @@ describe('Auto withdrawer', () => {
           neutronIBCDenom,
           autoWithdrawerContractClient,
         } = context;
+        const expectedWithdrawnAmount = '20000';
 
         const balanceBefore = parseInt(
           (
@@ -1635,13 +1636,19 @@ describe('Auto withdrawer', () => {
         );
         expect(res.transactionHash).toHaveLength(64);
 
+        const withdrawnBatch =
+          await context.coreContractClient.queryUnbondBatch({
+            batch_id: '0',
+          });
+        expect(withdrawnBatch.withdrawn_amount).eq(expectedWithdrawnAmount);
+
         const balance =
           await neutronClient.CosmosBankV1Beta1.query.queryBalance(
             neutronUserAddress,
             { denom: neutronIBCDenom },
           );
         expect(parseInt(balance.data.balance.amount) - balanceBefore).toBe(
-          20000,
+          parseInt(expectedWithdrawnAmount),
         );
 
         const bondings = await autoWithdrawerContractClient.queryBondings({
