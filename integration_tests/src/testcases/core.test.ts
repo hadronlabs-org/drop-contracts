@@ -41,6 +41,7 @@ import { stringToPath } from '@cosmjs/crypto';
 import { sleep } from '../helpers/sleep';
 import { waitForTx } from '../helpers/waitForTx';
 import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
+import { instrumentCoreClass } from '../helpers/knot';
 
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
@@ -484,9 +485,8 @@ describe('Core', () => {
     expect(puppeteerContractInfo.data.contract_info.label).toBe(
       'drop-staking-puppeteer',
     );
-    context.coreContractClient = new DropCore.Client(
-      context.client,
-      res.core_contract,
+    context.coreContractClient = instrumentCoreClass(
+      new DropCore.Client(context.client, res.core_contract),
     );
     context.withdrawalVoucherContractClient = new DropWithdrawalVoucher.Client(
       context.client,
