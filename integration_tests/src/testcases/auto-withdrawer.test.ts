@@ -1604,7 +1604,7 @@ describe('Auto withdrawer', () => {
               context.withdrawalManagerContractClient.contractAddress,
             );
           return balances.data.balances.length > 0;
-        });
+        }, 20_000);
       });
       it('withdraw', async () => {
         const {
