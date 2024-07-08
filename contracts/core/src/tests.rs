@@ -671,11 +671,11 @@ fn test_update_withdrawn_amount() {
         .unwrap();
 
     let withdrawn_batch = &UnbondBatch {
-        total_amount: Uint128::from(1001u128),
-        expected_amount: Uint128::from(1001u128),
+        total_dasset_amount_to_withdraw: Uint128::from(1001u128),
+        expected_native_asset_amount: Uint128::from(1001u128),
         total_unbond_items: 1,
         status: UnbondBatchStatus::Withdrawn,
-        expected_release: 9000,
+        expected_release_time: 9000,
         slashing_effect: None,
         unbonded_amount: None,
         withdrawn_amount: None,
@@ -683,11 +683,11 @@ fn test_update_withdrawn_amount() {
     };
 
     let unbonding_batch = &UnbondBatch {
-        total_amount: Uint128::from(2002u128),
-        expected_amount: Uint128::from(2002u128),
+        total_dasset_amount_to_withdraw: Uint128::from(2002u128),
+        expected_native_asset_amount: Uint128::from(2002u128),
         total_unbond_items: 1,
         status: UnbondBatchStatus::Unbonding,
-        expected_release: 9000,
+        expected_release_time: 9000,
         slashing_effect: None,
         unbonded_amount: None,
         withdrawn_amount: None,
