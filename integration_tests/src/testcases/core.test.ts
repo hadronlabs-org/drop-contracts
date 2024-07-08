@@ -2367,7 +2367,7 @@ describe('Core', () => {
               }),
             ).toString('base64'),
           }),
-        ).rejects.toThrowError(/spendable balance {2}is smaller/);
+        ).rejects.toThrowError(/spendable balance [\w/]+ is smaller than/);
       });
       it('fund withdrawal manager', async () => {
         const { pumpContractClient, neutronUserAddress } = context;
