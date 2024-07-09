@@ -183,8 +183,17 @@ type Keys = (typeof keys)[number];
 const awaitFirstBlock = (rpc: string): Promise<void> =>
   waitFor(async () => {
     try {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), 5000);
+      await fetch(rpc, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+      console.log(`Connecting to ${rpc}`);
       const client = await StargateClient.connect(rpc);
+      console.log(`Connected to ${rpc}`);
       const block = await client.getBlock();
+      console.log(`Got block ${block.header.height}`);
       if (block.header.height > 1) {
         return true;
       }
@@ -363,7 +372,7 @@ export const setupPark = async (
   const instance = await cosmopark.create(config);
   await Promise.all(
     Object.entries(instance.ports).map(([network, ports]) =>
-      awaitFirstBlock(`127.0.0.1:${ports.rpc}`).catch((e) => {
+      awaitFirstBlock(`http://127.0.0.1:${ports.rpc}`).catch((e) => {
         console.log(`Failed to await first block for ${network}: ${e}`);
         throw e;
       }),

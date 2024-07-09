@@ -30,11 +30,12 @@ All build, test, and code quality tasks are managed using `make`. Below are the 
 - `make fmt`: Format the Rust code.
 - `make schema`: Generate and validate JSON schemas.
 - `make test`: Run all tests to ensure contract correctness.
+- `make build_ts_client`: Build the TypeScript client for the integration tests and coordinator. It uses generated json schema from the contracts. 
 
 ### Running Integration Tests
 To run the integration tests located in the `integration_tests` directory:
 
-1. Ensure you have Node.js and Yarn installed.
+1. Ensure you have Node.js and Yarn installed and you have build the Typescript client
 2. Navigate to the `integration_tests` folder and install the dependencies:
    ```bash
    cd integration_tests

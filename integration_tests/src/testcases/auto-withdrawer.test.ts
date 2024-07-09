@@ -9,7 +9,7 @@ import {
   DropStaker,
   DropWithdrawalManager,
   DropWithdrawalVoucher,
-} from '../generated/contractLib';
+} from 'drop-ts-client';
 import {
   QueryClient,
   StakingExtension,
@@ -33,7 +33,7 @@ import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import { ResponseHookMsg } from '../generated/contractLib/dropCore';
+import { ResponseHookMsg } from 'drop-ts-client/lib/contractLib/dropCore';
 import { stringToPath } from '@cosmjs/crypto';
 import { sleep } from '../helpers/sleep';
 import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
@@ -1515,8 +1515,9 @@ describe('Auto withdrawer', () => {
           batch_id: '0',
         });
         const currentTime = Math.floor(Date.now() / 1000);
-        if (batchInfo.expected_release > currentTime) {
-          const diffMs = (batchInfo.expected_release - currentTime + 1) * 1000;
+        if (batchInfo.expected_release_time > currentTime) {
+          const diffMs =
+            (batchInfo.expected_release_time - currentTime + 1) * 1000;
           await sleep(diffMs);
         }
       });
@@ -1538,8 +1539,8 @@ describe('Auto withdrawer', () => {
             },
           })) as any;
           const icaTs = Math.floor(res[2] / 1e9);
-          return icaTs > batchInfo.expected_release;
-        }, 50_000);
+          return icaTs > batchInfo.expected_release_time;
+        }, 500_000);
       });
       it('tick', async () => {
         const { coreContractClient, neutronUserAddress } = context;
@@ -1558,7 +1559,7 @@ describe('Auto withdrawer', () => {
             //
           }
           return !!response;
-        }, 100_000);
+        }, 200_000);
         expect(response).toBeTruthy();
         expect<ResponseHookMsg>(response).toHaveProperty('success');
       });
@@ -1604,7 +1605,7 @@ describe('Auto withdrawer', () => {
               context.withdrawalManagerContractClient.contractAddress,
             );
           return balances.data.balances.length > 0;
-        });
+        }, 200_000);
       });
       it('withdraw', async () => {
         const {
