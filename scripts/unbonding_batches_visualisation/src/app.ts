@@ -5,7 +5,7 @@ import {
   Client as DropCoreClient,
   Config as DropCoreConfig,
   UnbondBatch,
-} from "../../../ts-client/src/contractLib/dropCore";
+} from "drop-ts-client/src/contractLib/dropCore";
 
 const MODE: string = process.env.MODE;
 const CORE_CONTRACT: string = process.env.CORE_CONTRACT;
@@ -54,7 +54,7 @@ async function create_batch_info(
   let batch_details: BatchInfo = {
     batch_id: batch.batch_id,
     status: batch.details.status,
-    expected_amount: batch.details.expected_amount,
+    expected_amount: batch.details.expected_native_asset_amount,
     creation_time: `${creation_time.day}/${creation_time.month}/${creation_time.year}(${creation_time.hours}:${creation_time.minutes}:${creation_time.seconds})`,
     expected_finalization_time: null,
     unstaked_amount: batch.details.unbonded_amount,
