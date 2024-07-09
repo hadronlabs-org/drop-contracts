@@ -23,7 +23,7 @@ pub struct ConfigOptional {
     pub pump_ica_address: Option<String>,
     pub transfer_channel_id: Option<String>,
     pub lsm_min_bond_amount: Option<Uint128>,
-    pub lsm_redeem_threshold: Option<u64>,
+    pub lsm_redeem_threshold: Option<u64>, //amount of lsm denoms
     pub lsm_redeem_maximum_interval: Option<u64>,
     pub bond_limit: Option<Uint128>,
     pub fee: Option<Decimal>,
@@ -50,7 +50,7 @@ pub struct Config {
     pub pump_ica_address: Option<String>,
     pub transfer_channel_id: String,
     pub lsm_min_bond_amount: Uint128,
-    pub lsm_redeem_threshold: u64,
+    pub lsm_redeem_threshold: u64,        //amount of lsm denoms
     pub lsm_redeem_maximum_interval: u64, //seconds
     pub bond_limit: Option<Uint128>,
     pub fee: Option<Decimal>,

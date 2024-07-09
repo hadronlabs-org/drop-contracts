@@ -31,7 +31,7 @@ pub struct CoreParams {
     pub unbonding_safe_period: u64,
     pub unbond_batch_switch_time: u64,
     pub lsm_min_bond_amount: Uint128,
-    pub lsm_redeem_threshold: u64,
+    pub lsm_redeem_threshold: u64,    //amount of lsm denoms
     pub lsm_redeem_max_interval: u64, //seconds
     pub bond_limit: Option<Uint128>,
     pub min_stake_amount: Uint128,

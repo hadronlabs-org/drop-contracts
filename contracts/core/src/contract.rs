@@ -1579,13 +1579,15 @@ fn get_pending_redeem_msg<T>(
     let lsm_redeem_threshold = config.lsm_redeem_threshold as usize;
     if pending_lsm_shares_count == 0
         || ((pending_lsm_shares_count < lsm_redeem_threshold)
-            || (last_lsm_redeem + config.lsm_redeem_maximum_interval > env.block.time.seconds()))
+            && (last_lsm_redeem + config.lsm_redeem_maximum_interval > env.block.time.seconds()))
     {
         return Ok(None);
     }
     let shares_to_redeeem = LSM_SHARES_TO_REDEEM
         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+        .take(lsm_redeem_threshold)
         .collect::<StdResult<Vec<_>>>()?;
+
     let items = shares_to_redeeem
         .iter()
         .map(|(local_denom, (denom, amount))| RedeemShareItem {

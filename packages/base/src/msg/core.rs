@@ -23,7 +23,7 @@ pub struct InstantiateMsg {
     pub base_denom: String,
     pub remote_denom: String,
     pub lsm_min_bond_amount: Uint128,
-    pub lsm_redeem_threshold: u64,
+    pub lsm_redeem_threshold: u64,     //amount of lsm denoms
     pub lsm_redeem_max_interval: u64,  //seconds
     pub idle_min_interval: u64,        //seconds
     pub unbonding_period: u64,         //seconds
