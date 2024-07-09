@@ -1,15 +1,6 @@
 import pino from 'pino';
 import { GasPrice } from '@cosmjs/stargate';
 
-function throwExceptionOnUndefined(value: any, name: string): any {
-  return (
-    value ||
-    (() => {
-      throw `${name} parameter in coordinator script is undefined`;
-    })()
-  );
-}
-
 export class Config {
   coordinator: {
     mnemonic: string;
@@ -38,72 +29,33 @@ export class Config {
 
   load() {
     this.coordinator = {
-      mnemonic: throwExceptionOnUndefined(
-        process.env.COORDINATOR_MNEMONIC,
-        'coordinator_mnemonic',
-      ),
-      factoryContractAddress: throwExceptionOnUndefined(
-        process.env.FACTORY_CONTRACT_ADDRESS,
-        'factory_contract_address',
-      ),
-      icqRunCmd: throwExceptionOnUndefined(
-        process.env.ICQ_RUN_COMMAND,
-        'icq_run_command',
-      ),
-      checksPeriod: throwExceptionOnUndefined(
-        process.env.COORDINATOR_CHECKS_PERIOD,
-        'coordinator_checks_period',
-      ),
+      mnemonic: process.env.COORDINATOR_MNEMONIC,
+      factoryContractAddress: process.env.FACTORY_CONTRACT_ADDRESS,
+      icqRunCmd: process.env.ICQ_RUN_COMMAND,
+      checksPeriod: process.env.COORDINATOR_CHECKS_PERIOD
+        ? parseInt(process.env.COORDINATOR_CHECKS_PERIOD, 10)
+        : 10,
     };
 
     this.neutron = {
-      rpc: throwExceptionOnUndefined(
-        process.env.RELAYER_NEUTRON_CHAIN_RPC_ADDR,
-        'relayer_neutron_chain_rps_addr',
-      ),
-      rest: throwExceptionOnUndefined(
-        process.env.RELAYER_NEUTRON_CHAIN_REST_ADDR,
-        'relayer_neutron_chain_rest_addr',
-      ),
+      rpc: process.env.RELAYER_NEUTRON_CHAIN_RPC_ADDR,
+      rest: process.env.RELAYER_NEUTRON_CHAIN_REST_ADDR,
       gasPrice: GasPrice.fromString(
-        throwExceptionOnUndefined(
-          process.env.RELAYER_NEUTRON_CHAIN_GAS_PRICES,
-          'relayer_neutron_chain_gas_price',
-        ),
+        process.env.RELAYER_NEUTRON_CHAIN_GAS_PRICES,
       ),
-      gasAdjustment: throwExceptionOnUndefined(
-        process.env.NEUTRON_GAS_ADJUSTMENT,
-        'neutron_gas_adjustment',
-      ),
+      gasAdjustment: process.env.NEUTRON_GAS_ADJUSTMENT,
     };
 
     this.target = {
-      rpc: throwExceptionOnUndefined(
-        process.env.RELAYER_TARGET_CHAIN_RPC_ADDR,
-        'relayer_target_chain_rpc_addr',
-      ),
-      rest: throwExceptionOnUndefined(
-        process.env.RELAYER_TARGET_CHAIN_REST_ADDR,
-        'relayer_target_chain_rest_addr',
-      ),
-      denom: throwExceptionOnUndefined(
-        process.env.RELAYER_TARGET_CHAIN_DENOM,
-        'relayer_target_chain_denom',
-      ),
+      rpc: process.env.RELAYER_TARGET_CHAIN_RPC_ADDR,
+      rest: process.env.RELAYER_TARGET_CHAIN_REST_ADDR,
+      denom: process.env.RELAYER_TARGET_CHAIN_DENOM,
       gasPrice: GasPrice.fromString(
-        throwExceptionOnUndefined(
-          process.env.RELAYER_TARGET_CHAIN_GAS_PRICES,
-          'relayer_target_chain_gas_price',
-        ),
+        process.env.RELAYER_TARGET_CHAIN_GAS_PRICES,
       ),
-      accountPrefix: throwExceptionOnUndefined(
-        process.env.RELAYER_TARGET_CHAIN_ACCOUNT_PREFIX,
-        'relayer_target_chain_account_prefix',
-      ),
-      validatorAccountPrefix: throwExceptionOnUndefined(
+      accountPrefix: process.env.RELAYER_TARGET_CHAIN_ACCOUNT_PREFIX,
+      validatorAccountPrefix:
         process.env.RELAYER_TARGET_CHAIN_VALIDATOR_ACCOUNT_PREFIX,
-        'relayer_target_chain_validator_account_prefix',
-      ),
     };
 
     this.logContext.info('Config loaded');

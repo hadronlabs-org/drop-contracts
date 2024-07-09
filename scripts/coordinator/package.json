@@ -18,12 +18,13 @@
     "@cosmjs/tendermint-rpc": "^0.32.3",
     "@neutron-org/client-ts": "^1.4.0",
     "dotenv": "^16.4.5",
+    "drop-ts-client": "file:../../ts-client",
     "json-bigint": "^1.0.0",
     "pino": "^8.19.0"
   },
   "devDependencies": {
+    "@types/node": "^20.11.27",
     "@types/json-bigint": "^1.0.0",
-    "@types/node": "^20.12.12",
     "@typescript-eslint/eslint-plugin": "^6.4.0",
     "eslint": "^8.0.1",
     "eslint-config-prettier": "^9.1.0",
