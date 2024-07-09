@@ -5,7 +5,7 @@ import {
   Client as DropCoreClient,
   Config as DropCoreConfig,
   UnbondBatch,
-} from "../../../integration_tests/src/generated/contractLib/dropCore";
+} from "../../../ts-client/src/contractLib/dropCore";
 
 const MODE: string = process.env.MODE;
 const CORE_CONTRACT: string = process.env.CORE_CONTRACT;
