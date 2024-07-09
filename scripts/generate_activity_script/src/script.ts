@@ -7,10 +7,10 @@ import {
   Registry,
 } from "@cosmjs/proto-signing";
 import { GasPrice, Coin } from "@cosmjs/stargate";
-import { Client as DropCoreClient } from "../../../ts-client/src/contractLib/dropCore";
-import { Client as DropValidatorsSet } from "../../../ts-client/src/contractLib/dropValidatorsSet";
-import { Client as DropWithdrawalManager } from "../../../ts-client/src/contractLib/dropWithdrawalManager";
-import { Client as DropWithdrawalVoucher } from "../../../ts-client/src/contractLib/dropWithdrawalVoucher";
+import { Client as DropCoreClient } from "drop-ts-client/src/contractLib/dropCore";
+import { Client as DropValidatorsSet } from "drop-ts-client/src/contractLib/dropValidatorsSet";
+import { Client as DropWithdrawalManager } from "drop-ts-client/src/contractLib/dropWithdrawalManager";
+import { Client as DropWithdrawalVoucher } from "drop-ts-client/src/contractLib/dropWithdrawalVoucher";
 
 import { MsgTokenizeShares } from "@messages";
 import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx";
