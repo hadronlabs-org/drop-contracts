@@ -107,6 +107,11 @@ pub enum QueryMsg {
     CurrentUnbondBatch {},
     #[returns(crate::state::core::UnbondBatch)]
     UnbondBatch { batch_id: Uint128 },
+    #[returns(crate::state::core::UnbondBatchesResponse)]
+    UnbondBatches {
+        limit: Option<usize>,
+        page_key: Option<Uint128>,
+    },
     #[returns(crate::state::core::ContractState)]
     ContractState {},
     #[returns(LastPuppeteerResponse)]

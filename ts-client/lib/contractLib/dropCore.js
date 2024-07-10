@@ -41,6 +41,9 @@ class Client {
     queryUnbondBatch = async (args) => {
         return this.client.queryContractSmart(this.contractAddress, { unbond_batch: args });
     };
+    queryUnbondBatches = async (args) => {
+        return this.client.queryContractSmart(this.contractAddress, { unbond_batches: args });
+    };
     queryContractState = async () => {
         return this.client.queryContractSmart(this.contractAddress, { contract_state: {} });
     };
@@ -88,6 +91,12 @@ class Client {
             throw this.mustBeSigningClient();
         }
         return this.client.execute(sender, this.contractAddress, { update_non_native_rewards_receivers: args }, fee || "auto", memo, funds);
+    };
+    updateWithdrawnAmount = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { update_withdrawn_amount: args }, fee || "auto", memo, funds);
     };
     tick = async (sender, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
