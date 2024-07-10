@@ -1566,7 +1566,7 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
     })))
 }
 
-fn get_pending_redeem_msg<T>(
+pub fn get_pending_redeem_msg<T>(
     deps: Deps<NeutronQuery>,
     config: &Config,
     env: &Env,
@@ -1577,6 +1577,14 @@ fn get_pending_redeem_msg<T>(
         .count();
     let last_lsm_redeem = LAST_LSM_REDEEM.load(deps.storage)?;
     let lsm_redeem_threshold = config.lsm_redeem_threshold as usize;
+    println!(
+        "Pending LSM shares count: {}, last LSM redeem: {}, threshold: {}, block time: {}",
+        pending_lsm_shares_count,
+        last_lsm_redeem,
+        lsm_redeem_threshold,
+        env.block.time.seconds()
+    );
+
     if pending_lsm_shares_count == 0
         || ((pending_lsm_shares_count < lsm_redeem_threshold)
             && (last_lsm_redeem + config.lsm_redeem_maximum_interval > env.block.time.seconds()))

@@ -4124,3 +4124,65 @@ mod check_denom {
         );
     }
 }
+
+mod pending_redeem_shares {
+    use crate::contract::get_pending_redeem_msg;
+
+    use super::*;
+
+    #[test]
+    fn no_pending_lsm_shares() {
+        let mut deps = mock_dependencies(&[]);
+
+        let config = &get_default_config(
+            Some(Decimal::from_atomics(1u32, 1).unwrap()),
+            1000,
+            3,
+            100,
+            100,
+            600,
+            Uint128::new(100),
+        );
+
+        LAST_LSM_REDEEM.save(deps.as_mut().storage, &0).unwrap();
+
+        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
+            get_pending_redeem_msg(deps.as_ref(), config, &mock_env(), vec![]).unwrap();
+
+        assert_eq!(redeem_res, None);
+    }
+
+    #[test]
+    fn lsm_shares_below_threshold() {
+        let mut deps = mock_dependencies(&[]);
+
+        let config = &get_default_config(
+            Some(Decimal::from_atomics(1u32, 1).unwrap()),
+            1000,
+            3,
+            100,
+            100,
+            600,
+            Uint128::new(100),
+        );
+
+        let env = &mock_env();
+
+        LSM_SHARES_TO_REDEEM
+            .save(
+                deps.as_mut().storage,
+                "remote_denom_share1".to_string(),
+                &("local_denom_1".to_string(), Uint128::from(100u128)),
+            )
+            .unwrap();
+
+        LAST_LSM_REDEEM
+            .save(deps.as_mut().storage, &env.block.time.seconds())
+            .unwrap();
+
+        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
+            get_pending_redeem_msg(deps.as_ref(), config, env, vec![]).unwrap();
+
+        assert_eq!(redeem_res, None);
+    }
+}
