@@ -58,7 +58,6 @@ Copy `.env.instantiate.example` to `.env.instantiate`, then configure it accordi
 | `KEYRING_BACKEND`   |                                            |                                           | Set it to `test`, `os` or whatever backend is in use                                                  |
 | `DEPLOY_WALLET`     |                                            |                                           | Set it to name of the wallet you would like to deploy protocol from and then use it as protocol admin |
 | `MIN_NTRN_REQUIRED` | `10`                                       | `10`                                      | Scripts check if you have enough funds before doing anything. Generally, better not touch this value  |
-| `ARTIFACTS_DIR`     | `../../artifacts`                          | `../../artifacts`                         | Only change it in case if you have moved somewhere either scripts dir or contracts dir                |
 | `*_code_id`         |                                            |                                           | Set it to code ID taken from output of upload.bash                                                    |
 
 #### Core parameters
