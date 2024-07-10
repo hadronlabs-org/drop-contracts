@@ -20,7 +20,7 @@ PUPPETEER_TIMEOUT="${PUPPETEER_TIMEOUT:?Variable should be explicitly specified}
 STAKER_TIMEOUT="${STAKER_TIMEOUT:?Variable should be explicitly specified}"
 
 NEUTRON_SIDE_PORT_ID="${NEUTRON_SIDE_PORT_ID:?Variable should explicitly specified}"
-NEUTRON_SIDE_UPDATE_PERIOD="${NEUTRON_SIDE_UPDATE_PERIOD:?Variable should explicitly specified}"
+ICQ_UPDATE_PERIOD="${ICQ_UPDATE_PERIOD:?Variable should explicitly specified}"
 SALT="${SALT:?Variable should explicitly specified}"
 SUBDENOM="${SUBDENOM:?Variable should explicitly specified}"
 TOKEN_METADATA_DESCRIPTION="${TOKEN_METADATA_DESCRIPTION:?Variable should explicitly specified}"

@@ -152,7 +152,7 @@ deploy_factory() {
       "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
       "port_id":"'"$NEUTRON_SIDE_PORT_ID"'",
       "denom":"'"$TARGET_BASE_DENOM"'",
-      "update_period":'$NEUTRON_SIDE_UPDATE_PERIOD'
+      "update_period":'$ICQ_UPDATE_PERIOD'
     },
     "salt":"'"$SALT"'",
     "subdenom":"'"$SUBDENOM"'",
@@ -177,7 +177,7 @@ deploy_factory() {
       "icq_update_delay": '$CORE_PARAMS_ICQ_UPDATE_DELAY'
     },
     "staker_params":{
-      "min_stake_amount":"'"$STAKER_PARAMS_MIN_STAKE_AMOUN"'",
+      "min_stake_amount":"'"$STAKER_PARAMS_MIN_STAKE_AMOUNT"'",
       "min_ibc_transfer":"'"$STAKER_PARAMS_MIN_IBC_TRANSFER"'",
       "timeout":'"$STAKER_TIMEOUT"'
     },
