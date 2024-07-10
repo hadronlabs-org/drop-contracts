@@ -35,7 +35,7 @@ CORE_PARAMS_LSM_REDEEM_MAX_INTERVAL="${CORE_PARAMS_LSM_REDEEM_MAX_INTERVAL:?Vari
 CORE_PARAMS_BOND_LIMIT="${CORE_PARAMS_BOND_LIMIT:?Variable should explicitly specified}"
 CORE_PARAMS_MIN_STAKE_AMOUNT="${CORE_PARAMS_MIN_STAKE_AMOUNT:?Variable should explicitly specified}"
 CORE_PARAMS_ICQ_UPDATE_DELAY="${CORE_PARAMS_ICQ_UPDATE_DELAY:?Variable should explicitly specified}"
-STAKER_PARAMS_MIN_STAKE_AMOUN="${STAKER_PARAMS_MIN_STAKE_AMOUN:?Variable should explicitly specified}"
+STAKER_PARAMS_MIN_STAKE_AMOUNT="${STAKER_PARAMS_MIN_STAKE_AMOUNT:?Variable should explicitly specified}"
 STAKER_PARAMS_MIN_IBC_TRANSFER="${STAKER_PARAMS_MIN_IBC_TRANSFER:?Variable should explicitly specified}"
 
 source ./utils.bash
