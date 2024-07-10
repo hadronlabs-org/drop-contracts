@@ -845,10 +845,19 @@ fn execute_tick_claiming(
             attrs.push(attr("error_on_claiming", format!("{:?}", err)));
             match err.transaction {
                 drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
+                    transfer,
                     ..
                 } => {
                     FSM.go_to(deps.storage, ContractState::Idle)?;
                     attrs.push(attr("knot", "000"));
+                    // revert batch status if there was a transfer of unbonded batches
+                    if let Some(transfer) = transfer {
+                        for id in transfer.batch_ids {
+                            let mut batch = unbond_batches_map().load(deps.storage, id)?;
+                            batch.status = UnbondBatchStatus::Unbonding;
+                            unbond_batches_map().save(deps.storage, id, &batch)?;
+                        }
+                    }
                     return Ok(response("execute-tick_claiming", CONTRACT_NAME, attrs));
                 }
                 _ => return Err(ContractError::InvalidTransaction {}),

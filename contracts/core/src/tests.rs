@@ -2426,6 +2426,32 @@ fn test_tick_claiming_error_with_transfer() {
         .unwrap();
     FSM.go_to(deps.as_mut().storage, ContractState::Claiming)
         .unwrap();
+    unbond_batches_map()
+        .save(
+            deps.as_mut().storage,
+            0,
+            &UnbondBatch {
+                total_amount: Uint128::from(1000u128),
+                expected_amount: Uint128::from(1000u128),
+                total_unbond_items: 1,
+                status: UnbondBatchStatus::Withdrawing,
+                expected_release: 0,
+                slashing_effect: None,
+                unbonded_amount: None,
+                withdrawed_amount: None,
+                status_timestamps: UnbondBatchStatusTimestamps {
+                    new: 0,
+                    unbond_requested: None,
+                    unbond_failed: None,
+                    unbonding: None,
+                    withdrawing: None,
+                    withdrawn: None,
+                    withdrawing_emergency: None,
+                    withdrawn_emergency: None,
+                },
+            },
+        )
+        .unwrap();
     LAST_PUPPETEER_RESPONSE
         .save(
             deps.as_mut().storage,
@@ -2473,6 +2499,8 @@ fn test_tick_claiming_error_with_transfer() {
             )
         )
     );
+    let unbond_batch = unbond_batches_map().load(deps.as_mut().storage, 0).unwrap();
+    assert_eq!(unbond_batch.status, UnbondBatchStatus::Unbonding);
 }
 
 #[test]
