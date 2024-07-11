@@ -84,7 +84,7 @@ pub fn instantiate(
     TOTAL_LSM_SHARES.save(deps.storage, &0)?;
     BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
     NON_NATIVE_REWARDS_CONFIG.save(deps.storage, &vec![])?;
-    LAST_LSM_REDEEM.save(deps.storage, &0)?;
+    LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
