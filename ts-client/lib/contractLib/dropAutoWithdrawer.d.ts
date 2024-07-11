@@ -14,6 +14,18 @@ import { StdFee } from "@cosmjs/amino";
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
+/**
+ * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u64` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
+ *
+ * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
+ */
+export type Uint64 = string;
 export type BondArgs = {
     with_ld_assets: {};
 } | {
@@ -52,7 +64,7 @@ export interface BondingsArgs {
     /**
      * Pagination limit. Default is 100
      */
-    limit?: number | null;
+    limit?: Uint64 | null;
     /**
      * Pagination offset
      */

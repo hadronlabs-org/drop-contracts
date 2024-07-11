@@ -214,6 +214,18 @@ export type UnbondBatchStatus =
   | "withdrawn"
   | "withdrawing_emergency"
   | "withdrawn_emergency";
+/**
+ * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u64` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
+ *
+ * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
+ */
+export type Uint64 = string;
 export type PuppeteerHookArgs =
   | {
       success: ResponseHookSuccessMsg;
@@ -276,18 +288,6 @@ export type Expiration =
  * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
  */
 export type Timestamp2 = Uint64;
-/**
- * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u64` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
- *
- * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
- */
-export type Uint64 = string;
 
 export interface DropCoreSchema {
   responses:
@@ -465,7 +465,7 @@ export interface UnbondBatchArgs {
   batch_id: Uint128;
 }
 export interface UnbondBatchesArgs {
-  limit?: number | null;
+  limit?: Uint64 | null;
   page_key?: Uint128 | null;
 }
 export interface BondArgs {

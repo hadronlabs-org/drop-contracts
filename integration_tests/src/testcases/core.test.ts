@@ -1312,7 +1312,7 @@ describe('Core', () => {
           unbond_batches: firstUnbondBatches,
           next_page_key: firstNextPageKey,
         } = await context.coreContractClient.queryUnbondBatches({
-          limit: 1,
+          limit: '1',
         });
 
         expect(firstUnbondBatches.length).toEqual(1);
@@ -1336,7 +1336,7 @@ describe('Core', () => {
           unbond_batches: secondUnbondBatches,
           next_page_key: secondNextPageKey,
         } = await context.coreContractClient.queryUnbondBatches({
-          limit: 1,
+          limit: '1',
           page_key: firstNextPageKey,
         });
 
