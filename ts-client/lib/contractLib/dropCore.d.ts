@@ -174,6 +174,18 @@ export type ArrayOfTupleOfStringAndTupleOfStringAndUint1281 = [string, [string, 
  */
 export type Uint1282 = string;
 export type UnbondBatchStatus = "new" | "unbond_requested" | "unbond_failed" | "unbonding" | "withdrawing" | "withdrawn" | "withdrawing_emergency" | "withdrawn_emergency";
+/**
+ * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u64` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
+ *
+ * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
+ */
+export type Uint64 = string;
 export type PuppeteerHookArgs = {
     success: ResponseHookSuccessMsg;
 } | {
@@ -224,22 +236,10 @@ export type Expiration = {
  * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
  */
 export type Timestamp2 = Uint64;
-/**
- * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u64` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
- *
- * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
- */
-export type Uint64 = string;
 export interface DropCoreSchema {
-    responses: Config | ContractState | Uint1281 | Decimal1 | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | LastStakerResponse | ArrayOfNonNativeRewardsItem | String | PauseInfoResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Uint1282 | UnbondBatch;
-    query: UnbondBatchArgs;
-    execute: BondArgs | UpdateConfigArgs | UpdateNonNativeRewardsReceiversArgs | PuppeteerHookArgs | StakerHookArgs | ProcessEmergencyBatchArgs | UpdateOwnershipArgs;
+    responses: Config | ContractState | Uint1281 | Decimal1 | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | LastStakerResponse | ArrayOfNonNativeRewardsItem | String | PauseInfoResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Uint1282 | UnbondBatch | UnbondBatchesResponse;
+    query: UnbondBatchArgs | UnbondBatchesArgs;
+    execute: BondArgs | UpdateConfigArgs | UpdateNonNativeRewardsReceiversArgs | UpdateWithdrawnAmountArgs | PuppeteerHookArgs | StakerHookArgs | ProcessEmergencyBatchArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -363,7 +363,7 @@ export interface UnbondBatch {
     total_dasset_amount_to_withdraw: Uint128;
     total_unbond_items: number;
     unbonded_amount?: Uint128 | null;
-    withdrawed_amount?: Uint128 | null;
+    withdrawn_amount?: Uint128 | null;
 }
 export interface UnbondBatchStatusTimestamps {
     new: number;
@@ -375,8 +375,27 @@ export interface UnbondBatchStatusTimestamps {
     withdrawn?: number | null;
     withdrawn_emergency?: number | null;
 }
+export interface UnbondBatchesResponse {
+    next_page_key?: Uint128 | null;
+    unbond_batches: UnbondBatch1[];
+}
+export interface UnbondBatch1 {
+    expected_native_asset_amount: Uint128;
+    expected_release_time: number;
+    slashing_effect?: Decimal | null;
+    status: UnbondBatchStatus;
+    status_timestamps: UnbondBatchStatusTimestamps;
+    total_dasset_amount_to_withdraw: Uint128;
+    total_unbond_items: number;
+    unbonded_amount?: Uint128 | null;
+    withdrawn_amount?: Uint128 | null;
+}
 export interface UnbondBatchArgs {
     batch_id: Uint128;
+}
+export interface UnbondBatchesArgs {
+    limit?: Uint64 | null;
+    page_key?: Uint128 | null;
 }
 export interface BondArgs {
     receiver?: string | null;
@@ -412,6 +431,10 @@ export interface ConfigOptional {
 }
 export interface UpdateNonNativeRewardsReceiversArgs {
     items: NonNativeRewardsItem[];
+}
+export interface UpdateWithdrawnAmountArgs {
+    batch_id: number;
+    withdrawn_amount: Uint128;
 }
 export interface ResponseHookSuccessMsg2 {
     local_height: number;
@@ -468,6 +491,7 @@ export declare class Client {
     queryExchangeRate: () => Promise<Decimal>;
     queryCurrentUnbondBatch: () => Promise<Uint128>;
     queryUnbondBatch: (args: UnbondBatchArgs) => Promise<UnbondBatch>;
+    queryUnbondBatches: (args: UnbondBatchesArgs) => Promise<UnbondBatchesResponse>;
     queryContractState: () => Promise<ContractState>;
     queryLastPuppeteerResponse: () => Promise<LastPuppeteerResponse>;
     queryLastStakerResponse: () => Promise<LastStakerResponse>;
@@ -480,6 +504,7 @@ export declare class Client {
     unbond: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateNonNativeRewardsReceivers: (sender: string, args: UpdateNonNativeRewardsReceiversArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateWithdrawnAmount: (sender: string, args: UpdateWithdrawnAmountArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     tick: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     puppeteerHook: (sender: string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     stakerHook: (sender: string, args: StakerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

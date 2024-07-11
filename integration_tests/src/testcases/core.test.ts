@@ -1257,7 +1257,7 @@ describe('Core', () => {
           ),
         ).rejects.toThrowError(/Puppeteer response is not received/);
       });
-      it('query unbonding batch', async () => {
+      it('query one unbonding batch', async () => {
         const batch = await context.coreContractClient.queryUnbondBatch({
           batch_id: '0',
         });
@@ -1270,6 +1270,89 @@ describe('Core', () => {
           total_dasset_amount_to_withdraw: '500000',
           expected_native_asset_amount: '500000',
           total_unbond_items: 2,
+          unbonded_amount: null,
+          withdrawn_amount: null,
+        });
+      });
+      it('query all unbonding batches at once', async () => {
+        const { unbond_batches: unbondBatches, next_page_key: nextPageKey } =
+          await context.coreContractClient.queryUnbondBatches({});
+
+        expect(unbondBatches.length).toEqual(2);
+        expect(nextPageKey).toBeNull();
+
+        const [firstBatch, secondBatch] = unbondBatches;
+        expect(firstBatch).toBeTruthy();
+        expect(secondBatch).toBeTruthy();
+        expect(firstBatch).toEqual<UnbondBatch>({
+          slashing_effect: null,
+          status: 'unbond_requested',
+          status_timestamps: expect.any(Object),
+          expected_release_time: 0,
+          total_dasset_amount_to_withdraw: '500000',
+          expected_native_asset_amount: '500000',
+          total_unbond_items: 2,
+          unbonded_amount: null,
+          withdrawn_amount: null,
+        });
+        expect(secondBatch).toEqual<UnbondBatch>({
+          slashing_effect: null,
+          status: 'new',
+          status_timestamps: expect.any(Object),
+          expected_release_time: 0,
+          total_dasset_amount_to_withdraw: '0',
+          expected_native_asset_amount: '0',
+          total_unbond_items: 0,
+          unbonded_amount: null,
+          withdrawn_amount: null,
+        });
+      });
+      it('query all unbonding batches with limit and page key', async () => {
+        const {
+          unbond_batches: firstUnbondBatches,
+          next_page_key: firstNextPageKey,
+        } = await context.coreContractClient.queryUnbondBatches({
+          limit: '1',
+        });
+
+        expect(firstUnbondBatches.length).toEqual(1);
+        expect(firstNextPageKey).toBeTruthy();
+
+        const [firstBatch] = firstUnbondBatches;
+        expect(firstBatch).toBeTruthy();
+        expect(firstBatch).toEqual<UnbondBatch>({
+          slashing_effect: null,
+          status: 'unbond_requested',
+          status_timestamps: expect.any(Object),
+          expected_release_time: 0,
+          total_dasset_amount_to_withdraw: '500000',
+          expected_native_asset_amount: '500000',
+          total_unbond_items: 2,
+          unbonded_amount: null,
+          withdrawn_amount: null,
+        });
+
+        const {
+          unbond_batches: secondUnbondBatches,
+          next_page_key: secondNextPageKey,
+        } = await context.coreContractClient.queryUnbondBatches({
+          limit: '1',
+          page_key: firstNextPageKey,
+        });
+
+        expect(secondUnbondBatches.length).toEqual(1);
+        expect(secondNextPageKey).toBeNull();
+
+        const [secondBatch] = secondUnbondBatches;
+        expect(firstBatch).toBeTruthy();
+        expect(secondBatch).toEqual<UnbondBatch>({
+          slashing_effect: null,
+          status: 'new',
+          status_timestamps: expect.any(Object),
+          expected_release_time: 0,
+          total_dasset_amount_to_withdraw: '0',
+          expected_native_asset_amount: '0',
+          total_unbond_items: 0,
           unbonded_amount: null,
           withdrawn_amount: null,
         });

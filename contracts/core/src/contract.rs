@@ -2,8 +2,9 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankMsg, BankQuery,
     Binary, Coin, CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order,
-    QueryRequest, Response, StdError, StdResult, Uint128, WasmMsg,
+    QueryRequest, Response, StdError, StdResult, Uint128, Uint64, WasmMsg,
 };
+use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
 use drop_helpers::pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse};
 use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
@@ -24,11 +25,11 @@ use drop_staking_base::{
     state::{
         core::{
             unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem,
-            UnbondBatch, UnbondBatchStatus, UnbondBatchStatusTimestamps, BONDED_AMOUNT, CONFIG,
-            EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL,
-            LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE, LD_DENOM,
-            LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES, TOTAL_LSM_SHARES,
-            UNBOND_BATCH_ID,
+            UnbondBatch, UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse,
+            BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT,
+            LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE,
+            LD_DENOM, LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES,
+            TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
         withdrawal_voucher::{Metadata, Trait},
@@ -41,6 +42,7 @@ pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const UNBOND_BATCHES_PAGINATION_DEFAULT_LIMIT: Uint64 = Uint64::new(100u64);
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
@@ -107,6 +109,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
         }
         QueryMsg::CurrentUnbondBatch {} => query_current_unbond_batch(deps)?,
         QueryMsg::UnbondBatch { batch_id } => query_unbond_batch(deps, batch_id)?,
+        QueryMsg::UnbondBatches { limit, page_key } => query_unbond_batches(deps, limit, page_key)?,
         QueryMsg::NonNativeRewardsReceivers {} => {
             to_json_binary(&NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?)?
         }
@@ -226,6 +229,39 @@ fn query_current_unbond_batch(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
 
 fn query_unbond_batch(deps: Deps<NeutronQuery>, batch_id: Uint128) -> StdResult<Binary> {
     to_json_binary(&unbond_batches_map().load(deps.storage, batch_id.u128())?)
+}
+
+fn query_unbond_batches(
+    deps: Deps<NeutronQuery>,
+    limit: Option<Uint64>,
+    page_key: Option<Uint128>,
+) -> ContractResult<Binary> {
+    let limit = limit.unwrap_or(UNBOND_BATCHES_PAGINATION_DEFAULT_LIMIT);
+
+    let page_key = page_key.map(|key| key.u128()).map(Bound::inclusive);
+    let mut iter = unbond_batches_map().range(deps.storage, page_key, None, Order::Ascending);
+
+    let usize_limit = if limit <= Uint64::MAX {
+        limit.u64() as usize
+    } else {
+        return Err(ContractError::QueryUnbondBatchesLimitExceeded {});
+    };
+
+    let mut unbond_batches = vec![];
+    for i in (&mut iter).take(usize_limit) {
+        let (_, unbond_batch) = i?;
+        unbond_batches.push(unbond_batch);
+    }
+
+    let next_page_key = iter
+        .next()
+        .transpose()?
+        .map(|(batch_id, _)| Uint128::from(batch_id));
+
+    Ok(to_json_binary(&UnbondBatchesResponse {
+        unbond_batches,
+        next_page_key,
+    })?)
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]

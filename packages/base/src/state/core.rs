@@ -100,6 +100,12 @@ pub struct UnbondBatch {
     pub status_timestamps: UnbondBatchStatusTimestamps,
 }
 
+#[cw_serde]
+pub struct UnbondBatchesResponse {
+    pub unbond_batches: Vec<UnbondBatch>,
+    pub next_page_key: Option<Uint128>,
+}
+
 pub struct UnbondBatchIndexes<'a> {
     pub status: MultiIndex<'a, u8, UnbondBatch, u128>,
 }
