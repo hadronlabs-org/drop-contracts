@@ -95,6 +95,9 @@ pub enum ContractError {
     #[error("Bond limit exceeded")]
     BondLimitExceeded {},
 
+    #[error("Unbond batches query limit exceeded")]
+    QueryUnbondBatchesLimitExceeded {},
+
     #[error("Previous staking was failed")]
     PreviousStakingWasFailed {},
 

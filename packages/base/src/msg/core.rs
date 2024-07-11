@@ -4,7 +4,7 @@ use crate::{
     state::core::{Config, ConfigOptional, NonNativeRewardsItem},
 };
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Decimal, Deps, Uint128};
+use cosmwasm_std::{Decimal, Deps, Uint128, Uint64};
 use cw_ownable::cw_ownable_execute;
 #[allow(unused_imports)]
 use drop_helpers::pause::PauseInfoResponse;
@@ -109,7 +109,7 @@ pub enum QueryMsg {
     UnbondBatch { batch_id: Uint128 },
     #[returns(crate::state::core::UnbondBatchesResponse)]
     UnbondBatches {
-        limit: Option<usize>,
+        limit: Option<Uint64>,
         page_key: Option<Uint128>,
     },
     #[returns(crate::state::core::ContractState)]

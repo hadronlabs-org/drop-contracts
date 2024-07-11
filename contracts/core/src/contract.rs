@@ -2,7 +2,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankMsg, BankQuery,
     Binary, Coin, CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order,
-    QueryRequest, Response, StdError, StdResult, Uint128, WasmMsg,
+    QueryRequest, Response, StdError, StdResult, Uint128, Uint64, WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
@@ -42,7 +42,7 @@ pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-pub const UNBOND_BATCHES_PAGINATION_DEFAULT_LIMIT: usize = 100;
+pub const UNBOND_BATCHES_PAGINATION_DEFAULT_LIMIT: Uint64 = Uint64::new(100u64);
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
@@ -233,15 +233,22 @@ fn query_unbond_batch(deps: Deps<NeutronQuery>, batch_id: Uint128) -> StdResult<
 
 fn query_unbond_batches(
     deps: Deps<NeutronQuery>,
-    limit: Option<usize>,
+    limit: Option<Uint64>,
     page_key: Option<Uint128>,
 ) -> ContractResult<Binary> {
     let limit = limit.unwrap_or(UNBOND_BATCHES_PAGINATION_DEFAULT_LIMIT);
+
     let page_key = page_key.map(|key| key.u128()).map(Bound::inclusive);
     let mut iter = unbond_batches_map().range(deps.storage, page_key, None, Order::Ascending);
 
+    let usize_limit = if limit <= Uint64::MAX {
+        limit.u64() as usize
+    } else {
+        return Err(ContractError::QueryUnbondBatchesLimitExceeded {});
+    };
+
     let mut unbond_batches = vec![];
-    for i in (&mut iter).take(limit) {
+    for i in (&mut iter).take(usize_limit) {
         let (_, unbond_batch) = i?;
         unbond_batches.push(unbond_batch);
     }
