@@ -1086,7 +1086,7 @@ fn test_idle_tick_pending_lsm_redeem() {
         )
         .unwrap();
     let mut env = mock_env();
-    env.block.time = Timestamp::from_seconds(100);
+    env.block.time = Timestamp::from_seconds(99);
     let res = execute(
         deps.as_mut(),
         env.clone(),
@@ -1094,6 +1094,7 @@ fn test_idle_tick_pending_lsm_redeem() {
         ExecuteMsg::Tick {},
     );
     assert!(res.is_err());
+
     LSM_SHARES_TO_REDEEM
         .save(
             deps.as_mut().storage,
