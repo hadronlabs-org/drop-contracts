@@ -4185,4 +4185,134 @@ mod pending_redeem_shares {
 
         assert_eq!(redeem_res, None);
     }
+
+    #[test]
+    fn lsm_shares_pass_threshold() {
+        let mut deps = mock_dependencies(&[]);
+
+        let lsm_redeem_maximum_interval = 100;
+
+        let config = &get_default_config(
+            Some(Decimal::from_atomics(1u32, 1).unwrap()),
+            1000,
+            3,
+            lsm_redeem_maximum_interval,
+            100,
+            600,
+            Uint128::new(100),
+        );
+
+        let env = &mock_env();
+
+        LSM_SHARES_TO_REDEEM
+            .save(
+                deps.as_mut().storage,
+                "local_denom_1".to_string(),
+                &("remote_denom_share1".to_string(), Uint128::from(100u128)),
+            )
+            .unwrap();
+
+        LAST_LSM_REDEEM
+            .save(
+                deps.as_mut().storage,
+                &(env.block.time.seconds() - lsm_redeem_maximum_interval * 2),
+            )
+            .unwrap();
+
+        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
+            get_pending_redeem_msg(deps.as_ref(), config, env, vec![]).unwrap();
+
+        assert_eq!(
+            redeem_res,
+            Some(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: MOCK_PUPPETEER_CONTRACT_ADDR.to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+                        items: vec![RedeemShareItem {
+                            amount: Uint128::from(100u128),
+                            local_denom: "local_denom_1".to_string(),
+                            remote_denom: "remote_denom_share1".to_string(),
+                        }],
+                        reply_to: env.contract.address.to_string(),
+                    },
+                )
+                .unwrap(),
+                funds: vec![],
+            }))
+        );
+    }
+
+    #[test]
+    fn lsm_shares_limit_redeem() {
+        let mut deps = mock_dependencies(&[]);
+
+        let lsm_redeem_maximum_interval = 100;
+
+        let config = &get_default_config(
+            Some(Decimal::from_atomics(1u32, 1).unwrap()),
+            1000,
+            2,
+            lsm_redeem_maximum_interval,
+            100,
+            600,
+            Uint128::new(100),
+        );
+
+        let env = &mock_env();
+
+        LSM_SHARES_TO_REDEEM
+            .save(
+                deps.as_mut().storage,
+                "local_denom_1".to_string(),
+                &("remote_denom_share1".to_string(), Uint128::from(50u128)),
+            )
+            .unwrap();
+
+        LSM_SHARES_TO_REDEEM
+            .save(
+                deps.as_mut().storage,
+                "local_denom_2".to_string(),
+                &("remote_denom_share2".to_string(), Uint128::from(100u128)),
+            )
+            .unwrap();
+
+        LSM_SHARES_TO_REDEEM
+            .save(
+                deps.as_mut().storage,
+                "local_denom_3".to_string(),
+                &("remote_denom_share3".to_string(), Uint128::from(150u128)),
+            )
+            .unwrap();
+
+        LAST_LSM_REDEEM.save(deps.as_mut().storage, &0).unwrap();
+
+        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
+            get_pending_redeem_msg(deps.as_ref(), config, env, vec![]).unwrap();
+
+        assert_eq!(
+            redeem_res,
+            Some(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: MOCK_PUPPETEER_CONTRACT_ADDR.to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+                        items: vec![
+                            RedeemShareItem {
+                                amount: Uint128::from(50u128),
+                                local_denom: "local_denom_1".to_string(),
+                                remote_denom: "remote_denom_share1".to_string(),
+                            },
+                            RedeemShareItem {
+                                amount: Uint128::from(100u128),
+                                local_denom: "local_denom_2".to_string(),
+                                remote_denom: "remote_denom_share2".to_string(),
+                            }
+                        ],
+                        reply_to: env.contract.address.to_string(),
+                    },
+                )
+                .unwrap(),
+                funds: vec![],
+            }))
+        );
+    }
 }

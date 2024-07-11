@@ -1577,13 +1577,6 @@ pub fn get_pending_redeem_msg<T>(
         .count();
     let last_lsm_redeem = LAST_LSM_REDEEM.load(deps.storage)?;
     let lsm_redeem_threshold = config.lsm_redeem_threshold as usize;
-    println!(
-        "Pending LSM shares count: {}, last LSM redeem: {}, threshold: {}, block time: {}",
-        pending_lsm_shares_count,
-        last_lsm_redeem,
-        lsm_redeem_threshold,
-        env.block.time.seconds()
-    );
 
     if pending_lsm_shares_count == 0
         || ((pending_lsm_shares_count < lsm_redeem_threshold)
