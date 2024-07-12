@@ -101,6 +101,19 @@ pub struct UnbondBatch {
 }
 
 #[cw_serde]
+pub struct UnbondBatchDeprecated {
+    pub total_dasset_amount_to_withdraw: Uint128,
+    pub expected_native_asset_amount: Uint128,
+    pub expected_release_time: u64,
+    pub total_unbond_items: u64,
+    pub status: UnbondBatchStatus,
+    pub slashing_effect: Option<Decimal>,
+    pub unbonded_amount: Option<Uint128>,
+    pub withdrawed_amount: Option<Uint128>,
+    pub status_timestamps: UnbondBatchStatusTimestamps,
+}
+
+#[cw_serde]
 pub struct UnbondBatchesResponse {
     pub unbond_batches: Vec<UnbondBatch>,
     pub next_page_key: Option<Uint128>,
@@ -110,6 +123,10 @@ pub struct UnbondBatchIndexes<'a> {
     pub status: MultiIndex<'a, u8, UnbondBatch, u128>,
 }
 
+pub struct UnbondBatchDeprecatedIndexes<'a> {
+    pub status: MultiIndex<'a, u8, UnbondBatchDeprecated, u128>,
+}
+
 impl<'a> IndexList<UnbondBatch> for UnbondBatchIndexes<'a> {
     fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<UnbondBatch>> + '_> {
         let v: Vec<&dyn Index<UnbondBatch>> = vec![&self.status];
@@ -117,10 +134,26 @@ impl<'a> IndexList<UnbondBatch> for UnbondBatchIndexes<'a> {
     }
 }
 
+impl<'a> IndexList<UnbondBatchDeprecated> for UnbondBatchDeprecatedIndexes<'a> {
+    fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<UnbondBatchDeprecated>> + '_> {
+        let v: Vec<&dyn Index<UnbondBatchDeprecated>> = vec![&self.status];
+        Box::new(v.into_iter())
+    }
+}
+
 pub fn unbond_batches_map<'a>() -> IndexedMap<'a, u128, UnbondBatch, UnbondBatchIndexes<'a>> {
     IndexedMap::new(
-        "batches",
+        "new_batches",
         UnbondBatchIndexes {
+            status: MultiIndex::new(|_pk, b| b.status as u8, "new_batches", "new_batches__status"),
+        },
+    )
+}
+
+pub fn unbond_batches_deprecated_map<'a>() -> IndexedMap<'a, u128, UnbondBatchDeprecated, UnbondBatchDeprecatedIndexes<'a>> {
+    IndexedMap::new(
+        "batches",
+        UnbondBatchDeprecatedIndexes {
             status: MultiIndex::new(|_pk, b| b.status as u8, "batches", "batches__status"),
         },
     )

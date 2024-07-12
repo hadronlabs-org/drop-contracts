@@ -24,7 +24,7 @@ use drop_staking_base::{
     },
     state::{
         core::{
-            unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem,
+            unbond_batches_map, unbond_batches_deprecated_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem,
             UnbondBatch, UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse,
             BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT,
             LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE,
@@ -1773,6 +1773,30 @@ pub fn migrate(
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    let deprecated_batches = unbond_batches_deprecated_map()
+        .range(deps.storage, None, None, Order::Ascending)
+        .collect::<Result<Vec<_>, _>>()?;
+
+    for deprecated_batch in deprecated_batches {
+        let unwrapped = deprecated_batch;
+        let batch_id = unwrapped.0;
+        let old_batch = unwrapped.1;
+
+        let new_batch = UnbondBatch {
+            total_dasset_amount_to_withdraw: old_batch.total_dasset_amount_to_withdraw,
+            expected_native_asset_amount: old_batch.expected_native_asset_amount,
+            expected_release_time: old_batch.expected_release_time,
+            total_unbond_items: old_batch.total_unbond_items,
+            status: old_batch.status,
+            slashing_effect: old_batch.slashing_effect,
+            unbonded_amount: old_batch.unbonded_amount,
+            status_timestamps: old_batch.status_timestamps,
+            withdrawn_amount: old_batch.withdrawed_amount,
+        };
+
+        unbond_batches_map().save(deps.storage, batch_id, &new_batch)?;
     }
 
     Ok(Response::new())
