@@ -1388,9 +1388,10 @@ fn get_unbonding_msg<T>(
     info: &MessageInfo,
 ) -> ContractResult<Option<CosmosMsg<T>>> {
     let funds = info.funds.clone();
-    let batch_id = FAILED_BATCH_ID
-        .may_load(deps.storage)?
-        .unwrap_or(UNBOND_BATCH_ID.load(deps.storage)?);
+    let (batch_id, processing_failed_batch) = match FAILED_BATCH_ID.may_load(deps.storage)? {
+        Some(batch_id) => (batch_id, true),
+        None => (UNBOND_BATCH_ID.load(deps.storage)?, false),
+    };
     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
     if (unbond.status_timestamps.new + config.unbond_batch_switch_time < env.block.time.seconds())
         && unbond.total_unbond_items != 0
@@ -1413,12 +1414,14 @@ fn get_unbonding_msg<T>(
         unbond.status = UnbondBatchStatus::UnbondRequested;
         unbond.status_timestamps.unbond_requested = Some(env.block.time.seconds());
         unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
-        UNBOND_BATCH_ID.save(deps.storage, &(batch_id + 1))?;
-        unbond_batches_map().save(
-            deps.storage,
-            batch_id + 1,
-            &new_unbond(env.block.time.seconds()),
-        )?;
+        if !processing_failed_batch {
+            UNBOND_BATCH_ID.save(deps.storage, &(batch_id + 1))?;
+            unbond_batches_map().save(
+                deps.storage,
+                batch_id + 1,
+                &new_unbond(env.block.time.seconds()),
+            )?;
+        }
         Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.puppeteer_contract.to_string(),
             msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
