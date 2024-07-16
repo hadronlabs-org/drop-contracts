@@ -2355,7 +2355,24 @@ fn test_tick_idle_unbonding_failed() {
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(
                     vec![
                         ("action", "tick_idle"),
+                        ("knot", "000"),
+                        ("knot", "002"),
+                        ("knot", "003"),
+                        ("knot", "004"),
+                        ("knot", "005"),
+                        ("knot", "007"),
+                        ("knot", "009"),
+                        ("knot", "010"),
                         ("validators_to_claim", "empty"),
+                        ("knot", "015"),
+                        ("knot", "020"),
+                        ("knot", "024"),
+                        ("knot", "025"),
+                        ("knot", "027"),
+                        ("knot", "045"),
+                        ("knot", "046"),
+                        ("knot", "028"),
+                        ("knot", "029"),
                         ("state", "unbonding")
                     ]
                 )
