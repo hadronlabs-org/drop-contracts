@@ -214,6 +214,18 @@ export type UnbondBatchStatus =
   | "withdrawn"
   | "withdrawing_emergency"
   | "withdrawn_emergency";
+/**
+ * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u64` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
+ *
+ * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
+ */
+export type Uint64 = string;
 export type PuppeteerHookArgs =
   | {
       success: ResponseHookSuccessMsg;
@@ -276,18 +288,6 @@ export type Expiration =
  * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
  */
 export type Timestamp2 = Uint64;
-/**
- * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u64` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
- *
- * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
- */
-export type Uint64 = string;
 
 export interface DropCoreSchema {
   responses:
@@ -303,12 +303,14 @@ export interface DropCoreSchema {
     | PauseInfoResponse
     | ArrayOfTupleOfStringAndTupleOfStringAndUint1281
     | Uint1282
-    | UnbondBatch;
-  query: UnbondBatchArgs;
+    | UnbondBatch
+    | UnbondBatchesResponse;
+  query: UnbondBatchArgs | UnbondBatchesArgs;
   execute:
     | BondArgs
     | UpdateConfigArgs
     | UpdateNonNativeRewardsReceiversArgs
+    | UpdateWithdrawnAmountArgs
     | PuppeteerHookArgs
     | StakerHookArgs
     | ProcessEmergencyBatchArgs
@@ -424,15 +426,15 @@ export interface NonNativeRewardsItem {
   min_amount: Uint128;
 }
 export interface UnbondBatch {
-  expected_amount: Uint128;
-  expected_release: number;
+  expected_native_asset_amount: Uint128;
+  expected_release_time: number;
   slashing_effect?: Decimal | null;
   status: UnbondBatchStatus;
   status_timestamps: UnbondBatchStatusTimestamps;
-  total_amount: Uint128;
+  total_dasset_amount_to_withdraw: Uint128;
   total_unbond_items: number;
   unbonded_amount?: Uint128 | null;
-  withdrawed_amount?: Uint128 | null;
+  withdrawn_amount?: Uint128 | null;
 }
 export interface UnbondBatchStatusTimestamps {
   new: number;
@@ -444,8 +446,27 @@ export interface UnbondBatchStatusTimestamps {
   withdrawn?: number | null;
   withdrawn_emergency?: number | null;
 }
+export interface UnbondBatchesResponse {
+  next_page_key?: Uint128 | null;
+  unbond_batches: UnbondBatch1[];
+}
+export interface UnbondBatch1 {
+  expected_native_asset_amount: Uint128;
+  expected_release_time: number;
+  slashing_effect?: Decimal | null;
+  status: UnbondBatchStatus;
+  status_timestamps: UnbondBatchStatusTimestamps;
+  total_dasset_amount_to_withdraw: Uint128;
+  total_unbond_items: number;
+  unbonded_amount?: Uint128 | null;
+  withdrawn_amount?: Uint128 | null;
+}
 export interface UnbondBatchArgs {
   batch_id: Uint128;
+}
+export interface UnbondBatchesArgs {
+  limit?: Uint64 | null;
+  page_key?: Uint128 | null;
 }
 export interface BondArgs {
   receiver?: string | null;
@@ -481,6 +502,10 @@ export interface ConfigOptional {
 }
 export interface UpdateNonNativeRewardsReceiversArgs {
   items: NonNativeRewardsItem[];
+}
+export interface UpdateWithdrawnAmountArgs {
+  batch_id: number;
+  withdrawn_amount: Uint128;
 }
 export interface ResponseHookSuccessMsg2 {
   local_height: number;
@@ -587,6 +612,9 @@ export class Client {
   queryUnbondBatch = async(args: UnbondBatchArgs): Promise<UnbondBatch> => {
     return this.client.queryContractSmart(this.contractAddress, { unbond_batch: args });
   }
+  queryUnbondBatches = async(args: UnbondBatchesArgs): Promise<UnbondBatchesResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, { unbond_batches: args });
+  }
   queryContractState = async(): Promise<ContractState> => {
     return this.client.queryContractSmart(this.contractAddress, { contract_state: {} });
   }
@@ -626,6 +654,10 @@ export class Client {
   updateNonNativeRewardsReceivers = async(sender:string, args: UpdateNonNativeRewardsReceiversArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_non_native_rewards_receivers: args }, fee || "auto", memo, funds);
+  }
+  updateWithdrawnAmount = async(sender:string, args: UpdateWithdrawnAmountArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { update_withdrawn_amount: args }, fee || "auto", memo, funds);
   }
   tick = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

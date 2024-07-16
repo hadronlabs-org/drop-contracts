@@ -7,10 +7,10 @@ import {
   Registry,
 } from "@cosmjs/proto-signing";
 import { GasPrice, Coin } from "@cosmjs/stargate";
-import { Client as DropCoreClient } from "../../../integration_tests/src/generated/contractLib/dropCore";
-import { Client as DropValidatorsSet } from "../../../integration_tests/src/generated/contractLib/dropValidatorsSet";
-import { Client as DropWithdrawalManager } from "../../../integration_tests/src/generated/contractLib/dropWithdrawalManager";
-import { Client as DropWithdrawalVoucher } from "../../../integration_tests/src/generated/contractLib/dropWithdrawalVoucher";
+import { Client as DropCoreClient } from "drop-ts-client/src/contractLib/dropCore";
+import { Client as DropValidatorsSet } from "drop-ts-client/src/contractLib/dropValidatorsSet";
+import { Client as DropWithdrawalManager } from "drop-ts-client/src/contractLib/dropWithdrawalManager";
+import { Client as DropWithdrawalVoucher } from "drop-ts-client/src/contractLib/dropWithdrawalVoucher";
 
 import { MsgTokenizeShares } from "@messages";
 import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx";
@@ -19,6 +19,20 @@ import { MsgTransfer } from "cosmjs-types/ibc/applications/transfer/v1/tx";
 
 import { sleep } from "../../../integration_tests/src/helpers/sleep";
 import { waitForTx } from "../../../integration_tests/src/helpers/waitForTx";
+
+import { connectComet } from "@cosmjs/tendermint-rpc";
+import { QueryClient, createProtobufRpcClient } from "@cosmjs/stargate";
+import {
+  setupAuthExtension,
+  setupBankExtension,
+  setupStakingExtension,
+  setupTxExtension,
+} from "@cosmjs/stargate";
+import {
+  QueryAllBalancesRequest,
+  QueryAllBalancesResponse,
+  QueryClientImpl,
+} from "cosmjs-types/cosmos/bank/v1beta1/query";
 
 const CORE_CONTRACT: string = process.env.CORE_CONTRACT;
 
@@ -589,17 +603,54 @@ async function IBCFromTransfer(
   };
 }
 
+async function getAllBalanesWithPagination(
+  address: string,
+  endpoint: string
+): Promise<Array<Coin>> {
+  const queryClient = QueryClient.withExtensions(
+    await connectComet(endpoint),
+    setupAuthExtension,
+    setupBankExtension,
+    setupStakingExtension,
+    setupTxExtension
+  );
+  const RPC = createProtobufRpcClient(queryClient);
+  const queryService = new QueryClientImpl(RPC);
+
+  let balances: Array<Coin> = [];
+  let key: any = null;
+
+  while (key !== undefined) {
+    let currentResponse: QueryAllBalancesResponse =
+      await queryService.AllBalances(
+        QueryAllBalancesRequest.fromPartial({
+          address: address,
+          pagination: key && {
+            key: key,
+          },
+        })
+      );
+
+    balances.push(...currentResponse.balances);
+    key = currentResponse.pagination?.nextKey.length
+      ? currentResponse.pagination?.nextKey
+      : undefined;
+  }
+  return balances;
+}
+
 /* Function dedicated to reveal which tokenized share ID is the latest on our account
  * To get it we're iterating over all tokens with cosmosvaloper in their name and getting ID after / character
  * Comparing them by value and then returning the latest full not-splitted denom
  * If there is no denom with cosmosvaloper in it's name then return null
- * SigningStargateClient.getAllBalances includes the pagination with next_key's
+ * SigningStargateClient.getAllBalances includes the pagination with next_key's, so we use our custom getAllBalanesWithPagination function
  */
 async function lastTokenizeShareDenom(
   targetWallet: Wallet
 ): Promise<string | null> {
-  const allBalances = await targetWallet.clientSG.getAllBalances(
-    targetWallet.mainAccounts[0].address
+  const allBalances: Array<Coin> = await getAllBalanesWithPagination(
+    targetWallet.mainAccounts[0].address,
+    TARGET_NODE_ADDRESS
   );
   const filteredBalances = allBalances.filter((balance) =>
     balance.denom.includes("cosmosvaloper")
@@ -739,8 +790,9 @@ async function processLSMShares(
    * To get the new IBC denom on Neutron
    */
   const neutronDenomsBeforeIBCFromSend: Array<string> = (
-    await neutronWallet.clientSG.getAllBalances(
-      neutronWallet.mainAccounts[0].address
+    await getAllBalanesWithPagination(
+      neutronWallet.mainAccounts[0].address,
+      NEUTRON_NODE_ADDRESS
     )
   ).map((coin) => coin.denom);
 
@@ -767,10 +819,10 @@ async function processLSMShares(
    */
   let neutronDenomsAfterIBCFromSend: Array<string> = [];
   while (true) {
-    const neutronCoinsAfterIBCFromSend =
-      await neutronWallet.clientSG.getAllBalances(
-        neutronWallet.mainAccounts[0].address
-      );
+    const neutronCoinsAfterIBCFromSend = await getAllBalanesWithPagination(
+      neutronWallet.mainAccounts[0].address,
+      NEUTRON_NODE_ADDRESS
+    );
     if (
       neutronCoinsAfterIBCFromSend.length ===
       neutronDenomsBeforeIBCFromSend.length

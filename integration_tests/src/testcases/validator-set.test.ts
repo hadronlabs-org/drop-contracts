@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { DropValidatorsSet } from '../generated/contractLib';
+import { DropValidatorsSet } from 'drop-ts-client';
 
 import { join } from 'path';
 

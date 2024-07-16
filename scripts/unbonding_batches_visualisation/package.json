@@ -18,6 +18,7 @@
     "@neutron-org/client-ts": "^1.4.0",
     "@neutron-org/contracts2ts": "^1.4.0",
     "@neutron-org/cosmopark": "^1.5.0",
+    "drop-ts-client": "file:../../ts-client",
     "bech32": "^1.1.4"
   },
   "devDependencies": {

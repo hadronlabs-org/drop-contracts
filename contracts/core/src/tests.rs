@@ -652,6 +652,87 @@ fn test_update_config() {
 }
 
 #[test]
+fn test_update_withdrawn_amount() {
+    let mut deps = mock_dependencies(&[]);
+
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                10,
+                10_000_000_000,
+                10,
+                6000,
+                Uint128::one(),
+            ),
+        )
+        .unwrap();
+
+    let withdrawn_batch = &UnbondBatch {
+        total_dasset_amount_to_withdraw: Uint128::from(1001u128),
+        expected_native_asset_amount: Uint128::from(1001u128),
+        total_unbond_items: 1,
+        status: UnbondBatchStatus::Withdrawn,
+        expected_release_time: 9000,
+        slashing_effect: None,
+        unbonded_amount: None,
+        withdrawn_amount: None,
+        status_timestamps: get_default_unbond_batch_status_timestamps(),
+    };
+
+    let unbonding_batch = &UnbondBatch {
+        total_dasset_amount_to_withdraw: Uint128::from(2002u128),
+        expected_native_asset_amount: Uint128::from(2002u128),
+        total_unbond_items: 1,
+        status: UnbondBatchStatus::Unbonding,
+        expected_release_time: 9000,
+        slashing_effect: None,
+        unbonded_amount: None,
+        withdrawn_amount: None,
+        status_timestamps: get_default_unbond_batch_status_timestamps(),
+    };
+
+    unbond_batches_map()
+        .save(deps.as_mut().storage, 1, withdrawn_batch)
+        .unwrap();
+
+    unbond_batches_map()
+        .save(deps.as_mut().storage, 0, unbonding_batch)
+        .unwrap();
+
+    let withdrawn_res = execute(
+        deps.as_mut(),
+        mock_env().clone(),
+        mock_info("withdrawal_manager_contract", &[]),
+        ExecuteMsg::UpdateWithdrawnAmount {
+            batch_id: 1,
+            withdrawn_amount: Uint128::from(1001u128),
+        },
+    );
+    assert!(withdrawn_res.is_ok());
+
+    let new_withdrawn_amount = unbond_batches_map()
+        .load(deps.as_mut().storage, 1)
+        .unwrap()
+        .withdrawn_amount;
+    assert_eq!(new_withdrawn_amount, Some(Uint128::from(1001u128)));
+
+    let unbonding_err = execute(
+        deps.as_mut(),
+        mock_env().clone(),
+        mock_info("withdrawal_manager_contract", &[]),
+        ExecuteMsg::UpdateWithdrawnAmount {
+            batch_id: 0,
+            withdrawn_amount: Uint128::from(2002u128),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(unbonding_err, ContractError::BatchNotWithdrawn {});
+}
+
+#[test]
 fn test_execute_reset_bonded_amount() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
@@ -1210,14 +1291,14 @@ fn test_tick_idle_unbonding_close() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
                 total_unbond_items: 1,
                 status: UnbondBatchStatus::Unbonding,
-                expected_release: 10001,
+                expected_release_time: 10001,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
                     new: 0,
                     unbond_requested: None,
@@ -1349,14 +1430,14 @@ fn test_tick_idle_claim_wo_unbond() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
                 total_unbond_items: 1,
                 status: UnbondBatchStatus::Unbonding,
-                expected_release: 9000,
+                expected_release_time: 9000,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: get_default_unbond_batch_status_timestamps(),
             },
         )
@@ -1513,14 +1594,14 @@ fn test_tick_idle_claim_with_unbond_transfer() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
                 total_unbond_items: 1,
                 status: UnbondBatchStatus::Unbonding,
-                expected_release: 90000,
+                expected_release_time: 90000,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: get_default_unbond_batch_status_timestamps(),
             },
         )
@@ -2009,14 +2090,14 @@ fn test_tick_idle_unbonding() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
                 total_unbond_items: 1,
                 status: UnbondBatchStatus::New,
-                expected_release: 0,
+                expected_release_time: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
                     new: 0,
                     unbond_requested: None,
@@ -2372,14 +2453,14 @@ fn test_tick_claiming_wo_transfer_unbonding() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
                 total_unbond_items: 1,
                 status: UnbondBatchStatus::New,
-                expected_release: 0,
+                expected_release_time: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
                     new: 0,
                     unbond_requested: None,
@@ -2547,14 +2628,14 @@ fn test_tick_claiming_wo_idle() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
                 total_unbond_items: 1,
                 status: UnbondBatchStatus::New,
-                expected_release: 0,
+                expected_release_time: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
                     new: 0,
                     unbond_requested: None,
@@ -2649,7 +2730,7 @@ fn test_execute_tick_transfering_no_puppeteer_response() {
         ExecuteMsg::Tick {},
     );
     assert!(res.is_err());
-    assert_eq!(res, Err(ContractError::PuppeteerResponseIsNotReceived {}));
+    assert_eq!(res, Err(ContractError::StakerResponseIsNotReceived {}));
 }
 
 #[test]
@@ -2916,14 +2997,14 @@ fn test_tick_staking_to_unbonding() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
                 total_unbond_items: 1,
                 status: UnbondBatchStatus::New,
-                expected_release: 0,
+                expected_release_time: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
                     new: 0,
                     unbond_requested: None,
@@ -3060,14 +3141,14 @@ fn test_tick_staking_to_idle() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
                 total_unbond_items: 1,
                 status: UnbondBatchStatus::New,
-                expected_release: 0,
+                expected_release_time: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
                     new: 0,
                     unbond_requested: None,
@@ -3431,14 +3512,14 @@ fn test_bond_lsm_share_increase_exchange_rate() {
             &mut deps.storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::zero(),
-                expected_amount: Uint128::zero(),
+                total_dasset_amount_to_withdraw: Uint128::zero(),
+                expected_native_asset_amount: Uint128::zero(),
                 total_unbond_items: 0,
                 status: UnbondBatchStatus::New,
-                expected_release: 0,
+                expected_release_time: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: get_default_unbond_batch_status_timestamps(),
             },
         )
@@ -3645,14 +3726,14 @@ fn test_unbond() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(0u128),
-                expected_amount: Uint128::from(0u128),
+                total_dasset_amount_to_withdraw: Uint128::from(0u128),
+                expected_native_asset_amount: Uint128::from(0u128),
                 total_unbond_items: 0,
                 status: UnbondBatchStatus::New,
-                expected_release: 0,
+                expected_release_time: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: get_default_unbond_batch_status_timestamps(),
             },
         )
@@ -3742,14 +3823,14 @@ fn test_unbond() {
     assert_eq!(
         unbond_batch,
         UnbondBatch {
-            total_amount: Uint128::from(1000u128),
-            expected_amount: Uint128::from(1000u128),
+            total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+            expected_native_asset_amount: Uint128::from(1000u128),
             total_unbond_items: 1,
             status: UnbondBatchStatus::New,
-            expected_release: 0,
+            expected_release_time: 0,
             slashing_effect: None,
             unbonded_amount: None,
-            withdrawed_amount: None,
+            withdrawn_amount: None,
             status_timestamps: get_default_unbond_batch_status_timestamps(),
         }
     );
@@ -3788,14 +3869,14 @@ mod process_emergency_batch {
                     deps.as_mut().storage,
                     2,
                     &UnbondBatch {
-                        total_amount: Uint128::new(100),
-                        expected_amount: Uint128::new(100),
-                        expected_release: 200,
+                        total_dasset_amount_to_withdraw: Uint128::new(100),
+                        expected_native_asset_amount: Uint128::new(100),
+                        expected_release_time: 200,
                         total_unbond_items: 0,
                         status,
                         slashing_effect: None,
                         unbonded_amount: None,
-                        withdrawed_amount: None,
+                        withdrawn_amount: None,
                         status_timestamps: get_default_unbond_batch_status_timestamps(),
                     },
                 )
@@ -3890,14 +3971,14 @@ mod process_emergency_batch {
         assert_eq!(
             batch,
             UnbondBatch {
-                total_amount: Uint128::new(100),
-                expected_amount: Uint128::new(100),
-                expected_release: 200,
+                total_dasset_amount_to_withdraw: Uint128::new(100),
+                expected_native_asset_amount: Uint128::new(100),
+                expected_release_time: 200,
                 total_unbond_items: 0,
                 status: UnbondBatchStatus::Withdrawn,
                 slashing_effect: Some(Decimal::one()),
                 unbonded_amount: Some(Uint128::new(100)),
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
                     new: 0,
                     unbond_requested: None,
@@ -3931,14 +4012,14 @@ mod process_emergency_batch {
         assert_eq!(
             batch,
             UnbondBatch {
-                total_amount: Uint128::new(100),
-                expected_amount: Uint128::new(100),
-                expected_release: 200,
+                total_dasset_amount_to_withdraw: Uint128::new(100),
+                expected_native_asset_amount: Uint128::new(100),
+                expected_release_time: 200,
                 total_unbond_items: 0,
                 status: UnbondBatchStatus::Withdrawn,
                 slashing_effect: Some(Decimal::from_ratio(70u128, 100u128)),
                 unbonded_amount: Some(Uint128::new(70)),
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
                     new: 0,
                     unbond_requested: None,

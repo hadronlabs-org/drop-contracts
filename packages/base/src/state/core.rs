@@ -89,15 +89,21 @@ pub struct UnbondBatchStatusTimestamps {
 
 #[cw_serde]
 pub struct UnbondBatch {
-    pub total_amount: Uint128,
-    pub expected_amount: Uint128,
-    pub expected_release: u64,
+    pub total_dasset_amount_to_withdraw: Uint128,
+    pub expected_native_asset_amount: Uint128,
+    pub expected_release_time: u64,
     pub total_unbond_items: u64,
     pub status: UnbondBatchStatus,
     pub slashing_effect: Option<Decimal>,
     pub unbonded_amount: Option<Uint128>,
-    pub withdrawed_amount: Option<Uint128>,
+    pub withdrawn_amount: Option<Uint128>,
     pub status_timestamps: UnbondBatchStatusTimestamps,
+}
+
+#[cw_serde]
+pub struct UnbondBatchesResponse {
+    pub unbond_batches: Vec<UnbondBatch>,
+    pub next_page_key: Option<Uint128>,
 }
 
 pub struct UnbondBatchIndexes<'a> {

@@ -1,8 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import {
-  DropProviderProposalsPoc,
-  DropProposalVotesPoc,
-} from '../generated/contractLib';
+import { DropProviderProposalsPoc, DropProposalVotesPoc } from 'drop-ts-client';
 import {
   QueryClient,
   StakingExtension,
@@ -22,7 +19,7 @@ import fs from 'fs';
 import { stringToPath } from '@cosmjs/crypto';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import { ProposalInfo1 } from '../generated/contractLib/dropProviderProposalsPoc';
+import { ProposalInfo1 } from 'drop-ts-client/lib/contractLib/dropProviderProposalsPoc';
 
 const DropProviderProposalsClass = DropProviderProposalsPoc.Client;
 const DropProposalVotesClass = DropProposalVotesPoc.Client;

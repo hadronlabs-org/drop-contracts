@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { DropPump } from '../generated/contractLib';
+import { DropPump } from 'drop-ts-client';
 import {
   QueryClient,
   StakingExtension,
