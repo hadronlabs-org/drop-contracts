@@ -1,231 +1,112 @@
 digraph G {
-    layout=dot;
-    rankdir=TB;
-
-    {
-        rank=same;
-        K000 [
-            label = "K000\nidle",
-            shape=circle, fixedsize=true, width=1.5, height=1.5
-        ];
+    layout = dot;
+    rankdir = TB;
+    
+    subgraph {
+        rank = same;
+        K000 [label = "K000\nidle";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
     }
-
-    {
-        rank=same;
-        K002 [
-            label = "K002\ncache exchange rate",
-            shape=box, fixedsize=true, width=3, height=1
-        ];
+    
+    subgraph {
+        rank = same;
+        K002 [label = "K002\ncache exchange rate";shape = box;fixedsize = true;width = 3;height = 1;];
     }
-
-    {
-        rank=same;
-        K003 [
-            label = "K003\ncheck last idle call\nidle_min_interval reached",
-            shape=diamond, fixedsize=true, width=4, height=1.5
-        ];
-        K033 [
-            label = "K033\nis there some non-native rewards",
-            shape=diamond, fixedsize=true, width=4, height=1.5
-        ];
-        K036 [
-            label = "K036\nis there pending LSM shares\nto redeem",
-            shape=diamond, fixedsize=true, width=4, height=1.5
-        ];
-        K041 [
-            label = "K041\nis there pending LSM shares\nto transfer",
-            shape=polygon, sides=4, skew=.4, fixedsize=true, width=3, height=1
-        ];
+    
+    subgraph {
+        rank = same;
+        K003 [label = "K003\ncheck last idle call\nidle_min_interval reached";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
+        K033 [label = "K033\nis there some non-native rewards";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
+        K036 [label = "K036\nis there pending LSM shares\nto redeem";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
+        K041 [label = "K041\nis there pending LSM shares\nto transfer";shape = polygon;sides = 4;skew = .4;fixedsize = true;width = 3;height = 1;];
     }
-
-    {
-        rank=same;
-        K004 [
-            label = "K004\nUpdate last idle call",
-            shape=box, fixedsize=true, width=3, height=1
-        ];
-        K034 [
-            label = "K034\nSend non-native rewards to the\nmanager",
-            shape=house, fixedsize=true, width=3, height=1
-        ];
-        K037 [
-            label = "K037\nredeem pending LSM shares msg",
-            shape=house, fixedsize=true, width=3, height=1
-        ];
-        K042 [
-            label = "K042\ntransfer pending LSM shares msg",
-            shape=house, fixedsize=true, width=3, height=1
-        ];
+    
+    subgraph {
+        rank = same;
+        K004 [label = "K004\nUpdate last idle call";shape = box;fixedsize = true;width = 3;height = 1;];
+        K034 [label = "K034\nSend non-native rewards to the\nmanager";shape = house;fixedsize = true;width = 3;height = 1;];
+        K037 [label = "K037\nredeem pending LSM shares msg";shape = house;fixedsize = true;width = 3;height = 1;];
+        K042 [label = "K042\ntransfer pending LSM shares msg";shape = house;fixedsize = true;width = 3;height = 1;];
     }
-
-    {
-        rank=same;
-        K005 [
-            label = "K005\nIs Unbonding Time Far?",
-            shape=polygon, sides=4, skew=.4, fixedsize=true, width=3, height=1
-        ];
-        K035 [
-            label = "K035\nNonNative\nRewardsTransfer",
-            shape=circle, fixedsize=true, width=1.5, height=1.5
-        ];
-        K038 [
-            label = "K038\nLSMRedeem",
-            shape=circle, fixedsize=true, width=1.5, height=1.5
-        ];
-        K043 [
-            label = "K043\nLSMTransfer",
-            shape=circle, fixedsize=true, width=1.5, height=1.5
-        ];
+    
+    subgraph {
+        rank = same;
+        K005 [label = "K005\nIs Unbonding Time Far?";shape = polygon;sides = 4;skew = .4;fixedsize = true;width = 3;height = 1;];
+        K035 [label = "K035\nNonNative\nRewardsTransfer";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
+        K038 [label = "K038\nLSMRedeem";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
+        K043 [label = "K043\nLSMTransfer";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
     }
-
-    {
-        rank=same;
-        K007 [
-            label = "K007\nHow many unbonding\nbatches ready to transfer?",
-            shape=hexagon, fixedsize=true, width=3, height=1
-        ];
+    
+    subgraph {
+        rank = same;
+        K007 [label = "K007\nHow many unbonding\nbatches ready to transfer?";shape = hexagon;fixedsize = true;width = 3;height = 1;];
     }
-
-    {
-        rank=same;
-        K008 [
-            label = "K008\nCompose TransferReadyBatchesMsg",
-            shape=box, fixedsize=true, width=3, height=1
-        ];
-        K048 [
-            label = "K048\nCompose multiple batch transfer",
-            shape=box, fixedsize=true, width=3, height=1
-        ];
+    
+    subgraph {
+        rank = same;
+        K008 [label = "K008\nCompose TransferReadyBatchesMsg";shape = box;fixedsize = true;width = 3;height = 1;];
+        K048 [label = "K048\nCompose multiple batch transfer";shape = box;fixedsize = true;width = 3;height = 1;];
     }
-
-    {
-        rank=same;
-        K009 [
-            label = "K009\nAre delegations fresh",
-            shape=polygon, sides=4, skew=.4, fixedsize=true, width=3, height=1
-        ];
+    
+    subgraph {
+        rank = same;
+        K009 [label = "K009\nAre delegations fresh";shape = polygon;sides = 4;skew = .4;fixedsize = true;width = 3;height = 1;];
     }
-
-    {
-        rank=same;
-        K010 [
-            label = "K010\nAny validators to claim",
-            shape=diamond, fixedsize=true, width=4, height=1.5
-        ];
-        K015 [
-            label = "K015\nAnything to stake",
-            shape=diamond, fixedsize=true, width=4, height=1.5
-        ];
-        K020 [
-            label = "K020\nRewards to stake",
-            shape=diamond, fixedsize=true, width=4, height=1.5
-        ];
-        K024 [
-            label = "K024\nIs there a failed batch?",
-            shape=diamond, fixedsize=true, width=4, height=1.5
-        ];
+    
+    subgraph {
+        rank = same;
+        K010 [label = "K010\nAny validators to claim";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
+        K015 [label = "K015\nAnything to stake";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
+        K020 [label = "K020\nRewards to stake";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
+        K024 [label = "K024\nIs there a failed batch?";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
     }
-
-    {
-        rank=same;
-        K011 [
-            label = "K011\ncompose Claim msg",
-            shape=house, fixedsize=true, width=3, height=1
-        ];
-        K016 [
-            label = "K016\ncompose Stake msg",
-            shape=house, fixedsize=true, width=3, height=1
-        ];
-        K021 [
-            label = "K021\ncompose Stake rewards msg",
-            shape=house, fixedsize=true, width=3, height=1
-        ];
-        K025 [
-            label = "K025\nTake failed batch as one to unbond",
-            shape=box, fixedsize=true, width=3, height=1
-        ];
-        K026 [
-            label = "K026\nTake the last batch as one to unbond",
-            shape=box, fixedsize=true, width=3, height=1
-        ];
+    
+    subgraph {
+        rank = same;
+        K011 [label = "K011\ncompose Claim msg";shape = house;fixedsize = true;width = 3;height = 1;];
+        K016 [label = "K016\ncompose Stake msg";shape = house;fixedsize = true;width = 3;height = 1;];
+        K021 [label = "K021\ncompose Stake rewards msg";shape = house;fixedsize = true;width = 3;height = 1;];
+        K025 [label = "K025\nTake failed batch as one to unbond";shape = box;fixedsize = true;width = 3;height = 1;];
+        K026 [label = "K026\nTake the last batch as one to unbond";shape = box;fixedsize = true;width = 3;height = 1;];
     }
-
-    {
-        rank=same;
-        K012 [
-            label = "K012\nClaiming",
-            shape=circle, fixedsize=true, width=1.5, height=1.5
-        ];
-        K017 [
-            label = "K017\nStakingBond",
-            shape=circle, fixedsize=true, width=1.5, height=1.5
-        ];
-        K022 [
-            label = "K022\nStakingRewards",
-            shape=circle, fixedsize=true, width=1.5, height=1.5
-        ];
-        K027 [
-            label = "K027\nUnbonding conditions are met",
-            shape=diamond, fixedsize=true, width=4, height=1.5
-        ];
+    
+    subgraph {
+        rank = same;
+        K012 [label = "K012\nClaiming";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
+        K017 [label = "K017\nStakingBond";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
+        K022 [label = "K022\nStakingRewards";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
+        K027 [label = "K027\nUnbonding conditions are met";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
     }
-
-    {
-        rank=same;
-        K047 [
-            label = "K047\nIs answer type correct?",
-            shape=polygon, sides=4, skew=.4, fixedsize=true, width=3, height=1
-        ];
-        K045 [
-            label = "K045\nMark the batch as\nUnbonding Requested",
-            shape=box, fixedsize=true, width=3, height=1
-        ];
+    
+    subgraph {
+        rank = same;
+        K047 [label = "K047\nIs answer type correct?";shape = polygon;sides = 4;skew = .4;fixedsize = true;width = 3;height = 1;];
+        K045 [label = "K045\nMark the batch as\nUnbonding Requested";shape = box;fixedsize = true;width = 3;height = 1;];
     }
-
-    {
-        rank=same;
-        K013 [
-            label = "K013\nWas there withdrawals?",
-            shape=diamond, fixedsize=true, width=4, height=1.5
-        ];
-        K046 [
-            label = "K046\nCreate new unbonding batch",
-            shape=box, fixedsize=true, width=3, height=1
-        ];
+    
+    subgraph {
+        K046 [label = "K046\nCreate new unbonding batch";shape = box;fixedsize = true;width = 3;height = 1;];
+        K013 [label = "K013\nWas there withdrawals?";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
+        K049 [label = "K049\nAre we processing failed batch?";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
     }
-
-    {
-        rank=same;
-        K014 [
-            label = "K014\nMark batches as withdrawn",
-            shape=box, fixedsize=true, width=3, height=1
-        ];
-        K028 [
-            label = "K028\ncompose unbond msg",
-            shape=house, fixedsize=true, width=3, height=1
-        ];
+    
+    subgraph {
+        rank = same;
+        K014 [label = "K014\nMark batches as withdrawn";shape = box;fixedsize = true;width = 3;height = 1;];
+        K028 [label = "K028\ncompose unbond msg";shape = house;fixedsize = true;width = 3;height = 1;];
     }
-
-    {
-        rank=same;
-        K029 [
-            label = "K029\nUnbonding",
-            shape=circle, fixedsize=true, width=1.5, height=1.5
-        ];
+    
+    subgraph {
+        rank = same;
+        K029 [label = "K029\nUnbonding";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
     }
-
-    {
-        rank=same;
-        K030 [
-            label = "K030\nMark batch as Unbonded",
-            shape=box, fixedsize=true, width=3, height=1
-        ];
-        K031 [
-            label = "K031\nMark batch as UnbondingFailed",
-            shape=box, fixedsize=true, width=3, height=1
-        ];
+    
+    subgraph {
+        rank = same;
+        
+        K030 [label = "K030\nMark batch as Unbonded";shape = box;fixedsize = true;width = 3;height = 1;];
+        K031 [label = "K031\nMark batch as UnbondingFailed";shape = box;fixedsize = true;width = 3;height = 1;];
     }
-
+    
     K000 -> K002;
     K002 -> K003;
     K003 -> K033 [taillabel = "no";];
@@ -238,61 +119,63 @@ digraph G {
     K036 -> K041 [taillabel = "no";];
     K041 -> K042;
     K042 -> K043;
-
+    
     K003 -> K004 [taillabel = "yes";];
     K004 -> K005;
     K005 -> K007;
-
+    
     K007 -> K008 [taillabel = "1";];
     K007 -> K048 [taillabel = ">1";];
     K007 -> K009 [taillabel = "no";];
-
+    
     K008 -> K009;
     K048 -> K009;
     
     K009 -> K010;
     K010 -> K015 [taillabel = "no";];
-
+    
     K015 -> K016 [taillabel = "yes";];
     K016 -> K017;
-
+    
     K015 -> K020 [taillabel = "no";];
     K020 -> K021 [taillabel = "yes";];
     K021 -> K022;
-
+    
     K020 -> K024 [taillabel = "no";];
     K024 -> K025 [taillabel = "yes";];
     K028 -> K029;
-
+    
     K024 -> K026 [taillabel = "no";];
     K010 -> K011 [taillabel = "yes";];
     K011 -> K012;
-
+    
     K038 -> K000;
     K043 -> K000;
     K035 -> K000;
-
+    
     K013 -> K014 [taillabel = "yes";];
     K013 -> K015 [taillabel = "no";];
-
+    
     K012 -> K047 [taillabel = "ACK";];
     K012 -> K015 [taillabel = "ERR";];
     K047 -> K013;
     K014 -> K015;
-
+    
     K017 -> K020;
     K022 -> K024;
-
+    
     K029 -> K030 [taillabel = "ACK";];
     K029 -> K031 [taillabel = "ERR";];
-
+    
     K030 -> K000;
     K031 -> K000;
     K025 -> K027;
     K026 -> K027;
-
+    
     K027 -> K045 [taillabel = "yes";];
     K027 -> K000 [taillabel = "no";];
-    K045 -> K046;
+    K045 -> K049;
+    K049 -> K046 [taillabel = "yes";];
+    K049 -> K028 [taillabel = "no";];
     K046 -> K028;
 }

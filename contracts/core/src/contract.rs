@@ -1480,7 +1480,7 @@ fn get_unbonding_msg<T>(
         None => (UNBOND_BATCH_ID.load(deps.storage)?, false),
     };
     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
-    if unbond.status == UnbondBatchStatus::UnbondFailed {
+    if processing_failed_batch {
         attrs.push(attr("knot", "025"));
     } else {
         attrs.push(attr("knot", "026"));
@@ -1509,8 +1509,9 @@ fn get_unbonding_msg<T>(
         unbond.status_timestamps.unbond_requested = Some(env.block.time.seconds());
         unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
 
-        attrs.push(attr("knot", "046"));
+        attrs.push(attr("knot", "049"));
         if !processing_failed_batch {
+            attrs.push(attr("knot", "046"));
             UNBOND_BATCH_ID.save(deps.storage, &(batch_id + 1))?;
             unbond_batches_map().save(
                 deps.storage,
