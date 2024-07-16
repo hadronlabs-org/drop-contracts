@@ -227,7 +227,7 @@ describe('Pump', () => {
         1.5,
       ),
       // seems like two spaces is a typo in Neutron :^)
-    ).rejects.toThrowError(/spendable balance {2}is smaller than/);
+    ).rejects.toThrowError(/spendable balance [\w/]+ is smaller than/);
   });
   it('push pump', async () => {
     const { contractClient, neutronUserAddress } = context;

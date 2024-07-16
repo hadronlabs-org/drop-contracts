@@ -1,6 +1,6 @@
 {
   "name": "drop-cosmos-integration-tests",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "main": "vitest",
   "license": "MIT",
   "scripts": {
@@ -17,6 +17,7 @@
     "test:validator-set": "vitest --run validator-set.test.ts --bail 1",
     "test:distribution": "vitest --run distribution.test.ts --bail 1",
     "test:auto-withdrawer": "vitest --run auto-withdrawer.test.ts --bail 1",
+    "test:gv": "vitest --run gv.test.ts --bail 1",
     "debug": "vitest --inspect-brk --bail 1 --threads false --run core.test.ts",
     "watch": "vitest",
     "build-ts-client": "ts-node ./src/rebuild-client.ts",
@@ -30,14 +31,15 @@
     "lint:fix": "eslint ./src -f compact --fix"
   },
   "dependencies": {
-    "@cosmjs/amino": "^0.32.3",
-    "@cosmjs/cosmwasm-stargate": "^0.32.3",
-    "@cosmjs/proto-signing": "^0.32.3",
-    "@cosmjs/stargate": "^0.32.3",
-    "@cosmjs/tendermint-rpc": "^0.32.3",
+    "@cosmjs/amino": "^0.32.4",
+    "@cosmjs/cosmwasm-stargate": "^0.32.4",
+    "@cosmjs/proto-signing": "^0.32.4",
+    "@cosmjs/stargate": "^0.32.4",
+    "@cosmjs/tendermint-rpc": "^0.32.4",
     "@neutron-org/client-ts": "^1.4.0",
     "@neutron-org/cosmopark": "^1.6.3",
     "bech32": "^1.1.4",
+    "dotparser": "^1.1.1",
     "yaml": "^2.4.1",
     "drop-ts-client": "file:../ts-client"
   },
