@@ -889,8 +889,17 @@ fn test_execute_tick_idle_non_native_rewards() {
         res,
         Response::new()
             .add_event(
-                Event::new("crates.io:drop-staking__drop-core-execute-tick_idle")
-                    .add_attributes(vec![("action", "tick_idle"),])
+                Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(
+                    vec![
+                        ("action", "tick_idle"),
+                        ("knot", "000"),
+                        ("knot", "002"),
+                        ("knot", "003"),
+                        ("knot", "033"),
+                        ("knot", "034"),
+                        ("knot", "035"),
+                    ]
+                )
             )
             .add_submessages(vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "puppeteer_contract".to_string(),
@@ -1007,8 +1016,19 @@ fn test_execute_tick_idle_get_pending_lsm_shares_transfer() {
         res,
         Response::new()
             .add_event(
-                Event::new("crates.io:drop-staking__drop-core-execute-tick_idle")
-                    .add_attribute("action", "tick_idle")
+                Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(
+                    vec![
+                        ("action", "tick_idle"),
+                        ("knot", "000"),
+                        ("knot", "002"),
+                        ("knot", "003"),
+                        ("knot", "033"),
+                        ("knot", "036"),
+                        ("knot", "041"),
+                        ("knot", "042"),
+                        ("knot", "043")
+                    ]
+                )
             )
             .add_submessages(vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "puppeteer_contract".to_string(),
@@ -1140,8 +1160,18 @@ fn test_idle_tick_pending_lsm_redeem() {
         res,
         Response::new()
             .add_event(
-                Event::new("crates.io:drop-staking__drop-core-execute-tick_idle")
-                    .add_attribute("action", "tick_idle")
+                Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(
+                    vec![
+                        ("action", "tick_idle"),
+                        ("knot", "000"),
+                        ("knot", "002"),
+                        ("knot", "003"),
+                        ("knot", "033"),
+                        ("knot", "036"),
+                        ("knot", "037"),
+                        ("knot", "038")
+                    ]
+                )
             )
             .add_submessages(vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "puppeteer_contract".to_string(),
@@ -1428,7 +1458,17 @@ fn test_tick_idle_claim_wo_unbond() {
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(
                     vec![
                         ("action", "tick_idle"),
+                        ("knot", "000"),
+                        ("knot", "002"),
+                        ("knot", "003"),
+                        ("knot", "004"),
+                        ("knot", "005"),
+                        ("knot", "007"),
+                        ("knot", "009"),
+                        ("knot", "010"),
                         ("validators_to_claim", "valoper_address"),
+                        ("knot", "011"),
+                        ("knot", "012"),
                         ("state", "claiming"),
                     ]
                 )
@@ -1579,7 +1619,20 @@ fn test_tick_idle_claim_with_unbond_transfer() {
         res,
         Response::new()
         .add_event(Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(vec![
-            ("action", "tick_idle" ), ("validators_to_claim",  "valoper_address"), ("state",  "claiming")
+            ("action", "tick_idle" ),
+            ("knot", "000"),
+            ("knot", "002"),
+            ("knot", "003"),
+            ("knot", "004"),
+            ("knot", "005"),
+            ("knot", "007"),
+            ("knot", "008"),
+            ("knot", "009"),
+            ("knot", "010"),
+            ("validators_to_claim",  "valoper_address"), 
+            ("knot", "011"),
+            ("knot", "012"),
+            ("state",  "claiming"),
         ]))
         .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "puppeteer_contract".to_string(), 
@@ -1716,8 +1769,19 @@ fn test_tick_idle_staking_bond() {
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(
                     vec![
                         ("action", "tick_idle"),
+                        ("knot", "000"),
+                        ("knot", "002"),
+                        ("knot", "003"),
+                        ("knot", "004"),
+                        ("knot", "005"),
+                        ("knot", "007"),
+                        ("knot", "009"),
+                        ("knot", "010"),
                         ("validators_to_claim", "empty"),
-                        ("state", "staking_bond")
+                        ("knot", "015"),
+                        ("knot", "016"),
+                        ("knot", "017"),
+                        ("state", "staking_bond"),
                     ]
                 )
             )
@@ -1869,8 +1933,20 @@ fn test_tick_idle_staking() {
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(
                     vec![
                         ("action", "tick_idle"),
+                        ("knot", "000"),
+                        ("knot", "002"),
+                        ("knot", "003"),
+                        ("knot", "004"),
+                        ("knot", "005"),
+                        ("knot", "007"),
+                        ("knot", "009"),
+                        ("knot", "010"),
                         ("validators_to_claim", "empty"),
-                        ("state", "staking_rewards")
+                        ("knot", "015"),
+                        ("knot", "020"),
+                        ("knot", "021"),
+                        ("knot", "022"),
+                        ("state", "staking_rewards"),
                     ]
                 )
             )
@@ -2052,8 +2128,25 @@ fn test_tick_idle_unbonding() {
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(
                     vec![
                         ("action", "tick_idle"),
+                        ("knot", "000"),
+                        ("knot", "002"),
+                        ("knot", "003"),
+                        ("knot", "004"),
+                        ("knot", "005"),
+                        ("knot", "007"),
+                        ("knot", "009"),
+                        ("knot", "010"),
                         ("validators_to_claim", "empty"),
-                        ("state", "unbonding")
+                        ("knot", "015"),
+                        ("knot", "020"),
+                        ("knot", "024"),
+                        ("knot", "026"),
+                        ("knot", "027"),
+                        ("knot", "045"),
+                        ("knot", "046"),
+                        ("knot", "028"),
+                        ("knot", "029"),
+                        ("state", "unbonding"),
                     ]
                 )
             )
@@ -2223,6 +2316,13 @@ fn test_tick_claiming_wo_transfer_stake() {
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_claiming")
                     .add_attributes(vec![
                         ("action", "tick_claiming"),
+                        ("knot", "012"),
+                        ("knot", "047"),
+                        ("knot", "013"),
+                        ("knot", "015"),
+                        ("knot", "020"),
+                        ("knot", "021"),
+                        ("knot", "022"),
                         ("state", "staking_rewards")
                     ])
             )
@@ -2388,7 +2488,22 @@ fn test_tick_claiming_wo_transfer_unbonding() {
         Response::new()
             .add_event(
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_claiming")
-                    .add_attributes(vec![("action", "tick_claiming"), ("state", "unbonding")])
+                    .add_attributes(vec![
+                        ("action", "tick_claiming"),
+                        ("knot", "012"),
+                        ("knot", "047"),
+                        ("knot", "013"),
+                        ("knot", "015"),
+                        ("knot", "020"),
+                        ("knot", "024"),
+                        ("knot", "026"),
+                        ("knot", "027"),
+                        ("knot", "045"),
+                        ("knot", "046"),
+                        ("knot", "028"),
+                        ("knot", "029"),
+                        ("state", "unbonding")
+                    ])
             )
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "puppeteer_contract".to_string(),
@@ -2547,8 +2662,21 @@ fn test_tick_claiming_wo_idle() {
     assert_eq!(
         res,
         Response::new().add_event(
-            Event::new("crates.io:drop-staking__drop-core-execute-tick_claiming")
-                .add_attributes(vec![("action", "tick_claiming"), ("state", "idle")])
+            Event::new("crates.io:drop-staking__drop-core-execute-tick_claiming").add_attributes(
+                vec![
+                    ("action", "tick_claiming"),
+                    ("knot", "012"),
+                    ("knot", "047"),
+                    ("knot", "013"),
+                    ("knot", "015"),
+                    ("knot", "020"),
+                    ("knot", "024"),
+                    ("knot", "026"),
+                    ("knot", "027"),
+                    ("knot", "000"),
+                    ("state", "idle")
+                ]
+            )
         )
     );
 }
@@ -2904,7 +3032,18 @@ fn test_tick_staking_to_unbonding() {
         Response::new()
             .add_event(
                 Event::new("crates.io:drop-staking__drop-core-execute-tick_staking")
-                    .add_attributes(vec![("action", "tick_staking"), ("state", "unbonding")])
+                    .add_attributes(vec![
+                        ("action", "tick_staking"),
+                        ("knot", "022"),
+                        ("knot", "024"),
+                        ("knot", "026"),
+                        ("knot", "027"),
+                        ("knot", "045"),
+                        ("knot", "046"),
+                        ("knot", "028"),
+                        ("knot", "029"),
+                        ("state", "unbonding"),
+                    ])
             )
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "puppeteer_contract".to_string(),
@@ -3035,8 +3174,17 @@ fn test_tick_staking_to_idle() {
     assert_eq!(
         res,
         Response::new().add_event(
-            Event::new("crates.io:drop-staking__drop-core-execute-tick_staking")
-                .add_attributes(vec![("action", "tick_staking"), ("state", "idle")])
+            Event::new("crates.io:drop-staking__drop-core-execute-tick_staking").add_attributes(
+                vec![
+                    ("action", "tick_staking"),
+                    ("knot", "022"),
+                    ("knot", "024"),
+                    ("knot", "026"),
+                    ("knot", "027"),
+                    ("knot", "000"),
+                    ("state", "idle"),
+                ]
+            )
         )
     );
 }

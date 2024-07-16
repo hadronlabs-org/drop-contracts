@@ -35,6 +35,7 @@ import { sleep } from '../helpers/sleep';
 import dockerCompose from 'docker-compose';
 import { SlashingExtension } from '@cosmjs/stargate/build/modules';
 import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
+import { instrumentCoreClass } from '../helpers/knot';
 
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
@@ -434,9 +435,8 @@ describe('Core Slashing', () => {
   it('query factory state', async () => {
     const { factoryContractClient: contractClient } = context;
     const res = await contractClient.queryState();
-    context.coreContractClient = new DropCore.Client(
-      context.client,
-      res.core_contract,
+    context.coreContractClient = instrumentCoreClass(
+      new DropCore.Client(context.client, res.core_contract),
     );
     context.withdrawalVoucherContractClient = new DropWithdrawalVoucher.Client(
       context.client,

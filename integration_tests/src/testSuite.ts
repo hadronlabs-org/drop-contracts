@@ -19,6 +19,7 @@ const keys = [
   'hermes',
   'ibcrelayer',
   'demowallet1',
+  'demowallet2',
   'neutronqueryrelayer',
   'demo1',
   'demo2',
@@ -184,7 +185,7 @@ const awaitFirstBlock = (rpc: string): Promise<void> =>
   waitFor(async () => {
     try {
       const controller = new AbortController();
-      setTimeout(() => controller.abort(), 5000);
+      setTimeout(() => controller.abort(), 1000);
       await fetch(rpc, {
         method: 'GET',
         signal: controller.signal,
@@ -328,6 +329,10 @@ export const setupPark = async (
     wallets: {
       demowallet1: {
         mnemonic: wallets.demowallet1,
+        balance: '1000000000',
+      },
+      demowallet2: {
+        mnemonic: wallets.demowallet2,
         balance: '1000000000',
       },
       demo1: { mnemonic: wallets.demo1, balance: '1000000000' },
