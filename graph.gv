@@ -67,6 +67,7 @@ digraph G {
         K021 [label = "K021\ncompose Stake rewards msg";shape = house;fixedsize = true;width = 3;height = 1;];
         K025 [label = "K025\nTake failed batch as one to unbond";shape = box;fixedsize = true;width = 3;height = 1;];
         K026 [label = "K026\nTake the last batch as one to unbond";shape = box;fixedsize = true;width = 3;height = 1;];
+        K050 [label = "K050\nChanging of batch status\nback to Unbonding";shape = box;];
     }
     
     subgraph {
@@ -157,7 +158,8 @@ digraph G {
     K013 -> K015 [taillabel = "no";];
     
     K012 -> K047 [taillabel = "ACK";];
-    K012 -> K015 [taillabel = "ERR";];
+    K012 -> K050 [taillabel = "ERR";];
+    K050 -> K000;
     K047 -> K013;
     K014 -> K015;
     
