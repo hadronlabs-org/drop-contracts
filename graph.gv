@@ -67,11 +67,7 @@ digraph G {
         K021 [label = "K021\ncompose Stake rewards msg";shape = house;fixedsize = true;width = 3;height = 1;];
         K025 [label = "K025\nTake failed batch as one to unbond";shape = box;fixedsize = true;width = 3;height = 1;];
         K026 [label = "K026\nTake the last batch as one to unbond";shape = box;fixedsize = true;width = 3;height = 1;];
-        <<<<<<< HEAD
-            K049 [label = "K049\nChanging of batch status\nback to Unbonding";shape = box;];
-            =======
-            >>>>>>>;
-        14d84aa175cbda6c451aa357e48113960b32f932;
+        K050 [label = "K050\nChanging of batch status\nback to Unbonding";shape = box;];
     }
     
     subgraph {
@@ -89,16 +85,9 @@ digraph G {
     }
     
     subgraph {
-        <<<<<<< HEAD
-            rank = same;
-            K013 [label = "K013\nWas there withdrawals?";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
-            K046 [label = "K046\nCreate new unbonding batch";shape = box;fixedsize = true;width = 3;height = 1;];
-            =======
-            K046 [label = "K046\nCreate new unbonding batch";shape = box;fixedsize = true;width = 3;height = 1;];
-            K013 [label = "K013\nWas there withdrawals?";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
-            K049 [label = "K049\nAre we processing failed batch?";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
-            >>>>>>>;
-        14d84aa175cbda6c451aa357e48113960b32f932;
+        K046 [label = "K046\nCreate new unbonding batch";shape = box;fixedsize = true;width = 3;height = 1;];
+        K013 [label = "K013\nWas there withdrawals?";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
+        K049 [label = "K049\nAre we processing failed batch?";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
     }
     
     subgraph {
@@ -169,8 +158,8 @@ digraph G {
     K013 -> K015 [taillabel = "no";];
     
     K012 -> K047 [taillabel = "ACK";];
-    K012 -> K049 [taillabel = "ERR";];
-    K049 -> K000;
+    K012 -> K050 [taillabel = "ERR";];
+    K050 -> K000;
     K047 -> K013;
     K014 -> K015;
     

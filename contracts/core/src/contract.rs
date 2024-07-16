@@ -921,7 +921,7 @@ fn execute_tick_claiming(
                     ..
                 } => {
                     FSM.go_to(deps.storage, ContractState::Idle)?;
-                    attrs.push(attr("knot", "049"));
+                    attrs.push(attr("knot", "050"));
                     attrs.push(attr("knot", "000"));
                     // revert batch status if there was a transfer of unbonded batches
                     if let Some(transfer) = transfer {

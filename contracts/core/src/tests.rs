@@ -10,7 +10,6 @@ use cosmwasm_std::{
 };
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
 use drop_puppeteer_base::{msg::TransferReadyBatchesMsg, state::RedeemShareItem};
-use drop_staking_base::msg::staker::QueryMsg as StakerQueryMsg;
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
@@ -2676,7 +2675,7 @@ fn test_tick_claiming_error_wo_transfer() {
                     ("action", "tick_claiming"),
                     ("knot", "012"),
                     ("error_on_claiming", "ResponseHookErrorMsg { request_id: 0, transaction: ClaimRewardsAndOptionalyTransfer { interchain_account_id: \"ica\", validators: [\"valoper_address\"], denom: \"remote_denom\", transfer: None }, request: RequestPacket { sequence: None, source_port: None, source_channel: None, destination_port: None, destination_channel: None, data: None, timeout_height: None, timeout_timestamp: None }, details: \"Some error\" }"),
-                    ("knot", "049"),
+                    ("knot", "050"),
                     ("knot", "000"),
                 ]
             )
@@ -2751,14 +2750,14 @@ fn test_tick_claiming_error_with_transfer() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
                 total_unbond_items: 1,
                 status: UnbondBatchStatus::Withdrawing,
-                expected_release: 0,
+                expected_release_time: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
                     new: 0,
                     unbond_requested: None,
@@ -2814,7 +2813,7 @@ fn test_tick_claiming_error_with_transfer() {
                     ("action", "tick_claiming"),
                     ("knot", "012"),
                     ("error_on_claiming", "ResponseHookErrorMsg { request_id: 0, transaction: ClaimRewardsAndOptionalyTransfer { interchain_account_id: \"ica\", validators: [\"valoper_address\"], denom: \"remote_denom\", transfer: Some(TransferReadyBatchesMsg { batch_ids: [0], emergency: false, amount: Uint128(123123), recipient: \"recipient\" }) }, request: RequestPacket { sequence: None, source_port: None, source_channel: None, destination_port: None, destination_channel: None, data: None, timeout_height: None, timeout_timestamp: None }, details: \"Some error\" }"),
-                    ("knot", "049"),
+                    ("knot", "050"),
                     ("knot", "000"),
                 ]
             )
