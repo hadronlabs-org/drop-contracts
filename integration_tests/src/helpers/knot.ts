@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { ParsedGraph } from './graphvis';
 import { ExecuteResult } from '@cosmjs/cosmwasm-stargate';
-import { DropCore } from '../generated/contractLib';
+import { DropCore } from 'drop-ts-client/lib/contractLib';
 import { IndexedTx, StdFee } from '@cosmjs/stargate';
 import { waitForTx } from './waitForTx';
 
