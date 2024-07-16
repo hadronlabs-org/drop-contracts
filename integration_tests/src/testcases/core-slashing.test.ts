@@ -8,7 +8,7 @@ import {
   DropStaker,
   DropWithdrawalManager,
   DropWithdrawalVoucher,
-} from '../generated/contractLib';
+} from 'drop-ts-client';
 import {
   QueryClient,
   StakingExtension,
@@ -29,7 +29,7 @@ import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import { UnbondBatch } from '../generated/contractLib/dropCore';
+import { UnbondBatch } from 'drop-ts-client/lib/contractLib/dropCore';
 import { stringToPath } from '@cosmjs/crypto';
 import { sleep } from '../helpers/sleep';
 import dockerCompose from 'docker-compose';
@@ -905,12 +905,12 @@ describe('Core Slashing', () => {
         slashing_effect: null,
         status: 'unbonding',
         status_timestamps: expect.any(Object),
-        expected_release: expect.any(Number),
-        total_amount: '500',
-        expected_amount: '500',
+        expected_release_time: expect.any(Number),
+        total_dasset_amount_to_withdraw: '500',
+        expected_native_asset_amount: '500',
         total_unbond_items: 1,
         unbonded_amount: null,
-        withdrawed_amount: null,
+        withdrawn_amount: null,
       });
     });
   });
@@ -1133,12 +1133,12 @@ describe('Core Slashing', () => {
         slashing_effect: null,
         status: 'unbonding',
         status_timestamps: expect.any(Object),
-        expected_release: expect.any(Number),
-        total_amount: '3000',
-        expected_amount: '3000',
+        expected_release_time: expect.any(Number),
+        total_dasset_amount_to_withdraw: '3000',
+        expected_native_asset_amount: '3000',
         total_unbond_items: 1,
         unbonded_amount: null,
-        withdrawed_amount: null,
+        withdrawn_amount: null,
       });
     });
   });
@@ -1157,8 +1157,8 @@ describe('Core Slashing', () => {
       batch_id: '0',
     });
     const currentTime = Math.floor(Date.now() / 1000);
-    if (batchInfo.expected_release > currentTime) {
-      const diffMs = (batchInfo.expected_release - currentTime + 1) * 1000;
+    if (batchInfo.expected_release_time > currentTime) {
+      const diffMs = (batchInfo.expected_release_time - currentTime + 1) * 1000;
       await sleep(diffMs);
     }
   });
@@ -1167,8 +1167,8 @@ describe('Core Slashing', () => {
       batch_id: '1',
     });
     const currentTime = Math.floor(Date.now() / 1000);
-    if (batchInfo.expected_release > currentTime) {
-      const diffMs = (batchInfo.expected_release - currentTime + 1) * 1000;
+    if (batchInfo.expected_release_time > currentTime) {
+      const diffMs = (batchInfo.expected_release_time - currentTime + 1) * 1000;
       await sleep(diffMs);
     }
   });
@@ -1186,7 +1186,7 @@ describe('Core Slashing', () => {
           })) as any
         )[2] / 1e9,
       );
-      return icaTs > batchInfo.expected_release;
+      return icaTs > batchInfo.expected_release_time;
     }, 50_000);
   });
   it('wait until fresh ICA balance for unbonding batch 1 is delivered', async () => {
@@ -1203,7 +1203,7 @@ describe('Core Slashing', () => {
           })) as any
         )[2] / 1e9,
       );
-      return icaTs > batchInfo.expected_release;
+      return icaTs > batchInfo.expected_release_time;
     }, 50_000);
   });
   it('tick (claiming)', async () => {
@@ -1259,12 +1259,12 @@ describe('Core Slashing', () => {
       slashing_effect: null,
       status: 'withdrawing_emergency',
       status_timestamps: expect.any(Object),
-      expected_release: expect.any(Number),
-      total_amount: '1000',
-      expected_amount: '1000',
+      expected_release_time: expect.any(Number),
+      total_dasset_amount_to_withdraw: '1000',
+      expected_native_asset_amount: '1000',
       total_unbond_items: 1,
       unbonded_amount: null,
-      withdrawed_amount: null,
+      withdrawn_amount: null,
     });
   });
   it.skip('verify that unbonding batch 1 is in withdrawing emergency state', async () => {
@@ -1276,12 +1276,12 @@ describe('Core Slashing', () => {
       slashing_effect: null,
       status: 'withdrawing_emergency',
       status_timestamps: expect.any(Object),
-      expected_release: expect.any(Number),
-      total_amount: '3000',
-      expected_amount: '3499',
+      expected_release_time: expect.any(Number),
+      total_dasset_amount_to_withdraw: '3000',
+      expected_native_asset_amount: '3499',
       total_unbond_items: 1,
       unbonded_amount: null,
-      withdrawed_amount: null,
+      withdrawn_amount: null,
     });
   });
   it.skip('tick (idle)', async () => {
@@ -1311,12 +1311,12 @@ describe('Core Slashing', () => {
       slashing_effect: null,
       status: 'withdrawn_emergency',
       status_timestamps: expect.any(Object),
-      expected_release: expect.any(Number),
-      total_amount: '1000',
-      expected_amount: '1000',
+      expected_release_time: expect.any(Number),
+      total_dasset_amount_to_withdraw: '1000',
+      expected_native_asset_amount: '1000',
       total_unbond_items: 1,
       unbonded_amount: null,
-      withdrawed_amount: null,
+      withdrawn_amount: null,
     });
   });
   it.skip('verify that unbonding batch 1 is in withdrawn emergency state', async () => {
@@ -1328,12 +1328,12 @@ describe('Core Slashing', () => {
       slashing_effect: null,
       status: 'withdrawn_emergency',
       status_timestamps: expect.any(Object),
-      expected_release: expect.any(Number),
-      total_amount: '3000',
-      expected_amount: '3499',
+      expected_release_time: expect.any(Number),
+      total_dasset_amount_to_withdraw: '3000',
+      expected_native_asset_amount: '3499',
       total_unbond_items: 1,
       unbonded_amount: null,
-      withdrawed_amount: null,
+      withdrawn_amount: null,
     });
   });
 

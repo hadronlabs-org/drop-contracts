@@ -1,6 +1,6 @@
 import { waitFor } from './waitFor';
-import { DropCore, DropPuppeteer } from '../generated/contractLib';
-import { ResponseHookSuccessMsg } from '../generated/contractLib/dropCore';
+import { DropCore, DropPuppeteer } from 'drop-ts-client';
+import { ResponseHookSuccessMsg } from 'drop-ts-client/lib/contractLib/dropCore';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 
 const DropCoreClass = DropCore.Client;

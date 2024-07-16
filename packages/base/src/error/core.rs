@@ -95,6 +95,9 @@ pub enum ContractError {
     #[error("Bond limit exceeded")]
     BondLimitExceeded {},
 
+    #[error("Unbond batches query limit exceeded")]
+    QueryUnbondBatchesLimitExceeded {},
+
     #[error("Previous staking was failed")]
     PreviousStakingWasFailed {},
 
@@ -103,6 +106,9 @@ pub enum ContractError {
 
     #[error("Unbonded amount must not be zero")]
     UnbondedAmountZero {},
+
+    #[error("Requested batch is not in Withdrawn state")]
+    BatchNotWithdrawn {},
 
     #[error("Requested batch is not in WithdrawnEmergency state")]
     BatchNotWithdrawnEmergency {},

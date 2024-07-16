@@ -14,6 +14,9 @@ pub enum ContractError {
 
     #[error("Semver parsing error: {0}")]
     SemVer(String),
+
+    #[error("Bondings query limit exceeded")]
+    QueryBondingsLimitExceeded {},
 }
 
 impl From<semver::Error> for ContractError {

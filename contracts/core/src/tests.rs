@@ -26,6 +26,7 @@ use drop_staking_base::{
         PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
     },
 };
+use drop_staking_base::{msg::staker::QueryMsg as StakerQueryMsg, state::core::FAILED_BATCH_ID};
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     interchain_queries::v045::types::{Balances, Delegations},
@@ -652,6 +653,87 @@ fn test_update_config() {
 }
 
 #[test]
+fn test_update_withdrawn_amount() {
+    let mut deps = mock_dependencies(&[]);
+
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                10,
+                10_000_000_000,
+                10,
+                6000,
+                Uint128::one(),
+            ),
+        )
+        .unwrap();
+
+    let withdrawn_batch = &UnbondBatch {
+        total_dasset_amount_to_withdraw: Uint128::from(1001u128),
+        expected_native_asset_amount: Uint128::from(1001u128),
+        total_unbond_items: 1,
+        status: UnbondBatchStatus::Withdrawn,
+        expected_release_time: 9000,
+        slashing_effect: None,
+        unbonded_amount: None,
+        withdrawn_amount: None,
+        status_timestamps: get_default_unbond_batch_status_timestamps(),
+    };
+
+    let unbonding_batch = &UnbondBatch {
+        total_dasset_amount_to_withdraw: Uint128::from(2002u128),
+        expected_native_asset_amount: Uint128::from(2002u128),
+        total_unbond_items: 1,
+        status: UnbondBatchStatus::Unbonding,
+        expected_release_time: 9000,
+        slashing_effect: None,
+        unbonded_amount: None,
+        withdrawn_amount: None,
+        status_timestamps: get_default_unbond_batch_status_timestamps(),
+    };
+
+    unbond_batches_map()
+        .save(deps.as_mut().storage, 1, withdrawn_batch)
+        .unwrap();
+
+    unbond_batches_map()
+        .save(deps.as_mut().storage, 0, unbonding_batch)
+        .unwrap();
+
+    let withdrawn_res = execute(
+        deps.as_mut(),
+        mock_env().clone(),
+        mock_info("withdrawal_manager_contract", &[]),
+        ExecuteMsg::UpdateWithdrawnAmount {
+            batch_id: 1,
+            withdrawn_amount: Uint128::from(1001u128),
+        },
+    );
+    assert!(withdrawn_res.is_ok());
+
+    let new_withdrawn_amount = unbond_batches_map()
+        .load(deps.as_mut().storage, 1)
+        .unwrap()
+        .withdrawn_amount;
+    assert_eq!(new_withdrawn_amount, Some(Uint128::from(1001u128)));
+
+    let unbonding_err = execute(
+        deps.as_mut(),
+        mock_env().clone(),
+        mock_info("withdrawal_manager_contract", &[]),
+        ExecuteMsg::UpdateWithdrawnAmount {
+            batch_id: 0,
+            withdrawn_amount: Uint128::from(2002u128),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(unbonding_err, ContractError::BatchNotWithdrawn {});
+}
+
+#[test]
 fn test_execute_reset_bonded_amount() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
@@ -1210,14 +1292,14 @@ fn test_tick_idle_unbonding_close() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
                 total_unbond_items: 1,
                 status: UnbondBatchStatus::Unbonding,
-                expected_release: 10001,
+                expected_release_time: 10001,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
                     new: 0,
                     unbond_requested: None,
@@ -1349,14 +1431,14 @@ fn test_tick_idle_claim_wo_unbond() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
                 total_unbond_items: 1,
                 status: UnbondBatchStatus::Unbonding,
-                expected_release: 9000,
+                expected_release_time: 9000,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: get_default_unbond_batch_status_timestamps(),
             },
         )
@@ -1513,14 +1595,14 @@ fn test_tick_idle_claim_with_unbond_transfer() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
                 total_unbond_items: 1,
                 status: UnbondBatchStatus::Unbonding,
-                expected_release: 90000,
+                expected_release_time: 90000,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: get_default_unbond_batch_status_timestamps(),
             },
         )
@@ -2009,14 +2091,14 @@ fn test_tick_idle_unbonding() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
                 total_unbond_items: 1,
                 status: UnbondBatchStatus::New,
-                expected_release: 0,
+                expected_release_time: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
                     new: 0,
                     unbond_requested: None,
@@ -2062,6 +2144,7 @@ fn test_tick_idle_unbonding() {
                         ("knot", "026"),
                         ("knot", "027"),
                         ("knot", "045"),
+                        ("knot", "049"),
                         ("knot", "046"),
                         ("knot", "028"),
                         ("knot", "029"),
@@ -2079,6 +2162,242 @@ fn test_tick_idle_unbonding() {
                 .unwrap(),
                 funds: vec![Coin::new(1000, "untrn")],
             })))
+    );
+}
+
+#[test]
+fn test_tick_idle_unbonding_failed() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&(
+                Balances { coins: vec![] },
+                10u64,
+                Timestamp::from_seconds(90001),
+            ))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&(
+                Delegations {
+                    delegations: vec![],
+                },
+                10u64,
+                Timestamp::from_seconds(90001),
+            ))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&(
+                Balances { coins: vec![] },
+                10u64,
+                Timestamp::from_seconds(90001),
+            ))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("staker_contract", |_| {
+            to_json_binary(&Uint128::zero()).unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("validators_set_contract", |_| {
+            to_json_binary(&vec![
+                drop_staking_base::state::validatorset::ValidatorInfo {
+                    valoper_address: "valoper_address".to_string(),
+                    weight: 1,
+                    last_processed_remote_height: None,
+                    last_processed_local_height: None,
+                    last_validated_height: None,
+                    last_commission_in_range: None,
+                    uptime: Decimal::one(),
+                    tombstone: false,
+                    jailed_number: None,
+                    init_proposal: None,
+                    total_passed_proposals: 0,
+                    total_voted_proposals: 0,
+                },
+            ])
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&(
+                neutron_sdk::interchain_queries::v045::types::Delegations {
+                    delegations: vec![],
+                },
+                12344u64,
+                Timestamp::from_seconds(90001),
+            ))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&(
+                Balances { coins: vec![] },
+                10u64,
+                Timestamp::from_seconds(90001),
+            ))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&(
+                Balances { coins: vec![] },
+                10u64,
+                Timestamp::from_seconds(90001),
+            ))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("strategy_contract", |_| {
+            to_json_binary(&vec![(
+                "valoper_address".to_string(),
+                Uint128::from(1000u128),
+            )])
+            .unwrap()
+        });
+
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(
+                Some(Decimal::from_atomics(1u32, 1).unwrap()),
+                1000,
+                3,
+                100,
+                100,
+                6000,
+                Uint128::one(),
+            ),
+        )
+        .unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
+        .unwrap();
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+        .unwrap();
+    LAST_IDLE_CALL.save(deps.as_mut().storage, &0).unwrap();
+    LAST_ICA_CHANGE_HEIGHT
+        .save(deps.as_mut().storage, &0)
+        .unwrap();
+    TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
+    BONDED_AMOUNT
+        .save(deps.as_mut().storage, &Uint128::from(1000u128))
+        .unwrap();
+    FAILED_BATCH_ID.save(deps.as_mut().storage, &0).unwrap();
+    UNBOND_BATCH_ID.save(deps.as_mut().storage, &1).unwrap();
+    unbond_batches_map()
+        .save(
+            deps.as_mut().storage,
+            0,
+            &UnbondBatch {
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
+                total_unbond_items: 1,
+                status: UnbondBatchStatus::UnbondFailed,
+                expected_release_time: 0,
+                slashing_effect: None,
+                unbonded_amount: None,
+                withdrawn_amount: None,
+                status_timestamps: UnbondBatchStatusTimestamps {
+                    new: 0,
+                    unbond_requested: None,
+                    unbond_failed: None,
+                    unbonding: None,
+                    withdrawing: None,
+                    withdrawn: None,
+                    withdrawing_emergency: None,
+                    withdrawn_emergency: None,
+                },
+            },
+        )
+        .unwrap();
+    unbond_batches_map()
+        .save(
+            deps.as_mut().storage,
+            1,
+            &UnbondBatch {
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(123123u128),
+                total_unbond_items: 123,
+                status: UnbondBatchStatus::New,
+                expected_release_time: 0,
+                slashing_effect: None,
+                unbonded_amount: None,
+                withdrawn_amount: None,
+                status_timestamps: UnbondBatchStatusTimestamps {
+                    new: 0,
+                    unbond_requested: None,
+                    unbond_failed: None,
+                    unbonding: None,
+                    withdrawing: None,
+                    withdrawn: None,
+                    withdrawing_emergency: None,
+                    withdrawn_emergency: None,
+                },
+            },
+        )
+        .unwrap();
+    let mut env = mock_env();
+    env.block.time = Timestamp::from_seconds(100000);
+    let res = execute(
+        deps.as_mut(),
+        env,
+        mock_info("admin", &[Coin::new(1000, "untrn")]),
+        ExecuteMsg::Tick {},
+    )
+    .unwrap();
+
+    assert_eq!(
+        res,
+        Response::new()
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-core-execute-tick_idle").add_attributes(
+                    vec![
+                        ("action", "tick_idle"),
+                        ("knot", "000"),
+                        ("knot", "002"),
+                        ("knot", "003"),
+                        ("knot", "004"),
+                        ("knot", "005"),
+                        ("knot", "007"),
+                        ("knot", "009"),
+                        ("knot", "010"),
+                        ("validators_to_claim", "empty"),
+                        ("knot", "015"),
+                        ("knot", "020"),
+                        ("knot", "024"),
+                        ("knot", "025"),
+                        ("knot", "027"),
+                        ("knot", "045"),
+                        ("knot", "049"),
+                        ("knot", "028"),
+                        ("knot", "029"),
+                        ("state", "unbonding")
+                    ]
+                )
+            )
+            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "puppeteer_contract".to_string(),
+                msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
+                    batch_id: 0u128,
+                    items: vec![("valoper_address".to_string(), Uint128::from(1000u128))],
+                    reply_to: "cosmos2contract".to_string()
+                })
+                .unwrap(),
+                funds: vec![Coin::new(1000, "untrn")],
+            })))
+    );
+    let current_batch_id = UNBOND_BATCH_ID.load(deps.as_ref().storage).unwrap();
+    assert_eq!(current_batch_id, 1);
+    let batch = unbond_batches_map().load(deps.as_ref().storage, 1).unwrap();
+    assert_eq!(batch.status, UnbondBatchStatus::New);
+    assert_eq!(batch.total_unbond_items, 123);
+    assert_eq!(
+        batch.expected_native_asset_amount,
+        Uint128::from(123123u128)
     );
 }
 
@@ -2619,14 +2938,14 @@ fn test_tick_claiming_wo_transfer_unbonding() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
                 total_unbond_items: 1,
                 status: UnbondBatchStatus::New,
-                expected_release: 0,
+                expected_release_time: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
                     new: 0,
                     unbond_requested: None,
@@ -2665,6 +2984,7 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                         ("knot", "026"),
                         ("knot", "027"),
                         ("knot", "045"),
+                        ("knot", "049"),
                         ("knot", "046"),
                         ("knot", "028"),
                         ("knot", "029"),
@@ -2794,14 +3114,14 @@ fn test_tick_claiming_wo_idle() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
                 total_unbond_items: 1,
                 status: UnbondBatchStatus::New,
-                expected_release: 0,
+                expected_release_time: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
                     new: 0,
                     unbond_requested: None,
@@ -2896,7 +3216,7 @@ fn test_execute_tick_transfering_no_puppeteer_response() {
         ExecuteMsg::Tick {},
     );
     assert!(res.is_err());
-    assert_eq!(res, Err(ContractError::PuppeteerResponseIsNotReceived {}));
+    assert_eq!(res, Err(ContractError::StakerResponseIsNotReceived {}));
 }
 
 #[test]
@@ -3163,14 +3483,14 @@ fn test_tick_staking_to_unbonding() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
                 total_unbond_items: 1,
                 status: UnbondBatchStatus::New,
-                expected_release: 0,
+                expected_release_time: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
                     new: 0,
                     unbond_requested: None,
@@ -3205,6 +3525,7 @@ fn test_tick_staking_to_unbonding() {
                         ("knot", "026"),
                         ("knot", "027"),
                         ("knot", "045"),
+                        ("knot", "049"),
                         ("knot", "046"),
                         ("knot", "028"),
                         ("knot", "029"),
@@ -3307,14 +3628,14 @@ fn test_tick_staking_to_idle() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(1000u128),
-                expected_amount: Uint128::from(1000u128),
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
                 total_unbond_items: 1,
                 status: UnbondBatchStatus::New,
-                expected_release: 0,
+                expected_release_time: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
                     new: 0,
                     unbond_requested: None,
@@ -3678,14 +3999,14 @@ fn test_bond_lsm_share_increase_exchange_rate() {
             &mut deps.storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::zero(),
-                expected_amount: Uint128::zero(),
+                total_dasset_amount_to_withdraw: Uint128::zero(),
+                expected_native_asset_amount: Uint128::zero(),
                 total_unbond_items: 0,
                 status: UnbondBatchStatus::New,
-                expected_release: 0,
+                expected_release_time: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: get_default_unbond_batch_status_timestamps(),
             },
         )
@@ -3892,14 +4213,14 @@ fn test_unbond() {
             deps.as_mut().storage,
             0,
             &UnbondBatch {
-                total_amount: Uint128::from(0u128),
-                expected_amount: Uint128::from(0u128),
+                total_dasset_amount_to_withdraw: Uint128::from(0u128),
+                expected_native_asset_amount: Uint128::from(0u128),
                 total_unbond_items: 0,
                 status: UnbondBatchStatus::New,
-                expected_release: 0,
+                expected_release_time: 0,
                 slashing_effect: None,
                 unbonded_amount: None,
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: get_default_unbond_batch_status_timestamps(),
             },
         )
@@ -3989,14 +4310,14 @@ fn test_unbond() {
     assert_eq!(
         unbond_batch,
         UnbondBatch {
-            total_amount: Uint128::from(1000u128),
-            expected_amount: Uint128::from(1000u128),
+            total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+            expected_native_asset_amount: Uint128::from(1000u128),
             total_unbond_items: 1,
             status: UnbondBatchStatus::New,
-            expected_release: 0,
+            expected_release_time: 0,
             slashing_effect: None,
             unbonded_amount: None,
-            withdrawed_amount: None,
+            withdrawn_amount: None,
             status_timestamps: get_default_unbond_batch_status_timestamps(),
         }
     );
@@ -4035,14 +4356,14 @@ mod process_emergency_batch {
                     deps.as_mut().storage,
                     2,
                     &UnbondBatch {
-                        total_amount: Uint128::new(100),
-                        expected_amount: Uint128::new(100),
-                        expected_release: 200,
+                        total_dasset_amount_to_withdraw: Uint128::new(100),
+                        expected_native_asset_amount: Uint128::new(100),
+                        expected_release_time: 200,
                         total_unbond_items: 0,
                         status,
                         slashing_effect: None,
                         unbonded_amount: None,
-                        withdrawed_amount: None,
+                        withdrawn_amount: None,
                         status_timestamps: get_default_unbond_batch_status_timestamps(),
                     },
                 )
@@ -4137,14 +4458,14 @@ mod process_emergency_batch {
         assert_eq!(
             batch,
             UnbondBatch {
-                total_amount: Uint128::new(100),
-                expected_amount: Uint128::new(100),
-                expected_release: 200,
+                total_dasset_amount_to_withdraw: Uint128::new(100),
+                expected_native_asset_amount: Uint128::new(100),
+                expected_release_time: 200,
                 total_unbond_items: 0,
                 status: UnbondBatchStatus::Withdrawn,
                 slashing_effect: Some(Decimal::one()),
                 unbonded_amount: Some(Uint128::new(100)),
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
                     new: 0,
                     unbond_requested: None,
@@ -4178,14 +4499,14 @@ mod process_emergency_batch {
         assert_eq!(
             batch,
             UnbondBatch {
-                total_amount: Uint128::new(100),
-                expected_amount: Uint128::new(100),
-                expected_release: 200,
+                total_dasset_amount_to_withdraw: Uint128::new(100),
+                expected_native_asset_amount: Uint128::new(100),
+                expected_release_time: 200,
                 total_unbond_items: 0,
                 status: UnbondBatchStatus::Withdrawn,
                 slashing_effect: Some(Decimal::from_ratio(70u128, 100u128)),
                 unbonded_amount: Some(Uint128::new(70)),
-                withdrawed_amount: None,
+                withdrawn_amount: None,
                 status_timestamps: UnbondBatchStatusTimestamps {
                     new: 0,
                     unbond_requested: None,

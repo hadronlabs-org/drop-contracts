@@ -67,7 +67,11 @@ digraph G {
         K021 [label = "K021\ncompose Stake rewards msg";shape = house;fixedsize = true;width = 3;height = 1;];
         K025 [label = "K025\nTake failed batch as one to unbond";shape = box;fixedsize = true;width = 3;height = 1;];
         K026 [label = "K026\nTake the last batch as one to unbond";shape = box;fixedsize = true;width = 3;height = 1;];
-        K049 [label = "K049\nChanging of batch status\nback to Unbonding";shape = box;];
+        <<<<<<< HEAD
+            K049 [label = "K049\nChanging of batch status\nback to Unbonding";shape = box;];
+            =======
+            >>>>>>>;
+        14d84aa175cbda6c451aa357e48113960b32f932;
     }
     
     subgraph {
@@ -85,9 +89,16 @@ digraph G {
     }
     
     subgraph {
-        rank = same;
-        K013 [label = "K013\nWas there withdrawals?";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
-        K046 [label = "K046\nCreate new unbonding batch";shape = box;fixedsize = true;width = 3;height = 1;];
+        <<<<<<< HEAD
+            rank = same;
+            K013 [label = "K013\nWas there withdrawals?";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
+            K046 [label = "K046\nCreate new unbonding batch";shape = box;fixedsize = true;width = 3;height = 1;];
+            =======
+            K046 [label = "K046\nCreate new unbonding batch";shape = box;fixedsize = true;width = 3;height = 1;];
+            K013 [label = "K013\nWas there withdrawals?";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
+            K049 [label = "K049\nAre we processing failed batch?";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
+            >>>>>>>;
+        14d84aa175cbda6c451aa357e48113960b32f932;
     }
     
     subgraph {
@@ -103,6 +114,7 @@ digraph G {
     
     subgraph {
         rank = same;
+        
         K030 [label = "K030\nMark batch as Unbonded";shape = box;fixedsize = true;width = 3;height = 1;];
         K031 [label = "K031\nMark batch as UnbondingFailed";shape = box;fixedsize = true;width = 3;height = 1;];
     }
@@ -175,6 +187,8 @@ digraph G {
     
     K027 -> K045 [taillabel = "yes";];
     K027 -> K000 [taillabel = "no";];
-    K045 -> K046;
+    K045 -> K049;
+    K049 -> K046 [taillabel = "yes";];
+    K049 -> K028 [taillabel = "no";];
     K046 -> K028;
 }
