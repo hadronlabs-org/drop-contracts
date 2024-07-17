@@ -159,7 +159,7 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
             denom: LD_DENOM.load(deps.storage)?,
         }))?;
 
-    let exchange_rate_denominator = ld_total_supply.amount.amount;
+    let mut exchange_rate_denominator = ld_total_supply.amount.amount;
     if exchange_rate_denominator.is_zero() {
         return Ok(Decimal::one());
     }
@@ -197,6 +197,7 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
         let failed_batch = unbond_batches_map().load(deps.storage, failed_batch_id)?;
         unprocessed_dasset_to_unbond += failed_batch.total_dasset_amount_to_withdraw;
     }
+    exchange_rate_denominator += unprocessed_dasset_to_unbond;
     let staker_balance: Uint128 = deps.querier.query_wasm_smart(
         &config.staker_contract,
         &drop_staking_base::msg::staker::QueryMsg::AllBalance {},
@@ -207,10 +208,7 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
     if exchange_rate_numerator.is_zero() {
         return Ok(Decimal::one());
     }
-    let exchange_rate = Decimal::from_ratio(
-        exchange_rate_numerator,
-        exchange_rate_denominator + unprocessed_dasset_to_unbond,
-    );
+    let exchange_rate = Decimal::from_ratio(exchange_rate_numerator, exchange_rate_denominator);
     Ok(exchange_rate)
 }
 
