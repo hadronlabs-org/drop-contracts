@@ -121,6 +121,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
             response: LAST_STAKER_RESPONSE.may_load(deps.storage)?,
         })?,
         QueryMsg::PauseInfo {} => query_pause_info(deps)?,
+        QueryMsg::TotalLSMShares {} => to_json_binary(&TOTAL_LSM_SHARES.load(deps.storage)?)?,
     })
 }
 

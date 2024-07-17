@@ -126,6 +126,8 @@ pub enum QueryMsg {
     LSMSharesToRedeem {},
     #[returns(Uint128)]
     TotalBonded {},
+    #[returns(Uint128)]
+    TotalLSMShares {},
 }
 
 #[pausable]
