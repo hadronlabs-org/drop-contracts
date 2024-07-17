@@ -128,6 +128,8 @@ pub enum QueryMsg {
     TotalBonded {},
     #[returns(Uint128)]
     TotalLSMShares {},
+    #[returns(Uint128)]
+    FailedBatch {},
 }
 
 #[pausable]

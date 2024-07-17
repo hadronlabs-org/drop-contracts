@@ -122,6 +122,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
         })?,
         QueryMsg::PauseInfo {} => query_pause_info(deps)?,
         QueryMsg::TotalLSMShares {} => to_json_binary(&TOTAL_LSM_SHARES.load(deps.storage)?)?,
+        QueryMsg::FailedBatch {} => to_json_binary(&FAILED_BATCH_ID.may_load(deps.storage)?)?,
     })
 }
 
