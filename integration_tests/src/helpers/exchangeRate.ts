@@ -66,7 +66,7 @@ async function calcExchangeRate(
     const penultimate = Number(batchID) - 1;
     const penultimateBatch = await clientCW.queryContractSmart(coreContract, {
       unbond_batch: {
-        batch_id: batchID,
+        batch_id: penultimate,
       },
     });
     if (penultimateBatch.status === 'unbond_requested') {
