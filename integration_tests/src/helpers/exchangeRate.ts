@@ -1,5 +1,6 @@
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { connectComet } from '@cosmjs/tendermint-rpc';
+import { decimal } from '@cosmjs/math';
 import { QueryClient, createProtobufRpcClient } from '@cosmjs/stargate';
 import {
   setupAuthExtension,
