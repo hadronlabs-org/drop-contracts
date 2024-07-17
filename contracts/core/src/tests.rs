@@ -2142,6 +2142,7 @@ fn test_tick_idle_unbonding() {
                         ("knot", "024"),
                         ("knot", "026"),
                         ("knot", "027"),
+                        ("exchange_rate", "1"),
                         ("knot", "045"),
                         ("knot", "049"),
                         ("knot", "046"),
@@ -2370,6 +2371,7 @@ fn test_tick_idle_unbonding_failed() {
                         ("knot", "024"),
                         ("knot", "025"),
                         ("knot", "027"),
+                        ("exchange_rate", "1"),
                         ("knot", "045"),
                         ("knot", "049"),
                         ("knot", "028"),
@@ -2982,6 +2984,7 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                         ("knot", "024"),
                         ("knot", "026"),
                         ("knot", "027"),
+                        ("exchange_rate", "1"),
                         ("knot", "045"),
                         ("knot", "049"),
                         ("knot", "046"),
@@ -3523,6 +3526,7 @@ fn test_tick_staking_to_unbonding() {
                         ("knot", "024"),
                         ("knot", "026"),
                         ("knot", "027"),
+                        ("exchange_rate", "1"),
                         ("knot", "045"),
                         ("knot", "049"),
                         ("knot", "046"),
@@ -4254,7 +4258,6 @@ fn test_unbond() {
         name: "LDV voucher".to_string(),
         batch_id: "0".to_string(),
         amount: Uint128::from(1000u128),
-        expected_amount: Uint128::from(1000u128),
         attributes: Some(vec![
             drop_staking_base::state::withdrawal_voucher::Trait {
                 display_type: None,
@@ -4265,16 +4268,6 @@ fn test_unbond() {
                 display_type: None,
                 trait_type: "received_amount".to_string(),
                 value: "1000".to_string(),
-            },
-            drop_staking_base::state::withdrawal_voucher::Trait {
-                display_type: None,
-                trait_type: "expected_amount".to_string(),
-                value: "1000".to_string(),
-            },
-            drop_staking_base::state::withdrawal_voucher::Trait {
-                display_type: None,
-                trait_type: "exchange_rate".to_string(),
-                value: "1".to_string(),
             },
         ]),
     });
@@ -4302,15 +4295,13 @@ fn test_unbond() {
             .add_event(
                 Event::new("crates.io:drop-staking__drop-core-execute-unbond")
                     .add_attribute("action", "unbond")
-                    .add_attribute("exchange_rate", "1")
-                    .add_attribute("expected_amount", "1000")
             )
     );
     assert_eq!(
         unbond_batch,
         UnbondBatch {
             total_dasset_amount_to_withdraw: Uint128::from(1000u128),
-            expected_native_asset_amount: Uint128::from(1000u128),
+            expected_native_asset_amount: Uint128::zero(),
             total_unbond_items: 1,
             status: UnbondBatchStatus::New,
             expected_release_time: 0,

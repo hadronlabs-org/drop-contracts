@@ -1296,28 +1296,22 @@ fn execute_unbond(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let mut attrs = vec![attr("action", "unbond")];
+    let attrs = vec![attr("action", "unbond")];
     let unbond_batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
     let ld_denom = LD_DENOM.load(deps.storage)?;
     let dasset_amount = cw_utils::must_pay(&info, &ld_denom)?;
     BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total - dasset_amount))?;
     let mut unbond_batch = unbond_batches_map().load(deps.storage, unbond_batch_id)?;
-    let exchange_rate = query_exchange_rate(deps.as_ref(), &config)?;
-    attrs.push(attr("exchange_rate", exchange_rate.to_string()));
-    let native_asset_amount = dasset_amount * exchange_rate;
     unbond_batch.total_unbond_items += 1;
     unbond_batch.total_dasset_amount_to_withdraw += dasset_amount;
-    unbond_batch.expected_native_asset_amount += native_asset_amount;
-
-    attrs.push(attr("expected_amount", native_asset_amount.to_string()));
     unbond_batches_map().save(deps.storage, unbond_batch_id, &unbond_batch)?;
+
     let extension = Some(Metadata {
         description: Some("Withdrawal voucher".into()),
         name: "LDV voucher".to_string(),
         batch_id: unbond_batch_id.to_string(),
         amount: dasset_amount,
-        expected_amount: native_asset_amount,
         attributes: Some(vec![
             Trait {
                 display_type: None,
@@ -1329,18 +1323,9 @@ fn execute_unbond(
                 trait_type: "received_amount".to_string(),
                 value: dasset_amount.to_string(),
             },
-            Trait {
-                display_type: None,
-                trait_type: "expected_amount".to_string(),
-                value: native_asset_amount.to_string(),
-            },
-            Trait {
-                display_type: None,
-                trait_type: "exchange_rate".to_string(),
-                value: exchange_rate.to_string(),
-            },
         ]),
     });
+
     let msgs = vec![
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.withdrawal_voucher_contract.into_string(),
@@ -1508,8 +1493,13 @@ fn get_unbonding_msg<T>(
     attrs.push(attr("knot", "027"));
     if (unbond.status_timestamps.new + config.unbond_batch_switch_time < env.block.time.seconds())
         && unbond.total_unbond_items != 0
-        && !unbond.expected_native_asset_amount.is_zero()
+        && !unbond.total_dasset_amount_to_withdraw.is_zero()
     {
+        let current_exchange_rate = query_exchange_rate(deps.as_ref(), config)?;
+        attrs.push(attr("exchange_rate", current_exchange_rate.to_string()));
+        let expected_native_asset_amount =
+            unbond.total_dasset_amount_to_withdraw * current_exchange_rate;
+
         let calc_withdraw_query_result: Result<Vec<(String, Uint128)>, StdError> =
             deps.querier.query_wasm_smart(
                 config.strategy_contract.to_string(),
@@ -1527,6 +1517,7 @@ fn get_unbonding_msg<T>(
         attrs.push(attr("knot", "045"));
         unbond.status = UnbondBatchStatus::UnbondRequested;
         unbond.status_timestamps.unbond_requested = Some(env.block.time.seconds());
+        unbond.expected_native_asset_amount = expected_native_asset_amount;
         unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
 
         attrs.push(attr("knot", "049"));

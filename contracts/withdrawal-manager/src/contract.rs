@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    attr, ensure_eq, from_json, to_json_binary, Attribute, BankMsg, Binary, Coin, CosmosMsg, Deps,
-    DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg,
+    attr, ensure_eq, from_json, to_json_binary, Attribute, BankMsg, Binary, Coin, CosmosMsg,
+    Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use cw721::NftInfoResponse;
 use cw_ownable::{get_ownership, update_ownership};
@@ -203,14 +203,13 @@ fn execute_receive_nft_withdraw(
         UnbondBatchStatus::Withdrawn,
         ContractError::BatchIsNotWithdrawn {}
     );
-    let slashing_effect = unbond_batch
-        .slashing_effect
-        .ok_or(ContractError::BatchSlashingEffectIsEmpty {})?;
 
-    let payout_amount = Uint128::min(
-        slashing_effect * voucher_extension.expected_amount,
-        voucher_extension.expected_amount,
-    ); //just in case
+    let user_share = Decimal::from_ratio(
+        voucher_extension.amount,
+        unbond_batch.total_dasset_amount_to_withdraw,
+    );
+
+    let payout_amount = user_share * unbond_batch.withdrawn_amount.unwrap_or(Uint128::zero());
 
     let to_address = receiver.unwrap_or(sender);
     attrs.push(attr("batch_id", batch_id.to_string()));

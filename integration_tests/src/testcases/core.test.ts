@@ -1002,7 +1002,7 @@ describe('Core', () => {
       expected_release_time: 0,
       status: 'new',
       total_dasset_amount_to_withdraw: '500000',
-      expected_native_asset_amount: '500000',
+      expected_native_asset_amount: '0',
       total_unbond_items: 2,
       unbonded_amount: null,
       withdrawn_amount: null,
@@ -1231,6 +1231,12 @@ describe('Core', () => {
       });
       it('tick goes to unbonding', async () => {
         const { neutronUserAddress } = context;
+        {
+          const res = await context.coreContractClient.queryUnbondBatch(
+            {batch_id: '0'}
+          );
+          console.log(res);
+        }
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
