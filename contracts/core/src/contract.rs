@@ -180,22 +180,22 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
         .map(|d| d.amount.amount)
         .sum();
     let mut batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
-    let mut unprocessed_unbonded_amount = Uint128::zero();
+    let mut unprocessed_dasset_to_unbond = Uint128::zero();
     let batch = unbond_batches_map().load(deps.storage, batch_id)?;
     if batch.status == UnbondBatchStatus::New {
-        unprocessed_unbonded_amount += batch.expected_native_asset_amount;
+        unprocessed_dasset_to_unbond += batch.total_dasset_amount_to_withdraw;
     }
     if batch_id > 0 {
         batch_id -= 1;
         let batch = unbond_batches_map().load(deps.storage, batch_id)?;
         if batch.status == UnbondBatchStatus::UnbondRequested {
-            unprocessed_unbonded_amount += batch.expected_native_asset_amount;
+            unprocessed_dasset_to_unbond += batch.total_dasset_amount_to_withdraw;
         }
     }
     let failed_batch_id = FAILED_BATCH_ID.may_load(deps.storage)?;
     if let Some(failed_batch_id) = failed_batch_id {
         let failed_batch = unbond_batches_map().load(deps.storage, failed_batch_id)?;
-        unprocessed_unbonded_amount += failed_batch.expected_native_asset_amount;
+        unprocessed_dasset_to_unbond += failed_batch.total_dasset_amount_to_withdraw;
     }
     let staker_balance: Uint128 = deps.querier.query_wasm_smart(
         &config.staker_contract,
@@ -203,13 +203,14 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
     )?;
     let total_lsm_shares = Uint128::new(TOTAL_LSM_SHARES.load(deps.storage)?);
     // arithmetic operations order is important here as we don't want to overflow
-    let exchange_rate_numerator =
-        delegations_amount + staker_balance + total_lsm_shares - unprocessed_unbonded_amount;
+    let exchange_rate_numerator = delegations_amount + staker_balance + total_lsm_shares;
     if exchange_rate_numerator.is_zero() {
         return Ok(Decimal::one());
     }
-
-    let exchange_rate = Decimal::from_ratio(exchange_rate_numerator, exchange_rate_denominator);
+    let exchange_rate = Decimal::from_ratio(
+        exchange_rate_numerator,
+        exchange_rate_denominator + unprocessed_dasset_to_unbond,
+    );
     Ok(exchange_rate)
 }
 
