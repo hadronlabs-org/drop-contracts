@@ -1504,7 +1504,7 @@ fn get_unbonding_msg<T>(
             deps.querier.query_wasm_smart(
                 config.strategy_contract.to_string(),
                 &drop_staking_base::msg::strategy::QueryMsg::CalcWithdraw {
-                    withdraw: unbond.expected_native_asset_amount,
+                    withdraw: expected_native_asset_amount,
                 },
             );
 
