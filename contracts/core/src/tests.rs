@@ -1,6 +1,6 @@
 use crate::contract::{
     check_denom::{DenomTrace, QueryDenomTraceResponse},
-    execute, get_non_native_rewards_and_fee_transfer_msg, get_stake_rewards_msg,
+    execute, get_non_native_rewards_and_fee_transfer_msg, get_stake_rewards_msg, query,
 };
 use cosmwasm_std::{
     from_json,
@@ -13,7 +13,7 @@ use drop_puppeteer_base::{msg::TransferReadyBatchesMsg, state::RedeemShareItem};
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
-        core::{ExecuteMsg, InstantiateMsg},
+        core::{ExecuteMsg, FailedBatchResponse, InstantiateMsg},
         puppeteer::MultiBalances,
         strategy::QueryMsg as StrategyQueryMsg,
     },
@@ -3857,6 +3857,42 @@ fn test_bond_with_receiver() {
                 funds: vec![],
             })))
     );
+}
+
+#[test]
+fn check_failed_batch_query_deserialization() {
+    let mut deps = mock_dependencies(&[]);
+    let env = mock_env();
+    {
+        let result_none = from_json::<FailedBatchResponse>(
+            query(
+                deps.as_ref(),
+                env.clone(),
+                drop_staking_base::msg::core::QueryMsg::FailedBatch {},
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(result_none, FailedBatchResponse { response: None });
+    }
+    {
+        FAILED_BATCH_ID.save(&mut deps.storage, &123).unwrap();
+        let result_some = from_json::<FailedBatchResponse>(
+            query(
+                deps.as_ref(),
+                env,
+                drop_staking_base::msg::core::QueryMsg::FailedBatch {},
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            result_some,
+            FailedBatchResponse {
+                response: Some(123)
+            }
+        );
+    }
 }
 
 #[test]
