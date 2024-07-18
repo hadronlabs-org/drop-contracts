@@ -13,8 +13,8 @@ use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
         core::{
-            ExecuteMsg, InstantiateMsg, LastPuppeteerResponse, LastStakerResponse, MigrateMsg,
-            QueryMsg,
+            ExecuteMsg, FailedBatchResponse, InstantiateMsg, LastPuppeteerResponse,
+            LastStakerResponse, MigrateMsg, QueryMsg,
         },
         token::{
             ConfigResponse as TokenConfigResponse, ExecuteMsg as TokenExecuteMsg,
@@ -121,6 +121,10 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
             response: LAST_STAKER_RESPONSE.may_load(deps.storage)?,
         })?,
         QueryMsg::PauseInfo {} => query_pause_info(deps)?,
+        QueryMsg::TotalLSMShares {} => to_json_binary(&TOTAL_LSM_SHARES.load(deps.storage)?)?,
+        QueryMsg::FailedBatch {} => to_json_binary(&FailedBatchResponse {
+            response: FAILED_BATCH_ID.may_load(deps.storage)?,
+        })?,
     })
 }
 
