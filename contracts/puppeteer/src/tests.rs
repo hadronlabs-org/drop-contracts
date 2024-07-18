@@ -9,7 +9,6 @@ use drop_helpers::{
     ibc_client_state::{
         ChannelClientStateResponse, ClientState, Fraction, Height, IdentifiedClientState,
     },
-    // ibc_client_state::ChannelClientStateResponse,
     testing::mock_dependencies,
 };
 use drop_puppeteer_base::state::{PuppeteerBase, ReplyMsg};
