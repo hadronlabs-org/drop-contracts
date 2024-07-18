@@ -93,6 +93,11 @@ pub struct LastStakerResponse {
     pub response: Option<StakerResponseHookMsg>,
 }
 
+#[cw_serde]
+pub struct FailedBatchResponse {
+    pub response: Option<u128>,
+}
+
 #[pausable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
@@ -126,6 +131,10 @@ pub enum QueryMsg {
     LSMSharesToRedeem {},
     #[returns(Uint128)]
     TotalBonded {},
+    #[returns(Uint128)]
+    TotalLSMShares {},
+    #[returns(FailedBatchResponse)]
+    FailedBatch {},
 }
 
 #[pausable]
