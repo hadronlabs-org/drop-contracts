@@ -10,7 +10,7 @@ import {
 } from '@cosmjs/stargate';
 import { QueryClientImpl } from 'cosmjs-types/cosmos/bank/v1beta1/query';
 
-async function calcExchangeRate(
+export async function calcExchangeRate(
   clientCW: SigningCosmWasmClient,
   coreContract: string,
   endpoint: string,
@@ -93,11 +93,11 @@ async function calcExchangeRate(
       );
     }
   }
-  let failedBatchID = await clientCW.queryContractSmart(coreContract, {
+  const failedBatchID = await clientCW.queryContractSmart(coreContract, {
     failed_batch: {},
   });
   if (failedBatchID === null) {
-    let failedBatch = await clientCW.queryContractSmart(coreContract, {
+    const failedBatch = await clientCW.queryContractSmart(coreContract, {
       batch_id: failedBatchID,
     });
     unprocessedUnbondedAmount = unprocessedUnbondedAmount.plus(
@@ -132,7 +132,7 @@ async function calcExchangeRate(
   const exchangeRate: Decimal = Decimal.fromUserInput(
     String(
       exchangeRateNumerator.toFloatApproximation() /
-        exchangeRateNumerator.toFloatApproximation(),
+        exchangeRateDenominator.toFloatApproximation(),
     ),
     18,
   );
