@@ -21,7 +21,6 @@ export async function calcExchangeRate(
   const FSMState = await clientCW.queryContractSmart(coreContract, {
     contract_state: {},
   });
-  console.log(FSMState);
   if (FSMState !== 'idle') {
     // If state isn't idle then this query'll return cached exchange rate
     return await clientCW.queryContractSmart(coreContract, {
