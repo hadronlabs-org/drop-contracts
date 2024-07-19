@@ -1,7 +1,5 @@
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { connectComet } from '@cosmjs/tendermint-rpc';
-import { DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
-import { GasPrice } from '@cosmjs/stargate';
 import { Decimal } from 'decimal.js';
 import { QueryClient, createProtobufRpcClient } from '@cosmjs/stargate';
 import {
@@ -94,11 +92,11 @@ export async function calcExchangeRate(
       );
     }
   }
-  let failedBatchID = await clientCW.queryContractSmart(coreContract, {
+  const failedBatchID = await clientCW.queryContractSmart(coreContract, {
     failed_batch: {},
   });
   if (failedBatchID.response !== null) {
-    let failedBatch = await clientCW.queryContractSmart(coreContract, {
+    const failedBatch = await clientCW.queryContractSmart(coreContract, {
       batch_id: failedBatchID.response,
     });
     unprocessedDassetToUnbond = unprocessedDassetToUnbond.plus(
