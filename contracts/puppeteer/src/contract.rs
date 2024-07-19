@@ -22,6 +22,7 @@ use cosmwasm_std::{
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{
     answer::response,
+    ibc_client_state::query_client_state,
     ibc_fee::query_ibc_fee,
     icq::{
         new_delegations_and_balance_query_msg, new_multiple_balances_query_msg,
@@ -38,19 +39,24 @@ use drop_puppeteer_base::{
     },
     proto::MsgIBCTransfer,
     state::{
-        PuppeteerBase, RedeemShareItem, ReplyMsg, TxState, TxStateStatus, UnbondingDelegation,
-        ICA_ID, LOCAL_DENOM,
+        BalancesAndDelegationsState, PuppeteerBase, RedeemShareItem, ReplyMsg, TxState,
+        TxStateStatus, UnbondingDelegation, ICA_ID, LOCAL_DENOM,
     },
 };
 use drop_staking_base::{
-    msg::puppeteer::{BalancesAndDelegations, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryExtMsg},
+    msg::puppeteer::{
+        BalancesAndDelegations, BalancesResponse, DelegationsResponse, ExecuteMsg, InstantiateMsg,
+        MigrateMsg, QueryExtMsg,
+    },
     state::puppeteer::{
         Config, ConfigOptional, KVQueryType, DELEGATIONS_AND_BALANCE, NON_NATIVE_REWARD_BALANCES,
     },
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery, types::ProtobufAny},
-    interchain_queries::v045::new_register_delegator_unbonding_delegations_query_msg,
+    interchain_queries::v045::{
+        new_register_delegator_unbonding_delegations_query_msg, types::Balances,
+    },
     interchain_txs::helpers::decode_message_response,
     sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg},
     NeutronResult,
@@ -92,16 +98,17 @@ pub fn instantiate(
     };
     DELEGATIONS_AND_BALANCE.save(
         deps.storage,
-        &(
-            BalancesAndDelegations {
+        &BalancesAndDelegationsState {
+            data: BalancesAndDelegations {
                 balances: neutron_sdk::interchain_queries::v045::types::Balances { coins: vec![] },
                 delegations: neutron_sdk::interchain_queries::v045::types::Delegations {
                     delegations: vec![],
                 },
             },
-            0,
-            Timestamp::default(),
-        ),
+            remote_height: 0,
+            local_height: 0,
+            timestamp: Timestamp::default(),
+        },
     )?;
     let puppeteer = Puppeteer::default();
     puppeteer.instantiate(deps, config, owner)
@@ -147,16 +154,36 @@ fn query_kv_query_ids(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
 
 fn query_delegations(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let data = DELEGATIONS_AND_BALANCE.load(deps.storage)?;
-    to_json_binary(&(data.0.delegations, data.1, data.2)).map_err(ContractError::Std)
+    to_json_binary(&DelegationsResponse {
+        delegations: data.data.delegations,
+        remote_height: data.remote_height,
+        local_height: data.local_height,
+        timestamp: data.timestamp,
+    })
+    .map_err(ContractError::Std)
 }
 
 fn query_balances(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let data = DELEGATIONS_AND_BALANCE.load(deps.storage)?;
-    to_json_binary(&(data.0.balances, data.1, data.2)).map_err(ContractError::Std)
+    to_json_binary(&BalancesResponse {
+        balances: data.data.balances,
+        remote_height: data.remote_height,
+        local_height: data.local_height,
+        timestamp: data.timestamp,
+    })
+    .map_err(ContractError::Std)
 }
 fn query_non_native_rewards_balances(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let data = NON_NATIVE_REWARD_BALANCES.load(deps.storage)?;
-    to_json_binary(&(data.0, data.1, data.2)).map_err(ContractError::Std)
+    to_json_binary(&BalancesResponse {
+        balances: Balances {
+            coins: data.data.coins,
+        },
+        remote_height: data.remote_height,
+        local_height: data.local_height,
+        timestamp: data.timestamp,
+    })
+    .map_err(ContractError::Std)
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
@@ -974,6 +1001,14 @@ fn sudo_response(
     let seq_id = request
         .sequence
         .ok_or_else(|| StdError::generic_err("sequence not found"))?;
+    let channel_id = request
+        .clone()
+        .source_channel
+        .ok_or_else(|| StdError::generic_err("source_channel not found"))?;
+    let port_id = request
+        .clone()
+        .source_port
+        .ok_or_else(|| StdError::generic_err("source_port not found"))?;
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
     puppeteer_base.validate_tx_waiting_state(deps.as_ref())?;
     let reply_to = tx_state
@@ -1002,6 +1037,16 @@ fn sudo_response(
             get_answers_from_msg_data(deps.as_ref(), msg_data)?
         }
     };
+
+    let client_state = query_client_state(&deps.as_ref(), channel_id, port_id)?;
+    let remote_height = client_state
+        .identified_client_state
+        .ok_or_else(|| StdError::generic_err("IBC client state identified_client_state not found"))?
+        .client_state
+        .latest_height
+        .ok_or_else(|| StdError::generic_err("IBC client state latest_height not found"))?
+        .revision_height;
+
     deps.api.debug(&format!(
         "WASMDEBUG: json: {request:?}",
         request = to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
@@ -1011,6 +1056,7 @@ fn sudo_response(
                 transaction: transaction.clone(),
                 answers: answers.clone(),
                 local_height: env.block.height,
+                remote_height: remote_height.u64(),
             },)
         ))?
     ));
@@ -1025,6 +1071,7 @@ fn sudo_response(
                     transaction: transaction.clone(),
                     answers,
                     local_height: env.block.height,
+                    remote_height: remote_height.u64(),
                 }),
             ))?,
             funds: vec![],
@@ -1094,10 +1141,8 @@ fn get_answers_from_msg_data(
                 ResponseAnswer::UnknownResponse {}
             }
         };
-        deps.api.debug(&format!(
-            "WASMDEBUG: sudo_response: answer: {answer:?}",
-            answer = answer
-        ));
+        deps.api
+            .debug(&format!("WASMDEBUG: sudo_response: answer: {answer:?}",));
         answers.push(answer);
     }
     Ok(answers)
@@ -1124,8 +1169,6 @@ fn sudo_error(
     let puppeteer_base: PuppeteerBase<'_, Config, KVQueryType> = Puppeteer::default();
     deps.api.debug(&format!(
         "WASMDEBUG: sudo_error: request: {request:?} details: {details:?}",
-        request = request,
-        details = details
     ));
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
     puppeteer_base.validate_tx_waiting_state(deps.as_ref())?;

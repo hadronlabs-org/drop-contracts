@@ -1,11 +1,11 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::Uint128;
+use cosmwasm_std::{Timestamp, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, UniqueIndex};
 use drop_helpers::ica::Ica;
 use neutron_sdk::interchain_queries::v045::types::UnbondingEntry;
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::msg::Transaction;
+use crate::{msg::Transaction, r#trait::PuppeteerReconstruct};
 
 pub struct PuppeteerBase<'a, T, U>
 where
@@ -79,6 +79,16 @@ pub struct Transfer {
     pub sender: String,
     pub denom: String,
     pub amount: String,
+}
+
+#[cw_serde]
+pub struct BalancesAndDelegationsState<
+    X: PuppeteerReconstruct + std::fmt::Debug + Serialize + Clone,
+> {
+    pub data: X,
+    pub remote_height: u64,
+    pub local_height: u64,
+    pub timestamp: Timestamp,
 }
 
 #[cw_serde]

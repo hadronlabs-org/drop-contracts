@@ -168,17 +168,17 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
         return Ok(Decimal::one());
     }
 
-    let delegations = deps
+    let delegations_response = deps
         .querier
         .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
-            &config.puppeteer_contract,
-            &drop_puppeteer_base::msg::QueryMsg::Extension {
-                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
-            },
-        )?;
+        &config.puppeteer_contract,
+        &drop_puppeteer_base::msg::QueryMsg::Extension {
+            msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+        },
+    )?;
 
-    let delegations_amount: Uint128 = delegations
-        .0
+    let delegations_amount: Uint128 = delegations_response
+        .delegations
         .delegations
         .iter()
         .map(|d| d.amount.amount)
@@ -477,7 +477,7 @@ fn execute_puppeteer_hook(
     );
     match msg.clone() {
         drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) => {
-            LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &success_msg.local_height)?;
+            LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &success_msg.remote_height)?;
             match &success_msg.transaction {
                 drop_puppeteer_base::msg::Transaction::IBCTransfer {
                     denom,
@@ -656,7 +656,7 @@ fn execute_tick_idle(
             .pump_ica_address
             .clone()
             .ok_or(ContractError::PumpIcaAddressIsNotSet {})?;
-        let (ica_balance, _local_height, ica_balance_local_time) = get_ica_balance_by_denom(
+        let (ica_balance, _remote_height, ica_balance_local_time) = get_ica_balance_by_denom(
             deps.as_ref(),
             config.puppeteer_contract.as_ref(),
             &config.remote_denom,
@@ -761,21 +761,21 @@ fn execute_tick_idle(
             &drop_staking_base::msg::validatorset::QueryMsg::Validators {},
         )?;
 
-        let (delegations, local_height, _) =
-            deps.querier
-                .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
-                    config.puppeteer_contract.to_string(),
-                    &drop_puppeteer_base::msg::QueryMsg::Extension {
-                        msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
-                    },
-                )?;
+        let delegations_response = deps
+            .querier
+            .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
+            config.puppeteer_contract.to_string(),
+            &drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+            },
+        )?;
 
         attrs.push(attr("knot", "009"));
         ensure!(
-            (env.block.height - local_height) <= config.icq_update_delay,
+            (env.block.height - delegations_response.local_height) <= config.icq_update_delay,
             ContractError::PuppeteerDelegationsOutdated {
                 ica_height: env.block.height,
-                control_height: local_height
+                control_height: delegations_response.local_height
             }
         );
 
@@ -783,7 +783,8 @@ fn execute_tick_idle(
             .iter()
             .map(|v| (v.valoper_address.clone(), v))
             .collect::<std::collections::HashMap<_, _>>();
-        let validators_to_claim = delegations
+        let validators_to_claim = delegations_response
+            .delegations
             .delegations
             .iter()
             .filter(|d| validators_map.get(&d.validator).map_or(false, |_| true))
@@ -983,17 +984,17 @@ fn execute_tick_staking_bond(
     let mut attrs = vec![attr("action", "tick_staking_bond")];
     let response_msg = get_received_staker_response(deps.as_ref())?;
     if let drop_staking_base::msg::staker::ResponseHookMsg::Success(response) = response_msg {
-        let (_, puppeteer_height, _): drop_staking_base::msg::puppeteer::BalancesResponse =
+        let balances_response: drop_staking_base::msg::puppeteer::BalancesResponse =
             deps.querier.query_wasm_smart(
                 config.puppeteer_contract.to_string(),
                 &drop_puppeteer_base::msg::QueryMsg::Extension {
                     msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
                 },
             )?;
-        if response.local_height > puppeteer_height {
+        if response.remote_height > balances_response.remote_height {
             return Err(ContractError::PuppeteerBalanceOutdated {
-                ica_height: response.local_height,
-                control_height: puppeteer_height,
+                ica_height: response.remote_height,
+                control_height: balances_response.remote_height,
             });
         }
     }
@@ -1378,7 +1379,7 @@ fn check_latest_icq_responses(
 ) -> ContractResult<Response<NeutronMsg>> {
     let last_ica_balance_change_height = LAST_ICA_CHANGE_HEIGHT.load(deps.storage)?;
 
-    let (_, balance_height, _): drop_staking_base::msg::puppeteer::BalancesResponse =
+    let balances_response: drop_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             puppeteer_contract.to_string(),
             &drop_puppeteer_base::msg::QueryMsg::Extension {
@@ -1387,14 +1388,14 @@ fn check_latest_icq_responses(
         )?;
 
     ensure!(
-        last_ica_balance_change_height <= balance_height,
+        last_ica_balance_change_height <= balances_response.remote_height,
         ContractError::PuppeteerBalanceOutdated {
             ica_height: last_ica_balance_change_height,
-            control_height: balance_height
+            control_height: balances_response.remote_height
         }
     );
 
-    let (_, delegations_height, _): drop_staking_base::msg::puppeteer::DelegationsResponse =
+    let delegations_response: drop_staking_base::msg::puppeteer::DelegationsResponse =
         deps.querier.query_wasm_smart(
             puppeteer_contract,
             &drop_puppeteer_base::msg::QueryMsg::Extension {
@@ -1403,10 +1404,10 @@ fn check_latest_icq_responses(
         )?;
 
     ensure!(
-        last_ica_balance_change_height <= delegations_height,
+        last_ica_balance_change_height <= delegations_response.remote_height,
         ContractError::PuppeteerDelegationsOutdated {
             ica_height: last_ica_balance_change_height,
-            control_height: delegations_height
+            control_height: delegations_response.remote_height
         }
     );
 
@@ -1593,7 +1594,7 @@ fn get_ica_balance_by_denom<T: CustomQuery>(
     remote_denom: &str,
     can_be_zero: bool,
 ) -> ContractResult<(Uint128, u64, u64)> {
-    let (ica_balances, balance_height, local_time): drop_staking_base::msg::puppeteer::BalancesResponse =
+    let balances_response: drop_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             puppeteer_contract.to_string(),
             &drop_puppeteer_base::msg::QueryMsg::Extension {
@@ -1603,27 +1604,28 @@ fn get_ica_balance_by_denom<T: CustomQuery>(
 
     let last_ica_balance_change_height = LAST_ICA_CHANGE_HEIGHT.load(deps.storage)?;
     ensure!(
-        last_ica_balance_change_height <= balance_height,
+        last_ica_balance_change_height <= balances_response.remote_height,
         ContractError::PuppeteerBalanceOutdated {
             ica_height: last_ica_balance_change_height,
-            control_height: balance_height
+            control_height: balances_response.remote_height
         }
     );
 
-    let balance = ica_balances.coins.iter().find_map(|c| {
+    let balance = balances_response.balances.coins.iter().find_map(|c| {
         if c.denom == remote_denom {
             Some(c.amount)
         } else {
             None
         }
     });
+
     Ok((
         match can_be_zero {
             true => balance.unwrap_or(Uint128::zero()),
             false => balance.ok_or(ContractError::ICABalanceZero {})?,
         },
-        balance_height,
-        local_time.seconds(),
+        balances_response.remote_height,
+        balances_response.timestamp.seconds(),
     ))
 }
 
@@ -1661,7 +1663,7 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
         return Ok(None);
     }
     let mut items = vec![];
-    let rewards: drop_staking_base::msg::puppeteer::BalancesResponse =
+    let rewards_response: drop_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             config.puppeteer_contract.to_string(),
             &drop_puppeteer_base::msg::QueryMsg::Extension {
@@ -1671,15 +1673,15 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
 
     let last_ica_balance_change_height = LAST_ICA_CHANGE_HEIGHT.load(deps.storage)?;
     ensure!(
-        last_ica_balance_change_height <= rewards.1,
+        last_ica_balance_change_height <= rewards_response.remote_height,
         ContractError::PuppeteerBalanceOutdated {
             ica_height: last_ica_balance_change_height,
-            control_height: rewards.1
+            control_height: rewards_response.remote_height
         }
     );
 
-    let rewards_map = rewards
-        .0
+    let rewards_map = rewards_response
+        .balances
         .coins
         .iter()
         .map(|c| (c.denom.clone(), c.amount))
