@@ -86,7 +86,7 @@ pub fn instantiate(
     TOTAL_LSM_SHARES.save(deps.storage, &0)?;
     BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
     NON_NATIVE_REWARDS_CONFIG.save(deps.storage, &vec![])?;
-    LAST_LSM_REDEEM.save(deps.storage, &0)?;
+    LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
@@ -1728,7 +1728,7 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
     })))
 }
 
-fn get_pending_redeem_msg<T>(
+pub fn get_pending_redeem_msg<T>(
     deps: Deps<NeutronQuery>,
     config: &Config,
     env: &Env,
@@ -1739,15 +1739,18 @@ fn get_pending_redeem_msg<T>(
         .count();
     let last_lsm_redeem = LAST_LSM_REDEEM.load(deps.storage)?;
     let lsm_redeem_threshold = config.lsm_redeem_threshold as usize;
+
     if pending_lsm_shares_count == 0
         || ((pending_lsm_shares_count < lsm_redeem_threshold)
-            || (last_lsm_redeem + config.lsm_redeem_maximum_interval > env.block.time.seconds()))
+            && (last_lsm_redeem + config.lsm_redeem_maximum_interval > env.block.time.seconds()))
     {
         return Ok(None);
     }
     let shares_to_redeeem = LSM_SHARES_TO_REDEEM
         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+        .take(lsm_redeem_threshold)
         .collect::<StdResult<Vec<_>>>()?;
+
     let items = shares_to_redeeem
         .iter()
         .map(|(local_denom, (denom, amount))| RedeemShareItem {
