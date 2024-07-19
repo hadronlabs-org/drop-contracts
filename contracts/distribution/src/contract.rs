@@ -5,7 +5,6 @@ use drop_helpers::answer::response;
 use drop_staking_base::error::distribution::{ContractError, ContractResult};
 use drop_staking_base::msg::distribution::{Delegations, InstantiateMsg, MigrateMsg, QueryMsg};
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
-use std::ops::Sub;
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -42,7 +41,7 @@ pub fn calc_withdraw(
     withdraw: Uint128,
     delegations: Delegations,
 ) -> ContractResult<Vec<(String, Uint128)>> {
-    if delegations.total < (withdraw + Uint128::from(delegations.delegations.len() as u128)) {
+    if delegations.total < withdraw {
         return Err(ContractError::TooBigWithdraw {});
     }
 
@@ -88,9 +87,6 @@ where
 {
     let stake_per_weight = Decimal::from_ratio(total_stake, delegations.total_weight);
 
-    // We need to distribute the deposit among all delegations (at least 1 token reservation required),
-    // so we need to subtract amount of delegations (validators)
-    deposit = deposit.sub(Uint128::from(delegations.delegations.len() as u128));
     let mut deposit_changes: Vec<(String, Uint128)> = Vec::new();
     for d in delegations.delegations {
         let weight = Decimal::from_atomics(d.weight, 0)?;
@@ -103,13 +99,9 @@ where
         total_stake -= ideal_stake;
 
         if check_stake(ideal_stake, d.stake) || deposit.is_zero() {
-            deposit_changes.push((d.valoper_address, Uint128::one()));
             continue;
         }
 
-        // We need to add one because we already subtracted it before but now we need it for calculations
-        // so we need to take into account this one token
-        deposit += Uint128::one();
         let mut stake_change = calc_diff(ideal_stake, d.stake);
 
         if deposit < stake_change {
@@ -299,8 +291,7 @@ mod tests {
             distribution,
             vec![
                 ("valoper1".to_string(), Uint128::from(20u128)),
-                ("valoper2".to_string(), Uint128::one()),
-                ("valoper3".to_string(), Uint128::from(79u128))
+                ("valoper3".to_string(), Uint128::from(80u128))
             ]
         );
     }
@@ -335,11 +326,7 @@ mod tests {
 
         assert_eq!(
             distribution,
-            vec![
-                ("valoper1".to_string(), Uint128::one()),
-                ("valoper2".to_string(), Uint128::from(98u128)),
-                ("valoper3".to_string(), Uint128::one())
-            ]
+            vec![("valoper2".to_string(), Uint128::from(100u128)),]
         );
     }
 
@@ -373,11 +360,7 @@ mod tests {
 
         assert_eq!(
             distribution,
-            vec![
-                ("valoper1".to_string(), Uint128::one()),
-                ("valoper2".to_string(), Uint128::one()),
-                ("valoper3".to_string(), Uint128::from(98u128))
-            ]
+            vec![("valoper3".to_string(), Uint128::from(100u128))]
         );
     }
 
@@ -509,17 +492,13 @@ mod tests {
 
         assert_eq!(
             distribution,
-            vec![
-                ("valoper1".to_string(), Uint128::one()),
-                ("valoper2".to_string(), Uint128::from(48u128)),
-                ("valoper3".to_string(), Uint128::one())
-            ]
+            vec![("valoper2".to_string(), Uint128::from(50u128)),]
         );
     }
 
     #[test]
     fn calc_ideal_withdraw_from_two_delegations_too_big() {
-        let withdraw = Uint128::from(1000u128);
+        let withdraw = Uint128::from(1001u128);
 
         let delegations = Delegations {
             total: Uint128::from(1000u128),
