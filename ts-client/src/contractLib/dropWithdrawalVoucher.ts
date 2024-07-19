@@ -335,7 +335,6 @@ export interface Metadata {
   attributes?: Trait[] | null;
   batch_id: string;
   description?: string | null;
-  expected_amount: Uint128;
   name: string;
 }
 export interface Trait {
