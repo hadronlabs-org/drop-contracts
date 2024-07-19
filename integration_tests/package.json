@@ -20,6 +20,7 @@
     "test:gv": "vitest --run gv.test.ts --bail 1",
     "debug": "vitest --inspect-brk --bail 1 --threads false --run core.test.ts",
     "watch": "vitest",
+    "calc-exchange-rate": "ts-node ./src/helpers/exchangeRate.ts",
     "build-ts-client": "ts-node ./src/rebuild-client.ts",
     "build-lsm-image": "./dockerfiles/lsm/build.sh",
     "build-gaia-image": "./dockerfiles/gaia/build.sh",
@@ -39,9 +40,10 @@
     "@neutron-org/client-ts": "^1.4.0",
     "@neutron-org/cosmopark": "^1.6.3",
     "bech32": "^1.1.4",
+    "decimal.js": "^10.4.3",
     "dotparser": "^1.1.1",
-    "yaml": "^2.4.1",
-    "drop-ts-client": "file:../ts-client"
+    "drop-ts-client": "file:../ts-client",
+    "yaml": "^2.4.1"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^6.9.1",

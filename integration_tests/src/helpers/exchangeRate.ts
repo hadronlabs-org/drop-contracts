@@ -1,6 +1,8 @@
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { connectComet } from '@cosmjs/tendermint-rpc';
-import { Decimal } from '@cosmjs/math';
+import { DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
+import { GasPrice } from '@cosmjs/stargate';
+import { Decimal } from 'decimal.js';
 import { QueryClient, createProtobufRpcClient } from '@cosmjs/stargate';
 import {
   setupAuthExtension,
@@ -14,21 +16,20 @@ export async function calcExchangeRate(
   clientCW: SigningCosmWasmClient,
   coreContract: string,
   endpoint: string,
-): Promise<string> {
+): Promise<number> {
   const coreConfig = await clientCW.queryContractSmart(coreContract, {
     config: {},
   });
-
   const FSMState = await clientCW.queryContractSmart(coreContract, {
     contract_state: {},
   });
+  console.log(FSMState);
   if (FSMState !== 'idle') {
-    // if state isn't idle then this query'll return cached exchange rate
-    return clientCW.queryContractSmart(coreContract, {
+    // If state isn't idle then this query'll return cached exchange rate
+    return await clientCW.queryContractSmart(coreContract, {
       exchange_rate: {},
     });
   }
-
   const queryClient = QueryClient.withExtensions(
     await connectComet(endpoint),
     setupAuthExtension,
@@ -38,19 +39,20 @@ export async function calcExchangeRate(
   );
   const RPC = createProtobufRpcClient(queryClient);
   const queryService = new QueryClientImpl(RPC);
-  const { amount } = await queryService.SupplyOf({
-    denom: coreConfig.base_denom,
-  });
-
-  let exchangeRateDenominator: Decimal = Decimal.fromUserInput(
-    amount.amount,
-    18,
+  const tokenContractConfig = await clientCW.queryContractSmart(
+    coreConfig.token_contract,
+    {
+      config: {},
+    },
   );
-  if (exchangeRateDenominator.equals(Decimal.zero(18))) {
-    return Decimal.one(18).toString();
+  const { amount } = await queryService.SupplyOf({
+    denom: tokenContractConfig.denom,
+  });
+  let exchangeRateDenominator: Decimal = new Decimal(amount.amount);
+  if (exchangeRateDenominator.isZero()) {
+    return new Decimal(1).toNumber();
   }
-
-  const delegations = await clientCW.queryContractSmart(
+  const delegationsResponse = await clientCW.queryContractSmart(
     coreConfig.puppeteer_contract,
     {
       extension: {
@@ -60,24 +62,23 @@ export async function calcExchangeRate(
       },
     },
   );
-  const delegationsAmount: Decimal = delegations[0].delegations.reduce(
-    (acc: Decimal, next: any) =>
-      acc.plus(Decimal.fromUserInput(next.amount.amount, 18)),
-    Decimal.zero(18),
-  );
-
+  const delegationsAmount: Decimal =
+    delegationsResponse.delegations.delegations.reduce(
+      (acc: Decimal, next: any) => acc.plus(new Decimal(next.amount.amount)),
+      new Decimal(0),
+    );
   const batchID = await clientCW.queryContractSmart(coreContract, {
     current_unbond_batch: {},
   });
   const batch = await clientCW.queryContractSmart(coreContract, {
     unbond_batch: {
-      batch_id: batchID,
+      batch_id: String(batchID),
     },
   });
-  let unprocessedUnbondedAmount: Decimal = Decimal.zero(18);
+  let unprocessedDassetToUnbond: Decimal = new Decimal('0');
   if (batch.status === 'new') {
-    unprocessedUnbondedAmount = unprocessedUnbondedAmount.plus(
-      Decimal.fromUserInput(batch.expected_native_asset_amount, 18),
+    unprocessedDassetToUnbond = unprocessedDassetToUnbond.plus(
+      batch.total_dasset_amount_to_withdraw,
     );
   }
   if (Number(batchID) > 0) {
@@ -88,53 +89,43 @@ export async function calcExchangeRate(
       },
     });
     if (penultimateBatch.status === 'unbond_requested') {
-      unprocessedUnbondedAmount = unprocessedUnbondedAmount.plus(
-        Decimal.fromUserInput(batch.expected_native_asset_amount, 18),
+      unprocessedDassetToUnbond = unprocessedDassetToUnbond.plus(
+        batch.total_dasset_amount_to_withdraw,
       );
     }
   }
-  const failedBatchID = await clientCW.queryContractSmart(coreContract, {
+  let failedBatchID = await clientCW.queryContractSmart(coreContract, {
     failed_batch: {},
   });
-  if (failedBatchID === null) {
-    const failedBatch = await clientCW.queryContractSmart(coreContract, {
-      batch_id: failedBatchID,
+  if (failedBatchID.response !== null) {
+    let failedBatch = await clientCW.queryContractSmart(coreContract, {
+      batch_id: failedBatchID.response,
     });
-    unprocessedUnbondedAmount = unprocessedUnbondedAmount.plus(
-      Decimal.fromUserInput(failedBatch.total_dasset_amount_to_withdraw, 18),
+    unprocessedDassetToUnbond = unprocessedDassetToUnbond.plus(
+      failedBatch.total_dasset_amount_to_withdraw,
     );
   }
-
   exchangeRateDenominator = exchangeRateDenominator.plus(
-    unprocessedUnbondedAmount,
+    unprocessedDassetToUnbond,
   );
-
-  const stakerBalance: Decimal = Decimal.fromUserInput(
+  const stakerBalance: Decimal = new Decimal(
     await clientCW.queryContractSmart(coreConfig.staker_contract, {
       all_balance: {},
     }),
-    18,
   );
-  const totalLSMShares: Decimal = Decimal.fromUserInput(
+  const totalLSMShares: Decimal = new Decimal(
     await clientCW.queryContractSmart(coreContract, {
-      total_lsm_shares: {},
+      total_l_s_m_shares: {},
     }),
-    18,
   );
   const exchangeRateNumerator: Decimal = delegationsAmount
     .plus(stakerBalance)
     .plus(totalLSMShares);
-  if (exchangeRateNumerator.equals(Decimal.zero(18))) {
-    return Decimal.one(18).toString();
+  if (exchangeRateNumerator.isZero()) {
+    return 1;
   }
-  // https://github.com/cosmos/cosmjs/issues/1498#issuecomment-1789798440
-  // Here is no direct string conversation because it adds 18 additional decimals
-  const exchangeRate: Decimal = Decimal.fromUserInput(
-    String(
-      exchangeRateNumerator.toFloatApproximation() /
-        exchangeRateDenominator.toFloatApproximation(),
-    ),
-    18,
+  const exchangeRate: Decimal = exchangeRateNumerator.dividedBy(
+    exchangeRateDenominator,
   );
-  return exchangeRate.toString();
+  return exchangeRate.toNumber();
 }
