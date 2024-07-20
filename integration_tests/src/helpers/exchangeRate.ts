@@ -10,10 +10,10 @@ import {
 } from '@cosmjs/stargate';
 import { QueryClientImpl } from 'cosmjs-types/cosmos/bank/v1beta1/query';
 
-export async function calcExchangeRate(
+async function calcExchangeRate(
   clientCW: SigningCosmWasmClient,
   coreContract: string,
-  endpoint: string,
+  endpoint: string
 ): Promise<number> {
   const coreConfig = await clientCW.queryContractSmart(coreContract, {
     config: {},
@@ -21,18 +21,20 @@ export async function calcExchangeRate(
   const FSMState = await clientCW.queryContractSmart(coreContract, {
     contract_state: {},
   });
-  if (FSMState !== 'idle') {
+  if (FSMState !== "idle") {
     // If state isn't idle then this query'll return cached exchange rate
-    return await clientCW.queryContractSmart(coreContract, {
-      exchange_rate: {},
-    });
+    return Number(
+      await clientCW.queryContractSmart(coreContract, {
+        exchange_rate: {},
+      })
+    );
   }
   const queryClient = QueryClient.withExtensions(
     await connectComet(endpoint),
     setupAuthExtension,
     setupBankExtension,
     setupStakingExtension,
-    setupTxExtension,
+    setupTxExtension
   );
   const RPC = createProtobufRpcClient(queryClient);
   const queryService = new QueryClientImpl(RPC);
@@ -40,7 +42,7 @@ export async function calcExchangeRate(
     coreConfig.token_contract,
     {
       config: {},
-    },
+    }
   );
   const { amount } = await queryService.SupplyOf({
     denom: tokenContractConfig.denom,
@@ -57,12 +59,12 @@ export async function calcExchangeRate(
           delegations: {},
         },
       },
-    },
+    }
   );
   const delegationsAmount: Decimal =
     delegationsResponse.delegations.delegations.reduce(
       (acc: Decimal, next: any) => acc.plus(new Decimal(next.amount.amount)),
-      new Decimal(0),
+      new Decimal(0)
     );
   const batchID = await clientCW.queryContractSmart(coreContract, {
     current_unbond_batch: {},
@@ -72,10 +74,10 @@ export async function calcExchangeRate(
       batch_id: String(batchID),
     },
   });
-  let unprocessedDassetToUnbond: Decimal = new Decimal('0');
-  if (batch.status === 'new') {
+  let unprocessedDassetToUnbond: Decimal = new Decimal("0");
+  if (batch.status === "new") {
     unprocessedDassetToUnbond = unprocessedDassetToUnbond.plus(
-      batch.total_dasset_amount_to_withdraw,
+      batch.total_dasset_amount_to_withdraw
     );
   }
   if (Number(batchID) > 0) {
@@ -85,9 +87,9 @@ export async function calcExchangeRate(
         batch_id: String(penultimate),
       },
     });
-    if (penultimateBatch.status === 'unbond_requested') {
+    if (penultimateBatch.status === "unbond_requested") {
       unprocessedDassetToUnbond = unprocessedDassetToUnbond.plus(
-        batch.total_dasset_amount_to_withdraw,
+        batch.total_dasset_amount_to_withdraw
       );
     }
   }
@@ -99,21 +101,21 @@ export async function calcExchangeRate(
       batch_id: failedBatchID.response,
     });
     unprocessedDassetToUnbond = unprocessedDassetToUnbond.plus(
-      failedBatch.total_dasset_amount_to_withdraw,
+      failedBatch.total_dasset_amount_to_withdraw
     );
   }
   exchangeRateDenominator = exchangeRateDenominator.plus(
-    unprocessedDassetToUnbond,
+    unprocessedDassetToUnbond
   );
   const stakerBalance: Decimal = new Decimal(
     await clientCW.queryContractSmart(coreConfig.staker_contract, {
       all_balance: {},
-    }),
+    })
   );
   const totalLSMShares: Decimal = new Decimal(
     await clientCW.queryContractSmart(coreContract, {
       total_l_s_m_shares: {},
-    }),
+    })
   );
   const exchangeRateNumerator: Decimal = delegationsAmount
     .plus(stakerBalance)
@@ -122,7 +124,25 @@ export async function calcExchangeRate(
     return 1;
   }
   const exchangeRate: Decimal = exchangeRateNumerator.dividedBy(
-    exchangeRateDenominator,
+    exchangeRateDenominator
   );
   return exchangeRate.toNumber();
+}
+
+async function compareExchangeRates(
+  clientCW: SigningCosmWasmClient,
+  coreContract: string,
+  endpoint: string,
+  decimals: number
+): Promise<boolean> {
+  return (
+    (await calcExchangeRate(clientCW, coreContract, endpoint)).toFixed(
+      decimals
+    ) ===
+    Number(
+      await clientCW.queryContractSmart(coreContract, {
+        exchange_rate: {},
+      })
+    ).toFixed(decimals)
+  );
 }
