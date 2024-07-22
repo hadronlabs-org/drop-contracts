@@ -10,6 +10,8 @@ import {
 } from '@cosmjs/stargate';
 import { QueryClientImpl } from 'cosmjs-types/cosmos/bank/v1beta1/query';
 
+export const DEFAULT_EXCHANGE_RATE_DECIMALS: number = 8;
+
 export async function calcExchangeRate(
   clientCW: SigningCosmWasmClient,
   coreContract: string,
@@ -50,6 +52,7 @@ export async function calcExchangeRate(
       },
     },
   );
+  console.log(coreConfig, delegationsResponse);
   const delegationsAmount: Decimal =
     delegationsResponse.delegations.delegations.reduce(
       (acc: Decimal, next: any) => acc.plus(new Decimal(next.amount.amount)),
@@ -122,7 +125,7 @@ export async function compareExchangeRates(
   clientCW: SigningCosmWasmClient,
   coreContract: string,
   endpoint: string,
-  decimals: number,
+  decimals: number = DEFAULT_EXCHANGE_RATE_DECIMALS,
 ): Promise<boolean> {
   return (
     (await calcExchangeRate(clientCW, coreContract, endpoint)).toFixed(
