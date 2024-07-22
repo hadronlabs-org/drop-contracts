@@ -775,13 +775,13 @@ describe('Core Slashing', () => {
     it('tick 1 (staking_bond)', async () => {
       const {
         neutronUserAddress,
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       } = context;
 
       await waitForPuppeteerICQ(
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       );
@@ -821,7 +821,7 @@ describe('Core Slashing', () => {
         } catch (e) {
           //
         }
-        return res && res[0].delegations.length !== 0;
+        return res && res.delegations.delegations.length !== 0;
       }, 100_000);
     });
     it('get staker ICA zeroed balance', async () => {
@@ -836,13 +836,13 @@ describe('Core Slashing', () => {
     it('tick 2 (unbonding)', async () => {
       const {
         neutronUserAddress,
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       } = context;
 
       await waitForPuppeteerICQ(
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       );
@@ -875,13 +875,13 @@ describe('Core Slashing', () => {
     it('tick 3 (idle)', async () => {
       const {
         neutronUserAddress,
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       } = context;
 
       await waitForPuppeteerICQ(
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       );
@@ -961,13 +961,13 @@ describe('Core Slashing', () => {
     it('tick 1 (claiming)', async () => {
       const {
         neutronUserAddress,
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       } = context;
 
       await waitForPuppeteerICQ(
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       );
@@ -991,14 +991,14 @@ describe('Core Slashing', () => {
         }
         return !!response;
       }, 100_000);
-      const [, currentHeight] =
+      const { remote_height: currentHeight } =
         (await context.puppeteerContractClient.queryExtension({
           msg: {
             balances: {},
           },
         })) as any;
       await waitFor(async () => {
-        const [, nowHeight] =
+        const { remote_height: nowHeight } =
           (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
@@ -1010,13 +1010,13 @@ describe('Core Slashing', () => {
     it('tick 2 (staking_bond)', async () => {
       const {
         neutronUserAddress,
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       } = context;
 
       await waitForPuppeteerICQ(
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       );
@@ -1045,14 +1045,14 @@ describe('Core Slashing', () => {
         }
         return !!response;
       }, 100_000);
-      const [, currentHeight] =
+      const { remote_height: currentHeight } =
         (await context.puppeteerContractClient.queryExtension({
           msg: {
             balances: {},
           },
         })) as any;
       await waitFor(async () => {
-        const [, nowHeight] =
+        const { remote_height: nowHeight } =
           (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
@@ -1064,13 +1064,13 @@ describe('Core Slashing', () => {
     it('tick 3 (unbonding)', async () => {
       const {
         neutronUserAddress,
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       } = context;
 
       await waitForPuppeteerICQ(
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       );
@@ -1103,13 +1103,13 @@ describe('Core Slashing', () => {
     it('tick 4 (idle)', async () => {
       const {
         neutronUserAddress,
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       } = context;
 
       await waitForPuppeteerICQ(
-        client,
+        gaiaClient,
         coreContractClient,
         puppeteerContractClient,
       );
@@ -1184,7 +1184,7 @@ describe('Core Slashing', () => {
               balances: {},
             },
           })) as any
-        )[2] / 1e9,
+        ).timestamp / 1e9,
       );
       return icaTs > batchInfo.expected_release_time;
     }, 50_000);
@@ -1201,7 +1201,7 @@ describe('Core Slashing', () => {
               balances: {},
             },
           })) as any
-        )[2] / 1e9,
+        ).timestamp / 1e9,
       );
       return icaTs > batchInfo.expected_release_time;
     }, 50_000);
@@ -1210,12 +1210,12 @@ describe('Core Slashing', () => {
     const {
       coreContractClient,
       neutronUserAddress,
-      client,
+      gaiaClient,
       puppeteerContractClient,
     } = context;
 
     await waitForPuppeteerICQ(
-      client,
+      gaiaClient,
       coreContractClient,
       puppeteerContractClient,
     );
@@ -1234,14 +1234,14 @@ describe('Core Slashing', () => {
       }
       return !!response;
     }, 100_000);
-    const [, currentHeight] =
+    const { remote_height: currentHeight } =
       (await context.puppeteerContractClient.queryExtension({
         msg: {
           balances: {},
         },
       })) as any;
     await waitFor(async () => {
-      const [, nowHeight] =
+      const { remote_height: nowHeight } =
         (await context.puppeteerContractClient.queryExtension({
           msg: {
             balances: {},
@@ -1288,12 +1288,12 @@ describe('Core Slashing', () => {
     const {
       coreContractClient,
       neutronUserAddress,
-      client,
+      gaiaClient,
       puppeteerContractClient,
     } = context;
 
     await waitForPuppeteerICQ(
-      client,
+      gaiaClient,
       coreContractClient,
       puppeteerContractClient,
     );

@@ -1002,7 +1002,7 @@ describe('Core', () => {
       expected_release_time: 0,
       status: 'new',
       total_dasset_amount_to_withdraw: '500000',
-      expected_native_asset_amount: '500000',
+      expected_native_asset_amount: '0',
       total_unbond_items: 2,
       unbonded_amount: null,
       withdrawn_amount: null,
@@ -1143,14 +1143,14 @@ describe('Core', () => {
       });
       it('tick', async () => {
         const {
-          client,
+          gaiaClient,
           neutronUserAddress,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1226,11 +1226,23 @@ describe('Core', () => {
               },
             },
           );
-          return res && res[0].delegations.length > 0;
+          return res && res.delegations.delegations.length > 0;
         }, 100_000);
       });
       it('tick goes to unbonding', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1373,13 +1385,13 @@ describe('Core', () => {
       it('next tick goes to idle', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1425,13 +1437,13 @@ describe('Core', () => {
       it('idle tick', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1466,14 +1478,14 @@ describe('Core', () => {
         expect(newBalance).toBeGreaterThan(balance);
       });
       it('wait for balance to update', async () => {
-        const [, currentHeight] =
+        const { remote_height: currentHeight } =
           (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
           })) as any;
         await waitFor(async () => {
-          const [, nowHeight] =
+          const { remote_height: nowHeight } =
             (await context.puppeteerContractClient.queryExtension({
               msg: {
                 balances: {},
@@ -1485,13 +1497,13 @@ describe('Core', () => {
       it('next tick goes to staking', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1521,14 +1533,14 @@ describe('Core', () => {
       });
       it('next tick goes to idle', async () => {
         const {
-          client,
+          gaiaClient,
           neutronUserAddress,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1654,7 +1666,7 @@ describe('Core', () => {
                   non_native_rewards_balances: {},
                 },
               });
-            return res[0].coins.length == 2;
+            return res.balances.coins.length == 2;
           } catch (e) {
             //
           }
@@ -1663,13 +1675,13 @@ describe('Core', () => {
       it('tick', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1727,12 +1739,12 @@ describe('Core', () => {
               },
             },
           );
-          return res[0].coins.length === 1;
+          return res.balances.coins.length === 1;
         });
       }, 30_000);
       it('wait for balances and delegations to update', async () => {
         await waitForPuppeteerICQ(
-          context.client,
+          context.gaiaClient,
           context.coreContractClient,
           context.puppeteerContractClient,
         );
@@ -1934,13 +1946,13 @@ describe('Core', () => {
         it('tick', async () => {
           const {
             neutronUserAddress,
-            client,
+            gaiaClient,
             coreContractClient,
             puppeteerContractClient,
           } = context;
 
           await waitForPuppeteerICQ(
-            client,
+            gaiaClient,
             coreContractClient,
             puppeteerContractClient,
           );
@@ -1972,7 +1984,7 @@ describe('Core', () => {
         });
         it('wait for ICQ update', async () => {
           await waitForPuppeteerICQ(
-            context.client,
+            context.gaiaClient,
             context.coreContractClient,
             context.puppeteerContractClient,
           );
@@ -2040,7 +2052,7 @@ describe('Core', () => {
         });
         it('wait for ICQ update', async () => {
           await waitForPuppeteerICQ(
-            context.client,
+            context.gaiaClient,
             context.coreContractClient,
             context.puppeteerContractClient,
           );
@@ -2079,7 +2091,7 @@ describe('Core', () => {
               },
             },
           );
-          for (const d of res[0].delegations) {
+          for (const d of res.delegations.delegations) {
             delegationsSum += parseInt(d.amount.amount);
           }
         });
@@ -2090,13 +2102,13 @@ describe('Core', () => {
         });
         it('tick to idle', async () => {
           const {
-            client,
+            gaiaClient,
             neutronUserAddress,
             coreContractClient,
             puppeteerContractClient,
           } = context;
           await waitForPuppeteerICQ(
-            client,
+            gaiaClient,
             coreContractClient,
             puppeteerContractClient,
           );
@@ -2141,14 +2153,14 @@ describe('Core', () => {
           }, 30_000);
         });
         it('wait for delegations to come', async () => {
-          const [, currentHeight] =
+          const { remote_height: currentHeight } =
             await context.puppeteerContractClient.queryExtension({
               msg: {
                 delegations: {},
               },
             });
           await waitFor(async () => {
-            const [, nowHeight] =
+            const { remote_height: nowHeight } =
               await context.puppeteerContractClient.queryExtension({
                 msg: {
                   delegations: {},
@@ -2166,7 +2178,7 @@ describe('Core', () => {
             },
           );
           let newDelegationsSum = 0;
-          for (const d of res[0].delegations) {
+          for (const d of res.delegations.delegations) {
             newDelegationsSum += parseInt(d.amount.amount);
           }
           expect(newDelegationsSum - delegationsSum).toEqual(120_000);
@@ -2208,20 +2220,9 @@ describe('Core', () => {
                 trait_type: 'received_amount',
                 value: '200000',
               },
-              {
-                display_type: null,
-                trait_type: 'expected_amount',
-                value: '200000',
-              },
-              {
-                display_type: null,
-                trait_type: 'exchange_rate',
-                value: '1',
-              },
             ],
             batch_id: '0',
             description: 'Withdrawal voucher',
-            expected_amount: '200000',
             name: 'LDV voucher',
           },
           token_uri: null,
@@ -2246,20 +2247,9 @@ describe('Core', () => {
                 trait_type: 'received_amount',
                 value: '300000',
               },
-              {
-                display_type: null,
-                trait_type: 'expected_amount',
-                value: '300000',
-              },
-              {
-                display_type: null,
-                trait_type: 'exchange_rate',
-                value: '1',
-              },
             ],
             batch_id: '0',
             description: 'Withdrawal voucher',
-            expected_amount: '300000',
             name: 'LDV voucher',
           },
           token_uri: null,
@@ -2357,7 +2347,7 @@ describe('Core', () => {
                   balances: {},
                 },
               })) as any
-            )[2] / 1e9,
+            ).timestamp / 1e9,
           );
           return icaTs > batchInfo.expected_release_time;
         }, 50_000);
@@ -2375,7 +2365,7 @@ describe('Core', () => {
           puppeteerContractClient,
         } = context;
         await waitForPuppeteerICQ(
-          context.client,
+          context.gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -2398,14 +2388,14 @@ describe('Core', () => {
         }, 30_000);
       });
       it('wait for balance to update', async () => {
-        const [, currentHeight] =
+        const { remote_height: currentHeight } =
           (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
           })) as any;
         await waitFor(async () => {
-          const [, nowHeight] =
+          const { remote_height: nowHeight } =
             (await context.puppeteerContractClient.queryExtension({
               msg: {
                 balances: {},
@@ -2415,7 +2405,19 @@ describe('Core', () => {
         }, 30_000);
       });
       it('tick to staking_rewards', async () => {
-        const { coreContractClient, neutronUserAddress } = context;
+        const {
+          gaiaClient,
+          coreContractClient,
+          neutronUserAddress,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('staking_rewards');
@@ -2561,7 +2563,7 @@ describe('Core', () => {
           puppeteerContractClient,
         } = context;
         await waitForPuppeteerICQ(
-          context.client,
+          context.gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -2585,14 +2587,14 @@ describe('Core', () => {
       });
       it('tick to staking_rewards', async () => {
         const {
-          client,
+          gaiaClient,
           coreContractClient,
           neutronUserAddress,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -2652,13 +2654,13 @@ describe('Core', () => {
       });
       it('tick to idle', async () => {
         const {
-          client,
+          gaiaClient,
           coreContractClient,
           neutronUserAddress,
           puppeteerContractClient,
         } = context;
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );

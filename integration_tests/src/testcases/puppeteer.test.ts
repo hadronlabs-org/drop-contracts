@@ -569,9 +569,10 @@ describe('Interchain puppeteer', () => {
     let delegations = [];
     let height = 0;
     await waitFor(async () => {
-      const [d, h] = (await context.contractClient.queryExtension({
-        msg: { delegations: {} },
-      })) as unknown as any[];
+      const { delegations: d, remote_height: h } =
+        (await context.contractClient.queryExtension({
+          msg: { delegations: {} },
+        })) as unknown as any;
       delegations = d.delegations;
       height = h;
       return d.delegations.length > 0;

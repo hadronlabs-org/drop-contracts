@@ -88,7 +88,7 @@ pre_deploy_check_balance() {
     --home "$NEUTRON_HOME"                             \
     --keyring-backend "$KEYRING_BACKEND"               \
     --output json | jq -r '.address')"
-  untrn_balance="$(neutrond query bank balances --denom=untrn "$deploy_wallet" "${nq[@]}" | jq -r '.amount')"
+  untrn_balance="$(neutrond query bank balance "$deploy_wallet" untrn "${nq[@]}" | jq -r '.balance.amount')"
   ntrn_balance="$(echo "$untrn_balance / (10^6)" | bc)"
   ntrn_balance_decimals="$(echo "$untrn_balance % (10^6)" | bc)"
   ntrn_balance_human="${ntrn_balance}.${ntrn_balance_decimals}NTRN"
@@ -159,7 +159,7 @@ deploy_factory() {
     "token_metadata":{
       "description":"'"$TOKEN_METADATA_DESCRIPTION"'",
       "display":"'"$TOKEN_METADATA_DISPLAY"'",
-      "exponent":"'"$TOKEN_METADATA_EXPONENT"'",
+      "exponent":'$TOKEN_METADATA_EXPONENT',
       "name":"'"$TOKEN_METADATA_NAME"'",
       "symbol":"'"$TOKEN_METADATA_SYMBOL"'"
     },

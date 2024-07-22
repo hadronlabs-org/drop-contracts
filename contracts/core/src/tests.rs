@@ -10,11 +10,13 @@ use cosmwasm_std::{
 };
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
 use drop_puppeteer_base::{msg::TransferReadyBatchesMsg, state::RedeemShareItem};
+use drop_staking_base::state::core::FAILED_BATCH_ID;
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
         core::{ExecuteMsg, FailedBatchResponse, InstantiateMsg},
-        puppeteer::MultiBalances,
+        puppeteer::{BalancesResponse, DelegationsResponse},
+        staker::QueryMsg as StakerQueryMsg,
         strategy::QueryMsg as StrategyQueryMsg,
     },
     state::core::{
@@ -25,7 +27,6 @@ use drop_staking_base::{
         PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
     },
 };
-use drop_staking_base::{msg::staker::QueryMsg as StakerQueryMsg, state::core::FAILED_BATCH_ID};
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     interchain_queries::v045::types::{Balances, Delegations},
@@ -105,16 +106,17 @@ fn get_non_native_rewards_and_fee_transfer_msg_success() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_msg: &_| {
-            to_json_binary(&(
-                MultiBalances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "denom".to_string(),
                         amount: Uint128::new(150),
                     }],
                 },
-                10u64,
-                Timestamp::from_nanos(20),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(20),
+            })
             .unwrap()
         });
 
@@ -176,16 +178,17 @@ fn get_non_native_rewards_and_fee_transfer_msg_zero_fee() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_msg: &_| {
-            to_json_binary(&(
-                MultiBalances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "denom".to_string(),
                         amount: Uint128::new(150),
                     }],
                 },
-                10u64,
-                Timestamp::from_nanos(20),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(20),
+            })
             .unwrap()
         });
     CONFIG
@@ -252,16 +255,17 @@ fn get_non_native_rewards_balance_outdated_error() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_msg: &_| {
-            to_json_binary(&(
-                MultiBalances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "denom".to_string(),
                         amount: Uint128::new(150),
                     }],
                 },
-                10u64,
-                Timestamp::from_nanos(20),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(20),
+            })
             .unwrap()
         });
     CONFIG
@@ -333,16 +337,17 @@ fn get_stake_msg_success() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_msg: &_| {
-            to_json_binary(&(
-                Balances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "remote_denom".to_string(),
                         amount: Uint128::new(200),
                     }],
                 },
-                10u64,
-                Timestamp::from_nanos(20),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(20),
+            })
             .unwrap()
         });
     deps.querier
@@ -396,16 +401,17 @@ fn get_stake_msg_zero_fee() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_msg: &_| {
-            to_json_binary(&(
-                Balances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "remote_denom".to_string(),
                         amount: Uint128::new(200),
                     }],
                 },
-                10u64,
-                Timestamp::from_nanos(20),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(20),
+            })
             .unwrap()
         });
     deps.querier
@@ -467,16 +473,17 @@ fn get_stake_msg_balance_outdated_error() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_msg: &_| {
-            to_json_binary(&(
-                Balances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "remote_denom".to_string(),
                         amount: Uint128::new(200),
                     }],
                 },
-                10u64,
-                Timestamp::from_nanos(20),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(20),
+            })
             .unwrap()
         });
     deps.querier
@@ -762,28 +769,30 @@ fn test_execute_tick_idle_non_native_rewards() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                MultiBalances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![
                         Coin {
                             denom: "non_native_denom_1".to_string(),
@@ -803,9 +812,10 @@ fn test_execute_tick_idle_non_native_rewards() {
                         },
                     ],
                 },
-                10u64,
-                Timestamp::from_nanos(20),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(20),
+            })
             .unwrap()
         });
     CONFIG
@@ -973,22 +983,24 @@ fn test_execute_tick_idle_get_pending_lsm_shares_transfer() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
@@ -1075,22 +1087,24 @@ fn test_idle_tick_pending_lsm_redeem() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
@@ -1106,7 +1120,7 @@ fn test_idle_tick_pending_lsm_redeem() {
         )
         .unwrap();
     let mut env = mock_env();
-    env.block.time = Timestamp::from_seconds(100);
+    env.block.time = Timestamp::from_seconds(99);
     let res = execute(
         deps.as_mut(),
         env.clone(),
@@ -1114,6 +1128,7 @@ fn test_idle_tick_pending_lsm_redeem() {
         ExecuteMsg::Tick {},
     );
     assert!(res.is_err());
+
     LSM_SHARES_TO_REDEEM
         .save(
             deps.as_mut().storage,
@@ -1131,22 +1146,24 @@ fn test_idle_tick_pending_lsm_redeem() {
 
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     let res = execute(
@@ -1208,16 +1225,17 @@ fn test_tick_idle_unbonding_close() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "remote_denom".to_string(),
                         amount: Uint128::new(200),
                     }],
                 },
-                10u64,
-                Timestamp::from_nanos(20),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(20),
+            })
             .unwrap()
         });
     deps.querier
@@ -1242,8 +1260,8 @@ fn test_tick_idle_unbonding_close() {
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                neutron_sdk::interchain_queries::v045::types::Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![cosmwasm_std::Delegation {
                         delegator: Addr::unchecked("ica_address"),
                         validator: "valoper_address".to_string(),
@@ -1253,9 +1271,10 @@ fn test_tick_idle_unbonding_close() {
                         },
                     }],
                 },
-                10u64,
-                Timestamp::from_seconds(0),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(0),
+            })
             .unwrap()
         });
     CONFIG
@@ -1329,37 +1348,40 @@ fn test_tick_idle_claim_wo_unbond() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
 
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "remote_denom".to_string(),
                         amount: Uint128::new(200),
                     }],
                 },
-                10u64,
-                Timestamp::from_nanos(20),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(20),
+            })
             .unwrap()
         });
     deps.querier
@@ -1384,8 +1406,8 @@ fn test_tick_idle_claim_wo_unbond() {
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                neutron_sdk::interchain_queries::v045::types::Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![cosmwasm_std::Delegation {
                         delegator: Addr::unchecked("ica_address"),
                         validator: "valoper_address".to_string(),
@@ -1395,9 +1417,10 @@ fn test_tick_idle_claim_wo_unbond() {
                         },
                     }],
                 },
-                12344u64,
-                Timestamp::from_seconds(0),
-            ))
+                remote_height: 10u64,
+                local_height: 12344u64,
+                timestamp: Timestamp::from_seconds(0),
+            })
             .unwrap()
         });
     let mut config = get_default_config(
@@ -1490,37 +1513,40 @@ fn test_tick_idle_claim_with_unbond_transfer() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
 
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "remote_denom".to_string(),
                         amount: Uint128::new(200),
                     }],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
@@ -1545,8 +1571,8 @@ fn test_tick_idle_claim_with_unbond_transfer() {
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                neutron_sdk::interchain_queries::v045::types::Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![cosmwasm_std::Delegation {
                         delegator: Addr::unchecked("ica_address"),
                         validator: "valoper_address".to_string(),
@@ -1556,9 +1582,10 @@ fn test_tick_idle_claim_with_unbond_transfer() {
                         },
                     }],
                 },
-                12344u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 12344u64,
+                local_height: 12344u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     CONFIG
@@ -1649,36 +1676,39 @@ fn test_tick_idle_staking_bond() {
     let mut deps = mock_dependencies(&[Coin::new(1000u128, "base_denom")]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "remote_denom".to_string(),
                         amount: Uint128::new(200),
                     }],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
@@ -1717,13 +1747,14 @@ fn test_tick_idle_staking_bond() {
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                neutron_sdk::interchain_queries::v045::types::Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                12344u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 12344u64,
+                local_height: 12344u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     CONFIG
@@ -1801,36 +1832,39 @@ fn test_tick_idle_staking() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "remote_denom".to_string(),
                         amount: Uint128::new(200),
                     }],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
@@ -1859,27 +1893,29 @@ fn test_tick_idle_staking() {
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                neutron_sdk::interchain_queries::v045::types::Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                12344u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 12344u64,
+                local_height: 12344u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "remote_denom".to_string(),
                         amount: Uint128::new(200),
                     }],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
@@ -1968,31 +2004,34 @@ fn test_tick_idle_unbonding() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
@@ -2021,31 +2060,34 @@ fn test_tick_idle_unbonding() {
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                neutron_sdk::interchain_queries::v045::types::Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                12344u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 12344u64,
+                local_height: 12344u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
@@ -2142,6 +2184,7 @@ fn test_tick_idle_unbonding() {
                         ("knot", "024"),
                         ("knot", "026"),
                         ("knot", "027"),
+                        ("exchange_rate", "1"),
                         ("knot", "045"),
                         ("knot", "049"),
                         ("knot", "046"),
@@ -2169,31 +2212,34 @@ fn test_tick_idle_unbonding_failed() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
@@ -2222,31 +2268,34 @@ fn test_tick_idle_unbonding_failed() {
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                neutron_sdk::interchain_queries::v045::types::Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                12344u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 12344u64,
+                local_height: 12344u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
@@ -2370,6 +2419,7 @@ fn test_tick_idle_unbonding_failed() {
                         ("knot", "024"),
                         ("knot", "025"),
                         ("knot", "027"),
+                        ("exchange_rate", "1"),
                         ("knot", "045"),
                         ("knot", "049"),
                         ("knot", "028"),
@@ -2426,22 +2476,24 @@ fn test_tick_no_puppeteer_response() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     let res = execute(
@@ -2460,36 +2512,39 @@ fn test_tick_claiming_wo_transfer_stake() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "remote_denom".to_string(),
                         amount: Uint128::new(200),
                     }],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
@@ -2524,6 +2579,7 @@ fn test_tick_claiming_wo_transfer_stake() {
                     request_id: 0u64,
                     request: null_request_packet(),
                     local_height: 9u64,
+                    remote_height: 9u64,
                     transaction:
                         drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
                             interchain_account_id: "ica".to_string(),
@@ -2582,36 +2638,39 @@ fn test_tick_claiming_error_wo_transfer() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "remote_denom".to_string(),
                         amount: Uint128::new(200),
                     }],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
@@ -2689,22 +2748,24 @@ fn test_tick_claiming_error_with_transfer() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
@@ -2829,36 +2890,39 @@ fn test_tick_claiming_wo_transfer_unbonding() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "remote_denom".to_string(),
                         amount: Uint128::zero(),
                     }],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
@@ -2867,16 +2931,17 @@ fn test_tick_claiming_wo_transfer_unbonding() {
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "remote_denom".to_string(),
                         amount: Uint128::zero(),
                     }],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
@@ -2915,6 +2980,7 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                     request_id: 0u64,
                     request: null_request_packet(),
                     local_height: 9u64,
+                    remote_height: 9u64,
                     transaction:
                         drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
                             interchain_account_id: "ica".to_string(),
@@ -2982,6 +3048,7 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                         ("knot", "024"),
                         ("knot", "026"),
                         ("knot", "027"),
+                        ("exchange_rate", "1"),
                         ("knot", "045"),
                         ("knot", "049"),
                         ("knot", "046"),
@@ -3019,36 +3086,39 @@ fn test_tick_claiming_wo_idle() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "remote_denom".to_string(),
                         amount: Uint128::zero(),
                     }],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
@@ -3091,6 +3161,7 @@ fn test_tick_claiming_wo_idle() {
                     request_id: 0u64,
                     request: null_request_packet(),
                     local_height: 9u64,
+                    remote_height: 9u64,
                     transaction:
                         drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
                             interchain_account_id: "ica".to_string(),
@@ -3190,22 +3261,24 @@ fn test_execute_tick_transfering_no_puppeteer_response() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     let res = execute(
@@ -3242,11 +3315,12 @@ fn test_execute_tick_guard_balance_outdated() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     let res = execute(
@@ -3289,22 +3363,24 @@ fn test_execute_tick_guard_delegations_outdated() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                12u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 12u64,
+                local_height: 12u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     let res = execute(
@@ -3347,22 +3423,24 @@ fn test_execute_tick_staking_no_puppeteer_response() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     let res = execute(
@@ -3388,6 +3466,7 @@ fn test_tick_staking_to_unbonding() {
                     request_id: 0u64,
                     request: null_request_packet(),
                     local_height: 9u64,
+                    remote_height: 9u64,
                     transaction: drop_puppeteer_base::msg::Transaction::IBCTransfer {
                         denom: "remote_denom".to_string(),
                         amount: 0u128,
@@ -3404,50 +3483,54 @@ fn test_tick_staking_to_unbonding() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "remote_denom".to_string(),
                         amount: Uint128::zero(),
                     }],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "remote_denom".to_string(),
                         amount: Uint128::zero(),
                     }],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
@@ -3523,6 +3606,7 @@ fn test_tick_staking_to_unbonding() {
                         ("knot", "024"),
                         ("knot", "026"),
                         ("knot", "027"),
+                        ("exchange_rate", "1"),
                         ("knot", "045"),
                         ("knot", "049"),
                         ("knot", "046"),
@@ -3559,6 +3643,7 @@ fn test_tick_staking_to_idle() {
                     request_id: 0u64,
                     request: null_request_packet(),
                     local_height: 9u64,
+                    remote_height: 9u64,
                     transaction: drop_puppeteer_base::msg::Transaction::IBCTransfer {
                         denom: "remote_denom".to_string(),
                         amount: 0u128,
@@ -3572,27 +3657,29 @@ fn test_tick_staking_to_idle() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
                     coins: vec![Coin {
                         denom: "remote_denom".to_string(),
                         amount: Uint128::zero(),
                     }],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
@@ -3698,22 +3785,24 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances { coins: vec![] },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
             .unwrap()
         });
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Unbonding)
@@ -3992,13 +4081,14 @@ fn test_bond_lsm_share_increase_exchange_rate() {
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                neutron_sdk::interchain_queries::v045::types::Delegations {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
                     delegations: vec![],
                 },
-                0,
-                cosmwasm_std::Timestamp::from_nanos(1_000_000_202),
-            ))
+                remote_height: 0,
+                local_height: 0,
+                timestamp: Timestamp::from_nanos(1_000_000_202),
+            })
             .unwrap()
         });
     let mut env = mock_env();
@@ -4290,7 +4380,6 @@ fn test_unbond() {
         name: "LDV voucher".to_string(),
         batch_id: "0".to_string(),
         amount: Uint128::from(1000u128),
-        expected_amount: Uint128::from(1000u128),
         attributes: Some(vec![
             drop_staking_base::state::withdrawal_voucher::Trait {
                 display_type: None,
@@ -4301,16 +4390,6 @@ fn test_unbond() {
                 display_type: None,
                 trait_type: "received_amount".to_string(),
                 value: "1000".to_string(),
-            },
-            drop_staking_base::state::withdrawal_voucher::Trait {
-                display_type: None,
-                trait_type: "expected_amount".to_string(),
-                value: "1000".to_string(),
-            },
-            drop_staking_base::state::withdrawal_voucher::Trait {
-                display_type: None,
-                trait_type: "exchange_rate".to_string(),
-                value: "1".to_string(),
             },
         ]),
     });
@@ -4338,15 +4417,13 @@ fn test_unbond() {
             .add_event(
                 Event::new("crates.io:drop-staking__drop-core-execute-unbond")
                     .add_attribute("action", "unbond")
-                    .add_attribute("exchange_rate", "1")
-                    .add_attribute("expected_amount", "1000")
             )
     );
     assert_eq!(
         unbond_batch,
         UnbondBatch {
             total_dasset_amount_to_withdraw: Uint128::from(1000u128),
-            expected_native_asset_amount: Uint128::from(1000u128),
+            expected_native_asset_amount: Uint128::zero(),
             total_unbond_items: 1,
             status: UnbondBatchStatus::New,
             expected_release_time: 0,
@@ -4791,6 +4868,198 @@ mod check_denom {
         assert_eq!(
             denom_type,
             DenomType::LsmShare("valoper12345/1".to_string())
+        );
+    }
+}
+
+mod pending_redeem_shares {
+    use crate::contract::get_pending_redeem_msg;
+
+    use super::*;
+
+    #[test]
+    fn no_pending_lsm_shares() {
+        let mut deps = mock_dependencies(&[]);
+
+        let config = &get_default_config(
+            Some(Decimal::from_atomics(1u32, 1).unwrap()),
+            1000,
+            3,
+            100,
+            100,
+            600,
+            Uint128::new(100),
+        );
+
+        LAST_LSM_REDEEM.save(deps.as_mut().storage, &0).unwrap();
+
+        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
+            get_pending_redeem_msg(deps.as_ref(), config, &mock_env(), vec![]).unwrap();
+
+        assert_eq!(redeem_res, None);
+    }
+
+    #[test]
+    fn lsm_shares_below_threshold() {
+        let mut deps = mock_dependencies(&[]);
+
+        let config = &get_default_config(
+            Some(Decimal::from_atomics(1u32, 1).unwrap()),
+            1000,
+            3,
+            100,
+            100,
+            600,
+            Uint128::new(100),
+        );
+
+        let env = &mock_env();
+
+        LSM_SHARES_TO_REDEEM
+            .save(
+                deps.as_mut().storage,
+                "remote_denom_share1".to_string(),
+                &("local_denom_1".to_string(), Uint128::from(100u128)),
+            )
+            .unwrap();
+
+        LAST_LSM_REDEEM
+            .save(deps.as_mut().storage, &env.block.time.seconds())
+            .unwrap();
+
+        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
+            get_pending_redeem_msg(deps.as_ref(), config, env, vec![]).unwrap();
+
+        assert_eq!(redeem_res, None);
+    }
+
+    #[test]
+    fn lsm_shares_pass_threshold() {
+        let mut deps = mock_dependencies(&[]);
+
+        let lsm_redeem_maximum_interval = 100;
+
+        let config = &get_default_config(
+            Some(Decimal::from_atomics(1u32, 1).unwrap()),
+            1000,
+            3,
+            lsm_redeem_maximum_interval,
+            100,
+            600,
+            Uint128::new(100),
+        );
+
+        let env = &mock_env();
+
+        LSM_SHARES_TO_REDEEM
+            .save(
+                deps.as_mut().storage,
+                "local_denom_1".to_string(),
+                &("remote_denom_share1".to_string(), Uint128::from(100u128)),
+            )
+            .unwrap();
+
+        LAST_LSM_REDEEM
+            .save(
+                deps.as_mut().storage,
+                &(env.block.time.seconds() - lsm_redeem_maximum_interval * 2),
+            )
+            .unwrap();
+
+        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
+            get_pending_redeem_msg(deps.as_ref(), config, env, vec![]).unwrap();
+
+        assert_eq!(
+            redeem_res,
+            Some(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: MOCK_PUPPETEER_CONTRACT_ADDR.to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+                        items: vec![RedeemShareItem {
+                            amount: Uint128::from(100u128),
+                            local_denom: "local_denom_1".to_string(),
+                            remote_denom: "remote_denom_share1".to_string(),
+                        }],
+                        reply_to: env.contract.address.to_string(),
+                    },
+                )
+                .unwrap(),
+                funds: vec![],
+            }))
+        );
+    }
+
+    #[test]
+    fn lsm_shares_limit_redeem() {
+        let mut deps = mock_dependencies(&[]);
+
+        let lsm_redeem_maximum_interval = 100;
+
+        let config = &get_default_config(
+            Some(Decimal::from_atomics(1u32, 1).unwrap()),
+            1000,
+            2,
+            lsm_redeem_maximum_interval,
+            100,
+            600,
+            Uint128::new(100),
+        );
+
+        let env = &mock_env();
+
+        LSM_SHARES_TO_REDEEM
+            .save(
+                deps.as_mut().storage,
+                "local_denom_1".to_string(),
+                &("remote_denom_share1".to_string(), Uint128::from(50u128)),
+            )
+            .unwrap();
+
+        LSM_SHARES_TO_REDEEM
+            .save(
+                deps.as_mut().storage,
+                "local_denom_2".to_string(),
+                &("remote_denom_share2".to_string(), Uint128::from(100u128)),
+            )
+            .unwrap();
+
+        LSM_SHARES_TO_REDEEM
+            .save(
+                deps.as_mut().storage,
+                "local_denom_3".to_string(),
+                &("remote_denom_share3".to_string(), Uint128::from(150u128)),
+            )
+            .unwrap();
+
+        LAST_LSM_REDEEM.save(deps.as_mut().storage, &0).unwrap();
+
+        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
+            get_pending_redeem_msg(deps.as_ref(), config, env, vec![]).unwrap();
+
+        assert_eq!(
+            redeem_res,
+            Some(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: MOCK_PUPPETEER_CONTRACT_ADDR.to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+                        items: vec![
+                            RedeemShareItem {
+                                amount: Uint128::from(50u128),
+                                local_denom: "local_denom_1".to_string(),
+                                remote_denom: "remote_denom_share1".to_string(),
+                            },
+                            RedeemShareItem {
+                                amount: Uint128::from(100u128),
+                                local_denom: "local_denom_2".to_string(),
+                                remote_denom: "remote_denom_share2".to_string(),
+                            }
+                        ],
+                        reply_to: env.contract.address.to_string(),
+                    },
+                )
+                .unwrap(),
+                funds: vec![],
+            }))
         );
     }
 }

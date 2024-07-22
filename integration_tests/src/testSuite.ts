@@ -190,11 +190,8 @@ const awaitFirstBlock = (rpc: string): Promise<void> =>
         method: 'GET',
         signal: controller.signal,
       });
-      console.log(`Connecting to ${rpc}`);
       const client = await StargateClient.connect(rpc);
-      console.log(`Connected to ${rpc}`);
       const block = await client.getBlock();
-      console.log(`Got block ${block.header.height}`);
       if (block.header.height > 1) {
         return true;
       }

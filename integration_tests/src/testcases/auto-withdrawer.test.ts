@@ -1025,13 +1025,13 @@ describe('Auto withdrawer', () => {
       it('tick', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1084,7 +1084,7 @@ describe('Auto withdrawer', () => {
       });
       it('wait for balances to come', async () => {
         let res;
-        const [, currentHeight] =
+        const { remote_height: currentHeight } =
           await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
@@ -1097,7 +1097,7 @@ describe('Auto withdrawer', () => {
                 balances: {},
               },
             });
-            return res[1] !== currentHeight;
+            return res.remote_height !== currentHeight;
           } catch (e) {
             //
           }
@@ -1106,13 +1106,13 @@ describe('Auto withdrawer', () => {
       it('second tick goes to unbonding', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1162,13 +1162,13 @@ describe('Auto withdrawer', () => {
       it('next tick goes to idle', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1205,13 +1205,13 @@ describe('Auto withdrawer', () => {
       it('idle tick', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1254,14 +1254,14 @@ describe('Auto withdrawer', () => {
         expect(newBalance).toBeGreaterThan(balance);
       });
       it('wait for balance to update', async () => {
-        const [, currentHeight] =
+        const { remote_height: currentHeight } =
           (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
           })) as any;
         await waitFor(async () => {
-          const [, nowHeight] =
+          const { remote_height: nowHeight } =
             (await context.puppeteerContractClient.queryExtension({
               msg: {
                 balances: {},
@@ -1273,13 +1273,13 @@ describe('Auto withdrawer', () => {
       it('next tick goes to staking', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1318,13 +1318,13 @@ describe('Auto withdrawer', () => {
       it('next tick goes to idle', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1466,7 +1466,7 @@ describe('Auto withdrawer', () => {
                   non_native_rewards_balances: {},
                 },
               });
-            return res[0].coins.length == 2;
+            return res.balances.coins.length == 2;
           } catch (e) {
             //
           }
@@ -1475,13 +1475,13 @@ describe('Auto withdrawer', () => {
       it('tick', async () => {
         const {
           neutronUserAddress,
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1547,30 +1547,30 @@ describe('Auto withdrawer', () => {
               },
             },
           );
-          return res[0].coins.length === 1;
+          return res.balances.coins.length === 1;
         });
       }, 30_000);
       it('wait for balances and delegations to update', async () => {
-        const [, currentBalancesHeight] =
+        const { remote_height: currentBalancesHeight } =
           await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
           });
-        const [, currentDelegationsHeight] =
+        const { remote_height: currentDelegationsHeight } =
           await context.puppeteerContractClient.queryExtension({
             msg: {
               delegations: {},
             },
           });
         await waitFor(async () => {
-          const [, nowBalancesHeight] =
+          const { remote_height: nowBalancesHeight } =
             await context.puppeteerContractClient.queryExtension({
               msg: {
                 balances: {},
               },
             });
-          const [, nowDelegationsHeight] =
+          const { remote_height: nowDelegationsHeight } =
             await context.puppeteerContractClient.queryExtension({
               msg: {
                 delegations: {},
@@ -1583,7 +1583,19 @@ describe('Auto withdrawer', () => {
         }, 30_000);
       });
       it('tick', async () => {
-        const { neutronUserAddress } = context;
+        const {
+          neutronUserAddress,
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1646,7 +1658,7 @@ describe('Auto withdrawer', () => {
               balances: {},
             },
           })) as any;
-          const icaTs = Math.floor(res[2] / 1e9);
+          const icaTs = Math.floor(res.timestamp / 1e9);
           return icaTs > batchInfo.expected_release_time;
         }, 500_000);
       });
@@ -1681,7 +1693,7 @@ describe('Auto withdrawer', () => {
       });
       it('wait for ICQ update', async () => {
         await waitForPuppeteerICQ(
-          context.client,
+          context.gaiaClient,
           context.coreContractClient,
           context.puppeteerContractClient,
         );
@@ -1690,12 +1702,12 @@ describe('Auto withdrawer', () => {
         const {
           coreContractClient,
           neutronUserAddress,
-          client,
+          gaiaClient,
           puppeteerContractClient,
         } = context;
 
         await waitForPuppeteerICQ(
-          client,
+          gaiaClient,
           coreContractClient,
           puppeteerContractClient,
         );
@@ -1738,7 +1750,7 @@ describe('Auto withdrawer', () => {
           neutronIBCDenom,
           autoWithdrawerContractClient,
         } = context;
-        const expectedWithdrawnAmount = '20000';
+        const expectedWithdrawnAmount = 20000;
 
         const balanceBefore = parseInt(
           (
@@ -1764,16 +1776,19 @@ describe('Auto withdrawer', () => {
           await context.coreContractClient.queryUnbondBatch({
             batch_id: '0',
           });
-        expect(withdrawnBatch.withdrawn_amount).eq(expectedWithdrawnAmount);
+        expect(parseInt(withdrawnBatch.withdrawn_amount, 10)).toBeCloseTo(
+          expectedWithdrawnAmount,
+          -1,
+        );
 
         const balance =
           await neutronClient.CosmosBankV1Beta1.query.queryBalance(
             neutronUserAddress,
             { denom: neutronIBCDenom },
           );
-        expect(parseInt(balance.data.balance.amount) - balanceBefore).toBe(
-          parseInt(expectedWithdrawnAmount),
-        );
+        expect(
+          parseInt(balance.data.balance.amount, 10) - balanceBefore,
+        ).toBeCloseTo(expectedWithdrawnAmount, -1);
 
         const bondings = await autoWithdrawerContractClient.queryBondings({
           user: neutronUserAddress,

@@ -86,7 +86,7 @@ pub fn instantiate(
     TOTAL_LSM_SHARES.save(deps.storage, &0)?;
     BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
     NON_NATIVE_REWARDS_CONFIG.save(deps.storage, &vec![])?;
-    LAST_LSM_REDEEM.save(deps.storage, &0)?;
+    LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
@@ -163,56 +163,55 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
             denom: LD_DENOM.load(deps.storage)?,
         }))?;
 
-    let exchange_rate_denominator = ld_total_supply.amount.amount;
+    let mut exchange_rate_denominator = ld_total_supply.amount.amount;
     if exchange_rate_denominator.is_zero() {
         return Ok(Decimal::one());
     }
 
-    let delegations = deps
+    let delegations_response = deps
         .querier
         .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
-            &config.puppeteer_contract,
-            &drop_puppeteer_base::msg::QueryMsg::Extension {
-                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
-            },
-        )?;
+        &config.puppeteer_contract,
+        &drop_puppeteer_base::msg::QueryMsg::Extension {
+            msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+        },
+    )?;
 
-    let delegations_amount: Uint128 = delegations
-        .0
+    let delegations_amount: Uint128 = delegations_response
+        .delegations
         .delegations
         .iter()
         .map(|d| d.amount.amount)
         .sum();
     let mut batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
-    let mut unprocessed_unbonded_amount = Uint128::zero();
+    let mut unprocessed_dasset_to_unbond = Uint128::zero();
     let batch = unbond_batches_map().load(deps.storage, batch_id)?;
     if batch.status == UnbondBatchStatus::New {
-        unprocessed_unbonded_amount += batch.expected_native_asset_amount;
+        unprocessed_dasset_to_unbond += batch.total_dasset_amount_to_withdraw;
     }
     if batch_id > 0 {
         batch_id -= 1;
         let batch = unbond_batches_map().load(deps.storage, batch_id)?;
         if batch.status == UnbondBatchStatus::UnbondRequested {
-            unprocessed_unbonded_amount += batch.expected_native_asset_amount;
+            unprocessed_dasset_to_unbond += batch.total_dasset_amount_to_withdraw;
         }
     }
     let failed_batch_id = FAILED_BATCH_ID.may_load(deps.storage)?;
     if let Some(failed_batch_id) = failed_batch_id {
         let failed_batch = unbond_batches_map().load(deps.storage, failed_batch_id)?;
-        unprocessed_unbonded_amount += failed_batch.expected_native_asset_amount;
+        unprocessed_dasset_to_unbond += failed_batch.total_dasset_amount_to_withdraw;
     }
+    exchange_rate_denominator += unprocessed_dasset_to_unbond;
     let staker_balance: Uint128 = deps.querier.query_wasm_smart(
         &config.staker_contract,
         &drop_staking_base::msg::staker::QueryMsg::AllBalance {},
     )?;
     let total_lsm_shares = Uint128::new(TOTAL_LSM_SHARES.load(deps.storage)?);
     // arithmetic operations order is important here as we don't want to overflow
-    let exchange_rate_numerator =
-        delegations_amount + staker_balance + total_lsm_shares - unprocessed_unbonded_amount;
+    let exchange_rate_numerator = delegations_amount + staker_balance + total_lsm_shares;
     if exchange_rate_numerator.is_zero() {
         return Ok(Decimal::one());
     }
-
     let exchange_rate = Decimal::from_ratio(exchange_rate_numerator, exchange_rate_denominator);
     Ok(exchange_rate)
 }
@@ -477,7 +476,7 @@ fn execute_puppeteer_hook(
     );
     match msg.clone() {
         drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) => {
-            LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &success_msg.local_height)?;
+            LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &success_msg.remote_height)?;
             match &success_msg.transaction {
                 drop_puppeteer_base::msg::Transaction::IBCTransfer {
                     denom,
@@ -656,7 +655,7 @@ fn execute_tick_idle(
             .pump_ica_address
             .clone()
             .ok_or(ContractError::PumpIcaAddressIsNotSet {})?;
-        let (ica_balance, _local_height, ica_balance_local_time) = get_ica_balance_by_denom(
+        let (ica_balance, _remote_height, ica_balance_local_time) = get_ica_balance_by_denom(
             deps.as_ref(),
             config.puppeteer_contract.as_ref(),
             &config.remote_denom,
@@ -761,21 +760,21 @@ fn execute_tick_idle(
             &drop_staking_base::msg::validatorset::QueryMsg::Validators {},
         )?;
 
-        let (delegations, local_height, _) =
-            deps.querier
-                .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
-                    config.puppeteer_contract.to_string(),
-                    &drop_puppeteer_base::msg::QueryMsg::Extension {
-                        msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
-                    },
-                )?;
+        let delegations_response = deps
+            .querier
+            .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
+            config.puppeteer_contract.to_string(),
+            &drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+            },
+        )?;
 
         attrs.push(attr("knot", "009"));
         ensure!(
-            (env.block.height - local_height) <= config.icq_update_delay,
+            (env.block.height - delegations_response.local_height) <= config.icq_update_delay,
             ContractError::PuppeteerDelegationsOutdated {
                 ica_height: env.block.height,
-                control_height: local_height
+                control_height: delegations_response.local_height
             }
         );
 
@@ -783,7 +782,8 @@ fn execute_tick_idle(
             .iter()
             .map(|v| (v.valoper_address.clone(), v))
             .collect::<std::collections::HashMap<_, _>>();
-        let validators_to_claim = delegations
+        let validators_to_claim = delegations_response
+            .delegations
             .delegations
             .iter()
             .filter(|d| validators_map.get(&d.validator).map_or(false, |_| true))
@@ -983,17 +983,17 @@ fn execute_tick_staking_bond(
     let mut attrs = vec![attr("action", "tick_staking_bond")];
     let response_msg = get_received_staker_response(deps.as_ref())?;
     if let drop_staking_base::msg::staker::ResponseHookMsg::Success(response) = response_msg {
-        let (_, puppeteer_height, _): drop_staking_base::msg::puppeteer::BalancesResponse =
+        let balances_response: drop_staking_base::msg::puppeteer::BalancesResponse =
             deps.querier.query_wasm_smart(
                 config.puppeteer_contract.to_string(),
                 &drop_puppeteer_base::msg::QueryMsg::Extension {
                     msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
                 },
             )?;
-        if response.local_height > puppeteer_height {
+        if response.remote_height > balances_response.remote_height {
             return Err(ContractError::PuppeteerBalanceOutdated {
-                ica_height: response.local_height,
-                control_height: puppeteer_height,
+                ica_height: response.remote_height,
+                control_height: balances_response.remote_height,
             });
         }
     }
@@ -1300,28 +1300,22 @@ fn execute_unbond(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let mut attrs = vec![attr("action", "unbond")];
+    let attrs = vec![attr("action", "unbond")];
     let unbond_batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
     let ld_denom = LD_DENOM.load(deps.storage)?;
     let dasset_amount = cw_utils::must_pay(&info, &ld_denom)?;
     BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total - dasset_amount))?;
     let mut unbond_batch = unbond_batches_map().load(deps.storage, unbond_batch_id)?;
-    let exchange_rate = query_exchange_rate(deps.as_ref(), &config)?;
-    attrs.push(attr("exchange_rate", exchange_rate.to_string()));
-    let native_asset_amount = dasset_amount * exchange_rate;
     unbond_batch.total_unbond_items += 1;
     unbond_batch.total_dasset_amount_to_withdraw += dasset_amount;
-    unbond_batch.expected_native_asset_amount += native_asset_amount;
-
-    attrs.push(attr("expected_amount", native_asset_amount.to_string()));
     unbond_batches_map().save(deps.storage, unbond_batch_id, &unbond_batch)?;
+
     let extension = Some(Metadata {
         description: Some("Withdrawal voucher".into()),
         name: "LDV voucher".to_string(),
         batch_id: unbond_batch_id.to_string(),
         amount: dasset_amount,
-        expected_amount: native_asset_amount,
         attributes: Some(vec![
             Trait {
                 display_type: None,
@@ -1333,18 +1327,9 @@ fn execute_unbond(
                 trait_type: "received_amount".to_string(),
                 value: dasset_amount.to_string(),
             },
-            Trait {
-                display_type: None,
-                trait_type: "expected_amount".to_string(),
-                value: native_asset_amount.to_string(),
-            },
-            Trait {
-                display_type: None,
-                trait_type: "exchange_rate".to_string(),
-                value: exchange_rate.to_string(),
-            },
         ]),
     });
+
     let msgs = vec![
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.withdrawal_voucher_contract.into_string(),
@@ -1378,7 +1363,7 @@ fn check_latest_icq_responses(
 ) -> ContractResult<Response<NeutronMsg>> {
     let last_ica_balance_change_height = LAST_ICA_CHANGE_HEIGHT.load(deps.storage)?;
 
-    let (_, balance_height, _): drop_staking_base::msg::puppeteer::BalancesResponse =
+    let balances_response: drop_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             puppeteer_contract.to_string(),
             &drop_puppeteer_base::msg::QueryMsg::Extension {
@@ -1387,14 +1372,14 @@ fn check_latest_icq_responses(
         )?;
 
     ensure!(
-        last_ica_balance_change_height <= balance_height,
+        last_ica_balance_change_height <= balances_response.remote_height,
         ContractError::PuppeteerBalanceOutdated {
             ica_height: last_ica_balance_change_height,
-            control_height: balance_height
+            control_height: balances_response.remote_height
         }
     );
 
-    let (_, delegations_height, _): drop_staking_base::msg::puppeteer::DelegationsResponse =
+    let delegations_response: drop_staking_base::msg::puppeteer::DelegationsResponse =
         deps.querier.query_wasm_smart(
             puppeteer_contract,
             &drop_puppeteer_base::msg::QueryMsg::Extension {
@@ -1403,10 +1388,10 @@ fn check_latest_icq_responses(
         )?;
 
     ensure!(
-        last_ica_balance_change_height <= delegations_height,
+        last_ica_balance_change_height <= delegations_response.remote_height,
         ContractError::PuppeteerDelegationsOutdated {
             ica_height: last_ica_balance_change_height,
-            control_height: delegations_height
+            control_height: delegations_response.remote_height
         }
     );
 
@@ -1512,13 +1497,18 @@ fn get_unbonding_msg<T>(
     attrs.push(attr("knot", "027"));
     if (unbond.status_timestamps.new + config.unbond_batch_switch_time < env.block.time.seconds())
         && unbond.total_unbond_items != 0
-        && !unbond.expected_native_asset_amount.is_zero()
+        && !unbond.total_dasset_amount_to_withdraw.is_zero()
     {
+        let current_exchange_rate = query_exchange_rate(deps.as_ref(), config)?;
+        attrs.push(attr("exchange_rate", current_exchange_rate.to_string()));
+        let expected_native_asset_amount =
+            unbond.total_dasset_amount_to_withdraw * current_exchange_rate;
+
         let calc_withdraw_query_result: Result<Vec<(String, Uint128)>, StdError> =
             deps.querier.query_wasm_smart(
                 config.strategy_contract.to_string(),
                 &drop_staking_base::msg::strategy::QueryMsg::CalcWithdraw {
-                    withdraw: unbond.expected_native_asset_amount,
+                    withdraw: expected_native_asset_amount,
                 },
             );
 
@@ -1531,6 +1521,7 @@ fn get_unbonding_msg<T>(
         attrs.push(attr("knot", "045"));
         unbond.status = UnbondBatchStatus::UnbondRequested;
         unbond.status_timestamps.unbond_requested = Some(env.block.time.seconds());
+        unbond.expected_native_asset_amount = expected_native_asset_amount;
         unbond_batches_map().save(deps.storage, batch_id, &unbond)?;
 
         attrs.push(attr("knot", "049"));
@@ -1593,7 +1584,7 @@ fn get_ica_balance_by_denom<T: CustomQuery>(
     remote_denom: &str,
     can_be_zero: bool,
 ) -> ContractResult<(Uint128, u64, u64)> {
-    let (ica_balances, balance_height, local_time): drop_staking_base::msg::puppeteer::BalancesResponse =
+    let balances_response: drop_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             puppeteer_contract.to_string(),
             &drop_puppeteer_base::msg::QueryMsg::Extension {
@@ -1603,27 +1594,28 @@ fn get_ica_balance_by_denom<T: CustomQuery>(
 
     let last_ica_balance_change_height = LAST_ICA_CHANGE_HEIGHT.load(deps.storage)?;
     ensure!(
-        last_ica_balance_change_height <= balance_height,
+        last_ica_balance_change_height <= balances_response.remote_height,
         ContractError::PuppeteerBalanceOutdated {
             ica_height: last_ica_balance_change_height,
-            control_height: balance_height
+            control_height: balances_response.remote_height
         }
     );
 
-    let balance = ica_balances.coins.iter().find_map(|c| {
+    let balance = balances_response.balances.coins.iter().find_map(|c| {
         if c.denom == remote_denom {
             Some(c.amount)
         } else {
             None
         }
     });
+
     Ok((
         match can_be_zero {
             true => balance.unwrap_or(Uint128::zero()),
             false => balance.ok_or(ContractError::ICABalanceZero {})?,
         },
-        balance_height,
-        local_time.seconds(),
+        balances_response.remote_height,
+        balances_response.timestamp.seconds(),
     ))
 }
 
@@ -1661,7 +1653,7 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
         return Ok(None);
     }
     let mut items = vec![];
-    let rewards: drop_staking_base::msg::puppeteer::BalancesResponse =
+    let rewards_response: drop_staking_base::msg::puppeteer::BalancesResponse =
         deps.querier.query_wasm_smart(
             config.puppeteer_contract.to_string(),
             &drop_puppeteer_base::msg::QueryMsg::Extension {
@@ -1671,15 +1663,15 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
 
     let last_ica_balance_change_height = LAST_ICA_CHANGE_HEIGHT.load(deps.storage)?;
     ensure!(
-        last_ica_balance_change_height <= rewards.1,
+        last_ica_balance_change_height <= rewards_response.remote_height,
         ContractError::PuppeteerBalanceOutdated {
             ica_height: last_ica_balance_change_height,
-            control_height: rewards.1
+            control_height: rewards_response.remote_height
         }
     );
 
-    let rewards_map = rewards
-        .0
+    let rewards_map = rewards_response
+        .balances
         .coins
         .iter()
         .map(|c| (c.denom.clone(), c.amount))
@@ -1726,7 +1718,7 @@ pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
     })))
 }
 
-fn get_pending_redeem_msg<T>(
+pub fn get_pending_redeem_msg<T>(
     deps: Deps<NeutronQuery>,
     config: &Config,
     env: &Env,
@@ -1737,15 +1729,18 @@ fn get_pending_redeem_msg<T>(
         .count();
     let last_lsm_redeem = LAST_LSM_REDEEM.load(deps.storage)?;
     let lsm_redeem_threshold = config.lsm_redeem_threshold as usize;
+
     if pending_lsm_shares_count == 0
         || ((pending_lsm_shares_count < lsm_redeem_threshold)
-            || (last_lsm_redeem + config.lsm_redeem_maximum_interval > env.block.time.seconds()))
+            && (last_lsm_redeem + config.lsm_redeem_maximum_interval > env.block.time.seconds()))
     {
         return Ok(None);
     }
     let shares_to_redeeem = LSM_SHARES_TO_REDEEM
         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+        .take(lsm_redeem_threshold)
         .collect::<StdResult<Vec<_>>>()?;
+
     let items = shares_to_redeeem
         .iter()
         .map(|(local_denom, (denom, amount))| RedeemShareItem {

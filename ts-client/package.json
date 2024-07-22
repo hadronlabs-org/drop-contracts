@@ -4,14 +4,13 @@
   "license": "MIT",
   "main": "lib/contractLib/index.js",
   "scripts": {
-    "build": "tsc",
-    "generate": "ts-node ./src/rebuild-client.ts"
+    "generate": "ts-node ./src/rebuild-client.ts && tsc"
   },
   "dependencies": {
     "@neutron-org/client-ts": "^1.4.0",
-    "@neutron-org/contracts2ts": "^1.4.4",
-    "@cosmjs/cosmwasm-stargate": "^0.32.3",
-    "@cosmjs/proto-signing": "^0.32.3"
+    "@neutron-org/contracts2ts": "1.4.6",
+    "@cosmjs/cosmwasm-stargate": "^0.32.4",
+    "@cosmjs/proto-signing": "^0.32.4"
   },
   "devDependencies": {
     "ts-node": "^10.9.2",
