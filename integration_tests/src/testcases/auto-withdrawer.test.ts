@@ -38,7 +38,7 @@ import { stringToPath } from '@cosmjs/crypto';
 import { sleep } from '../helpers/sleep';
 import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 import { instrumentCoreClass } from '../helpers/knot';
-import { compareExchangeRates } from '../helpers/exchangeRate';
+import { checkExchangeRate } from '../helpers/exchangeRate';
 
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
@@ -651,13 +651,7 @@ describe('Auto withdrawer', () => {
       await coreContractClient.queryExchangeRate(),
     );
     expect(context.exchangeRate).toEqual(1);
-    expect(
-      await compareExchangeRates(
-        client,
-        coreContractClient.contractAddress,
-        neutronRPCEndpoint,
-      ),
-    ).toBeTruthy();
+    await checkExchangeRate(context);
   });
 
   it('add validators into validators set', async () => {
@@ -801,14 +795,7 @@ describe('Auto withdrawer', () => {
       next_page_key: null,
     });
 
-    const { coreContractClient, client, neutronRPCEndpoint } = context;
-    expect(
-      await compareExchangeRates(
-        client,
-        coreContractClient.contractAddress,
-        neutronRPCEndpoint,
-      ),
-    ).toBeTruthy();
+    await checkExchangeRate(context);
   });
   it('unbond', async () => {
     const {
@@ -839,14 +826,7 @@ describe('Auto withdrawer', () => {
       bondings: [],
       next_page_key: null,
     });
-    const { coreContractClient, client, neutronRPCEndpoint } = context;
-    expect(
-      await compareExchangeRates(
-        client,
-        coreContractClient.contractAddress,
-        neutronRPCEndpoint,
-      ),
-    ).toBeTruthy();
+    await checkExchangeRate(context);
   });
   it('bond with NFT', async () => {
     const {
@@ -902,14 +882,7 @@ describe('Auto withdrawer', () => {
       next_page_key: null,
     });
 
-    const { coreContractClient, client, neutronRPCEndpoint } = context;
-    expect(
-      await compareExchangeRates(
-        client,
-        coreContractClient.contractAddress,
-        neutronRPCEndpoint,
-      ),
-    ).toBeTruthy();
+    await checkExchangeRate(context);
   });
 
   describe('state machine', () => {
@@ -1050,14 +1023,7 @@ describe('Auto withdrawer', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('staking_bond');
-        const { neutronRPCEndpoint } = context;
-        expect(
-          await compareExchangeRates(
-            client,
-            coreContractClient.contractAddress,
-            neutronRPCEndpoint,
-          ),
-        ).toBeTruthy();
+        await checkExchangeRate(context);
       });
       it('wait for response from staker', async () => {
         let response;
@@ -1131,14 +1097,7 @@ describe('Auto withdrawer', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('unbonding');
-        const { neutronRPCEndpoint } = context;
-        expect(
-          await compareExchangeRates(
-            client,
-            coreContractClient.contractAddress,
-            neutronRPCEndpoint,
-          ),
-        ).toBeTruthy();
+        await checkExchangeRate(context);
       });
       it('wait for response from puppeteer', async () => {
         let response: ResponseHookMsg;
@@ -1182,14 +1141,7 @@ describe('Auto withdrawer', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
-        const { neutronRPCEndpoint } = context;
-        expect(
-          await compareExchangeRates(
-            client,
-            coreContractClient.contractAddress,
-            neutronRPCEndpoint,
-          ),
-        ).toBeTruthy();
+        await checkExchangeRate(context);
       });
     });
     describe('second cycle', () => {
@@ -1225,14 +1177,7 @@ describe('Auto withdrawer', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('claiming');
-        const { neutronRPCEndpoint } = context;
-        expect(
-          await compareExchangeRates(
-            client,
-            coreContractClient.contractAddress,
-            neutronRPCEndpoint,
-          ),
-        ).toBeTruthy();
+        await checkExchangeRate(context);
       });
       it('wait for response from puppeteer', async () => {
         let response;
@@ -1293,14 +1238,7 @@ describe('Auto withdrawer', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('staking_rewards');
-        const { neutronRPCEndpoint } = context;
-        expect(
-          await compareExchangeRates(
-            client,
-            coreContractClient.contractAddress,
-            neutronRPCEndpoint,
-          ),
-        ).toBeTruthy();
+        await checkExchangeRate(context);
       });
       it('wait for response from puppeteer', async () => {
         let response;
@@ -1338,14 +1276,7 @@ describe('Auto withdrawer', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
-        const { neutronRPCEndpoint } = context;
-        expect(
-          await compareExchangeRates(
-            client,
-            coreContractClient.contractAddress,
-            neutronRPCEndpoint,
-          ),
-        ).toBeTruthy();
+        await checkExchangeRate(context);
       });
     });
     describe('third cycle', () => {
@@ -1394,14 +1325,7 @@ describe('Auto withdrawer', () => {
           `neutrond tx ibc-transfer transfer transfer channel-0 ${context.icaAddress} 2222${tokenFactoryDenoms[1].denom} --from ${neutronUserAddress} --yes --chain-id ntrntest  --gas auto --gas-adjustment 1.6 --fees 10000untrn --home=/opt --keyring-backend=test --output json`,
         );
         await sleep(5_000);
-        const { coreContractClient, client, neutronRPCEndpoint } = context;
-        expect(
-          await compareExchangeRates(
-            client,
-            coreContractClient.contractAddress,
-            neutronRPCEndpoint,
-          ),
-        ).toBeTruthy();
+        await checkExchangeRate(context);
       });
       it('wait for balances to come', async () => {
         let res: readonly Coin[] = [];
@@ -1495,14 +1419,7 @@ describe('Auto withdrawer', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('non_native_rewards_transfer');
-        const { neutronRPCEndpoint } = context;
-        expect(
-          await compareExchangeRates(
-            client,
-            coreContractClient.contractAddress,
-            neutronRPCEndpoint,
-          ),
-        ).toBeTruthy();
+        await checkExchangeRate(context);
       });
       it('wait for the response from puppeteer', async () => {
         let response: ResponseHookMsg;
@@ -1605,14 +1522,7 @@ describe('Auto withdrawer', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
-        const { coreContractClient, client, neutronRPCEndpoint } = context;
-        expect(
-          await compareExchangeRates(
-            client,
-            coreContractClient.contractAddress,
-            neutronRPCEndpoint,
-          ),
-        ).toBeTruthy();
+        await checkExchangeRate(context);
       });
     });
 
@@ -1667,14 +1577,7 @@ describe('Auto withdrawer', () => {
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('claiming');
-        const { client, neutronRPCEndpoint } = context;
-        expect(
-          await compareExchangeRates(
-            client,
-            coreContractClient.contractAddress,
-            neutronRPCEndpoint,
-          ),
-        ).toBeTruthy();
+        await checkExchangeRate(context);
       });
       it('wait for the response from puppeteer', async () => {
         let response: ResponseHookMsg;
@@ -1715,14 +1618,7 @@ describe('Auto withdrawer', () => {
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('staking_rewards');
-        const { neutronRPCEndpoint } = context;
-        expect(
-          await compareExchangeRates(
-            client,
-            coreContractClient.contractAddress,
-            neutronRPCEndpoint,
-          ),
-        ).toBeTruthy();
+        await checkExchangeRate(context);
       });
       it('fund withdrawal manager', async () => {
         const { pumpContractClient, neutronUserAddress } = context;
@@ -1797,14 +1693,7 @@ describe('Auto withdrawer', () => {
           bondings: [],
           next_page_key: null,
         });
-        const { coreContractClient, client, neutronRPCEndpoint } = context;
-        expect(
-          await compareExchangeRates(
-            client,
-            coreContractClient.contractAddress,
-            neutronRPCEndpoint,
-          ),
-        ).toBeTruthy();
+        await checkExchangeRate(context);
       });
     });
   });

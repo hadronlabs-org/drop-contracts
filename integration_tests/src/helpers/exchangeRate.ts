@@ -9,6 +9,7 @@ import {
   setupTxExtension,
 } from '@cosmjs/stargate';
 import { QueryClientImpl } from 'cosmjs-types/cosmos/bank/v1beta1/query';
+import { expect } from 'vitest';
 
 export const DEFAULT_EXCHANGE_RATE_DECIMALS: number = 8;
 
@@ -52,7 +53,6 @@ export async function calcExchangeRate(
       },
     },
   );
-  console.log(coreConfig, delegationsResponse);
   const delegationsAmount: Decimal =
     delegationsResponse.delegations.delegations.reduce(
       (acc: Decimal, next: any) => acc.plus(new Decimal(next.amount.amount)),
@@ -119,6 +119,19 @@ export async function calcExchangeRate(
     exchangeRateDenominator,
   );
   return exchangeRate.toNumber();
+}
+
+export async function checkExchangeRate(testContext: any) {
+  const { coreContractClient, client, neutronRPCEndpoint } = testContext;
+  if ((await coreContractClient.queryContractState()) === 'idle') {
+    expect(
+      await compareExchangeRates(
+        client,
+        coreContractClient.contractAddress,
+        neutronRPCEndpoint,
+      ),
+    ).toBeTruthy();
+  }
 }
 
 export async function compareExchangeRates(
