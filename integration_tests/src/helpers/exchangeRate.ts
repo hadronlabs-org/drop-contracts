@@ -21,14 +21,6 @@ export async function calcExchangeRate(
   const FSMState = await clientCW.queryContractSmart(coreContract, {
     contract_state: {},
   });
-  if (FSMState !== 'idle') {
-    // If state isn't idle then this query'll return cached exchange rate
-    return Number(
-      await clientCW.queryContractSmart(coreContract, {
-        exchange_rate: {},
-      }),
-    );
-  }
   const queryClient = QueryClient.withExtensions(
     await connectComet(endpoint),
     setupAuthExtension,
