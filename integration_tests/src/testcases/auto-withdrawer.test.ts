@@ -646,7 +646,7 @@ describe('Auto withdrawer', () => {
   });
 
   it('query exchange rate', async () => {
-    const { coreContractClient, client, neutronRPCEndpoint } = context;
+    const { coreContractClient } = context;
     context.exchangeRate = parseFloat(
       await coreContractClient.queryExchangeRate(),
     );
