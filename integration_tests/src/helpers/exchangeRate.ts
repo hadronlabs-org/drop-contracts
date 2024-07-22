@@ -18,9 +18,6 @@ export async function calcExchangeRate(
   const coreConfig = await clientCW.queryContractSmart(coreContract, {
     config: {},
   });
-  const FSMState = await clientCW.queryContractSmart(coreContract, {
-    contract_state: {},
-  });
   const queryClient = QueryClient.withExtensions(
     await connectComet(endpoint),
     setupAuthExtension,
