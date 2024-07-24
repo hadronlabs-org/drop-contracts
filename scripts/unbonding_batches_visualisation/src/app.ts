@@ -44,7 +44,7 @@ async function create_batch_info(
   const creation_date = new Date(batch.details.status_timestamps.new * 1000);
   const creation_time = {
     day: creation_date.getUTCDate().toString().padStart(2, "0"),
-    month: creation_date.getUTCMonth().toString().padStart(2, "0"),
+    month: (creation_date.getUTCMonth() + 1).toString().padStart(2, "0"),
     year: creation_date.getUTCFullYear(),
     hours: creation_date.getUTCHours().toString().padStart(2, "0"),
     minutes: creation_date.getUTCMinutes().toString().padStart(2, "0"),
@@ -68,8 +68,7 @@ async function create_batch_info(
     );
     const expected_finalization_time = {
       day: expected_finalization_date.getUTCDate().toString().padStart(2, "0"),
-      month: expected_finalization_date
-        .getUTCMonth()
+      month: (expected_finalization_date.getUTCMonth() + 1)
         .toString()
         .padStart(2, "0"),
       year: expected_finalization_date.getUTCFullYear(),
