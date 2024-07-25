@@ -32,6 +32,7 @@ use std::vec;
 fn test_instantiate() {
     let mut deps = mock_dependencies(&[]);
     let msg = InstantiateMsg {
+        delegations_queries_chunk_size: Some(2u32),
         owner: Some("owner".to_string()),
         connection_id: "connection_id".to_string(),
         port_id: "port_id".to_string(),
@@ -96,6 +97,7 @@ fn test_update_config() {
     assert_eq!(
         config,
         Config {
+            delegations_queries_chunk_size: 2u32,
             port_id: "new_port_id".to_string(),
             connection_id: "new_connection_id".to_string(),
             update_period: 121u64,
@@ -782,8 +784,207 @@ fn test_sudo_response_timeout() {
     );
 }
 
+mod register_delegations_and_balance_query {
+    use cosmwasm_std::{testing::MockApi, MemoryStorage, OwnedDeps, StdResult};
+    use drop_helpers::testing::WasmMockQuerier;
+    use drop_puppeteer_base::error::ContractError;
+
+    use super::*;
+
+    fn setup(
+        owner: Option<&str>,
+    ) -> (
+        OwnedDeps<MemoryStorage, MockApi, WasmMockQuerier, NeutronQuery>,
+        PuppeteerBase<'static, drop_staking_base::state::puppeteer::Config, KVQueryType>,
+    ) {
+        let mut deps = mock_dependencies(&[]);
+        let puppeteer_base = base_init(&mut deps.as_mut());
+        let deps_mut = deps.as_mut();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(Addr::unchecked(owner.unwrap_or("owner")).as_ref()),
+        )
+        .unwrap();
+        (deps, puppeteer_base)
+    }
+
+    #[test]
+    fn non_owner() {
+        let (mut deps, _puppeteer_base) = setup(None);
+        let env = mock_env();
+        let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: vec![] } ;
+        let res = crate::contract::execute(deps.as_mut(), env, mock_info("not_owner", &[]), msg);
+        assert!(res.is_err());
+        assert_eq!(
+            res.unwrap_err(),
+            ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+        );
+    }
+
+    #[test]
+    fn too_many_validators() {
+        let (mut deps, _puppeteer_base) = setup(None);
+        let env = mock_env();
+        let mut validators = vec![];
+        for i in 0..=65536u32 {
+            validators.push(format!("valoper{}", i));
+        }
+
+        let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
+            validators
+        };
+        let res = crate::contract::execute(deps.as_mut(), env, mock_info("owner", &[]), msg);
+        assert!(res.is_err());
+        assert_eq!(
+            res.unwrap_err(),
+            ContractError::Std(StdError::generic_err("Too many validators provided"))
+        );
+    }
+
+    #[test]
+    fn happy_path_validators_count_less_than_chunk_size() {
+        let (mut deps, puppeteer_base) =
+            setup(Some("neutron1m9l358xunhhwds0568za49mzhvuxx9ux8xafx2"));
+        let env = mock_env();
+        let validators = vec![
+            "cosmos1jy7lsk5pk38zjfnn6nt6qlaphy9uejn4hu65xa".to_string(),
+            "cosmos14xcrdjwwxtf9zr7dvaa97wy056se6r5e8q68mw".to_string(),
+        ];
+        puppeteer_base
+            .ica
+            .set_address(
+                deps.as_mut().storage,
+                "cosmos1m9l358xunhhwds0568za49mzhvuxx9uxre5tud",
+                "port",
+                "channel",
+            )
+            .unwrap();
+
+        let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
+            validators
+        };
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            env,
+            mock_info("neutron1m9l358xunhhwds0568za49mzhvuxx9ux8xafx2", &[]),
+            msg,
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            Response::new().add_submessages(vec![SubMsg::reply_on_success(
+                drop_helpers::icq::new_delegations_and_balance_query_msg(
+                    "connection_id".to_string(),
+                    "cosmos1m9l358xunhhwds0568za49mzhvuxx9uxre5tud".to_string(),
+                    "remote_denom".to_string(),
+                    vec![
+                        "cosmos1jy7lsk5pk38zjfnn6nt6qlaphy9uejn4hu65xa".to_string(),
+                        "cosmos14xcrdjwwxtf9zr7dvaa97wy056se6r5e8q68mw".to_string(),
+                    ],
+                    60,
+                    "0.45.0",
+                )
+                .unwrap(),
+                ReplyMsg::KvDelegationsAndBalance { i: 0 }.to_reply_id(),
+            )])
+        );
+    }
+
+    #[test]
+    fn happy_path_validators_count_more_than_chunk_size() {
+        let (mut deps, puppeteer_base) =
+            setup(Some("neutron1m9l358xunhhwds0568za49mzhvuxx9ux8xafx2"));
+        let env = mock_env();
+        let validators = vec![
+            "cosmos1jy7lsk5pk38zjfnn6nt6qlaphy9uejn4hu65xa".to_string(),
+            "cosmos14xcrdjwwxtf9zr7dvaa97wy056se6r5e8q68mw".to_string(),
+            "cosmos15tuf2ewxle6jj6eqd4jm579vpahydzwdsvkrhn".to_string(),
+        ];
+        puppeteer_base
+            .ica
+            .set_address(
+                deps.as_mut().storage,
+                "cosmos1m9l358xunhhwds0568za49mzhvuxx9uxre5tud",
+                "port",
+                "channel",
+            )
+            .unwrap();
+        puppeteer_base
+            .delegations_and_balances_query_id_chunk
+            .save(deps.as_mut().storage, 1, &2)
+            .unwrap();
+        puppeteer_base
+            .delegations_and_balances_query_id_chunk
+            .save(deps.as_mut().storage, 2, &3)
+            .unwrap();
+        let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
+            validators
+        };
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            env,
+            mock_info("neutron1m9l358xunhhwds0568za49mzhvuxx9ux8xafx2", &[]),
+            msg,
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            Response::new()
+                .add_messages(vec![
+                    NeutronMsg::remove_interchain_query(1),
+                    NeutronMsg::remove_interchain_query(2)
+                ])
+                .add_submessages(vec![
+                    SubMsg::reply_on_success(
+                        drop_helpers::icq::new_delegations_and_balance_query_msg(
+                            "connection_id".to_string(),
+                            "cosmos1m9l358xunhhwds0568za49mzhvuxx9uxre5tud".to_string(),
+                            "remote_denom".to_string(),
+                            vec![
+                                "cosmos1jy7lsk5pk38zjfnn6nt6qlaphy9uejn4hu65xa".to_string(),
+                                "cosmos14xcrdjwwxtf9zr7dvaa97wy056se6r5e8q68mw".to_string(),
+                            ],
+                            60,
+                            "0.45.0",
+                        )
+                        .unwrap(),
+                        ReplyMsg::KvDelegationsAndBalance { i: 0 }.to_reply_id(),
+                    ),
+                    SubMsg::reply_on_success(
+                        drop_helpers::icq::new_delegations_and_balance_query_msg(
+                            "connection_id".to_string(),
+                            "cosmos1m9l358xunhhwds0568za49mzhvuxx9uxre5tud".to_string(),
+                            "remote_denom".to_string(),
+                            vec!["cosmos15tuf2ewxle6jj6eqd4jm579vpahydzwdsvkrhn".to_string(),],
+                            60,
+                            "0.45.0",
+                        )
+                        .unwrap(),
+                        ReplyMsg::KvDelegationsAndBalance { i: 1 }.to_reply_id(),
+                    )
+                ])
+        );
+        assert_eq!(
+            puppeteer_base
+                .delegations_and_balances_query_id_chunk
+                .keys(
+                    deps.as_ref().storage,
+                    None,
+                    None,
+                    cosmwasm_std::Order::Ascending
+                )
+                .collect::<StdResult<Vec<u64>>>()
+                .unwrap()
+                .len(),
+            0
+        )
+    }
+}
+
 fn get_base_config() -> Config {
     Config {
+        delegations_queries_chunk_size: 2u32,
         port_id: "port_id".to_string(),
         connection_id: "connection_id".to_string(),
         update_period: 60u64,

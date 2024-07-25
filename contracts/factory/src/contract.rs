@@ -222,6 +222,7 @@ pub fn instantiate(
                 transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
                 sdk_version: msg.sdk_version.to_string(),
                 timeout: msg.puppeteer_params.timeout,
+                delegations_queries_chunk_size: None,
             })?,
             funds: vec![],
             salt: Binary::from(salt),

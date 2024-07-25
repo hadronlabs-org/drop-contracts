@@ -3,7 +3,7 @@ use cosmwasm_std::Addr;
 use cw_storage_plus::Item;
 use drop_puppeteer_base::state::{BalancesAndDelegationsState, BaseConfig};
 
-use crate::msg::puppeteer::{BalancesAndDelegations, MultiBalances};
+use crate::msg::puppeteer::MultiBalances;
 
 #[cw_serde]
 pub struct ConfigOptional {
@@ -27,6 +27,7 @@ pub struct Config {
     pub transfer_channel_id: String,
     pub sdk_version: String,
     pub timeout: u64, // timeout for interchain transactions in seconds
+    pub delegations_queries_chunk_size: u32,
 }
 
 impl BaseConfig for Config {
@@ -50,6 +51,3 @@ pub const CONFIG: Item<Config> = Item::new("config");
 
 pub const NON_NATIVE_REWARD_BALANCES: Item<BalancesAndDelegationsState<MultiBalances>> =
     Item::new("non_native_reward_balances");
-
-pub const DELEGATIONS_AND_BALANCE: Item<BalancesAndDelegationsState<BalancesAndDelegations>> =
-    Item::new("delegations_and_balance");

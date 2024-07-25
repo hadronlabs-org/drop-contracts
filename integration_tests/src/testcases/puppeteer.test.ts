@@ -21,9 +21,12 @@ import {
   ResponseHookErrorMsg,
   ResponseHookSuccessMsg,
 } from 'drop-ts-client/lib/contractLib/dropHookTester';
+import { sleep } from '../helpers/sleep';
 
 const PuppeteerClass = DropPuppeteer.Client;
 const HookTesterClass = DropHookTester.Client;
+const VALIDATORS_COUNT = 5;
+const VALIDATORS_ICQ_LIMIT = 2;
 
 describe('Interchain puppeteer', () => {
   const context: {
@@ -40,16 +43,19 @@ describe('Interchain puppeteer', () => {
     gaiaClient?: SigningCosmWasmClient;
     gaiaQueryClient?: QueryClient & StakingExtension;
     neutronClient?: InstanceType<typeof NeutronClient>;
-    firstValidatorAddress?: string;
-    secondValidatorAddress?: string;
+    validatorAddresses: string[];
     tokenizedDenom?: string;
-  } = {};
+  } = { validatorAddresses: [] };
 
   beforeAll(async (t) => {
     context.park = await setupPark(
       t,
       ['neutron', 'gaia'],
-      {},
+      {
+        gaia: {
+          validators: VALIDATORS_COUNT,
+        },
+      },
       { neutron: true, hermes: true },
     );
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
@@ -102,6 +108,7 @@ describe('Interchain puppeteer', () => {
   });
 
   it('instantiate', async () => {
+    await context.park.restartRelayer('neutron', 1);
     const { client, account } = context;
     {
       const res = await client.upload(
@@ -141,6 +148,7 @@ describe('Interchain puppeteer', () => {
         account.address,
         res.codeId,
         {
+          delegations_queries_chunk_size: 2,
           sdk_version: process.env.SDK_VERSION || '0.46.0',
           connection_id: 'connection-0',
           port_id: 'transfer',
@@ -173,6 +181,7 @@ describe('Interchain puppeteer', () => {
 
     expect<typeof config>(config).toEqual({
       connection_id: 'connection-0',
+      delegations_queries_chunk_size: VALIDATORS_ICQ_LIMIT,
       port_id: 'transfer',
       update_period: 10,
       remote_denom: 'wrong',
@@ -209,6 +218,7 @@ describe('Interchain puppeteer', () => {
       remote_denom: 'stake',
       sdk_version: '0.46.0',
       timeout: 60,
+      delegations_queries_chunk_size: VALIDATORS_ICQ_LIMIT,
       allowed_senders: [
         context.hookContractClient.contractAddress,
         account.address,
@@ -325,30 +335,21 @@ describe('Interchain puppeteer', () => {
 
   it('delegate tokens on gaia side', async () => {
     const { hookContractClient, account } = context;
-    {
+    for (let i = 0; i < VALIDATORS_COUNT; i++) {
       const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
         context.park.config.master_mnemonic,
         {
           prefix: 'cosmosvaloper',
-          hdPaths: [stringToPath("m/44'/118'/1'/0/0") as any],
+          hdPaths: [stringToPath(`m/44'/118'/${i + 1}'/0/0`) as any],
         },
       );
-      context.firstValidatorAddress = (await wallet.getAccounts())[0].address;
+      context.validatorAddresses.push((await wallet.getAccounts())[0].address);
     }
-    {
-      const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
-        context.park.config.master_mnemonic,
-        {
-          prefix: 'cosmosvaloper',
-          hdPaths: [stringToPath("m/44'/118'/2'/0/0") as any],
-        },
-      );
-      context.secondValidatorAddress = (await wallet.getAccounts())[0].address;
-    }
+
     const res = await hookContractClient.delegate(
       account.address,
       {
-        validator: context.firstValidatorAddress,
+        validator: context.validatorAddresses[0],
         amount: '100000',
       },
       1.5,
@@ -364,7 +365,7 @@ describe('Interchain puppeteer', () => {
       hookContractClient.delegate(
         account.address,
         {
-          validator: context.firstValidatorAddress,
+          validator: context.validatorAddresses[0],
           amount: '100000',
         },
         1.5,
@@ -394,7 +395,7 @@ describe('Interchain puppeteer', () => {
     const res = await hookContractClient.undelegate(
       account.address,
       {
-        validator: context.firstValidatorAddress,
+        validator: context.validatorAddresses[0],
         amount: '1000',
       },
       1.5,
@@ -429,8 +430,8 @@ describe('Interchain puppeteer', () => {
     const res = await hookContractClient.redelegate(
       account.address,
       {
-        validator_from: context.firstValidatorAddress,
-        validator_to: context.secondValidatorAddress,
+        validator_from: context.validatorAddresses[0],
+        validator_to: context.validatorAddresses[1],
         amount: '10000',
       },
       1.5,
@@ -465,7 +466,7 @@ describe('Interchain puppeteer', () => {
     const res = await hookContractClient.tokenizeShare(
       account.address,
       {
-        validator: context.firstValidatorAddress,
+        validator: context.validatorAddresses[0],
         amount: '5000',
       },
       1.5,
@@ -488,7 +489,7 @@ describe('Interchain puppeteer', () => {
         tokenize_shares_response: {
           amount: {
             amount: '5000',
-            denom: `${context.firstValidatorAddress}/1`,
+            denom: `${context.validatorAddresses[0]}/1`,
           },
         },
       },
@@ -500,9 +501,9 @@ describe('Interchain puppeteer', () => {
     const res = await hookContractClient.redeemShare(
       account.address,
       {
-        validator: context.firstValidatorAddress,
+        validator: context.validatorAddresses[0],
         amount: '5000',
-        denom: `${context.firstValidatorAddress}/1`,
+        denom: `${context.validatorAddresses[0]}/1`,
       },
       1.5,
       undefined,
@@ -537,14 +538,17 @@ describe('Interchain puppeteer', () => {
       await contractClient.registerBalanceAndDelegatorDelegationsQuery(
         account.address,
         {
-          validators: [
-            context.firstValidatorAddress,
-            context.secondValidatorAddress,
-          ],
+          validators: context.validatorAddresses,
         },
         1.5,
         undefined,
-        [{ amount: '1000000', denom: 'untrn' }],
+        [
+          {
+            amount:
+              Math.ceil(VALIDATORS_COUNT / VALIDATORS_ICQ_LIMIT) * 1000000 + '',
+            denom: 'untrn',
+          },
+        ],
       );
     expect(res.transactionHash).toBeTruthy();
   });
@@ -554,14 +558,11 @@ describe('Interchain puppeteer', () => {
     const res = await contractClient.registerDelegatorUnbondingDelegationsQuery(
       account.address,
       {
-        validators: [
-          context.firstValidatorAddress,
-          context.secondValidatorAddress,
-        ],
+        validators: context.validatorAddresses,
       },
       1.5,
       undefined,
-      [{ amount: '2000000', denom: 'untrn' }],
+      [{ amount: 1000000 * VALIDATORS_COUNT + '', denom: 'untrn' }],
     );
     expect(res.transactionHash).toBeTruthy();
   });
@@ -576,13 +577,13 @@ describe('Interchain puppeteer', () => {
       delegations = d.delegations;
       height = h;
       return d.delegations.length > 0;
-    });
+    }, 60_000);
     expect(height).toBeGreaterThan(0);
     delegations.sort((a, b) => a.validator.localeCompare(b.validator));
     const expected = [
       {
         delegator: context.icaAddress,
-        validator: context.firstValidatorAddress,
+        validator: context.validatorAddresses[0],
         amount: {
           denom: 'stake',
           amount: '89000',
@@ -590,7 +591,7 @@ describe('Interchain puppeteer', () => {
       },
       {
         delegator: context.icaAddress,
-        validator: context.secondValidatorAddress,
+        validator: context.validatorAddresses[1],
         amount: {
           denom: 'stake',
           amount: '10000',
@@ -600,35 +601,26 @@ describe('Interchain puppeteer', () => {
     expected.sort((a, b) => a.validator.localeCompare(b.validator)); //fml
     expect(delegations).toMatchObject(expected);
   });
+
   it('query unbonding delegations query', async () => {
     await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 4);
-
     const unbonding_delegations = (await context.contractClient.queryExtension({
       msg: { unbonding_delegations: {} },
     })) as unknown as any[];
-    unbonding_delegations.sort((a, b) =>
-      a.validator_address.localeCompare(b.validator_address),
-    );
-    const expected = [
-      {
-        validator_address: context.firstValidatorAddress,
-        query_id: 3,
-        unbonding_delegations: [
-          {
-            balance: '1000',
-          },
-        ],
-      },
-      {
-        validator_address: context.secondValidatorAddress,
-        query_id: 4,
-        unbonding_delegations: [],
-      },
-    ];
-    expected.sort((a, b) =>
-      a.validator_address.localeCompare(b.validator_address),
-    ); //fml
-    expect(unbonding_delegations).toMatchObject(expected);
+    unbonding_delegations.sort((a, b) => a.query_id - b.query_id);
+    const startQueryIdIndex =
+      Math.ceil(VALIDATORS_COUNT / VALIDATORS_ICQ_LIMIT) + 1;
+
+    expect(unbonding_delegations[0]).toMatchObject({
+      validator_address: context.validatorAddresses[0],
+      query_id: startQueryIdIndex + 1,
+      unbonding_delegations: [
+        {
+          balance: '1000',
+        },
+      ],
+    });
+    expect(unbonding_delegations).toHaveLength(VALIDATORS_COUNT);
   });
   it('grant access to some account', async () => {
     const { contractClient, account } = context;
@@ -659,7 +651,7 @@ describe('Interchain puppeteer', () => {
     const res = await hookContractClient.delegate(
       account.address,
       {
-        validator: context.firstValidatorAddress,
+        validator: context.validatorAddresses[0],
         amount: '10000000000000',
       },
       1.5,
@@ -689,7 +681,7 @@ describe('Interchain puppeteer', () => {
     const res = await hookContractClient.delegate(
       account.address,
       {
-        validator: context.firstValidatorAddress,
+        validator: context.validatorAddresses[0],
         amount: '1000',
       },
       1.5,
@@ -739,5 +731,61 @@ describe('Interchain puppeteer', () => {
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();
     context.icaAddress = ica;
+  });
+
+  it('register balance and delegations query', async () => {
+    const { contractClient, account } = context;
+    const res =
+      await contractClient.registerBalanceAndDelegatorDelegationsQuery(
+        account.address,
+        {
+          validators: [context.validatorAddresses[1]],
+        },
+        1.5,
+        undefined,
+        [
+          {
+            amount:
+              Math.ceil(VALIDATORS_COUNT / VALIDATORS_ICQ_LIMIT) * 1000000 + '',
+            denom: 'untrn',
+          },
+        ],
+      );
+    expect(res.transactionHash).toBeTruthy();
+  });
+
+  it('query delegations query', async () => {
+    let delegations = [];
+    const { delegations: d } = (await context.contractClient.queryExtension({
+      msg: { delegations: {} },
+    })) as unknown as any;
+    delegations = d.delegations;
+    expect(delegations).toHaveLength(2);
+    await sleep(10_000);
+    await context.park.restartRelayer('neutron', 1);
+    let height = 0;
+    await waitFor(async () => {
+      const { delegations: d, remote_height: h } =
+        (await context.contractClient.queryExtension({
+          msg: { delegations: {} },
+        })) as unknown as any;
+      delegations = d.delegations;
+      height = h;
+      return d.delegations.length == 1;
+    }, 80_000);
+    expect(height).toBeGreaterThan(0);
+    delegations.sort((a, b) => a.validator.localeCompare(b.validator));
+    const expected = [
+      {
+        delegator: context.icaAddress,
+        validator: context.validatorAddresses[1],
+        amount: {
+          denom: 'stake',
+          amount: '10000',
+        },
+      },
+    ];
+    expected.sort((a, b) => a.validator.localeCompare(b.validator));
+    expect(delegations).toMatchObject(expected);
   });
 });

@@ -28,6 +28,20 @@ where
         ))
     }
 
+    pub fn register_delegations_and_balance_query_reply(
+        &self,
+        deps: DepsMut,
+        msg: Reply,
+        i: u16,
+        query_type: U,
+    ) -> StdResult<Response> {
+        let query_id = get_query_id(msg.result.clone())?;
+        self.delegations_and_balances_query_id_chunk
+            .save(deps.storage, query_id, &i)?;
+        self.kv_queries.save(deps.storage, query_id, &query_type)?;
+        Ok(Response::new())
+    }
+
     pub fn register_unbonding_delegations_query_reply(
         &self,
         deps: DepsMut,
