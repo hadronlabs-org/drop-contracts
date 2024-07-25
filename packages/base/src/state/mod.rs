@@ -10,6 +10,7 @@ pub mod rewards_manager;
 pub mod staker;
 pub mod strategy;
 pub mod token;
+pub mod token_distributor;
 pub mod validatorset;
 pub mod validatorsstats;
 pub mod withdrawal_manager;
