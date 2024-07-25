@@ -55,10 +55,6 @@ pub enum ExecuteMsg {
     RegisterNonNativeRewardsBalancesQuery {
         denoms: Vec<String>,
     },
-    Delegate {
-        items: Vec<(String, Uint128)>,
-        reply_to: String,
-    },
     SetupProtocol {
         delegate_grantee: String,
         rewards_withdraw_address: String,

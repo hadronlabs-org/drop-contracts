@@ -10,10 +10,6 @@ pub enum ExecuteMsg {
     SetConfig {
         puppeteer_addr: String,
     },
-    Delegate {
-        validator: String,
-        amount: Uint128,
-    },
     Undelegate {
         validator: String,
         amount: Uint128,

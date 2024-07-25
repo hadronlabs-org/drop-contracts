@@ -14,7 +14,7 @@ use cosmos_sdk_proto::cosmos::{
     authz::v1beta1::{GenericAuthorization, Grant, MsgGrant, MsgGrantResponse},
     bank::v1beta1::{MsgSend, MsgSendResponse},
     base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
-    staking::v1beta1::{MsgDelegate, MsgUndelegate},
+    staking::v1beta1::MsgUndelegate,
 };
 use cosmwasm_std::{
     attr, ensure_eq, to_json_binary, Addr, Attribute, CosmosMsg, Deps, Order, Reply, StdError,
@@ -196,7 +196,6 @@ pub fn execute(
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
     match msg {
-        ExecuteMsg::Delegate { items, reply_to } => execute_delegate(deps, info, items, reply_to),
         ExecuteMsg::Undelegate {
             items,
             batch_id,
@@ -507,47 +506,6 @@ fn register_unbonding_delegations_query(
         .collect::<ContractResult<Vec<_>>>()?;
 
     Ok(Response::new().add_submessages(msgs))
-}
-
-fn execute_delegate(
-    mut deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
-    items: Vec<(String, Uint128)>,
-    reply_to: String,
-) -> ContractResult<Response<NeutronMsg>> {
-    let puppeteer_base = Puppeteer::default();
-    deps.api.addr_validate(&reply_to)?;
-    let config: Config = puppeteer_base.config.load(deps.storage)?;
-    validate_sender(&config, &info.sender)?;
-    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
-    let delegator = puppeteer_base.ica.get_address(deps.storage)?;
-    let any_msgs = items
-        .iter()
-        .map(|(validator, amount)| MsgDelegate {
-            delegator_address: delegator.to_string(),
-            validator_address: validator.to_string(),
-            amount: Some(Coin {
-                denom: config.remote_denom.to_string(),
-                amount: amount.to_string(),
-            }),
-        })
-        .map(|msg| prepare_any_msg(msg, "/cosmos.staking.v1beta1.MsgDelegate"))
-        .collect::<NeutronResult<Vec<ProtobufAny>>>()?;
-
-    let submsg = compose_submsg(
-        deps.branch(),
-        config.clone(),
-        any_msgs,
-        Transaction::Delegate {
-            interchain_account_id: ICA_ID.to_string(),
-            denom: config.remote_denom,
-            items,
-        },
-        reply_to,
-        ReplyMsg::SudoPayload.to_reply_id(),
-    )?;
-
-    Ok(Response::default().add_submessages(vec![submsg]))
 }
 
 fn execute_setup_protocol(

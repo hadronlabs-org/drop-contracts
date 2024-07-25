@@ -103,11 +103,6 @@ pub enum ResponseAnswer {
 
 #[cw_serde]
 pub enum Transaction {
-    Delegate {
-        interchain_account_id: String,
-        denom: String,
-        items: Vec<(String, Uint128)>,
-    },
     Undelegate {
         interchain_account_id: String,
         items: Vec<(String, Uint128)>,
