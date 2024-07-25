@@ -1,12 +1,12 @@
 use crate::contract::{
     check_denom::{DenomTrace, QueryDenomTraceResponse},
-    execute, get_non_native_rewards_and_fee_transfer_msg, get_stake_rewards_msg, query,
+    execute, get_non_native_rewards_and_fee_transfer_msg, query,
 };
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockStorage},
-    to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, Event, MessageInfo, OwnedDeps,
-    Response, SubMsg, Timestamp, Uint128, WasmMsg,
+    to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, Event, OwnedDeps, Response, SubMsg,
+    Timestamp, Uint128, WasmMsg,
 };
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
 use drop_puppeteer_base::{msg::TransferReadyBatchesMsg, state::RedeemShareItem};
@@ -38,7 +38,6 @@ pub const MOCK_PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
 pub const MOCK_STRATEGY_CONTRACT_ADDR: &str = "strategy_contract";
 
 fn get_default_config(
-    fee: Option<Decimal>,
     idle_min_interval: u64,
     lsm_redeem_threshold: u64,
     lsm_redeem_maximum_interval: u64,
@@ -62,8 +61,7 @@ fn get_default_config(
         unbond_batch_switch_time,
         pump_ica_address: Some("pump_address".to_string()),
         transfer_channel_id: "transfer_channel".to_string(),
-        fee,
-        fee_address: Some("fee_address".to_string()),
+        rewards_receiver: "rewards_receiver".to_string(),
         lsm_redeem_threshold,
         lsm_min_bond_amount,
         lsm_redeem_maximum_interval,
@@ -93,15 +91,7 @@ fn get_non_native_rewards_and_fee_transfer_msg_success() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Decimal::from_atomics(1u32, 1).ok(),
-                1,
-                10,
-                10_000_000_000,
-                10,
-                6000,
-                Uint128::one(),
-            ),
+            &get_default_config(1, 10, 10_000_000_000, 10, 6000, Uint128::one()),
         )
         .unwrap();
     deps.querier
@@ -194,15 +184,7 @@ fn get_non_native_rewards_and_fee_transfer_msg_zero_fee() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Decimal::from_atomics(1u32, 1).ok(),
-                1,
-                10,
-                10_000_000_000,
-                10,
-                6000,
-                Uint128::one(),
-            ),
+            &get_default_config(1, 10, 10_000_000_000, 10, 6000, Uint128::one()),
         )
         .unwrap();
 
@@ -271,15 +253,7 @@ fn get_non_native_rewards_balance_outdated_error() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Decimal::from_atomics(1u32, 1).ok(),
-                1,
-                10,
-                10_000_000_000,
-                10,
-                6000,
-                Uint128::one(),
-            ),
+            &get_default_config(1, 10, 10_000_000_000, 10, 6000, Uint128::one()),
         )
         .unwrap();
 
@@ -308,232 +282,6 @@ fn get_non_native_rewards_balance_outdated_error() {
     assert!(result.is_err());
     assert_eq!(
         result,
-        Err(ContractError::PuppeteerBalanceOutdated {
-            ica_height: 11u64,
-            control_height: 10u64
-        })
-    );
-}
-
-#[test]
-fn get_stake_msg_success() {
-    let mut deps = mock_dependencies(&[]);
-    CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(
-                Decimal::from_atomics(1u32, 1).ok(),
-                1,
-                10,
-                10_000_000_000,
-                10,
-                6000,
-                Uint128::one(),
-            ),
-        )
-        .unwrap();
-    LAST_ICA_CHANGE_HEIGHT
-        .save(deps.as_mut().storage, &1)
-        .unwrap();
-    deps.querier
-        .add_wasm_query_response("puppeteer_contract", |_msg: &_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances {
-                    coins: vec![Coin {
-                        denom: "remote_denom".to_string(),
-                        amount: Uint128::new(200),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(20),
-            })
-            .unwrap()
-        });
-    deps.querier
-        .add_wasm_query_response("strategy_contract", |msg| {
-            let q: StrategyQueryMsg = from_json(msg).unwrap();
-            match q {
-                StrategyQueryMsg::CalcDeposit { deposit } => {
-                    to_json_binary(&vec![("valoper_address".to_string(), deposit)]).unwrap()
-                }
-                _ => unimplemented!(),
-            }
-        });
-
-    let stake_msg: CosmosMsg<NeutronMsg> = get_stake_rewards_msg(
-        deps.as_ref(),
-        &mock_env(),
-        &get_default_config(
-            Decimal::from_atomics(1u32, 1).ok(),
-            1,
-            10,
-            10_000_000_000,
-            10,
-            6000,
-            Uint128::one(),
-        ),
-        &MessageInfo {
-            sender: Addr::unchecked("addr0000"),
-            funds: vec![Coin::new(200, "untrn")],
-        },
-    )
-    .unwrap()
-    .unwrap();
-
-    assert_eq!(
-        stake_msg,
-        CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "puppeteer_contract".to_string(),
-            msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
-                items: vec![("valoper_address".to_string(), Uint128::new(180))],
-                fee: Some(("fee_address".to_string(), Uint128::new(20))),
-                reply_to: "cosmos2contract".to_string(),
-            })
-            .unwrap(),
-            funds: vec![Coin::new(200, "untrn")],
-        })
-    );
-}
-
-#[test]
-fn get_stake_msg_zero_fee() {
-    let mut deps = mock_dependencies(&[]);
-    deps.querier
-        .add_wasm_query_response("puppeteer_contract", |_msg: &_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances {
-                    coins: vec![Coin {
-                        denom: "remote_denom".to_string(),
-                        amount: Uint128::new(200),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(20),
-            })
-            .unwrap()
-        });
-    deps.querier
-        .add_wasm_query_response("strategy_contract", |msg| {
-            let q: StrategyQueryMsg = from_json(msg).unwrap();
-            match q {
-                StrategyQueryMsg::CalcDeposit { deposit } => {
-                    to_json_binary(&vec![("valoper_address".to_string(), deposit)]).unwrap()
-                }
-                _ => unimplemented!(),
-            }
-        });
-    CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(
-                Decimal::from_atomics(1u32, 1).ok(),
-                1,
-                10,
-                10_000_000_000,
-                10,
-                6000,
-                Uint128::one(),
-            ),
-        )
-        .unwrap();
-    LAST_ICA_CHANGE_HEIGHT
-        .save(deps.as_mut().storage, &1)
-        .unwrap();
-
-    let stake_msg: CosmosMsg<NeutronMsg> = get_stake_rewards_msg(
-        deps.as_ref(),
-        &mock_env(),
-        &get_default_config(None, 1, 10, 10_000_000_000, 10, 6000, Uint128::one()),
-        &MessageInfo {
-            sender: Addr::unchecked("addr0000"),
-            funds: vec![Coin::new(200, "untrn")],
-        },
-    )
-    .unwrap()
-    .unwrap();
-    assert_eq!(
-        stake_msg,
-        CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "puppeteer_contract".to_string(),
-            msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
-                items: vec![("valoper_address".to_string(), Uint128::new(200))],
-                fee: None,
-                reply_to: "cosmos2contract".to_string(),
-            })
-            .unwrap(),
-            funds: vec![Coin::new(200, "untrn")],
-        })
-    );
-}
-
-#[test]
-fn get_stake_msg_balance_outdated_error() {
-    let mut deps = mock_dependencies(&[]);
-    deps.querier
-        .add_wasm_query_response("puppeteer_contract", |_msg: &_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances {
-                    coins: vec![Coin {
-                        denom: "remote_denom".to_string(),
-                        amount: Uint128::new(200),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(20),
-            })
-            .unwrap()
-        });
-    deps.querier
-        .add_wasm_query_response("strategy_contract", |msg| {
-            let q: StrategyQueryMsg = from_json(msg).unwrap();
-            match q {
-                StrategyQueryMsg::CalcDeposit { deposit } => to_json_binary(&vec![
-                    drop_staking_base::msg::distribution::IdealDelegation {
-                        valoper_address: "valoper_address".to_string(),
-                        stake_change: deposit,
-                        ideal_stake: deposit,
-                        current_stake: deposit,
-                        weight: 1u64,
-                    },
-                ])
-                .unwrap(),
-                _ => unimplemented!(),
-            }
-        });
-    CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(
-                Decimal::from_atomics(1u32, 1).ok(),
-                1,
-                10,
-                10_000_000_000,
-                10,
-                6000,
-                Uint128::one(),
-            ),
-        )
-        .unwrap();
-    LAST_ICA_CHANGE_HEIGHT
-        .save(deps.as_mut().storage, &11)
-        .unwrap();
-
-    let stake_msg: ContractResult<Option<CosmosMsg<NeutronMsg>>> = get_stake_rewards_msg(
-        deps.as_ref(),
-        &mock_env(),
-        &get_default_config(None, 1, 10, 10_000_000_000, 10, 6000, Uint128::one()),
-        &MessageInfo {
-            sender: Addr::unchecked("addr0000"),
-            funds: vec![Coin::new(200, "untrn")],
-        },
-    );
-
-    assert!(stake_msg.is_err());
-    assert_eq!(
-        stake_msg,
         Err(ContractError::PuppeteerBalanceOutdated {
             ica_height: 11u64,
             control_height: 10u64
@@ -575,8 +323,7 @@ fn test_update_config() {
             unbond_batch_switch_time: 2000,
             pump_ica_address: Some("old_pump_address".to_string()),
             transfer_channel_id: "old_transfer_channel".to_string(),
-            fee: Some(Decimal::from_atomics(2u32, 1).unwrap()),
-            fee_address: Some("old_fee_address".to_string()),
+            rewards_receiver: "rewards_receiver".to_string(),
             lsm_redeem_max_interval: 20_000_000,
             lsm_redeem_threshold: 120u64,
             lsm_min_bond_amount: Uint128::new(12),
@@ -609,8 +356,7 @@ fn test_update_config() {
         unbond_batch_switch_time: Some(12000),
         pump_ica_address: Some("new_pump_address".to_string()),
         transfer_channel_id: Some("new_transfer_channel".to_string()),
-        fee: Some(Decimal::from_atomics(2u32, 1).unwrap()),
-        fee_address: Some("new_fee_address".to_string()),
+        rewards_receiver: Some("new_rewards_receiver".to_string()),
         lsm_redeem_threshold: Some(20u64),
         lsm_min_bond_amount: Some(Uint128::new(2)),
         lsm_redeem_maximum_interval: Some(20_000_000_000),
@@ -634,8 +380,7 @@ fn test_update_config() {
         unbond_batch_switch_time: 12000,
         pump_ica_address: Some("new_pump_address".to_string()),
         transfer_channel_id: "new_transfer_channel".to_string(),
-        fee: Some(Decimal::from_atomics(2u32, 1).unwrap()),
-        fee_address: Some("new_fee_address".to_string()),
+        rewards_receiver: "new_rewards_receiver".to_string(),
         lsm_redeem_threshold: 20u64,
         lsm_min_bond_amount: Uint128::new(2),
         lsm_redeem_maximum_interval: 20_000_000_000,
@@ -665,15 +410,7 @@ fn test_update_withdrawn_amount() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                10,
-                10_000_000_000,
-                10,
-                6000,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 10, 10_000_000_000, 10, 6000, Uint128::one()),
         )
         .unwrap();
 
@@ -821,15 +558,7 @@ fn test_execute_tick_idle_non_native_rewards() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                10,
-                10_000_000_000,
-                10,
-                6000,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 10, 10_000_000_000, 10, 6000, Uint128::one()),
         )
         .unwrap();
     LD_DENOM
@@ -958,15 +687,7 @@ fn test_execute_tick_idle_get_pending_lsm_shares_transfer() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                10,
-                10_000_000_000,
-                10,
-                6000,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 10, 10_000_000_000, 10, 6000, Uint128::one()),
         )
         .unwrap();
     LD_DENOM
@@ -1062,15 +783,7 @@ fn test_idle_tick_pending_lsm_redeem() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                10,
-                6000,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 10, 6000, Uint128::one()),
         )
         .unwrap();
     LD_DENOM
@@ -1280,15 +993,7 @@ fn test_tick_idle_unbonding_close() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                6000,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 6000, Uint128::one()),
         )
         .unwrap();
     LD_DENOM
@@ -1423,15 +1128,7 @@ fn test_tick_idle_claim_wo_unbond() {
             })
             .unwrap()
         });
-    let mut config = get_default_config(
-        Some(Decimal::from_atomics(1u32, 1).unwrap()),
-        1000,
-        3,
-        100,
-        100,
-        6000,
-        Uint128::one(),
-    );
+    let mut config = get_default_config(1000, 3, 100, 100, 6000, Uint128::one());
     config.lsm_redeem_maximum_interval = 100;
     CONFIG.save(deps.as_mut().storage, &config).unwrap();
     LD_DENOM
@@ -1591,15 +1288,7 @@ fn test_tick_idle_claim_with_unbond_transfer() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                6000,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 6000, Uint128::one()),
         )
         .unwrap();
     LD_DENOM
@@ -1760,15 +1449,7 @@ fn test_tick_idle_staking_bond() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                600,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
         )
         .unwrap();
     LD_DENOM
@@ -1929,15 +1610,7 @@ fn test_tick_idle_staking() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                600,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
         )
         .unwrap();
     LD_DENOM
@@ -1990,7 +1663,6 @@ fn test_tick_idle_staking() {
                 contract_addr: "puppeteer_contract".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
                     items: vec![("valoper_address".to_string(), Uint128::from(200u128))],
-                    fee: Some(("fee_address".to_string(), Uint128::new(20))),
                     reply_to: "cosmos2contract".to_string()
                 })
                 .unwrap(),
@@ -2102,15 +1774,7 @@ fn test_tick_idle_unbonding() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                6000,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 6000, Uint128::one()),
         )
         .unwrap();
     LD_DENOM
@@ -2310,15 +1974,7 @@ fn test_tick_idle_unbonding_failed() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                6000,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 6000, Uint128::one()),
         )
         .unwrap();
     LD_DENOM
@@ -2456,15 +2112,7 @@ fn test_tick_no_puppeteer_response() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                600,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -2564,7 +2212,7 @@ fn test_tick_claiming_wo_transfer_stake() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(None, 1000, 3, 100, 100, 600, Uint128::one()),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -2623,7 +2271,6 @@ fn test_tick_claiming_wo_transfer_stake() {
                 contract_addr: "puppeteer_contract".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
                     items: vec![("valoper_address".to_string(), Uint128::from(200u128))],
-                    fee: None,
                     reply_to: "cosmos2contract".to_string()
                 })
                 .unwrap(),
@@ -2690,7 +2337,7 @@ fn test_tick_claiming_error_wo_transfer() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(None, 1000, 3, 100, 100, 600, Uint128::one()),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -2799,7 +2446,7 @@ fn test_tick_claiming_error_with_transfer() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(None, 1000, 3, 100, 100, 600, Uint128::one()),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -2957,15 +2604,7 @@ fn test_tick_claiming_wo_transfer_unbonding() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                600,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -3138,15 +2777,7 @@ fn test_tick_claiming_wo_idle() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                60000,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 60000, Uint128::one()),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -3243,15 +2874,7 @@ fn test_execute_tick_transfering_no_puppeteer_response() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                600,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
         )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingBond)
@@ -3297,18 +2920,10 @@ fn test_execute_tick_guard_balance_outdated() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                600,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
         )
         .unwrap();
-    FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingRewards)
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &11)
@@ -3345,18 +2960,10 @@ fn test_execute_tick_guard_delegations_outdated() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                600,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
         )
         .unwrap();
-    FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingRewards)
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &11)
@@ -3405,18 +3012,10 @@ fn test_execute_tick_staking_no_puppeteer_response() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                600,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
         )
         .unwrap();
-    FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingRewards)
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Unbonding)
         .unwrap();
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
@@ -3546,18 +3145,10 @@ fn test_tick_staking_to_unbonding() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                1000,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 1000, Uint128::one()),
         )
         .unwrap();
-    FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingRewards)
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingBond)
         .unwrap();
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &0u128).unwrap();
     unbond_batches_map()
@@ -3695,18 +3286,10 @@ fn test_tick_staking_to_idle() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                10000,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 10000, Uint128::one()),
         )
         .unwrap();
-    FSM.set_initial_state(deps.as_mut().storage, ContractState::StakingRewards)
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &0u128).unwrap();
     unbond_batches_map()
@@ -3768,15 +3351,7 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                600,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
         )
         .unwrap();
 
@@ -3830,15 +3405,7 @@ fn test_bond_wo_receiver() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                600,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
         )
         .unwrap();
     LD_DENOM
@@ -3895,15 +3462,7 @@ fn test_bond_with_receiver() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                600,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
         )
         .unwrap();
     LD_DENOM
@@ -4009,15 +3568,7 @@ fn test_bond_lsm_share_wrong_channel() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                600,
-                Uint128::new(100),
-            ),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::new(100)),
         )
         .unwrap();
     let res = execute(
@@ -4104,15 +3655,7 @@ fn test_bond_lsm_share_increase_exchange_rate() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                600,
-                Uint128::new(1),
-            ),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::new(1)),
         )
         .unwrap();
     LD_DENOM
@@ -4199,15 +3742,7 @@ fn test_bond_lsm_share_wrong_validator() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                600,
-                Uint128::new(100),
-            ),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::new(100)),
         )
         .unwrap();
     let res = execute(
@@ -4272,15 +3807,7 @@ fn test_bond_lsm_share_ok() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                600,
-                Uint128::new(100),
-            ),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::new(100)),
         )
         .unwrap();
     LD_DENOM
@@ -4353,15 +3880,7 @@ fn test_unbond() {
     CONFIG
         .save(
             deps.as_mut().storage,
-            &get_default_config(
-                Some(Decimal::from_atomics(1u32, 1).unwrap()),
-                1000,
-                3,
-                100,
-                100,
-                600,
-                Uint128::one(),
-            ),
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
         )
         .unwrap();
     LD_DENOM
@@ -4645,7 +4164,7 @@ mod check_denom {
         let denom_type = crate::contract::check_denom::check_denom(
             &deps.as_ref(),
             "base_denom",
-            &get_default_config(None, 0, 0, 0, 0, 0, 0u128.into()),
+            &get_default_config(0, 0, 0, 0, 0, 0u128.into()),
         )
         .unwrap();
         assert_eq!(denom_type, DenomType::Base);
@@ -4669,7 +4188,7 @@ mod check_denom {
         let err = crate::contract::check_denom::check_denom(
             &deps.as_ref(),
             "ibc/12345678",
-            &get_default_config(None, 0, 0, 0, 0, 0, 0u128.into()),
+            &get_default_config(0, 0, 0, 0, 0, 0u128.into()),
         )
         .unwrap_err();
         assert_eq!(err, ContractError::InvalidDenom {});
@@ -4693,7 +4212,7 @@ mod check_denom {
         let err = crate::contract::check_denom::check_denom(
             &deps.as_ref(),
             "ibc/12345678",
-            &get_default_config(None, 0, 0, 0, 0, 0, 0u128.into()),
+            &get_default_config(0, 0, 0, 0, 0, 0u128.into()),
         )
         .unwrap_err();
         assert_eq!(err, ContractError::InvalidDenom {});
@@ -4717,7 +4236,7 @@ mod check_denom {
         let err = crate::contract::check_denom::check_denom(
             &deps.as_ref(),
             "ibc/12345678",
-            &get_default_config(None, 0, 0, 0, 0, 0, 0u128.into()),
+            &get_default_config(0, 0, 0, 0, 0, 0u128.into()),
         )
         .unwrap_err();
         assert_eq!(err, ContractError::InvalidDenom {});
@@ -4741,7 +4260,7 @@ mod check_denom {
         let err = crate::contract::check_denom::check_denom(
             &deps.as_ref(),
             "ibc/12345678",
-            &get_default_config(None, 0, 0, 0, 0, 0, 0u128.into()),
+            &get_default_config(0, 0, 0, 0, 0, 0u128.into()),
         )
         .unwrap_err();
         assert_eq!(err, ContractError::InvalidDenom {});
@@ -4784,7 +4303,7 @@ mod check_denom {
         let err = crate::contract::check_denom::check_denom(
             &deps.as_ref(),
             "ibc/12345678",
-            &get_default_config(None, 0, 0, 0, 0, 0, 0u128.into()),
+            &get_default_config(0, 0, 0, 0, 0, 0u128.into()),
         )
         .unwrap_err();
         assert_eq!(err, ContractError::InvalidDenom {});
@@ -4809,7 +4328,7 @@ mod check_denom {
         let err = crate::contract::check_denom::check_denom(
             &deps.as_ref(),
             "ibc/12345678",
-            &get_default_config(None, 0, 0, 0, 0, 0, 0u128.into()),
+            &get_default_config(0, 0, 0, 0, 0, 0u128.into()),
         )
         .unwrap_err();
         assert_eq!(err, ContractError::InvalidDenom {});
@@ -4862,7 +4381,7 @@ mod check_denom {
         let denom_type = crate::contract::check_denom::check_denom(
             &deps.as_ref(),
             "ibc/12345678",
-            &get_default_config(None, 0, 0, 0, 0, 0, 0u128.into()),
+            &get_default_config(0, 0, 0, 0, 0, 0u128.into()),
         )
         .unwrap();
         assert_eq!(
@@ -4881,15 +4400,7 @@ mod pending_redeem_shares {
     fn no_pending_lsm_shares() {
         let mut deps = mock_dependencies(&[]);
 
-        let config = &get_default_config(
-            Some(Decimal::from_atomics(1u32, 1).unwrap()),
-            1000,
-            3,
-            100,
-            100,
-            600,
-            Uint128::new(100),
-        );
+        let config = &get_default_config(1000, 3, 100, 100, 600, Uint128::new(100));
 
         LAST_LSM_REDEEM.save(deps.as_mut().storage, &0).unwrap();
 
@@ -4903,15 +4414,7 @@ mod pending_redeem_shares {
     fn lsm_shares_below_threshold() {
         let mut deps = mock_dependencies(&[]);
 
-        let config = &get_default_config(
-            Some(Decimal::from_atomics(1u32, 1).unwrap()),
-            1000,
-            3,
-            100,
-            100,
-            600,
-            Uint128::new(100),
-        );
+        let config = &get_default_config(1000, 3, 100, 100, 600, Uint128::new(100));
 
         let env = &mock_env();
 
@@ -4940,7 +4443,6 @@ mod pending_redeem_shares {
         let lsm_redeem_maximum_interval = 100;
 
         let config = &get_default_config(
-            Some(Decimal::from_atomics(1u32, 1).unwrap()),
             1000,
             3,
             lsm_redeem_maximum_interval,
@@ -4996,7 +4498,6 @@ mod pending_redeem_shares {
         let lsm_redeem_maximum_interval = 100;
 
         let config = &get_default_config(
-            Some(Decimal::from_atomics(1u32, 1).unwrap()),
             1000,
             2,
             lsm_redeem_maximum_interval,

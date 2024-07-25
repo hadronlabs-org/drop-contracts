@@ -57,11 +57,11 @@ pub enum ExecuteMsg {
     },
     Delegate {
         items: Vec<(String, Uint128)>,
-        fee: Option<(String, Uint128)>,
         reply_to: String,
     },
-    GrantDelegate {
-        grantee: String,
+    SetupProtocol {
+        delegate_grantee: String,
+        rewards_withdraw_address: String,
     },
     Undelegate {
         items: Vec<(String, Uint128)>,

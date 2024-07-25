@@ -26,8 +26,7 @@ pub struct ConfigOptional {
     pub lsm_redeem_threshold: Option<u64>, //amount of lsm denoms
     pub lsm_redeem_maximum_interval: Option<u64>,
     pub bond_limit: Option<Uint128>,
-    pub fee: Option<Decimal>,
-    pub fee_address: Option<String>,
+    pub rewards_receiver: Option<String>,
     pub emergency_address: Option<String>,
     pub min_stake_amount: Option<Uint128>,
 }
@@ -53,8 +52,7 @@ pub struct Config {
     pub lsm_redeem_threshold: u64,        //amount of lsm denoms
     pub lsm_redeem_maximum_interval: u64, //seconds
     pub bond_limit: Option<Uint128>,
-    pub fee: Option<Decimal>,
-    pub fee_address: Option<String>,
+    pub rewards_receiver: String,
     pub emergency_address: Option<String>,
     pub min_stake_amount: Uint128,
     pub icq_update_delay: u64, // blocks
@@ -139,7 +137,6 @@ pub enum ContractState {
     NonNativeRewardsTransfer,
     Claiming,
     Unbonding,
-    StakingRewards,
     StakingBond,
 }
 
@@ -182,10 +179,6 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
     },
     Transition {
         from: ContractState::Idle,
-        to: ContractState::StakingRewards,
-    },
-    Transition {
-        from: ContractState::Idle,
         to: ContractState::StakingBond,
     },
     Transition {
@@ -194,27 +187,11 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
     },
     Transition {
         from: ContractState::StakingBond,
-        to: ContractState::StakingRewards,
-    },
-    Transition {
-        from: ContractState::StakingBond,
-        to: ContractState::Unbonding,
-    },
-    Transition {
-        from: ContractState::StakingRewards,
         to: ContractState::Unbonding,
     },
     Transition {
         from: ContractState::Claiming,
-        to: ContractState::StakingRewards,
-    },
-    Transition {
-        from: ContractState::Claiming,
         to: ContractState::Unbonding,
-    },
-    Transition {
-        from: ContractState::StakingRewards,
-        to: ContractState::Idle,
     },
     Transition {
         from: ContractState::Unbonding,

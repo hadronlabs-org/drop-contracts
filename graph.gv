@@ -56,7 +56,6 @@ digraph G {
         rank = same;
         K010 [label = "K010\nAny validators to claim";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
         K015 [label = "K015\nAnything to stake";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
-        K020 [label = "K020\nRewards to stake";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
         K024 [label = "K024\nIs there a failed batch?";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
     }
     
@@ -64,7 +63,6 @@ digraph G {
         rank = same;
         K011 [label = "K011\ncompose Claim msg";shape = house;fixedsize = true;width = 3;height = 1;];
         K016 [label = "K016\ncompose Stake msg";shape = house;fixedsize = true;width = 3;height = 1;];
-        K021 [label = "K021\ncompose Stake rewards msg";shape = house;fixedsize = true;width = 3;height = 1;];
         K025 [label = "K025\nTake failed batch as one to unbond";shape = box;fixedsize = true;width = 3;height = 1;];
         K026 [label = "K026\nTake the last batch as one to unbond";shape = box;fixedsize = true;width = 3;height = 1;];
         K050 [label = "K050\nChanging of batch status\nback to Unbonding";shape = box;];
@@ -74,7 +72,6 @@ digraph G {
         rank = same;
         K012 [label = "K012\nClaiming";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
         K017 [label = "K017\nStakingBond";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
-        K022 [label = "K022\nStakingRewards";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
         K027 [label = "K027\nUnbonding conditions are met";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
     }
     
@@ -138,11 +135,8 @@ digraph G {
     K015 -> K016 [taillabel = "yes";];
     K016 -> K017;
     
-    K015 -> K020 [taillabel = "no";];
-    K020 -> K021 [taillabel = "yes";];
-    K021 -> K022;
+    K015 -> K024 [taillabel = "no";];
     
-    K020 -> K024 [taillabel = "no";];
     K024 -> K025 [taillabel = "yes";];
     K028 -> K029;
     
@@ -163,8 +157,7 @@ digraph G {
     K047 -> K013;
     K014 -> K015;
     
-    K017 -> K020;
-    K022 -> K024;
+    K017 -> K024;
     
     K029 -> K030 [taillabel = "ACK";];
     K029 -> K031 [taillabel = "ERR";];

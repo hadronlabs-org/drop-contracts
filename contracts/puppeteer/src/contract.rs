@@ -9,6 +9,7 @@ use crate::proto::{
         },
     },
 };
+use cosmos_sdk_proto::cosmos::distribution::v1beta1::MsgSetWithdrawAddress;
 use cosmos_sdk_proto::cosmos::{
     authz::v1beta1::{GenericAuthorization, Grant, MsgGrant, MsgGrantResponse},
     bank::v1beta1::{MsgSend, MsgSendResponse},
@@ -195,11 +196,7 @@ pub fn execute(
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
     match msg {
-        ExecuteMsg::Delegate {
-            items,
-            fee,
-            reply_to,
-        } => execute_delegate(deps, info, items, fee, reply_to),
+        ExecuteMsg::Delegate { items, reply_to } => execute_delegate(deps, info, items, reply_to),
         ExecuteMsg::Undelegate {
             items,
             batch_id,
@@ -245,7 +242,10 @@ pub fn execute(
             cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
             Ok(response("update_ownership", CONTRACT_NAME, attrs))
         }
-        ExecuteMsg::GrantDelegate { grantee } => execute_grant_delegate(deps, env, info, grantee),
+        ExecuteMsg::SetupProtocol {
+            delegate_grantee,
+            rewards_withdraw_address,
+        } => execute_setup_protocol(deps, env, info, delegate_grantee, rewards_withdraw_address),
         _ => puppeteer_base.execute(deps, env, info, msg.to_base_enum()),
     }
 }
@@ -513,7 +513,6 @@ fn execute_delegate(
     mut deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
     items: Vec<(String, Uint128)>,
-    fee: Option<(String, Uint128)>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
@@ -522,7 +521,7 @@ fn execute_delegate(
     validate_sender(&config, &info.sender)?;
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
     let delegator = puppeteer_base.ica.get_address(deps.storage)?;
-    let mut any_msgs = items
+    let any_msgs = items
         .iter()
         .map(|(validator, amount)| MsgDelegate {
             delegator_address: delegator.to_string(),
@@ -534,23 +533,6 @@ fn execute_delegate(
         })
         .map(|msg| prepare_any_msg(msg, "/cosmos.staking.v1beta1.MsgDelegate"))
         .collect::<NeutronResult<Vec<ProtobufAny>>>()?;
-
-    if let Some(fee) = fee {
-        let to_address = fee.0.to_string();
-        let amount = fee.1;
-        let transfer_msg = MsgSend {
-            from_address: delegator.to_string(),
-            to_address,
-            amount: vec![Coin {
-                amount: amount.to_string(),
-                denom: config.remote_denom.to_string(),
-            }],
-        };
-        any_msgs.push(prepare_any_msg(
-            transfer_msg,
-            "/cosmos.bank.v1beta1.MsgSend",
-        )?)
-    }
 
     let submsg = compose_submsg(
         deps.branch(),
@@ -568,11 +550,12 @@ fn execute_delegate(
     Ok(Response::default().add_submessages(vec![submsg]))
 }
 
-fn execute_grant_delegate(
+fn execute_setup_protocol(
     mut deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
-    grantee: String,
+    delegate_grantee: String,
+    rewards_withdraw_address: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
     let config: Config = puppeteer_base.config.load(deps.storage)?;
@@ -581,7 +564,7 @@ fn execute_grant_delegate(
     let ica = puppeteer_base.ica.get_address(deps.storage)?;
     let mut any_msgs = vec![];
     let grant_msg = MsgGrant {
-        grantee: grantee.clone(),
+        grantee: delegate_grantee.clone(),
         granter: ica.to_string(),
         grant: Some(Grant {
             authorization: Some(cosmos_sdk_proto::Any {
@@ -603,17 +586,26 @@ fn execute_grant_delegate(
             }),
         }),
     };
+    let set_withdraw_address_msg = MsgSetWithdrawAddress {
+        delegator_address: ica.to_string(),
+        withdraw_address: rewards_withdraw_address.clone(),
+    };
     any_msgs.push(prepare_any_msg(
         grant_msg,
         "/cosmos.authz.v1beta1.MsgGrant",
+    )?);
+    any_msgs.push(prepare_any_msg(
+        set_withdraw_address_msg,
+        "/cosmos.distribution.v1beta1.MsgSetWithdrawAddress",
     )?);
     let submsg = compose_submsg(
         deps.branch(),
         config.clone(),
         any_msgs,
-        Transaction::GrantDelegate {
+        Transaction::SetupProtocol {
             interchain_account_id: ica.to_string(),
-            grantee,
+            delegate_grantee,
+            rewards_withdraw_address,
         },
         "".to_string(),
         ReplyMsg::SudoPayload.to_reply_id(),

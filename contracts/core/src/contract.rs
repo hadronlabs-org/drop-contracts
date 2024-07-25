@@ -61,11 +61,6 @@ pub fn instantiate(
     ];
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(&msg.owner))?;
     let config = msg.into_config(deps.as_ref().into_empty())?;
-    if let Some(fee) = config.fee {
-        if fee < Decimal::zero() || fee > Decimal::one() {
-            return Err(ContractError::InvalidFee {});
-        }
-    }
     CONFIG.save(deps.storage, &config)?;
     LD_DENOM.save(
         deps.storage,
@@ -580,9 +575,6 @@ fn execute_tick(
         ContractState::Claiming => execute_tick_claiming(deps.branch(), env, info, &config),
         ContractState::StakingBond => execute_tick_staking_bond(deps.branch(), env, info, &config),
         ContractState::Unbonding => execute_tick_unbonding(deps.branch(), env, info, &config),
-        ContractState::StakingRewards => {
-            execute_tick_staking_rewards(deps.branch(), env, info, &config)
-        }
     }
 }
 
@@ -802,14 +794,7 @@ fn execute_tick_idle(
                 attrs.push(attr("state", "staking_bond"));
             } else {
                 attrs.push(attr("knot", "020"));
-                if let Some(stake_msg) = get_stake_rewards_msg(deps.as_ref(), &env, config, &info)?
-                {
-                    messages.push(stake_msg);
-                    attrs.push(attr("knot", "021"));
-                    FSM.go_to(deps.storage, ContractState::StakingRewards)?;
-                    attrs.push(attr("knot", "022"));
-                    attrs.push(attr("state", "staking_rewards"));
-                } else if let Some(unbond_message) =
+                if let Some(unbond_message) =
                     get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
                 {
                     messages.push(unbond_message);
@@ -950,13 +935,7 @@ fn execute_tick_claiming(
         attrs.push(attr("state", "staking_bond"));
     } else {
         attrs.push(attr("knot", "020"));
-        if let Some(stake_msg) = get_stake_rewards_msg(deps.as_ref(), &env, config, &info)? {
-            messages.push(stake_msg);
-            attrs.push(attr("knot", "021"));
-            FSM.go_to(deps.storage, ContractState::StakingRewards)?;
-            attrs.push(attr("knot", "022"));
-            attrs.push(attr("state", "staking_rewards"));
-        } else if let Some(unbond_message) =
+        if let Some(unbond_message) =
             get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
         {
             messages.push(unbond_message);
@@ -1000,14 +979,7 @@ fn execute_tick_staking_bond(
     LAST_STAKER_RESPONSE.remove(deps.storage);
     let mut messages = vec![];
     attrs.push(attr("knot", "020"));
-    if let Some(stake_msg) = get_stake_rewards_msg(deps.as_ref(), &env, config, &info)? {
-        messages.push(stake_msg);
-        attrs.push(attr("knot", "021"));
-        FSM.go_to(deps.storage, ContractState::StakingRewards)?;
-        attrs.push(attr("knot", "022"));
-        attrs.push(attr("state", "staking_rewards"));
-    } else if let Some(unbond_message) =
-        get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
+    if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
     {
         messages.push(unbond_message);
         attrs.push(attr("knot", "028"));
@@ -1021,31 +993,6 @@ fn execute_tick_staking_bond(
     }
 
     Ok(response("execute-tick_transfering", CONTRACT_NAME, attrs).add_messages(messages))
-}
-
-fn execute_tick_staking_rewards(
-    mut deps: DepsMut<NeutronQuery>,
-    env: Env,
-    info: MessageInfo,
-    config: &Config,
-) -> ContractResult<Response<NeutronMsg>> {
-    let mut attrs = vec![attr("action", "tick_staking"), attr("knot", "022")];
-    let _response_msg = get_received_puppeteer_response(deps.as_ref())?;
-    LAST_PUPPETEER_RESPONSE.remove(deps.storage);
-    let mut messages = vec![];
-    if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
-    {
-        messages.push(unbond_message);
-        attrs.push(attr("knot", "028"));
-        FSM.go_to(deps.storage, ContractState::Unbonding)?;
-        attrs.push(attr("knot", "029"));
-        attrs.push(attr("state", "unbonding"));
-    } else {
-        FSM.go_to(deps.storage, ContractState::Idle)?;
-        attrs.push(attr("knot", "000"));
-        attrs.push(attr("state", "idle"));
-    }
-    Ok(response("execute-tick_staking", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 fn execute_tick_unbonding(
@@ -1271,16 +1218,9 @@ fn execute_update_config(
             }
         };
     }
-    if let Some(fee) = new_config.fee {
-        if fee < Decimal::zero() || fee > Decimal::one() {
-            return Err(ContractError::InvalidFee {});
-        }
-        attrs.push(attr("fee", fee.to_string()));
-        config.fee = Some(fee);
-    }
-    if let Some(fee_address) = new_config.fee_address {
-        attrs.push(attr("fee_address", &fee_address));
-        config.fee_address = Some(fee_address);
+    if let Some(rewards_receiver) = new_config.rewards_receiver {
+        attrs.push(attr("rewards_receiver", &rewards_receiver));
+        config.rewards_receiver = rewards_receiver;
     }
     if let Some(emergency_address) = new_config.emergency_address {
         attrs.push(attr("emergency_address", &emergency_address));
@@ -1427,52 +1367,6 @@ pub fn get_stake_bond_msg<T>(
         })));
     }
     Ok(None)
-}
-
-pub fn get_stake_rewards_msg<T>(
-    deps: Deps<NeutronQuery>,
-    env: &Env,
-    config: &Config,
-    info: &MessageInfo,
-) -> ContractResult<Option<CosmosMsg<T>>> {
-    let funds = info.funds.clone();
-    let (balance, _, _) = get_ica_balance_by_denom(
-        deps,
-        config.puppeteer_contract.as_ref(),
-        &config.remote_denom,
-        true,
-    )?;
-
-    if balance < config.min_stake_amount {
-        return Ok(None);
-    }
-
-    let fee = config.fee.unwrap_or(Decimal::zero()) * balance;
-    let deposit_amount = balance - fee;
-
-    let to_delegate: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
-        &config.strategy_contract,
-        &drop_staking_base::msg::strategy::QueryMsg::CalcDeposit {
-            deposit: deposit_amount,
-        },
-    )?;
-
-    let staking_fee: Option<(String, Uint128)> =
-        if fee > Uint128::zero() && config.fee_address.is_some() {
-            Some((config.fee_address.clone().unwrap(), fee))
-        } else {
-            None
-        };
-
-    Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.puppeteer_contract.to_string(),
-        msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
-            items: to_delegate,
-            fee: staking_fee,
-            reply_to: env.contract.address.to_string(),
-        })?,
-        funds,
-    })))
 }
 
 fn get_unbonding_msg<T>(

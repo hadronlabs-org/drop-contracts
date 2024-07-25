@@ -24,6 +24,7 @@ pub struct InstantiateMsg {
 pub struct PuppeteerParams {
     pub timeout: u64,
 }
+
 #[cw_serde]
 pub struct CoreParams {
     pub idle_min_interval: u64,
@@ -36,6 +37,7 @@ pub struct CoreParams {
     pub bond_limit: Option<Uint128>,
     pub min_stake_amount: Uint128,
     pub icq_update_delay: u64, // blocks
+    pub rewards_receiver: String,
 }
 
 #[cw_serde]

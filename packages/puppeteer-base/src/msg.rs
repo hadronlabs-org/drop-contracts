@@ -151,9 +151,10 @@ pub enum Transaction {
         interchain_account_id: String,
         items: Vec<(String, cosmwasm_std::Coin)>,
     },
-    GrantDelegate {
+    SetupProtocol {
         interchain_account_id: String,
-        grantee: String,
+        delegate_grantee: String,
+        rewards_withdraw_address: String,
     },
 }
 
