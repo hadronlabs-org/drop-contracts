@@ -992,7 +992,7 @@ fn execute_tick_staking_bond(
         attrs.push(attr("state", "idle"));
     }
 
-    Ok(response("execute-tick_transfering", CONTRACT_NAME, attrs).add_messages(messages))
+    Ok(response("execute-tick_staking_bond", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 fn execute_tick_unbonding(

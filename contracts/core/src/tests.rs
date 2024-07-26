@@ -10,7 +10,7 @@ use cosmwasm_std::{
 };
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
 use drop_puppeteer_base::{msg::TransferReadyBatchesMsg, state::RedeemShareItem};
-use drop_staking_base::state::core::FAILED_BATCH_ID;
+use drop_staking_base::state::core::{FAILED_BATCH_ID, LAST_STAKER_RESPONSE};
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
@@ -2792,6 +2792,22 @@ fn test_tick_staking_to_unbonding() {
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &9u64)
         .unwrap();
+    LAST_STAKER_RESPONSE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::msg::staker::ResponseHookMsg::Success(
+                drop_staking_base::msg::staker::ResponseHookSuccessMsg {
+                    request_id: 1,
+                    request: null_request_packet(),
+                    transaction: drop_staking_base::state::staker::Transaction::Stake {
+                        amount: Uint128::from(1000u128),
+                    },
+                    local_height: 1,
+                    remote_height: 1,
+                },
+            ),
+        )
+        .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&BalancesResponse {
@@ -2902,10 +2918,10 @@ fn test_tick_staking_to_unbonding() {
         res,
         Response::new()
             .add_event(
-                Event::new("crates.io:drop-staking__drop-core-execute-tick_staking")
+                Event::new("crates.io:drop-staking__drop-core-execute-tick_staking_bond")
                     .add_attributes(vec![
-                        ("action", "tick_staking"),
-                        ("knot", "022"),
+                        ("action", "tick_staking_bond"),
+                        ("knot", "020"),
                         ("knot", "024"),
                         ("knot", "026"),
                         ("knot", "027"),
@@ -2958,6 +2974,22 @@ fn test_tick_staking_to_idle() {
             ),
         )
         .unwrap();
+    LAST_STAKER_RESPONSE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::msg::staker::ResponseHookMsg::Success(
+                drop_staking_base::msg::staker::ResponseHookSuccessMsg {
+                    request_id: 1,
+                    request: null_request_packet(),
+                    transaction: drop_staking_base::state::staker::Transaction::Stake {
+                        amount: Uint128::from(1000u128),
+                    },
+                    local_height: 1,
+                    remote_height: 1,
+                },
+            ),
+        )
+        .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&BalancesResponse {
@@ -2978,6 +3010,21 @@ fn test_tick_staking_to_idle() {
             to_json_binary(&DelegationsResponse {
                 delegations: Delegations {
                     delegations: vec![],
+                },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&BalancesResponse {
+                balances: Balances {
+                    coins: vec![Coin {
+                        denom: "remote_denom".to_string(),
+                        amount: Uint128::zero(),
+                    }],
                 },
                 remote_height: 10u64,
                 local_height: 10u64,
@@ -3042,17 +3089,16 @@ fn test_tick_staking_to_idle() {
     assert_eq!(
         res,
         Response::new().add_event(
-            Event::new("crates.io:drop-staking__drop-core-execute-tick_staking").add_attributes(
-                vec![
-                    ("action", "tick_staking"),
-                    ("knot", "022"),
+            Event::new("crates.io:drop-staking__drop-core-execute-tick_staking_bond")
+                .add_attributes(vec![
+                    ("action", "tick_staking_bond"),
+                    ("knot", "020"),
                     ("knot", "024"),
                     ("knot", "026"),
                     ("knot", "027"),
                     ("knot", "000"),
                     ("state", "idle"),
-                ]
-            )
+                ])
         )
     );
 }
