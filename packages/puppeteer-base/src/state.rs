@@ -35,7 +35,7 @@ where
     pub last_complete_delegations_and_balances_key: Item<'a, u64>,
     pub delegations_and_balances:
         Map<'a, &'a u64, BalancesAndDelegationsState<BalancesAndDelegations>>,
-    pub delegations_and_balances_query_id_chunk: Map<'a, u64, u16>,
+    pub delegations_and_balances_query_id_chunk: Map<'a, u64, u16>, // Map <query_id, chunk_id>
     pub unbonding_delegations:
         IndexedMap<'a, &'a str, UnbondingDelegation, UnbondingDelegationIndexes<'a>>,
     pub unbonding_delegations_reply_id_storage: Map<'a, u16, UnbondingDelegation>,
