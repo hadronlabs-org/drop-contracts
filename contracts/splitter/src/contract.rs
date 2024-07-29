@@ -69,37 +69,28 @@ pub fn execute_distribute(deps: DepsMut, env: Env, _info: MessageInfo) -> Contra
     if total_share.is_zero() {
         return Err(ContractError::NoShares {});
     }
-    let mut messages = vec![];
     let balance = deps
         .querier
-        .query_balance(env.contract.address.to_string(), config.denom.to_string())?;
-    let amount = balance.amount;
-    if amount.is_zero() {
+        .query_balance(env.contract.address.to_string(), config.denom.to_string())?
+        .amount;
+    if balance < total_share {
         return Err(ContractError::InsufficientFunds {});
     }
-    for (receiver, amount) in recepients_to_amounts(config.receivers.clone(), total_share, amount) {
-        messages.push(CosmosMsg::Bank(BankMsg::Send {
-            to_address: receiver.to_string(),
-            amount: vec![Coin::new(amount.u128(), config.denom.to_string())],
-        }));
-    }
+    let k = balance / total_share;
+    let messages = config
+        .receivers
+        .iter()
+        .map(|(receiver, share)| {
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: receiver.to_string(),
+                amount: vec![Coin::new((share * k).u128(), config.denom.to_string())],
+            })
+        })
+        .collect::<Vec<_>>();
     Ok(Response::default().add_messages(messages))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> ContractResult<Response> {
     Ok(Response::default())
-}
-
-fn recepients_to_amounts(
-    recepients: Vec<(String, Uint128)>,
-    total: Uint128,
-    to_distribute: Uint128,
-) -> Vec<(String, Uint128)> {
-    let mut amounts = vec![];
-    for (addr, share) in recepients {
-        let amount = to_distribute * share / total;
-        amounts.push((addr, amount));
-    }
-    amounts
 }
