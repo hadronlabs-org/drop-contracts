@@ -621,6 +621,22 @@ describe('Interchain puppeteer', () => {
     });
     expect(unbonding_delegations).toHaveLength(VALIDATORS_COUNT);
   });
+
+  it('query kv keys for query_id', async () => {
+    const queryIds = await context.contractClient.queryKVQueryIds();
+
+    expect(queryIds).toEqual([
+      [2, 'delegations_and_balance'],
+      [3, 'delegations_and_balance'],
+      [4, 'delegations_and_balance'],
+      [5, 'unbonding_delegations'],
+      [6, 'unbonding_delegations'],
+      [7, 'unbonding_delegations'],
+      [8, 'unbonding_delegations'],
+      [9, 'unbonding_delegations'],
+    ]);
+  });
+
   it('grant access to some account', async () => {
     const { contractClient, account } = context;
     const res = await contractClient.grantDelegate(
