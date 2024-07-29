@@ -120,7 +120,7 @@ where
         let data: BalancesAndDelegations = PuppeteerReconstruct::reconstruct(&kv_results, version)?;
         let new_state = match self
             .delegations_and_balances
-            .may_load(deps.storage, &env.block.height)?
+            .may_load(deps.storage, &remote_height)?
         {
             Some(mut state) => {
                 state
@@ -153,7 +153,7 @@ where
             }
         }
         self.delegations_and_balances
-            .save(deps.storage, &env.block.height, &new_state)?;
+            .save(deps.storage, &remote_height, &new_state)?;
         Ok(Response::default())
     }
 
