@@ -156,10 +156,7 @@ fn query_delegations(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
         Some(last_key) => {
             let last_data = puppeteer_base
                 .delegations_and_balances
-                .may_load(deps.storage, &last_key)?
-                .ok_or(ContractError::Std(StdError::not_found(
-                    "Last data not found",
-                )))?;
+                .load(deps.storage, &last_key)?;
             to_json_binary(&DelegationsResponse {
                 delegations: last_data.data.delegations,
                 remote_height: last_data.remote_height,
@@ -186,10 +183,7 @@ fn query_balances(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
         Some(last_key) => {
             let last_data = puppeteer_base
                 .delegations_and_balances
-                .may_load(deps.storage, &last_key)?
-                .ok_or(ContractError::Std(StdError::not_found(
-                    "Last data not found",
-                )))?;
+                .load(deps.storage, &last_key)?;
             to_json_binary(&BalancesResponse {
                 balances: last_data.data.balances,
                 remote_height: last_data.remote_height,

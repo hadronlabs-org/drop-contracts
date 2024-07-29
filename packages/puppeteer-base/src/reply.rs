@@ -35,7 +35,7 @@ where
         i: u16,
         query_type: U,
     ) -> StdResult<Response> {
-        let query_id = get_query_id(msg.result.clone())?;
+        let query_id = get_query_id(msg.result)?;
         self.delegations_and_balances_query_id_chunk
             .save(deps.storage, query_id, &i)?;
         self.kv_queries.save(deps.storage, query_id, &query_type)?;

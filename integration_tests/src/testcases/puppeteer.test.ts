@@ -108,7 +108,6 @@ describe('Interchain puppeteer', () => {
   });
 
   it('instantiate', async () => {
-    await context.park.restartRelayer('neutron', 1);
     const { client, account } = context;
     {
       const res = await client.upload(
@@ -148,7 +147,7 @@ describe('Interchain puppeteer', () => {
         account.address,
         res.codeId,
         {
-          delegations_queries_chunk_size: 2,
+          delegations_queries_chunk_size: VALIDATORS_ICQ_LIMIT,
           sdk_version: process.env.SDK_VERSION || '0.46.0',
           connection_id: 'connection-0',
           port_id: 'transfer',
