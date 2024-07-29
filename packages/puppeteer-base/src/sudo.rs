@@ -123,15 +123,14 @@ where
             .may_load(deps.storage, &remote_height)?
         {
             Some(mut state) => {
-                state
-                    .data
-                    .delegations
-                    .delegations
-                    .extend(data.delegations.delegations);
-                // insert chunk_id to collected_chunks and uniq
-                state.collected_chunks.push(chunk_id);
-                state.collected_chunks.sort();
-                state.collected_chunks.dedup();
+                if !state.collected_chunks.contains(&chunk_id) {
+                    state
+                        .data
+                        .delegations
+                        .delegations
+                        .extend(data.delegations.delegations);
+                    state.collected_chunks.push(chunk_id);
+                }
                 state
             }
             None => BalancesAndDelegationsState {
