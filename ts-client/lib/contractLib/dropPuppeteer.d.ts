@@ -254,6 +254,7 @@ export interface ConfigOptional {
 export interface InstantiateMsg {
     allowed_senders: string[];
     connection_id: string;
+    delegations_queries_chunk_size?: number | null;
     owner?: string | null;
     port_id: string;
     remote_denom: string;

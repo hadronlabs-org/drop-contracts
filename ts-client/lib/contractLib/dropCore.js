@@ -65,6 +65,12 @@ class Client {
     queryTotalBonded = async () => {
         return this.client.queryContractSmart(this.contractAddress, { total_bonded: {} });
     };
+    queryTotalLSMShares = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { total_l_s_m_shares: {} });
+    };
+    queryFailedBatch = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { failed_batch: {} });
+    };
     queryPauseInfo = async () => {
         return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
     };
