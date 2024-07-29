@@ -143,8 +143,14 @@ where
             },
         };
         if new_state.collected_chunks.len() == chunks_len {
-            self.last_complete_delegations_and_balances_key
-                .save(deps.storage, &env.block.height)?;
+            let prev_key = self
+                .last_complete_delegations_and_balances_key
+                .load(deps.storage)
+                .unwrap_or_default();
+            if prev_key < remote_height {
+                self.last_complete_delegations_and_balances_key
+                    .save(deps.storage, &remote_height)?;
+            }
         }
         self.delegations_and_balances
             .save(deps.storage, &env.block.height, &new_state)?;
