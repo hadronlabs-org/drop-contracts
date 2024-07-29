@@ -18,7 +18,7 @@ members = [
     "contracts/staker",
     "contracts/strategy",
     "contracts/token",
-    "contracts/token-distributor",
+    "contracts/splitter",
     "contracts/price-provider",
     "contracts/validators-stats",
     "contracts/validators-set",
@@ -43,7 +43,6 @@ tendermint-proto = { version = "0.34.0", default-features = false }
 cosmwasm-schema = { version = "1.5.4", default-features = false }
 cw-storage-plus = { version = "1.2.0", default-features = false }
 cw2 = { version = "1.1.2", default-features = false }
-cw20 = { version = "1.1.2", default-features = false }
 cw721 = { version = "0.18.0", default-features = false }
 cw721-base = { version = "0.18.0", features = ["library"] }
 cw-multi-test = { version = "0.20.0", default-features = false }

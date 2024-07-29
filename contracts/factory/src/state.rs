@@ -13,6 +13,8 @@ pub struct CodeIds {
     pub validators_set_code_id: u64,
     pub distribution_code_id: u64,
     pub rewards_manager_code_id: u64,
+    pub splitter_code_id: u64,
+    pub rewards_pump_code_id: u64,
 }
 
 #[cw_serde]
@@ -22,6 +24,13 @@ pub struct RemoteOpts {
     pub connection_id: String,
     pub port_id: String,
     pub transfer_channel_id: String,
+    pub timeout: Timeout,
+}
+
+#[cw_serde]
+pub struct Timeout {
+    pub local: u64,
+    pub remote: u64,
 }
 
 #[cw_serde]

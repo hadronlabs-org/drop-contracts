@@ -1,9 +1,9 @@
-use cosmwasm_std::{entry_point, to_json_binary, BankMsg, Coin, CosmosMsg, Deps, Uint128, WasmMsg};
+use cosmwasm_std::{entry_point, to_json_binary, BankMsg, Coin, CosmosMsg, Deps, Uint128};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use drop_staking_base::{
-    error::token_distributor::{ContractError, ContractResult},
-    msg::token_distributor::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, Token},
-    state::token_distributor::{Config, CONFIG},
+    error::splitter::{ContractError, ContractResult},
+    msg::splitter::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
+    state::splitter::{Config, CONFIG},
 };
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -41,7 +41,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response> {
     match msg {
-        ExecuteMsg::Distribute { denoms } => execute_distribute(deps, env, info, denoms),
+        ExecuteMsg::Distribute {} => execute_distribute(deps, env, info),
         ExecuteMsg::UpdateOwnership(action) => {
             cw_ownable::update_ownership(deps, &env.block, &info.sender, action)?;
             Ok(Response::new())
@@ -60,12 +60,7 @@ pub fn execute_update_config(
     Ok(Response::default())
 }
 
-pub fn execute_distribute(
-    deps: DepsMut,
-    env: Env,
-    _info: MessageInfo,
-    denoms: Vec<Token>,
-) -> ContractResult<Response> {
+pub fn execute_distribute(deps: DepsMut, env: Env, _info: MessageInfo) -> ContractResult<Response> {
     let config: Config = CONFIG.load(deps.storage)?;
     let total_share = config
         .receivers
@@ -75,53 +70,19 @@ pub fn execute_distribute(
         return Err(ContractError::NoShares {});
     }
     let mut messages = vec![];
-    for denom in denoms {
-        match denom {
-            Token::Native { denom } => {
-                let balance = deps
-                    .querier
-                    .query_balance(&env.clone().contract.address.to_string(), denom.to_string())?;
-                let amount = balance.amount;
-                if amount.is_zero() {
-                    return Err(ContractError::InsufficientFunds {});
-                }
-                for (receiver, amount) in
-                    recepients_to_amounts(config.receivers.clone(), total_share, amount)
-                {
-                    messages.push(CosmosMsg::Bank(BankMsg::Send {
-                        to_address: receiver.to_string(),
-                        amount: vec![Coin::new(amount.u128(), denom.to_string())],
-                    }));
-                }
-            }
-            Token::CW20 { address } => {
-                let balance: cw20::BalanceResponse = deps.querier.query_wasm_smart(
-                    address.to_string(),
-                    &cw20::Cw20QueryMsg::Balance {
-                        address: env.clone().contract.address.into(),
-                    },
-                )?;
-                let amount = balance.balance;
-                if amount.is_zero() {
-                    return Err(ContractError::InsufficientFunds {});
-                }
-
-                for (receiver, sum) in
-                    recepients_to_amounts(config.receivers.clone(), total_share, amount)
-                {
-                    messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-                        contract_addr: address.to_string(),
-                        msg: to_json_binary(&cw20::Cw20ExecuteMsg::Transfer {
-                            recipient: receiver,
-                            amount: sum,
-                        })?,
-                        funds: vec![],
-                    }));
-                }
-            }
-        }
+    let balance = deps
+        .querier
+        .query_balance(env.contract.address.to_string(), config.denom.to_string())?;
+    let amount = balance.amount;
+    if amount.is_zero() {
+        return Err(ContractError::InsufficientFunds {});
     }
-
+    for (receiver, amount) in recepients_to_amounts(config.receivers.clone(), total_share, amount) {
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
+            to_address: receiver.to_string(),
+            amount: vec![Coin::new(amount.u128(), config.denom.to_string())],
+        }));
+    }
     Ok(Response::default().add_messages(messages))
 }
 

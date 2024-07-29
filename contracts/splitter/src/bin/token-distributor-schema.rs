@@ -1,6 +1,6 @@
 use cosmwasm_schema::write_api;
 
-use drop_staking_base::msg::token_distributor::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
+use drop_staking_base::msg::splitter::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 
 fn main() {
     write_api! {

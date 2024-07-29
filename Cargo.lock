@@ -866,6 +866,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-splitter"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw-utils 1.0.3",
+ "drop-staking-base",
+ "thiserror",
+]
+
+[[package]]
 name = "drop-staker"
 version = "1.0.0"
 dependencies = [
@@ -1689,21 +1703,6 @@ checksum = "3f252a68540fde3a3877aeea552b832b40ab9a69e318efd078774a01ddee1ccf"
 dependencies = [
  "num-conv",
  "time-core",
-]
-
-[[package]]
-name = "token_distributor"
-version = "1.0.0"
-dependencies = [
- "cosmos-sdk-proto",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-ownable",
- "cw-storage-plus 1.2.0",
- "cw-utils 1.0.3",
- "cw20 1.1.2",
- "drop-staking-base",
- "thiserror",
 ]
 
 [[package]]

@@ -6,6 +6,7 @@ use cw_storage_plus::Item;
 #[derive(Default)]
 pub struct Config {
     pub receivers: Vec<(String, Uint128)>,
+    pub denom: String,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

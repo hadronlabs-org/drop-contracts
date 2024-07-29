@@ -1,8 +1,8 @@
 [package]
 authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>"]
-description = "Token distribution contract"
+description = "Token flow splitter contract"
 edition = "2021"
-name = "token_distributor"
+name = "drop-splitter"
 version = "1.0.0"
 
 exclude = [
@@ -27,6 +27,5 @@ cw-ownable = { workspace = true }
 cosmwasm-std = { workspace = true, features = ["cosmwasm_1_2"] }
 thiserror = { workspace = true }
 cw-utils = { workspace = true }
-cw20 = { workspace = true }
 drop-staking-base = { workspace = true }
 cw-storage-plus = { workspace = true, features = ["iterator"] }
