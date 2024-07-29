@@ -1,7 +1,7 @@
 use crate::{
     error::core::ContractResult,
     msg::staker::ResponseHookMsg as StakerResponseHookMsg,
-    state::core::{Config, ConfigOptional, NonNativeRewardsItem},
+    state::core::{Config, ConfigOptional},
 };
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Deps, Uint128, Uint64};
@@ -116,8 +116,6 @@ pub enum QueryMsg {
     LastPuppeteerResponse {},
     #[returns(LastStakerResponse)]
     LastStakerResponse {},
-    #[returns(Vec<NonNativeRewardsItem>)]
-    NonNativeRewardsReceivers {},
     #[returns(Vec<(String,(String, Uint128))>)]
     PendingLSMShares {},
     #[returns(Vec<(String,(String, Uint128))>)]
@@ -142,9 +140,6 @@ pub enum ExecuteMsg {
     //permissioned
     UpdateConfig {
         new_config: Box<ConfigOptional>,
-    },
-    UpdateNonNativeRewardsReceivers {
-        items: Vec<NonNativeRewardsItem>,
     },
     UpdateWithdrawnAmount {
         batch_id: u128,

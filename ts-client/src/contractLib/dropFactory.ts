@@ -45,22 +45,11 @@ export type ValidatorSetMsg = {
 };
 export type CoreMsg =
   | {
-      update_non_native_rewards_receivers: {
-        items: NonNativeRewardsItem[];
-      };
-    }
-  | {
       pause: {};
     }
   | {
       unpause: {};
     };
-/**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal = string;
 export type CosmosMsgFor_NeutronMsg =
   | {
       bank: BankMsg;
@@ -729,6 +718,12 @@ export type GovMsg =
     };
 export type VoteOption = "yes" | "no" | "abstain" | "no_with_veto";
 /**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal = string;
+/**
  * Actions that can be taken to alter the contract's ownership
  */
 export type UpdateOwnershipArgs =
@@ -808,13 +803,6 @@ export interface ConfigOptional2 {
 export interface ValidatorData {
   valoper_address: string;
   weight: number;
-}
-export interface NonNativeRewardsItem {
-  address: string;
-  denom: string;
-  fee: Decimal;
-  fee_address: string;
-  min_amount: Uint128;
 }
 export interface AdminExecuteArgs {
   msgs: CosmosMsgFor_NeutronMsg[];

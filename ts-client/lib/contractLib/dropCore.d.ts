@@ -24,7 +24,7 @@ export type Uint128 = string;
  * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
  */
 export type Addr = string;
-export type ContractState = "idle" | "l_s_m_transfer" | "l_s_m_redeem" | "non_native_rewards_transfer" | "claiming" | "unbonding" | "staking_bond";
+export type ContractState = "idle" | "l_s_m_transfer" | "l_s_m_redeem" | "claiming" | "unbonding" | "staking_bond";
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -137,13 +137,6 @@ export type Transaction = {
     };
 };
 export type IBCTransferReason = "l_s_m_share" | "stake";
-/**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal1 = string;
-export type ArrayOfNonNativeRewardsItem = NonNativeRewardsItem[];
 export type String = string;
 /**
  * Information about if the contract is currently paused.
@@ -182,6 +175,12 @@ export type Uint1282 = string;
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint1283 = string;
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal1 = string;
 export type UnbondBatchStatus = "new" | "unbond_requested" | "unbond_failed" | "unbonding" | "withdrawing" | "withdrawn" | "withdrawing_emergency" | "withdrawn_emergency";
 /**
  * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
@@ -246,9 +245,9 @@ export type Expiration = {
  */
 export type Timestamp2 = Uint64;
 export interface DropCoreSchema {
-    responses: Config | ContractState | Uint1281 | Decimal | FailedBatchResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | LastStakerResponse | ArrayOfNonNativeRewardsItem | String | PauseInfoResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Uint1282 | Uint1283 | UnbondBatch | UnbondBatchesResponse;
+    responses: Config | ContractState | Uint1281 | Decimal | FailedBatchResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | LastStakerResponse | String | PauseInfoResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Uint1282 | Uint1283 | UnbondBatch | UnbondBatchesResponse;
     query: UnbondBatchArgs | UnbondBatchesArgs;
-    execute: BondArgs | UpdateConfigArgs | UpdateNonNativeRewardsReceiversArgs | UpdateWithdrawnAmountArgs | PuppeteerHookArgs | StakerHookArgs | ProcessEmergencyBatchArgs | UpdateOwnershipArgs;
+    execute: BondArgs | UpdateConfigArgs | UpdateWithdrawnAmountArgs | PuppeteerHookArgs | StakerHookArgs | ProcessEmergencyBatchArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -359,13 +358,6 @@ export interface ResponseHookErrorMsg {
 export interface LastStakerResponse {
     response?: ResponseHookMsg | null;
 }
-export interface NonNativeRewardsItem {
-    address: string;
-    denom: string;
-    fee: Decimal1;
-    fee_address: string;
-    min_amount: Uint128;
-}
 export interface UnbondBatch {
     expected_native_asset_amount: Uint128;
     expected_release_time: number;
@@ -440,9 +432,6 @@ export interface ConfigOptional {
     withdrawal_manager_contract?: string | null;
     withdrawal_voucher_contract?: string | null;
 }
-export interface UpdateNonNativeRewardsReceiversArgs {
-    items: NonNativeRewardsItem[];
-}
 export interface UpdateWithdrawnAmountArgs {
     batch_id: number;
     withdrawn_amount: Uint128;
@@ -506,7 +495,6 @@ export declare class Client {
     queryContractState: () => Promise<ContractState>;
     queryLastPuppeteerResponse: () => Promise<LastPuppeteerResponse>;
     queryLastStakerResponse: () => Promise<LastStakerResponse>;
-    queryNonNativeRewardsReceivers: () => Promise<ArrayOfNonNativeRewardsItem>;
     queryPendingLSMShares: () => Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128>;
     queryLSMSharesToRedeem: () => Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128>;
     queryTotalBonded: () => Promise<Uint128>;
@@ -516,7 +504,6 @@ export declare class Client {
     bond: (sender: string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     unbond: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    updateNonNativeRewardsReceivers: (sender: string, args: UpdateNonNativeRewardsReceiversArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateWithdrawnAmount: (sender: string, args: UpdateWithdrawnAmountArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     tick: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     puppeteerHook: (sender: string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
