@@ -106,8 +106,7 @@ where
         let chunks_len = self
             .delegations_and_balances_query_id_chunk
             .keys(deps.storage, None, None, Order::Ascending)
-            .collect::<Vec<_>>()
-            .len();
+            .count();
         let chunk_id = self
             .delegations_and_balances_query_id_chunk
             .load(deps.storage, query_id)?;
