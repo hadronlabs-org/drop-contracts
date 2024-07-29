@@ -106,8 +106,7 @@ where
         let chunks_len = self
             .delegations_and_balances_query_id_chunk
             .keys(deps.storage, None, None, Order::Ascending)
-            .collect::<Vec<_>>()
-            .len();
+            .count();
         let chunk_id = self
             .delegations_and_balances_query_id_chunk
             .load(deps.storage, query_id)?;
@@ -144,8 +143,14 @@ where
             },
         };
         if new_state.collected_chunks.len() == chunks_len {
-            self.last_complete_delegations_and_balances_key
-                .save(deps.storage, &env.block.height)?;
+            let prev_key = self
+                .last_complete_delegations_and_balances_key
+                .load(deps.storage)
+                .unwrap_or_default();
+            if prev_key < remote_height {
+                self.last_complete_delegations_and_balances_key
+                    .save(deps.storage, &remote_height)?;
+            }
         }
         self.delegations_and_balances
             .save(deps.storage, &env.block.height, &new_state)?;
