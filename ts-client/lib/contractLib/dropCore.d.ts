@@ -173,6 +173,20 @@ export type ArrayOfTupleOfStringAndTupleOfStringAndUint1281 = [string, [string, 
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint1282 = string;
+/**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint1283 = string;
 export type UnbondBatchStatus = "new" | "unbond_requested" | "unbond_failed" | "unbonding" | "withdrawing" | "withdrawn" | "withdrawing_emergency" | "withdrawn_emergency";
 /**
  * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
@@ -237,7 +251,7 @@ export type Expiration = {
  */
 export type Timestamp2 = Uint64;
 export interface DropCoreSchema {
-    responses: Config | ContractState | Uint1281 | Decimal1 | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | LastStakerResponse | ArrayOfNonNativeRewardsItem | String | PauseInfoResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Uint1282 | UnbondBatch | UnbondBatchesResponse;
+    responses: Config | ContractState | Uint1281 | Decimal1 | FailedBatchResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | LastStakerResponse | ArrayOfNonNativeRewardsItem | String | PauseInfoResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Uint1282 | Uint1283 | UnbondBatch | UnbondBatchesResponse;
     query: UnbondBatchArgs | UnbondBatchesArgs;
     execute: BondArgs | UpdateConfigArgs | UpdateNonNativeRewardsReceiversArgs | UpdateWithdrawnAmountArgs | PuppeteerHookArgs | StakerHookArgs | ProcessEmergencyBatchArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
@@ -268,6 +282,9 @@ export interface Config {
     validators_set_contract: Addr;
     withdrawal_manager_contract: Addr;
     withdrawal_voucher_contract: Addr;
+}
+export interface FailedBatchResponse {
+    response?: number | null;
 }
 export interface LastPuppeteerResponse {
     response?: ResponseHookMsg | null;
@@ -501,6 +518,8 @@ export declare class Client {
     queryPendingLSMShares: () => Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128>;
     queryLSMSharesToRedeem: () => Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128>;
     queryTotalBonded: () => Promise<Uint128>;
+    queryTotalLSMShares: () => Promise<Uint128>;
+    queryFailedBatch: () => Promise<FailedBatchResponse>;
     queryPauseInfo: () => Promise<PauseInfoResponse>;
     bond: (sender: string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     unbond: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

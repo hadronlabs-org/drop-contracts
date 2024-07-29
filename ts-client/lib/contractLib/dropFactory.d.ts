@@ -1112,7 +1112,7 @@ export interface InstantiateMsg {
     base_denom: string;
     code_ids: CodeIds;
     core_params: CoreParams;
-    puppeteer_params: PuppeteerParams;
+    fee_params?: FeeParams | null;
     remote_opts: RemoteOpts;
     salt: string;
     sdk_version: string;
@@ -1125,6 +1125,8 @@ export interface CodeIds {
     distribution_code_id: number;
     puppeteer_code_id: number;
     rewards_manager_code_id: number;
+    rewards_pump_code_id: number;
+    splitter_code_id: number;
     staker_code_id: number;
     strategy_code_id: number;
     token_code_id: number;
@@ -1144,20 +1146,25 @@ export interface CoreParams {
     unbonding_period: number;
     unbonding_safe_period: number;
 }
-export interface PuppeteerParams {
-    timeout: number;
+export interface FeeParams {
+    fee: Decimal;
+    fee_address: string;
 }
 export interface RemoteOpts {
     connection_id: string;
     denom: string;
     port_id: string;
+    timeout: Timeout;
     transfer_channel_id: string;
     update_period: number;
+}
+export interface Timeout {
+    local: number;
+    remote: number;
 }
 export interface StakerParams {
     min_ibc_transfer: Uint128;
     min_stake_amount: Uint128;
-    timeout: number;
 }
 export interface DenomMetadata {
     /**

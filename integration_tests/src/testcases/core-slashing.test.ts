@@ -94,6 +94,8 @@ describe('Core Slashing', () => {
       validatorsSet?: number;
       distribution?: number;
       rewardsManager?: number;
+      splitter?: number;
+      pump?: number;
     };
     tokenContractAddress?: string;
     neutronIBCDenom?: string;
@@ -356,6 +358,26 @@ describe('Core Slashing', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.staker = res.codeId;
     }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.splitter = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.pump = res.codeId;
+    }
 
     const res = await client.upload(
       account.address,
@@ -380,6 +402,8 @@ describe('Core Slashing', () => {
           puppeteer_code_id: context.codeIds.puppeteer,
           rewards_manager_code_id: context.codeIds.rewardsManager,
           staker_code_id: context.codeIds.staker,
+          splitter_code_id: context.codeIds.splitter,
+          rewards_pump_code_id: context.codeIds.pump,
         },
         remote_opts: {
           connection_id: 'connection-0',
@@ -387,6 +411,10 @@ describe('Core Slashing', () => {
           port_id: 'transfer',
           denom: 'stake',
           update_period: 2,
+          timeout: {
+            local: 60,
+            remote: 60,
+          },
         },
         salt: 'salt',
         subdenom: 'drop',
@@ -412,11 +440,7 @@ describe('Core Slashing', () => {
           min_stake_amount: '2',
           icq_update_delay: 5,
         },
-        puppeteer_params: {
-          timeout: 60,
-        },
         staker_params: {
-          timeout: 60,
           min_stake_amount: '100',
           min_ibc_transfer: '100',
         },

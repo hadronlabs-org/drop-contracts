@@ -95,6 +95,8 @@ describe('Auto withdrawer', () => {
       validatorsSet?: number;
       distribution?: number;
       rewardsManager?: number;
+      splitter?: number;
+      pump?: number;
     };
     exchangeRate?: number;
     tokenContractAddress?: string;
@@ -358,7 +360,26 @@ describe('Auto withdrawer', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.staker = res.codeId;
     }
-
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.splitter = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.pump = res.codeId;
+    }
     const res = await client.upload(
       account.address,
       fs.readFileSync(join(__dirname, '../../../artifacts/drop_factory.wasm')),
@@ -382,6 +403,8 @@ describe('Auto withdrawer', () => {
           puppeteer_code_id: context.codeIds.puppeteer,
           rewards_manager_code_id: context.codeIds.rewardsManager,
           staker_code_id: context.codeIds.staker,
+          splitter_code_id: context.codeIds.splitter,
+          rewards_pump_code_id: context.codeIds.pump,
         },
         remote_opts: {
           connection_id: 'connection-0',
@@ -389,6 +412,10 @@ describe('Auto withdrawer', () => {
           port_id: 'transfer',
           denom: 'stake',
           update_period: 2,
+          timeout: {
+            local: 60,
+            remote: 60,
+          },
         },
         salt: 'salt',
         subdenom: 'drop',
@@ -413,11 +440,7 @@ describe('Auto withdrawer', () => {
           min_stake_amount: '2',
           icq_update_delay: 5,
         },
-        puppeteer_params: {
-          timeout: 60,
-        },
         staker_params: {
-          timeout: 60,
           min_stake_amount: '10000',
           min_ibc_transfer: '10000',
         },
