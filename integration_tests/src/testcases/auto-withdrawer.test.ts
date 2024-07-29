@@ -441,7 +441,6 @@ describe('Auto withdrawer', () => {
           icq_update_delay: 5,
         },
         staker_params: {
-          timeout: 60,
           min_stake_amount: '10000',
           min_ibc_transfer: '10000',
         },

@@ -441,7 +441,6 @@ describe('Core Slashing', () => {
           icq_update_delay: 5,
         },
         staker_params: {
-          timeout: 60,
           min_stake_amount: '100',
           min_ibc_transfer: '100',
         },

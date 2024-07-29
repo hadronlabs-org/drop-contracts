@@ -43,7 +43,6 @@ pub struct CoreParams {
 pub struct StakerParams {
     pub min_stake_amount: Uint128,
     pub min_ibc_transfer: Uint128,
-    pub timeout: u64,
 }
 
 #[cw_serde]

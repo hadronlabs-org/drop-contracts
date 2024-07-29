@@ -1240,7 +1240,6 @@ export interface Timeout {
 export interface StakerParams {
   min_ibc_transfer: Uint128;
   min_stake_amount: Uint128;
-  timeout: number;
 }
 export interface DenomMetadata {
   /**
