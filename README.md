@@ -1,7 +1,8 @@
 # Drop Protocol Contracts
+
 ![Rectangle 161433](https://github.com/hadronlabs-org/drop-contracts/assets/103267218/f0faf991-7954-4e65-8032-73e6e4840ef3)
 
-This repository contains the the smart contracts of Drop Protocol. The project is organized into three main directories:
+This repository contains the smart contracts of Drop Protocol. The project is organized into three main directories:
 
 - `contracts`: This directory contains the core smart contracts for the Drop Protocol, written in Rust using the Cosmwasm framework.
 
@@ -12,7 +13,9 @@ This repository contains the the smart contracts of Drop Protocol. The project i
 ## Getting Started
 
 ### Prerequisites
+
 Ensure that you have the following installed:
+
 - Rust (via [rustup](https://rustup.rs/))
 - Cosmwasm (check out the [Cosmwasm documentation](https://docs.cosmwasm.com/))
 - Node.js (for TypeScript integration tests)
@@ -20,6 +23,7 @@ Ensure that you have the following installed:
 - Docker (to manage images)
 
 ### Building Contracts
+
 All build, test, and code quality tasks are managed using `make`. Below are the primary commands:
 
 - `make build`: Compile the contracts to WebAssembly (Wasm) format.
@@ -32,6 +36,7 @@ All build, test, and code quality tasks are managed using `make`. Below are the 
 - `make test`: Run all tests to ensure contract correctness.
 
 ### Running Integration Tests
+
 To run the integration tests located in the `integration_tests` directory:
 
 1. Ensure you have Node.js and Yarn installed.
@@ -50,5 +55,5 @@ To run the integration tests located in the `integration_tests` directory:
    ```
 
 ## License
-This project is licensed under the MIT License. See the `LICENSE` file for more details.
 
+This project is licensed under the MIT License. See the `LICENSE` file for more details.
