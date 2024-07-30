@@ -134,7 +134,6 @@ pub enum ContractState {
     Idle,
     LSMTransfer,
     LSMRedeem,
-    NonNativeRewardsTransfer,
     Claiming,
     Unbonding,
     StakingBond,
@@ -150,19 +149,11 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
         to: ContractState::LSMRedeem,
     },
     Transition {
-        from: ContractState::Idle,
-        to: ContractState::NonNativeRewardsTransfer,
-    },
-    Transition {
         from: ContractState::LSMTransfer,
         to: ContractState::Idle,
     },
     Transition {
         from: ContractState::LSMRedeem,
-        to: ContractState::Idle,
-    },
-    Transition {
-        from: ContractState::NonNativeRewardsTransfer,
         to: ContractState::Idle,
     },
     Transition {
@@ -207,15 +198,6 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
     },
 ];
 
-#[cw_serde]
-pub struct NonNativeRewardsItem {
-    pub denom: String,
-    pub address: String,
-    pub min_amount: Uint128,
-    pub fee_address: String,
-    pub fee: Decimal,
-}
-
 pub const FSM: Fsm<ContractState> = Fsm::new("machine_state", TRANSITIONS);
 pub const LAST_IDLE_CALL: Item<u64> = Item::new("last_tick");
 pub const LAST_ICA_CHANGE_HEIGHT: Item<u64> = Item::new("last_ica_change_height");
@@ -223,9 +205,6 @@ pub const LAST_PUPPETEER_RESPONSE: Item<PuppeteerResponseHookMsg> =
     Item::new("last_puppeteer_response");
 pub const LAST_STAKER_RESPONSE: Item<StakerResponseHookMsg> = Item::new("last_staker_response");
 pub const FAILED_BATCH_ID: Item<u128> = Item::new("failed_batch_id");
-// Vec<(denom, address for pumping)>
-pub const NON_NATIVE_REWARDS_CONFIG: Item<Vec<NonNativeRewardsItem>> =
-    Item::new("non_native_rewards_config");
 pub const BONDED_AMOUNT: Item<Uint128> = Item::new("bonded_amount"); // to be used in bond limit
 pub const LAST_LSM_REDEEM: Item<u64> = Item::new("last_lsm_redeem");
 pub const EXCHANGE_RATE: Item<(Decimal, u64)> = Item::new("exchange_rate");

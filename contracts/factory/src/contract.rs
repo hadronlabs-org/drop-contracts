@@ -568,21 +568,6 @@ fn execute_proxy_msg(
             }
         },
         ProxyMsg::Core(msg) => match msg {
-            crate::msg::CoreMsg::UpdateNonNativeRewardsReceivers { items } => {
-                messages.push(get_proxied_message(
-                    state.core_contract,
-                    drop_staking_base::msg::core::ExecuteMsg::UpdateNonNativeRewardsReceivers {
-                        items: items.clone(),
-                    },
-                    vec![],
-                )?);
-                messages.push(
-                    get_proxied_message(
-                        state.puppeteer_contract,
-                        drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
-                            denoms: items.iter().map(|one|{one.denom.to_string()}).collect() }, info.funds)?
-                );
-            }
             crate::msg::CoreMsg::Pause {} => {
                 messages.push(get_proxied_message(
                     state.core_contract,

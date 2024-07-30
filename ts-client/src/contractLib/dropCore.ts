@@ -24,14 +24,7 @@ export type Uint128 = string;
  * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
  */
 export type Addr = string;
-export type ContractState =
-  | "idle"
-  | "l_s_m_transfer"
-  | "l_s_m_redeem"
-  | "non_native_rewards_transfer"
-  | "claiming"
-  | "unbonding"
-  | "staking_bond";
+export type ContractState = "idle" | "l_s_m_transfer" | "l_s_m_redeem" | "claiming" | "unbonding" | "staking_bond";
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -165,13 +158,6 @@ export type Transaction =
       };
     };
 export type IBCTransferReason = "l_s_m_share" | "stake";
-/**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal1 = string;
-export type ArrayOfNonNativeRewardsItem = NonNativeRewardsItem[];
 export type String = string;
 /**
  * Information about if the contract is currently paused.
@@ -212,6 +198,12 @@ export type Uint1282 = string;
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint1283 = string;
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal1 = string;
 export type UnbondBatchStatus =
   | "new"
   | "unbond_requested"
@@ -306,7 +298,6 @@ export interface DropCoreSchema {
     | ArrayOfTupleOfStringAndTupleOfStringAndUint128
     | LastPuppeteerResponse
     | LastStakerResponse
-    | ArrayOfNonNativeRewardsItem
     | String
     | PauseInfoResponse
     | ArrayOfTupleOfStringAndTupleOfStringAndUint1281
@@ -318,7 +309,6 @@ export interface DropCoreSchema {
   execute:
     | BondArgs
     | UpdateConfigArgs
-    | UpdateNonNativeRewardsReceiversArgs
     | UpdateWithdrawnAmountArgs
     | PuppeteerHookArgs
     | StakerHookArgs
@@ -430,13 +420,6 @@ export interface ResponseHookErrorMsg {
 export interface LastStakerResponse {
   response?: ResponseHookMsg | null;
 }
-export interface NonNativeRewardsItem {
-  address: string;
-  denom: string;
-  fee: Decimal1;
-  fee_address: string;
-  min_amount: Uint128;
-}
 export interface UnbondBatch {
   expected_native_asset_amount: Uint128;
   expected_release_time: number;
@@ -510,9 +493,6 @@ export interface ConfigOptional {
   validators_set_contract?: string | null;
   withdrawal_manager_contract?: string | null;
   withdrawal_voucher_contract?: string | null;
-}
-export interface UpdateNonNativeRewardsReceiversArgs {
-  items: NonNativeRewardsItem[];
 }
 export interface UpdateWithdrawnAmountArgs {
   batch_id: number;
@@ -635,9 +615,6 @@ export class Client {
   queryLastStakerResponse = async(): Promise<LastStakerResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { last_staker_response: {} });
   }
-  queryNonNativeRewardsReceivers = async(): Promise<ArrayOfNonNativeRewardsItem> => {
-    return this.client.queryContractSmart(this.contractAddress, { non_native_rewards_receivers: {} });
-  }
   queryPendingLSMShares = async(): Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128> => {
     return this.client.queryContractSmart(this.contractAddress, { pending_l_s_m_shares: {} });
   }
@@ -667,10 +644,6 @@ export class Client {
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
-  }
-  updateNonNativeRewardsReceivers = async(sender:string, args: UpdateNonNativeRewardsReceiversArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_non_native_rewards_receivers: args }, fee || "auto", memo, funds);
   }
   updateWithdrawnAmount = async(sender:string, args: UpdateWithdrawnAmountArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

@@ -24,12 +24,11 @@ use drop_staking_base::{
     },
     state::{
         core::{
-            unbond_batches_map, Config, ConfigOptional, ContractState, NonNativeRewardsItem,
-            UnbondBatch, UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse,
-            BONDED_AMOUNT, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT,
-            LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE,
-            LD_DENOM, LSM_SHARES_TO_REDEEM, NON_NATIVE_REWARDS_CONFIG, PENDING_LSM_SHARES,
-            TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+            unbond_batches_map, Config, ConfigOptional, ContractState, UnbondBatch,
+            UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse, BONDED_AMOUNT,
+            CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL,
+            LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE, LD_DENOM,
+            LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
         withdrawal_voucher::{Metadata, Trait},
@@ -80,7 +79,6 @@ pub fn instantiate(
     LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &0)?;
     TOTAL_LSM_SHARES.save(deps.storage, &0)?;
     BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
-    NON_NATIVE_REWARDS_CONFIG.save(deps.storage, &vec![])?;
     LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
@@ -105,9 +103,6 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
         QueryMsg::CurrentUnbondBatch {} => query_current_unbond_batch(deps)?,
         QueryMsg::UnbondBatch { batch_id } => query_unbond_batch(deps, batch_id)?,
         QueryMsg::UnbondBatches { limit, page_key } => query_unbond_batches(deps, limit, page_key)?,
-        QueryMsg::NonNativeRewardsReceivers {} => {
-            to_json_binary(&NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?)?
-        }
         QueryMsg::ContractState {} => to_json_binary(&FSM.get_current_state(deps.storage)?)?,
         QueryMsg::LastPuppeteerResponse {} => to_json_binary(&LastPuppeteerResponse {
             response: LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?,
@@ -286,9 +281,6 @@ pub fn execute(
             batch_id,
             unbonded_amount,
         } => execute_process_emergency_batch(deps, info, env, batch_id, unbonded_amount),
-        ExecuteMsg::UpdateNonNativeRewardsReceivers { items } => {
-            execute_set_non_native_rewards_receivers(deps, env, info, items)
-        }
         ExecuteMsg::UpdateWithdrawnAmount {
             batch_id,
             withdrawn_amount,
@@ -386,26 +378,6 @@ fn execute_process_emergency_batch(
             attr("unbonded_amount", unbonded_amount),
             attr("slashing_effect", slashing_effect.to_string()),
         ],
-    ))
-}
-
-fn execute_set_non_native_rewards_receivers(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    info: MessageInfo,
-    items: Vec<NonNativeRewardsItem>,
-) -> ContractResult<Response<NeutronMsg>> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    for item in &items {
-        if item.fee < Decimal::zero() || item.fee > Decimal::one() {
-            return Err(ContractError::InvalidFee {});
-        }
-    }
-    NON_NATIVE_REWARDS_CONFIG.save(deps.storage, &items)?;
-    Ok(response(
-        "execute-set_non_native_rewards_receivers",
-        CONTRACT_NAME,
-        vec![attr("action", "set_non_native_rewards_receivers")],
     ))
 }
 
@@ -568,9 +540,6 @@ fn execute_tick(
         //
         ContractState::LSMRedeem => execute_tick_peripheral(deps.branch(), env, info, &config),
         ContractState::LSMTransfer => execute_tick_peripheral(deps.branch(), env, info, &config),
-        ContractState::NonNativeRewardsTransfer => {
-            execute_tick_peripheral(deps.branch(), env, info, &config)
-        }
         //
         ContractState::Claiming => execute_tick_claiming(deps.branch(), env, info, &config),
         ContractState::StakingBond => execute_tick_staking_bond(deps.branch(), env, info, &config),
@@ -591,37 +560,26 @@ fn execute_tick_idle(
     attrs.push(attr("knot", "002"));
     attrs.push(attr("knot", "003"));
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
-        //process non-native rewards
-        attrs.push(attr("knot", "033"));
-        if let Some(transfer_msg) =
-            get_non_native_rewards_and_fee_transfer_msg(deps.as_ref(), info.clone(), &env)?
+        attrs.push(attr("knot", "036"));
+        if let Some(lsm_msg) =
+            get_pending_redeem_msg(deps.as_ref(), config, &env, info.funds.clone())?
         {
-            messages.push(transfer_msg);
-            attrs.push(attr("knot", "034"));
-            FSM.go_to(deps.storage, ContractState::NonNativeRewardsTransfer)?;
-            attrs.push(attr("knot", "035"));
+            messages.push(lsm_msg);
+            attrs.push(attr("knot", "037"));
+            FSM.go_to(deps.storage, ContractState::LSMRedeem)?;
+            attrs.push(attr("knot", "038"));
         } else {
-            attrs.push(attr("knot", "036"));
+            attrs.push(attr("knot", "041"));
             if let Some(lsm_msg) =
-                get_pending_redeem_msg(deps.as_ref(), config, &env, info.funds.clone())?
+                get_pending_lsm_share_msg(deps.as_ref(), config, &env, info.funds.clone())?
             {
                 messages.push(lsm_msg);
-                attrs.push(attr("knot", "037"));
-                FSM.go_to(deps.storage, ContractState::LSMRedeem)?;
-                attrs.push(attr("knot", "038"));
+                attrs.push(attr("knot", "042"));
+                FSM.go_to(deps.storage, ContractState::LSMTransfer)?;
+                attrs.push(attr("knot", "043"));
             } else {
-                attrs.push(attr("knot", "041"));
-                if let Some(lsm_msg) =
-                    get_pending_lsm_share_msg(deps.as_ref(), config, &env, info.funds.clone())?
-                {
-                    messages.push(lsm_msg);
-                    attrs.push(attr("knot", "042"));
-                    FSM.go_to(deps.storage, ContractState::LSMTransfer)?;
-                    attrs.push(attr("knot", "043"));
-                } else {
-                    //return error if none
-                    return Err(ContractError::IdleMinIntervalIsNotReached {});
-                }
+                //return error if none
+                return Err(ContractError::IdleMinIntervalIsNotReached {});
             }
         }
     } else {
@@ -1534,82 +1492,6 @@ fn new_unbond(now: u64) -> UnbondBatch {
             withdrawn_emergency: None,
         },
     }
-}
-
-pub fn get_non_native_rewards_and_fee_transfer_msg<T>(
-    deps: Deps<NeutronQuery>,
-    info: MessageInfo,
-    env: &Env,
-) -> ContractResult<Option<CosmosMsg<T>>> {
-    let config = CONFIG.load(deps.storage)?;
-    let non_native_rewards_receivers = NON_NATIVE_REWARDS_CONFIG.load(deps.storage)?;
-    if non_native_rewards_receivers.is_empty() {
-        return Ok(None);
-    }
-    let mut items = vec![];
-    let rewards_response: drop_staking_base::msg::puppeteer::BalancesResponse =
-        deps.querier.query_wasm_smart(
-            config.puppeteer_contract.to_string(),
-            &drop_puppeteer_base::msg::QueryMsg::Extension {
-                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::NonNativeRewardsBalances {},
-            },
-        )?;
-
-    let last_ica_balance_change_height = LAST_ICA_CHANGE_HEIGHT.load(deps.storage)?;
-    ensure!(
-        last_ica_balance_change_height <= rewards_response.remote_height,
-        ContractError::PuppeteerBalanceOutdated {
-            ica_height: last_ica_balance_change_height,
-            control_height: rewards_response.remote_height
-        }
-    );
-
-    let rewards_map = rewards_response
-        .balances
-        .coins
-        .iter()
-        .map(|c| (c.denom.clone(), c.amount))
-        .collect::<std::collections::HashMap<_, _>>();
-    let default_amount = Uint128::zero();
-
-    for item in non_native_rewards_receivers {
-        let amount = rewards_map.get(&item.denom).unwrap_or(&default_amount);
-        if amount > &item.min_amount {
-            let fee = item.fee * *amount;
-            let amount = *amount - fee;
-            if !amount.is_zero() {
-                items.push((
-                    item.address,
-                    cosmwasm_std::Coin {
-                        denom: item.denom.clone(),
-                        amount,
-                    },
-                ));
-            }
-            if !item.fee.is_zero() && !fee.is_zero() {
-                items.push((
-                    item.fee_address,
-                    cosmwasm_std::Coin {
-                        denom: item.denom,
-                        amount: fee,
-                    },
-                ));
-            }
-        }
-    }
-
-    if items.is_empty() {
-        return Ok(None);
-    }
-
-    Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.puppeteer_contract.into_string(),
-        msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
-            items,
-            reply_to: env.contract.address.to_string(),
-        })?,
-        funds: info.funds,
-    })))
 }
 
 pub fn get_pending_redeem_msg<T>(

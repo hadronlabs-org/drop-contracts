@@ -53,9 +53,6 @@ class Client {
     queryLastStakerResponse = async () => {
         return this.client.queryContractSmart(this.contractAddress, { last_staker_response: {} });
     };
-    queryNonNativeRewardsReceivers = async () => {
-        return this.client.queryContractSmart(this.contractAddress, { non_native_rewards_receivers: {} });
-    };
     queryPendingLSMShares = async () => {
         return this.client.queryContractSmart(this.contractAddress, { pending_l_s_m_shares: {} });
     };
@@ -91,12 +88,6 @@ class Client {
             throw this.mustBeSigningClient();
         }
         return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
-    };
-    updateNonNativeRewardsReceivers = async (sender, args, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, { update_non_native_rewards_receivers: args }, fee || "auto", memo, funds);
     };
     updateWithdrawnAmount = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {

@@ -61,9 +61,6 @@ pub enum ProxyMsg {
 
 #[cw_serde]
 pub enum CoreMsg {
-    UpdateNonNativeRewardsReceivers {
-        items: Vec<drop_staking_base::state::core::NonNativeRewardsItem>,
-    },
     Pause {},
     Unpause {},
 }
