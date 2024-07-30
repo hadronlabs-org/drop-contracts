@@ -12,10 +12,12 @@ use drop_helpers::{
     },
     testing::mock_dependencies,
 };
-use drop_puppeteer_base::state::{BalancesAndDelegationsState, PuppeteerBase, ReplyMsg};
+use drop_puppeteer_base::state::{
+    BalancesAndDelegations, BalancesAndDelegationsState, PuppeteerBase, ReplyMsg,
+};
 use drop_staking_base::{
-    msg::puppeteer::{BalancesAndDelegations, InstantiateMsg},
-    state::puppeteer::{Config, ConfigOptional, KVQueryType, DELEGATIONS_AND_BALANCE},
+    msg::puppeteer::InstantiateMsg,
+    state::puppeteer::{Config, ConfigOptional, KVQueryType},
 };
 use neutron_sdk::{
     bindings::{
@@ -639,10 +641,26 @@ fn test_sudo_kv_query_result() {
         )
         .unwrap();
 
+    puppeteer_base
+        .delegations_and_balances_query_id_chunk
+        .save(deps.as_mut().storage, query_id, &0)
+        .unwrap();
+
     let res = crate::contract::sudo(deps.as_mut(), env, msg).unwrap();
     assert_eq!(res, Response::new());
 
-    let state = DELEGATIONS_AND_BALANCE.load(deps.as_ref().storage).unwrap();
+    let last_key = puppeteer_base
+        .last_complete_delegations_and_balances_key
+        .may_load(&deps.storage)
+        .unwrap();
+
+    assert_eq!(last_key, Some(123456));
+
+    let state = puppeteer_base
+        .delegations_and_balances
+        .load(&deps.storage, &123456)
+        .unwrap();
+
     assert_eq!(
         state,
         BalancesAndDelegationsState {
@@ -673,7 +691,8 @@ fn test_sudo_kv_query_result() {
             },
             remote_height: 123456,
             local_height: 12345,
-            timestamp: Timestamp::from_nanos(1571797419879305533)
+            timestamp: Timestamp::from_nanos(1571797419879305533),
+            collected_chunks: vec![0]
         }
     );
 }
@@ -1082,7 +1101,7 @@ mod register_delegations_and_balance_query {
                         "cosmos14xcrdjwwxtf9zr7dvaa97wy056se6r5e8q68mw".to_string(),
                     ],
                     60,
-                    "0.45.0",
+                    "0.47.0",
                 )
                 .unwrap(),
                 ReplyMsg::KvDelegationsAndBalance { i: 0 }.to_reply_id(),
@@ -1145,7 +1164,7 @@ mod register_delegations_and_balance_query {
                                 "cosmos14xcrdjwwxtf9zr7dvaa97wy056se6r5e8q68mw".to_string(),
                             ],
                             60,
-                            "0.45.0",
+                            "0.47.0",
                         )
                         .unwrap(),
                         ReplyMsg::KvDelegationsAndBalance { i: 0 }.to_reply_id(),
@@ -1157,7 +1176,7 @@ mod register_delegations_and_balance_query {
                             "remote_denom".to_string(),
                             vec!["cosmos15tuf2ewxle6jj6eqd4jm579vpahydzwdsvkrhn".to_string(),],
                             60,
-                            "0.45.0",
+                            "0.47.0",
                         )
                         .unwrap(),
                         ReplyMsg::KvDelegationsAndBalance { i: 1 }.to_reply_id(),
