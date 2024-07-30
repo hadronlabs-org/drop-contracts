@@ -264,7 +264,6 @@ export interface Config {
     pump_ica_address?: string | null;
     puppeteer_contract: Addr;
     remote_denom: string;
-    rewards_receiver: string;
     staker_contract: Addr;
     strategy_contract: Addr;
     token_contract: Addr;
@@ -467,7 +466,6 @@ export interface InstantiateMsg {
     pump_ica_address?: string | null;
     puppeteer_contract: string;
     remote_denom: string;
-    rewards_receiver: string;
     staker_contract: string;
     strategy_contract: string;
     token_contract: string;

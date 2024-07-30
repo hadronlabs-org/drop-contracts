@@ -190,6 +190,8 @@ pub fn instantiate(
         .api
         .addr_humanize(&rewards_manager_address)?
         .to_string();
+    let rewards_pump_contract = deps.api.addr_humanize(&rewards_pump_address)?.to_string();
+    let splitter_contract = deps.api.addr_humanize(&splitter_address)?.to_string();
 
     let state = State {
         token_contract: token_contract.to_string(),
@@ -202,6 +204,8 @@ pub fn instantiate(
         validators_set_contract: validators_set_contract.to_string(),
         distribution_contract: distribution_contract.to_string(),
         rewards_manager_contract: rewards_manager_contract.to_string(),
+        rewards_pump_contract: rewards_pump_contract.to_string(),
+        splitter_contract: splitter_contract.to_string(),
     };
     STATE.save(deps.storage, &state)?;
 
@@ -315,7 +319,6 @@ pub fn instantiate(
                 lsm_redeem_threshold: msg.core_params.lsm_redeem_threshold,
                 lsm_redeem_max_interval: msg.core_params.lsm_redeem_max_interval,
                 owner: env.contract.address.to_string(),
-                rewards_receiver: msg.core_params.rewards_receiver,
                 emergency_address: None,
                 min_stake_amount: msg.core_params.min_stake_amount,
                 icq_update_delay: msg.core_params.icq_update_delay,
@@ -364,10 +367,7 @@ pub fn instantiate(
             label: get_contract_label("splitter"),
             msg: to_json_binary(&SplitterInstantiateMsg {
                 config: SplitterConfig {
-                    receivers: get_distributor_receivers(
-                        msg.fee_params,
-                        staker_address.to_string(),
-                    )?,
+                    receivers: get_splitter_receivers(msg.fee_params, staker_contract.to_string())?,
                     denom: msg.base_denom.to_string(),
                 },
             })?,
@@ -379,7 +379,7 @@ pub fn instantiate(
             code_id: msg.code_ids.rewards_pump_code_id,
             label: get_contract_label("rewards-pump"),
             msg: to_json_binary(&RewardsPumpInstantiateMsg {
-                dest_address: Some(splitter_address.to_string()),
+                dest_address: Some(splitter_contract.to_string()),
                 dest_channel: Some(msg.remote_opts.transfer_channel_id.to_string()),
                 dest_port: Some(msg.remote_opts.port_id.to_string()),
                 connection_id: msg.remote_opts.connection_id.to_string(),
@@ -388,7 +388,7 @@ pub fn instantiate(
                     local: Some(msg.remote_opts.timeout.local),
                     remote: msg.remote_opts.timeout.remote,
                 },
-                local_denom: msg.remote_opts.denom.to_string(),
+                local_denom: msg.local_denom.to_string(),
                 owner: Some(env.contract.address.to_string()),
             })?,
             funds: vec![],
@@ -625,7 +625,7 @@ pub fn migrate(
     Ok(Response::new())
 }
 
-fn get_distributor_receivers(
+fn get_splitter_receivers(
     fee_params: Option<crate::msg::FeeParams>,
     staker_address: String,
 ) -> ContractResult<Vec<(String, cosmwasm_std::Uint128)>> {

@@ -52,7 +52,6 @@ pub struct Config {
     pub lsm_redeem_threshold: u64,        //amount of lsm denoms
     pub lsm_redeem_maximum_interval: u64, //seconds
     pub bond_limit: Option<Uint128>,
-    pub rewards_receiver: String,
     pub emergency_address: Option<String>,
     pub min_stake_amount: Uint128,
     pub icq_update_delay: u64, // blocks

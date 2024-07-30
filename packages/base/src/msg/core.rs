@@ -33,7 +33,6 @@ pub struct InstantiateMsg {
     pub pump_ica_address: Option<String>,
     pub transfer_channel_id: String,
     pub owner: String,
-    pub rewards_receiver: String,
     pub emergency_address: Option<String>,
     pub min_stake_amount: Uint128,
     pub icq_update_delay: u64, // blocks
@@ -69,7 +68,6 @@ impl InstantiateMsg {
                 Some(limit) => Some(limit),
             },
             unbond_batch_switch_time: self.unbond_batch_switch_time,
-            rewards_receiver: self.rewards_receiver,
             emergency_address: self.emergency_address,
             min_stake_amount: self.min_stake_amount,
             icq_update_delay: self.icq_update_delay,

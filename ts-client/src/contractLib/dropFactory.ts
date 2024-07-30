@@ -765,6 +765,8 @@ export interface State {
   distribution_contract: string;
   puppeteer_contract: string;
   rewards_manager_contract: string;
+  rewards_pump_contract: string;
+  splitter_contract: string;
   staker_contract: string;
   strategy_contract: string;
   token_contract: string;
@@ -1175,6 +1177,7 @@ export interface InstantiateMsg {
   code_ids: CodeIds;
   core_params: CoreParams;
   fee_params?: FeeParams | null;
+  local_denom: string;
   remote_opts: RemoteOpts;
   salt: string;
   sdk_version: string;
@@ -1204,7 +1207,6 @@ export interface CoreParams {
   lsm_redeem_max_interval: number;
   lsm_redeem_threshold: number;
   min_stake_amount: Uint128;
-  rewards_receiver: string;
   unbond_batch_switch_time: number;
   unbonding_period: number;
   unbonding_safe_period: number;

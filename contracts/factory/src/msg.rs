@@ -15,6 +15,7 @@ pub struct InstantiateMsg {
     pub token_metadata: DenomMetadata,
     pub sdk_version: String,
     pub base_denom: String,
+    pub local_denom: String,
     pub core_params: CoreParams,
     pub staker_params: StakerParams,
     pub fee_params: Option<FeeParams>,
@@ -38,7 +39,6 @@ pub struct CoreParams {
     pub bond_limit: Option<Uint128>,
     pub min_stake_amount: Uint128,
     pub icq_update_delay: u64, // blocks
-    pub rewards_receiver: String,
 }
 
 #[cw_serde]

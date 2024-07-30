@@ -751,7 +751,7 @@ fn execute_tick_idle(
                 attrs.push(attr("knot", "017"));
                 attrs.push(attr("state", "staking_bond"));
             } else {
-                attrs.push(attr("knot", "020"));
+                attrs.push(attr("knot", "017"));
                 if let Some(unbond_message) =
                     get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
                 {
@@ -892,7 +892,6 @@ fn execute_tick_claiming(
         attrs.push(attr("knot", "017"));
         attrs.push(attr("state", "staking_bond"));
     } else {
-        attrs.push(attr("knot", "020"));
         if let Some(unbond_message) =
             get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
         {
@@ -936,7 +935,7 @@ fn execute_tick_staking_bond(
     }
     LAST_STAKER_RESPONSE.remove(deps.storage);
     let mut messages = vec![];
-    attrs.push(attr("knot", "020"));
+    attrs.push(attr("knot", "017"));
     if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
     {
         messages.push(unbond_message);
@@ -1175,10 +1174,6 @@ fn execute_update_config(
                 Some(bond_limit)
             }
         };
-    }
-    if let Some(rewards_receiver) = new_config.rewards_receiver {
-        attrs.push(attr("rewards_receiver", &rewards_receiver));
-        config.rewards_receiver = rewards_receiver;
     }
     if let Some(emergency_address) = new_config.emergency_address {
         attrs.push(attr("emergency_address", &emergency_address));

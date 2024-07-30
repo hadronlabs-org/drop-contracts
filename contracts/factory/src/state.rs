@@ -45,6 +45,8 @@ pub struct State {
     pub validators_set_contract: String,
     pub distribution_contract: String,
     pub rewards_manager_contract: String,
+    pub rewards_pump_contract: String,
+    pub splitter_contract: String,
 }
 
 #[cw_serde]
