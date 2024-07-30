@@ -15,12 +15,6 @@ import { StdFee } from "@cosmjs/amino";
  */
 export type Uint128 = string;
 /**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal = string;
-/**
  * A human readable address.
  *
  * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
@@ -30,7 +24,7 @@ export type Decimal = string;
  * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
  */
 export type Addr = string;
-export type ContractState = "idle" | "l_s_m_transfer" | "l_s_m_redeem" | "non_native_rewards_transfer" | "claiming" | "unbonding" | "staking_rewards" | "staking_bond";
+export type ContractState = "idle" | "l_s_m_transfer" | "l_s_m_redeem" | "non_native_rewards_transfer" | "claiming" | "unbonding" | "staking_bond";
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -50,7 +44,7 @@ export type Uint1281 = string;
  *
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
-export type Decimal1 = string;
+export type Decimal = string;
 export type ArrayOfTupleOfStringAndTupleOfStringAndUint128 = [string, [string, Uint128]][];
 export type ResponseHookMsg = {
     success: ResponseHookSuccessMsg;
@@ -85,12 +79,6 @@ export type ResponseAnswer = {
  */
 export type Binary = string;
 export type Transaction = {
-    delegate: {
-        denom: string;
-        interchain_account_id: string;
-        items: [string, Uint128][];
-    };
-} | {
     undelegate: {
         batch_id: number;
         denom: string;
@@ -142,12 +130,19 @@ export type Transaction = {
         items: [string, Coin][];
     };
 } | {
-    grant_delegate: {
-        grantee: string;
+    setup_protocol: {
+        delegate_grantee: string;
         interchain_account_id: string;
+        rewards_withdraw_address: string;
     };
 };
 export type IBCTransferReason = "l_s_m_share" | "stake";
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal1 = string;
 export type ArrayOfNonNativeRewardsItem = NonNativeRewardsItem[];
 export type String = string;
 /**
@@ -251,7 +246,7 @@ export type Expiration = {
  */
 export type Timestamp2 = Uint64;
 export interface DropCoreSchema {
-    responses: Config | ContractState | Uint1281 | Decimal1 | FailedBatchResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | LastStakerResponse | ArrayOfNonNativeRewardsItem | String | PauseInfoResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Uint1282 | Uint1283 | UnbondBatch | UnbondBatchesResponse;
+    responses: Config | ContractState | Uint1281 | Decimal | FailedBatchResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | LastStakerResponse | ArrayOfNonNativeRewardsItem | String | PauseInfoResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Uint1282 | Uint1283 | UnbondBatch | UnbondBatchesResponse;
     query: UnbondBatchArgs | UnbondBatchesArgs;
     execute: BondArgs | UpdateConfigArgs | UpdateNonNativeRewardsReceiversArgs | UpdateWithdrawnAmountArgs | PuppeteerHookArgs | StakerHookArgs | ProcessEmergencyBatchArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
@@ -261,8 +256,6 @@ export interface Config {
     base_denom: string;
     bond_limit?: Uint128 | null;
     emergency_address?: string | null;
-    fee?: Decimal | null;
-    fee_address?: string | null;
     icq_update_delay: number;
     idle_min_interval: number;
     lsm_min_bond_amount: Uint128;
@@ -272,6 +265,7 @@ export interface Config {
     pump_ica_address?: string | null;
     puppeteer_contract: Addr;
     remote_denom: string;
+    rewards_receiver: string;
     staker_contract: Addr;
     strategy_contract: Addr;
     token_contract: Addr;
@@ -368,14 +362,14 @@ export interface LastStakerResponse {
 export interface NonNativeRewardsItem {
     address: string;
     denom: string;
-    fee: Decimal;
+    fee: Decimal1;
     fee_address: string;
     min_amount: Uint128;
 }
 export interface UnbondBatch {
     expected_native_asset_amount: Uint128;
     expected_release_time: number;
-    slashing_effect?: Decimal | null;
+    slashing_effect?: Decimal1 | null;
     status: UnbondBatchStatus;
     status_timestamps: UnbondBatchStatusTimestamps;
     total_dasset_amount_to_withdraw: Uint128;
@@ -400,7 +394,7 @@ export interface UnbondBatchesResponse {
 export interface UnbondBatch1 {
     expected_native_asset_amount: Uint128;
     expected_release_time: number;
-    slashing_effect?: Decimal | null;
+    slashing_effect?: Decimal1 | null;
     status: UnbondBatchStatus;
     status_timestamps: UnbondBatchStatusTimestamps;
     total_dasset_amount_to_withdraw: Uint128;
@@ -426,8 +420,6 @@ export interface ConfigOptional {
     base_denom?: string | null;
     bond_limit?: Uint128 | null;
     emergency_address?: string | null;
-    fee?: Decimal | null;
-    fee_address?: string | null;
     idle_min_interval?: number | null;
     lsm_min_bond_amount?: Uint128 | null;
     lsm_redeem_maximum_interval?: number | null;
@@ -436,6 +428,7 @@ export interface ConfigOptional {
     pump_ica_address?: string | null;
     puppeteer_contract?: string | null;
     remote_denom?: string | null;
+    rewards_receiver?: string | null;
     staker_contract?: string | null;
     strategy_contract?: string | null;
     token_contract?: string | null;
@@ -475,8 +468,6 @@ export interface InstantiateMsg {
     base_denom: string;
     bond_limit?: Uint128 | null;
     emergency_address?: string | null;
-    fee?: Decimal | null;
-    fee_address?: string | null;
     icq_update_delay: number;
     idle_min_interval: number;
     lsm_min_bond_amount: Uint128;
@@ -487,6 +478,7 @@ export interface InstantiateMsg {
     pump_ica_address?: string | null;
     puppeteer_contract: string;
     remote_denom: string;
+    rewards_receiver: string;
     staker_contract: string;
     strategy_contract: string;
     token_contract: string;

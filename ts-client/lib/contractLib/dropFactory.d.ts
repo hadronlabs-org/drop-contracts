@@ -27,12 +27,6 @@ export type UpdateConfigArgs = {
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-/**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal = string;
 export type ProxyArgs = {
     validator_set: ValidatorSetMsg;
 } | {
@@ -52,6 +46,12 @@ export type CoreMsg = {
 } | {
     unpause: {};
 };
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal = string;
 export type CosmosMsgFor_NeutronMsg = {
     bank: BankMsg;
 } | {
@@ -706,8 +706,6 @@ export interface ConfigOptional {
     base_denom?: string | null;
     bond_limit?: Uint128 | null;
     emergency_address?: string | null;
-    fee?: Decimal | null;
-    fee_address?: string | null;
     idle_min_interval?: number | null;
     lsm_min_bond_amount?: Uint128 | null;
     lsm_redeem_maximum_interval?: number | null;
@@ -716,6 +714,7 @@ export interface ConfigOptional {
     pump_ica_address?: string | null;
     puppeteer_contract?: string | null;
     remote_denom?: string | null;
+    rewards_receiver?: string | null;
     staker_contract?: string | null;
     strategy_contract?: string | null;
     token_contract?: string | null;
@@ -1142,6 +1141,7 @@ export interface CoreParams {
     lsm_redeem_max_interval: number;
     lsm_redeem_threshold: number;
     min_stake_amount: Uint128;
+    rewards_receiver: string;
     unbond_batch_switch_time: number;
     unbonding_period: number;
     unbonding_safe_period: number;

@@ -42,12 +42,6 @@ export type Uint128 = string;
  */
 export type Binary = string;
 export type Transaction = {
-    delegate: {
-        denom: string;
-        interchain_account_id: string;
-        items: [string, Uint128][];
-    };
-} | {
     undelegate: {
         batch_id: number;
         denom: string;
@@ -99,9 +93,10 @@ export type Transaction = {
         items: [string, Coin][];
     };
 } | {
-    grant_delegate: {
-        grantee: string;
+    setup_protocol: {
+        delegate_grantee: string;
         interchain_account_id: string;
+        rewards_withdraw_address: string;
     };
 };
 export type IBCTransferReason = "l_s_m_share" | "stake";
@@ -114,7 +109,7 @@ export type PuppeteerHookArgs = {
 };
 export interface DropHookTesterSchema {
     responses: ArrayOfResponseHookSuccessMsg | ArrayOfResponseHookErrorMsg;
-    execute: SetConfigArgs | DelegateArgs | UndelegateArgs | RedelegateArgs | TokenizeShareArgs | RedeemShareArgs | PuppeteerHookArgs;
+    execute: SetConfigArgs | UndelegateArgs | RedelegateArgs | TokenizeShareArgs | RedeemShareArgs | PuppeteerHookArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -194,10 +189,6 @@ export interface ResponseHookErrorMsg {
 export interface SetConfigArgs {
     puppeteer_addr: string;
 }
-export interface DelegateArgs {
-    amount: Uint128;
-    validator: string;
-}
 export interface UndelegateArgs {
     amount: Uint128;
     validator: string;
@@ -228,7 +219,6 @@ export declare class Client {
     queryAnswers: () => Promise<ArrayOfResponseHookSuccessMsg>;
     queryErrors: () => Promise<ArrayOfResponseHookErrorMsg>;
     setConfig: (sender: string, args: SetConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    delegate: (sender: string, args: DelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     undelegate: (sender: string, args: UndelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     redelegate: (sender: string, args: RedelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     tokenizeShare: (sender: string, args: TokenizeShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
