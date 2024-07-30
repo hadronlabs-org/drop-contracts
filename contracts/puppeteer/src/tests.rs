@@ -648,7 +648,7 @@ fn test_sudo_kv_query_result() {
         BalancesAndDelegationsState {
             data: BalancesAndDelegations {
                 balances: Balances {
-                    coins: vec![coin(280878328, "stake")]
+                    coins: vec![coin(29558778, "stake")]
                 },
                 delegations: Delegations {
                     delegations: vec![
@@ -658,7 +658,7 @@ fn test_sudo_kv_query_result() {
                             ),
                             validator: "cosmosvaloper1rndyjagfg0nsedl2uy5n92vssn8aj5n67t0nfx"
                                 .to_string(),
-                            amount: coin(13442025988, "stake")
+                            amount: coin(13582465151, "stake")
                         },
                         Delegation {
                             delegator: Addr::unchecked(
@@ -666,7 +666,7 @@ fn test_sudo_kv_query_result() {
                             ),
                             validator: "cosmosvaloper1gh4vzw9wsfgl2h37qqnetet0m4wrzm7v7x3j9x"
                                 .to_string(),
-                            amount: coin(13442025988, "stake")
+                            amount: coin(13582465151, "stake")
                         }
                     ]
                 }
