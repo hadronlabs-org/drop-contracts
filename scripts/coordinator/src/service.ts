@@ -108,7 +108,29 @@ class Service {
       ),
     };
 
-    this.log.info(`Coordinator account address: ${this.context.neutronWalletAddress}`);
+    this.log.info(
+      `Coordinator account address: ${this.context.neutronWalletAddress}`,
+    );
+  }
+
+  startMonitoringConnection() {
+    this.log.info('Starting connection monitoring service...');
+    setInterval(async () => {
+      const { factoryContractHandler } = this.context;
+      if (factoryContractHandler) {
+        try {
+          console.log('Start checking connection');
+          const res = await factoryContractHandler.contractClient.queryState();
+          console.log('Connection is OK');
+          console.log(res);
+        } catch (error) {
+          console.error('Connection lost. Restarting coordinator...');
+          process.exit();
+        }
+      } else {
+        console.error('Client is not initialized. Waiting...');
+      }
+    }, 10000); // Check every 10 seconds, not recommended to set it higher
   }
 
   registerModules() {
@@ -118,9 +140,17 @@ class Service {
       );
     }
 
-    if (StakerModule.verifyConfig(this.log, this.context.factoryContractHandler.skip)) {
+    if (
+      StakerModule.verifyConfig(
+        this.log,
+        this.context.factoryContractHandler.skip,
+      )
+    ) {
       this.modulesList.push(
-        new StakerModule(this.context, logger.child({ context: 'StakerModule' })),
+        new StakerModule(
+          this.context,
+          logger.child({ context: 'StakerModule' }),
+        ),
       );
     }
 
@@ -174,9 +204,7 @@ class Service {
     ) {
       for (const module of this.modulesList) {
         try {
-          this.log.info(
-            `Running ${module.constructor.name} module...`,
-          );
+          this.log.info(`Running ${module.constructor.name} module...`);
           await module.run();
         } catch (error) {
           this.log.error(
@@ -194,6 +222,7 @@ class Service {
 async function main() {
   const service = new Service();
   await service.init();
+  service.startMonitoringConnection();
   service.registerModules();
   service.start();
 }
