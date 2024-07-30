@@ -1,9 +1,10 @@
 use crate::contract::Puppeteer;
+use cosmwasm_schema::schemars;
 use cosmwasm_std::{
-    coins,
+    coin, coins, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, Binary, CosmosMsg, DepsMut, Event, Response, StdError, SubMsg, Uint128,
-    Uint64,
+    to_json_binary, Addr, Binary, CosmosMsg, Delegation, DepsMut, Event, Response, StdError,
+    SubMsg, Timestamp, Uint128, Uint64,
 };
 use drop_helpers::{
     ibc_client_state::{
@@ -11,22 +12,46 @@ use drop_helpers::{
     },
     testing::mock_dependencies,
 };
-use drop_puppeteer_base::state::{PuppeteerBase, ReplyMsg};
+use drop_puppeteer_base::state::{BalancesAndDelegationsState, PuppeteerBase, ReplyMsg};
 use drop_staking_base::{
-    msg::puppeteer::InstantiateMsg,
-    state::puppeteer::{Config, ConfigOptional, KVQueryType},
+    msg::puppeteer::{BalancesAndDelegations, InstantiateMsg},
+    state::puppeteer::{Config, ConfigOptional, KVQueryType, DELEGATIONS_AND_BALANCE},
 };
 use neutron_sdk::{
     bindings::{
         msg::{IbcFee, NeutronMsg},
-        query::NeutronQuery,
+        query::{NeutronQuery, QueryRegisteredQueryResultResponse},
+        types::{InterchainQueryResult, StorageValue},
     },
+    interchain_queries::v045::types::{Balances, Delegations},
     query::min_ibc_fee::MinIbcFeeResponse,
     sudo::msg::SudoMsg,
     NeutronError,
 };
 use prost::Message;
+use schemars::_serde_json::to_string;
+
 use std::vec;
+
+fn build_interchain_query_response() -> Binary {
+    let res: Vec<StorageValue> = from_json(
+        r#"[
+            {"storage_prefix":"bank","key":"AiCfJEiz8RudHBDrScLR8pIMUlCHdutdClI4tEAyIUuXZnN0YWtl","value":"MjgwODc4MzI4","Proof":null},{"storage_prefix":"staking","key":"UQ==","value":"CgMImCoQZBgHIJBOKgVzdGFrZTIBMDoVNTAwMDAwMDAwMDAwMDAwMDAwMDAwQhMxMDAwMDAwMDAwMDAwMDAwMDAwShMxMDAwMDAwMDAwMDAwMDAwMDAw","Proof":null},{"storage_prefix":"staking","key":"MSCfJEiz8RudHBDrScLR8pIMUlCHdutdClI4tEAyIUuXZhQc2kl1CUPnDLfq4SkyqZCEz9lSeg==","value":"CkFjb3Ntb3MxbnVqeTN2bDNyd3czY3k4dGY4cGRydTVqcDNmOXBwbWthZHdzNTUzY2szcXJ5ZzJ0amFucXQzOXhudhI0Y29zbW9zdmFsb3BlcjFybmR5amFnZmcwbnNlZGwydXk1bjkydnNzbjhhajVuNjd0MG5meBodMTM0NDIwMjU5ODgwMDAwMDAwMDAwMDAwMDAwMDA=","Proof":null},{"storage_prefix":"staking","key":"IRQc2kl1CUPnDLfq4SkyqZCEz9lSeg==","value":"CjRjb3Ntb3N2YWxvcGVyMXJuZHlqYWdmZzBuc2VkbDJ1eTVuOTJ2c3NuOGFqNW42N3QwbmZ4EkMKHS9jb3Ntb3MuY3J5cHRvLmVkMjU1MTkuUHViS2V5EiIKIB4wQBwhrBNl3pDg7PIpHeuQVlEhXOPPKLVWN7JJSp+MIAMqCzI1MDczNzQyMzI5Mh0yNTA3Mzc0MjMyOTAwMDAwMDAwMDAwMDAwMDAwMDoKCgh2YWxnYWlhMUoAUkoKOwoSMTAwMDAwMDAwMDAwMDAwMDAwEhIyMDAwMDAwMDAwMDAwMDAwMDAaETEwMDAwMDAwMDAwMDAwMDAwEgsIn/DYsgYQtvORQFoBMHIcMTAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMHodMjQwNzM3NDIyNTQwMDAwMDAwMDAwMDAwMDAwMDA=","Proof":null},{"storage_prefix":"staking","key":"MSCfJEiz8RudHBDrScLR8pIMUlCHdutdClI4tEAyIUuXZhRF6sE4roJR9V4+ACeV5W/dXDFvzA==","value":"CkFjb3Ntb3MxbnVqeTN2bDNyd3czY3k4dGY4cGRydTVqcDNmOXBwbWthZHdzNTUzY2szcXJ5ZzJ0amFucXQzOXhudhI0Y29zbW9zdmFsb3BlcjFnaDR2enc5d3NmZ2wyaDM3cXFuZXRldDBtNHdyem03djd4M2o5eBodMTM0NDIwMjU5ODgwMDAwMDAwMDAwMDAwMDAwMDA=","Proof":null},{"storage_prefix":"staking","key":"IRRF6sE4roJR9V4+ACeV5W/dXDFvzA==","value":"CjRjb3Ntb3N2YWxvcGVyMWdoNHZ6dzl3c2ZnbDJoMzdxcW5ldGV0MG00d3J6bTd2N3gzajl4EkMKHS9jb3Ntb3MuY3J5cHRvLmVkMjU1MTkuUHViS2V5EiIKIBBp8oY6i7JDYLibq1ifiAsifWSXqMG943z+kPiorWjhIAMqCzI1MDczNzM0ODU2Mh0yNTA3MzczNDg1NjAwMDAwMDAwMDAwMDAwMDAwMDoKCgh2YWxnYWlhMEoAUkoKOwoSMTAwMDAwMDAwMDAwMDAwMDAwEhIyMDAwMDAwMDAwMDAwMDAwMDAaETEwMDAwMDAwMDAwMDAwMDAwEgsIn/DYsgYQtvORQFoBMHIcMTAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMHodMjQwNzM3MzQ4NTUwMDAwMDAwMDAwMDAwMDAwMDA=","Proof":null}
+        ]"#,
+    ).unwrap();
+
+    Binary::from(
+        to_string(&QueryRegisteredQueryResultResponse {
+            result: InterchainQueryResult {
+                kv_results: res,
+                height: 123456,
+                revision: 2,
+            },
+        })
+        .unwrap()
+        .as_bytes(),
+    )
+}
 
 #[test]
 fn test_instantiate() {
@@ -40,7 +65,7 @@ fn test_instantiate() {
         remote_denom: "remote_denom".to_string(),
         allowed_senders: vec!["allowed_sender".to_string()],
         transfer_channel_id: "transfer_channel_id".to_string(),
-        sdk_version: "0.45.0".to_string(),
+        sdk_version: "0.47.10".to_string(),
         timeout: 100u64,
     };
     let env = mock_env();
@@ -476,6 +501,67 @@ fn test_sudo_response_tx_state_wrong() {
         NeutronError::Std(StdError::generic_err(
             "Transaction txState is not equal to expected: WaitingForAck"
         ))
+    );
+}
+
+#[test]
+fn test_sudo_kv_query_result() {
+    let mut deps = mock_dependencies(&[]);
+
+    let query_id = 1u64;
+
+    deps.querier
+        .add_query_response(query_id, build_interchain_query_response());
+
+    let puppeteer_base = base_init(&mut deps.as_mut());
+
+    let msg = SudoMsg::KVQueryResult { query_id };
+    let env = mock_env();
+    puppeteer_base
+        .kv_queries
+        .save(
+            deps.as_mut().storage,
+            query_id,
+            &KVQueryType::DelegationsAndBalance {},
+        )
+        .unwrap();
+
+    let res = crate::contract::sudo(deps.as_mut(), env, msg).unwrap();
+    assert_eq!(res, Response::new());
+
+    let state = DELEGATIONS_AND_BALANCE.load(deps.as_ref().storage).unwrap();
+    assert_eq!(
+        state,
+        BalancesAndDelegationsState {
+            data: BalancesAndDelegations {
+                balances: Balances {
+                    coins: vec![coin(280878328, "stake")]
+                },
+                delegations: Delegations {
+                    delegations: vec![
+                        Delegation {
+                            delegator: Addr::unchecked(
+                                "cosmos1nujy3vl3rww3cy8tf8pdru5jp3f9ppmkadws553ck3qryg2tjanqt39xnv"
+                            ),
+                            validator: "cosmosvaloper1rndyjagfg0nsedl2uy5n92vssn8aj5n67t0nfx"
+                                .to_string(),
+                            amount: coin(13442025988, "stake")
+                        },
+                        Delegation {
+                            delegator: Addr::unchecked(
+                                "cosmos1nujy3vl3rww3cy8tf8pdru5jp3f9ppmkadws553ck3qryg2tjanqt39xnv"
+                            ),
+                            validator: "cosmosvaloper1gh4vzw9wsfgl2h37qqnetet0m4wrzm7v7x3j9x"
+                                .to_string(),
+                            amount: coin(13442025988, "stake")
+                        }
+                    ]
+                }
+            },
+            remote_height: 123456,
+            local_height: 12345,
+            timestamp: Timestamp::from_nanos(1571797419879305533)
+        }
     );
 }
 
@@ -991,7 +1077,7 @@ fn get_base_config() -> Config {
         remote_denom: "remote_denom".to_string(),
         allowed_senders: vec![Addr::unchecked("allowed_sender")],
         transfer_channel_id: "transfer_channel_id".to_string(),
-        sdk_version: "0.45.0".to_string(),
+        sdk_version: "0.47.10".to_string(),
         timeout: 100u64,
     }
 }
