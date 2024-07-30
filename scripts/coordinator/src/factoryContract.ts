@@ -6,7 +6,7 @@ import { State } from 'drop-ts-client/lib/contractLib/dropFactory';
 
 export class FactoryContractHandler {
   private log: pino.Logger;
-  private contractClient: InstanceType<typeof DropFactory.Client>;
+  public contractClient: InstanceType<typeof DropFactory.Client>;
 
   constructor(
     private signingClient: SigningCosmWasmClient,
