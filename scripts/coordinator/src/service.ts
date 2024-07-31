@@ -119,7 +119,6 @@ class Service {
       const { factoryContractHandler } = this.context;
       if (factoryContractHandler) {
         try {
-          console.log('Start checking connection');
           await factoryContractHandler.contractClient.queryState();
           this.modulesWatcher();
         } catch (error) {
@@ -149,9 +148,30 @@ class Service {
   }
 
   registerModules() {
-    if (PumpModule.verifyConfig(this.log)) {
+    if (PumpModule.verifyConfig(this.log, process.env.PUMP_CONTRACT_ADDRESS)) {
       this.modulesList.push(
-        new PumpModule(this.context, logger.child({ context: 'PumpModule' })),
+        new PumpModule(
+          process.env.PUMP_CONTRACT_ADDRESS,
+          process.env.PUMP_MIN_BALANCE,
+          this.context,
+          logger.child({ context: 'PumpModule' }),
+        ),
+      );
+    }
+
+    if (
+      PumpModule.verifyConfig(
+        this.log,
+        process.env.REWARDS_PUMP_CONTRACT_ADDRESS,
+      )
+    ) {
+      this.modulesList.push(
+        new PumpModule(
+          process.env.REWARDS_PUMP_CONTRACT_ADDRESS,
+          process.env.REWARDS_PUMP_MIN_BALANCE,
+          this.context,
+          logger.child({ context: 'RewardsPumpModule' }),
+        ),
       );
     }
 
