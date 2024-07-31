@@ -26,6 +26,11 @@ export class CoreModule implements ManagerModule {
     return this._config;
   }
 
+  private _lastRun: number = 0;
+  get lastRun(): number {
+    return this._lastRun;
+  }
+
   init() {
     this.prepareConfig();
 
@@ -45,6 +50,7 @@ export class CoreModule implements ManagerModule {
   }
 
   async run(): Promise<void> {
+    this._lastRun = Date.now();
     if (!this.puppeteerContractClient || !this.coreContractClient) {
       this.init();
     }

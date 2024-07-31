@@ -27,7 +27,13 @@ export class ValidatorsStatsModule implements ManagerModule {
     return this._config;
   }
 
+  private _lastRun: number = 0;
+  get lastRun(): number {
+    return this._lastRun;
+  }
+
   async run(): Promise<void> {
+    this._lastRun = Date.now();
     const queryIds = await this.contractClient.queryKVQueryIds();
 
     this.log.info(`Validator stats query ids: ${JSON.stringify(queryIds)}`);

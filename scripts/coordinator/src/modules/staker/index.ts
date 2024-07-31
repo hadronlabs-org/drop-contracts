@@ -28,7 +28,13 @@ export class StakerModule implements ManagerModule {
     return this._config;
   }
 
+  private _lastRun: number = 0;
+  get lastRun(): number {
+    return this._lastRun;
+  }
+
   async run(): Promise<void> {
+    this._lastRun = Date.now();
     if (!this.icaAddress) {
       const res = await this.contractClient.queryIca();
       if ((res as any).registered && (res as any).registered.ica_address) {
