@@ -6,6 +6,9 @@ use drop_staking_base::{
     state::splitter::{Config, CONFIG},
 };
 
+const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
+const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
@@ -62,10 +65,7 @@ pub fn execute_update_config(
 
 pub fn execute_distribute(deps: DepsMut, env: Env, _info: MessageInfo) -> ContractResult<Response> {
     let config: Config = CONFIG.load(deps.storage)?;
-    let total_share = config
-        .receivers
-        .iter()
-        .fold(Uint128::zero(), |acc, (_, share)| acc + share);
+    let total_share: Uint128 = config.receivers.iter().map(|(_, share)| share).sum();
     if total_share.is_zero() {
         return Err(ContractError::NoShares {});
     }
@@ -91,6 +91,14 @@ pub fn execute_distribute(deps: DepsMut, env: Env, _info: MessageInfo) -> Contra
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> ContractResult<Response> {
-    Ok(Response::default())
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> ContractResult<Response> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }
