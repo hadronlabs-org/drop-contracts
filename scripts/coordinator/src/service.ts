@@ -18,6 +18,7 @@ import { FactoryContractHandler } from './factoryContract';
 import { ValidatorsStatsModule } from './modules/validators-stats';
 import { CoreModule } from './modules/core';
 import { StakerModule } from './modules/staker';
+import { SplitterModule } from './modules/splitter';
 
 export type Uint128 = string;
 
@@ -185,6 +186,20 @@ class Service {
         new StakerModule(
           this.context,
           logger.child({ context: 'StakerModule' }),
+        ),
+      );
+    }
+
+    if (
+      SplitterModule.verifyConfig(
+        this.log,
+        this.context.factoryContractHandler.skip,
+      )
+    ) {
+      this.modulesList.push(
+        new SplitterModule(
+          this.context,
+          logger.child({ context: 'SplitterModule' }),
         ),
       );
     }
