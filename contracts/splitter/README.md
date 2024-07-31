@@ -1,1 +1,1 @@
-# Token distributor
+# Token splitter
