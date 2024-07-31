@@ -891,20 +891,18 @@ fn execute_tick_claiming(
         FSM.go_to(deps.storage, ContractState::StakingBond)?;
         attrs.push(attr("knot", "017"));
         attrs.push(attr("state", "staking_bond"));
+    } else if let Some(unbond_message) =
+        get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
+    {
+        messages.push(unbond_message);
+        attrs.push(attr("knot", "028"));
+        FSM.go_to(deps.storage, ContractState::Unbonding)?;
+        attrs.push(attr("knot", "029"));
+        attrs.push(attr("state", "unbonding"));
     } else {
-        if let Some(unbond_message) =
-            get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
-        {
-            messages.push(unbond_message);
-            attrs.push(attr("knot", "028"));
-            FSM.go_to(deps.storage, ContractState::Unbonding)?;
-            attrs.push(attr("knot", "029"));
-            attrs.push(attr("state", "unbonding"));
-        } else {
-            FSM.go_to(deps.storage, ContractState::Idle)?;
-            attrs.push(attr("knot", "000"));
-            attrs.push(attr("state", "idle"));
-        }
+        FSM.go_to(deps.storage, ContractState::Idle)?;
+        attrs.push(attr("knot", "000"));
+        attrs.push(attr("state", "idle"));
     }
 
     Ok(response("execute-tick_claiming", CONTRACT_NAME, attrs).add_messages(messages))
