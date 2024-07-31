@@ -120,9 +120,8 @@ class Service {
       if (factoryContractHandler) {
         try {
           console.log('Start checking connection');
-          const res = await factoryContractHandler.contractClient.queryState();
-          console.log('Connection is OK');
-          console.log(res);
+          await factoryContractHandler.contractClient.queryState();
+          this.modulesWatcher();
         } catch (error) {
           console.error('Connection lost. Restarting coordinator...');
           process.exit();
@@ -131,6 +130,22 @@ class Service {
         console.error('Client is not initialized. Waiting...');
       }
     }, 10000); // Check every 10 seconds, not recommended to set it higher
+  }
+
+  private modulesWatcher(): void {
+    const currentTime = Date.now();
+    for (const module of this.modulesList) {
+      if (
+        module.lastRun != 0 &&
+        currentTime - module.lastRun >
+          this.context.config.coordinator.checksPeriod * 3 * 1000
+      ) {
+        console.error(
+          `${module.constructor.name} is not running. Restarting coordinator...`,
+        );
+        process.exit();
+      }
+    }
   }
 
   registerModules() {
