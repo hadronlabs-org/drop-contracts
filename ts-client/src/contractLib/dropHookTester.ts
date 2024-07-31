@@ -53,13 +53,6 @@ export type Uint128 = string;
 export type Binary = string;
 export type Transaction =
   | {
-      delegate: {
-        denom: string;
-        interchain_account_id: string;
-        items: [string, Uint128][];
-      };
-    }
-  | {
       undelegate: {
         batch_id: number;
         denom: string;
@@ -119,9 +112,10 @@ export type Transaction =
       };
     }
   | {
-      grant_delegate: {
-        grantee: string;
+      setup_protocol: {
+        delegate_grantee: string;
         interchain_account_id: string;
+        rewards_withdraw_address: string;
       };
     };
 export type IBCTransferReason = "l_s_m_share" | "stake";
@@ -137,14 +131,7 @@ export type PuppeteerHookArgs =
 
 export interface DropHookTesterSchema {
   responses: ArrayOfResponseHookSuccessMsg | ArrayOfResponseHookErrorMsg;
-  execute:
-    | SetConfigArgs
-    | DelegateArgs
-    | UndelegateArgs
-    | RedelegateArgs
-    | TokenizeShareArgs
-    | RedeemShareArgs
-    | PuppeteerHookArgs;
+  execute: SetConfigArgs | UndelegateArgs | RedelegateArgs | TokenizeShareArgs | RedeemShareArgs | PuppeteerHookArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
@@ -219,10 +206,6 @@ export interface ResponseHookErrorMsg {
 }
 export interface SetConfigArgs {
   puppeteer_addr: string;
-}
-export interface DelegateArgs {
-  amount: Uint128;
-  validator: string;
 }
 export interface UndelegateArgs {
   amount: Uint128;
@@ -299,10 +282,6 @@ export class Client {
   setConfig = async(sender:string, args: SetConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { set_config: args }, fee || "auto", memo, funds);
-  }
-  delegate = async(sender:string, args: DelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { delegate: args }, fee || "auto", memo, funds);
   }
   undelegate = async(sender:string, args: UndelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

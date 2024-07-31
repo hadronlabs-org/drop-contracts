@@ -866,6 +866,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-splitter"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "drop-staking-base",
+ "semver",
+ "thiserror",
+]
+
+[[package]]
 name = "drop-staker"
 version = "1.0.0"
 dependencies = [

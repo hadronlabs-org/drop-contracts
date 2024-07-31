@@ -103,11 +103,6 @@ pub enum ResponseAnswer {
 
 #[cw_serde]
 pub enum Transaction {
-    Delegate {
-        interchain_account_id: String,
-        denom: String,
-        items: Vec<(String, Uint128)>,
-    },
     Undelegate {
         interchain_account_id: String,
         items: Vec<(String, Uint128)>,
@@ -151,9 +146,10 @@ pub enum Transaction {
         interchain_account_id: String,
         items: Vec<(String, cosmwasm_std::Coin)>,
     },
-    GrantDelegate {
+    SetupProtocol {
         interchain_account_id: String,
-        grantee: String,
+        delegate_grantee: String,
+        rewards_withdraw_address: String,
     },
 }
 

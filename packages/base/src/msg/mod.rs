@@ -9,6 +9,7 @@ pub mod pump;
 pub mod puppeteer;
 pub mod reward_handler;
 pub mod rewards_manager;
+pub mod splitter;
 pub mod staker;
 pub mod strategy;
 #[cfg(test)]

@@ -15,12 +15,6 @@ export type IcaState = ("none" | "in_progress" | "timeout") | {
 };
 export type ArrayOfTupleOfUint64AndString = [number, string][];
 export type Transaction = {
-    delegate: {
-        denom: string;
-        interchain_account_id: string;
-        items: [string, Uint128][];
-    };
-} | {
     undelegate: {
         batch_id: number;
         denom: string;
@@ -72,9 +66,10 @@ export type Transaction = {
         items: [string, Coin][];
     };
 } | {
-    grant_delegate: {
-        grantee: string;
+    setup_protocol: {
+        delegate_grantee: string;
         interchain_account_id: string;
+        rewards_withdraw_address: string;
     };
 };
 /**
@@ -151,7 +146,7 @@ export type Uint64 = string;
 export interface DropPuppeteerSchema {
     responses: ConfigResponse | Binary | IcaState | ArrayOfTupleOfUint64AndString | ArrayOfTransaction | TxState;
     query: ExtensionArgs;
-    execute: RegisterBalanceAndDelegatorDelegationsQueryArgs | RegisterDelegatorUnbondingDelegationsQueryArgs | RegisterNonNativeRewardsBalancesQueryArgs | DelegateArgs | GrantDelegateArgs | UndelegateArgs | RedelegateArgs | TokenizeShareArgs | RedeemSharesArgs | IBCTransferArgs | TransferArgs | ClaimRewardsAndOptionalyTransferArgs | UpdateConfigArgs | UpdateOwnershipArgs;
+    execute: RegisterBalanceAndDelegatorDelegationsQueryArgs | RegisterDelegatorUnbondingDelegationsQueryArgs | RegisterNonNativeRewardsBalancesQueryArgs | SetupProtocolArgs | UndelegateArgs | RedelegateArgs | TokenizeShareArgs | RedeemSharesArgs | IBCTransferArgs | TransferArgs | ClaimRewardsAndOptionalyTransferArgs | UpdateConfigArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -193,17 +188,9 @@ export interface RegisterDelegatorUnbondingDelegationsQueryArgs {
 export interface RegisterNonNativeRewardsBalancesQueryArgs {
     denoms: string[];
 }
-export interface DelegateArgs {
-    /**
-     * @minItems 2
-     * @maxItems 2
-     */
-    fee?: [string, Uint128] | null;
-    items: [string, Uint128][];
-    reply_to: string;
-}
-export interface GrantDelegateArgs {
-    grantee: string;
+export interface SetupProtocolArgs {
+    delegate_grantee: string;
+    rewards_withdraw_address: string;
 }
 export interface UndelegateArgs {
     batch_id: number;
@@ -281,8 +268,7 @@ export declare class Client {
     registerBalanceAndDelegatorDelegationsQuery: (sender: string, args: RegisterBalanceAndDelegatorDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     registerDelegatorUnbondingDelegationsQuery: (sender: string, args: RegisterDelegatorUnbondingDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     registerNonNativeRewardsBalancesQuery: (sender: string, args: RegisterNonNativeRewardsBalancesQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    delegate: (sender: string, args: DelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    grantDelegate: (sender: string, args: GrantDelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    setupProtocol: (sender: string, args: SetupProtocolArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     undelegate: (sender: string, args: UndelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     redelegate: (sender: string, args: RedelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     tokenizeShare: (sender: string, args: TokenizeShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

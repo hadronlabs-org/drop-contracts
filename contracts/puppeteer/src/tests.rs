@@ -251,7 +251,7 @@ fn test_update_config() {
 }
 
 #[test]
-fn test_execute_delegate() {
+fn test_execute_setup_protocol() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
@@ -260,87 +260,9 @@ fn test_execute_delegate() {
         .unwrap()
     });
     let pupeteer_base = base_init(&mut deps.as_mut());
-    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
-        items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
-        fee: None,
-        reply_to: "some_reply_to".to_string(),
-    };
-    let env = mock_env();
-    let res = crate::contract::execute(
-        deps.as_mut(),
-        env,
-        mock_info("not_allowed_sender", &[]),
-        msg.clone(),
-    );
-    assert_eq!(
-        res.unwrap_err(),
-        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
-            "Sender is not allowed"
-        ))
-    );
-    let res = crate::contract::execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("allowed_sender", &[]),
-        msg,
-    )
-    .unwrap();
-    let msg = cosmos_sdk_proto::cosmos::staking::v1beta1::MsgDelegate {
-        delegator_address: "ica_address".to_string(),
-        validator_address: "valoper1".to_string(),
-        amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-            denom: "remote_denom".to_string(),
-            amount: "1000".to_string(),
-        }),
-    };
-    let mut buf = Vec::with_capacity(msg.encoded_len());
-    msg.encode(&mut buf).unwrap();
-    let any_msg = neutron_sdk::bindings::types::ProtobufAny {
-        type_url: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
-        value: Binary::from(buf),
-    };
-    assert_eq!(
-        res,
-        Response::new().add_submessage(SubMsg::reply_on_success(
-            CosmosMsg::Custom(NeutronMsg::submit_tx(
-                "connection_id".to_string(),
-                "DROP".to_string(),
-                vec![any_msg],
-                "".to_string(),
-                100u64,
-                get_standard_fees()
-            )),
-            ReplyMsg::SudoPayload.to_reply_id()
-        ))
-    );
-    let tx_state = pupeteer_base.tx_state.load(deps.as_ref().storage).unwrap();
-    assert_eq!(
-        tx_state,
-        drop_puppeteer_base::state::TxState {
-            seq_id: None,
-            status: drop_puppeteer_base::state::TxStateStatus::InProgress,
-            reply_to: Some("some_reply_to".to_string()),
-            transaction: Some(drop_puppeteer_base::msg::Transaction::Delegate {
-                interchain_account_id: "DROP".to_string(),
-                denom: "remote_denom".to_string(),
-                items: vec![("valoper1".to_string(), Uint128::from(1000u128))]
-            })
-        }
-    );
-}
-
-#[test]
-fn test_execute_grant_delegate() {
-    let mut deps = mock_dependencies(&[]);
-    deps.querier.add_custom_query_response(|_| {
-        to_json_binary(&MinIbcFeeResponse {
-            min_fee: get_standard_fees(),
-        })
-        .unwrap()
-    });
-    let pupeteer_base = base_init(&mut deps.as_mut());
-    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::GrantDelegate {
-        grantee: "grantee".to_string(),
+    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::SetupProtocol {
+        delegate_grantee: "delegate_grantee".to_string(),
+        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
     };
     let res = crate::contract::execute(
         deps.as_mut(),
@@ -357,34 +279,48 @@ fn test_execute_grant_delegate() {
     let env = mock_env();
     let res = crate::contract::execute(deps.as_mut(), env, mock_info("allowed_sender", &[]), msg)
         .unwrap();
-    let msg = cosmos_sdk_proto::cosmos::authz::v1beta1::MsgGrant {
-        granter: "ica_address".to_string(),
-        grantee: "grantee".to_string(),
-        grant: Some(cosmos_sdk_proto::cosmos::authz::v1beta1::Grant {
-            expiration: Some(prost_types::Timestamp {
-                seconds: mock_env()
-                    .block
-                    .time
-                    .plus_days(365 * 120 + 30)
-                    .seconds()
-                    .try_into()
-                    .unwrap(),
-                nanos: 0,
+    let authz_msg = {
+        let msg = cosmos_sdk_proto::cosmos::authz::v1beta1::MsgGrant {
+            granter: "ica_address".to_string(),
+            grantee: "delegate_grantee".to_string(),
+            grant: Some(cosmos_sdk_proto::cosmos::authz::v1beta1::Grant {
+                expiration: Some(prost_types::Timestamp {
+                    seconds: mock_env()
+                        .block
+                        .time
+                        .plus_days(365 * 120 + 30)
+                        .seconds()
+                        .try_into()
+                        .unwrap(),
+                    nanos: 0,
+                }),
+                authorization: Some(cosmos_sdk_proto::Any {
+                    type_url: "/cosmos.authz.v1beta1.GenericAuthorization".to_string(),
+                    value: cosmos_sdk_proto::cosmos::authz::v1beta1::GenericAuthorization {
+                        msg: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
+                    }
+                    .encode_to_vec(),
+                }),
             }),
-            authorization: Some(cosmos_sdk_proto::Any {
-                type_url: "/cosmos.authz.v1beta1.GenericAuthorization".to_string(),
-                value: cosmos_sdk_proto::cosmos::authz::v1beta1::GenericAuthorization {
-                    msg: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
-                }
-                .encode_to_vec(),
-            }),
-        }),
+        };
+        let mut buf = Vec::with_capacity(msg.encoded_len());
+        msg.encode(&mut buf).unwrap();
+        neutron_sdk::bindings::types::ProtobufAny {
+            type_url: "/cosmos.authz.v1beta1.MsgGrant".to_string(),
+            value: Binary::from(buf),
+        }
     };
-    let mut buf = Vec::with_capacity(msg.encoded_len());
-    msg.encode(&mut buf).unwrap();
-    let any_msg = neutron_sdk::bindings::types::ProtobufAny {
-        type_url: "/cosmos.authz.v1beta1.MsgGrant".to_string(),
-        value: Binary::from(buf),
+    let distribution_msg = {
+        let msg = cosmos_sdk_proto::cosmos::distribution::v1beta1::MsgSetWithdrawAddress {
+            delegator_address: "ica_address".to_string(),
+            withdraw_address: "rewards_withdraw_address".to_string(),
+        };
+        let mut buf = Vec::with_capacity(msg.encoded_len());
+        msg.encode(&mut buf).unwrap();
+        neutron_sdk::bindings::types::ProtobufAny {
+            type_url: "/cosmos.distribution.v1beta1.MsgSetWithdrawAddress".to_string(),
+            value: Binary::from(buf),
+        }
     };
     assert_eq!(
         res,
@@ -392,7 +328,7 @@ fn test_execute_grant_delegate() {
             CosmosMsg::Custom(NeutronMsg::submit_tx(
                 "connection_id".to_string(),
                 "DROP".to_string(),
-                vec![any_msg],
+                vec![authz_msg, distribution_msg],
                 "".to_string(),
                 100u64,
                 get_standard_fees()
@@ -407,9 +343,10 @@ fn test_execute_grant_delegate() {
             seq_id: None,
             status: drop_puppeteer_base::state::TxStateStatus::InProgress,
             reply_to: Some("".to_string()),
-            transaction: Some(drop_puppeteer_base::msg::Transaction::GrantDelegate {
+            transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
                 interchain_account_id: "ica_address".to_string(),
-                grantee: "grantee".to_string(),
+                delegate_grantee: "delegate_grantee".to_string(),
+                rewards_withdraw_address: "rewards_withdraw_address".to_string(),
             })
         }
     );

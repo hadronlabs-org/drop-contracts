@@ -17,7 +17,8 @@ UNBONDING_PERIOD="${UNBONDING_PERIOD:?Variable should be explicitly specified}"
 UNBONDING_SAFE_PERIOD="${UNBONDING_SAFE_PERIOD:?Variable should be explicitly specified}"
 UNBOND_BATCH_SWITCH_TIME="${UNBOND_BATCH_SWITCH_TIME:?Variable should be explicitly specified}"
 PUPPETEER_TIMEOUT="${PUPPETEER_TIMEOUT:?Variable should be explicitly specified}"
-STAKER_TIMEOUT="${STAKER_TIMEOUT:?Variable should be explicitly specified}"
+TIMEOUT_LOCAL="${TIMEOUT_LOCAL:?Variable should be explicitly specified}"
+TIMEOUT_REMOTE="${TIMEOUT_REMOTE:?Variable should be explicitly specified}"
 
 NEUTRON_SIDE_PORT_ID="${NEUTRON_SIDE_PORT_ID:?Variable should explicitly specified}"
 ICQ_UPDATE_PERIOD="${ICQ_UPDATE_PERIOD:?Variable should explicitly specified}"
@@ -57,6 +58,11 @@ main() {
   print_hermes_command $staker_ica_port $staker_ica_channel
   wait_ica_address "staker" $staker_address
   staker_counterparty_channel_id=$(get_counterparty_channel_id $staker_ica_port $staker_ica_channel)
+  
+  register_rewards_pump_ica
+  print_hermes_command $rewards_pump_ica_port $rewards_pump_ica_channel
+  wait_ica_address "rewards_pump" $rewards_pump_address
+  rewards_pump_counterparty_channel_id=$(get_counterparty_channel_id $rewards_pump_ica_port $rewards_pump_ica_channel)
 
   register_puppeteer_ica
   print_hermes_command $puppeteer_ica_port $puppeteer_ica_channel
@@ -86,8 +92,9 @@ main() {
   echo "[OK] Add Puppeteer ICA address to Staker contract config"
 
   update_msg='{
-    "grant_delegate":{
-       "grantee":"'"$staker_ica_address"'"
+   "setup_protocol": {
+      "delegate_grantee": "'"$staker_ica_address"'",
+      "rewards_withdraw_address": "'"$rewards_pump_ica_address"'"
     }
   }'
 

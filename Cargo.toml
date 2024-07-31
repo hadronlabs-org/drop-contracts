@@ -18,6 +18,7 @@ members = [
     "contracts/staker",
     "contracts/strategy",
     "contracts/token",
+    "contracts/splitter",
     "contracts/price-provider",
     "contracts/validators-stats",
     "contracts/validators-set",

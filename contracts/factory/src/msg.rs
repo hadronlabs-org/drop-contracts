@@ -1,6 +1,6 @@
 use crate::state::{CodeIds, RemoteOpts};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{CosmosMsg, Uint128};
+use cosmwasm_std::{CosmosMsg, Decimal, Uint128};
 use cw_ownable::cw_ownable_execute;
 use drop_macros::pausable;
 use drop_staking_base::msg::token::DenomMetadata;
@@ -15,15 +15,18 @@ pub struct InstantiateMsg {
     pub token_metadata: DenomMetadata,
     pub sdk_version: String,
     pub base_denom: String,
+    pub local_denom: String,
     pub core_params: CoreParams,
     pub staker_params: StakerParams,
-    pub puppeteer_params: PuppeteerParams,
+    pub fee_params: Option<FeeParams>,
 }
 
 #[cw_serde]
-pub struct PuppeteerParams {
-    pub timeout: u64,
+pub struct FeeParams {
+    pub fee: Decimal, // 0 - 1
+    pub fee_address: String,
 }
+
 #[cw_serde]
 pub struct CoreParams {
     pub idle_min_interval: u64,
@@ -42,7 +45,6 @@ pub struct CoreParams {
 pub struct StakerParams {
     pub min_stake_amount: Uint128,
     pub min_ibc_transfer: Uint128,
-    pub timeout: u64,
 }
 
 #[cw_serde]
@@ -59,9 +61,6 @@ pub enum ProxyMsg {
 
 #[cw_serde]
 pub enum CoreMsg {
-    UpdateNonNativeRewardsReceivers {
-        items: Vec<drop_staking_base::state::core::NonNativeRewardsItem>,
-    },
     Pause {},
     Unpause {},
 }
