@@ -16,7 +16,6 @@ INITIAL_VALIDATORS="${INITIAL_VALIDATORS:?Variable should be explicitly specifie
 UNBONDING_PERIOD="${UNBONDING_PERIOD:?Variable should be explicitly specified}"
 UNBONDING_SAFE_PERIOD="${UNBONDING_SAFE_PERIOD:?Variable should be explicitly specified}"
 UNBOND_BATCH_SWITCH_TIME="${UNBOND_BATCH_SWITCH_TIME:?Variable should be explicitly specified}"
-PUPPETEER_TIMEOUT="${PUPPETEER_TIMEOUT:?Variable should be explicitly specified}"
 TIMEOUT_LOCAL="${TIMEOUT_LOCAL:?Variable should be explicitly specified}"
 TIMEOUT_REMOTE="${TIMEOUT_REMOTE:?Variable should be explicitly specified}"
 

@@ -76,7 +76,7 @@ store_code() {
 }
 
 deploy_wasm_code() {
-  for contract in factory core distribution puppeteer rewards_manager strategy token staker validators_set withdrawal_manager withdrawal_voucher pump; do
+  for contract in factory core distribution puppeteer rewards_manager strategy token staker validators_set withdrawal_manager withdrawal_voucher pump splitter; do
       store_code "$contract"
       code_id="${contract}_code_id"
       printf '[OK] %-24s code ID: %s\n' "$contract" "${!code_id}"
@@ -186,9 +186,6 @@ deploy_factory() {
     "staker_params":{
       "min_stake_amount":"'"$STAKER_PARAMS_MIN_STAKE_AMOUNT"'",
       "min_ibc_transfer":"'"$STAKER_PARAMS_MIN_IBC_TRANSFER"'"
-    },
-    "puppeteer_params":{
-      "timeout":'"$PUPPETEER_TIMEOUT"'
     }
   }'
   factory_address="$(neutrond tx wasm instantiate "$factory_code_id" "$msg" \
@@ -202,6 +199,7 @@ deploy_factory() {
   splitter_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.splitter_contract')"
   rewards_pump_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
+    | jq -r '.data.rewards_pump_contract')"
   splitter_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.rewards_pump_contract')"
   puppeteer_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
