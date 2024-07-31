@@ -9,6 +9,7 @@ import {
   setupStakingExtension,
 } from '@cosmjs/stargate';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
+import { connectComet } from '@cosmjs/tendermint-rpc';
 import { PumpModule } from './modules/pump';
 import { logger } from './logger';
 import { Config } from './config';
@@ -56,10 +57,8 @@ class Service {
         prefix: config.target.accountPrefix,
       },
     );
-    const targetTmClient = await Tendermint34Client.connect(config.target.rpc);
-    const neutronTmClient = await Tendermint34Client.connect(
-      config.neutron.rpc,
-    );
+    const targetCometClient = await connectComet(config.target.rpc);
+    const neutronCometClient = await connectComet(config.neutron.rpc);
 
     const neutronSigningClient = await SigningCosmWasmClient.connectWithSigner(
       config.neutron.rpc,
@@ -83,9 +82,9 @@ class Service {
       neutronWalletAddress: (await neutronWallet.getAccounts())[0].address,
       targetWallet,
       targetWalletAddress: (await targetWallet.getAccounts())[0].address,
-      neutronTmClient,
+      neutronCometClient: neutronCometClient,
       neutronQueryClient: QueryClient.withExtensions(
-        neutronTmClient,
+        neutronCometClient,
         setupBankExtension,
       ),
       neutronClient: new NeutronClient({
@@ -101,9 +100,9 @@ class Service {
           gasPrice: config.target.gasPrice,
         },
       ),
-      targetTmClient,
+      targetCometClient: targetCometClient,
       targetQueryClient: QueryClient.withExtensions(
-        targetTmClient,
+        targetCometClient,
         setupStakingExtension,
         setupBankExtension,
       ),
@@ -238,7 +237,7 @@ class Service {
       'untrn',
     );
     this.context.height = (
-      await this.context.neutronTmClient.block()
+      await this.context.neutronCometClient.block()
     ).block.header.height;
 
     this.log.info(
