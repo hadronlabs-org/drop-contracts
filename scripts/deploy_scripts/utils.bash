@@ -297,8 +297,8 @@ deploy_pump() {
     "connection_id":"'"$neutron_side_connection_id"'",
     "local_denom":"untrn",
     "timeout":{
-      "local":360,
-      "remote":360
+      "local":'$TIMEOUT_LOCAL',
+      "remote":'$TIMEOUT_REMOTE'
     },
     "dest_address":"'"$withdrawal_manager_address"'",
     "dest_port":"transfer",
