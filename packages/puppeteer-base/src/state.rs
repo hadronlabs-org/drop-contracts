@@ -2,7 +2,7 @@ use cosmos_sdk_proto::cosmos::{
     base::v1beta1::Coin as CosmosCoin,
     staking::v1beta1::{Delegation, Params, Validator as CosmosValidator},
 };
-use cosmwasm_std::{from_json, Addr, Decimal, Timestamp, Uint128};
+use cosmwasm_std::{from_json, Addr, Decimal256, StdError, Timestamp, Uint128};
 
 use cosmwasm_schema::cw_serde;
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, UniqueIndex};
@@ -248,27 +248,30 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
                 let validator: CosmosValidator =
                     CosmosValidator::decode(chunk[1].value.as_slice())?;
 
-                let delegation_shares = Decimal::from_atomics(
+                let delegation_shares = Decimal256::from_atomics(
                     Uint128::from_str(&delegation_sdk.shares)?,
                     DECIMAL_PLACES,
                 )?;
 
-                let delegator_shares = Decimal::from_atomics(
+                let delegator_shares = Decimal256::from_atomics(
                     Uint128::from_str(&validator.delegator_shares)?,
                     DECIMAL_PLACES,
                 )?;
 
                 let validator_tokens =
-                    Decimal::from_atomics(Uint128::from_str(&validator.tokens)?, 0)?;
+                    Decimal256::from_atomics(Uint128::from_str(&validator.tokens)?, 0)?;
 
                 // https://github.com/cosmos/cosmos-sdk/blob/35ae2c4c72d4aeb33447d5a7af23ca47f786606e/x/staking/keeper/querier.go#L463
                 // delegated_tokens = quotient(delegation.shares * validator.tokens / validator.total_shares);
-                let delegated_tokens = delegation_shares
-                    .checked_mul(validator_tokens)?
-                    .div(delegator_shares)
-                    .atomics()
-                    .u128()
-                    .div(DECIMAL_FRACTIONAL);
+                let delegated_tokens = Uint128::try_from(
+                    delegation_shares
+                        .checked_mul(validator_tokens)?
+                        .div(delegator_shares)
+                        .atomics(),
+                )
+                .map_err(|err| NeutronError::Std(StdError::ConversionOverflow { source: err }))?
+                .u128()
+                .div(DECIMAL_FRACTIONAL);
 
                 delegation_std.amount = cosmwasm_std::Coin::new(delegated_tokens, &denom);
 

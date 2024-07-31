@@ -1,9 +1,10 @@
 use crate::contract::Puppeteer;
+use cosmwasm_schema::schemars;
 use cosmwasm_std::{
-    coins,
+    coin, coins, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, Binary, CosmosMsg, DepsMut, Event, Response, StdError, SubMsg, Uint128,
-    Uint64,
+    to_json_binary, Addr, Binary, CosmosMsg, Delegation, DepsMut, Event, Response, StdError,
+    SubMsg, Timestamp, Uint128, Uint64,
 };
 use drop_helpers::{
     ibc_client_state::{
@@ -11,7 +12,9 @@ use drop_helpers::{
     },
     testing::mock_dependencies,
 };
-use drop_puppeteer_base::state::{PuppeteerBase, ReplyMsg};
+use drop_puppeteer_base::state::{
+    BalancesAndDelegations, BalancesAndDelegationsState, PuppeteerBase, ReplyMsg,
+};
 use drop_staking_base::{
     msg::puppeteer::InstantiateMsg,
     state::puppeteer::{Config, ConfigOptional, KVQueryType},
@@ -19,14 +22,151 @@ use drop_staking_base::{
 use neutron_sdk::{
     bindings::{
         msg::{IbcFee, NeutronMsg},
-        query::NeutronQuery,
+        query::{NeutronQuery, QueryRegisteredQueryResultResponse},
+        types::{InterchainQueryResult, StorageValue},
     },
+    interchain_queries::v045::types::{Balances, Delegations},
     query::min_ibc_fee::MinIbcFeeResponse,
     sudo::msg::SudoMsg,
     NeutronError,
 };
 use prost::Message;
+use schemars::_serde_json::to_string;
+
 use std::vec;
+
+fn build_interchain_query_response() -> Binary {
+    let res: Vec<StorageValue> = from_json(
+        r#"[
+        {
+          "storage_prefix": "bank",
+          "key": "AiCfJEiz8RudHBDrScLR8pIMUlCHdutdClI4tEAyIUuXZnN0YWtl",
+          "value": "Mjk1NTg3Nzg=",
+          "Proof": {
+            "ops": [
+              {
+                "type": "ics23:iavl",
+                "key": "AiCfJEiz8RudHBDrScLR8pIMUlCHdutdClI4tEAyIUuXZnN0YWtl",
+                "data": "CsMECicCIJ8kSLPxG50cEOtJwtHykgxSUId2610KUji0QDIhS5dmc3Rha2USCDI5NTU4Nzc4Gg0IARgBIAEqBQACyvt2Ii0IARIGBAbK+3YgGiEgYp8lWwF/sxZ2CRevS1dI7cvW5N6Ohw5BUeYXWhorg44iLQgBEgYGDIrOeiAaISAs8eFQgsZKmbrRyaxeRR5NsdnroM0L6n+KouSnXOpXXiIrCAESJwgSis56IBqCWnaLDTRyL4nYWOeHejnQG7Qh9uShdlUBsBee44NwICIrCAESJwoois56IOuMhiK9zQlPcG2kLJvf1tZ0cNuAE9kvRo0JtX1ZbVEJICIrCAESJwxWis56IIx9VuX+2+FGZjakYFMhqt+jIhoOv33SYk8v1FH6jjl2ICIsCAESKBDMAYrOeiDtvkHasikYrbnv7pE8TyzQekgOWVD1ItBpfxlgwb3o6yAiLggBEgcSpAOKznogGiEg0Yv3s5T1+PuLFxjQgjvi8dfT7/e8Rnb9/h3e96suvPAiLggBEgcW0AeKznogGiEgJPiLrkZ+d4Lf4RrvmpMf+PPy8s8jKAEjVLj1o6Uh6xMiLggBEgcYrA6KznogGiEg5H5D/hVYxx8AxmChjNCm81ca0fWNx17LSzs1xax/Py4iLggBEgcawhqKznogGiEg+CtNadV1e34QFqMdAvFcQXRNkyII5AhvDnPIFy0mpkoiLAgBEigeskqi1Xog01iuI3+E8qcOKmBfQ3+8nWlrYPD86SDu9/z+Qa0JgKwg"
+              },
+              {
+                "type": "ics23:simple",
+                "key": "YmFuaw==",
+                "data": "Cv4BCgRiYW5rEiDl8U7j6ksUgCGCN8VRwi0PGjuxwFipNF1+sR1D+hUI0xoJCAEYASABKgEAIicIARIBARog/UO8D5BFC5Vn//1k5W4cudYTGMXuILD4W3fD2TwS7MUiJQgBEiEByGE88YTy7IzlOl604TkdhnrvQJ9/KhwVmar9bl68uHMiJwgBEgEBGiAco1IMsTvufglAIzy63zwXrTuaaaOY+rWklwvpRdQ5jCInCAESAQEaII9mfCYnRdxjYUSCf2BcvEVhKalc0pCqEVU9AoSlqPg9IicIARIBARogajRhqPhahj7EWQGqWSi8i4TvfkeOHVw57LSLUyJs6Lg="
+              }
+            ]
+          }
+        },
+        {
+          "storage_prefix": "staking",
+          "key": "UQ==",
+          "value": "CgMImCoQZBgHIJBOKgVzdGFrZTIBMDoVNTAwMDAwMDAwMDAwMDAwMDAwMDAwQhMxMDAwMDAwMDAwMDAwMDAwMDAwShMxMDAwMDAwMDAwMDAwMDAwMDAw",
+          "Proof": {
+            "ops": [
+              {
+                "type": "ics23:iavl",
+                "key": "UQ==",
+                "data": "CoQGCgFRElcKAwiYKhBkGAcgkE4qBXN0YWtlMgEwOhU1MDAwMDAwMDAwMDAwMDAwMDAwMDBCEzEwMDAwMDAwMDAwMDAwMDAwMDBKEzEwMDAwMDAwMDAwMDAwMDAwMDAaDQgBGAEgASoFAAK8pTgiLQgBEgYCBKLVeiAaISD0z8SFslDr14MvQR9N/dlCRe7AgoJ0BWsPTMbV9Lvx+CItCAESBgQIotV6IBohILMcqKBejLXu/loiRMNNxxvtyqPN75jVjoHiFEggIRm7Ii0IARIGBhCi1XogGiEgPt6P0sJf8OXxokuhpRYOr2TevHiR1uhSGZQG1F60PtIiLQgBEgYIGKLVeiAaISCNq3GeR3dxioeBlpnR08daimACRcAMs0CJSdk74NWWiSItCAESBgowotV6IBohIEhMhnxBc+YZZaY6o9/KXi0WuFtnBjO3FS7/1DyS9HKvIi0IARIGDGCi1XogGiEgS+nyI4XiaRt6WMGVaoyq5MyOncZ0XxrytN+9YCyzLskiLggBEgcOwAGi1XogGiEgSkqNP/UlVB1cvU1WvBWEjEexyGXy/v1T5ztgPzquobAiLggBEgcQ/AKi1XogGiEgpTUeKymdUvyl5RiNqZ31Mno8jOYe+QgFNJzYW9PTYBkiLggBEgcS/AWi1XogGiEgtSKXXf8W50F9eO0ddVc/e6g2GNDPJngR/YGak6Td1dsiLggBEgcU/Aui1XogGiEgURAWC6bloLG6lz3GkMDBh6OeWSVkBHdRj/UVaQYls5oiLggBEgcY2Bii1XogGiEgHhO56NJnZtA200HA7W4bhMvUxP9rLqgzcWLeoqT4UToiLggBEgcakDGi1XogGiEgfpW7L9d8GXmMYA5qfwKz0b60yHPcyx4eTnqO7y7igxYiLggBEgcc2kmi1XogGiEgw/Ptq1X8Sq985PtHvUq2CBWaLoyxu45omenrJa8MANwiLQgBEikg4pkCotV6IBRQy9CPFKCd5LWg4ZAS2LVDxRUeF83hwhLYbiOiD5YeIA=="
+              },
+              {
+                "type": "ics23:simple",
+                "key": "c3Rha2luZw==",
+                "data": "Cq0BCgdzdGFraW5nEiCkO7A33k4ofrlVxpXYp2znmjCjsspPzy3hhMXhD3i8JxoJCAEYASABKgEAIiUIARIhAUItnB3KEB621b5Jm8wmw2rWrU3oNVJyQl/ENDf3CI2vIicIARIBARog2qV2hEwd21IQKQIX5cmlxr7g0DOIzeBOD6Aqqjn9MSAiJQgBEiEBN3Y/z8W03TzEbDpWXZYQYM8LpitgpK8AzHhyLPy7g5I="
+              }
+            ]
+          }
+        },
+        {
+          "storage_prefix": "staking",
+          "key": "MSCfJEiz8RudHBDrScLR8pIMUlCHdutdClI4tEAyIUuXZhQc2kl1CUPnDLfq4SkyqZCEz9lSeg==",
+          "value": "CkFjb3Ntb3MxbnVqeTN2bDNyd3czY3k4dGY4cGRydTVqcDNmOXBwbWthZHdzNTUzY2szcXJ5ZzJ0amFucXQzOXhudhI0Y29zbW9zdmFsb3BlcjFybmR5amFnZmcwbnNlZGwydXk1bjkydnNzbjhhajVuNjd0MG5meBodMTM1ODI0NjUxNTIwMDAwMDAwMDAwMDAwMDAwMDA=",
+          "Proof": {
+            "ops": [
+              {
+                "type": "ics23:iavl",
+                "key": "MSCfJEiz8RudHBDrScLR8pIMUlCHdutdClI4tEAyIUuXZhQc2kl1CUPnDLfq4SkyqZCEz9lSeg==",
+                "data": "CqsHCjcxIJ8kSLPxG50cEOtJwtHykgxSUId2610KUji0QDIhS5dmFBzaSXUJQ+cMt+rhKTKpkITP2VJ6EpgBCkFjb3Ntb3MxbnVqeTN2bDNyd3czY3k4dGY4cGRydTVqcDNmOXBwbWthZHdzNTUzY2szcXJ5ZzJ0amFucXQzOXhudhI0Y29zbW9zdmFsb3BlcjFybmR5amFnZmcwbnNlZGwydXk1bjkydnNzbjhhajVuNjd0MG5meBodMTM1ODI0NjUxNTIwMDAwMDAwMDAwMDAwMDAwMDAaDQgBGAEgASoFAAKe73YiLQgBEgYCBJ7vdiAaISCHatBKmLP/CigOzdIPv9b/Onku02N/X7xPsvUNG9PfGyItCAESBgQGnu92IBohIH/P4HCZJL8E7savbyjCiBxflr5nECuiYiS81U+0G48aIisIARInBg6e73Ygf5sitASH+atnjvKMiV7gRMfuFrKS/v0igF7nqNEg3EEgIi0IARIGCBae73YgGiEgCeNmBtcLKuqi/FiEvT0yfP8hY+B2Sra+mMgmYRpRL9ciLQgBEgYKLJ7vdiAaISCW1/SR4O9f464ujquaXsfeEo1Zz8IbRegPW22YYEhLIiItCAESBgxGnu92IBohIBKm9hZUwDZos317NJlx/KLAcUyiUF+jAsWwqNLq7nwBIi0IARIGDnye73YgGiEgFA6e95aPc6FfVTl5gE+ZrVk6X7JPHaEDGM/ma7CCMFciLggBEgcQiALkmXcgGiEgXCTLKkeOf7RHN5KYRSE64XSQOXcmsuC/z3EMBD718VoiLggBEgcUwgSa/HcgGiEg7ckQnyToe015kgq4jVcv0kroiUCa07j6treUewJoSuMiLggBEgcW3gma/HcgGiEgVnfbPoyVHoH6maUTLftf4GXlbLV3R0IxbCa5s0o/oUQiLggBEgcY3BngmnogGiEgstZsdo2RKzMj8E1EjI8DKW4m50gRGx4xvYJ2tiq9/dciLAgBEiga/ijgunog4xrRXCgmXUXLqpaOrV7C3kjMXHyl2pKmRvCOnTDIZS4gIi8IARIIHIyAAaLVeiAaISCs/utEZeR2svvvndJWzJBFmqWMpWBtr0pgCwUWgwkhAyIvCAESCB6I0AGi1XogGiEg+bwZWravF0K3pdjJAKUREHzIJstwCFUiu3VLt8RFsz8iLwgBEggg4pkCotV6IBohIHjRrBtVdOyYGO8ru1T1BukaP6BLJ8H17c2JI4LqSAub"
+              },
+              {
+                "type": "ics23:simple",
+                "key": "c3Rha2luZw==",
+                "data": "Cq0BCgdzdGFraW5nEiCkO7A33k4ofrlVxpXYp2znmjCjsspPzy3hhMXhD3i8JxoJCAEYASABKgEAIiUIARIhAUItnB3KEB621b5Jm8wmw2rWrU3oNVJyQl/ENDf3CI2vIicIARIBARog2qV2hEwd21IQKQIX5cmlxr7g0DOIzeBOD6Aqqjn9MSAiJQgBEiEBN3Y/z8W03TzEbDpWXZYQYM8LpitgpK8AzHhyLPy7g5I="
+              }
+            ]
+          }
+        },
+        {
+          "storage_prefix": "staking",
+          "key": "IRQc2kl1CUPnDLfq4SkyqZCEz9lSeg==",
+          "value": "CjRjb3Ntb3N2YWxvcGVyMXJuZHlqYWdmZzBuc2VkbDJ1eTVuOTJ2c3NuOGFqNW42N3QwbmZ4EkMKHS9jb3Ntb3MuY3J5cHRvLmVkMjU1MTkuUHViS2V5EiIKIB4wQBwhrBNl3pDg7PIpHeuQVlEhXOPPKLVWN7JJSp+MIAMqCzI1MjE0MTg4Nzk2Mh0yNTIxNDE4ODc5NjAwMDAwMDAwMDAwMDAwMDAwMDoKCgh2YWxnYWlhMUoAUkoKOwoSMTAwMDAwMDAwMDAwMDAwMDAwEhIyMDAwMDAwMDAwMDAwMDAwMDAaETEwMDAwMDAwMDAwMDAwMDAwEgsIn/DYsgYQtvORQFoBMHIcMTAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMHodMjQyMTQxODg3MjEwMDAwMDAwMDAwMDAwMDAwMDA=",
+          "Proof": {
+            "ops": [
+              {
+                "type": "ics23:iavl",
+                "key": "IRQc2kl1CUPnDLfq4SkyqZCEz9lSeg==",
+                "data": "CrgIChYhFBzaSXUJQ+cMt+rhKTKpkITP2VJ6EsMCCjRjb3Ntb3N2YWxvcGVyMXJuZHlqYWdmZzBuc2VkbDJ1eTVuOTJ2c3NuOGFqNW42N3QwbmZ4EkMKHS9jb3Ntb3MuY3J5cHRvLmVkMjU1MTkuUHViS2V5EiIKIB4wQBwhrBNl3pDg7PIpHeuQVlEhXOPPKLVWN7JJSp+MIAMqCzI1MjE0MTg4Nzk2Mh0yNTIxNDE4ODc5NjAwMDAwMDAwMDAwMDAwMDAwMDoKCgh2YWxnYWlhMUoAUkoKOwoSMTAwMDAwMDAwMDAwMDAwMDAwEhIyMDAwMDAwMDAwMDAwMDAwMDAaETEwMDAwMDAwMDAwMDAwMDAwEgsIn/DYsgYQtvORQFoBMHIcMTAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMHodMjQyMTQxODg3MjEwMDAwMDAwMDAwMDAwMDAwMDAaDQgBGAEgASoFAALOiHoiLQgBEgYCBM6IeiAaISC6p3vsMZLZxoRC3nLlfzNgdYQ+zxxCkETl08WchFK12iItCAESBgQIzoh6IBohIJAvWYHfUlvdU6yaQEmH2GChFu5i3z1tTUNZjmrHtk4ZIisIARInBhDOiHogupclTB+Gw+Rgyt51FTcCBgW/BIWsRIJAP/G7VjY3losgIi0IARIGCBrOiHogGiEg5BXK3xbTQR3EpVQHaBzTciynO0c1IL08f74I6wSXgzwiLQgBEgYKLM6IeiAaISD2ir0zX7WVVhjvS7N0BL1tH0aFJTMJ4l06Ac59EoW1XiItCAESBgxOzoh6IBohIIRj7BzPNzHK/liCNNedZVAPog6Xobs9TAzlZm+z0B/bIi4IARIHELoBzoh6IBohIJ3gK86AIMjG0w7e3z5bRtbOqPPCrxcgkSrhsHajUxXKIi4IARIHEtQCzoh6IBohINFu/Os3zgXVS8r3JIoqRUYSglCrxLktoKlLzMrc/7XZIi4IARIHFM4Fzoh6IBohIKhMdlh+gV8ntNR+cNicQ7xC6qDk9neaw0e+X3gGW8ikIi4IARIHFoYKzoh6IBohIJvZ53IQxQdZAY71JdjJ2rGcLqUvpSDcsr4pgQ3oS5nOIi4IARIHGKIPzoh6IBohIEVvUhj6LZWVcImSQEdMl05RzkUIn/zDFr+ojO9FXFENIi4IARIHGv4o4Lp6IBohIIq7LCUraTygCVvA1sqM513yKIxkteKY3y/RzCJp0B2PIi8IARIIHIyAAaLVeiAaISCs/utEZeR2svvvndJWzJBFmqWMpWBtr0pgCwUWgwkhAyIvCAESCB6I0AGi1XogGiEg+bwZWravF0K3pdjJAKUREHzIJstwCFUiu3VLt8RFsz8iLwgBEggg4pkCotV6IBohIHjRrBtVdOyYGO8ru1T1BukaP6BLJ8H17c2JI4LqSAub"
+              },
+              {
+                "type": "ics23:simple",
+                "key": "c3Rha2luZw==",
+                "data": "Cq0BCgdzdGFraW5nEiCkO7A33k4ofrlVxpXYp2znmjCjsspPzy3hhMXhD3i8JxoJCAEYASABKgEAIiUIARIhAUItnB3KEB621b5Jm8wmw2rWrU3oNVJyQl/ENDf3CI2vIicIARIBARog2qV2hEwd21IQKQIX5cmlxr7g0DOIzeBOD6Aqqjn9MSAiJQgBEiEBN3Y/z8W03TzEbDpWXZYQYM8LpitgpK8AzHhyLPy7g5I="
+              }
+            ]
+          }
+        },
+        {
+          "storage_prefix": "staking",
+          "key": "MSCfJEiz8RudHBDrScLR8pIMUlCHdutdClI4tEAyIUuXZhRF6sE4roJR9V4+ACeV5W/dXDFvzA==",
+          "value": "CkFjb3Ntb3MxbnVqeTN2bDNyd3czY3k4dGY4cGRydTVqcDNmOXBwbWthZHdzNTUzY2szcXJ5ZzJ0amFucXQzOXhudhI0Y29zbW9zdmFsb3BlcjFnaDR2enc5d3NmZ2wyaDM3cXFuZXRldDBtNHdyem03djd4M2o5eBodMTM1ODI0NjUxNTIwMDAwMDAwMDAwMDAwMDAwMDA=",
+          "Proof": {
+            "ops": [
+              {
+                "type": "ics23:iavl",
+                "key": "MSCfJEiz8RudHBDrScLR8pIMUlCHdutdClI4tEAyIUuXZhRF6sE4roJR9V4+ACeV5W/dXDFvzA==",
+                "data": "CqkHCjcxIJ8kSLPxG50cEOtJwtHykgxSUId2610KUji0QDIhS5dmFEXqwTiuglH1Xj4AJ5Xlb91cMW/MEpgBCkFjb3Ntb3MxbnVqeTN2bDNyd3czY3k4dGY4cGRydTVqcDNmOXBwbWthZHdzNTUzY2szcXJ5ZzJ0amFucXQzOXhudhI0Y29zbW9zdmFsb3BlcjFnaDR2enc5d3NmZ2wyaDM3cXFuZXRldDBtNHdyem03djd4M2o5eBodMTM1ODI0NjUxNTIwMDAwMDAwMDAwMDAwMDAwMDAaDQgBGAEgASoFAAKe73YiKwgBEicCBJ7vdiALKzEtlNXm+FSXFxS2dvQc96bQGrOYbfKVsbSjCPGnkSAiLQgBEgYEBp7vdiAaISB/z+BwmSS/BO7Gr28owogcX5a+ZxAromIkvNVPtBuPGiIrCAESJwYOnu92IH+bIrQEh/mrZ47yjIle4ETH7haykv79IoBe56jRINxBICItCAESBggWnu92IBohIAnjZgbXCyrqovxYhL09Mnz/IWPgdkq2vpjIJmEaUS/XIi0IARIGCiye73YgGiEgltf0keDvX+OuLo6rml7H3hKNWc/CG0XoD1ttmGBISyIiLQgBEgYMRp7vdiAaISASpvYWVMA2aLN9ezSZcfyiwHFMolBfowLFsKjS6u58ASItCAESBg58nu92IBohIBQOnveWj3OhX1U5eYBPma1ZOl+yTx2hAxjP5muwgjBXIi4IARIHEIgC5Jl3IBohIFwkyypHjn+0RzeSmEUhOuF0kDl3JrLgv89xDAQ+9fFaIi4IARIHFMIEmvx3IBohIO3JEJ8k6HtNeZIKuI1XL9JK6IlAmtO4+ra3lHsCaErjIi4IARIHFt4Jmvx3IBohIFZ32z6MlR6B+pmlEy37X+Bl5Wy1d0dCMWwmubNKP6FEIi4IARIHGNwZ4Jp6IBohILLWbHaNkSszI/BNRIyPAyluJudIERseMb2CdrYqvf3XIiwIARIoGv4o4Lp6IOMa0VwoJl1Fy6qWjq1ewt5IzFx8pdqSpkbwjp0wyGUuICIvCAESCByMgAGi1XogGiEgrP7rRGXkdrL7753SVsyQRZqljKVgba9KYAsFFoMJIQMiLwgBEggeiNABotV6IBohIPm8GVq2rxdCt6XYyQClERB8yCbLcAhVIrt1S7fERbM/Ii8IARIIIOKZAqLVeiAaISB40awbVXTsmBjvK7tU9QbpGj+gSyfB9e3NiSOC6kgLmw=="
+              },
+              {
+                "type": "ics23:simple",
+                "key": "c3Rha2luZw==",
+                "data": "Cq0BCgdzdGFraW5nEiCkO7A33k4ofrlVxpXYp2znmjCjsspPzy3hhMXhD3i8JxoJCAEYASABKgEAIiUIARIhAUItnB3KEB621b5Jm8wmw2rWrU3oNVJyQl/ENDf3CI2vIicIARIBARog2qV2hEwd21IQKQIX5cmlxr7g0DOIzeBOD6Aqqjn9MSAiJQgBEiEBN3Y/z8W03TzEbDpWXZYQYM8LpitgpK8AzHhyLPy7g5I="
+              }
+            ]
+          }
+        },
+        {
+          "storage_prefix": "staking",
+          "key": "IRRF6sE4roJR9V4+ACeV5W/dXDFvzA==",
+          "value": "CjRjb3Ntb3N2YWxvcGVyMWdoNHZ6dzl3c2ZnbDJoMzdxcW5ldGV0MG00d3J6bTd2N3gzajl4EkMKHS9jb3Ntb3MuY3J5cHRvLmVkMjU1MTkuUHViS2V5EiIKIBBp8oY6i7JDYLibq1ifiAsifWSXqMG943z+kPiorWjhIAMqCzI1MjE0MTc4MDUwMh0yNTIxNDE3ODA1MDAwMDAwMDAwMDAwMDAwMDAwMDoKCgh2YWxnYWlhMEoAUkoKOwoSMTAwMDAwMDAwMDAwMDAwMDAwEhIyMDAwMDAwMDAwMDAwMDAwMDAaETEwMDAwMDAwMDAwMDAwMDAwEgsIn/DYsgYQtvORQFoBMHIcMTAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMHodMjQyMTQxNzgwNDkwMDAwMDAwMDAwMDAwMDAwMDA=",
+          "Proof": {
+            "ops": [
+              {
+                "type": "ics23:iavl",
+                "key": "IRRF6sE4roJR9V4+ACeV5W/dXDFvzA==",
+                "data": "CrYIChYhFEXqwTiuglH1Xj4AJ5Xlb91cMW/MEsMCCjRjb3Ntb3N2YWxvcGVyMWdoNHZ6dzl3c2ZnbDJoMzdxcW5ldGV0MG00d3J6bTd2N3gzajl4EkMKHS9jb3Ntb3MuY3J5cHRvLmVkMjU1MTkuUHViS2V5EiIKIBBp8oY6i7JDYLibq1ifiAsifWSXqMG943z+kPiorWjhIAMqCzI1MjE0MTc4MDUwMh0yNTIxNDE3ODA1MDAwMDAwMDAwMDAwMDAwMDAwMDoKCgh2YWxnYWlhMEoAUkoKOwoSMTAwMDAwMDAwMDAwMDAwMDAwEhIyMDAwMDAwMDAwMDAwMDAwMDAaETEwMDAwMDAwMDAwMDAwMDAwEgsIn/DYsgYQtvORQFoBMHIcMTAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMHodMjQyMTQxNzgwNDkwMDAwMDAwMDAwMDAwMDAwMDAaDQgBGAEgASoFAAKa/HciKwgBEicCBM6IeiASopL/GJR0NWTylqmyGZhgruFGx20Il2frOHDEEvtLiCAiLQgBEgYECM6IeiAaISCQL1mB31Jb3VOsmkBJh9hgoRbuYt89bU1DWY5qx7ZOGSIrCAESJwYQzoh6ILqXJUwfhsPkYMredRU3AgYFvwSFrESCQD/xu1Y2N5aLICItCAESBggazoh6IBohIOQVyt8W00EdxKVUB2gc03IspztHNSC9PH++COsEl4M8Ii0IARIGCizOiHogGiEg9oq9M1+1lVYY70uzdAS9bR9GhSUzCeJdOgHOfRKFtV4iLQgBEgYMTs6IeiAaISCEY+wczzcxyv5YgjTXnWVQD6IOl6G7PUwM5WZvs9Af2yIuCAESBxC6Ac6IeiAaISCd4CvOgCDIxtMO3t8+W0bWzqjzwq8XIJEq4bB2o1MVyiIuCAESBxLUAs6IeiAaISDRbvzrN84F1UvK9ySKKkVGEoJQq8S5LaCpS8zK3P+12SIuCAESBxTOBc6IeiAaISCoTHZYfoFfJ7TUfnDYnEO8Quqg5PZ3msNHvl94BlvIpCIuCAESBxaGCs6IeiAaISCb2edyEMUHWQGO9SXYydqxnC6lL6Ug3LK+KYEN6EuZziIuCAESBxiiD86IeiAaISBFb1IY+i2VlXCJkkBHTJdOUc5FCJ/8wxa/qIzvRVxRDSIuCAESBxr+KOC6eiAaISCKuywlK2k8oAlbwNbKjOdd8iiMZLXimN8v0cwiadAdjyIvCAESCByMgAGi1XogGiEgrP7rRGXkdrL7753SVsyQRZqljKVgba9KYAsFFoMJIQMiLwgBEggeiNABotV6IBohIPm8GVq2rxdCt6XYyQClERB8yCbLcAhVIrt1S7fERbM/Ii8IARIIIOKZAqLVeiAaISB40awbVXTsmBjvK7tU9QbpGj+gSyfB9e3NiSOC6kgLmw=="
+              },
+              {
+                "type": "ics23:simple",
+                "key": "c3Rha2luZw==",
+                "data": "Cq0BCgdzdGFraW5nEiCkO7A33k4ofrlVxpXYp2znmjCjsspPzy3hhMXhD3i8JxoJCAEYASABKgEAIiUIARIhAUItnB3KEB621b5Jm8wmw2rWrU3oNVJyQl/ENDf3CI2vIicIARIBARog2qV2hEwd21IQKQIX5cmlxr7g0DOIzeBOD6Aqqjn9MSAiJQgBEiEBN3Y/z8W03TzEbDpWXZYQYM8LpitgpK8AzHhyLPy7g5I="
+              }
+            ]
+          }
+        }
+      ]"#,
+    ).unwrap();
+
+    Binary::from(
+        to_string(&QueryRegisteredQueryResultResponse {
+            result: InterchainQueryResult {
+                kv_results: res,
+                height: 123456,
+                revision: 2,
+            },
+        })
+        .unwrap()
+        .as_bytes(),
+    )
+}
 
 #[test]
 fn test_instantiate() {
@@ -40,7 +180,7 @@ fn test_instantiate() {
         remote_denom: "remote_denom".to_string(),
         allowed_senders: vec!["allowed_sender".to_string()],
         transfer_channel_id: "transfer_channel_id".to_string(),
-        sdk_version: "0.45.0".to_string(),
+        sdk_version: "0.47.10".to_string(),
         timeout: 100u64,
     };
     let env = mock_env();
@@ -480,6 +620,84 @@ fn test_sudo_response_tx_state_wrong() {
 }
 
 #[test]
+fn test_sudo_kv_query_result() {
+    let mut deps = mock_dependencies(&[]);
+
+    let query_id = 1u64;
+
+    deps.querier
+        .add_query_response(query_id, build_interchain_query_response());
+
+    let puppeteer_base = base_init(&mut deps.as_mut());
+
+    let msg = SudoMsg::KVQueryResult { query_id };
+    let env = mock_env();
+    puppeteer_base
+        .kv_queries
+        .save(
+            deps.as_mut().storage,
+            query_id,
+            &KVQueryType::DelegationsAndBalance {},
+        )
+        .unwrap();
+
+    puppeteer_base
+        .delegations_and_balances_query_id_chunk
+        .save(deps.as_mut().storage, query_id, &0)
+        .unwrap();
+
+    let res = crate::contract::sudo(deps.as_mut(), env, msg).unwrap();
+    assert_eq!(res, Response::new());
+
+    let last_key = puppeteer_base
+        .last_complete_delegations_and_balances_key
+        .may_load(&deps.storage)
+        .unwrap();
+
+    assert_eq!(last_key, Some(123456));
+
+    let state = puppeteer_base
+        .delegations_and_balances
+        .load(&deps.storage, &123456)
+        .unwrap();
+
+    assert_eq!(
+        state,
+        BalancesAndDelegationsState {
+            data: BalancesAndDelegations {
+                balances: Balances {
+                    coins: vec![coin(29558778, "stake")]
+                },
+                delegations: Delegations {
+                    delegations: vec![
+                        Delegation {
+                            delegator: Addr::unchecked(
+                                "cosmos1nujy3vl3rww3cy8tf8pdru5jp3f9ppmkadws553ck3qryg2tjanqt39xnv"
+                            ),
+                            validator: "cosmosvaloper1rndyjagfg0nsedl2uy5n92vssn8aj5n67t0nfx"
+                                .to_string(),
+                            amount: coin(13582465152, "stake")
+                        },
+                        Delegation {
+                            delegator: Addr::unchecked(
+                                "cosmos1nujy3vl3rww3cy8tf8pdru5jp3f9ppmkadws553ck3qryg2tjanqt39xnv"
+                            ),
+                            validator: "cosmosvaloper1gh4vzw9wsfgl2h37qqnetet0m4wrzm7v7x3j9x"
+                                .to_string(),
+                            amount: coin(13582465152, "stake")
+                        }
+                    ]
+                }
+            },
+            remote_height: 123456,
+            local_height: 12345,
+            timestamp: Timestamp::from_nanos(1571797419879305533),
+            collected_chunks: vec![0]
+        }
+    );
+}
+
+#[test]
 fn test_sudo_response_ok() {
     let mut deps = mock_dependencies(&[]);
 
@@ -883,7 +1101,7 @@ mod register_delegations_and_balance_query {
                         "cosmos14xcrdjwwxtf9zr7dvaa97wy056se6r5e8q68mw".to_string(),
                     ],
                     60,
-                    "0.45.0",
+                    "0.47.0",
                 )
                 .unwrap(),
                 ReplyMsg::KvDelegationsAndBalance { i: 0 }.to_reply_id(),
@@ -946,7 +1164,7 @@ mod register_delegations_and_balance_query {
                                 "cosmos14xcrdjwwxtf9zr7dvaa97wy056se6r5e8q68mw".to_string(),
                             ],
                             60,
-                            "0.45.0",
+                            "0.47.0",
                         )
                         .unwrap(),
                         ReplyMsg::KvDelegationsAndBalance { i: 0 }.to_reply_id(),
@@ -958,7 +1176,7 @@ mod register_delegations_and_balance_query {
                             "remote_denom".to_string(),
                             vec!["cosmos15tuf2ewxle6jj6eqd4jm579vpahydzwdsvkrhn".to_string(),],
                             60,
-                            "0.45.0",
+                            "0.47.0",
                         )
                         .unwrap(),
                         ReplyMsg::KvDelegationsAndBalance { i: 1 }.to_reply_id(),
@@ -991,7 +1209,7 @@ fn get_base_config() -> Config {
         remote_denom: "remote_denom".to_string(),
         allowed_senders: vec![Addr::unchecked("allowed_sender")],
         transfer_channel_id: "transfer_channel_id".to_string(),
-        sdk_version: "0.45.0".to_string(),
+        sdk_version: "0.47.10".to_string(),
         timeout: 100u64,
     }
 }
