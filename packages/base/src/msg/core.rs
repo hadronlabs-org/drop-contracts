@@ -1,10 +1,10 @@
 use crate::{
-    error::core::{ContractError, ContractResult},
+    error::core::ContractResult,
     msg::staker::ResponseHookMsg as StakerResponseHookMsg,
-    state::core::{Config, ConfigOptional, NonNativeRewardsItem},
+    state::core::{Config, ConfigOptional},
 };
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Decimal, Deps, Uint128, Uint64};
+use cosmwasm_std::{Deps, Uint128, Uint64};
 use cw_ownable::cw_ownable_execute;
 #[allow(unused_imports)]
 use drop_helpers::pause::PauseInfoResponse;
@@ -33,8 +33,6 @@ pub struct InstantiateMsg {
     pub pump_ica_address: Option<String>,
     pub transfer_channel_id: String,
     pub owner: String,
-    pub fee: Option<Decimal>,
-    pub fee_address: Option<String>,
     pub emergency_address: Option<String>,
     pub min_stake_amount: Uint128,
     pub icq_update_delay: u64, // blocks
@@ -42,11 +40,6 @@ pub struct InstantiateMsg {
 
 impl InstantiateMsg {
     pub fn into_config(self, deps: Deps) -> ContractResult<Config> {
-        if let Some(fee) = self.fee {
-            if fee < Decimal::zero() || fee > Decimal::one() {
-                return Err(ContractError::InvalidFee {});
-            }
-        }
         Ok(Config {
             token_contract: deps.api.addr_validate(&self.token_contract)?,
             puppeteer_contract: deps.api.addr_validate(&self.puppeteer_contract)?,
@@ -75,8 +68,6 @@ impl InstantiateMsg {
                 Some(limit) => Some(limit),
             },
             unbond_batch_switch_time: self.unbond_batch_switch_time,
-            fee: self.fee,
-            fee_address: self.fee_address,
             emergency_address: self.emergency_address,
             min_stake_amount: self.min_stake_amount,
             icq_update_delay: self.icq_update_delay,
@@ -123,8 +114,6 @@ pub enum QueryMsg {
     LastPuppeteerResponse {},
     #[returns(LastStakerResponse)]
     LastStakerResponse {},
-    #[returns(Vec<NonNativeRewardsItem>)]
-    NonNativeRewardsReceivers {},
     #[returns(Vec<(String,(String, Uint128))>)]
     PendingLSMShares {},
     #[returns(Vec<(String,(String, Uint128))>)]
@@ -149,9 +138,6 @@ pub enum ExecuteMsg {
     //permissioned
     UpdateConfig {
         new_config: Box<ConfigOptional>,
-    },
-    UpdateNonNativeRewardsReceivers {
-        items: Vec<NonNativeRewardsItem>,
     },
     UpdateWithdrawnAmount {
         batch_id: u128,

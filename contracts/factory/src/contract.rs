@@ -8,22 +8,31 @@ use crate::{
 };
 use cosmwasm_std::{
     attr, instantiate2_address, to_json_binary, Attribute, Binary, CodeInfoResponse, CosmosMsg,
-    Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, WasmMsg,
+    Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use drop_helpers::answer::response;
-use drop_staking_base::msg::{
-    core::{InstantiateMsg as CoreInstantiateMsg, QueryMsg as CoreQueryMsg},
-    distribution::InstantiateMsg as DistributionInstantiateMsg,
-    puppeteer::InstantiateMsg as PuppeteerInstantiateMsg,
-    rewards_manager::{InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg},
-    staker::InstantiateMsg as StakerInstantiateMsg,
-    strategy::InstantiateMsg as StrategyInstantiateMsg,
-    token::InstantiateMsg as TokenInstantiateMsg,
-    validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
-    withdrawal_manager::{
-        InstantiateMsg as WithdrawalManagerInstantiateMsg, QueryMsg as WithdrawalManagerQueryMsg,
+use drop_staking_base::state::splitter::Config as SplitterConfig;
+use drop_staking_base::{
+    msg::{
+        core::{InstantiateMsg as CoreInstantiateMsg, QueryMsg as CoreQueryMsg},
+        distribution::InstantiateMsg as DistributionInstantiateMsg,
+        pump::InstantiateMsg as RewardsPumpInstantiateMsg,
+        puppeteer::InstantiateMsg as PuppeteerInstantiateMsg,
+        rewards_manager::{
+            InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg,
+        },
+        splitter::InstantiateMsg as SplitterInstantiateMsg,
+        staker::InstantiateMsg as StakerInstantiateMsg,
+        strategy::InstantiateMsg as StrategyInstantiateMsg,
+        token::InstantiateMsg as TokenInstantiateMsg,
+        validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
+        withdrawal_manager::{
+            InstantiateMsg as WithdrawalManagerInstantiateMsg,
+            QueryMsg as WithdrawalManagerQueryMsg,
+        },
+        withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
     },
-    withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
+    state::pump::PumpTimeout,
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -72,6 +81,10 @@ pub fn instantiate(
     let staker_contract_checksum = get_code_checksum(deps.as_ref(), msg.code_ids.staker_code_id)?;
     let rewards_manager_contract_checksum =
         get_code_checksum(deps.as_ref(), msg.code_ids.rewards_manager_code_id)?;
+    let splitter_contract_checksum =
+        get_code_checksum(deps.as_ref(), msg.code_ids.splitter_code_id)?;
+    let rewards_pump_contract_checksum =
+        get_code_checksum(deps.as_ref(), msg.code_ids.rewards_pump_code_id)?;
     let salt = msg.salt.as_bytes();
 
     let token_address =
@@ -121,14 +134,14 @@ pub fn instantiate(
         validators_set_address.to_string(),
     ));
 
-    let distribution_address = instantiate2_address(
+    let distribution_calculator_address = instantiate2_address(
         &distribution_contract_checksum,
         &canonical_self_address,
         salt,
     )?;
     attrs.push(attr(
         "distribution_address",
-        distribution_address.to_string(),
+        distribution_calculator_address.to_string(),
     ));
 
     let rewards_manager_address = instantiate2_address(
@@ -139,6 +152,20 @@ pub fn instantiate(
     attrs.push(attr(
         "rewards_manager_address",
         rewards_manager_address.to_string(),
+    ));
+
+    let splitter_address =
+        instantiate2_address(&splitter_contract_checksum, &canonical_self_address, salt)?;
+    attrs.push(attr("splitter_address", splitter_address.to_string()));
+
+    let rewards_pump_address = instantiate2_address(
+        &rewards_pump_contract_checksum,
+        &canonical_self_address,
+        salt,
+    )?;
+    attrs.push(attr(
+        "rewards_pump_address",
+        rewards_pump_address.to_string(),
     ));
 
     let core_contract = deps.api.addr_humanize(&core_address)?.to_string();
@@ -153,13 +180,18 @@ pub fn instantiate(
         .to_string();
     let strategy_contract = deps.api.addr_humanize(&strategy_address)?.to_string();
     let validators_set_contract = deps.api.addr_humanize(&validators_set_address)?.to_string();
-    let distribution_contract = deps.api.addr_humanize(&distribution_address)?.to_string();
+    let distribution_contract = deps
+        .api
+        .addr_humanize(&distribution_calculator_address)?
+        .to_string();
     let puppeteer_contract = deps.api.addr_humanize(&puppeteer_address)?.to_string();
     let staker_contract = deps.api.addr_humanize(&staker_address)?.to_string();
     let rewards_manager_contract = deps
         .api
         .addr_humanize(&rewards_manager_address)?
         .to_string();
+    let rewards_pump_contract = deps.api.addr_humanize(&rewards_pump_address)?.to_string();
+    let splitter_contract = deps.api.addr_humanize(&splitter_address)?.to_string();
 
     let state = State {
         token_contract: token_contract.to_string(),
@@ -172,6 +204,8 @@ pub fn instantiate(
         validators_set_contract: validators_set_contract.to_string(),
         distribution_contract: distribution_contract.to_string(),
         rewards_manager_contract: rewards_manager_contract.to_string(),
+        rewards_pump_contract: rewards_pump_contract.to_string(),
+        splitter_contract: splitter_contract.to_string(),
     };
     STATE.save(deps.storage, &state)?;
 
@@ -221,7 +255,8 @@ pub fn instantiate(
                 port_id: msg.remote_opts.port_id.to_string(),
                 transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
                 sdk_version: msg.sdk_version.to_string(),
-                timeout: msg.puppeteer_params.timeout,
+                timeout: msg.remote_opts.timeout.local,
+                delegations_queries_chunk_size: None,
             })?,
             funds: vec![],
             salt: Binary::from(salt),
@@ -237,7 +272,7 @@ pub fn instantiate(
                 connection_id: msg.remote_opts.connection_id.to_string(),
                 port_id: msg.remote_opts.port_id.to_string(),
                 transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
-                timeout: msg.staker_params.timeout,
+                timeout: msg.remote_opts.timeout.local,
                 base_denom: msg.base_denom.clone(),
                 min_ibc_transfer: msg.staker_params.min_ibc_transfer,
                 min_staking_amount: msg.staker_params.min_stake_amount,
@@ -279,13 +314,11 @@ pub fn instantiate(
                 unbond_batch_switch_time: msg.core_params.unbond_batch_switch_time,
                 idle_min_interval: msg.core_params.idle_min_interval,
                 bond_limit: msg.core_params.bond_limit,
-                transfer_channel_id: msg.remote_opts.transfer_channel_id,
+                transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
                 lsm_min_bond_amount: msg.core_params.lsm_min_bond_amount,
                 lsm_redeem_threshold: msg.core_params.lsm_redeem_threshold,
                 lsm_redeem_max_interval: msg.core_params.lsm_redeem_max_interval,
                 owner: env.contract.address.to_string(),
-                fee: None,
-                fee_address: None,
                 emergency_address: None,
                 min_stake_amount: msg.core_params.min_stake_amount,
                 icq_update_delay: msg.core_params.icq_update_delay,
@@ -299,7 +332,7 @@ pub fn instantiate(
             label: get_contract_label("withdrawal-voucher"),
             msg: to_json_binary(&WithdrawalVoucherInstantiateMsg {
                 name: "Drop Voucher".to_string(),
-                symbol: "LDOV".to_string(),
+                symbol: "DROPV".to_string(),
                 minter: core_contract.to_string(),
             })?,
             funds: vec![],
@@ -313,7 +346,7 @@ pub fn instantiate(
                 core_contract: core_contract.to_string(),
                 voucher_contract: withdrawal_voucher_contract.to_string(),
                 owner: env.contract.address.to_string(),
-                base_denom: msg.base_denom,
+                base_denom: msg.base_denom.to_string(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),
@@ -321,9 +354,42 @@ pub fn instantiate(
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
             code_id: msg.code_ids.rewards_manager_code_id,
-            label: get_contract_label("rewards manager"),
+            label: get_contract_label("rewards-manager"),
             msg: to_json_binary(&RewardsMangerInstantiateMsg {
                 owner: env.contract.address.to_string(),
+            })?,
+            funds: vec![],
+            salt: Binary::from(salt),
+        }),
+        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
+            admin: Some(env.contract.address.to_string()),
+            code_id: msg.code_ids.splitter_code_id,
+            label: get_contract_label("splitter"),
+            msg: to_json_binary(&SplitterInstantiateMsg {
+                config: SplitterConfig {
+                    receivers: get_splitter_receivers(msg.fee_params, staker_contract.to_string())?,
+                    denom: msg.base_denom.to_string(),
+                },
+            })?,
+            funds: vec![],
+            salt: Binary::from(salt),
+        }),
+        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
+            admin: Some(env.contract.address.to_string()),
+            code_id: msg.code_ids.rewards_pump_code_id,
+            label: get_contract_label("rewards-pump"),
+            msg: to_json_binary(&RewardsPumpInstantiateMsg {
+                dest_address: Some(splitter_contract.to_string()),
+                dest_channel: Some(msg.remote_opts.reverse_transfer_channel_id.to_string()),
+                dest_port: Some(msg.remote_opts.port_id.to_string()),
+                connection_id: msg.remote_opts.connection_id.to_string(),
+                refundee: None,
+                timeout: PumpTimeout {
+                    local: Some(msg.remote_opts.timeout.local),
+                    remote: msg.remote_opts.timeout.remote,
+                },
+                local_denom: msg.local_denom.to_string(),
+                owner: Some(env.contract.address.to_string()),
             })?,
             funds: vec![],
             salt: Binary::from(salt),
@@ -502,21 +568,6 @@ fn execute_proxy_msg(
             }
         },
         ProxyMsg::Core(msg) => match msg {
-            crate::msg::CoreMsg::UpdateNonNativeRewardsReceivers { items } => {
-                messages.push(get_proxied_message(
-                    state.core_contract,
-                    drop_staking_base::msg::core::ExecuteMsg::UpdateNonNativeRewardsReceivers {
-                        items: items.clone(),
-                    },
-                    vec![],
-                )?);
-                messages.push(
-                    get_proxied_message(
-                        state.puppeteer_contract,
-                        drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
-                            denoms: items.iter().map(|one|{one.denom.to_string()}).collect() }, info.funds)?
-                );
-            }
             crate::msg::CoreMsg::Pause {} => {
                 messages.push(get_proxied_message(
                     state.core_contract,
@@ -572,4 +623,21 @@ pub fn migrate(
     }
 
     Ok(Response::new())
+}
+
+fn get_splitter_receivers(
+    fee_params: Option<crate::msg::FeeParams>,
+    staker_address: String,
+) -> ContractResult<Vec<(String, cosmwasm_std::Uint128)>> {
+    match fee_params {
+        Some(fee_params) => {
+            let fee_weight = Uint128::from(10000u128) * fee_params.fee;
+            let staker_weight = Uint128::from(10000u128) - fee_weight;
+            Ok(vec![
+                (staker_address, staker_weight),
+                (fee_params.fee_address, fee_weight),
+            ])
+        }
+        None => Ok(vec![(staker_address, Uint128::from(10000u128))]),
+    }
 }

@@ -49,9 +49,6 @@ pub fn execute(
         ExecuteMsg::SetConfig { puppeteer_addr } => {
             execute_set_config(deps, env, info, puppeteer_addr)
         }
-        ExecuteMsg::Delegate { validator, amount } => {
-            execute_delegate(deps, env, info, validator, amount)
-        }
         ExecuteMsg::Undelegate { validator, amount } => {
             execute_undelegate(deps, env, validator, amount)
         }
@@ -116,32 +113,6 @@ fn execute_set_config(
     let attrs = vec![attr("action", "set-config")];
     CONFIG.save(deps.storage, &Config { puppeteer_addr })?;
     Ok(response("set-config", "hook-tester", attrs))
-}
-
-fn execute_delegate(
-    deps: DepsMut<NeutronQuery>,
-    env: Env,
-    info: MessageInfo,
-    validator: String,
-    amount: Uint128,
-) -> ContractResult<Response<NeutronMsg>> {
-    let config = CONFIG.load(deps.storage)?;
-    let attrs = vec![
-        attr("action", "delegate"),
-        attr("validator", validator.clone()),
-        attr("amount", amount.to_string()),
-        attr("funds", format!("{:?}", info.funds)),
-    ];
-    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.puppeteer_addr,
-        msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
-            items: vec![(validator, amount)],
-            fee: None,
-            reply_to: env.contract.address.to_string(),
-        })?,
-        funds: info.funds,
-    });
-    Ok(response("execute-delegate", "hook-tester", attrs).add_message(msg))
 }
 
 fn execute_undelegate(

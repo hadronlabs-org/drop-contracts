@@ -8,6 +8,7 @@ import {
   DropStaker,
   DropWithdrawalManager,
   DropWithdrawalVoucher,
+  DropSplitter,
 } from 'drop-ts-client';
 import {
   QueryClient,
@@ -46,6 +47,9 @@ const DropStakerClass = DropStaker.Client;
 const DropStrategyClass = DropStrategy.Client;
 const DropWithdrawalVoucherClass = DropWithdrawalVoucher.Client;
 const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
+const DropRewardsPumpClass = DropPump.Client;
+const DropSplitterClass = DropSplitter.Client;
+
 const UNBONDING_TIME = 360;
 
 describe('Core Slashing', () => {
@@ -56,6 +60,8 @@ describe('Core Slashing', () => {
     gaiaWallet?: DirectSecp256k1HdWallet;
     gaiaWallet2?: DirectSecp256k1HdWallet;
     factoryContractClient?: InstanceType<typeof DropFactoryClass>;
+    splitterContractClient?: InstanceType<typeof DropSplitterClass>;
+    rewardsPumpContractClient?: InstanceType<typeof DropRewardsPumpClass>;
     coreContractClient?: InstanceType<typeof DropCoreClass>;
     strategyContractClient?: InstanceType<typeof DropStrategyClass>;
     stakerContractClient?: InstanceType<typeof DropStakerClass>;
@@ -69,6 +75,7 @@ describe('Core Slashing', () => {
     >;
     account?: AccountData;
     icaAddress?: string;
+    rewardsPumpIcaAddress?: string;
     stakerIcaAddress?: string;
     client?: SigningCosmWasmClient;
     gaiaClient?: SigningStargateClient;
@@ -96,6 +103,8 @@ describe('Core Slashing', () => {
       validatorsSet?: number;
       distribution?: number;
       rewardsManager?: number;
+      splitter?: number;
+      pump?: number;
     };
     tokenContractAddress?: string;
     neutronIBCDenom?: string;
@@ -359,6 +368,26 @@ describe('Core Slashing', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.staker = res.codeId;
     }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.splitter = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.pump = res.codeId;
+    }
 
     const res = await client.upload(
       account.address,
@@ -372,6 +401,7 @@ describe('Core Slashing', () => {
       res.codeId,
       {
         sdk_version: process.env.SDK_VERSION || '0.46.0',
+        local_denom: 'untrn',
         code_ids: {
           core_code_id: context.codeIds.core,
           token_code_id: context.codeIds.token,
@@ -383,13 +413,20 @@ describe('Core Slashing', () => {
           puppeteer_code_id: context.codeIds.puppeteer,
           rewards_manager_code_id: context.codeIds.rewardsManager,
           staker_code_id: context.codeIds.staker,
+          splitter_code_id: context.codeIds.splitter,
+          rewards_pump_code_id: context.codeIds.pump,
         },
         remote_opts: {
           connection_id: 'connection-0',
           transfer_channel_id: 'channel-0',
+          reverse_transfer_channel_id: 'channel-0',
           port_id: 'transfer',
           denom: 'stake',
           update_period: 2,
+          timeout: {
+            local: 60,
+            remote: 60,
+          },
         },
         salt: 'salt',
         subdenom: 'drop',
@@ -415,11 +452,7 @@ describe('Core Slashing', () => {
           min_stake_amount: '2',
           icq_update_delay: 5,
         },
-        puppeteer_params: {
-          timeout: 60,
-        },
         staker_params: {
-          timeout: 60,
           min_stake_amount: '100',
           min_ibc_transfer: '100',
         },
@@ -462,6 +495,14 @@ describe('Core Slashing', () => {
       context.client,
       res.staker_contract,
     );
+    context.splitterContractClient = new DropSplitter.Client(
+      context.client,
+      res.splitter_contract,
+    );
+    context.rewardsPumpContractClient = new DropPump.Client(
+      context.client,
+      res.rewards_pump_contract,
+    );
   });
   it('register staker ICA', async () => {
     const { stakerContractClient, neutronUserAddress } = context;
@@ -488,6 +529,32 @@ describe('Core Slashing', () => {
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();
     context.stakerIcaAddress = ica;
+  });
+  it('setup ICA for rewards pump', async () => {
+    const { rewardsPumpContractClient, neutronUserAddress } = context;
+    const res = await rewardsPumpContractClient.registerICA(
+      neutronUserAddress,
+      1.5,
+      undefined,
+      [{ amount: '1000000', denom: 'untrn' }],
+    );
+    expect(res.transactionHash).toHaveLength(64);
+    let ica = '';
+    await waitFor(async () => {
+      const res = await rewardsPumpContractClient.queryIca();
+      switch (res) {
+        case 'none':
+        case 'in_progress':
+        case 'timeout':
+          return false;
+        default:
+          ica = res.registered.ica_address;
+          return true;
+      }
+    }, 100_000);
+    expect(ica).toHaveLength(65);
+    expect(ica.startsWith('cosmos')).toBeTruthy();
+    context.rewardsPumpIcaAddress = ica;
   });
   it('register puppeteer ICA', async () => {
     const { puppeteerContractClient, neutronUserAddress } = context;
@@ -545,7 +612,7 @@ describe('Core Slashing', () => {
     );
     expect(res.transactionHash).toHaveLength(64);
   });
-  it('grant staker to delegate funds from puppeteer ICA', async () => {
+  it('grant staker to delegate funds from puppeteer ICA and set up rewards receiver', async () => {
     const { neutronUserAddress } = context;
     const res = await context.factoryContractClient.adminExecute(
       neutronUserAddress,
@@ -557,8 +624,9 @@ describe('Core Slashing', () => {
                 contract_addr: context.puppeteerContractClient.contractAddress,
                 msg: Buffer.from(
                   JSON.stringify({
-                    grant_delegate: {
-                      grantee: context.stakerIcaAddress,
+                    setup_protocol: {
+                      delegate_grantee: context.stakerIcaAddress,
+                      rewards_withdraw_address: context.rewardsPumpIcaAddress,
                     },
                   }),
                 ).toString('base64'),

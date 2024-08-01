@@ -18,13 +18,6 @@ export type IcaState =
 export type ArrayOfTupleOfUint64AndString = [number, string][];
 export type Transaction =
   | {
-      delegate: {
-        denom: string;
-        interchain_account_id: string;
-        items: [string, Uint128][];
-      };
-    }
-  | {
       undelegate: {
         batch_id: number;
         denom: string;
@@ -84,9 +77,10 @@ export type Transaction =
       };
     }
   | {
-      grant_delegate: {
-        grantee: string;
+      setup_protocol: {
+        delegate_grantee: string;
         interchain_account_id: string;
+        rewards_withdraw_address: string;
       };
     };
 /**
@@ -179,8 +173,7 @@ export interface DropPuppeteerSchema {
     | RegisterBalanceAndDelegatorDelegationsQueryArgs
     | RegisterDelegatorUnbondingDelegationsQueryArgs
     | RegisterNonNativeRewardsBalancesQueryArgs
-    | DelegateArgs
-    | GrantDelegateArgs
+    | SetupProtocolArgs
     | UndelegateArgs
     | RedelegateArgs
     | TokenizeShareArgs
@@ -231,17 +224,9 @@ export interface RegisterDelegatorUnbondingDelegationsQueryArgs {
 export interface RegisterNonNativeRewardsBalancesQueryArgs {
   denoms: string[];
 }
-export interface DelegateArgs {
-  /**
-   * @minItems 2
-   * @maxItems 2
-   */
-  fee?: [string, Uint128] | null;
-  items: [string, Uint128][];
-  reply_to: string;
-}
-export interface GrantDelegateArgs {
-  grantee: string;
+export interface SetupProtocolArgs {
+  delegate_grantee: string;
+  rewards_withdraw_address: string;
 }
 export interface UndelegateArgs {
   batch_id: number;
@@ -292,6 +277,7 @@ export interface ConfigOptional {
 export interface InstantiateMsg {
   allowed_senders: string[];
   connection_id: string;
+  delegations_queries_chunk_size?: number | null;
   owner?: string | null;
   port_id: string;
   remote_denom: string;
@@ -385,13 +371,9 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { register_non_native_rewards_balances_query: args }, fee || "auto", memo, funds);
   }
-  delegate = async(sender:string, args: DelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  setupProtocol = async(sender:string, args: SetupProtocolArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { delegate: args }, fee || "auto", memo, funds);
-  }
-  grantDelegate = async(sender:string, args: GrantDelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { grant_delegate: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { setup_protocol: args }, fee || "auto", memo, funds);
   }
   undelegate = async(sender:string, args: UndelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

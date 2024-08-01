@@ -86,7 +86,13 @@ const networkConfigs = {
     trace: true,
     validators: 2,
     commands: redefinedParams.commands,
-    validators_balance: ['1900000000', '100000000'],
+    validators_balance: [
+      '1900000000',
+      '100000000',
+      '100000000',
+      '100000000',
+      '100000000',
+    ],
     genesis_opts: redefinedParams.genesisOpts || {
       'app_state.slashing.params.downtime_jail_duration': '10s',
       'app_state.slashing.params.signed_blocks_window': '10',

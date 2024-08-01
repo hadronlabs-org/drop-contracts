@@ -144,20 +144,16 @@ async function bondRandomAmount(
     throw `[${neutronWallet.mainAccounts[0].address}] Nothing to bond, ${BASE_DENOM} balance is 0`;
   }
 
-  const config = await dropInstance.queryConfig();
   const exchangeRate: number = Math.floor(
     Number(await dropInstance.queryExchangeRate())
   );
   const minExchangeRate: number = exchangeRate + 1;
 
   /* Minimum amount of funds that we can send to core contract while bonding
-   * Is either lsm_min_bond_amount (which is typically set in 1) or current exchange_rate parameter
-   * Here we're choosing the biggest value of these two to avoid further errors
+   * Is current exchange_rate parameter
+   * (because otherwise you'll get 0 dTOKEN in exchange of n tokens | n < exchange_rate)
    */
-  const minBond: number = Math.max(
-    Number(config.lsm_min_bond_amount),
-    minExchangeRate
-  );
+  const minBond: number = minExchangeRate;
   if (minBond > Number(IBCDenomBalance.amount)) {
     throw `[${neutronWallet.mainAccounts[0].address}] Nothing to bond, ${BASE_DENOM} balance is lower then min(${minBond}) (this value either exchange rate or config.lsm_min_bond_amount)`;
   }

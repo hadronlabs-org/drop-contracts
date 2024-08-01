@@ -76,7 +76,7 @@ store_code() {
 }
 
 deploy_wasm_code() {
-  for contract in factory core distribution puppeteer rewards_manager strategy token staker validators_set withdrawal_manager withdrawal_voucher pump; do
+  for contract in factory core distribution puppeteer rewards_manager strategy token staker validators_set withdrawal_manager withdrawal_voucher pump splitter; do
       store_code "$contract"
       code_id="${contract}_code_id"
       printf '[OK] %-24s code ID: %s\n' "$contract" "${!code_id}"
@@ -115,7 +115,7 @@ pre_deploy_check_ibc_connection() {
 }
 
 pre_deploy_check_code_ids() {
-  for contract in factory core distribution puppeteer rewards_manager strategy token staker validators_set withdrawal_manager withdrawal_voucher pump; do
+  for contract in factory core distribution puppeteer rewards_manager strategy token staker validators_set withdrawal_manager withdrawal_voucher pump splitter; do
     code_id="${contract}_code_id"
     set +u
     if [[ -z "${!code_id}" ]]; then
@@ -135,6 +135,7 @@ deploy_factory() {
   echo "[OK] IBC denom of $TARGET_BASE_DENOM on Neutron is $uatom_on_neutron_denom"
   msg='{
     "sdk_version":"'"$TARGET_SDK_VERSION"'",
+    "local_denom":"untrn",
     "code_ids": {
       "core_code_id":'"$core_code_id"',
       "token_code_id":'"$token_code_id"',
@@ -145,14 +146,21 @@ deploy_factory() {
       "validators_set_code_id":'"$validators_set_code_id"',
       "puppeteer_code_id":'"$puppeteer_code_id"',
       "staker_code_id":'"$staker_code_id"',
-      "rewards_manager_code_id":'"$rewards_manager_code_id"'
+      "rewards_manager_code_id":'"$rewards_manager_code_id"',
+      "splitter_code_id": '"$splitter_code_id"',
+      "rewards_pump_code_id": '"$pump_code_id"'
     },
     "remote_opts":{
       "connection_id":"'"$neutron_side_connection_id"'",
       "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
+      "reverse_transfer_channel_id":"'"$target_side_transfer_channel_id"'",
       "port_id":"'"$NEUTRON_SIDE_PORT_ID"'",
       "denom":"'"$TARGET_BASE_DENOM"'",
-      "update_period":'$ICQ_UPDATE_PERIOD'
+      "update_period":'$ICQ_UPDATE_PERIOD',
+      "timeout":{
+        "local":'$TIMEOUT_LOCAL',
+        "remote":'$TIMEOUT_REMOTE'
+      }
     },
     "salt":"'"$SALT"'",
     "subdenom":"'"$SUBDENOM"'",
@@ -178,11 +186,7 @@ deploy_factory() {
     },
     "staker_params":{
       "min_stake_amount":"'"$STAKER_PARAMS_MIN_STAKE_AMOUNT"'",
-      "min_ibc_transfer":"'"$STAKER_PARAMS_MIN_IBC_TRANSFER"'",
-      "timeout":'"$STAKER_TIMEOUT"'
-    },
-    "puppeteer_params":{
-      "timeout":'"$PUPPETEER_TIMEOUT"'
+      "min_ibc_transfer":"'"$STAKER_PARAMS_MIN_IBC_TRANSFER"'"
     }
   }'
   factory_address="$(neutrond tx wasm instantiate "$factory_code_id" "$msg" \
@@ -193,6 +197,12 @@ deploy_factory() {
   echo "[OK] Factory address: $factory_address"
   staker_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.staker_contract')"
+  splitter_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
+    | jq -r '.data.splitter_contract')"
+  rewards_pump_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
+    | jq -r '.data.rewards_pump_contract')"
+  splitter_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
+    | jq -r '.data.rewards_pump_contract')"
   puppeteer_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.puppeteer_contract')"
   withdrawal_manager_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
@@ -212,6 +222,14 @@ register_staker_ica() {
   staker_ica_port="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "port_id")")"
   staker_ica_channel="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "channel_id")")"
   echo "[OK] Staker ICA configuration: $staker_ica_port/$staker_ica_channel"
+}
+
+register_rewards_pump_ica() {
+  register_ica_result="$(neutrond tx wasm execute "$rewards_pump_address" '{"register_i_c_a":{}}' \
+    --amount "$(get_ibc_register_fee)untrn" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx)"
+  rewards_pump_ica_port="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "port_id")")"
+  rewards_pump_ica_channel="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "channel_id")")"
+  echo "[OK] Rewards pump ICA configuration: $rewards_pump_ica_port/$rewards_pump_ica_channel"
 }
 
 register_puppeteer_ica() {
@@ -280,8 +298,8 @@ deploy_pump() {
     "connection_id":"'"$neutron_side_connection_id"'",
     "local_denom":"untrn",
     "timeout":{
-      "local":360,
-      "remote":360
+      "local":'$TIMEOUT_LOCAL',
+      "remote":'$TIMEOUT_REMOTE'
     },
     "dest_address":"'"$withdrawal_manager_address"'",
     "dest_port":"transfer",
