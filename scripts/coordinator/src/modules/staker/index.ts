@@ -7,7 +7,7 @@ import JSONBig from 'json-bigint';
 
 const StakerContractClient = DropStaker.Client;
 
-export class StakerModule implements ManagerModule {
+export class StakerModule extends ManagerModule {
   contractClient?: InstanceType<typeof StakerContractClient>;
   icaAddress?: string;
 
@@ -15,6 +15,7 @@ export class StakerModule implements ManagerModule {
     private context: Context,
     private log: pino.Logger,
   ) {
+    super();
     this.prepareConfig();
 
     this.contractClient = new DropStaker.Client(
@@ -29,6 +30,7 @@ export class StakerModule implements ManagerModule {
   }
 
   async run(): Promise<void> {
+    this._lastRun = Date.now();
     if (!this.icaAddress) {
       const res = await this.contractClient.queryIca();
       if ((res as any).registered && (res as any).registered.ica_address) {
