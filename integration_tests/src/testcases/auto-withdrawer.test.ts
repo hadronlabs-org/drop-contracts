@@ -10,6 +10,7 @@ import {
   DropWithdrawalManager,
   DropWithdrawalVoucher,
   DropSplitter,
+  DropToken,
 } from 'drop-ts-client';
 import {
   QueryClient,
@@ -37,6 +38,7 @@ import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 import { instrumentCoreClass } from '../helpers/knot';
 import { checkExchangeRate } from '../helpers/exchangeRate';
 
+const DropTokenClass = DropToken.Client;
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
 const DropPumpClass = DropPump.Client;
@@ -65,6 +67,7 @@ describe('Auto withdrawer', () => {
     splitterContractClient?: InstanceType<typeof DropSplitterClass>;
     rewardsPumpContractClient?: InstanceType<typeof DropRewardsPumpClass>;
     puppeteerContractClient?: InstanceType<typeof DropPuppeteerClass>;
+    tokenContractClient?: InstanceType<typeof DropTokenClass>;
     withdrawalVoucherContractClient?: InstanceType<
       typeof DropWithdrawalVoucherClass
     >;
@@ -103,7 +106,6 @@ describe('Auto withdrawer', () => {
       pump?: number;
     };
     exchangeRate?: number;
-    tokenContractAddress?: string;
     neutronIBCDenom?: string;
     ldDenom?: string;
   } = { codeIds: {} };
@@ -516,7 +518,6 @@ describe('Auto withdrawer', () => {
       context.client,
       res.strategy_contract,
     );
-    context.tokenContractAddress = res.token_contract;
     context.puppeteerContractClient = new DropPuppeteer.Client(
       context.client,
       res.puppeteer_contract,
@@ -533,7 +534,11 @@ describe('Auto withdrawer', () => {
       context.client,
       res.rewards_pump_contract,
     );
-    context.ldDenom = `factory/${context.tokenContractAddress}/drop`;
+    context.tokenContractClient = new DropToken.Client(
+      context.client,
+      res.token_contract,
+    );
+    context.ldDenom = `factory/${res.token_contract}/drop`;
   });
 
   it('setup ICA for rewards pump', async () => {

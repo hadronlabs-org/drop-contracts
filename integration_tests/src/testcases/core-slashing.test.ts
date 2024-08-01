@@ -9,6 +9,7 @@ import {
   DropWithdrawalManager,
   DropWithdrawalVoucher,
   DropSplitter,
+  DropToken,
 } from 'drop-ts-client';
 import {
   QueryClient,
@@ -39,6 +40,7 @@ import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 import { instrumentCoreClass } from '../helpers/knot';
 import { checkExchangeRate } from '../helpers/exchangeRate';
 
+const DropTokenClass = DropToken.Client;
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
 const DropPumpClass = DropPump.Client;
@@ -67,6 +69,7 @@ describe('Core Slashing', () => {
     stakerContractClient?: InstanceType<typeof DropStakerClass>;
     pumpContractClient?: InstanceType<typeof DropPumpClass>;
     puppeteerContractClient?: InstanceType<typeof DropPuppeteerClass>;
+    tokenContractClient?: InstanceType<typeof DropTokenClass>;
     withdrawalVoucherContractClient?: InstanceType<
       typeof DropWithdrawalVoucherClass
     >;
@@ -106,7 +109,6 @@ describe('Core Slashing', () => {
       splitter?: number;
       pump?: number;
     };
-    tokenContractAddress?: string;
     neutronIBCDenom?: string;
   } = { codeIds: {} };
 
@@ -486,7 +488,6 @@ describe('Core Slashing', () => {
       context.client,
       res.strategy_contract,
     );
-    context.tokenContractAddress = res.token_contract;
     context.puppeteerContractClient = new DropPuppeteer.Client(
       context.client,
       res.puppeteer_contract,
@@ -502,6 +503,10 @@ describe('Core Slashing', () => {
     context.rewardsPumpContractClient = new DropPump.Client(
       context.client,
       res.rewards_pump_contract,
+    );
+    context.tokenContractClient = new DropToken.Client(
+      context.client,
+      res.token_contract,
     );
   });
   it('register staker ICA', async () => {
@@ -817,7 +822,7 @@ describe('Core Slashing', () => {
           // we need to leave at least one coin on every resgistered validator
           // (two validators in this case)
           amount: '500',
-          denom: `factory/${context.tokenContractAddress}/drop`,
+          denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
         },
       ]);
       await checkExchangeRate(context);
@@ -1009,7 +1014,7 @@ describe('Core Slashing', () => {
       await coreContractClient.unbond(neutronUserAddress, 1.6, undefined, [
         {
           amount: '3000',
-          denom: `factory/${context.tokenContractAddress}/drop`,
+          denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
         },
       ]);
       await checkExchangeRate(context);

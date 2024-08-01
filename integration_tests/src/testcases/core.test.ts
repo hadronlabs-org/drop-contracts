@@ -10,6 +10,7 @@ import {
   DropRewardsManager,
   DropStaker,
   DropSplitter,
+  DropToken,
 } from 'drop-ts-client';
 import {
   QueryClient,
@@ -41,6 +42,7 @@ import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 import { instrumentCoreClass } from '../helpers/knot';
 import { checkExchangeRate } from '../helpers/exchangeRate';
 
+const DropTokenClass = DropToken.Client;
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
 const DropPumpClass = DropPump.Client;
@@ -69,6 +71,7 @@ describe('Core', () => {
     pumpContractClient?: InstanceType<typeof DropPumpClass>;
     puppeteerContractClient?: InstanceType<typeof DropPuppeteerClass>;
     splitterContractClient?: InstanceType<typeof DropSplitterClass>;
+    tokenContractClient?: InstanceType<typeof DropTokenClass>;
     withdrawalVoucherContractClient?: InstanceType<
       typeof DropWithdrawalVoucherClass
     >;
@@ -108,7 +111,6 @@ describe('Core', () => {
       pump?: number;
     };
     exchangeRate?: number;
-    tokenContractAddress?: string;
     neutronIBCDenom?: string;
     ldDenom?: string;
   } = { codeIds: {} };
@@ -543,7 +545,10 @@ describe('Core', () => {
       context.client,
       res.rewards_pump_contract,
     );
-    context.tokenContractAddress = res.token_contract;
+    context.tokenContractClient = new DropToken.Client(
+      context.client,
+      res.token_contract,
+    );
     context.puppeteerContractClient = new DropPuppeteer.Client(
       context.client,
       res.puppeteer_contract,
@@ -844,7 +849,7 @@ describe('Core', () => {
     expect(
       balances.data.balances.find((one) => one.denom.startsWith('factory')),
     ).toEqual({
-      denom: `factory/${context.tokenContractAddress}/drop`,
+      denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
       amount: String(Math.floor(500_000 / context.exchangeRate)),
     });
     await checkExchangeRate(context);
@@ -911,7 +916,7 @@ describe('Core', () => {
       one.denom.startsWith('factory'),
     );
     expect(ldBalance).toEqual({
-      denom: `factory/${context.tokenContractAddress}/drop`,
+      denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
       amount: String(Math.floor(500_000 / context.exchangeRate)),
     });
     context.ldDenom = ldBalance?.denom;
