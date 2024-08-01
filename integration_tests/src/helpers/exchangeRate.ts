@@ -99,7 +99,7 @@ export async function checkExchangeRate(context: any) {
 }
 
 export async function compareExchangeRates(
-  context,
+  context: any,
   decimals: number = DEFAULT_EXCHANGE_RATE_DECIMALS,
 ): Promise<boolean> {
   return (
