@@ -8,7 +8,6 @@ import {
   setupBankExtension,
   setupStakingExtension,
 } from '@cosmjs/stargate';
-import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 import { connectComet } from '@cosmjs/tendermint-rpc';
 import { PumpModule } from './modules/pump';
 import { logger } from './logger';

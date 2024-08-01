@@ -7,13 +7,14 @@ import { runQueryRelayer } from '../../utils';
 
 const ValidatorsStatsContractClient = DropValidatorsStats.Client;
 
-export class ValidatorsStatsModule implements ManagerModule {
+export class ValidatorsStatsModule extends ManagerModule {
   private contractClient?: InstanceType<typeof ValidatorsStatsContractClient>;
 
   constructor(
     private context: Context,
     private log: pino.Logger,
   ) {
+    super();
     this.prepareConfig();
 
     this.contractClient = new ValidatorsStatsContractClient(
@@ -25,11 +26,6 @@ export class ValidatorsStatsModule implements ManagerModule {
   private _config: ValidatorsStatsConfig;
   get config(): ValidatorsStatsConfig {
     return this._config;
-  }
-
-  private _lastRun: number = 0;
-  get lastRun(): number {
-    return this._lastRun;
   }
 
   async run(): Promise<void> {

@@ -8,7 +8,7 @@ import JSONBig from 'json-bigint';
 
 const PumpContractClient = DropPump.Client;
 
-export class PumpModule implements ManagerModule {
+export class PumpModule extends ManagerModule {
   contractClient?: InstanceType<typeof PumpContractClient>;
   icaAddress?: string;
   contractAddress: string;
@@ -19,6 +19,7 @@ export class PumpModule implements ManagerModule {
     private context: Context,
     private log: pino.Logger,
   ) {
+    super();
     this.prepareConfig(contractAddress, minBalance);
 
     this.contractClient = new DropPump.Client(
@@ -30,11 +31,6 @@ export class PumpModule implements ManagerModule {
   private _config: PumpConfig;
   get config(): PumpConfig {
     return this._config;
-  }
-
-  private _lastRun: number = 0;
-  get lastRun(): number {
-    return this._lastRun;
   }
 
   async run(): Promise<void> {

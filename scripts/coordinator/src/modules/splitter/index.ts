@@ -7,7 +7,7 @@ import JSONBig from 'json-bigint';
 
 const SplitterContractClient = DropSplitter.Client;
 
-export class SplitterModule implements ManagerModule {
+export class SplitterModule extends ManagerModule {
   contractClient?: InstanceType<typeof SplitterContractClient>;
   icaAddress?: string;
 
@@ -15,6 +15,7 @@ export class SplitterModule implements ManagerModule {
     private context: Context,
     private log: pino.Logger,
   ) {
+    super();
     this.prepareConfig();
 
     this.contractClient = new DropSplitter.Client(
@@ -26,11 +27,6 @@ export class SplitterModule implements ManagerModule {
   private _config: SplitterConfig;
   get config(): SplitterConfig {
     return this._config;
-  }
-
-  private _lastRun: number = 0;
-  get lastRun(): number {
-    return this._lastRun;
   }
 
   async run(): Promise<void> {
