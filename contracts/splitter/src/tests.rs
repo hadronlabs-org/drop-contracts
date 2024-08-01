@@ -1,4 +1,4 @@
-use cosmwasm_std::{from_json, testing::mock_env, BankMsg, CosmosMsg, Uint128};
+use cosmwasm_std::{attr, from_json, testing::mock_env, BankMsg, CosmosMsg, Event, Uint128};
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::state::splitter::Config;
 
@@ -116,24 +116,35 @@ fn splitter_distribute() {
         .unwrap();
         assert_eq!(
             response,
-            cosmwasm_std::Response::new().add_submessages(vec![
-                cosmwasm_std::SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-                    to_address: "receiver1".to_string(),
-                    amount: vec![cosmwasm_std::Coin::new(1u128, "drop")]
-                })),
-                cosmwasm_std::SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-                    to_address: "receiver2".to_string(),
-                    amount: vec![cosmwasm_std::Coin::new(2u128, "drop")]
-                })),
-                cosmwasm_std::SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-                    to_address: "receiver3".to_string(),
-                    amount: vec![cosmwasm_std::Coin::new(3u128, "drop")]
-                })),
-                cosmwasm_std::SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-                    to_address: "receiver4".to_string(),
-                    amount: vec![cosmwasm_std::Coin::new(4u128, "drop")]
-                }))
-            ])
+            cosmwasm_std::Response::new()
+                .add_event(
+                    Event::new("crates.io:drop-staking__drop-splitter-execute-distribute")
+                        .add_attributes(vec![
+                            attr("total_shares", "10"),
+                            attr("receiver1", "1"),
+                            attr("receiver2", "2"),
+                            attr("receiver3", "3"),
+                            attr("receiver4", "4"),
+                        ])
+                )
+                .add_submessages(vec![
+                    cosmwasm_std::SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                        to_address: "receiver1".to_string(),
+                        amount: vec![cosmwasm_std::Coin::new(1u128, "drop")]
+                    })),
+                    cosmwasm_std::SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                        to_address: "receiver2".to_string(),
+                        amount: vec![cosmwasm_std::Coin::new(2u128, "drop")]
+                    })),
+                    cosmwasm_std::SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                        to_address: "receiver3".to_string(),
+                        amount: vec![cosmwasm_std::Coin::new(3u128, "drop")]
+                    })),
+                    cosmwasm_std::SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                        to_address: "receiver4".to_string(),
+                        amount: vec![cosmwasm_std::Coin::new(4u128, "drop")]
+                    }))
+                ])
         );
     }
 }

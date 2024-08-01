@@ -1,5 +1,6 @@
-use cosmwasm_std::{entry_point, to_json_binary, BankMsg, Coin, CosmosMsg, Deps, Uint128};
+use cosmwasm_std::{attr, entry_point, to_json_binary, BankMsg, Coin, CosmosMsg, Deps, Uint128};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
+use drop_helpers::answer::response;
 use drop_staking_base::{
     error::splitter::{ContractError, ContractResult},
     msg::splitter::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
@@ -65,10 +66,12 @@ pub fn execute_update_config(
 
 pub fn execute_distribute(deps: DepsMut, env: Env, _info: MessageInfo) -> ContractResult<Response> {
     let config: Config = CONFIG.load(deps.storage)?;
+    let mut attrs = vec![];
     let total_share: Uint128 = config.receivers.iter().map(|(_, share)| share).sum();
     if total_share.is_zero() {
         return Err(ContractError::NoShares {});
     }
+    attrs.push(attr("total_shares", total_share));
     let balance = deps
         .querier
         .query_balance(env.contract.address.to_string(), config.denom.to_string())?
@@ -81,13 +84,15 @@ pub fn execute_distribute(deps: DepsMut, env: Env, _info: MessageInfo) -> Contra
         .receivers
         .iter()
         .map(|(receiver, share)| {
+            let amount = (share * k).u128();
+            attrs.push(attr(receiver, amount.to_string()));
             CosmosMsg::Bank(BankMsg::Send {
                 to_address: receiver.to_string(),
-                amount: vec![Coin::new((share * k).u128(), config.denom.to_string())],
+                amount: vec![Coin::new(amount, config.denom.to_string())],
             })
         })
         .collect::<Vec<_>>();
-    Ok(Response::default().add_messages(messages))
+    Ok(response("execute-distribute", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
