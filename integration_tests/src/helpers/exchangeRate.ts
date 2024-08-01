@@ -1,4 +1,3 @@
-import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { connectComet } from '@cosmjs/tendermint-rpc';
 import { Decimal } from 'decimal.js';
 import { QueryClient, createProtobufRpcClient } from '@cosmjs/stargate';
@@ -20,7 +19,6 @@ export async function calcExchangeRate(
   tokenContractClient: any,
   endpoint: string,
 ): Promise<number> {
-  const coreConfig = await coreContractClient.queryConfig();
   const queryClient = QueryClient.withExtensions(
     await connectComet(endpoint),
     setupAuthExtension,
