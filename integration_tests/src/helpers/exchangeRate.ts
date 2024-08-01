@@ -14,13 +14,13 @@ import { expect } from 'vitest';
 export const DEFAULT_EXCHANGE_RATE_DECIMALS: number = 8;
 
 export async function calcExchangeRate(
-  clientCW: SigningCosmWasmClient,
-  coreContract: string,
+  coreContractClient: any,
+  puppeteerContractClient: any,
+  stakerContractClient: any,
+  tokenContractClient: any,
   endpoint: string,
 ): Promise<number> {
-  const coreConfig = await clientCW.queryContractSmart(coreContract, {
-    config: {},
-  });
+  const coreConfig = await coreContractClient.queryConfig();
   const queryClient = QueryClient.withExtensions(
     await connectComet(endpoint),
     setupAuthExtension,
@@ -30,12 +30,7 @@ export async function calcExchangeRate(
   );
   const RPC = createProtobufRpcClient(queryClient);
   const queryService = new QueryClientImpl(RPC);
-  const tokenContractConfig = await clientCW.queryContractSmart(
-    coreConfig.token_contract,
-    {
-      config: {},
-    },
-  );
+  const tokenContractConfig = await tokenContractClient.queryConfig();
   const { amount } = await queryService.SupplyOf({
     denom: tokenContractConfig.denom,
   });
@@ -43,28 +38,19 @@ export async function calcExchangeRate(
   if (exchangeRateDenominator.isZero()) {
     return new Decimal(1).toNumber();
   }
-  const delegationsResponse = await clientCW.queryContractSmart(
-    coreConfig.puppeteer_contract,
-    {
-      extension: {
-        msg: {
-          delegations: {},
-        },
-      },
+  const delegationsResponse = await puppeteerContractClient.queryExtension({
+    msg: {
+      delegations: {},
     },
-  );
+  });
   const delegationsAmount: Decimal =
     delegationsResponse.delegations.delegations.reduce(
       (acc: Decimal, next: any) => acc.plus(new Decimal(next.amount.amount)),
       new Decimal(0),
     );
-  const batchID = await clientCW.queryContractSmart(coreContract, {
-    current_unbond_batch: {},
-  });
-  const batch = await clientCW.queryContractSmart(coreContract, {
-    unbond_batch: {
-      batch_id: String(batchID),
-    },
+  const batchID = await coreContractClient.queryCurrentUnbondBatch();
+  const batch = await coreContractClient.queryUnbondBatch({
+    batch_id: String(batchID),
   });
   let unprocessedDassetToUnbond: Decimal = new Decimal('0');
   if (batch.status === 'new') {
@@ -74,10 +60,8 @@ export async function calcExchangeRate(
   }
   if (Number(batchID) > 0) {
     const penultimate = Number(batchID) - 1;
-    const penultimateBatch = await clientCW.queryContractSmart(coreContract, {
-      unbond_batch: {
-        batch_id: String(penultimate),
-      },
+    const penultimateBatch = await coreContractClient.queryUnbondBatch({
+      batch_id: String(penultimate),
     });
     if (penultimateBatch.status === 'unbond_requested') {
       unprocessedDassetToUnbond = unprocessedDassetToUnbond.plus(
@@ -85,11 +69,9 @@ export async function calcExchangeRate(
       );
     }
   }
-  const failedBatchID = await clientCW.queryContractSmart(coreContract, {
-    failed_batch: {},
-  });
+  const failedBatchID = await coreContractClient.queryFailedBatch();
   if (failedBatchID.response !== null) {
-    const failedBatch = await clientCW.queryContractSmart(coreContract, {
+    const failedBatch = await coreContractClient.queryUnbondBatch({
       batch_id: failedBatchID.response,
     });
     unprocessedDassetToUnbond = unprocessedDassetToUnbond.plus(
@@ -100,14 +82,10 @@ export async function calcExchangeRate(
     unprocessedDassetToUnbond,
   );
   const stakerBalance: Decimal = new Decimal(
-    await clientCW.queryContractSmart(coreConfig.staker_contract, {
-      all_balance: {},
-    }),
+    await stakerContractClient.queryAllBalance(),
   );
   const totalLSMShares: Decimal = new Decimal(
-    await clientCW.queryContractSmart(coreContract, {
-      total_l_s_m_shares: {},
-    }),
+    await coreContractClient.queryTotalLSMShares(),
   );
   const exchangeRateNumerator: Decimal = delegationsAmount
     .plus(stakerBalance)
@@ -122,12 +100,20 @@ export async function calcExchangeRate(
 }
 
 export async function checkExchangeRate(testContext: any) {
-  const { coreContractClient, client, neutronRPCEndpoint } = testContext;
+  const {
+    coreContractClient,
+    puppeteerContractClient,
+    tokenContractClient,
+    neutronRPCEndpoint,
+    stakerContractClient,
+  } = testContext;
   if ((await coreContractClient.queryContractState()) === 'idle') {
     expect(
       await compareExchangeRates(
-        client,
-        coreContractClient.contractAddress,
+        coreContractClient,
+        puppeteerContractClient,
+        tokenContractClient,
+        stakerContractClient,
         neutronRPCEndpoint,
       ),
     ).toBeTruthy();
@@ -135,19 +121,23 @@ export async function checkExchangeRate(testContext: any) {
 }
 
 export async function compareExchangeRates(
-  clientCW: SigningCosmWasmClient,
-  coreContract: string,
+  coreContractClient: any,
+  puppeteerContractClient: any,
+  tokenContractClient: any,
+  stakerContractClient: any,
   endpoint: string,
   decimals: number = DEFAULT_EXCHANGE_RATE_DECIMALS,
 ): Promise<boolean> {
   return (
-    (await calcExchangeRate(clientCW, coreContract, endpoint)).toFixed(
-      decimals,
-    ) ===
-    Number(
-      await clientCW.queryContractSmart(coreContract, {
-        exchange_rate: {},
-      }),
-    ).toFixed(decimals)
+    (
+      await calcExchangeRate(
+        coreContractClient,
+        puppeteerContractClient,
+        stakerContractClient,
+        tokenContractClient,
+        endpoint,
+      )
+    ).toFixed(decimals) ===
+    Number(await coreContractClient.queryExchangeRate()).toFixed(decimals)
   );
 }
