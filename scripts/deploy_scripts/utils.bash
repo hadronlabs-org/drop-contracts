@@ -153,6 +153,7 @@ deploy_factory() {
     "remote_opts":{
       "connection_id":"'"$neutron_side_connection_id"'",
       "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
+      "reverse_transfer_channel_id":"'"$target_side_connection_id"'",
       "port_id":"'"$NEUTRON_SIDE_PORT_ID"'",
       "denom":"'"$TARGET_BASE_DENOM"'",
       "update_period":'$ICQ_UPDATE_PERIOD',

@@ -416,6 +416,7 @@ describe('Core Slashing', () => {
         remote_opts: {
           connection_id: 'connection-0',
           transfer_channel_id: 'channel-0',
+          reverse_transfer_channel_id: 'channel-0',
           port_id: 'transfer',
           denom: 'stake',
           update_period: 2,
