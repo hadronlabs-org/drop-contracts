@@ -86,7 +86,13 @@ const networkConfigs = {
     trace: true,
     validators: 2,
     commands: redefinedParams.commands,
-    validators_balance: ['1900000000', '100000000'],
+    validators_balance: [
+      '1900000000',
+      '100000000',
+      '100000000',
+      '100000000',
+      '100000000',
+    ],
     genesis_opts: redefinedParams.genesisOpts || {
       'app_state.slashing.params.downtime_jail_duration': '10s',
       'app_state.slashing.params.signed_blocks_window': '10',
@@ -190,11 +196,8 @@ const awaitFirstBlock = (rpc: string): Promise<void> =>
         method: 'GET',
         signal: controller.signal,
       });
-      console.log(`Connecting to ${rpc}`);
       const client = await StargateClient.connect(rpc);
-      console.log(`Connected to ${rpc}`);
       const block = await client.getBlock();
-      console.log(`Got block ${block.header.height}`);
       if (block.header.height > 1) {
         return true;
       }

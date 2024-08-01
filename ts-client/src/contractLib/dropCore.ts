@@ -15,12 +15,6 @@ import { StdFee } from "@cosmjs/amino";
  */
 export type Uint128 = string;
 /**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal = string;
-/**
  * A human readable address.
  *
  * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
@@ -30,15 +24,7 @@ export type Decimal = string;
  * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
  */
 export type Addr = string;
-export type ContractState =
-  | "idle"
-  | "l_s_m_transfer"
-  | "l_s_m_redeem"
-  | "non_native_rewards_transfer"
-  | "claiming"
-  | "unbonding"
-  | "staking_rewards"
-  | "staking_bond";
+export type ContractState = "idle" | "l_s_m_transfer" | "l_s_m_redeem" | "claiming" | "unbonding" | "staking_bond";
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -58,7 +44,7 @@ export type Uint1281 = string;
  *
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
-export type Decimal1 = string;
+export type Decimal = string;
 export type ArrayOfTupleOfStringAndTupleOfStringAndUint128 = [string, [string, Uint128]][];
 export type ResponseHookMsg =
   | {
@@ -105,13 +91,6 @@ export type ResponseAnswer =
  */
 export type Binary = string;
 export type Transaction =
-  | {
-      delegate: {
-        denom: string;
-        interchain_account_id: string;
-        items: [string, Uint128][];
-      };
-    }
   | {
       undelegate: {
         batch_id: number;
@@ -172,13 +151,13 @@ export type Transaction =
       };
     }
   | {
-      grant_delegate: {
-        grantee: string;
+      setup_protocol: {
+        delegate_grantee: string;
         interchain_account_id: string;
+        rewards_withdraw_address: string;
       };
     };
 export type IBCTransferReason = "l_s_m_share" | "stake";
-export type ArrayOfNonNativeRewardsItem = NonNativeRewardsItem[];
 export type String = string;
 /**
  * Information about if the contract is currently paused.
@@ -205,6 +184,26 @@ export type ArrayOfTupleOfStringAndTupleOfStringAndUint1281 = [string, [string, 
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint1282 = string;
+/**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint1283 = string;
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal1 = string;
 export type UnbondBatchStatus =
   | "new"
   | "unbond_requested"
@@ -294,22 +293,22 @@ export interface DropCoreSchema {
     | Config
     | ContractState
     | Uint1281
-    | Decimal1
+    | Decimal
+    | FailedBatchResponse
     | ArrayOfTupleOfStringAndTupleOfStringAndUint128
     | LastPuppeteerResponse
     | LastStakerResponse
-    | ArrayOfNonNativeRewardsItem
     | String
     | PauseInfoResponse
     | ArrayOfTupleOfStringAndTupleOfStringAndUint1281
     | Uint1282
+    | Uint1283
     | UnbondBatch
     | UnbondBatchesResponse;
   query: UnbondBatchArgs | UnbondBatchesArgs;
   execute:
     | BondArgs
     | UpdateConfigArgs
-    | UpdateNonNativeRewardsReceiversArgs
     | UpdateWithdrawnAmountArgs
     | PuppeteerHookArgs
     | StakerHookArgs
@@ -322,8 +321,6 @@ export interface Config {
   base_denom: string;
   bond_limit?: Uint128 | null;
   emergency_address?: string | null;
-  fee?: Decimal | null;
-  fee_address?: string | null;
   icq_update_delay: number;
   idle_min_interval: number;
   lsm_min_bond_amount: Uint128;
@@ -344,12 +341,16 @@ export interface Config {
   withdrawal_manager_contract: Addr;
   withdrawal_voucher_contract: Addr;
 }
+export interface FailedBatchResponse {
+  response?: number | null;
+}
 export interface LastPuppeteerResponse {
   response?: ResponseHookMsg | null;
 }
 export interface ResponseHookSuccessMsg {
   answers: ResponseAnswer[];
   local_height: number;
+  remote_height: number;
   request: RequestPacket;
   request_id: number;
   transaction: Transaction;
@@ -418,17 +419,10 @@ export interface ResponseHookErrorMsg {
 export interface LastStakerResponse {
   response?: ResponseHookMsg | null;
 }
-export interface NonNativeRewardsItem {
-  address: string;
-  denom: string;
-  fee: Decimal;
-  fee_address: string;
-  min_amount: Uint128;
-}
 export interface UnbondBatch {
   expected_native_asset_amount: Uint128;
   expected_release_time: number;
-  slashing_effect?: Decimal | null;
+  slashing_effect?: Decimal1 | null;
   status: UnbondBatchStatus;
   status_timestamps: UnbondBatchStatusTimestamps;
   total_dasset_amount_to_withdraw: Uint128;
@@ -453,7 +447,7 @@ export interface UnbondBatchesResponse {
 export interface UnbondBatch1 {
   expected_native_asset_amount: Uint128;
   expected_release_time: number;
-  slashing_effect?: Decimal | null;
+  slashing_effect?: Decimal1 | null;
   status: UnbondBatchStatus;
   status_timestamps: UnbondBatchStatusTimestamps;
   total_dasset_amount_to_withdraw: Uint128;
@@ -479,8 +473,6 @@ export interface ConfigOptional {
   base_denom?: string | null;
   bond_limit?: Uint128 | null;
   emergency_address?: string | null;
-  fee?: Decimal | null;
-  fee_address?: string | null;
   idle_min_interval?: number | null;
   lsm_min_bond_amount?: Uint128 | null;
   lsm_redeem_maximum_interval?: number | null;
@@ -489,6 +481,7 @@ export interface ConfigOptional {
   pump_ica_address?: string | null;
   puppeteer_contract?: string | null;
   remote_denom?: string | null;
+  rewards_receiver?: string | null;
   staker_contract?: string | null;
   strategy_contract?: string | null;
   token_contract?: string | null;
@@ -500,15 +493,13 @@ export interface ConfigOptional {
   withdrawal_manager_contract?: string | null;
   withdrawal_voucher_contract?: string | null;
 }
-export interface UpdateNonNativeRewardsReceiversArgs {
-  items: NonNativeRewardsItem[];
-}
 export interface UpdateWithdrawnAmountArgs {
   batch_id: number;
   withdrawn_amount: Uint128;
 }
 export interface ResponseHookSuccessMsg2 {
   local_height: number;
+  remote_height: number;
   request: RequestPacket;
   request_id: number;
   transaction: Transaction2;
@@ -527,8 +518,6 @@ export interface InstantiateMsg {
   base_denom: string;
   bond_limit?: Uint128 | null;
   emergency_address?: string | null;
-  fee?: Decimal | null;
-  fee_address?: string | null;
   icq_update_delay: number;
   idle_min_interval: number;
   lsm_min_bond_amount: Uint128;
@@ -624,9 +613,6 @@ export class Client {
   queryLastStakerResponse = async(): Promise<LastStakerResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { last_staker_response: {} });
   }
-  queryNonNativeRewardsReceivers = async(): Promise<ArrayOfNonNativeRewardsItem> => {
-    return this.client.queryContractSmart(this.contractAddress, { non_native_rewards_receivers: {} });
-  }
   queryPendingLSMShares = async(): Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128> => {
     return this.client.queryContractSmart(this.contractAddress, { pending_l_s_m_shares: {} });
   }
@@ -635,6 +621,12 @@ export class Client {
   }
   queryTotalBonded = async(): Promise<Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { total_bonded: {} });
+  }
+  queryTotalLSMShares = async(): Promise<Uint128> => {
+    return this.client.queryContractSmart(this.contractAddress, { total_l_s_m_shares: {} });
+  }
+  queryFailedBatch = async(): Promise<FailedBatchResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, { failed_batch: {} });
   }
   queryPauseInfo = async(): Promise<PauseInfoResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
@@ -650,10 +642,6 @@ export class Client {
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
-  }
-  updateNonNativeRewardsReceivers = async(sender:string, args: UpdateNonNativeRewardsReceiversArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_non_native_rewards_receivers: args }, fee || "auto", memo, funds);
   }
   updateWithdrawnAmount = async(sender:string, args: UpdateWithdrawnAmountArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

@@ -145,7 +145,7 @@ fn prepare_delegation_data(
     let mut total_delegations: Uint128 = Uint128::zero();
     let mut total_weight: u64 = 0;
     let delegation_validator_map: HashMap<_, _> = account_delegations
-        .0
+        .delegations
         .delegations
         .iter()
         .filter(|delegation| delegation.amount.denom == denom)

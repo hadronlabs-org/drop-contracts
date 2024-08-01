@@ -693,11 +693,13 @@ dependencies = [
 name = "drop-helpers"
 version = "1.0.0"
 dependencies = [
+ "cosmos-sdk-proto",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus 1.2.0",
  "neutron-sdk",
  "prost",
+ "schemars",
  "serde",
  "serde-json-wasm 1.0.1",
  "thiserror",
@@ -861,6 +863,22 @@ dependencies = [
  "drop-staking-base",
  "neutron-sdk",
  "semver",
+]
+
+[[package]]
+name = "drop-splitter"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "drop-staking-base",
+ "semver",
+ "thiserror",
 ]
 
 [[package]]

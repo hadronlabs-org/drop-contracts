@@ -6,6 +6,6 @@ target/
 .vscode
 node_modules
 .env
-scripts/.env.instantiate
-scripts/.env.upload
+scripts/deploy_scripts/.env.instantiate
+scripts/deploy_scripts/.env.upload
 neutron/data/

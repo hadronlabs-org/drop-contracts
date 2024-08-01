@@ -27,12 +27,6 @@ export type UpdateConfigArgs = {
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-/**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal = string;
 export type ProxyArgs = {
     validator_set: ValidatorSetMsg;
 } | {
@@ -44,10 +38,6 @@ export type ValidatorSetMsg = {
     };
 };
 export type CoreMsg = {
-    update_non_native_rewards_receivers: {
-        items: NonNativeRewardsItem[];
-    };
-} | {
     pause: {};
 } | {
     unpause: {};
@@ -661,6 +651,12 @@ export type GovMsg = {
 };
 export type VoteOption = "yes" | "no" | "abstain" | "no_with_veto";
 /**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal = string;
+/**
  * Actions that can be taken to alter the contract's ownership
  */
 export type UpdateOwnershipArgs = {
@@ -695,6 +691,8 @@ export interface State {
     distribution_contract: string;
     puppeteer_contract: string;
     rewards_manager_contract: string;
+    rewards_pump_contract: string;
+    splitter_contract: string;
     staker_contract: string;
     strategy_contract: string;
     token_contract: string;
@@ -706,8 +704,6 @@ export interface ConfigOptional {
     base_denom?: string | null;
     bond_limit?: Uint128 | null;
     emergency_address?: string | null;
-    fee?: Decimal | null;
-    fee_address?: string | null;
     idle_min_interval?: number | null;
     lsm_min_bond_amount?: Uint128 | null;
     lsm_redeem_maximum_interval?: number | null;
@@ -716,6 +712,7 @@ export interface ConfigOptional {
     pump_ica_address?: string | null;
     puppeteer_contract?: string | null;
     remote_denom?: string | null;
+    rewards_receiver?: string | null;
     staker_contract?: string | null;
     strategy_contract?: string | null;
     token_contract?: string | null;
@@ -734,13 +731,6 @@ export interface ConfigOptional2 {
 export interface ValidatorData {
     valoper_address: string;
     weight: number;
-}
-export interface NonNativeRewardsItem {
-    address: string;
-    denom: string;
-    fee: Decimal;
-    fee_address: string;
-    min_amount: Uint128;
 }
 export interface AdminExecuteArgs {
     msgs: CosmosMsgFor_NeutronMsg[];
@@ -1112,7 +1102,8 @@ export interface InstantiateMsg {
     base_denom: string;
     code_ids: CodeIds;
     core_params: CoreParams;
-    puppeteer_params: PuppeteerParams;
+    fee_params?: FeeParams | null;
+    local_denom: string;
     remote_opts: RemoteOpts;
     salt: string;
     sdk_version: string;
@@ -1125,6 +1116,8 @@ export interface CodeIds {
     distribution_code_id: number;
     puppeteer_code_id: number;
     rewards_manager_code_id: number;
+    rewards_pump_code_id: number;
+    splitter_code_id: number;
     staker_code_id: number;
     strategy_code_id: number;
     token_code_id: number;
@@ -1144,20 +1137,25 @@ export interface CoreParams {
     unbonding_period: number;
     unbonding_safe_period: number;
 }
-export interface PuppeteerParams {
-    timeout: number;
+export interface FeeParams {
+    fee: Decimal;
+    fee_address: string;
 }
 export interface RemoteOpts {
     connection_id: string;
     denom: string;
     port_id: string;
+    timeout: Timeout;
     transfer_channel_id: string;
     update_period: number;
+}
+export interface Timeout {
+    local: number;
+    remote: number;
 }
 export interface StakerParams {
     min_ibc_transfer: Uint128;
     min_stake_amount: Uint128;
-    timeout: number;
 }
 export interface DenomMetadata {
     /**

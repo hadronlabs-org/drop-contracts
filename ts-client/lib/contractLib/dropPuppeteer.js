@@ -74,17 +74,11 @@ class Client {
         }
         return this.client.execute(sender, this.contractAddress, { register_non_native_rewards_balances_query: args }, fee || "auto", memo, funds);
     };
-    delegate = async (sender, args, fee, memo, funds) => {
+    setupProtocol = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { delegate: args }, fee || "auto", memo, funds);
-    };
-    grantDelegate = async (sender, args, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, { grant_delegate: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, { setup_protocol: args }, fee || "auto", memo, funds);
     };
     undelegate = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {

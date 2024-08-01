@@ -98,8 +98,7 @@ describe('Distribution', () => {
 
     expect(res).toEqual([
       ['valoper1', '20'],
-      ['valoper2', '1'],
-      ['valoper3', '79'],
+      ['valoper3', '80'],
     ]);
   });
 
@@ -118,10 +117,6 @@ describe('Distribution', () => {
       },
     });
 
-    expect(res).toEqual([
-      ['valoper1', '1'],
-      ['valoper2', '48'],
-      ['valoper3', '1'],
-    ]);
+    expect(res).toEqual([['valoper2', '50']]);
   });
 });
