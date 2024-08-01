@@ -879,7 +879,6 @@ dependencies = [
  "cw2 1.1.2",
  "drop-helpers",
  "drop-staking-base",
- "neutron-sdk",
  "semver",
  "thiserror",
 ]

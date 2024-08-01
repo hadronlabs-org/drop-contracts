@@ -1,4 +1,6 @@
-use cosmwasm_std::{attr, from_json, testing::mock_env, BankMsg, CosmosMsg, Event, Uint128};
+use cosmwasm_std::{
+    attr, from_json, testing::mock_env, Addr, BankMsg, Coin, CosmosMsg, Event, Uint128,
+};
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::state::splitter::Config;
 
@@ -14,7 +16,7 @@ fn change_splitter_config() {
             deps.as_mut().into_empty(),
             mock_env(),
             cosmwasm_std::MessageInfo {
-                sender: cosmwasm_std::Addr::unchecked("arbitrary_owner"),
+                sender: Addr::unchecked("arbitrary_owner"),
                 funds: vec![],
             },
             drop_staking_base::msg::splitter::InstantiateMsg {
@@ -58,7 +60,7 @@ fn change_splitter_config() {
             deps.as_mut().into_empty(),
             mock_env(),
             cosmwasm_std::MessageInfo {
-                sender: cosmwasm_std::Addr::unchecked("arbitrary_owner"),
+                sender: Addr::unchecked("arbitrary_owner"),
                 funds: vec![],
             },
             drop_staking_base::msg::splitter::ExecuteMsg::UpdateConfig {
@@ -80,7 +82,7 @@ fn change_splitter_config() {
 
 #[test]
 fn splitter_distribute() {
-    let mut deps = mock_dependencies(&[cosmwasm_std::Coin::new(10u128, "drop")]);
+    let mut deps = mock_dependencies(&[Coin::new(10u128, "drop")]);
     let instantiate_config: Config = Config {
         receivers: vec![
             ("receiver1".to_string(), Uint128::from(1u64)),
@@ -95,7 +97,7 @@ fn splitter_distribute() {
             deps.as_mut().into_empty(),
             mock_env(),
             cosmwasm_std::MessageInfo {
-                sender: cosmwasm_std::Addr::unchecked("arbitrary_owner"),
+                sender: Addr::unchecked("arbitrary_owner"),
                 funds: vec![],
             },
             drop_staking_base::msg::splitter::InstantiateMsg {
@@ -108,7 +110,7 @@ fn splitter_distribute() {
             deps.as_mut().into_empty(),
             mock_env(),
             cosmwasm_std::MessageInfo {
-                sender: cosmwasm_std::Addr::unchecked("arbitrary_owner"),
+                sender: Addr::unchecked("arbitrary_owner"),
                 funds: vec![],
             },
             drop_staking_base::msg::splitter::ExecuteMsg::Distribute {},
@@ -130,19 +132,19 @@ fn splitter_distribute() {
                 .add_submessages(vec![
                     cosmwasm_std::SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
                         to_address: "receiver1".to_string(),
-                        amount: vec![cosmwasm_std::Coin::new(1u128, "drop")]
+                        amount: vec![Coin::new(1u128, "drop")]
                     })),
                     cosmwasm_std::SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
                         to_address: "receiver2".to_string(),
-                        amount: vec![cosmwasm_std::Coin::new(2u128, "drop")]
+                        amount: vec![Coin::new(2u128, "drop")]
                     })),
                     cosmwasm_std::SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
                         to_address: "receiver3".to_string(),
-                        amount: vec![cosmwasm_std::Coin::new(3u128, "drop")]
+                        amount: vec![Coin::new(3u128, "drop")]
                     })),
                     cosmwasm_std::SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
                         to_address: "receiver4".to_string(),
-                        amount: vec![cosmwasm_std::Coin::new(4u128, "drop")]
+                        amount: vec![Coin::new(4u128, "drop")]
                     }))
                 ])
         );
