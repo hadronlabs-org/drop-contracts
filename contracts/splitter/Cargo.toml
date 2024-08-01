@@ -31,3 +31,8 @@ cw2 = { workspace = true }
 semver = { workspace = true }
 drop-staking-base = { workspace = true }
 cw-storage-plus = { workspace = true, features = ["iterator"] }
+neutron-sdk = { workspace = true }
+drop-helpers = { workspace = true }
+
+[dev-dependencies]
+cw-multi-test = { workspace = true }
