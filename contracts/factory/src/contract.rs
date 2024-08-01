@@ -380,7 +380,7 @@ pub fn instantiate(
             label: get_contract_label("rewards-pump"),
             msg: to_json_binary(&RewardsPumpInstantiateMsg {
                 dest_address: Some(splitter_contract.to_string()),
-                dest_channel: Some(msg.remote_opts.transfer_channel_id.to_string()),
+                dest_channel: Some(msg.remote_opts.reverse_transfer_channel_id.to_string()),
                 dest_port: Some(msg.remote_opts.port_id.to_string()),
                 connection_id: msg.remote_opts.connection_id.to_string(),
                 refundee: None,

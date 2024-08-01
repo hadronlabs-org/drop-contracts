@@ -1145,6 +1145,7 @@ export interface RemoteOpts {
     connection_id: string;
     denom: string;
     port_id: string;
+    reverse_transfer_channel_id: string;
     timeout: Timeout;
     transfer_channel_id: string;
     update_period: number;
