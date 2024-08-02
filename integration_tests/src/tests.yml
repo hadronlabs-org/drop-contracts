@@ -38,12 +38,20 @@ jobs:
           profile: minimal
           override: true
       - name: Install cargo-tarpaulin
-
-
-
-
         run: cargo install cargo-tarpaulin --version 0.29.1
-      - run: cargo tarpaulin --exclude-files "packages/*" --exclude-files "*/proto/*" --exclude-files "contracts/price-provider/*" --exclude-files "contracts/auto-withdrawer/*" --exclude-files "contracts/hook-tester/*" --exclude-files "contracts/astroport-exchange-handler/*" --exclude-files "contracts/proposal-votes-poc/*" --exclude-files "contracts/provider-proposals-poc/*" --exclude-files "*schema*" --out Xml --output-dir ./
+      - run: cargo tarpaulin --exclude-files "packages/*" 
+          --exclude-files "*/proto/*"
+          --exclude-files "contracts/price-provider/*" 
+          --exclude-files "contracts/auto-withdrawer/*" 
+          --exclude-files "contracts/hook-tester/*" 
+          --exclude-files "contracts/astroport-exchange-handler/*"  
+          --exclude-files "contracts/proposal-votes-poc/*" 
+          --exclude-files "contracts/rewards-manager/*" 
+          --exclude-files "contracts/puppeteer-authz/*" 
+          --exclude-files "contracts/validators-stats/*" 
+          --exclude-files "contracts/provider-proposals-poc/*" 
+          --exclude-files "*schema*" 
+          --out Xml --output-dir ./
       - name: Produce the coverage report
         uses: insightsengineering/coverage-action@v2
         with:
