@@ -8,7 +8,7 @@ import {
   setupBankExtension,
   setupStakingExtension,
 } from '@cosmjs/stargate';
-import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
+import { connectComet } from '@cosmjs/tendermint-rpc';
 import { PumpModule } from './modules/pump';
 import { logger } from './logger';
 import { Config } from './config';
@@ -18,6 +18,7 @@ import { FactoryContractHandler } from './factoryContract';
 import { ValidatorsStatsModule } from './modules/validators-stats';
 import { CoreModule } from './modules/core';
 import { StakerModule } from './modules/staker';
+import { SplitterModule } from './modules/splitter';
 
 export type Uint128 = string;
 
@@ -55,10 +56,8 @@ class Service {
         prefix: config.target.accountPrefix,
       },
     );
-    const targetTmClient = await Tendermint34Client.connect(config.target.rpc);
-    const neutronTmClient = await Tendermint34Client.connect(
-      config.neutron.rpc,
-    );
+    const targetCometClient = await connectComet(config.target.rpc);
+    const neutronCometClient = await connectComet(config.neutron.rpc);
 
     const neutronSigningClient = await SigningCosmWasmClient.connectWithSigner(
       config.neutron.rpc,
@@ -82,9 +81,9 @@ class Service {
       neutronWalletAddress: (await neutronWallet.getAccounts())[0].address,
       targetWallet,
       targetWalletAddress: (await targetWallet.getAccounts())[0].address,
-      neutronTmClient,
+      neutronCometClient: neutronCometClient,
       neutronQueryClient: QueryClient.withExtensions(
-        neutronTmClient,
+        neutronCometClient,
         setupBankExtension,
       ),
       neutronClient: new NeutronClient({
@@ -100,27 +99,106 @@ class Service {
           gasPrice: config.target.gasPrice,
         },
       ),
-      targetTmClient,
+      targetCometClient: targetCometClient,
       targetQueryClient: QueryClient.withExtensions(
-        targetTmClient,
+        targetCometClient,
         setupStakingExtension,
         setupBankExtension,
       ),
     };
 
-    this.log.info(`Coordinator account address: ${this.context.neutronWalletAddress}`);
+    this.log.info(
+      `Coordinator account address: ${this.context.neutronWalletAddress}`,
+    );
+  }
+
+  startMonitoringConnection() {
+    this.log.info('Starting connection monitoring service...');
+    setInterval(async () => {
+      const { factoryContractHandler } = this.context;
+      if (factoryContractHandler) {
+        try {
+          await factoryContractHandler.contractClient.queryState();
+          this.modulesWatcher();
+        } catch (error) {
+          console.error('Connection lost. Restarting coordinator...');
+          process.exit();
+        }
+      } else {
+        console.error('Client is not initialized. Waiting...');
+      }
+    }, 10000); // Check every 10 seconds, not recommended to set it higher
+  }
+
+  private modulesWatcher(): void {
+    const currentTime = Date.now();
+    for (const module of this.modulesList) {
+      if (
+        module.lastRun != 0 &&
+        currentTime - module.lastRun >
+          this.context.config.coordinator.checksPeriod * 3 * 1000
+      ) {
+        console.error(
+          `${module.constructor.name} is not running. Restarting coordinator...`,
+        );
+        process.exit();
+      }
+    }
   }
 
   registerModules() {
-    if (PumpModule.verifyConfig(this.log)) {
+    if (PumpModule.verifyConfig(this.log, process.env.PUMP_CONTRACT_ADDRESS)) {
       this.modulesList.push(
-        new PumpModule(this.context, logger.child({ context: 'PumpModule' })),
+        new PumpModule(
+          process.env.PUMP_CONTRACT_ADDRESS,
+          process.env.PUMP_MIN_BALANCE,
+          this.context,
+          logger.child({ context: 'PumpModule' }),
+        ),
       );
     }
 
-    if (StakerModule.verifyConfig(this.log, this.context.factoryContractHandler.skip)) {
+    if (
+      PumpModule.verifyConfig(
+        this.log,
+        process.env.REWARDS_PUMP_CONTRACT_ADDRESS,
+      )
+    ) {
       this.modulesList.push(
-        new StakerModule(this.context, logger.child({ context: 'StakerModule' })),
+        new PumpModule(
+          process.env.REWARDS_PUMP_CONTRACT_ADDRESS,
+          process.env.REWARDS_PUMP_MIN_BALANCE,
+          this.context,
+          logger.child({ context: 'RewardsPumpModule' }),
+        ),
+      );
+    }
+
+    if (
+      StakerModule.verifyConfig(
+        this.log,
+        this.context.factoryContractHandler.skip,
+      )
+    ) {
+      this.modulesList.push(
+        new StakerModule(
+          this.context,
+          logger.child({ context: 'StakerModule' }),
+        ),
+      );
+    }
+
+    if (
+      SplitterModule.verifyConfig(
+        this.log,
+        this.context.factoryContractHandler.skip,
+      )
+    ) {
+      this.modulesList.push(
+        new SplitterModule(
+          this.context,
+          logger.child({ context: 'SplitterModule' }),
+        ),
       );
     }
 
@@ -158,7 +236,7 @@ class Service {
       'untrn',
     );
     this.context.height = (
-      await this.context.neutronTmClient.block()
+      await this.context.neutronCometClient.block()
     ).block.header.height;
 
     this.log.info(
@@ -174,9 +252,7 @@ class Service {
     ) {
       for (const module of this.modulesList) {
         try {
-          this.log.info(
-            `Running ${module.constructor.name} module...`,
-          );
+          this.log.info(`Running ${module.constructor.name} module...`);
           await module.run();
         } catch (error) {
           this.log.error(
@@ -194,6 +270,7 @@ class Service {
 async function main() {
   const service = new Service();
   await service.init();
+  service.startMonitoringConnection();
   service.registerModules();
   service.start();
 }

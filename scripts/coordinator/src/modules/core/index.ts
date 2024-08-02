@@ -10,7 +10,7 @@ import { runQueryRelayer, waitBlocks } from '../../utils';
 const PuppeteerContractClient = DropPuppeteer.Client;
 const CoreContractClient = DropCore.Client;
 
-export class CoreModule implements ManagerModule {
+export class CoreModule extends ManagerModule {
   private puppeteerContractClient?: InstanceType<
     typeof PuppeteerContractClient
   >;
@@ -19,7 +19,9 @@ export class CoreModule implements ManagerModule {
   constructor(
     private context: Context,
     private log: pino.Logger,
-  ) {}
+  ) {
+    super();
+  }
 
   private _config: PuppeteerConfig;
   get config(): PuppeteerConfig {
@@ -45,6 +47,7 @@ export class CoreModule implements ManagerModule {
   }
 
   async run(): Promise<void> {
+    this._lastRun = Date.now();
     if (!this.puppeteerContractClient || !this.coreContractClient) {
       this.init();
     }

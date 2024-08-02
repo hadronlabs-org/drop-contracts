@@ -153,6 +153,7 @@ deploy_factory() {
     "remote_opts":{
       "connection_id":"'"$neutron_side_connection_id"'",
       "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
+      "reverse_transfer_channel_id":"'"$target_side_transfer_channel_id"'",
       "port_id":"'"$NEUTRON_SIDE_PORT_ID"'",
       "denom":"'"$TARGET_BASE_DENOM"'",
       "update_period":'$ICQ_UPDATE_PERIOD',
@@ -297,8 +298,8 @@ deploy_pump() {
     "connection_id":"'"$neutron_side_connection_id"'",
     "local_denom":"untrn",
     "timeout":{
-      "local":360,
-      "remote":360
+      "local":'$TIMEOUT_LOCAL',
+      "remote":'$TIMEOUT_REMOTE'
     },
     "dest_address":"'"$withdrawal_manager_address"'",
     "dest_port":"transfer",

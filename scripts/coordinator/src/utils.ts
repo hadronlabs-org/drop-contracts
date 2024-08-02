@@ -22,11 +22,12 @@ export async function waitBlocks(
   blocks: number,
   log: pino.Logger,
 ): Promise<void> {
-  const initBlock = (await context.neutronTmClient.block()).block.header.height;
+  const initBlock = (await context.neutronCometClient.block()).block.header
+    .height;
   return waitFor(async () => {
     try {
-      const currentBlock = (await context.neutronTmClient.block()).block.header
-        .height;
+      const currentBlock = (await context.neutronCometClient.block()).block
+        .header.height;
       if (currentBlock - initBlock >= blocks) {
         return true;
       }

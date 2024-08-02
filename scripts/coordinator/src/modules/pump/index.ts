@@ -8,15 +8,19 @@ import JSONBig from 'json-bigint';
 
 const PumpContractClient = DropPump.Client;
 
-export class PumpModule implements ManagerModule {
+export class PumpModule extends ManagerModule {
   contractClient?: InstanceType<typeof PumpContractClient>;
   icaAddress?: string;
-
+  contractAddress: string;
+  minBalance: string | undefined;
   constructor(
+    contractAddress: string,
+    minBalance: string | undefined,
     private context: Context,
     private log: pino.Logger,
   ) {
-    this.prepareConfig();
+    super();
+    this.prepareConfig(contractAddress, minBalance);
 
     this.contractClient = new DropPump.Client(
       this.context.neutronSigningClient,
@@ -30,6 +34,7 @@ export class PumpModule implements ManagerModule {
   }
 
   async run(): Promise<void> {
+    this._lastRun = Date.now();
     if (!this.icaAddress) {
       const res = await this.contractClient.queryIca();
       if ((res as any).registered && (res as any).registered.ica_address) {
@@ -73,18 +78,24 @@ export class PumpModule implements ManagerModule {
     }
   }
 
-  prepareConfig(): PumpConfig {
+  prepareConfig(
+    contractAddress: string,
+    minBalance: string | undefined,
+  ): PumpConfig {
     this._config = {
-      contractAddress: process.env.PUMP_CONTRACT_ADDRESS,
-      minBalance: Uint64.fromString(process.env.PUMP_MIN_BALANCE ?? '1000'),
+      contractAddress: contractAddress,
+      minBalance: Uint64.fromString(minBalance ?? '1000'),
     };
 
     return this.config;
   }
 
-  static verifyConfig(log: pino.Logger): boolean {
-    if (!process.env.PUMP_CONTRACT_ADDRESS) {
-      log.error('PUMP_CONTRACT_ADDRESS is not provided');
+  static verifyConfig(
+    log: pino.Logger,
+    contractAddress: string | undefined,
+  ): boolean {
+    if (!contractAddress) {
+      log.error('Pump contract address is not provided');
       return false;
     }
 
