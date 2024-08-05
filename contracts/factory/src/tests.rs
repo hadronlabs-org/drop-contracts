@@ -66,7 +66,7 @@ fn test_instantiate() {
         |_| -> cosmwasm_std::Binary {
             to_json_binary(&cosmwasm_std::CodeInfoResponse::new(
                 100u64,
-                "cosmwasm100000000000000000000000000000000000000".to_string(),
+                "creator".to_string(),
                 cosmwasm_std::HexBinary::from(&[0; 32]),
             ))
             .unwrap()
@@ -144,7 +144,7 @@ fn test_instantiate() {
             },
             transaction: Some(cosmwasm_std::TransactionInfo { index: 3 }),
             contract: cosmwasm_std::ContractInfo {
-                address: cosmwasm_std::Addr::unchecked("core_contract"),
+                address: cosmwasm_std::Addr::unchecked("factory_contract"),
             },
         },
         mock_info("owner", &[]),
@@ -157,7 +157,7 @@ fn test_instantiate() {
             .add_submessages(vec![
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
-                        admin: Some("core_contract".to_string()),
+                        admin: Some("factory_contract".to_string()),
                         code_id: 0,
                         label: "drop-staking-token".to_string(),
                         msg: to_json_binary(&TokenInstantiateMsg {
@@ -172,7 +172,7 @@ fn test_instantiate() {
                                 uri: None,
                                 uri_hash: None,
                             },
-                            owner: "core_contract".to_string()
+                            owner: "factory_contract".to_string()
                         })
                         .unwrap(),
                         funds: vec![],
@@ -181,11 +181,11 @@ fn test_instantiate() {
                 )),
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
-                        admin: Some("core_contract".to_string()),
+                        admin: Some("factory_contract".to_string()),
                         code_id: 0,
                         label: "validators set".to_string(),
                         msg: to_json_binary(&ValidatorsSetInstantiateMsg {
-                            owner: "core_contract".to_string(),
+                            owner: "factory_contract".to_string(),
                             stats_contract: "neutron1x69dz0c0emw8m2c6kp5v6c08kgjxmu30f4a8w5"
                                 .to_string()
                         })
@@ -196,7 +196,7 @@ fn test_instantiate() {
                 )),
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
-                        admin: Some("core_contract".to_string()),
+                        admin: Some("factory_contract".to_string()),
                         code_id: 0,
                         label: "distribution".to_string(),
                         msg: to_json_binary(&DistributionInstantiateMsg {}).unwrap(),
@@ -206,7 +206,7 @@ fn test_instantiate() {
                 )),
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
-                        admin: Some("core_contract".to_string()),
+                        admin: Some("factory_contract".to_string()),
                         code_id: 0,
                         label: "drop-staking-puppeteer".to_string(),
                         msg: to_json_binary(&PuppeteerInstantiateMsg {
@@ -214,10 +214,10 @@ fn test_instantiate() {
                             port_id: "transfer".to_string(),
                             update_period: 0,
                             remote_denom: "denom".to_string(),
-                            owner: Some("core_contract".to_string()),
+                            owner: Some("factory_contract".to_string()),
                             allowed_senders: vec![
                                 "some_humanized_address".to_string(),
-                                "core_contract".to_string()
+                                "factory_contract".to_string()
                             ],
                             transfer_channel_id: "channel-0".to_string(),
                             sdk_version: "sdk-version".to_string(),
@@ -231,7 +231,7 @@ fn test_instantiate() {
                 )),
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
-                        admin: Some("core_contract".to_string()),
+                        admin: Some("factory_contract".to_string()),
                         code_id: 0,
                         label: "drop-staking-staker".to_string(),
                         msg: to_json_binary(&StakerInstantiateMsg {
@@ -241,7 +241,7 @@ fn test_instantiate() {
                             remote_denom: "denom".to_string(),
                             base_denom: "base_denom".to_string(),
                             transfer_channel_id: "channel-0".to_string(),
-                            owner: Some("core_contract".to_string()),
+                            owner: Some("factory_contract".to_string()),
                             allowed_senders: vec!["some_humanized_address".to_string()],
                             min_ibc_transfer: Uint128::from(0u64),
                             min_staking_amount: Uint128::from(0u64)
@@ -253,11 +253,11 @@ fn test_instantiate() {
                 )),
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
-                        admin: Some("core_contract".to_string()),
+                        admin: Some("factory_contract".to_string()),
                         code_id: 0,
                         label: "strategy".to_string(),
                         msg: to_json_binary(&StrategyInstantiateMsg {
-                            owner: "core_contract".to_string(),
+                            owner: "factory_contract".to_string(),
                             puppeteer_address: "some_humanized_address".to_string(),
                             validator_set_address: "some_humanized_address".to_string(),
                             distribution_address: "some_humanized_address".to_string(),
@@ -270,7 +270,7 @@ fn test_instantiate() {
                 )),
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
-                        admin: Some("core_contract".to_string()),
+                        admin: Some("factory_contract".to_string()),
                         code_id: 0,
                         label: "drop-staking-core".to_string(),
                         msg: to_json_binary(&CoreInstantiateMsg {
@@ -293,7 +293,7 @@ fn test_instantiate() {
                             bond_limit: Some(Uint128::from(0u64)),
                             pump_ica_address: None,
                             transfer_channel_id: "channel-0".to_string(),
-                            owner: "core_contract".to_string(),
+                            owner: "factory_contract".to_string(),
                             emergency_address: None,
                             min_stake_amount: Uint128::from(0u64),
                             icq_update_delay: 0
@@ -305,7 +305,7 @@ fn test_instantiate() {
                 )),
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
-                        admin: Some("core_contract".to_string()),
+                        admin: Some("factory_contract".to_string()),
                         code_id: 0,
                         label: "drop-staking-withdrawal-voucher".to_string(),
                         msg: to_json_binary(&WithdrawalVoucherInstantiateMsg {
@@ -320,14 +320,14 @@ fn test_instantiate() {
                 )),
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
-                        admin: Some("core_contract".to_string()),
+                        admin: Some("factory_contract".to_string()),
                         code_id: 0,
                         label: "drop-staking-withdrawal-manager".to_string(),
                         msg: to_json_binary(&WithdrawalManagerInstantiateMsg {
                             core_contract: "some_humanized_address".to_string(),
                             voucher_contract: "some_humanized_address".to_string(),
                             base_denom: "base_denom".to_string(),
-                            owner: "core_contract".to_string()
+                            owner: "factory_contract".to_string()
                         })
                         .unwrap(),
                         funds: vec![],
@@ -336,11 +336,11 @@ fn test_instantiate() {
                 )),
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
-                        admin: Some("core_contract".to_string()),
+                        admin: Some("factory_contract".to_string()),
                         code_id: 0,
                         label: "drop-staking-rewards-manager".to_string(),
                         msg: to_json_binary(&RewardsManagerInstantiateMsg {
-                            owner: "core_contract".to_string()
+                            owner: "factory_contract".to_string()
                         })
                         .unwrap(),
                         funds: vec![],
@@ -349,7 +349,7 @@ fn test_instantiate() {
                 )),
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
-                        admin: Some("core_contract".to_string()),
+                        admin: Some("factory_contract".to_string()),
                         code_id: 0,
                         label: "drop-staking-splitter".to_string(),
                         msg: to_json_binary(&SplitterInstantiateMsg {
@@ -371,7 +371,7 @@ fn test_instantiate() {
                 )),
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
-                        admin: Some("core_contract".to_string()),
+                        admin: Some("factory_contract".to_string()),
                         code_id: 0,
                         label: "drop-staking-rewards-pump".to_string(),
                         msg: to_json_binary(&RewardsPumpInstantiateMsg {
@@ -385,7 +385,7 @@ fn test_instantiate() {
                                 remote: 0
                             },
                             local_denom: "local-denom".to_string(),
-                            owner: Some("core_contract".to_string())
+                            owner: Some("factory_contract".to_string())
                         })
                         .unwrap(),
                         funds: vec![],
