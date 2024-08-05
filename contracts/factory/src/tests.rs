@@ -11,7 +11,7 @@ use cosmwasm_std::{
     testing::{mock_env, mock_info},
     to_json_binary, BankMsg, Uint128,
 };
-use drop_helpers::testing::mock_dependencies;
+use drop_helpers::testing::{mock_dependencies, mock_dependencies_with_api};
 use drop_staking_base::{
     msg::{
         core::{ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg},
@@ -56,7 +56,7 @@ fn get_default_factory_state() -> State {
 
 #[test]
 fn test_instantiate() {
-    let mut deps = mock_dependencies(&[]);
+    let mut deps = mock_dependencies_with_api(&[]);
     let deps_mut = deps.as_mut();
     STATE
         .save(deps_mut.storage, &get_default_factory_state())
