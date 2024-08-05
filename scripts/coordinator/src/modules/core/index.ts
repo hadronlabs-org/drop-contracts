@@ -6,9 +6,12 @@ import pino from 'pino';
 import JSONBig from 'json-bigint';
 
 import { runQueryRelayer, waitBlocks } from '../../utils';
+import { fromAscii, toAscii } from '@cosmjs/encoding';
 
 const PuppeteerContractClient = DropPuppeteer.Client;
 const CoreContractClient = DropCore.Client;
+
+const IDLE_ADDITIONAL_INTERVAL = 120; // Seconds. Coordinator idle timeout calculation is a little frontrunning before actual idle timeout
 
 export class CoreModule extends ManagerModule {
   private puppeteerContractClient?: InstanceType<
@@ -54,6 +57,26 @@ export class CoreModule extends ManagerModule {
 
     const coreContractState =
       await this.coreContractClient.queryContractState();
+
+    const lastTickRaw =
+      await this.context.neutronSigningClient.queryContractRaw(
+        this.config.coreContractAddress,
+        toAscii('last_tick'),
+      );
+    const lastTick = Number.parseInt(fromAscii(lastTickRaw), 10);
+    const config = await this.coreContractClient.queryConfig();
+
+    if (
+      this.lastRun / 1000 <
+        lastTick + config.idle_min_interval + IDLE_ADDITIONAL_INTERVAL &&
+      coreContractState === 'idle'
+    ) {
+      this.log.info(
+        'Skipping idle tick because idle min interval is not reached',
+      );
+      return;
+    }
+
     const lastPuppeteerResponse =
       await this.coreContractClient.queryLastPuppeteerResponse();
 
