@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::testing::{MockQuerier, MockStorage};
+use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage};
 use cosmwasm_std::{
     from_json, to_json_binary, Api, Binary, Coin, ContractResult, CustomQuery, OwnedDeps, Querier,
     QuerierResult, QueryRequest, SystemError, SystemResult, Uint128,
@@ -22,9 +22,9 @@ pub struct CustomQueryWrapper {}
 impl CustomQuery for CustomQueryWrapper {}
 
 #[derive(Clone)]
-pub struct MockApi {}
+pub struct CustomMockApi {}
 
-impl Api for MockApi {
+impl Api for CustomMockApi {
     fn addr_validate(&self, _input: &str) -> cosmwasm_std::StdResult<cosmwasm_std::Addr> {
         Ok(cosmwasm_std::Addr::unchecked("some_address".to_string()))
     }
@@ -88,6 +88,21 @@ impl Api for MockApi {
     }
 }
 
+pub fn mock_dependencies_with_api(
+    contract_balance: &[Coin],
+) -> OwnedDeps<MockStorage, CustomMockApi, WasmMockQuerier, NeutronQuery> {
+    let contract_addr = MOCK_CONTRACT_ADDR;
+    let custom_querier: WasmMockQuerier =
+        WasmMockQuerier::new(MockQuerier::new(&[(contract_addr, contract_balance)]));
+
+    OwnedDeps {
+        storage: MockStorage::default(),
+        api: CustomMockApi {},
+        querier: custom_querier,
+        custom_query_type: PhantomData,
+    }
+}
+
 pub fn mock_dependencies(
     contract_balance: &[Coin],
 ) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier, NeutronQuery> {
@@ -97,7 +112,7 @@ pub fn mock_dependencies(
 
     OwnedDeps {
         storage: MockStorage::default(),
-        api: MockApi {},
+        api: MockApi::default(),
         querier: custom_querier,
         custom_query_type: PhantomData,
     }
@@ -236,7 +251,7 @@ impl WasmMockQuerier {
                     )))
                 }
                 _ => SystemResult::Err(SystemError::UnsupportedRequest {
-                    kind: format!("Unsupported wasm request given"),
+                    kind: "Unsupported wasm request given".to_string(),
                 }),
             },
             _ => self.base.handle_query(request),
