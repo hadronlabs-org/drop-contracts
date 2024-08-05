@@ -9,6 +9,7 @@ import {
   DropWithdrawalManager,
   DropWithdrawalVoucher,
   DropSplitter,
+  DropToken,
 } from 'drop-ts-client';
 import {
   QueryClient,
@@ -37,7 +38,9 @@ import dockerCompose from 'docker-compose';
 import { SlashingExtension } from '@cosmjs/stargate/build/modules';
 import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 import { instrumentCoreClass } from '../helpers/knot';
+import { checkExchangeRate } from '../helpers/exchangeRate';
 
+const DropTokenClass = DropToken.Client;
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
 const DropPumpClass = DropPump.Client;
@@ -66,6 +69,7 @@ describe('Core Slashing', () => {
     stakerContractClient?: InstanceType<typeof DropStakerClass>;
     pumpContractClient?: InstanceType<typeof DropPumpClass>;
     puppeteerContractClient?: InstanceType<typeof DropPuppeteerClass>;
+    tokenContractClient?: InstanceType<typeof DropTokenClass>;
     withdrawalVoucherContractClient?: InstanceType<
       typeof DropWithdrawalVoucherClass
     >;
@@ -84,6 +88,7 @@ describe('Core Slashing', () => {
       StakingExtension &
       SlashingExtension &
       BankExtension;
+    neutronRPCEndpoint?: string;
     neutronClient?: InstanceType<typeof NeutronClient>;
     neutronUserAddress?: string;
     neutronSecondUserAddress?: string;
@@ -104,7 +109,6 @@ describe('Core Slashing', () => {
       splitter?: number;
       pump?: number;
     };
-    tokenContractAddress?: string;
     neutronIBCDenom?: string;
   } = { codeIds: {} };
 
@@ -152,8 +156,9 @@ describe('Core Slashing', () => {
       rpcURL: `127.0.0.1:${context.park.ports.neutron.rpc}`,
       prefix: 'neutron',
     });
+    context.neutronRPCEndpoint = `http://127.0.0.1:${context.park.ports.neutron.rpc}`;
     context.client = await SigningCosmWasmClient.connectWithSigner(
-      `http://127.0.0.1:${context.park.ports.neutron.rpc}`,
+      context.neutronRPCEndpoint,
       context.wallet,
       {
         gasPrice: GasPrice.fromString('0.025untrn'),
@@ -483,7 +488,6 @@ describe('Core Slashing', () => {
       context.client,
       res.strategy_contract,
     );
-    context.tokenContractAddress = res.token_contract;
     context.puppeteerContractClient = new DropPuppeteer.Client(
       context.client,
       res.puppeteer_contract,
@@ -499,6 +503,10 @@ describe('Core Slashing', () => {
     context.rewardsPumpContractClient = new DropPump.Client(
       context.client,
       res.rewards_pump_contract,
+    );
+    context.tokenContractClient = new DropToken.Client(
+      context.client,
+      res.token_contract,
     );
   });
   it('register staker ICA', async () => {
@@ -805,6 +813,7 @@ describe('Core Slashing', () => {
           denom: neutronIBCDenom,
         },
       ]);
+      await checkExchangeRate(context);
     });
     it('unbond', async () => {
       const { coreContractClient, neutronUserAddress } = context;
@@ -813,9 +822,10 @@ describe('Core Slashing', () => {
           // we need to leave at least one coin on every resgistered validator
           // (two validators in this case)
           amount: '500',
-          denom: `factory/${context.tokenContractAddress}/drop`,
+          denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
         },
       ]);
+      await checkExchangeRate(context);
     });
     it('staker ibc transfer', async () => {
       const { neutronUserAddress } = context;
@@ -839,6 +849,7 @@ describe('Core Slashing', () => {
           denom: context.park.config.networks.gaia.denom,
         },
       ]);
+      await checkExchangeRate(context);
     });
     it('tick 1 (staking_bond)', async () => {
       const {
@@ -891,6 +902,7 @@ describe('Core Slashing', () => {
         }
         return res && res.delegations.delegations.length !== 0;
       }, 100_000);
+      await checkExchangeRate(context);
     });
     it('get staker ICA zeroed balance', async () => {
       const { gaiaClient } = context;
@@ -939,6 +951,7 @@ describe('Core Slashing', () => {
         }
         return !!response;
       }, 100_000);
+      await checkExchangeRate(context);
     });
     it('tick 3 (idle)', async () => {
       const {
@@ -963,6 +976,7 @@ describe('Core Slashing', () => {
       const state = await context.coreContractClient.queryContractState();
       expect(state).toEqual('idle');
       await sleep(10_000); // wait for idle min interval
+      await checkExchangeRate(context);
     });
     it('verify that unbonding batch 0 is in unbonding state', async () => {
       const batch = await context.coreContractClient.queryUnbondBatch({
@@ -993,15 +1007,17 @@ describe('Core Slashing', () => {
           denom: neutronIBCDenom,
         },
       ]);
+      await checkExchangeRate(context);
     });
     it('unbond', async () => {
       const { coreContractClient, neutronUserAddress } = context;
       await coreContractClient.unbond(neutronUserAddress, 1.6, undefined, [
         {
           amount: '3000',
-          denom: `factory/${context.tokenContractAddress}/drop`,
+          denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
         },
       ]);
+      await checkExchangeRate(context);
     });
     it('staker ibc transfer', async () => {
       const { neutronUserAddress } = context;
@@ -1025,6 +1041,7 @@ describe('Core Slashing', () => {
           denom: context.park.config.networks.gaia.denom,
         },
       ]);
+      await checkExchangeRate(context);
     });
     it('tick 1 (claiming)', async () => {
       const {
@@ -1074,6 +1091,7 @@ describe('Core Slashing', () => {
           })) as any;
         return nowHeight !== currentHeight;
       }, 30_000);
+      await checkExchangeRate(context);
     });
     it('tick 2 (staking_bond)', async () => {
       const {
@@ -1128,6 +1146,7 @@ describe('Core Slashing', () => {
           })) as any;
         return nowHeight !== currentHeight;
       });
+      await checkExchangeRate(context);
     });
     it('tick 3 (unbonding)', async () => {
       const {
@@ -1167,6 +1186,7 @@ describe('Core Slashing', () => {
         }
         return !!response;
       }, 100_000);
+      await checkExchangeRate(context);
     });
     it('tick 4 (idle)', async () => {
       const {
@@ -1191,6 +1211,7 @@ describe('Core Slashing', () => {
       const state = await context.coreContractClient.queryContractState();
       expect(state).toEqual('idle');
       await sleep(10_000); // wait for idle min interval
+      await checkExchangeRate(context);
     });
     it('verify that unbonding batch 1 is in unbonding state', async () => {
       const batch = await context.coreContractClient.queryUnbondBatch({
@@ -1317,6 +1338,7 @@ describe('Core Slashing', () => {
         })) as any;
       return nowHeight !== currentHeight;
     }, 30_000);
+    await checkExchangeRate(context);
   });
   it.skip('verify that unbonding batch 0 is in withdrawing emergency state', async () => {
     const batch = await context.coreContractClient.queryUnbondBatch({
@@ -1369,6 +1391,7 @@ describe('Core Slashing', () => {
     await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
     const state = await context.coreContractClient.queryContractState();
     expect(state).toEqual('idle');
+    await checkExchangeRate(context);
   });
   it.skip('verify that unbonding batch 0 is in withdrawn emergency state', async () => {
     const batch = await context.coreContractClient.queryUnbondBatch({
