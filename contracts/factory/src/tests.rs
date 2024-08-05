@@ -1,7 +1,10 @@
 use crate::{
-    contract::execute,
-    msg::{CoreMsg, ExecuteMsg, ProxyMsg, UpdateConfigMsg, ValidatorSetMsg},
-    state::{State, STATE},
+    contract::{execute, instantiate},
+    msg::{
+        CoreMsg, CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, ProxyMsg, StakerParams,
+        UpdateConfigMsg, ValidatorSetMsg,
+    },
+    state::{CodeIds, RemoteOpts, State, Timeout, STATE},
 };
 use cosmwasm_std::{
     attr,
@@ -11,7 +14,7 @@ use cosmwasm_std::{
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::msg::{
     core::ExecuteMsg as CoreExecuteMsg, puppeteer::ExecuteMsg as PuppeteerExecuteMsg,
-    rewards_manager::ExecuteMsg as RewardsManagerExecuteMsg,
+    rewards_manager::ExecuteMsg as RewardsManagerExecuteMsg, token::DenomMetadata,
     validatorset::ExecuteMsg as ValidatorSetExecuteMsg,
     withdrawal_manager::ExecuteMsg as WithdrawalManagerExecuteMsg,
 };
@@ -31,6 +34,105 @@ fn get_default_factory_state() -> State {
         rewards_pump_contract: "rewards_pump_contract".to_string(),
         splitter_contract: "splitter_contract".to_string(),
     }
+}
+
+#[test]
+fn test_instantiate() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    STATE
+        .save(deps_mut.storage, &get_default_factory_state())
+        .unwrap();
+    deps.querier.add_stargate_query_response(
+        "/cosmos.wasm.v1.Query/QueryCodeRequest",
+        |_| -> cosmwasm_std::Binary {
+            to_json_binary(&cosmwasm_std::CodeInfoResponse::new(
+                100u64,
+                "cosmwasm100000000000000000000000000000000000000".to_string(),
+                cosmwasm_std::HexBinary::from(&[0; 32]),
+            ))
+            .unwrap()
+        },
+    );
+    let instantiate_msg = InstantiateMsg {
+        code_ids: CodeIds {
+            token_code_id: 0,
+            core_code_id: 0,
+            puppeteer_code_id: 0,
+            staker_code_id: 0,
+            withdrawal_voucher_code_id: 0,
+            withdrawal_manager_code_id: 0,
+            strategy_code_id: 0,
+            validators_set_code_id: 0,
+            distribution_code_id: 0,
+            rewards_manager_code_id: 0,
+            rewards_pump_code_id: 0,
+            splitter_code_id: 0,
+        },
+        remote_opts: RemoteOpts {
+            denom: "denom".to_string(),
+            update_period: 0,
+            connection_id: "connection-0".to_string(),
+            port_id: "transfer".to_string(),
+            transfer_channel_id: "channel-0".to_string(),
+            reverse_transfer_channel_id: "channel-0".to_string(),
+            timeout: Timeout {
+                local: 0,
+                remote: 0,
+            },
+        },
+        salt: "salt".to_string(),
+        subdenom: "subdenom".to_string(),
+        token_metadata: DenomMetadata {
+            exponent: 6,
+            display: "drop".to_string(),
+            name: "Drop Token".to_string(),
+            description: "Drop Token used for testing".to_string(),
+            symbol: "DROP".to_string(),
+            uri: None,
+            uri_hash: None,
+        },
+        sdk_version: "sdk-version".to_string(),
+        base_denom: "base_denom".to_string(),
+        local_denom: "local-denom".to_string(),
+        core_params: CoreParams {
+            idle_min_interval: 0,
+            unbonding_period: 0,
+            unbonding_safe_period: 0,
+            unbond_batch_switch_time: 0,
+            lsm_min_bond_amount: Uint128::from(0u64),
+            lsm_redeem_threshold: 0,
+            lsm_redeem_max_interval: 0,
+            bond_limit: Some(Uint128::from(0u64)),
+            min_stake_amount: Uint128::from(0u64),
+            icq_update_delay: 0,
+        },
+        staker_params: StakerParams {
+            min_stake_amount: Uint128::from(0u64),
+            min_ibc_transfer: Uint128::from(0u64),
+        },
+        fee_params: Some(FeeParams {
+            fee: cosmwasm_std::Decimal::new(Uint128::from(0u64)),
+            fee_address: "fee_address".to_string(),
+        }),
+    };
+    let res = instantiate(
+        deps.as_mut().into_empty(),
+        cosmwasm_std::Env {
+            block: cosmwasm_std::BlockInfo {
+                height: 12_345,
+                time: cosmwasm_std::Timestamp::from_nanos(1_571_797_419_879_305_533),
+                chain_id: "cosmos-testnet-14002".to_string(),
+            },
+            transaction: Some(cosmwasm_std::TransactionInfo { index: 3 }),
+            contract: cosmwasm_std::ContractInfo {
+                address: cosmwasm_std::Addr::unchecked("core_contract"),
+            },
+        },
+        mock_info("owner", &[]),
+        instantiate_msg,
+    )
+    .unwrap();
 }
 
 #[test]
