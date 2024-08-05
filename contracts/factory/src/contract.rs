@@ -453,9 +453,8 @@ pub fn execute(
 
 fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-
     let state = STATE.load(deps.storage)?;
-
+    let attrs = vec![attr("action", "pause")];
     let messages = vec![
         get_proxied_message(
             state.core_contract,
@@ -473,15 +472,13 @@ fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Neutr
             vec![],
         )?,
     ];
-
-    Ok(response("execute-pause", CONTRACT_NAME, Vec::<Attribute>::new()).add_messages(messages))
+    Ok(response("execute-pause", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-
     let state = STATE.load(deps.storage)?;
-
+    let attrs = vec![attr("action", "unpause")];
     let messages = vec![
         get_proxied_message(
             state.core_contract,
@@ -499,8 +496,7 @@ fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Neu
             vec![],
         )?,
     ];
-
-    Ok(response("execute-unpause", CONTRACT_NAME, Vec::<Attribute>::new()).add_messages(messages))
+    Ok(response("execute-unpause", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 fn execute_admin_execute(
