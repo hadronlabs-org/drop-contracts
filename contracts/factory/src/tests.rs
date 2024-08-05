@@ -1,6 +1,9 @@
 use crate::{
     contract::{execute, query},
-    msg::{CoreParams, ExecuteMsg, InstantiateMsg, QueryMsg, StakerParams, UpdateConfigMsg},
+    msg::{
+        CoreMsg, CoreParams, ExecuteMsg, InstantiateMsg, ProxyMsg, QueryMsg, StakerParams,
+        UpdateConfigMsg, ValidatorSetMsg,
+    },
     state::{CodeIds, RemoteOpts, State, Timeout, STATE},
 };
 use cosmwasm_std::{
@@ -10,7 +13,8 @@ use cosmwasm_std::{
 };
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::msg::{
-    core::ExecuteMsg as CoreExecuteMsg, validatorset::ExecuteMsg as ValidatorSetExecuteMsg,
+    core::ExecuteMsg as CoreExecuteMsg, puppeteer::ExecuteMsg as PuppeteerExecuteMsg,
+    validatorset::ExecuteMsg as ValidatorSetExecuteMsg,
 };
 
 #[test]
@@ -126,6 +130,151 @@ fn test_update_config() {
                     })
                 )])
         );
-        println!("{:?}", res);
+    }
+}
+
+#[test]
+fn test_proxy() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    STATE
+        .save(
+            deps_mut.storage,
+            &State {
+                token_contract: "token_contract1".to_string(),
+                core_contract: "core_contract1".to_string(),
+                puppeteer_contract: "puppeteer_contract1".to_string(),
+                staker_contract: "staker_contract1".to_string(),
+                withdrawal_voucher_contract: "withdrawal_voucher_contract1".to_string(),
+                withdrawal_manager_contract: "withdrawal_manager_contract1".to_string(),
+                strategy_contract: "strategy_contract1".to_string(),
+                validators_set_contract: "validators_set_contract1".to_string(),
+                distribution_contract: "distribution_contract1".to_string(),
+                rewards_manager_contract: "rewards_manager_contract1".to_string(),
+                rewards_pump_contract: "rewards_pump_contract1".to_string(),
+                splitter_contract: "splitter_contract1".to_string(),
+            },
+        )
+        .unwrap();
+    {
+        let res = execute(
+            deps.as_mut().into_empty(),
+            mock_env(),
+            mock_info("owner", &[]),
+            ExecuteMsg::Proxy(crate::msg::ProxyMsg::ValidatorSet(
+                ValidatorSetMsg::UpdateValidators {
+                    validators: vec![
+                        drop_staking_base::msg::validatorset::ValidatorData {
+                            valoper_address: "valoper_address1".to_string(),
+                            weight: 10u64,
+                        },
+                        drop_staking_base::msg::validatorset::ValidatorData {
+                            valoper_address: "valoper_address2".to_string(),
+                            weight: 10u64,
+                        },
+                    ],
+                },
+            )),
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            cosmwasm_std::Response::new()
+                .add_submessages(vec![
+                    cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                        cosmwasm_std::WasmMsg::Execute {
+                            contract_addr: "validators_set_contract1".to_string(),
+                            msg: to_json_binary(&ValidatorSetExecuteMsg::UpdateValidators {
+                                validators: vec![
+                                    drop_staking_base::msg::validatorset::ValidatorData {
+                                        valoper_address: "valoper_address1".to_string(),
+                                        weight: 10u64,
+                                    },
+                                    drop_staking_base::msg::validatorset::ValidatorData {
+                                        valoper_address: "valoper_address2".to_string(),
+                                        weight: 10u64,
+                                    },
+                                ],
+                            })
+                            .unwrap(),
+                            funds: vec![],
+                        }
+                    )),
+                    cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                        cosmwasm_std::WasmMsg::Execute {
+                            contract_addr: "puppeteer_contract1".to_string(),
+                            msg: to_json_binary(
+                                &PuppeteerExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
+                                    validators: vec![
+                                        "valoper_address1".to_string(),
+                                        "valoper_address2".to_string()
+                                    ]
+                                }
+                            )
+                            .unwrap(),
+                            funds: vec![]
+                        }
+                    ))
+                ])
+                .add_event(
+                    cosmwasm_std::Event::new(
+                        "crates.io:drop-staking__drop-factory-execute-proxy-call".to_string()
+                    )
+                    .add_attribute("action".to_string(), "proxy-call".to_string())
+                )
+        )
+    }
+    {
+        let res = execute(
+            deps.as_mut().into_empty(),
+            mock_env(),
+            mock_info("owner", &[]),
+            ExecuteMsg::Proxy(ProxyMsg::Core(CoreMsg::Pause {})),
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            cosmwasm_std::Response::new()
+                .add_submessage(cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Execute {
+                        contract_addr: "core_contract1".to_string(),
+                        msg: to_json_binary(&CoreExecuteMsg::Pause {}).unwrap(),
+                        funds: vec![]
+                    }
+                )))
+                .add_event(
+                    cosmwasm_std::Event::new(
+                        "crates.io:drop-staking__drop-factory-execute-proxy-call".to_string()
+                    )
+                    .add_attribute("action".to_string(), "proxy-call".to_string())
+                )
+        )
+    }
+    {
+        let res = execute(
+            deps.as_mut().into_empty(),
+            mock_env(),
+            mock_info("owner", &[]),
+            ExecuteMsg::Proxy(ProxyMsg::Core(CoreMsg::Unpause {})),
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            cosmwasm_std::Response::new()
+                .add_submessage(cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Execute {
+                        contract_addr: "core_contract1".to_string(),
+                        msg: to_json_binary(&CoreExecuteMsg::Unpause {}).unwrap(),
+                        funds: vec![]
+                    }
+                )))
+                .add_event(
+                    cosmwasm_std::Event::new(
+                        "crates.io:drop-staking__drop-factory-execute-proxy-call".to_string()
+                    )
+                    .add_attribute("action".to_string(), "proxy-call".to_string())
+                )
+        )
     }
 }
