@@ -12,11 +12,29 @@ use cosmwasm_std::{
     to_json_binary, BankMsg, Uint128,
 };
 use drop_helpers::testing::mock_dependencies;
-use drop_staking_base::msg::{
-    core::ExecuteMsg as CoreExecuteMsg, puppeteer::ExecuteMsg as PuppeteerExecuteMsg,
-    rewards_manager::ExecuteMsg as RewardsManagerExecuteMsg, token::DenomMetadata,
-    validatorset::ExecuteMsg as ValidatorSetExecuteMsg,
-    withdrawal_manager::ExecuteMsg as WithdrawalManagerExecuteMsg,
+use drop_staking_base::{
+    msg::{
+        core::{ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg},
+        distribution::InstantiateMsg as DistributionInstantiateMsg,
+        pump::InstantiateMsg as RewardsPumpInstantiateMsg,
+        puppeteer::{ExecuteMsg as PuppeteerExecuteMsg, InstantiateMsg as PuppeteerInstantiateMsg},
+        rewards_manager::{
+            ExecuteMsg as RewardsManagerExecuteMsg, InstantiateMsg as RewardsManagerInstantiateMsg,
+        },
+        splitter::InstantiateMsg as SplitterInstantiateMsg,
+        staker::InstantiateMsg as StakerInstantiateMsg,
+        strategy::InstantiateMsg as StrategyInstantiateMsg,
+        token::{DenomMetadata, InstantiateMsg as TokenInstantiateMsg},
+        validatorset::{
+            ExecuteMsg as ValidatorSetExecuteMsg, InstantiateMsg as ValidatorsSetInstantiateMsg,
+        },
+        withdrawal_manager::{
+            ExecuteMsg as WithdrawalManagerExecuteMsg,
+            InstantiateMsg as WithdrawalManagerInstantiateMsg,
+        },
+        withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
+    },
+    state::{pump::PumpTimeout, splitter::Config as SplitterConfig},
 };
 
 fn get_default_factory_state() -> State {
@@ -133,6 +151,346 @@ fn test_instantiate() {
         instantiate_msg,
     )
     .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new()
+            .add_submessages(vec![
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Instantiate2 {
+                        admin: Some("core_contract".to_string()),
+                        code_id: 0,
+                        label: "drop-staking-token".to_string(),
+                        msg: to_json_binary(&TokenInstantiateMsg {
+                            core_address: "some_humanized_address".to_string(),
+                            subdenom: "subdenom".to_string(),
+                            token_metadata: DenomMetadata {
+                                exponent: 6,
+                                display: "drop".to_string(),
+                                name: "Drop Token".to_string(),
+                                description: "Drop Token used for testing".to_string(),
+                                symbol: "DROP".to_string(),
+                                uri: None,
+                                uri_hash: None,
+                            },
+                            owner: "core_contract".to_string()
+                        })
+                        .unwrap(),
+                        funds: vec![],
+                        salt: cosmwasm_std::Binary::from("salt".as_bytes())
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Instantiate2 {
+                        admin: Some("core_contract".to_string()),
+                        code_id: 0,
+                        label: "validators set".to_string(),
+                        msg: to_json_binary(&ValidatorsSetInstantiateMsg {
+                            owner: "core_contract".to_string(),
+                            stats_contract: "neutron1x69dz0c0emw8m2c6kp5v6c08kgjxmu30f4a8w5"
+                                .to_string()
+                        })
+                        .unwrap(),
+                        funds: vec![],
+                        salt: cosmwasm_std::Binary::from("salt".as_bytes())
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Instantiate2 {
+                        admin: Some("core_contract".to_string()),
+                        code_id: 0,
+                        label: "distribution".to_string(),
+                        msg: to_json_binary(&DistributionInstantiateMsg {}).unwrap(),
+                        funds: vec![],
+                        salt: cosmwasm_std::Binary::from("salt".as_bytes())
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Instantiate2 {
+                        admin: Some("core_contract".to_string()),
+                        code_id: 0,
+                        label: "drop-staking-puppeteer".to_string(),
+                        msg: to_json_binary(&PuppeteerInstantiateMsg {
+                            connection_id: "connection-0".to_string(),
+                            port_id: "transfer".to_string(),
+                            update_period: 0,
+                            remote_denom: "denom".to_string(),
+                            owner: Some("core_contract".to_string()),
+                            allowed_senders: vec![
+                                "some_humanized_address".to_string(),
+                                "core_contract".to_string()
+                            ],
+                            transfer_channel_id: "channel-0".to_string(),
+                            sdk_version: "sdk-version".to_string(),
+                            timeout: 0,
+                            delegations_queries_chunk_size: None
+                        })
+                        .unwrap(),
+                        funds: vec![],
+                        salt: cosmwasm_std::Binary::from("salt".as_bytes())
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Instantiate2 {
+                        admin: Some("core_contract".to_string()),
+                        code_id: 0,
+                        label: "drop-staking-staker".to_string(),
+                        msg: to_json_binary(&StakerInstantiateMsg {
+                            connection_id: "connection-0".to_string(),
+                            port_id: "transfer".to_string(),
+                            timeout: 0,
+                            remote_denom: "denom".to_string(),
+                            base_denom: "base_denom".to_string(),
+                            transfer_channel_id: "channel-0".to_string(),
+                            owner: Some("core_contract".to_string()),
+                            allowed_senders: vec!["some_humanized_address".to_string()],
+                            min_ibc_transfer: Uint128::from(0u64),
+                            min_staking_amount: Uint128::from(0u64)
+                        })
+                        .unwrap(),
+                        funds: vec![],
+                        salt: cosmwasm_std::Binary::from("salt".as_bytes())
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Instantiate2 {
+                        admin: Some("core_contract".to_string()),
+                        code_id: 0,
+                        label: "strategy".to_string(),
+                        msg: to_json_binary(&StrategyInstantiateMsg {
+                            owner: "core_contract".to_string(),
+                            puppeteer_address: "some_humanized_address".to_string(),
+                            validator_set_address: "some_humanized_address".to_string(),
+                            distribution_address: "some_humanized_address".to_string(),
+                            denom: "denom".to_string()
+                        })
+                        .unwrap(),
+                        funds: vec![],
+                        salt: cosmwasm_std::Binary::from("salt".as_bytes())
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Instantiate2 {
+                        admin: Some("core_contract".to_string()),
+                        code_id: 0,
+                        label: "drop-staking-core".to_string(),
+                        msg: to_json_binary(&CoreInstantiateMsg {
+                            token_contract: "some_humanized_address".to_string(),
+                            puppeteer_contract: "some_humanized_address".to_string(),
+                            strategy_contract: "some_humanized_address".to_string(),
+                            staker_contract: "some_humanized_address".to_string(),
+                            withdrawal_voucher_contract: "some_humanized_address".to_string(),
+                            withdrawal_manager_contract: "some_humanized_address".to_string(),
+                            validators_set_contract: "some_humanized_address".to_string(),
+                            base_denom: "base_denom".to_string(),
+                            remote_denom: "denom".to_string(),
+                            lsm_min_bond_amount: Uint128::from(0u64),
+                            lsm_redeem_threshold: 0,
+                            lsm_redeem_max_interval: 0,
+                            idle_min_interval: 0,
+                            unbonding_period: 0,
+                            unbonding_safe_period: 0,
+                            unbond_batch_switch_time: 0,
+                            bond_limit: Some(Uint128::from(0u64)),
+                            pump_ica_address: None,
+                            transfer_channel_id: "channel-0".to_string(),
+                            owner: "core_contract".to_string(),
+                            emergency_address: None,
+                            min_stake_amount: Uint128::from(0u64),
+                            icq_update_delay: 0
+                        })
+                        .unwrap(),
+                        funds: vec![],
+                        salt: cosmwasm_std::Binary::from("salt".as_bytes())
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Instantiate2 {
+                        admin: Some("core_contract".to_string()),
+                        code_id: 0,
+                        label: "drop-staking-withdrawal-voucher".to_string(),
+                        msg: to_json_binary(&WithdrawalVoucherInstantiateMsg {
+                            name: "Drop Voucher".to_string(),
+                            symbol: "DROPV".to_string(),
+                            minter: "some_humanized_address".to_string(),
+                        })
+                        .unwrap(),
+                        funds: vec![],
+                        salt: cosmwasm_std::Binary::from("salt".as_bytes())
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Instantiate2 {
+                        admin: Some("core_contract".to_string()),
+                        code_id: 0,
+                        label: "drop-staking-withdrawal-manager".to_string(),
+                        msg: to_json_binary(&WithdrawalManagerInstantiateMsg {
+                            core_contract: "some_humanized_address".to_string(),
+                            voucher_contract: "some_humanized_address".to_string(),
+                            base_denom: "base_denom".to_string(),
+                            owner: "core_contract".to_string()
+                        })
+                        .unwrap(),
+                        funds: vec![],
+                        salt: cosmwasm_std::Binary::from("salt".as_bytes())
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Instantiate2 {
+                        admin: Some("core_contract".to_string()),
+                        code_id: 0,
+                        label: "drop-staking-rewards-manager".to_string(),
+                        msg: to_json_binary(&RewardsManagerInstantiateMsg {
+                            owner: "core_contract".to_string()
+                        })
+                        .unwrap(),
+                        funds: vec![],
+                        salt: cosmwasm_std::Binary::from("salt".as_bytes())
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Instantiate2 {
+                        admin: Some("core_contract".to_string()),
+                        code_id: 0,
+                        label: "drop-staking-splitter".to_string(),
+                        msg: to_json_binary(&SplitterInstantiateMsg {
+                            config: SplitterConfig {
+                                receivers: vec![
+                                    (
+                                        "some_humanized_address".to_string(),
+                                        Uint128::from(10000u64)
+                                    ),
+                                    ("fee_address".to_string(), Uint128::from(0u64))
+                                ],
+                                denom: "base_denom".to_string()
+                            }
+                        })
+                        .unwrap(),
+                        funds: vec![],
+                        salt: cosmwasm_std::Binary::from("salt".as_bytes())
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Instantiate2 {
+                        admin: Some("core_contract".to_string()),
+                        code_id: 0,
+                        label: "drop-staking-rewards-pump".to_string(),
+                        msg: to_json_binary(&RewardsPumpInstantiateMsg {
+                            dest_address: Some("some_humanized_address".to_string()),
+                            dest_channel: Some("channel-0".to_string()),
+                            dest_port: Some("transfer".to_string()),
+                            connection_id: "connection-0".to_string(),
+                            refundee: None,
+                            timeout: PumpTimeout {
+                                local: Some(0),
+                                remote: 0
+                            },
+                            local_denom: "local-denom".to_string(),
+                            owner: Some("core_contract".to_string())
+                        })
+                        .unwrap(),
+                        funds: vec![],
+                        salt: cosmwasm_std::Binary::from("salt".as_bytes())
+                    }
+                )),
+            ])
+            .add_event(
+                cosmwasm_std::Event::new("crates.io:drop-staking__drop-factory-instantiate")
+                    .add_attributes(vec![
+                        cosmwasm_std::attr("action", "init"),
+                        cosmwasm_std::attr("base_denom", "base_denom"),
+                        cosmwasm_std::attr("sdk_version", "sdk-version"),
+                        cosmwasm_std::attr("salt", "salt"),
+                        cosmwasm_std::attr(
+                            "code_ids",
+                            format!(
+                                "{:?}",
+                                CodeIds {
+                                    token_code_id: 0,
+                                    core_code_id: 0,
+                                    puppeteer_code_id: 0,
+                                    staker_code_id: 0,
+                                    withdrawal_voucher_code_id: 0,
+                                    withdrawal_manager_code_id: 0,
+                                    strategy_code_id: 0,
+                                    validators_set_code_id: 0,
+                                    distribution_code_id: 0,
+                                    rewards_manager_code_id: 0,
+                                    rewards_pump_code_id: 0,
+                                    splitter_code_id: 0,
+                                }
+                            )
+                        ),
+                        cosmwasm_std::attr(
+                            "remote_opts",
+                            format!(
+                                "{:?}",
+                                RemoteOpts {
+                                    denom: "denom".to_string(),
+                                    update_period: 0,
+                                    connection_id: "connection-0".to_string(),
+                                    port_id: "transfer".to_string(),
+                                    transfer_channel_id: "channel-0".to_string(),
+                                    reverse_transfer_channel_id: "channel-0".to_string(),
+                                    timeout: Timeout {
+                                        local: 0,
+                                        remote: 0,
+                                    },
+                                }
+                            )
+                        ),
+                        cosmwasm_std::attr("owner", "owner"),
+                        cosmwasm_std::attr("subdenom", "subdenom"),
+                        cosmwasm_std::attr(
+                            "token_address",
+                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                        ),
+                        cosmwasm_std::attr(
+                            "core_address",
+                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                        ),
+                        cosmwasm_std::attr(
+                            "puppeteer_address",
+                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                        ),
+                        cosmwasm_std::attr(
+                            "staker_address",
+                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                        ),
+                        cosmwasm_std::attr(
+                            "withdrawal_voucher_address",
+                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                        ),
+                        cosmwasm_std::attr(
+                            "withdrawal_manager_address",
+                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                        ),
+                        cosmwasm_std::attr(
+                            "strategy_address",
+                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                        ),
+                        cosmwasm_std::attr(
+                            "validators_set_address",
+                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                        ),
+                        cosmwasm_std::attr(
+                            "distribution_address",
+                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                        ),
+                        cosmwasm_std::attr(
+                            "rewards_manager_address",
+                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                        ),
+                        cosmwasm_std::attr(
+                            "splitter_address",
+                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                        ),
+                        cosmwasm_std::attr(
+                            "rewards_pump_address",
+                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                        ),
+                    ])
+            )
+    )
 }
 
 #[test]
