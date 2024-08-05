@@ -1,10 +1,7 @@
 use crate::{
-    contract::{execute, query},
-    msg::{
-        CoreMsg, CoreParams, ExecuteMsg, InstantiateMsg, ProxyMsg, QueryMsg, StakerParams,
-        UpdateConfigMsg, ValidatorSetMsg,
-    },
-    state::{CodeIds, RemoteOpts, State, Timeout, STATE},
+    contract::execute,
+    msg::{CoreMsg, ExecuteMsg, ProxyMsg, UpdateConfigMsg, ValidatorSetMsg},
+    state::{State, STATE},
 };
 use cosmwasm_std::{
     attr,
