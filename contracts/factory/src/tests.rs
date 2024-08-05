@@ -14,8 +14,27 @@ use cosmwasm_std::{
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::msg::{
     core::ExecuteMsg as CoreExecuteMsg, puppeteer::ExecuteMsg as PuppeteerExecuteMsg,
+    rewards_manager::ExecuteMsg as RewardsManagerExecuteMsg,
     validatorset::ExecuteMsg as ValidatorSetExecuteMsg,
+    withdrawal_manager::ExecuteMsg as WithdrawalManagerExecuteMsg,
 };
+
+fn get_default_factory_state() -> State {
+    State {
+        token_contract: "token_contract".to_string(),
+        core_contract: "core_contract".to_string(),
+        puppeteer_contract: "puppeteer_contract".to_string(),
+        staker_contract: "staker_contract".to_string(),
+        withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
+        withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
+        strategy_contract: "strategy_contract".to_string(),
+        validators_set_contract: "validators_set_contract".to_string(),
+        distribution_contract: "distribution_contract".to_string(),
+        rewards_manager_contract: "rewards_manager_contract".to_string(),
+        rewards_pump_contract: "rewards_pump_contract".to_string(),
+        splitter_contract: "splitter_contract".to_string(),
+    }
+}
 
 #[test]
 fn test_update_config() {
@@ -23,23 +42,7 @@ fn test_update_config() {
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     STATE
-        .save(
-            deps_mut.storage,
-            &State {
-                token_contract: "token_contract1".to_string(),
-                core_contract: "core_contract1".to_string(),
-                puppeteer_contract: "puppeteer_contract1".to_string(),
-                staker_contract: "staker_contract1".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract1".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract1".to_string(),
-                strategy_contract: "strategy_contract1".to_string(),
-                validators_set_contract: "validators_set_contract1".to_string(),
-                distribution_contract: "distribution_contract1".to_string(),
-                rewards_manager_contract: "rewards_manager_contract1".to_string(),
-                rewards_pump_contract: "rewards_pump_contract1".to_string(),
-                splitter_contract: "splitter_contract1".to_string(),
-            },
-        )
+        .save(deps_mut.storage, &get_default_factory_state())
         .unwrap();
     {
         let new_core_config = drop_staking_base::state::core::ConfigOptional {
@@ -86,7 +89,7 @@ fn test_update_config() {
                 )
                 .add_submessages(vec![cosmwasm_std::SubMsg::new(
                     cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "core_contract1".to_string(),
+                        contract_addr: "core_contract".to_string(),
                         msg: to_json_binary(&CoreExecuteMsg::UpdateConfig {
                             new_config: Box::new(new_core_config.clone())
                         })
@@ -98,7 +101,7 @@ fn test_update_config() {
     }
     {
         let new_validator_set_config = drop_staking_base::state::validatorset::ConfigOptional {
-            stats_contract: Some("validator_stats_contract1".to_string()),
+            stats_contract: Some("validator_stats_contract".to_string()),
             provider_proposals_contract: Some("provider_proposals_contract1".to_string()),
         };
         let res = execute(
@@ -121,7 +124,7 @@ fn test_update_config() {
                 )
                 .add_submessages(vec![cosmwasm_std::SubMsg::new(
                     cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "validators_set_contract1".to_string(),
+                        contract_addr: "validators_set_contract".to_string(),
                         msg: to_json_binary(&ValidatorSetExecuteMsg::UpdateConfig {
                             new_config: new_validator_set_config.clone()
                         })
@@ -139,23 +142,7 @@ fn test_proxy() {
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     STATE
-        .save(
-            deps_mut.storage,
-            &State {
-                token_contract: "token_contract1".to_string(),
-                core_contract: "core_contract1".to_string(),
-                puppeteer_contract: "puppeteer_contract1".to_string(),
-                staker_contract: "staker_contract1".to_string(),
-                withdrawal_voucher_contract: "withdrawal_voucher_contract1".to_string(),
-                withdrawal_manager_contract: "withdrawal_manager_contract1".to_string(),
-                strategy_contract: "strategy_contract1".to_string(),
-                validators_set_contract: "validators_set_contract1".to_string(),
-                distribution_contract: "distribution_contract1".to_string(),
-                rewards_manager_contract: "rewards_manager_contract1".to_string(),
-                rewards_pump_contract: "rewards_pump_contract1".to_string(),
-                splitter_contract: "splitter_contract1".to_string(),
-            },
-        )
+        .save(deps_mut.storage, &get_default_factory_state())
         .unwrap();
     {
         let res = execute(
@@ -184,7 +171,7 @@ fn test_proxy() {
                 .add_submessages(vec![
                     cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                         cosmwasm_std::WasmMsg::Execute {
-                            contract_addr: "validators_set_contract1".to_string(),
+                            contract_addr: "validators_set_contract".to_string(),
                             msg: to_json_binary(&ValidatorSetExecuteMsg::UpdateValidators {
                                 validators: vec![
                                     drop_staking_base::msg::validatorset::ValidatorData {
@@ -203,7 +190,7 @@ fn test_proxy() {
                     )),
                     cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                         cosmwasm_std::WasmMsg::Execute {
-                            contract_addr: "puppeteer_contract1".to_string(),
+                            contract_addr: "puppeteer_contract".to_string(),
                             msg: to_json_binary(
                                 &PuppeteerExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
                                     validators: vec![
@@ -238,7 +225,7 @@ fn test_proxy() {
             cosmwasm_std::Response::new()
                 .add_submessage(cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "core_contract1".to_string(),
+                        contract_addr: "core_contract".to_string(),
                         msg: to_json_binary(&CoreExecuteMsg::Pause {}).unwrap(),
                         funds: vec![]
                     }
@@ -264,7 +251,7 @@ fn test_proxy() {
             cosmwasm_std::Response::new()
                 .add_submessage(cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "core_contract1".to_string(),
+                        contract_addr: "core_contract".to_string(),
                         msg: to_json_binary(&CoreExecuteMsg::Unpause {}).unwrap(),
                         funds: vec![]
                     }
@@ -342,6 +329,112 @@ fn test_admin_execute() {
                     "crates.io:drop-staking__drop-factory-execute-admin".to_string()
                 )
                 .add_attribute("action".to_string(), "admin-execute".to_string())
+            )
+    )
+}
+
+#[test]
+fn test_pause() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    STATE
+        .save(deps.as_mut().storage, &get_default_factory_state())
+        .unwrap();
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::Pause {},
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new()
+            .add_submessages(vec![
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Execute {
+                        contract_addr: "core_contract".to_string(),
+                        msg: to_json_binary(&CoreExecuteMsg::Pause {}).unwrap(),
+                        funds: vec![]
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Execute {
+                        contract_addr: "withdrawal_manager_contract".to_string(),
+                        msg: to_json_binary(&WithdrawalManagerExecuteMsg::Pause {}).unwrap(),
+                        funds: vec![]
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Execute {
+                        contract_addr: "rewards_manager_contract".to_string(),
+                        msg: to_json_binary(&RewardsManagerExecuteMsg::Pause {}).unwrap(),
+                        funds: vec![]
+                    }
+                ))
+            ])
+            .add_event(
+                cosmwasm_std::Event::new(
+                    "crates.io:drop-staking__drop-factory-execute-pause".to_string()
+                )
+                .add_attributes(vec![cosmwasm_std::attr(
+                    "action".to_string(),
+                    "pause".to_string()
+                )])
+            )
+    )
+}
+
+#[test]
+fn test_unpause() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    STATE
+        .save(deps.as_mut().storage, &get_default_factory_state())
+        .unwrap();
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::Unpause {},
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new()
+            .add_submessages(vec![
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Execute {
+                        contract_addr: "core_contract".to_string(),
+                        msg: to_json_binary(&CoreExecuteMsg::Unpause {}).unwrap(),
+                        funds: vec![]
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Execute {
+                        contract_addr: "rewards_manager_contract".to_string(),
+                        msg: to_json_binary(&RewardsManagerExecuteMsg::Unpause {}).unwrap(),
+                        funds: vec![]
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Execute {
+                        contract_addr: "withdrawal_manager_contract".to_string(),
+                        msg: to_json_binary(&WithdrawalManagerExecuteMsg::Unpause {}).unwrap(),
+                        funds: vec![]
+                    }
+                ))
+            ])
+            .add_event(
+                cosmwasm_std::Event::new(
+                    "crates.io:drop-staking__drop-factory-execute-unpause".to_string()
+                )
+                .add_attributes(vec![cosmwasm_std::attr(
+                    "action".to_string(),
+                    "unpause".to_string()
+                )])
             )
     )
 }
