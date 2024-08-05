@@ -7,8 +7,8 @@ use std::marker::PhantomData;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage};
 use cosmwasm_std::{
-    from_json, Binary, Coin, ContractResult, CustomQuery, OwnedDeps, Querier, QuerierResult,
-    QueryRequest, SystemError, SystemResult, Uint128,
+    from_json, to_json_binary, Binary, Coin, ContractResult, CustomQuery, OwnedDeps, Querier,
+    QuerierResult, QueryRequest, SystemError, SystemResult, Uint128,
 };
 
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -119,31 +119,59 @@ impl WasmMockQuerier {
                     SystemResult::Ok(ContractResult::Ok(response(request)))
                 }
             },
-            QueryRequest::Wasm(cosmwasm_std::WasmQuery::Smart { contract_addr, msg }) => {
-                let mut wasm_query_responses = self.wasm_query_responses.borrow_mut();
-                let responses = match wasm_query_responses.get_mut(contract_addr) {
-                    None => Err(SystemError::UnsupportedRequest {
-                        kind: format!(
-                            "Wasm contract {} query is not mocked. Query {}",
-                            contract_addr,
-                            String::from_utf8(msg.0.clone()).unwrap()
-                        ),
-                    }),
-                    Some(responses) => Ok(responses),
+            QueryRequest::Wasm(wasm_query) => match wasm_query {
+                cosmwasm_std::WasmQuery::Smart { contract_addr, msg } => {
+                    let mut wasm_query_responses = self.wasm_query_responses.borrow_mut();
+                    let responses = match wasm_query_responses.get_mut(contract_addr) {
+                        None => Err(SystemError::UnsupportedRequest {
+                            kind: format!(
+                                "Wasm contract {} query is not mocked. Query {}",
+                                contract_addr,
+                                String::from_utf8(msg.0.clone()).unwrap()
+                            ),
+                        }),
+                        Some(responses) => Ok(responses),
+                    }
+                    .unwrap();
+                    if responses.is_empty() {
+                        return SystemResult::Err(SystemError::UnsupportedRequest {
+                            kind: format!(
+                                "Wasm contract {} query is not mocked. Query {}",
+                                contract_addr,
+                                String::from_utf8(msg.0.clone()).unwrap()
+                            ),
+                        });
+                    }
+                    let response = responses.remove(0);
+                    SystemResult::Ok(ContractResult::Ok(response(msg)))
                 }
-                .unwrap();
-                if responses.is_empty() {
-                    return SystemResult::Err(SystemError::UnsupportedRequest {
-                        kind: format!(
-                            "Wasm contract {} query is not mocked. Query {}",
-                            contract_addr,
-                            String::from_utf8(msg.0.clone()).unwrap()
-                        ),
-                    });
+                cosmwasm_std::WasmQuery::CodeInfo { code_id } => {
+                    let mut stargate_query_responses = self.stargate_query_responses.borrow_mut();
+                    let responses = match stargate_query_responses
+                        .get_mut("/cosmos.wasm.v1.Query/QueryCodeRequest")
+                    {
+                        None => Err(SystemError::UnsupportedRequest {
+                            kind: format!(
+                                "Stargate query is not mocked. Path: {} Data {}",
+                                "/cosmos.wasm.v1.Query/QueryCodeRequest", code_id
+                            ),
+                        }),
+                        Some(responses) => Ok(responses),
+                    }
+                    .unwrap();
+                    if responses.is_empty() {
+                        return SystemResult::Err(SystemError::UnsupportedRequest {
+                            kind: "No such mocked queries found".to_string(),
+                        });
+                    }
+                    SystemResult::Ok(ContractResult::Ok(responses[0](
+                        &to_json_binary(&code_id).unwrap(),
+                    )))
                 }
-                let response = responses.remove(0);
-                SystemResult::Ok(ContractResult::Ok(response(msg)))
-            }
+                _ => SystemResult::Err(SystemError::UnsupportedRequest {
+                    kind: format!("Unsupported wasm request given"),
+                }),
+            },
             _ => self.base.handle_query(request),
         }
     }

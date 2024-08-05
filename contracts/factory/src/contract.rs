@@ -168,8 +168,10 @@ pub fn instantiate(
         "rewards_pump_address",
         rewards_pump_address.to_string(),
     ));
-
+    println!("{:?}", core_address.len());
+    println!("mark, {:?} {:?}", core_address, canonical_self_address);
     let core_contract = deps.api.addr_humanize(&core_address)?.to_string();
+    println!("mark");
     let token_contract = deps.api.addr_humanize(&token_address)?.to_string();
     let withdrawal_voucher_contract = deps
         .api
