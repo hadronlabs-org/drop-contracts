@@ -167,10 +167,7 @@ pub fn instantiate(
         "rewards_pump_address",
         rewards_pump_address.to_string(),
     ));
-    println!("{:?}", core_address.len());
-    println!("mark, {:?} {:?}", core_address, canonical_self_address);
     let core_contract = deps.api.addr_humanize(&core_address)?.to_string();
-    println!("mark");
     let token_contract = deps.api.addr_humanize(&token_address)?.to_string();
     let withdrawal_voucher_contract = deps
         .api
@@ -194,7 +191,6 @@ pub fn instantiate(
         .to_string();
     let rewards_pump_contract = deps.api.addr_humanize(&rewards_pump_address)?.to_string();
     let splitter_contract = deps.api.addr_humanize(&splitter_address)?.to_string();
-
     let state = State {
         token_contract: token_contract.to_string(),
         core_contract: core_contract.to_string(),
