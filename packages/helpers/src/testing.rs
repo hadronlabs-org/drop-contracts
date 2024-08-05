@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage};
+use cosmwasm_std::testing::{MockQuerier, MockStorage};
 use cosmwasm_std::{
-    from_json, to_json_binary, Binary, Coin, ContractResult, CustomQuery, OwnedDeps, Querier,
+    from_json, to_json_binary, Api, Binary, Coin, ContractResult, CustomQuery, OwnedDeps, Querier,
     QuerierResult, QueryRequest, SystemError, SystemResult, Uint128,
 };
 
@@ -21,6 +21,73 @@ pub struct CustomQueryWrapper {}
 // implement custom query
 impl CustomQuery for CustomQueryWrapper {}
 
+#[derive(Clone)]
+pub struct MockApi {}
+
+impl Api for MockApi {
+    fn addr_validate(&self, _input: &str) -> cosmwasm_std::StdResult<cosmwasm_std::Addr> {
+        Ok(cosmwasm_std::Addr::unchecked("some_address".to_string()))
+    }
+
+    fn addr_canonicalize(
+        &self,
+        _input: &str,
+    ) -> cosmwasm_std::StdResult<cosmwasm_std::CanonicalAddr> {
+        Ok(cosmwasm_std::CanonicalAddr::from(
+            "some_canonical_address".as_bytes(),
+        ))
+    }
+
+    fn addr_humanize(
+        &self,
+        _canonical: &cosmwasm_std::CanonicalAddr,
+    ) -> cosmwasm_std::StdResult<cosmwasm_std::Addr> {
+        Ok(cosmwasm_std::Addr::unchecked(
+            "some_humanized_address".to_string(),
+        ))
+    }
+
+    fn secp256k1_verify(
+        &self,
+        _message_hash: &[u8],
+        _signature: &[u8],
+        _public_key: &[u8],
+    ) -> Result<bool, cosmwasm_std::VerificationError> {
+        Ok(true)
+    }
+
+    fn secp256k1_recover_pubkey(
+        &self,
+        _message_hash: &[u8],
+        _signature: &[u8],
+        _recovery_param: u8,
+    ) -> Result<Vec<u8>, cosmwasm_std::RecoverPubkeyError> {
+        Ok(vec![])
+    }
+
+    fn ed25519_verify(
+        &self,
+        _message: &[u8],
+        _signature: &[u8],
+        _public_key: &[u8],
+    ) -> Result<bool, cosmwasm_std::VerificationError> {
+        Ok(true)
+    }
+
+    fn ed25519_batch_verify(
+        &self,
+        _messages: &[&[u8]],
+        _signatures: &[&[u8]],
+        _public_keys: &[&[u8]],
+    ) -> Result<bool, cosmwasm_std::VerificationError> {
+        Ok(true)
+    }
+
+    fn debug(&self, message: &str) {
+        println!("{message}");
+    }
+}
+
 pub fn mock_dependencies(
     contract_balance: &[Coin],
 ) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier, NeutronQuery> {
@@ -30,7 +97,7 @@ pub fn mock_dependencies(
 
     OwnedDeps {
         storage: MockStorage::default(),
-        api: MockApi::default(),
+        api: MockApi {},
         querier: custom_querier,
         custom_query_type: PhantomData,
     }
