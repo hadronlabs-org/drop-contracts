@@ -9,7 +9,7 @@ use crate::{
 use cosmwasm_std::{
     attr,
     testing::{mock_env, mock_info},
-    to_json_binary, Uint128,
+    to_json_binary, BankMsg, Uint128,
 };
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::msg::{
@@ -277,4 +277,71 @@ fn test_proxy() {
                 )
         )
     }
+}
+
+#[test]
+fn test_admin_execute() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::AdminExecute {
+            msgs: vec![
+                cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
+                    contract_addr: "core_contract".to_string(),
+                    msg: to_json_binary(&CoreExecuteMsg::Pause {}).unwrap(),
+                    funds: vec![],
+                }),
+                cosmwasm_std::CosmosMsg::Bank(BankMsg::Send {
+                    to_address: "somebody".to_string(),
+                    amount: vec![
+                        cosmwasm_std::Coin {
+                            denom: "denom1".to_string(),
+                            amount: Uint128::from(10u64),
+                        },
+                        cosmwasm_std::Coin {
+                            denom: "denom2".to_string(),
+                            amount: Uint128::from(10u64),
+                        },
+                    ],
+                }),
+            ],
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new()
+            .add_submessage(cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                cosmwasm_std::WasmMsg::Execute {
+                    contract_addr: "core_contract".to_string(),
+                    msg: to_json_binary(&CoreExecuteMsg::Pause {}).unwrap(),
+                    funds: vec![]
+                }
+            )))
+            .add_submessage(cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Bank(
+                cosmwasm_std::BankMsg::Send {
+                    to_address: "somebody".to_string(),
+                    amount: vec![
+                        cosmwasm_std::Coin {
+                            denom: "denom1".to_string(),
+                            amount: Uint128::from(10u64),
+                        },
+                        cosmwasm_std::Coin {
+                            denom: "denom2".to_string(),
+                            amount: Uint128::from(10u64),
+                        }
+                    ]
+                }
+            )))
+            .add_event(
+                cosmwasm_std::Event::new(
+                    "crates.io:drop-staking__drop-factory-execute-admin".to_string()
+                )
+                .add_attribute("action".to_string(), "admin-execute".to_string())
+            )
+    )
 }
