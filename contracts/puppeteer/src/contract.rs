@@ -456,6 +456,7 @@ fn register_delegations_and_balance_query(
             puppeteer_base
                 .delegations_and_balances_query_id_chunk
                 .remove(deps.storage, *query_id);
+            puppeteer_base.kv_queries.remove(deps.storage, *query_id);
             NeutronMsg::remove_interchain_query(*query_id)
         })
         .collect::<Vec<_>>();
@@ -479,6 +480,7 @@ fn register_delegations_and_balance_query(
             ReplyMsg::KvDelegationsAndBalance { i: i as u16 }.to_reply_id(),
         ));
     }
+
     Ok(Response::new()
         .add_messages(messages)
         .add_submessages(submessages))
