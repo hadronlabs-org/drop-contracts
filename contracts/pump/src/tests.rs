@@ -65,11 +65,25 @@ fn test_instantiate() {
     );
     let config = CONFIG.load(deps.as_ref().storage).unwrap();
     assert_eq!(config, get_default_config());
-    let owner = cw_ownable::get_ownership(deps.as_ref().storage)
-        .unwrap()
-        .owner
+    {
+        let owner: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
+            query(
+                deps.as_ref().into_empty(),
+                mock_env(),
+                drop_staking_base::msg::pump::QueryMsg::Ownership {},
+            )
+            .unwrap(),
+        )
         .unwrap();
-    assert_eq!(owner, Addr::unchecked("owner"));
+        assert_eq!(owner.owner.clone().unwrap(), Addr::unchecked("owner"));
+        assert_eq!(
+            owner.owner.unwrap(),
+            cw_ownable::get_ownership(deps.as_ref().storage)
+                .unwrap()
+                .owner
+                .unwrap()
+        )
+    }
 }
 
 #[test]
