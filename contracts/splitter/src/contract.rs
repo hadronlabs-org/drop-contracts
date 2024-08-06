@@ -18,6 +18,7 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> ContractResult<Response> {
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(info.sender.as_str()))?;
+    verify_config(deps.as_ref(), &msg.config)?;
     CONFIG.save(deps.storage, &msg.config)?;
     Ok(Response::default())
 }
@@ -60,6 +61,7 @@ pub fn execute_update_config(
     new_config: Config,
 ) -> ContractResult<Response> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
+    verify_config(deps.as_ref(), &new_config)?;
     CONFIG.save(deps.storage, &new_config)?;
     Ok(Response::default())
 }
@@ -106,4 +108,14 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> ContractResult<Res
     }
 
     Ok(Response::new())
+}
+
+fn verify_config(deps: Deps, config: &Config) -> ContractResult<()> {
+    for (receiver, weight) in config.receivers.iter() {
+        deps.api.addr_validate(receiver)?;
+        if weight.is_zero() {
+            return Err(ContractError::ZeroShare {});
+        }
+    }
+    Ok(())
 }
