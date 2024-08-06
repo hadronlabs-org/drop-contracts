@@ -17,6 +17,7 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> ContractResult<Response> {
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(info.sender.as_str()))?;
     verify_config(deps.as_ref(), &msg.config)?;
     CONFIG.save(deps.storage, &msg.config)?;
