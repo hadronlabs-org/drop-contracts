@@ -7,7 +7,7 @@ use crate::{
     state::{CodeIds, RemoteOpts, State, Timeout, STATE},
 };
 use cosmwasm_std::{
-    attr,
+    attr, from_json,
     testing::{mock_env, mock_info},
     to_json_binary, BankMsg, Uint128,
 };
@@ -63,11 +63,13 @@ fn test_instantiate() {
         .unwrap();
     deps.querier.add_stargate_query_response(
         "/cosmos.wasm.v1.Query/QueryCodeRequest",
-        |_| -> cosmwasm_std::Binary {
+        |data| -> cosmwasm_std::Binary {
+            let mut y = vec![0; 32];
+            y[..data.len()].copy_from_slice(&data);
             to_json_binary(&cosmwasm_std::CodeInfoResponse::new(
-                100u64,
+                from_json(data).unwrap(),
                 "creator".to_string(),
-                cosmwasm_std::HexBinary::from(&[0; 32]),
+                cosmwasm_std::HexBinary::from(y.as_slice()),
             ))
             .unwrap()
         },
@@ -442,51 +444,51 @@ fn test_instantiate() {
                         cosmwasm_std::attr("subdenom", "subdenom"),
                         cosmwasm_std::attr(
                             "token_address",
-                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                            "A7AC526557FF685BC20199FC5C34CA4C8F2F5F8ABD4A288D161AD115DC06708A"
                         ),
                         cosmwasm_std::attr(
                             "core_address",
-                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                            "A860CB6CD2DF829AA650D1F195E8A5F4B73BC72DD65FFC2B98D83C8DCB24D3C2"
                         ),
                         cosmwasm_std::attr(
                             "puppeteer_address",
-                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                            "DDB91F7195F3A00683CEF315BF38988FEE4AB7B00518F795E5477EF17928574E"
                         ),
                         cosmwasm_std::attr(
                             "staker_address",
-                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                            "186C6D9A24AD6C14B6CDC4E8636FCC3564F17691116D96A533C0D3E5B8EB7099"
                         ),
                         cosmwasm_std::attr(
                             "withdrawal_voucher_address",
-                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                            "2EDC9F3CA74FEE8C9C97C5804C5E44B684380772A0C7CFC7FEB14843D437AADD"
                         ),
                         cosmwasm_std::attr(
                             "withdrawal_manager_address",
-                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                            "9080C5A07DA3FAE670586720247E99E9CAB3DF2C79EBD967BEB03747252B97A0"
                         ),
                         cosmwasm_std::attr(
                             "strategy_address",
-                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                            "A611AB41BFB88C7F467A747DFE64B3FE6141D563131D296421B5D4E038C84B9D"
                         ),
                         cosmwasm_std::attr(
                             "validators_set_address",
-                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                            "7B4BE8580FC3E8C59FB57516384CB9E30D3707E560C11C4818D94FE2707A8A6D"
                         ),
                         cosmwasm_std::attr(
                             "distribution_address",
-                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                            "0368B2CE05A215FF095D4B598371205F6CDEAEE8A6332D233E0C6E7F099893AF"
                         ),
                         cosmwasm_std::attr(
                             "rewards_manager_address",
-                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                            "F71DD2183C67E30D7E199C9AB928419B8693183A24C2528790760290895FF118"
                         ),
                         cosmwasm_std::attr(
                             "splitter_address",
-                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                            "99F8E05523E1A4B79E291E7934CC8E306F609D5B470D9D0872925EDCA019D3C1"
                         ),
                         cosmwasm_std::attr(
                             "rewards_pump_address",
-                            "899228A98F8C9374C8FB12B9845EF6AA30B432913480FBF22CB35CF1906A0636"
+                            "6FC09E9FDF411D71139AB50762FB9862D4F519DC21EADB93E93195388E164F25"
                         ),
                     ])
             )
