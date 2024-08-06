@@ -1,9 +1,9 @@
 use crate::{
-    contract::{execute, instantiate},
+    contract::{execute, instantiate, query},
     error::ContractError,
 };
 use cosmwasm_std::{
-    coins,
+    coins, from_json,
     testing::{mock_env, mock_info},
     to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Event, Response, SubMsg,
 };
@@ -119,7 +119,16 @@ fn test_update_config() {
             ("new_config", "UpdateConfigMsg { dest_address: Some(\"new_dest_address\"), dest_channel: Some(\"new_dest_channel\"), dest_port: Some(\"new_dest_port\"), connection_id: Some(\"new_connection\"), refundee: Some(\"new_refundee\"), timeout: Some(PumpTimeout { local: Some(1), remote: 1 }), local_denom: Some(\"new_local_denom\") }")
         ]))
     );
-    let config = CONFIG.load(deps.as_ref().storage).unwrap();
+    let config: drop_staking_base::state::pump::Config = from_json(
+        query(
+            deps.as_ref().into_empty(),
+            mock_env(),
+            drop_staking_base::msg::pump::QueryMsg::Config {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(config, CONFIG.load(deps.as_ref().storage).unwrap());
     assert_eq!(
         config,
         Config {
