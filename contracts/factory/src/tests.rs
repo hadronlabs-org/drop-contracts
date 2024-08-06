@@ -65,7 +65,7 @@ fn test_instantiate() {
         "/cosmos.wasm.v1.Query/QueryCodeRequest",
         |data| -> cosmwasm_std::Binary {
             let mut y = vec![0; 32];
-            y[..data.len()].copy_from_slice(&data);
+            y[..data.len()].copy_from_slice(data);
             to_json_binary(&cosmwasm_std::CodeInfoResponse::new(
                 from_json(data).unwrap(),
                 "creator".to_string(),
