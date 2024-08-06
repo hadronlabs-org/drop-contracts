@@ -7,6 +7,7 @@ use cosmwasm_std::{
     testing::{mock_env, mock_info},
     to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Event, Response, SubMsg,
 };
+use drop_helpers::ica::IcaState;
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::state::pump::{Config, CONFIG, ICA};
 use neutron_sdk::{
@@ -166,7 +167,18 @@ fn test_register_ica_no_fee() {
         ContractError::InvalidFunds {
             reason: "missing fee in denom local_denom".to_string()
         }
+    );
+    assert_eq!(ICA.load(deps.as_ref().storage).unwrap(), IcaState::None);
+    let res: IcaState = from_json(
+        query(
+            deps.as_ref().into_empty(),
+            mock_env(),
+            drop_staking_base::msg::pump::QueryMsg::Ica {},
+        )
+        .unwrap(),
     )
+    .unwrap();
+    assert_eq!(ICA.load(deps.as_ref().storage).unwrap(), res);
 }
 
 #[test]
@@ -176,6 +188,20 @@ fn test_register_ica() {
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
     let msg = drop_staking_base::msg::pump::ExecuteMsg::RegisterICA {};
+
+    {
+        assert_eq!(ICA.load(deps.as_ref().storage).unwrap(), IcaState::None);
+        let res: IcaState = from_json(
+            query(
+                deps.as_ref().into_empty(),
+                mock_env(),
+                drop_staking_base::msg::pump::QueryMsg::Ica {},
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(ICA.load(deps.as_ref().storage).unwrap(), res);
+    }
 
     let res = execute(
         deps.as_mut(),
@@ -218,6 +244,21 @@ fn test_register_ica() {
     );
     // reopen timeouted ICA
     ICA.set_timeout(deps.as_mut().storage).unwrap();
+
+    {
+        assert_eq!(ICA.load(deps.as_ref().storage).unwrap(), IcaState::Timeout);
+        let res: IcaState = from_json(
+            query(
+                deps.as_ref().into_empty(),
+                mock_env(),
+                drop_staking_base::msg::pump::QueryMsg::Ica {},
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(ICA.load(deps.as_ref().storage).unwrap(), res);
+    }
+
     let res = execute(
         deps.as_mut(),
         mock_env(),
@@ -225,6 +266,24 @@ fn test_register_ica() {
         msg.clone(),
     )
     .unwrap();
+
+    {
+        assert_eq!(
+            ICA.load(deps.as_ref().storage).unwrap(),
+            IcaState::InProgress
+        );
+        let res: IcaState = from_json(
+            query(
+                deps.as_ref().into_empty(),
+                mock_env(),
+                drop_staking_base::msg::pump::QueryMsg::Ica {},
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(ICA.load(deps.as_ref().storage).unwrap(), res);
+    }
+
     assert_eq!(
         res,
         Response::new()
