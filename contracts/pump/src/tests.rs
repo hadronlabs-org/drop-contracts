@@ -550,6 +550,38 @@ fn test_sudo_response() {
 }
 
 #[test]
+fn test_sudo_error_fail() {
+    let mut deps = mock_dependencies(&[]);
+    let res = sudo(
+        deps.as_mut(),
+        mock_env(),
+        SudoMsg::Error {
+            request: RequestPacket {
+                sequence: None,
+                source_port: Some("transfer".to_string()),
+                source_channel: Some("channel-0".to_string()),
+                destination_port: Some("transfer".to_string()),
+                destination_channel: Some("channel-1".to_string()),
+                timeout_height: Some(RequestPacketTimeoutHeight {
+                    revision_height: Some(0u64),
+                    revision_number: Some(0u64),
+                }),
+                data: Some(Binary::from([0; 0])),
+                timeout_timestamp: Some(0u64),
+            },
+            details: "".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+            msg: "sequence not found".to_string()
+        })
+    )
+}
+
+#[test]
 fn test_sudo_error() {
     let mut deps = mock_dependencies(&[]);
     let res = sudo(
