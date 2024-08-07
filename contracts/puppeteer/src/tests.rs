@@ -1305,6 +1305,117 @@ fn test_execute_ibc_transfer() {
 }
 
 #[test]
+fn test_execute_transfer() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+    let puppeteer_ica = puppeteer_base
+        .ica
+        .get_address(deps.as_mut().storage)
+        .unwrap();
+    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
+        items: vec![
+            (
+                "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+                cosmwasm_std::Coin {
+                    denom: "uatom".to_string(),
+                    amount: Uint128::from(123u64),
+                },
+            ),
+            (
+                "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+                cosmwasm_std::Coin {
+                    denom: "uatom".to_string(),
+                    amount: Uint128::from(321u64),
+                },
+            ),
+        ],
+        reply_to: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+    };
+    let env = mock_env();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info(
+            "allowed_sender",
+            &[cosmwasm_std::Coin {
+                denom: "uatom".to_string(),
+                amount: Uint128::from(123u64),
+            }],
+        ),
+        msg.clone(),
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+            id: 65536u64,
+            msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::submit_tx(
+                "connection_id".to_string(),
+                "DROP".to_string(),
+                vec![
+                    drop_helpers::interchain::prepare_any_msg(
+                        cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSend {
+                            from_address: puppeteer_ica.clone(),
+                            to_address: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6"
+                                .to_string(),
+                            amount: vec![cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                                amount: "123".to_string(),
+                                denom: "uatom".to_string()
+                            }]
+                        },
+                        "/cosmos.bank.v1beta1.MsgSend",
+                    )
+                    .unwrap(),
+                    drop_helpers::interchain::prepare_any_msg(
+                        cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSend {
+                            from_address: puppeteer_ica.clone(),
+                            to_address: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6"
+                                .to_string(),
+                            amount: vec![cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                                amount: "321".to_string(),
+                                denom: "uatom".to_string()
+                            }]
+                        },
+                        "/cosmos.bank.v1beta1.MsgSend",
+                    )
+                    .unwrap()
+                ],
+                "".to_string(),
+                100,
+                IbcFee {
+                    recv_fee: vec![],
+                    ack_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(100u64),
+                    }],
+                    timeout_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(200u64),
+                    }]
+                }
+            )),
+            gas_limit: None,
+            reply_on: cosmwasm_std::ReplyOn::Success,
+        })
+    )
+}
+
+#[test]
 fn test_sudo_response_tx_state_wrong() {
     // Test that the contract returns an error if the tx state is not in progress
     let mut deps = mock_dependencies(&[]);
