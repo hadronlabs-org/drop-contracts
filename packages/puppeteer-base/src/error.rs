@@ -1,6 +1,7 @@
 use cosmwasm_std::{OverflowError, StdError};
 use cw_ownable::OwnershipError;
 use neutron_sdk::NeutronError;
+use prost::EncodeError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -13,6 +14,9 @@ pub enum ContractError {
 
     #[error("{0}")]
     OverflowError(#[from] OverflowError),
+
+    #[error("{0}")]
+    EncodeError(#[from] EncodeError),
 
     #[error("ICA is not registered")]
     IcaNotRegistered {},
