@@ -834,6 +834,105 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
 }
 
 #[test]
+fn test_execute_register_balance_and_delegator_delegations_query() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("owner").as_ref()),
+    )
+    .unwrap();
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+    let msg_validators = vec!["neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(); 2];
+    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery{
+        validators: msg_validators.clone()
+    };
+    {
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("not_an_owner", &[]),
+            msg.clone(),
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            drop_puppeteer_base::error::ContractError::OwnershipError(
+                cw_ownable::OwnershipError::NotOwner
+            )
+        );
+    }
+    {
+        let validators =
+            vec!["neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(); u16::MAX as usize];
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery{
+                validators: validators
+            }
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+                "Too many validators provided"
+            ))
+        );
+    }
+    {
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            msg.clone(),
+        )
+        .unwrap();
+        let puppeteer_config = puppeteer_base.config.load(deps.as_mut().storage).unwrap();
+        let puppeteer_ica = puppeteer_base
+            .ica
+            .get_address(deps.as_mut().storage)
+            .unwrap();
+        assert_eq!(
+            res,
+            cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+                id: 196608u64,
+                msg: cosmwasm_std::CosmosMsg::Custom(
+                    drop_helpers::icq::new_delegations_and_balance_query_msg(
+                        puppeteer_config.connection_id,
+                        puppeteer_ica,
+                        puppeteer_config.remote_denom,
+                        msg_validators,
+                        puppeteer_config.update_period,
+                        puppeteer_config.sdk_version.as_str()
+                    )
+                    .unwrap()
+                ),
+                gas_limit: None,
+                reply_on: cosmwasm_std::ReplyOn::Success
+            })
+        );
+    }
+}
+
+#[test]
 fn test_sudo_response_tx_state_wrong() {
     // Test that the contract returns an error if the tx state is not in progress
     let mut deps = mock_dependencies(&[]);
