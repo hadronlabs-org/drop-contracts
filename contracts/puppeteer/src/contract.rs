@@ -88,6 +88,7 @@ pub fn instantiate(
         .api
         .addr_validate(&msg.owner.unwrap_or(info.sender.to_string()))?
         .to_string();
+    validate_timeout(msg.timeout)?;
     let config = &Config {
         connection_id: msg.connection_id,
         port_id: msg.port_id,
@@ -322,6 +323,7 @@ fn execute_update_config(
         attrs.push(attr("sdk_version", sdk_version))
     }
     if let Some(timeout) = new_config.timeout {
+        validate_timeout(timeout)?;
         attrs.push(attr("timeout", timeout.to_string()));
         config.timeout = timeout;
     }
@@ -458,6 +460,7 @@ fn register_delegations_and_balance_query(
             puppeteer_base
                 .delegations_and_balances_query_id_chunk
                 .remove(deps.storage, *query_id);
+            puppeteer_base.kv_queries.remove(deps.storage, *query_id);
             NeutronMsg::remove_interchain_query(*query_id)
         })
         .collect::<Vec<_>>();
@@ -481,6 +484,7 @@ fn register_delegations_and_balance_query(
             ReplyMsg::KvDelegationsAndBalance { i: i as u16 }.to_reply_id(),
         ));
     }
+
     Ok(Response::new()
         .add_messages(messages)
         .add_submessages(submessages))
@@ -1306,5 +1310,15 @@ fn validate_sender(config: &Config, sender: &Addr) -> StdResult<()> {
         Ok(())
     } else {
         Err(StdError::generic_err("Sender is not allowed"))
+    }
+}
+
+fn validate_timeout(timeout: u64) -> StdResult<()> {
+    if timeout < 10 {
+        Err(StdError::generic_err(
+            "Timeout can not be less than 10 seconds",
+        ))
+    } else {
+        Ok(())
     }
 }
