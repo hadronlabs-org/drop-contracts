@@ -656,6 +656,97 @@ fn test_execute_redeem_share() {
 }
 
 #[test]
+fn test_execute_claim_rewards_and_optionaly_transfer() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
+            validators: vec!["validator1".to_string(), "validator2".to_string()],
+            transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg {
+                batch_ids: vec![0u128, 1u128, 2u128],
+                emergency: true,
+                amount: Uint128::from(123u64),
+                recipient: "some_recipient".to_string(),
+            }),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap();
+    let ica_address = puppeteer_base
+        .ica
+        .get_address(deps.as_mut().storage)
+        .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+            id: 65536u64,
+            msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::submit_tx(
+                "connection_id".to_string(),
+                "DROP".to_string(),
+                vec![
+                    drop_helpers::interchain::prepare_any_msg(
+                        cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSend {
+                            from_address: ica_address.clone(),
+                            to_address: "some_recipient".to_string(),
+                            amount: vec![cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                                amount: "123".to_string(),
+                                denom: puppeteer_base
+                                    .config
+                                    .load(deps.as_mut().storage)
+                                    .unwrap()
+                                    .remote_denom
+                            }]
+                        },
+                        "/cosmos.bank.v1beta1.MsgSend",
+                    )
+                    .unwrap(),
+                    drop_helpers::interchain::prepare_any_msg(
+                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
+                            delegator_address: ica_address.clone(),
+                            validator_address: "validator1".to_string()
+                        },
+                        "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
+                    )
+                    .unwrap(),
+                    drop_helpers::interchain::prepare_any_msg(
+                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
+                            delegator_address: ica_address.clone(),
+                            validator_address: "validator2".to_string()
+                        },
+                        "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
+                    )
+                    .unwrap()
+                ],
+                "".to_string(),
+                100u64,
+                IbcFee {
+                    recv_fee: vec![],
+                    ack_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(100u64),
+                    }],
+                    timeout_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(200u64),
+                    }],
+                },
+            )),
+            gas_limit: None,
+            reply_on: cosmwasm_std::ReplyOn::Success
+        }),
+    );
+}
+
+#[test]
 fn test_sudo_response_tx_state_wrong() {
     // Test that the contract returns an error if the tx state is not in progress
     let mut deps = mock_dependencies(&[]);
