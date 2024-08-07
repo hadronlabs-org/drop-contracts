@@ -1512,7 +1512,7 @@ fn test_sudo_response_tx_state_wrong() {
 }
 
 #[test]
-fn test_sudo_kv_query_result() {
+fn test_sudo_delegations_and_balance_kv_query_result() {
     let mut deps = mock_dependencies(&[]);
 
     let query_id = 1u64;
@@ -1538,16 +1538,63 @@ fn test_sudo_kv_query_result() {
         .save(deps.as_mut().storage, query_id, &0)
         .unwrap();
 
+    {
+        let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
+            crate::contract::query(
+                deps.as_ref(),
+                mock_env(),
+                drop_puppeteer_base::msg::QueryMsg::Extension {
+                    msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            query_res,
+            drop_staking_base::msg::puppeteer::BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 0,
+                local_height: 0,
+                timestamp: Timestamp::default(),
+            }
+        );
+    }
+
     let res = crate::contract::sudo(deps.as_mut(), env, msg).unwrap();
     assert_eq!(res, Response::new());
 
-    let last_key = puppeteer_base
-        .last_complete_delegations_and_balances_key
-        .may_load(&deps.storage)
+    {
+        let last_key = puppeteer_base
+            .last_complete_delegations_and_balances_key
+            .may_load(&deps.storage)
+            .unwrap();
+        let last_data = puppeteer_base
+            .delegations_and_balances
+            .load(deps.as_mut().storage, &last_key.unwrap())
+            .unwrap();
+        let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
+            crate::contract::query(
+                deps.as_ref(),
+                mock_env(),
+                drop_puppeteer_base::msg::QueryMsg::Extension {
+                    msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
+                },
+            )
+            .unwrap(),
+        )
         .unwrap();
-
-    assert_eq!(last_key, Some(123456));
-
+        assert_eq!(
+            query_res,
+            drop_staking_base::msg::puppeteer::BalancesResponse {
+                balances: last_data.data.balances,
+                remote_height: last_data.remote_height,
+                local_height: last_data.local_height,
+                timestamp: last_data.timestamp,
+            }
+        );
+        assert_eq!(last_key, Some(123456));
+    }
     let state = puppeteer_base
         .delegations_and_balances
         .load(&deps.storage, &123456)
