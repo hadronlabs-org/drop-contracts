@@ -61,6 +61,11 @@ pub enum ExecuteMsg {
         amount: Uint128,
         reply_to: String,
     },
+    TokenizeShare {
+        validator: String,
+        amount: Uint128,
+        reply_to: String,
+    },
     RedeemShares {
         items: Vec<RedeemShareItem>,
         reply_to: String,
