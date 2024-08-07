@@ -10,6 +10,7 @@ import {
   DropRewardsManager,
   DropStaker,
   DropSplitter,
+  DropToken,
 } from 'drop-ts-client';
 import {
   QueryClient,
@@ -39,7 +40,9 @@ import { sleep } from '../helpers/sleep';
 import { waitForTx } from '../helpers/waitForTx';
 import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 import { instrumentCoreClass } from '../helpers/knot';
+import { checkExchangeRate } from '../helpers/exchangeRate';
 
+const DropTokenClass = DropToken.Client;
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
 const DropPumpClass = DropPump.Client;
@@ -68,6 +71,7 @@ describe('Core', () => {
     pumpContractClient?: InstanceType<typeof DropPumpClass>;
     puppeteerContractClient?: InstanceType<typeof DropPuppeteerClass>;
     splitterContractClient?: InstanceType<typeof DropSplitterClass>;
+    tokenContractClient?: InstanceType<typeof DropTokenClass>;
     withdrawalVoucherContractClient?: InstanceType<
       typeof DropWithdrawalVoucherClass
     >;
@@ -85,6 +89,7 @@ describe('Core', () => {
     gaiaUserAddress?: string;
     gaiaUserAddress2?: string;
     gaiaQueryClient?: QueryClient & StakingExtension & BankExtension;
+    neutronRPCEndpoint?: string;
     neutronClient?: InstanceType<typeof NeutronClient>;
     neutronUserAddress?: string;
     neutronSecondUserAddress?: string;
@@ -106,7 +111,6 @@ describe('Core', () => {
       pump?: number;
     };
     exchangeRate?: number;
-    tokenContractAddress?: string;
     neutronIBCDenom?: string;
     ldDenom?: string;
   } = { codeIds: {} };
@@ -155,8 +159,9 @@ describe('Core', () => {
       rpcURL: `127.0.0.1:${context.park.ports.neutron.rpc}`,
       prefix: 'neutron',
     });
+    context.neutronRPCEndpoint = `http://127.0.0.1:${context.park.ports.neutron.rpc}`;
     context.client = await SigningCosmWasmClient.connectWithSigner(
-      `http://127.0.0.1:${context.park.ports.neutron.rpc}`,
+      context.neutronRPCEndpoint,
       context.wallet,
       {
         gasPrice: GasPrice.fromString('0.025untrn'),
@@ -540,7 +545,10 @@ describe('Core', () => {
       context.client,
       res.rewards_pump_contract,
     );
-    context.tokenContractAddress = res.token_contract;
+    context.tokenContractClient = new DropToken.Client(
+      context.client,
+      res.token_contract,
+    );
     context.puppeteerContractClient = new DropPuppeteer.Client(
       context.client,
       res.puppeteer_contract,
@@ -765,6 +773,7 @@ describe('Core', () => {
       await coreContractClient.queryExchangeRate(),
     );
     expect(context.exchangeRate).toEqual(1);
+    await checkExchangeRate(context);
   });
 
   it('bond failed as over limit', async () => {
@@ -777,6 +786,7 @@ describe('Core', () => {
         },
       ]),
     ).rejects.toThrowError(/Bond limit exceeded/);
+    await checkExchangeRate(context);
   });
 
   it('update limit', async () => {
@@ -839,9 +849,10 @@ describe('Core', () => {
     expect(
       balances.data.balances.find((one) => one.denom.startsWith('factory')),
     ).toEqual({
-      denom: `factory/${context.tokenContractAddress}/drop`,
+      denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
       amount: String(Math.floor(500_000 / context.exchangeRate)),
     });
+    await checkExchangeRate(context);
   });
   it('verify bonded amount', async () => {
     const { coreContractClient } = context;
@@ -905,10 +916,11 @@ describe('Core', () => {
       one.denom.startsWith('factory'),
     );
     expect(ldBalance).toEqual({
-      denom: `factory/${context.tokenContractAddress}/drop`,
+      denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
       amount: String(Math.floor(500_000 / context.exchangeRate)),
     });
     context.ldDenom = ldBalance?.denom;
+    await checkExchangeRate(context);
   });
 
   it('delegate tokens on gaia side', async () => {
@@ -993,6 +1005,7 @@ describe('Core', () => {
       ],
     );
     await expect(res).rejects.toThrowError(/Invalid denom/);
+    await checkExchangeRate(context);
   });
   it('add validators into validators set', async () => {
     const {
@@ -1052,6 +1065,7 @@ describe('Core', () => {
       },
     ]);
     expect(res.transactionHash).toHaveLength(64);
+    await checkExchangeRate(context);
   });
 
   it('validate unbonding batch', async () => {
@@ -1243,6 +1257,7 @@ describe('Core', () => {
             },
           },
         });
+        await checkExchangeRate(context);
       });
       it('second tick is failed bc no response from puppeteer yet', async () => {
         const { neutronUserAddress } = context;
@@ -1320,6 +1335,7 @@ describe('Core', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('unbonding');
+        await checkExchangeRate(context);
       });
       it('tick is failed bc no response from puppeteer yet', async () => {
         const { neutronUserAddress } = context;
@@ -1468,6 +1484,7 @@ describe('Core', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
+        await checkExchangeRate(context);
       });
       it('verify that unbonding batch is in unbonding state', async () => {
         const batch = await context.coreContractClient.queryUnbondBatch({
@@ -1512,6 +1529,7 @@ describe('Core', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('claiming');
+        await checkExchangeRate(context);
       });
       it('wait for response from puppeteer', async () => {
         let response;
@@ -1575,6 +1593,7 @@ describe('Core', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
+        await checkExchangeRate(context);
       });
     });
     describe('third cycle (LSM-shares)', () => {
@@ -1728,6 +1747,7 @@ describe('Core', () => {
               ],
             );
             expect(res.transactionHash).toHaveLength(64);
+            await checkExchangeRate(context);
           }
           {
             const { coreContractClient, neutronUserAddress } = context;
@@ -1744,6 +1764,7 @@ describe('Core', () => {
               ],
             );
             expect(res.transactionHash).toHaveLength(64);
+            await checkExchangeRate(context);
           }
         });
         it('verify pending lsm shares', async () => {
@@ -1776,6 +1797,7 @@ describe('Core', () => {
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();
           expect(state).toEqual('l_s_m_transfer');
+          await checkExchangeRate(context);
         });
         it('wait for the response from puppeteer', async () => {
           let response: ResponseHookMsg;
@@ -1832,6 +1854,7 @@ describe('Core', () => {
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();
           expect(state).toEqual('idle');
+          await checkExchangeRate(context);
         });
         it('tick to lsm transfer', async () => {
           const { neutronUserAddress } = context;
@@ -1844,6 +1867,7 @@ describe('Core', () => {
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();
           expect(state).toEqual('l_s_m_transfer');
+          await checkExchangeRate(context);
         });
         it('wait for the response from puppeteer', async () => {
           let response: ResponseHookMsg;
@@ -1931,6 +1955,7 @@ describe('Core', () => {
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();
           expect(state).toEqual('idle');
+          await checkExchangeRate(context);
         });
         it('tick to redeem', async () => {
           const { neutronUserAddress } = context;
@@ -1943,6 +1968,7 @@ describe('Core', () => {
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();
           expect(state).toEqual('l_s_m_redeem');
+          await checkExchangeRate(context);
         });
         it('imeediately tick again fails', async () => {
           const { neutronUserAddress } = context;
@@ -1997,6 +2023,7 @@ describe('Core', () => {
           const newExchangeRate =
             await context.coreContractClient.queryExchangeRate();
           expect(parseFloat(newExchangeRate)).toEqual(1);
+          await checkExchangeRate(context);
         });
       });
     });
@@ -2078,6 +2105,7 @@ describe('Core', () => {
           ],
         );
         expect(res.transactionHash).toHaveLength(64);
+        await checkExchangeRate(context);
       });
       it('try to withdraw from paused manager', async () => {
         const {
@@ -2165,6 +2193,7 @@ describe('Core', () => {
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
+        await checkExchangeRate(context);
       });
       it('tick to claiming', async () => {
         const {
@@ -2180,6 +2209,7 @@ describe('Core', () => {
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('claiming');
+        await checkExchangeRate(context);
       });
       it('wait for the response from puppeteer', async () => {
         let response: ResponseHookMsg;
@@ -2235,6 +2265,7 @@ describe('Core', () => {
         const res = await gaiaClient.getBalance(rewardsPumpIcaAddress, 'stake');
         const newBalance = parseInt(res.amount);
         expect(newBalance).toBeGreaterThan(0);
+        await checkExchangeRate(context);
       });
       it('validate unbonding batch', async () => {
         const batch = await context.coreContractClient.queryUnbondBatch({
@@ -2288,6 +2319,7 @@ describe('Core', () => {
             );
           return balances.data.balances.length > 0;
         }, 40_000);
+        await checkExchangeRate(context);
       });
       it('withdraw', async () => {
         const {
@@ -2323,6 +2355,7 @@ describe('Core', () => {
         expect(parseInt(balance.data.balance.amount) - balanceBefore).toBe(
           200000,
         );
+        await checkExchangeRate(context);
       });
       it('withdraw to custom receiver', async () => {
         const {
@@ -2378,6 +2411,7 @@ describe('Core', () => {
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('claiming');
+        await checkExchangeRate(context);
       });
       it('wait for the response from puppeteer', async () => {
         let response: ResponseHookMsg;
@@ -2410,6 +2444,7 @@ describe('Core', () => {
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
+        await checkExchangeRate(context);
       });
       it('bond and unbond ibc coins', async () => {
         const {
@@ -2459,6 +2494,7 @@ describe('Core', () => {
         );
 
         expect(res.transactionHash).toHaveLength(64);
+        await checkExchangeRate(context);
       });
     });
     describe('sixth stake rewards', () => {

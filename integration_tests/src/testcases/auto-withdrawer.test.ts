@@ -10,6 +10,7 @@ import {
   DropWithdrawalManager,
   DropWithdrawalVoucher,
   DropSplitter,
+  DropToken,
 } from 'drop-ts-client';
 import {
   QueryClient,
@@ -35,7 +36,9 @@ import { stringToPath } from '@cosmjs/crypto';
 import { sleep } from '../helpers/sleep';
 import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 import { instrumentCoreClass } from '../helpers/knot';
+import { checkExchangeRate } from '../helpers/exchangeRate';
 
+const DropTokenClass = DropToken.Client;
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
 const DropPumpClass = DropPump.Client;
@@ -64,6 +67,7 @@ describe('Auto withdrawer', () => {
     splitterContractClient?: InstanceType<typeof DropSplitterClass>;
     rewardsPumpContractClient?: InstanceType<typeof DropRewardsPumpClass>;
     puppeteerContractClient?: InstanceType<typeof DropPuppeteerClass>;
+    tokenContractClient?: InstanceType<typeof DropTokenClass>;
     withdrawalVoucherContractClient?: InstanceType<
       typeof DropWithdrawalVoucherClass
     >;
@@ -80,6 +84,7 @@ describe('Auto withdrawer', () => {
     gaiaUserAddress?: string;
     gaiaUserAddress2?: string;
     gaiaQueryClient?: QueryClient & StakingExtension & BankExtension;
+    neutronRPCEndpoint?: string;
     neutronClient?: InstanceType<typeof NeutronClient>;
     neutronUserAddress?: string;
     neutronSecondUserAddress?: string;
@@ -101,7 +106,6 @@ describe('Auto withdrawer', () => {
       pump?: number;
     };
     exchangeRate?: number;
-    tokenContractAddress?: string;
     neutronIBCDenom?: string;
     ldDenom?: string;
   } = { codeIds: {} };
@@ -150,8 +154,9 @@ describe('Auto withdrawer', () => {
       rpcURL: `127.0.0.1:${context.park.ports.neutron.rpc}`,
       prefix: 'neutron',
     });
+    context.neutronRPCEndpoint = `http://127.0.0.1:${context.park.ports.neutron.rpc}`;
     context.client = await SigningCosmWasmClient.connectWithSigner(
-      `http://127.0.0.1:${context.park.ports.neutron.rpc}`,
+      context.neutronRPCEndpoint,
       context.wallet,
       {
         gasPrice: GasPrice.fromString('0.025untrn'),
@@ -513,7 +518,6 @@ describe('Auto withdrawer', () => {
       context.client,
       res.strategy_contract,
     );
-    context.tokenContractAddress = res.token_contract;
     context.puppeteerContractClient = new DropPuppeteer.Client(
       context.client,
       res.puppeteer_contract,
@@ -530,7 +534,11 @@ describe('Auto withdrawer', () => {
       context.client,
       res.rewards_pump_contract,
     );
-    context.ldDenom = `factory/${context.tokenContractAddress}/drop`;
+    context.tokenContractClient = new DropToken.Client(
+      context.client,
+      res.token_contract,
+    );
+    context.ldDenom = `factory/${res.token_contract}/drop`;
   });
 
   it('setup ICA for rewards pump', async () => {
@@ -711,6 +719,7 @@ describe('Auto withdrawer', () => {
       await coreContractClient.queryExchangeRate(),
     );
     expect(context.exchangeRate).toEqual(1);
+    await checkExchangeRate(context);
   });
 
   it('add validators into validators set', async () => {
@@ -853,6 +862,8 @@ describe('Auto withdrawer', () => {
       ],
       next_page_key: null,
     });
+
+    await checkExchangeRate(context);
   });
   it('unbond', async () => {
     const {
@@ -883,6 +894,7 @@ describe('Auto withdrawer', () => {
       bondings: [],
       next_page_key: null,
     });
+    await checkExchangeRate(context);
   });
   it('bond with NFT', async () => {
     const {
@@ -937,6 +949,8 @@ describe('Auto withdrawer', () => {
       ],
       next_page_key: null,
     });
+
+    await checkExchangeRate(context);
   });
 
   describe('state machine', () => {
@@ -1077,6 +1091,7 @@ describe('Auto withdrawer', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('staking_bond');
+        await checkExchangeRate(context);
       });
       it('wait for response from staker', async () => {
         let response;
@@ -1150,6 +1165,7 @@ describe('Auto withdrawer', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('unbonding');
+        await checkExchangeRate(context);
       });
       it('wait for response from puppeteer', async () => {
         let response: ResponseHookMsg;
@@ -1193,6 +1209,7 @@ describe('Auto withdrawer', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
+        await checkExchangeRate(context);
       });
     });
     describe('second cycle', () => {
@@ -1228,6 +1245,7 @@ describe('Auto withdrawer', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('claiming');
+        await checkExchangeRate(context);
       });
       it('wait for response from puppeteer', async () => {
         let response;
@@ -1291,6 +1309,7 @@ describe('Auto withdrawer', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
+        await checkExchangeRate(context);
       });
     });
     describe('third cycle', () => {
@@ -1344,6 +1363,7 @@ describe('Auto withdrawer', () => {
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('claiming');
+        await checkExchangeRate(context);
       });
       it('wait for the response from puppeteer', async () => {
         let response: ResponseHookMsg;
@@ -1384,6 +1404,7 @@ describe('Auto withdrawer', () => {
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
+        await checkExchangeRate(context);
       });
       it('fund withdrawal manager', async () => {
         const { pumpContractClient, neutronUserAddress } = context;
@@ -1458,6 +1479,7 @@ describe('Auto withdrawer', () => {
           bondings: [],
           next_page_key: null,
         });
+        await checkExchangeRate(context);
       });
     });
   });

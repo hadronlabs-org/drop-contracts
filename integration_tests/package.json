@@ -37,6 +37,7 @@
     "@neutron-org/client-ts": "^1.4.0",
     "@neutron-org/cosmopark": "^1.7.3",
     "bech32": "^1.1.4",
+    "decimal.js": "^10.4.3",
     "dotparser": "^1.1.1",
     "drop-ts-client": "file:../ts-client",
     "yaml": "^2.4.1"
