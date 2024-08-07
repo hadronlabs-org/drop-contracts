@@ -1943,9 +1943,13 @@ fn test_reply_ibc_transfer() {
                 id: drop_puppeteer_base::state::reply_msg::SUDO_PAYLOAD,
                 result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
                     events: vec![],
-                    data: Some(Binary::from(
-                        "{\"sequence_id\":0,\"channel\":\"channel-0\"}".as_bytes(),
-                    )),
+                    data: Some(
+                        to_json_binary(&neutron_sdk::bindings::msg::MsgIbcTransferResponse {
+                            sequence_id: 0,
+                            channel: "channel-0".to_string(),
+                        })
+                        .unwrap(),
+                    ),
                 }),
             },
         )
@@ -1981,9 +1985,13 @@ fn test_reply_ibc_transfer() {
                 id: drop_puppeteer_base::state::reply_msg::IBC_TRANSFER,
                 result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
                     events: vec![],
-                    data: Some(Binary::from(
-                        "{\"sequence_id\":0,\"channel\":\"channel-0\"}".as_bytes(),
-                    )),
+                    data: Some(
+                        to_json_binary(&neutron_sdk::bindings::msg::MsgIbcTransferResponse {
+                            sequence_id: 0,
+                            channel: "channel-0".to_string(),
+                        })
+                        .unwrap(),
+                    ),
                 }),
             },
         )
