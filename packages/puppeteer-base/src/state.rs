@@ -310,7 +310,7 @@ pub use reply_msg::ReplyMsg;
 pub mod reply_msg {
     const OFFSET: u64 = u16::BITS as u64;
     pub const SUDO_PAYLOAD: u64 = 1 << OFFSET;
-    const IBC_TRANSFER: u64 = 2 << OFFSET;
+    pub const IBC_TRANSFER: u64 = 2 << OFFSET;
     const KV_DELEGATIONS_AND_BALANCE_LOWER_BOUND: u64 = 3 << OFFSET;
     const KV_DELEGATIONS_AND_BALANCE_UPPER_BOUND: u64 =
         KV_DELEGATIONS_AND_BALANCE_LOWER_BOUND + u16::MAX as u64;

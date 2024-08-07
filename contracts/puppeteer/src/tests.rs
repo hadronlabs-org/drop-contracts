@@ -1892,6 +1892,60 @@ fn test_reply_sudo_payload() {
     );
 }
 
+#[test]
+fn test_reply_ibc_transfer() {
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                status: drop_puppeteer_base::state::TxStateStatus::Idle,
+                seq_id: None,
+                transaction: None,
+                reply_to: None,
+            },
+        )
+        .unwrap();
+    let res = crate::contract::reply(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        cosmwasm_std::Reply {
+            id: drop_puppeteer_base::state::reply_msg::IBC_TRANSFER,
+            result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                events: vec![],
+                data: Some(Binary::from(
+                    "{\"sequence_id\":0,\"channel\":\"channel-0\"}".as_bytes(),
+                )),
+            }),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_event(
+            cosmwasm_std::Event::new(
+                "puppeteer-base-sudo-ibc-transfer-payload-received".to_string()
+            )
+            .add_attributes(vec![
+                cosmwasm_std::attr("channel_id".to_string(), "channel-0".to_string()),
+                cosmwasm_std::attr("seq_id".to_string(), "0".to_string())
+            ])
+        )
+    );
+    let tx_state = puppeteer_base.tx_state.load(deps.as_mut().storage).unwrap();
+    assert_eq!(
+        tx_state,
+        drop_puppeteer_base::state::TxState {
+            seq_id: Some(0),
+            status: drop_puppeteer_base::state::TxStateStatus::WaitingForAck,
+            reply_to: None,
+            transaction: None,
+        }
+    );
+}
+
 mod register_delegations_and_balance_query {
     use cosmwasm_std::{testing::MockApi, MemoryStorage, OwnedDeps, StdResult};
     use drop_helpers::testing::WasmMockQuerier;
