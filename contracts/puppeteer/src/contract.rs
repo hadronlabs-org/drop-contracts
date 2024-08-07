@@ -231,11 +231,6 @@ pub fn execute(
             amount,
             reply_to,
         } => execute_redelegate(deps, info, validator_from, validator_to, amount, reply_to),
-        ExecuteMsg::TokenizeShare {
-            validator,
-            amount,
-            reply_to,
-        } => execute_tokenize_share(deps, info, validator, amount, reply_to),
         ExecuteMsg::RedeemShares { items, reply_to } => {
             execute_redeem_shares(deps, info, items, reply_to)
         }
@@ -805,48 +800,6 @@ fn execute_redelegate(
             interchain_account_id: ICA_ID.to_string(),
             validator_from,
             validator_to,
-            denom: config.remote_denom,
-            amount: amount.into(),
-        },
-        reply_to,
-        ReplyMsg::SudoPayload.to_reply_id(),
-    )?;
-
-    Ok(Response::default().add_submessages(vec![submsg]))
-}
-
-fn execute_tokenize_share(
-    mut deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
-    validator: String,
-    amount: Uint128,
-    reply_to: String,
-) -> ContractResult<Response<NeutronMsg>> {
-    let puppeteer_base = Puppeteer::default();
-    deps.api.addr_validate(&reply_to)?;
-    let config: Config = puppeteer_base.config.load(deps.storage)?;
-    validate_sender(&config, &info.sender)?;
-    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
-    let delegator = puppeteer_base.ica.get_address(deps.storage)?;
-    let tokenize_msg = MsgTokenizeShares {
-        delegator_address: delegator.clone(),
-        validator_address: validator.to_string(),
-        tokenized_share_owner: delegator,
-        amount: Some(ProtoCoin {
-            denom: config.remote_denom.to_string(),
-            amount: amount.to_string(),
-        }),
-    };
-    let submsg = compose_submsg(
-        deps.branch(),
-        config.clone(),
-        vec![prepare_any_msg(
-            tokenize_msg,
-            "/cosmos.staking.v1beta1.MsgTokenizeShares",
-        )?],
-        Transaction::TokenizeShare {
-            interchain_account_id: ICA_ID.to_string(),
-            validator,
             denom: config.remote_denom,
             amount: amount.into(),
         },
