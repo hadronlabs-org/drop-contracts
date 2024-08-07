@@ -2327,6 +2327,30 @@ fn test_reply_kv_unbonding_delegations() {
                 .unbonding_delegations
                 .load(deps.as_mut().storage, "validator")
                 .unwrap();
+            {
+                let query_res: Vec<drop_puppeteer_base::state::UnbondingDelegation> = from_json(crate::contract::query(
+                    deps.as_ref(),
+                    mock_env(),
+                    drop_puppeteer_base::msg::QueryMsg::Extension {
+                        msg: drop_staking_base::msg::puppeteer::QueryExtMsg::UnbondingDelegations {},
+                    },
+                ) .unwrap())
+                .unwrap();
+                assert_eq!(
+                    query_res,
+                    puppeteer_base
+                        .unbonding_delegations
+                        .range(
+                            deps.as_mut().storage,
+                            None,
+                            None,
+                            cosmwasm_std::Order::Ascending
+                        )
+                        .map(|res| res.map(|(_key, value)| value))
+                        .collect::<cosmwasm_std::StdResult<Vec<_>>>()
+                        .unwrap()
+                );
+            }
             assert_eq!(
                 unbonding_delegation,
                 drop_puppeteer_base::state::UnbondingDelegation {
