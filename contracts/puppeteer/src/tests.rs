@@ -823,12 +823,6 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
 #[test]
 fn test_execute_register_balance_and_delegator_delegations_query() {
     let mut deps = mock_dependencies(&[]);
-    deps.querier.add_custom_query_response(|_| {
-        to_json_binary(&MinIbcFeeResponse {
-            min_fee: get_standard_fees(),
-        })
-        .unwrap()
-    });
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(
         deps_mut.storage,
@@ -916,6 +910,100 @@ fn test_execute_register_balance_and_delegator_delegations_query() {
                 reply_on: cosmwasm_std::ReplyOn::Success
             })
         );
+    }
+}
+
+#[test]
+fn test_execute_register_unbonding_delegations_query() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("owner").as_ref()),
+    )
+    .unwrap();
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+    let msg_validators = vec!["neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(); 2];
+    let msg =
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterDelegatorUnbondingDelegationsQuery {
+            validators: msg_validators.clone(),
+        };
+    {
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("not_an_owner", &[]),
+            msg.clone(),
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            drop_puppeteer_base::error::ContractError::OwnershipError(
+                cw_ownable::OwnershipError::NotOwner
+            )
+        );
+    }
+    {
+        let exceed_validators =
+            vec!["neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(); u16::MAX as usize];
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterDelegatorUnbondingDelegationsQuery{
+                validators: exceed_validators
+            }
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+                "Too many validators provided"
+            ))
+        );
+    }
+    {
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            msg.clone(),
+        )
+        .unwrap();
+        let puppeteer_config = puppeteer_base.config.load(deps.as_mut().storage).unwrap();
+        let puppeteer_ica = puppeteer_base
+            .ica
+            .get_address(deps.as_mut().storage)
+            .unwrap();
+        assert_eq!(
+            res,
+            cosmwasm_std::Response::new().add_submessages(msg_validators.into_iter().enumerate().map(|(i, validator)| {
+                cosmwasm_std::SubMsg {
+                    id: 327680u64 + i as u64,
+                    msg: cosmwasm_std::CosmosMsg::Custom(
+                        neutron_sdk::interchain_queries::v045::new_register_delegator_unbonding_delegations_query_msg(
+                            puppeteer_config.connection_id.clone(),
+                            puppeteer_ica.clone(),
+                            vec![validator],
+                            puppeteer_config.update_period
+                        )
+                        .unwrap()
+                    ),
+                    gas_limit: None,
+                    reply_on: cosmwasm_std::ReplyOn::Success
+                }
+            })
+        ));
     }
 }
 
