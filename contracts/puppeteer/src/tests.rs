@@ -2265,7 +2265,7 @@ fn test_reply_kv_unbonding_delegations() {
 #[test]
 #[allow(deprecated)]
 fn test_get_answers_from_msg_data() {
-    let mut deps = mock_dependencies(&[]);
+    let deps = mock_dependencies(&[]);
     {
         let res = crate::contract::get_answers_from_msg_data(
             deps.as_ref(),
