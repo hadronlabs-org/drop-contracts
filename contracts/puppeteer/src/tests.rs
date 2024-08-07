@@ -433,6 +433,75 @@ fn test_execute_undelegate() {
 }
 
 #[test]
+fn test_execute_redelegate() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::Redelegate {
+            validator_from: "validator_from".to_string(),
+            validator_to: "validator_to".to_string(),
+            amount: Uint128::from(0u64),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+            id: 65536u64,
+            msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::submit_tx(
+                "connection_id".to_string(),
+                "DROP".to_string(),
+                vec![drop_helpers::interchain::prepare_any_msg(
+                    crate::proto::liquidstaking::staking::v1beta1::MsgBeginRedelegate {
+                        delegator_address: puppeteer_base
+                            .ica
+                            .get_address(deps.as_mut().storage)
+                            .unwrap(),
+                        validator_src_address: "validator_from".to_string(),
+                        validator_dst_address: "validator_to".to_string(),
+                        amount: Some(crate::proto::cosmos::base::v1beta1::Coin {
+                            denom: puppeteer_base
+                                .config
+                                .load(deps.as_mut().storage)
+                                .unwrap()
+                                .remote_denom,
+                            amount: "0".to_string(),
+                        }),
+                    },
+                    "/cosmos.staking.v1beta1.MsgBeginRedelegate",
+                )
+                .unwrap()],
+                "".to_string(),
+                100u64,
+                IbcFee {
+                    recv_fee: vec![],
+                    ack_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(100u64),
+                    }],
+                    timeout_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(200u64),
+                    }],
+                },
+            )),
+            gas_limit: None,
+            reply_on: cosmwasm_std::ReplyOn::Success
+        }),
+    );
+}
+
+#[test]
 fn test_execute_redeem_share() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.add_custom_query_response(|_| {
