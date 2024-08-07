@@ -13,9 +13,12 @@ use drop_helpers::{
     },
     testing::mock_dependencies,
 };
-use drop_puppeteer_base::state::{
-    BalancesAndDelegations, BalancesAndDelegationsState, Delegations, DropDelegation,
-    PuppeteerBase, ReplyMsg,
+use drop_puppeteer_base::{
+    msg::IBCTransferReason,
+    state::{
+        BalancesAndDelegations, BalancesAndDelegationsState, Delegations, DropDelegation,
+        PuppeteerBase, ReplyMsg,
+    },
 };
 use drop_staking_base::{
     msg::puppeteer::InstantiateMsg,
@@ -29,7 +32,7 @@ use neutron_sdk::{
     },
     interchain_queries::v045::types::Balances,
     query::min_ibc_fee::MinIbcFeeResponse,
-    sudo::msg::SudoMsg,
+    sudo::msg::{RequestPacketTimeoutHeight, SudoMsg},
     NeutronError,
 };
 use prost::Message;
@@ -1173,6 +1176,129 @@ fn test_execute_register_non_native_rewards_balances_query() {
                 ),
                 gas_limit: None,
                 reply_on: cosmwasm_std::ReplyOn::Success
+            })
+        )
+    }
+}
+
+#[test]
+fn test_execute_ibc_transfer() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    let puppeteer_config = puppeteer_base.config.load(deps.as_mut().storage).unwrap();
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+        reason: IBCTransferReason::LSMShare,
+        reply_to: "owner".to_string(),
+    };
+    let env = mock_env();
+    {
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            env.clone(),
+            mock_info(
+                "allowed_sender",
+                &[
+                    cosmwasm_std::Coin {
+                        denom: "token1".to_string(),
+                        amount: Uint128::from(123u64),
+                    },
+                    cosmwasm_std::Coin {
+                        denom: "token2".to_string(),
+                        amount: Uint128::from(123u64),
+                    },
+                ],
+            ),
+            msg.clone(),
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            drop_puppeteer_base::error::ContractError::InvalidFunds {
+                reason: "Only one coin is allowed".to_string()
+            }
+        )
+    }
+    {
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            env.clone(),
+            mock_info("allowed_sender", &[]),
+            msg.clone(),
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            drop_puppeteer_base::error::ContractError::InvalidFunds {
+                reason: "Only one coin is allowed".to_string()
+            }
+        )
+    }
+    {
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            env.clone(),
+            mock_info(
+                "allowed_sender",
+                &[cosmwasm_std::Coin {
+                    denom: "uatom".to_string(),
+                    amount: Uint128::from(123u64),
+                }],
+            ),
+            msg.clone(),
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+                id: 131072u64,
+                msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::IbcTransfer {
+                    source_port: "port_id".to_string(),
+                    source_channel: "transfer_channel_id".to_string(),
+                    token: cosmwasm_std::Coin {
+                        denom: "uatom".to_string(),
+                        amount: Uint128::from(123u64),
+                    },
+                    sender: "cosmos2contract".to_string(),
+                    receiver: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+                    timeout_height: RequestPacketTimeoutHeight {
+                        revision_height: None,
+                        revision_number: None
+                    },
+                    timeout_timestamp: env
+                        .block
+                        .time
+                        .plus_seconds(puppeteer_config.timeout)
+                        .nanos(),
+                    memo: "".to_string(),
+                    fee: IbcFee {
+                        recv_fee: vec![],
+                        ack_fee: vec![cosmwasm_std::Coin {
+                            denom: "untrn".to_string(),
+                            amount: Uint128::from(100u64),
+                        }],
+                        timeout_fee: vec![cosmwasm_std::Coin {
+                            denom: "untrn".to_string(),
+                            amount: Uint128::from(200u64),
+                        }]
+                    }
+                }),
+                gas_limit: None,
+                reply_on: cosmwasm_std::ReplyOn::Success,
             })
         )
     }
