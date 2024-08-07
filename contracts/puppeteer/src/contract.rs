@@ -680,16 +680,26 @@ fn execute_claim_rewards_and_optionaly_transfer(
             "/cosmos.bank.v1beta1.MsgSend",
         )?);
     }
+
+    let mut claim_msgs = vec![];
     for val in validators.clone() {
-        let withdraw_msg = MsgWithdrawDelegatorReward {
-            delegator_address: ica.to_string(),
-            validator_address: val,
-        };
-        any_msgs.push(prepare_any_msg(
-            withdraw_msg,
-            "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
-        )?);
+        claim_msgs.push(cosmos_sdk_proto::Any {
+            type_url: "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
+            value: MsgWithdrawDelegatorReward {
+                delegator_address: ica.to_string(),
+                validator_address: val,
+            }
+            .to_bytes()?,
+        })
     }
+
+    let grant_msg = MsgExec {
+        grantee: ica.to_string(),
+        msgs: claim_msgs,
+    };
+
+    any_msgs.push(prepare_any_msg(grant_msg, "/cosmos.authz.v1beta1.MsgExec")?);
+
     let submsg = compose_submsg(
         deps.branch(),
         config.clone(),
