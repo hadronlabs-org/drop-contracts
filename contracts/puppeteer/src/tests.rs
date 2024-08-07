@@ -1,4 +1,5 @@
 use crate::contract::Puppeteer;
+use cosmos_sdk_proto::traits::MessageExt;
 use cosmwasm_schema::schemars;
 use cosmwasm_std::{
     coin, coins, from_json,
@@ -387,18 +388,29 @@ fn test_execute_undelegate() {
         msg,
     )
     .unwrap();
-    let msg = cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
-        delegator_address: "ica_address".to_string(),
-        validator_address: "valoper1".to_string(),
-        amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-            denom: "remote_denom".to_string(),
-            amount: "1000".to_string(),
-        }),
-    };
-    let mut buf = Vec::with_capacity(msg.encoded_len());
-    msg.encode(&mut buf).unwrap();
-    let any_msg = neutron_sdk::bindings::types::ProtobufAny {
+
+    let msg = cosmos_sdk_proto::Any {
         type_url: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
+        value: cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
+            delegator_address: "ica_address".to_string(),
+            validator_address: "valoper1".to_string(),
+            amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                denom: "remote_denom".to_string(),
+                amount: "1000".to_string(),
+            }),
+        }
+        .to_bytes()
+        .unwrap(),
+    };
+
+    let grant_msg = cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec {
+        grantee: "ica_address".to_string(),
+        msgs: vec![msg],
+    };
+    let mut buf = Vec::with_capacity(grant_msg.encoded_len());
+    grant_msg.encode(&mut buf).unwrap();
+    let any_msg = neutron_sdk::bindings::types::ProtobufAny {
+        type_url: "/cosmos.authz.v1beta1.MsgExec".to_string(),
         value: Binary::from(buf),
     };
     assert_eq!(
