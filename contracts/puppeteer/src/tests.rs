@@ -1008,6 +1008,164 @@ fn test_execute_register_unbonding_delegations_query() {
 }
 
 #[test]
+fn test_execute_register_non_native_rewards_balances_query() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("owner").as_ref()),
+    )
+    .unwrap();
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+    let msg_denoms = vec!["denom1".to_string(), "denom2".to_string()];
+    let msg =
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
+            denoms: msg_denoms.clone(),
+        };
+    {
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("not_an_owner", &[]),
+            msg.clone(),
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            drop_puppeteer_base::error::ContractError::OwnershipError(
+                cw_ownable::OwnershipError::NotOwner
+            )
+        );
+    }
+    {
+        let puppeteer_config = puppeteer_base.config.load(deps.as_mut().storage).unwrap();
+        let puppeteer_ica = puppeteer_base
+            .ica
+            .get_address(deps.as_mut().storage)
+            .unwrap();
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            msg.clone(),
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+                id: 262144u64,
+                msg: cosmwasm_std::CosmosMsg::Custom(
+                    drop_helpers::icq::new_multiple_balances_query_msg(
+                        puppeteer_config.connection_id,
+                        puppeteer_ica,
+                        msg_denoms.clone(),
+                        puppeteer_config.update_period
+                    )
+                    .unwrap()
+                ),
+                gas_limit: None,
+                reply_on: cosmwasm_std::ReplyOn::Success
+            })
+        )
+    }
+    {
+        let puppeteer_ica = puppeteer_base
+            .ica
+            .get_address(deps.as_mut().storage)
+            .unwrap();
+        puppeteer_base
+            .kv_queries
+            .save(
+                deps.as_mut().storage,
+                0u64,
+                &KVQueryType::NonNativeRewardsBalances,
+            )
+            .unwrap();
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            msg.clone(),
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+                id: 0u64,
+                msg: cosmwasm_std::CosmosMsg::Custom(
+                    drop_helpers::icq::update_multiple_balances_query_msg(
+                        0u64,
+                        puppeteer_ica,
+                        msg_denoms.clone()
+                    )
+                    .unwrap()
+                ),
+                gas_limit: None,
+                reply_on: cosmwasm_std::ReplyOn::Never
+            })
+        )
+    }
+    {
+        let puppeteer_ica = puppeteer_base
+            .ica
+            .get_address(deps.as_mut().storage)
+            .unwrap();
+        let puppeteer_config = puppeteer_base.config.load(deps.as_mut().storage).unwrap();
+        puppeteer_base
+            .kv_queries
+            .save(
+                deps.as_mut().storage,
+                0u64,
+                &KVQueryType::NonNativeRewardsBalances,
+            )
+            .unwrap();
+        puppeteer_base
+            .kv_queries
+            .save(
+                deps.as_mut().storage,
+                0u64,
+                &KVQueryType::DelegationsAndBalance,
+            )
+            .unwrap();
+
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            msg.clone(),
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+                id: 262144u64,
+                msg: cosmwasm_std::CosmosMsg::Custom(
+                    drop_helpers::icq::new_multiple_balances_query_msg(
+                        puppeteer_config.connection_id,
+                        puppeteer_ica,
+                        msg_denoms.clone(),
+                        puppeteer_config.update_period
+                    )
+                    .unwrap()
+                ),
+                gas_limit: None,
+                reply_on: cosmwasm_std::ReplyOn::Success
+            })
+        )
+    }
+}
+
+#[test]
 fn test_sudo_response_tx_state_wrong() {
     // Test that the contract returns an error if the tx state is not in progress
     let mut deps = mock_dependencies(&[]);
