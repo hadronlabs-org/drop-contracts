@@ -4,8 +4,8 @@ use crate::proto::{
         distribution::v1beta1::MsgWithdrawDelegatorReward,
         staking::v1beta1::{
             MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgDelegateResponse,
-            MsgRedeemTokensforShares, MsgRedeemTokensforSharesResponse, MsgTokenizeShares,
-            MsgTokenizeSharesResponse, MsgUndelegateResponse,
+            MsgRedeemTokensforShares, MsgRedeemTokensforSharesResponse, MsgTokenizeSharesResponse,
+            MsgUndelegateResponse,
         },
     },
 };
