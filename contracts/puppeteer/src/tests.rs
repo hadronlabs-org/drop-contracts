@@ -2166,7 +2166,7 @@ fn test_reply_kv_unbonding_delegations() {
     {
         let mut deps = mock_dependencies(&[]);
         {
-            let res = crate::contract::reply(
+            let _ = crate::contract::reply(
                 deps.as_mut().into_empty(),
                 mock_env(),
                 cosmwasm_std::Reply {
