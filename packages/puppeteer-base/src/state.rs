@@ -307,9 +307,9 @@ pub const LOCAL_DENOM: &str = "untrn";
 pub const ICA_ID: &str = "DROP";
 
 pub use reply_msg::ReplyMsg;
-mod reply_msg {
+pub mod reply_msg {
     const OFFSET: u64 = u16::BITS as u64;
-    const SUDO_PAYLOAD: u64 = 1 << OFFSET;
+    pub const SUDO_PAYLOAD: u64 = 1 << OFFSET;
     const IBC_TRANSFER: u64 = 2 << OFFSET;
     const KV_DELEGATIONS_AND_BALANCE_LOWER_BOUND: u64 = 3 << OFFSET;
     const KV_DELEGATIONS_AND_BALANCE_UPPER_BOUND: u64 =
