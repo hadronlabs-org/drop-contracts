@@ -5,11 +5,14 @@ use crate::contract::{
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockStorage},
-    to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, Event, OwnedDeps, Response, SubMsg,
-    Timestamp, Uint128, WasmMsg,
+    to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, Decimal256, Event, OwnedDeps,
+    Response, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
-use drop_puppeteer_base::{msg::TransferReadyBatchesMsg, state::RedeemShareItem};
+use drop_puppeteer_base::{
+    msg::TransferReadyBatchesMsg,
+    state::{Delegations, DropDelegation, RedeemShareItem},
+};
 use drop_staking_base::state::core::{FAILED_BATCH_ID, LAST_STAKER_RESPONSE};
 use drop_staking_base::{
     error::core::ContractError,
@@ -28,7 +31,7 @@ use drop_staking_base::{
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
-    interchain_queries::v045::types::{Balances, Delegations},
+    interchain_queries::v045::types::Balances,
     sudo::msg::RequestPacket,
 };
 use std::vec;
@@ -579,13 +582,14 @@ fn test_tick_idle_unbonding_close() {
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&DelegationsResponse {
                 delegations: Delegations {
-                    delegations: vec![cosmwasm_std::Delegation {
+                    delegations: vec![DropDelegation {
                         delegator: Addr::unchecked("ica_address"),
                         validator: "valoper_address".to_string(),
                         amount: Coin {
                             denom: "remote_denom".to_string(),
                             amount: Uint128::new(100_000),
                         },
+                        share_ratio: Decimal256::one(),
                     }],
                 },
                 remote_height: 10u64,
@@ -717,13 +721,14 @@ fn test_tick_idle_claim_wo_unbond() {
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&DelegationsResponse {
                 delegations: Delegations {
-                    delegations: vec![cosmwasm_std::Delegation {
+                    delegations: vec![DropDelegation {
                         delegator: Addr::unchecked("ica_address"),
                         validator: "valoper_address".to_string(),
                         amount: Coin {
                             denom: "remote_denom".to_string(),
                             amount: Uint128::new(100_000),
                         },
+                        share_ratio: Decimal256::one(),
                     }],
                 },
                 remote_height: 10u64,
@@ -874,13 +879,14 @@ fn test_tick_idle_claim_with_unbond_transfer() {
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&DelegationsResponse {
                 delegations: Delegations {
-                    delegations: vec![cosmwasm_std::Delegation {
+                    delegations: vec![DropDelegation {
                         delegator: Addr::unchecked("ica_address"),
                         validator: "valoper_address".to_string(),
                         amount: Coin {
                             denom: "remote_denom".to_string(),
                             amount: Uint128::new(100_000),
                         },
+                        share_ratio: Decimal256::one(),
                     }],
                 },
                 remote_height: 12344u64,
@@ -2948,7 +2954,7 @@ fn test_bond_lsm_share_wrong_channel() {
 fn test_bond_lsm_share_increase_exchange_rate() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "ld_denom".to_string(),
-        amount: Uint128::new(1),
+        amount: Uint128::new(1001),
     }]);
     deps.querier.add_stargate_query_response(
         "/ibc.applications.transfer.v1.Query/DenomTrace",
@@ -2994,11 +3000,33 @@ fn test_bond_lsm_share_increase_exchange_rate() {
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&DelegationsResponse {
                 delegations: Delegations {
-                    delegations: vec![],
+                    delegations: vec![DropDelegation {
+                        delegator: Addr::unchecked("delegator"),
+                        validator: "valoper1".to_string(),
+                        amount: Coin::new(1000, "remote_denom".to_string()),
+                        share_ratio: Decimal256::one(),
+                    }],
                 },
-                remote_height: 0,
-                local_height: 0,
-                timestamp: Timestamp::from_nanos(1_000_000_202),
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
+                    delegations: vec![DropDelegation {
+                        delegator: Addr::unchecked("delegator"),
+                        validator: "valoper1".to_string(),
+                        amount: Coin::new(1000, "remote_denom".to_string()),
+                        share_ratio: Decimal256::one(),
+                    }],
+                },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
             })
             .unwrap()
         });
@@ -3151,6 +3179,23 @@ fn test_bond_lsm_share_ok() {
                     total_passed_proposals: 0u64,
                     total_voted_proposals: 0u64,
                 }),
+            })
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
+                    delegations: vec![DropDelegation {
+                        delegator: Addr::unchecked("delegator"),
+                        validator: "valoper1".to_string(),
+                        amount: Coin::new(1000, "remote_denom".to_string()),
+                        share_ratio: Decimal256::one(),
+                    }],
+                },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
             })
             .unwrap()
         });
@@ -3746,7 +3791,7 @@ mod check_denom {
         .unwrap();
         assert_eq!(
             denom_type,
-            DenomType::LsmShare("valoper12345/1".to_string())
+            DenomType::LsmShare("valoper12345/1".to_string(), "valoper12345".to_string())
         );
     }
 }

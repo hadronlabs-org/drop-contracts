@@ -42,8 +42,8 @@ use drop_puppeteer_base::{
     },
     proto::MsgIBCTransfer,
     state::{
-        PuppeteerBase, RedeemShareItem, ReplyMsg, TxState, TxStateStatus, UnbondingDelegation,
-        ICA_ID, LOCAL_DENOM,
+        Delegations, PuppeteerBase, RedeemShareItem, ReplyMsg, TxState, TxStateStatus,
+        UnbondingDelegation, ICA_ID, LOCAL_DENOM,
     },
 };
 use drop_staking_base::{
@@ -55,8 +55,7 @@ use drop_staking_base::{
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery, types::ProtobufAny},
     interchain_queries::v045::{
-        new_register_delegator_unbonding_delegations_query_msg,
-        types::{Balances, Delegations},
+        new_register_delegator_unbonding_delegations_query_msg, types::Balances,
     },
     interchain_txs::helpers::decode_message_response,
     sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg},
