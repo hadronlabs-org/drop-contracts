@@ -2158,6 +2158,126 @@ fn test_reply_kv_non_native_rewards_balances() {
     }
 }
 
+#[test]
+fn test_reply_kv_unbonding_delegations() {
+    let mut deps = mock_dependencies(&[]);
+    {
+        let res = crate::contract::reply(
+            deps.as_mut().into_empty(),
+            mock_env(),
+            cosmwasm_std::Reply {
+                id: drop_puppeteer_base::state::reply_msg::SUDO_PAYLOAD,
+                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                    events: vec![],
+                    data: None,
+                }),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(res, StdError::generic_err("no result"))
+    }
+    {
+        let res = crate::contract::reply(
+            deps.as_mut().into_empty(),
+            mock_env(),
+            cosmwasm_std::Reply {
+                id: drop_puppeteer_base::state::reply_msg::KV_UNBONDING_DELEGATIONS_LOWER_BOUND,
+                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                    events: vec![],
+                    data: Some(
+                        to_json_binary(
+                            &neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse {
+                                id: 0u64,
+                            },
+                        )
+                        .unwrap(),
+                    ),
+                }),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            StdError::NotFound {
+                kind: format!(
+                    "type: drop_puppeteer_base::state::UnbondingDelegation; key: {:02X?}",
+                    "\0&unbonding_delegations_reply_id_storage\0\0".as_bytes()
+                )
+            }
+        );
+    }
+    {
+        let puppeteer_base = base_init(&mut deps.as_mut());
+        puppeteer_base
+            .unbonding_delegations_reply_id_storage
+            .save(
+                deps.as_mut().storage,
+                0u16,
+                &drop_puppeteer_base::state::UnbondingDelegation {
+                    validator_address: "validator".to_string(),
+                    query_id: 0u64,
+                    unbonding_delegations: vec![],
+                    last_updated_height: 0u64,
+                },
+            )
+            .unwrap();
+        let res = crate::contract::reply(
+            deps.as_mut().into_empty(),
+            mock_env(),
+            cosmwasm_std::Reply {
+                id: drop_puppeteer_base::state::reply_msg::KV_UNBONDING_DELEGATIONS_LOWER_BOUND,
+                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                    events: vec![],
+                    data: Some(
+                        to_json_binary(
+                            &neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse {
+                                id: 0u64,
+                            },
+                        )
+                        .unwrap(),
+                    ),
+                }),
+            },
+        )
+        .unwrap();
+        assert_eq!(res, cosmwasm_std::Response::new());
+        let unbonding_delegations_reply_id = puppeteer_base
+            .unbonding_delegations_reply_id_storage
+            .load(deps.as_mut().storage, 0u16)
+            .unwrap_err();
+        assert_eq!(
+            unbonding_delegations_reply_id,
+            StdError::NotFound {
+                kind: format!(
+                    "type: drop_puppeteer_base::state::UnbondingDelegation; key: {:02X?}",
+                    "\0&unbonding_delegations_reply_id_storage\0\0".as_bytes()
+                )
+            }
+        );
+        let unbonding_delegation = puppeteer_base
+            .unbonding_delegations
+            .load(deps.as_mut().storage, "validator")
+            .unwrap();
+        assert_eq!(
+            unbonding_delegation,
+            drop_puppeteer_base::state::UnbondingDelegation {
+                validator_address: "validator".to_string(),
+                query_id: 0u64,
+                unbonding_delegations: vec![],
+                last_updated_height: 0u64,
+            }
+        );
+        let kv_query = puppeteer_base
+            .kv_queries
+            .load(deps.as_mut().storage, 0u64)
+            .unwrap();
+        assert_eq!(
+            kv_query,
+            drop_staking_base::state::puppeteer::KVQueryType::UnbondingDelegations
+        )
+    }
+}
+
 mod register_delegations_and_balance_query {
     use cosmwasm_std::{testing::MockApi, MemoryStorage, OwnedDeps, StdResult};
     use drop_helpers::testing::WasmMockQuerier;
