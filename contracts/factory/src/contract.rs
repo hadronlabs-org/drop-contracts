@@ -41,7 +41,7 @@ use neutron_sdk::{
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-const PERCENT_PRECISION: u128 = 10000; // allows to achieve 0.01% precision
+const PERCENT_PRECISION: Uint128 = Uint128::new(10000u128); // allows to achieve 0.01% precision
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
@@ -632,13 +632,13 @@ fn get_splitter_receivers(
 ) -> ContractResult<Vec<(String, cosmwasm_std::Uint128)>> {
     match fee_params {
         Some(fee_params) => {
-            let fee_weight = Uint128::from(PERCENT_PRECISION) * fee_params.fee;
-            let staker_weight = Uint128::from(PERCENT_PRECISION) - fee_weight;
+            let fee_weight = PERCENT_PRECISION * fee_params.fee;
+            let staker_weight = PERCENT_PRECISION - fee_weight;
             Ok(vec![
                 (staker_address, staker_weight),
                 (fee_params.fee_address, fee_weight),
             ])
         }
-        None => Ok(vec![(staker_address, Uint128::from(PERCENT_PRECISION))]),
+        None => Ok(vec![(staker_address, PERCENT_PRECISION)]),
     }
 }
