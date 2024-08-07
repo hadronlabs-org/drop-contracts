@@ -14,10 +14,7 @@ use drop_helpers::{
 };
 use drop_puppeteer_base::{
     msg::IBCTransferReason,
-    state::{
-        reply_msg::KV_DELEGATIONS_AND_BALANCE_UPPER_BOUND, BalancesAndDelegations,
-        BalancesAndDelegationsState, PuppeteerBase, ReplyMsg,
-    },
+    state::{BalancesAndDelegations, BalancesAndDelegationsState, PuppeteerBase, ReplyMsg},
 };
 use drop_staking_base::{
     msg::puppeteer::InstantiateMsg,
@@ -2152,7 +2149,7 @@ fn test_reply_kv_unbonding_delegations() {
     {
         let mut deps = mock_dependencies(&[]);
         {
-            let res = crate::contract::reply(
+            let _ = crate::contract::reply(
                 deps.as_mut().into_empty(),
                 mock_env(),
                 cosmwasm_std::Reply {
