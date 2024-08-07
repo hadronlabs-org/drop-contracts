@@ -1539,26 +1539,52 @@ fn test_sudo_delegations_and_balance_kv_query_result() {
         .unwrap();
 
     {
-        let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
-            crate::contract::query(
-                deps.as_ref(),
-                mock_env(),
-                drop_puppeteer_base::msg::QueryMsg::Extension {
-                    msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
-                },
+        {
+            let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
+                crate::contract::query(
+                    deps.as_ref(),
+                    mock_env(),
+                    drop_puppeteer_base::msg::QueryMsg::Extension {
+                        msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
+                    },
+                )
+                .unwrap(),
             )
-            .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(
-            query_res,
-            drop_staking_base::msg::puppeteer::BalancesResponse {
-                balances: Balances { coins: vec![] },
-                remote_height: 0,
-                local_height: 0,
-                timestamp: Timestamp::default(),
-            }
-        );
+            .unwrap();
+            assert_eq!(
+                query_res,
+                drop_staking_base::msg::puppeteer::BalancesResponse {
+                    balances: Balances { coins: vec![] },
+                    remote_height: 0,
+                    local_height: 0,
+                    timestamp: Timestamp::default(),
+                }
+            );
+        }
+        {
+            let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
+                crate::contract::query(
+                    deps.as_ref(),
+                    mock_env(),
+                    drop_puppeteer_base::msg::QueryMsg::Extension {
+                        msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+                    },
+                )
+                .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(
+                query_res,
+                drop_staking_base::msg::puppeteer::DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![],
+                    },
+                    remote_height: 0,
+                    local_height: 0,
+                    timestamp: Timestamp::default(),
+                }
+            );
+        }
     }
 
     let res = crate::contract::sudo(deps.as_mut(), env, msg).unwrap();
@@ -1573,26 +1599,50 @@ fn test_sudo_delegations_and_balance_kv_query_result() {
             .delegations_and_balances
             .load(deps.as_mut().storage, &last_key.unwrap())
             .unwrap();
-        let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
-            crate::contract::query(
-                deps.as_ref(),
-                mock_env(),
-                drop_puppeteer_base::msg::QueryMsg::Extension {
-                    msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
-                },
+        {
+            let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
+                crate::contract::query(
+                    deps.as_ref(),
+                    mock_env(),
+                    drop_puppeteer_base::msg::QueryMsg::Extension {
+                        msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
+                    },
+                )
+                .unwrap(),
             )
-            .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(
-            query_res,
-            drop_staking_base::msg::puppeteer::BalancesResponse {
-                balances: last_data.data.balances,
-                remote_height: last_data.remote_height,
-                local_height: last_data.local_height,
-                timestamp: last_data.timestamp,
-            }
-        );
+            .unwrap();
+            assert_eq!(
+                query_res,
+                drop_staking_base::msg::puppeteer::BalancesResponse {
+                    balances: last_data.data.balances,
+                    remote_height: last_data.remote_height,
+                    local_height: last_data.local_height,
+                    timestamp: last_data.timestamp,
+                }
+            );
+        }
+        {
+            let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
+                crate::contract::query(
+                    deps.as_ref(),
+                    mock_env(),
+                    drop_puppeteer_base::msg::QueryMsg::Extension {
+                        msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+                    },
+                )
+                .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(
+                query_res,
+                drop_staking_base::msg::puppeteer::DelegationsResponse {
+                    delegations: last_data.data.delegations,
+                    remote_height: last_data.remote_height,
+                    local_height: last_data.local_height,
+                    timestamp: last_data.timestamp,
+                }
+            );
+        }
         assert_eq!(last_key, Some(123456));
     }
     let state = puppeteer_base
