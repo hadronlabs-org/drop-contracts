@@ -2013,6 +2013,62 @@ fn test_reply_ibc_transfer() {
     }
 }
 
+#[test]
+fn test_reply_kv_delegations_and_balance() {
+    let mut deps = mock_dependencies(&[]);
+    {
+        let res = crate::contract::reply(
+            deps.as_mut().into_empty(),
+            mock_env(),
+            cosmwasm_std::Reply {
+                id: drop_puppeteer_base::state::reply_msg::KV_DELEGATIONS_AND_BALANCE_LOWER_BOUND,
+                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                    events: vec![],
+                    data: None,
+                }),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(res, StdError::generic_err("no result"))
+    }
+    {
+        let puppeteer_base = base_init(&mut deps.as_mut());
+        let res = crate::contract::reply(
+            deps.as_mut().into_empty(),
+            mock_env(),
+            cosmwasm_std::Reply {
+                id: drop_puppeteer_base::state::reply_msg::KV_DELEGATIONS_AND_BALANCE_LOWER_BOUND,
+                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                    events: vec![],
+                    data: Some(
+                        to_json_binary(
+                            &neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse {
+                                id: 0u64,
+                            },
+                        )
+                        .unwrap(),
+                    ),
+                }),
+            },
+        )
+        .unwrap();
+        assert_eq!(res, cosmwasm_std::Response::new());
+        let delegations_and_balances_query_id_chunk: u16 = puppeteer_base
+            .delegations_and_balances_query_id_chunk
+            .load(deps.as_mut().storage, 0)
+            .unwrap();
+        assert_eq!(delegations_and_balances_query_id_chunk, 0);
+        let kv_query = puppeteer_base
+            .kv_queries
+            .load(deps.as_mut().storage, 0)
+            .unwrap();
+        assert_eq!(
+            kv_query,
+            drop_staking_base::state::puppeteer::KVQueryType::DelegationsAndBalance
+        );
+    }
+}
+
 mod register_delegations_and_balance_query {
     use cosmwasm_std::{testing::MockApi, MemoryStorage, OwnedDeps, StdResult};
     use drop_helpers::testing::WasmMockQuerier;
