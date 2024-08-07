@@ -2152,21 +2152,6 @@ fn test_reply_kv_unbonding_delegations() {
             deps.as_mut().into_empty(),
             mock_env(),
             cosmwasm_std::Reply {
-                id: drop_puppeteer_base::state::reply_msg::SUDO_PAYLOAD,
-                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
-                    events: vec![],
-                    data: None,
-                }),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(res, StdError::generic_err("no result"))
-    }
-    {
-        let res = crate::contract::reply(
-            deps.as_mut().into_empty(),
-            mock_env(),
-            cosmwasm_std::Reply {
                 id: drop_puppeteer_base::state::reply_msg::KV_UNBONDING_DELEGATIONS_LOWER_BOUND,
                 result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
                     events: vec![],
@@ -2191,6 +2176,35 @@ fn test_reply_kv_unbonding_delegations() {
                 )
             }
         );
+    }
+    {
+        let puppeteer_base = base_init(&mut deps.as_mut());
+        puppeteer_base
+            .unbonding_delegations_reply_id_storage
+            .save(
+                deps.as_mut().storage,
+                0u16,
+                &drop_puppeteer_base::state::UnbondingDelegation {
+                    validator_address: "validator".to_string(),
+                    query_id: 0u64,
+                    unbonding_delegations: vec![],
+                    last_updated_height: 0u64,
+                },
+            )
+            .unwrap();
+        let res = crate::contract::reply(
+            deps.as_mut().into_empty(),
+            mock_env(),
+            cosmwasm_std::Reply {
+                id: drop_puppeteer_base::state::reply_msg::KV_UNBONDING_DELEGATIONS_LOWER_BOUND,
+                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                    events: vec![],
+                    data: None,
+                }),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(res, StdError::generic_err("no result"))
     }
     {
         let puppeteer_base = base_init(&mut deps.as_mut());
