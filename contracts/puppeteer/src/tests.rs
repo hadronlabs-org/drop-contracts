@@ -866,14 +866,14 @@ fn test_execute_register_balance_and_delegator_delegations_query() {
         );
     }
     {
-        let validators =
+        let exceed_validators =
             vec!["neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(); u16::MAX as usize];
         let res = crate::contract::execute(
             deps.as_mut(),
             mock_env(),
             mock_info("owner", &[]),
             drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery{
-                validators: validators
+                validators: exceed_validators
             }
         )
         .unwrap_err();
