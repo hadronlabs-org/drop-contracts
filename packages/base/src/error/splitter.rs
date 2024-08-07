@@ -19,6 +19,9 @@ pub enum ContractError {
     #[error("Insufficient funds")]
     InsufficientFunds {},
 
+    #[error("Share must not be zero")]
+    ZeroShare {},
+
     #[error("Semver parsing error: {0}")]
     SemVer(String),
 }
