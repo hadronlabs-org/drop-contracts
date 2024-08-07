@@ -614,6 +614,7 @@ fn execute_transfer(
     let ica = puppeteer_base.ica.get_address(deps.storage)?;
     let mut any_msgs = vec![];
     for (val, amount) in items.clone() {
+        deps.api.addr_validate(&val)?;
         let transfer_msg = MsgSend {
             from_address: ica.to_string(),
             to_address: val.to_string(),
