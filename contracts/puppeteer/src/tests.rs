@@ -2091,6 +2091,21 @@ fn test_reply_kv_delegations_and_balance() {
                 .kv_queries
                 .load(deps.as_mut().storage, response_id)
                 .unwrap();
+            {
+                let query_res: Vec<(u64, KVQueryType)> = from_json(
+                    crate::contract::query(
+                        deps.as_ref(),
+                        mock_env(),
+                        drop_puppeteer_base::msg::QueryMsg::KVQueryIds {},
+                    )
+                    .unwrap(),
+                )
+                .unwrap();
+                assert!(query_res.contains(&(
+                    response_id,
+                    drop_staking_base::state::puppeteer::KVQueryType::DelegationsAndBalance,
+                )));
+            }
             assert_eq!(
                 kv_query,
                 drop_staking_base::state::puppeteer::KVQueryType::DelegationsAndBalance
@@ -2151,6 +2166,21 @@ fn test_reply_kv_non_native_rewards_balances() {
             .kv_queries
             .load(deps.as_mut().storage, 0u64)
             .unwrap();
+        {
+            let query_res: Vec<(u64, KVQueryType)> = from_json(
+                crate::contract::query(
+                    deps.as_ref(),
+                    mock_env(),
+                    drop_puppeteer_base::msg::QueryMsg::KVQueryIds {},
+                )
+                .unwrap(),
+            )
+            .unwrap();
+            assert!(query_res.contains(&(
+                0u64,
+                drop_staking_base::state::puppeteer::KVQueryType::NonNativeRewardsBalances,
+            )));
+        }
         assert_eq!(
             kv_query,
             drop_staking_base::state::puppeteer::KVQueryType::NonNativeRewardsBalances
@@ -2271,6 +2301,21 @@ fn test_reply_kv_unbonding_delegations() {
                 .kv_queries
                 .load(deps.as_mut().storage, response_id)
                 .unwrap();
+            {
+                let query_res: Vec<(u64, KVQueryType)> = from_json(
+                    crate::contract::query(
+                        deps.as_ref(),
+                        mock_env(),
+                        drop_puppeteer_base::msg::QueryMsg::KVQueryIds {},
+                    )
+                    .unwrap(),
+                )
+                .unwrap();
+                assert!(query_res.contains(&(
+                    response_id,
+                    drop_staking_base::state::puppeteer::KVQueryType::UnbondingDelegations,
+                )));
+            }
             assert_eq!(
                 kv_query,
                 drop_staking_base::state::puppeteer::KVQueryType::UnbondingDelegations
