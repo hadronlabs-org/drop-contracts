@@ -1059,7 +1059,7 @@ fn sudo_response(
     Ok(response("sudo-response", "puppeteer", attrs).add_messages(msgs))
 }
 
-fn get_answers_from_msg_data(
+pub fn get_answers_from_msg_data(
     deps: Deps<NeutronQuery>,
     msg_data: TxMsgData,
 ) -> NeutronResult<Vec<ResponseAnswer>> {

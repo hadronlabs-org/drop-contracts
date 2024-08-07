@@ -2262,6 +2262,110 @@ fn test_reply_kv_unbonding_delegations() {
     }
 }
 
+#[test]
+#[allow(deprecated)]
+fn test_get_answers_from_msg_data() {
+    let mut deps = mock_dependencies(&[]);
+    {
+        let res = crate::contract::get_answers_from_msg_data(
+            deps.as_ref(),
+            cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxMsgData {
+                msg_responses: vec![],
+                data: vec![cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                    msg_type: "incorrect_cosmos_msg_type".to_string(),
+                    data: vec![],
+                }],
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            vec![drop_puppeteer_base::msg::ResponseAnswer::UnknownResponse {}]
+        );
+    }
+    {
+        let res = crate::contract::get_answers_from_msg_data(
+            deps.as_ref(),
+            cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxMsgData {
+                msg_responses: vec![],
+                data: vec![
+                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                        msg_type: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
+                        data: (crate::proto::liquidstaking::staking::v1beta1::MsgDelegateResponse {})
+                            .encode_to_vec(),
+                    },
+                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                        msg_type: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
+                        data: (crate::proto::liquidstaking::staking::v1beta1::MsgUndelegateResponse {
+                            completion_time: None,
+                        })
+                        .encode_to_vec(),
+                    },
+                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                        msg_type: "/cosmos.staking.v1beta1.MsgTokenizeShares".to_string(),
+                        data:
+                            (crate::proto::liquidstaking::staking::v1beta1::MsgTokenizeSharesResponse {
+                                amount: None,
+                            })
+                            .encode_to_vec(),
+                    },
+                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                        msg_type: "/cosmos.staking.v1beta1.MsgBeginRedelegate".to_string(),
+                        data: (crate::proto::liquidstaking::staking::v1beta1::MsgBeginRedelegateResponse {
+                            completion_time: None
+                        })
+                            .encode_to_vec(),
+                    },
+                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                        msg_type: "/cosmos.authz.v1beta1.MsgGrant".to_string(),
+                        data: (cosmos_sdk_proto::cosmos::authz::v1beta1::MsgGrantResponse {}).encode_to_vec()
+                    },
+                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                        msg_type: "/cosmos.staking.v1beta1.MsgRedeemTokensForShares".to_string(),
+                        data: (crate::proto::liquidstaking::staking::v1beta1::MsgRedeemTokensforSharesResponse {
+                            amount: None
+                        }).encode_to_vec()
+                    },
+                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                        msg_type: "/cosmos.bank.v1beta1.MsgSend".to_string(),
+                        data: (cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSendResponse {}).encode_to_vec()
+                    },
+                ],
+            },
+        ).unwrap();
+        assert_eq!(
+            res,
+            vec![
+                drop_puppeteer_base::msg::ResponseAnswer::DelegateResponse(
+                    drop_puppeteer_base::proto::MsgDelegateResponse {}
+                ),
+                drop_puppeteer_base::msg::ResponseAnswer::UndelegateResponse(
+                    drop_puppeteer_base::proto::MsgUndelegateResponse {
+                        completion_time: None,
+                    }
+                ),
+                drop_puppeteer_base::msg::ResponseAnswer::TokenizeSharesResponse(
+                    drop_puppeteer_base::proto::MsgTokenizeSharesResponse { amount: None }
+                ),
+                drop_puppeteer_base::msg::ResponseAnswer::BeginRedelegateResponse(
+                    drop_puppeteer_base::proto::MsgBeginRedelegateResponse {
+                        completion_time: None
+                    }
+                ),
+                drop_puppeteer_base::msg::ResponseAnswer::GrantDelegateResponse(
+                    drop_puppeteer_base::proto::MsgGrantResponse {},
+                ),
+                drop_puppeteer_base::msg::ResponseAnswer::RedeemTokensforSharesResponse(
+                    drop_puppeteer_base::proto::MsgRedeemTokensforSharesResponse { amount: None }
+                ),
+                drop_puppeteer_base::msg::ResponseAnswer::TransferResponse(
+                    drop_puppeteer_base::proto::MsgSendResponse {}
+                )
+            ]
+        );
+    }
+}
+
 mod register_delegations_and_balance_query {
     use cosmwasm_std::{testing::MockApi, MemoryStorage, OwnedDeps, StdResult};
     use drop_helpers::testing::WasmMockQuerier;
