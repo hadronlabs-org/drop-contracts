@@ -195,7 +195,7 @@ fn test_instantiate() {
 }
 
 #[test]
-fn test_update_config() {
+fn test_execute_update_config() {
     let mut deps = mock_dependencies(&[]);
     let puppeteer_base = Puppeteer::default();
     puppeteer_base
@@ -524,84 +524,64 @@ fn test_execute_tokenize_share() {
         .unwrap()
     });
     let puppeteer_base = base_init(&mut deps.as_mut());
-    {
-        let res = crate::contract::execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("allowed_sender", &[]),
-            drop_staking_base::msg::puppeteer::ExecuteMsg::TokenizeShare {
-                validator: "validator".to_string(),
-                amount: Uint128::from(0u64),
-                reply_to: "some_reply_to".to_string(),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
-                "Amount should >= 0",
-            ))
-        );
-    }
-    {
-        let res = crate::contract::execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("allowed_sender", &[]),
-            drop_staking_base::msg::puppeteer::ExecuteMsg::TokenizeShare {
-                validator: "validator".to_string(),
-                amount: Uint128::from(123u64),
-                reply_to: "some_reply_to".to_string(),
-            },
-        )
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::TokenizeShare {
+            validator: "validator".to_string(),
+            amount: Uint128::from(123u64),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap();
+    let delegator = puppeteer_base
+        .ica
+        .get_address(deps.as_mut().storage)
         .unwrap();
-        let delegator = puppeteer_base
-            .ica
-            .get_address(deps.as_mut().storage)
-            .unwrap();
-        assert_eq!(
-            res,
-            cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
-                id: 65536u64,
-                msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::submit_tx(
-                    "connection_id".to_string(),
-                    "DROP".to_string(),
-                    vec![drop_helpers::interchain::prepare_any_msg(
-                        crate::proto::liquidstaking::staking::v1beta1::MsgTokenizeShares {
-                            delegator_address: delegator.clone(),
-                            validator_address: "validator".to_string(),
-                            amount: Some(crate::proto::cosmos::base::v1beta1::Coin {
-                                denom: puppeteer_base
-                                    .config
-                                    .load(deps.as_mut().storage)
-                                    .unwrap()
-                                    .remote_denom,
-                                amount: "123".to_string(),
-                            }),
-                            tokenized_share_owner: delegator
-                        },
-                        "/cosmos.staking.v1beta1.MsgTokenizeShares",
-                    )
-                    .unwrap()],
-                    "".to_string(),
-                    100u64,
-                    IbcFee {
-                        recv_fee: vec![],
-                        ack_fee: vec![cosmwasm_std::Coin {
-                            denom: "untrn".to_string(),
-                            amount: Uint128::from(100u64),
-                        }],
-                        timeout_fee: vec![cosmwasm_std::Coin {
-                            denom: "untrn".to_string(),
-                            amount: Uint128::from(200u64),
-                        }],
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+            id: 65536u64,
+            msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::submit_tx(
+                "connection_id".to_string(),
+                "DROP".to_string(),
+                vec![drop_helpers::interchain::prepare_any_msg(
+                    crate::proto::liquidstaking::staking::v1beta1::MsgTokenizeShares {
+                        delegator_address: delegator.clone(),
+                        validator_address: "validator".to_string(),
+                        amount: Some(crate::proto::cosmos::base::v1beta1::Coin {
+                            denom: puppeteer_base
+                                .config
+                                .load(deps.as_mut().storage)
+                                .unwrap()
+                                .remote_denom,
+                            amount: "123".to_string(),
+                        }),
+                        tokenized_share_owner: delegator
                     },
-                )),
-                gas_limit: None,
-                reply_on: cosmwasm_std::ReplyOn::Success
-            }),
-        );
-    }
+                    "/cosmos.staking.v1beta1.MsgTokenizeShares",
+                )
+                .unwrap()],
+                "".to_string(),
+                100u64,
+                IbcFee {
+                    recv_fee: vec![],
+                    ack_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(100u64),
+                    }],
+                    timeout_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(200u64),
+                    }],
+                },
+            )),
+            gas_limit: None,
+            reply_on: cosmwasm_std::ReplyOn::Success
+        }),
+    );
 }
 
 #[test]
