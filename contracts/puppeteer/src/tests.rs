@@ -216,6 +216,20 @@ fn test_execute_update_config() {
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     {
+        let query_res = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Ownership {},
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            query_res,
+            to_json_binary(&cw_ownable::get_ownership(deps.as_mut().storage).unwrap()).unwrap()
+        );
+    }
+    {
         let res = crate::contract::execute(
             deps.as_mut(),
             mock_env(),
@@ -831,6 +845,20 @@ fn test_execute_register_balance_and_delegator_delegations_query() {
         Some(Addr::unchecked("owner").as_ref()),
     )
     .unwrap();
+    {
+        let query_res = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Ownership {},
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            query_res,
+            to_json_binary(&cw_ownable::get_ownership(deps.as_mut().storage).unwrap()).unwrap()
+        );
+    }
     let puppeteer_base = base_init(&mut deps.as_mut());
     puppeteer_base
         .ica
@@ -924,6 +952,20 @@ fn test_execute_register_unbonding_delegations_query() {
         Some(Addr::unchecked("owner").as_ref()),
     )
     .unwrap();
+    {
+        let query_res = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Ownership {},
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            query_res,
+            to_json_binary(&cw_ownable::get_ownership(deps.as_mut().storage).unwrap()).unwrap()
+        );
+    }
     let puppeteer_base = base_init(&mut deps.as_mut());
     puppeteer_base
         .ica
@@ -1018,6 +1060,20 @@ fn test_execute_register_non_native_rewards_balances_query() {
         Some(Addr::unchecked("owner").as_ref()),
     )
     .unwrap();
+    {
+        let query_res = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Ownership {},
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            query_res,
+            to_json_binary(&cw_ownable::get_ownership(deps.as_mut().storage).unwrap()).unwrap()
+        );
+    }
     let puppeteer_base = base_init(&mut deps.as_mut());
     puppeteer_base
         .ica
@@ -2433,6 +2489,20 @@ mod register_delegations_and_balance_query {
             Some(Addr::unchecked(owner.unwrap_or("owner")).as_ref()),
         )
         .unwrap();
+        {
+            let query_res = crate::contract::query(
+                deps.as_ref(),
+                mock_env(),
+                drop_puppeteer_base::msg::QueryMsg::Extension {
+                    msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Ownership {},
+                },
+            )
+            .unwrap();
+            assert_eq!(
+                query_res,
+                to_json_binary(&cw_ownable::get_ownership(deps.as_mut().storage).unwrap()).unwrap()
+            );
+        }
         (deps, puppeteer_base)
     }
 
@@ -2626,6 +2696,20 @@ fn get_base_config() -> Config {
 fn base_init(deps_mut: &mut DepsMut<NeutronQuery>) -> PuppeteerBase<'static, Config, KVQueryType> {
     let puppeteer_base = Puppeteer::default();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    {
+        let query_res = crate::contract::query(
+            deps_mut.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Ownership {},
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            query_res,
+            to_json_binary(&cw_ownable::get_ownership(deps_mut.storage).unwrap()).unwrap()
+        );
+    }
     puppeteer_base
         .config
         .save(deps_mut.storage, &get_base_config())
