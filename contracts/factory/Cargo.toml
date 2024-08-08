@@ -35,3 +35,6 @@ drop-macros = { workspace = true }
 neutron-sdk = { workspace = true }
 cw-ownable = { workspace = true }
 semver = { workspace = true }
+
+[dev-dependencies]
+cw-multi-test = { workspace = true }

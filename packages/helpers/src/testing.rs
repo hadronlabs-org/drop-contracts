@@ -7,8 +7,8 @@ use std::marker::PhantomData;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage};
 use cosmwasm_std::{
-    from_json, Binary, Coin, ContractResult, CustomQuery, OwnedDeps, Querier, QuerierResult,
-    QueryRequest, SystemError, SystemResult, Uint128,
+    from_json, to_json_binary, Api, Binary, Coin, ContractResult, CustomQuery, OwnedDeps, Querier,
+    QuerierResult, QueryRequest, SystemError, SystemResult, Uint128,
 };
 
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -20,6 +20,88 @@ pub struct CustomQueryWrapper {}
 
 // implement custom query
 impl CustomQuery for CustomQueryWrapper {}
+
+#[derive(Clone)]
+pub struct CustomMockApi {}
+
+impl Api for CustomMockApi {
+    fn addr_validate(&self, _input: &str) -> cosmwasm_std::StdResult<cosmwasm_std::Addr> {
+        Ok(cosmwasm_std::Addr::unchecked("some_address".to_string()))
+    }
+
+    fn addr_canonicalize(
+        &self,
+        _input: &str,
+    ) -> cosmwasm_std::StdResult<cosmwasm_std::CanonicalAddr> {
+        Ok(cosmwasm_std::CanonicalAddr::from(
+            "some_canonical_address".as_bytes(),
+        ))
+    }
+
+    fn addr_humanize(
+        &self,
+        _canonical: &cosmwasm_std::CanonicalAddr,
+    ) -> cosmwasm_std::StdResult<cosmwasm_std::Addr> {
+        Ok(cosmwasm_std::Addr::unchecked(
+            "some_humanized_address".to_string(),
+        ))
+    }
+
+    fn secp256k1_verify(
+        &self,
+        _message_hash: &[u8],
+        _signature: &[u8],
+        _public_key: &[u8],
+    ) -> Result<bool, cosmwasm_std::VerificationError> {
+        Ok(true)
+    }
+
+    fn secp256k1_recover_pubkey(
+        &self,
+        _message_hash: &[u8],
+        _signature: &[u8],
+        _recovery_param: u8,
+    ) -> Result<Vec<u8>, cosmwasm_std::RecoverPubkeyError> {
+        Ok(vec![])
+    }
+
+    fn ed25519_verify(
+        &self,
+        _message: &[u8],
+        _signature: &[u8],
+        _public_key: &[u8],
+    ) -> Result<bool, cosmwasm_std::VerificationError> {
+        Ok(true)
+    }
+
+    fn ed25519_batch_verify(
+        &self,
+        _messages: &[&[u8]],
+        _signatures: &[&[u8]],
+        _public_keys: &[&[u8]],
+    ) -> Result<bool, cosmwasm_std::VerificationError> {
+        Ok(true)
+    }
+
+    fn debug(&self, message: &str) {
+        println!("{message}");
+    }
+}
+
+pub fn mock_dependencies_with_api(
+    contract_balance: &[Coin],
+) -> OwnedDeps<MockStorage, CustomMockApi, WasmMockQuerier, NeutronQuery> {
+    let contract_addr = MOCK_CONTRACT_ADDR;
+    let custom_querier: WasmMockQuerier =
+        WasmMockQuerier::new(MockQuerier::new(&[(contract_addr, contract_balance)]));
+
+    OwnedDeps {
+        storage: MockStorage::default(),
+        api: CustomMockApi {},
+        querier: custom_querier,
+        custom_query_type: PhantomData,
+    }
+}
 
 pub fn mock_dependencies(
     contract_balance: &[Coin],
@@ -119,31 +201,59 @@ impl WasmMockQuerier {
                     SystemResult::Ok(ContractResult::Ok(response(request)))
                 }
             },
-            QueryRequest::Wasm(cosmwasm_std::WasmQuery::Smart { contract_addr, msg }) => {
-                let mut wasm_query_responses = self.wasm_query_responses.borrow_mut();
-                let responses = match wasm_query_responses.get_mut(contract_addr) {
-                    None => Err(SystemError::UnsupportedRequest {
-                        kind: format!(
-                            "Wasm contract {} query is not mocked. Query {}",
-                            contract_addr,
-                            String::from_utf8(msg.0.clone()).unwrap()
-                        ),
-                    }),
-                    Some(responses) => Ok(responses),
+            QueryRequest::Wasm(wasm_query) => match wasm_query {
+                cosmwasm_std::WasmQuery::Smart { contract_addr, msg } => {
+                    let mut wasm_query_responses = self.wasm_query_responses.borrow_mut();
+                    let responses = match wasm_query_responses.get_mut(contract_addr) {
+                        None => Err(SystemError::UnsupportedRequest {
+                            kind: format!(
+                                "Wasm contract {} query is not mocked. Query {}",
+                                contract_addr,
+                                String::from_utf8(msg.0.clone()).unwrap()
+                            ),
+                        }),
+                        Some(responses) => Ok(responses),
+                    }
+                    .unwrap();
+                    if responses.is_empty() {
+                        return SystemResult::Err(SystemError::UnsupportedRequest {
+                            kind: format!(
+                                "Wasm contract {} query is not mocked. Query {}",
+                                contract_addr,
+                                String::from_utf8(msg.0.clone()).unwrap()
+                            ),
+                        });
+                    }
+                    let response = responses.remove(0);
+                    SystemResult::Ok(ContractResult::Ok(response(msg)))
                 }
-                .unwrap();
-                if responses.is_empty() {
-                    return SystemResult::Err(SystemError::UnsupportedRequest {
-                        kind: format!(
-                            "Wasm contract {} query is not mocked. Query {}",
-                            contract_addr,
-                            String::from_utf8(msg.0.clone()).unwrap()
-                        ),
-                    });
+                cosmwasm_std::WasmQuery::CodeInfo { code_id } => {
+                    let mut stargate_query_responses = self.stargate_query_responses.borrow_mut();
+                    let responses = match stargate_query_responses
+                        .get_mut("/cosmos.wasm.v1.Query/QueryCodeRequest")
+                    {
+                        None => Err(SystemError::UnsupportedRequest {
+                            kind: format!(
+                                "Stargate query is not mocked. Path: {} Data {}",
+                                "/cosmos.wasm.v1.Query/QueryCodeRequest", code_id
+                            ),
+                        }),
+                        Some(responses) => Ok(responses),
+                    }
+                    .unwrap();
+                    if responses.is_empty() {
+                        return SystemResult::Err(SystemError::UnsupportedRequest {
+                            kind: "No such mocked queries found".to_string(),
+                        });
+                    }
+                    SystemResult::Ok(ContractResult::Ok(responses[0](
+                        &to_json_binary(&code_id).unwrap(),
+                    )))
                 }
-                let response = responses.remove(0);
-                SystemResult::Ok(ContractResult::Ok(response(msg)))
-            }
+                _ => SystemResult::Err(SystemError::UnsupportedRequest {
+                    kind: "Unsupported wasm request given".to_string(),
+                }),
+            },
             _ => self.base.handle_query(request),
         }
     }
