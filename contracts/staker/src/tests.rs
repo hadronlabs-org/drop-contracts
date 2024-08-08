@@ -904,6 +904,174 @@ fn test_sudo_response() {
                 &drop_staking_base::state::staker::TxState {
                     status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
                     seq_id: Some(0u64),
+                    transaction: None,
+                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+                },
+            )
+            .unwrap();
+        let res = crate::contract::sudo(
+            deps.as_mut(),
+            mock_env(),
+            neutron_sdk::sudo::msg::SudoMsg::Response {
+                request: neutron_sdk::sudo::msg::RequestPacket {
+                    sequence: Some(0u64),
+                    source_port: Some("source_port".to_string()),
+                    source_channel: Some("source_channel".to_string()),
+                    destination_port: Some("destination_port".to_string()),
+                    destination_channel: Some("destination_channel".to_string()),
+                    data: None,
+                    timeout_height: None,
+                    timeout_timestamp: None,
+                },
+                data: cosmwasm_std::Binary::from([0; 0]),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+                msg: "transaction not found".to_string()
+            })
+        );
+    }
+    {
+        TX_STATE
+            .save(
+                deps.as_mut().storage,
+                &drop_staking_base::state::staker::TxState {
+                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                    seq_id: Some(0u64),
+                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                        amount: Uint128::from(0u64),
+                    }),
+                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+                },
+            )
+            .unwrap();
+        deps.querier.add_stargate_query_response(
+            "/ibc.core.channel.v1.Query/ChannelClientState",
+            |_data| {
+                to_json_binary(
+                    &drop_helpers::ibc_client_state::ChannelClientStateResponse {
+                        identified_client_state: None,
+                        proof: None,
+                        proof_height: drop_helpers::ibc_client_state::Height {
+                            revision_number: cosmwasm_std::Uint64::from(0u64),
+                            revision_height: cosmwasm_std::Uint64::from(33333u64),
+                        },
+                    },
+                )
+                .unwrap()
+            },
+        );
+        let res = crate::contract::sudo(
+            deps.as_mut(),
+            mock_env(),
+            neutron_sdk::sudo::msg::SudoMsg::Response {
+                request: neutron_sdk::sudo::msg::RequestPacket {
+                    sequence: Some(0u64),
+                    source_port: Some("source_port".to_string()),
+                    source_channel: Some("source_channel".to_string()),
+                    destination_port: Some("destination_port".to_string()),
+                    destination_channel: Some("destination_channel".to_string()),
+                    data: None,
+                    timeout_height: None,
+                    timeout_timestamp: None,
+                },
+                data: cosmwasm_std::Binary::from([0; 0]),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+                msg: "IBC client state identified_client_state not found".to_string()
+            })
+        );
+    }
+    {
+        TX_STATE
+            .save(
+                deps.as_mut().storage,
+                &drop_staking_base::state::staker::TxState {
+                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                    seq_id: Some(0u64),
+                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                        amount: Uint128::from(0u64),
+                    }),
+                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+                },
+            )
+            .unwrap();
+        deps.querier.add_stargate_query_response(
+            "/ibc.core.channel.v1.Query/ChannelClientState",
+            |_data| {
+                to_json_binary(
+                    &drop_helpers::ibc_client_state::ChannelClientStateResponse {
+                        identified_client_state: Some(
+                            drop_helpers::ibc_client_state::IdentifiedClientState {
+                                client_id: "07-tendermint-0".to_string(),
+                                client_state: drop_helpers::ibc_client_state::ClientState {
+                                    chain_id: "test-1".to_string(),
+                                    type_url: "type_url".to_string(),
+                                    trust_level: drop_helpers::ibc_client_state::Fraction {
+                                        numerator: cosmwasm_std::Uint64::from(1u64),
+                                        denominator: cosmwasm_std::Uint64::from(3u64),
+                                    },
+                                    trusting_period: Some("1000".to_string()),
+                                    unbonding_period: Some("1500".to_string()),
+                                    max_clock_drift: Some("1000".to_string()),
+                                    frozen_height: None,
+                                    latest_height: None,
+                                    proof_specs: vec![],
+                                    upgrade_path: vec![],
+                                    allow_update_after_expiry: true,
+                                    allow_update_after_misbehaviour: true,
+                                },
+                            },
+                        ),
+                        proof: None,
+                        proof_height: drop_helpers::ibc_client_state::Height {
+                            revision_number: cosmwasm_std::Uint64::from(0u64),
+                            revision_height: cosmwasm_std::Uint64::from(33333u64),
+                        },
+                    },
+                )
+                .unwrap()
+            },
+        );
+        let res = crate::contract::sudo(
+            deps.as_mut(),
+            mock_env(),
+            neutron_sdk::sudo::msg::SudoMsg::Response {
+                request: neutron_sdk::sudo::msg::RequestPacket {
+                    sequence: Some(0u64),
+                    source_port: Some("source_port".to_string()),
+                    source_channel: Some("source_channel".to_string()),
+                    destination_port: Some("destination_port".to_string()),
+                    destination_channel: Some("destination_channel".to_string()),
+                    data: None,
+                    timeout_height: None,
+                    timeout_timestamp: None,
+                },
+                data: cosmwasm_std::Binary::from([0; 0]),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+                msg: "IBC client state latest_height not found".to_string()
+            })
+        );
+    }
+    {
+        TX_STATE
+            .save(
+                deps.as_mut().storage,
+                &drop_staking_base::state::staker::TxState {
+                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                    seq_id: Some(0u64),
                     transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
                         amount: Uint128::from(0u64),
                     }),
