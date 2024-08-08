@@ -1,5 +1,6 @@
 use crate::contract::{execute, instantiate};
 use crate::error::ContractError;
+use cosmos_sdk_proto::traits::MessageExt;
 use cosmwasm_std::{
     coins,
     testing::{mock_env, mock_info},
@@ -399,5 +400,348 @@ fn test_ibc_transfer() {
                     ])
                 )
         );
+    }
+}
+
+#[test]
+fn test_stake() {
+    let mut deps = mock_dependencies(&[]);
+    {
+        let config = get_default_config();
+        CONFIG.save(deps.as_mut().storage, &config).unwrap();
+        let msg_items = vec![
+            ("validator1".to_string(), Uint128::from(5000u64)),
+            ("validator2".to_string(), Uint128::from(5000u64)),
+        ];
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("unauthorized_sender", &coins(0u128, "untrn")),
+            drop_staking_base::msg::staker::ExecuteMsg::Stake {
+                items: msg_items.clone(),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(res, crate::error::ContractError::Unauthorized {})
+    }
+    {
+        let config = get_default_config();
+        CONFIG.save(deps.as_mut().storage, &config).unwrap();
+        TX_STATE
+            .save(
+                deps.as_mut().storage,
+                &drop_staking_base::state::staker::TxState {
+                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                    seq_id: Some(0u64),
+                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                        amount: Uint128::from(0u64),
+                    }),
+                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+                },
+            )
+            .unwrap();
+        let msg_items = vec![
+            ("validator1".to_string(), Uint128::from(5000u64)),
+            ("validator2".to_string(), Uint128::from(5000u64)),
+        ];
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("core", &coins(0u128, "untrn")),
+            drop_staking_base::msg::staker::ExecuteMsg::Stake {
+                items: msg_items.clone(),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            crate::error::ContractError::InvalidState {
+                reason: "tx_state is not idle".to_string()
+            }
+        )
+    }
+    {
+        let config = get_default_config();
+        CONFIG.save(deps.as_mut().storage, &config).unwrap();
+        TX_STATE
+            .save(
+                deps.as_mut().storage,
+                &drop_staking_base::state::staker::TxState {
+                    status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                    seq_id: Some(0u64),
+                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                        amount: Uint128::from(0u64),
+                    }),
+                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+                },
+            )
+            .unwrap();
+        NON_STAKED_BALANCE
+            .save(deps.as_mut().storage, &Uint128::from(0u64))
+            .unwrap();
+        let msg_items = vec![
+            ("validator1".to_string(), Uint128::from(5000u64)),
+            ("validator2".to_string(), Uint128::from(5000u64)),
+        ];
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("core", &coins(0u128, "untrn")),
+            drop_staking_base::msg::staker::ExecuteMsg::Stake {
+                items: msg_items.clone(),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            crate::error::ContractError::InvalidFunds {
+                reason: "no funds to stake".to_string()
+            }
+        )
+    }
+    {
+        let config = get_default_config();
+        deps.querier.add_custom_query_response(|_| {
+            to_json_binary(&MinIbcFeeResponse {
+                min_fee: IbcFee {
+                    recv_fee: vec![],
+                    ack_fee: coins(100, "untrn"),
+                    timeout_fee: coins(200, "untrn"),
+                },
+            })
+            .unwrap()
+        });
+        NON_STAKED_BALANCE
+            .save(deps.as_mut().storage, &Uint128::from(10000u64))
+            .unwrap();
+        CONFIG.save(deps.as_mut().storage, &config).unwrap();
+        TX_STATE
+            .save(
+                deps.as_mut().storage,
+                &drop_staking_base::state::staker::TxState {
+                    status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                    seq_id: Some(0u64),
+                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                        amount: Uint128::from(0u64),
+                    }),
+                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+                },
+            )
+            .unwrap();
+        ICA.set_address(
+            deps.as_mut().storage,
+            "ica_address".to_string(),
+            "port_id".to_string(),
+            "channel_id".to_string(),
+        )
+        .unwrap();
+        let msg_items = vec![
+            ("validator1".to_string(), Uint128::from(0u64)),
+            ("validator2".to_string(), Uint128::from(0u64)),
+        ];
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("core", &coins(0u128, "untrn")),
+            drop_staking_base::msg::staker::ExecuteMsg::Stake {
+                items: msg_items.clone(),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            crate::error::ContractError::InvalidFunds {
+                reason: "amount is less than min_staking_amount".to_string()
+            }
+        )
+    }
+    {
+        let config = get_default_config();
+        deps.querier.add_custom_query_response(|_| {
+            to_json_binary(&MinIbcFeeResponse {
+                min_fee: IbcFee {
+                    recv_fee: vec![],
+                    ack_fee: coins(100, "untrn"),
+                    timeout_fee: coins(200, "untrn"),
+                },
+            })
+            .unwrap()
+        });
+        NON_STAKED_BALANCE
+            .save(deps.as_mut().storage, &Uint128::from(123u64))
+            .unwrap();
+        CONFIG.save(deps.as_mut().storage, &config).unwrap();
+        TX_STATE
+            .save(
+                deps.as_mut().storage,
+                &drop_staking_base::state::staker::TxState {
+                    status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                    seq_id: Some(0u64),
+                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                        amount: Uint128::from(0u64),
+                    }),
+                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+                },
+            )
+            .unwrap();
+        ICA.set_address(
+            deps.as_mut().storage,
+            "ica_address".to_string(),
+            "port_id".to_string(),
+            "channel_id".to_string(),
+        )
+        .unwrap();
+        let msg_items = vec![
+            ("validator1".to_string(), Uint128::from(5000u64)),
+            ("validator2".to_string(), Uint128::from(5000u64)),
+        ];
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("core", &coins(0u128, "untrn")),
+            drop_staking_base::msg::staker::ExecuteMsg::Stake {
+                items: msg_items.clone(),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            crate::error::ContractError::InvalidFunds {
+                reason: "not enough funds to stake".to_string()
+            }
+        )
+    }
+    {
+        let config = get_default_config();
+        deps.querier.add_custom_query_response(|_| {
+            to_json_binary(&MinIbcFeeResponse {
+                min_fee: IbcFee {
+                    recv_fee: vec![],
+                    ack_fee: coins(100, "untrn"),
+                    timeout_fee: coins(200, "untrn"),
+                },
+            })
+            .unwrap()
+        });
+        NON_STAKED_BALANCE
+            .save(deps.as_mut().storage, &Uint128::from(10000u64))
+            .unwrap();
+        CONFIG.save(deps.as_mut().storage, &config).unwrap();
+        TX_STATE
+            .save(
+                deps.as_mut().storage,
+                &drop_staking_base::state::staker::TxState {
+                    status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                    seq_id: Some(0u64),
+                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                        amount: Uint128::from(0u64),
+                    }),
+                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+                },
+            )
+            .unwrap();
+        ICA.set_address(
+            deps.as_mut().storage,
+            "ica_address".to_string(),
+            "port_id".to_string(),
+            "channel_id".to_string(),
+        )
+        .unwrap();
+        let msg_items = vec![
+            ("validator1".to_string(), Uint128::from(5000u64)),
+            ("validator2".to_string(), Uint128::from(5000u64)),
+        ];
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("core", &coins(0u128, "untrn")),
+            drop_staking_base::msg::staker::ExecuteMsg::Stake {
+                items: msg_items.clone(),
+            },
+        )
+        .unwrap();
+        let ica_address = ICA.get_address(deps.as_mut().storage).unwrap();
+        let puppeteer_ica = config.puppeteer_ica.unwrap();
+        let amount_to_stake = msg_items
+            .iter()
+            .fold(Uint128::zero(), |acc, (_, amount)| acc + *amount);
+        assert_eq!(
+            res,
+            cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+                id: 65536u64,
+                msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::SubmitTx {
+                    connection_id: "connection".to_string(),
+                    interchain_account_id: "drop_STAKER".to_string(),
+                    msgs: vec![neutron_sdk::bindings::types::ProtobufAny {
+                        type_url: "/cosmos.bank.v1beta1.MsgSend".to_string(),
+                        value: cosmwasm_std::Binary::from(
+                            cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSend {
+                                from_address: ica_address.clone(),
+                                to_address: puppeteer_ica.clone(),
+                                amount: vec![cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                                    denom: config.remote_denom.to_string(),
+                                    amount: amount_to_stake.to_string()
+                                }]
+                            }
+                            .to_bytes()
+                            .unwrap()
+                        )
+                    },
+                    neutron_sdk::bindings::types::ProtobufAny {
+                        type_url: "/cosmos.authz.v1beta1.MsgExec".to_string(),
+                        value: cosmwasm_std::Binary::from(
+                            cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec {
+                                grantee: ica_address.clone(),
+                                msgs: msg_items
+                                    .iter()
+                                    .map(|(validator, amount)| {
+                                        cosmos_sdk_proto::Any {
+                                            type_url: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
+                                            value: cosmos_sdk_proto::cosmos::staking::v1beta1::MsgDelegate {
+                                                delegator_address: puppeteer_ica.clone(),
+                                                validator_address: validator.to_string(),
+                                                amount: Some(
+                                                    cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                                                        denom: config.remote_denom.to_string(),
+                                                        amount: amount.to_string(),
+                                                    },
+                                                ),
+                                            }
+                                            .to_bytes()
+                                            .unwrap()
+                                        }
+                                    })
+                                    .collect()
+                            }
+                            .to_bytes()
+                            .unwrap()
+                        )
+                    }],
+                    memo: "".to_string(),
+                    timeout: 10u64,
+                    fee: IbcFee {
+                        recv_fee: vec![],
+                        ack_fee: vec![cosmwasm_std::Coin {
+                            denom: "untrn".to_string(),
+                            amount: Uint128::from(100u64),
+                        }],
+                        timeout_fee: vec![cosmwasm_std::Coin {
+                            denom: "untrn".to_string(),
+                            amount: Uint128::from(200u64),
+                        }]
+                    }
+                }),
+                gas_limit: None,
+                reply_on: cosmwasm_std::ReplyOn::Success
+            })
+            .add_event(cosmwasm_std::Event::new("crates.io:drop-neutron-contracts__drop-staker-stake".to_string())
+                .add_attributes(vec![
+                    cosmwasm_std::attr("action".to_string(), "stake".to_string()),
+                    cosmwasm_std::attr("connection_id".to_string(), "connection".to_string()),
+                    cosmwasm_std::attr("ica_id".to_string(), "drop_STAKER".to_string()),
+                    cosmwasm_std::attr("amount_to_stake".to_string(), "10000".to_string()),
+                ])
+            )
+        )
     }
 }
