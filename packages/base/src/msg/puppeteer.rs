@@ -9,14 +9,11 @@ use cosmos_sdk_proto::cosmos::base::v1beta1::Coin as CosmosCoin;
 use drop_puppeteer_base::{
     msg::{ExecuteMsg as BaseExecuteMsg, IBCTransferReason, TransferReadyBatchesMsg},
     r#trait::PuppeteerReconstruct,
-    state::RedeemShareItem,
+    state::{Delegations, RedeemShareItem},
 };
 use neutron_sdk::{
     bindings::types::StorageValue,
-    interchain_queries::v045::{
-        helpers::deconstruct_account_denom_balance_key,
-        types::{Balances, Delegations},
-    },
+    interchain_queries::v045::{helpers::deconstruct_account_denom_balance_key, types::Balances},
 };
 use neutron_sdk::{NeutronError, NeutronResult};
 use std::str::FromStr;

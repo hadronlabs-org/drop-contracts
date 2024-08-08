@@ -2,7 +2,7 @@ use cosmos_sdk_proto::cosmos::{
     base::v1beta1::Coin as CosmosCoin,
     staking::v1beta1::{Delegation, Params, Validator as CosmosValidator},
 };
-use cosmwasm_std::{from_json, Addr, Decimal256, StdError, Timestamp, Uint128};
+use cosmwasm_std::{from_json, Addr, Decimal256, StdError, Timestamp, Uint128, Uint256};
 
 use cosmwasm_schema::cw_serde;
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, UniqueIndex};
@@ -10,7 +10,7 @@ use drop_helpers::{ica::Ica, version::version_to_u32};
 use neutron_sdk::{
     interchain_queries::v045::{
         helpers::deconstruct_account_denom_balance_key,
-        types::{Balances, Delegations, UnbondingEntry},
+        types::{Balances, UnbondingEntry},
     },
     NeutronError, NeutronResult,
 };
@@ -124,6 +124,22 @@ pub struct BalancesAndDelegations {
 }
 
 #[cw_serde]
+pub struct Delegations {
+    pub delegations: Vec<DropDelegation>,
+}
+
+#[cw_serde]
+pub struct DropDelegation {
+    pub delegator: Addr,
+    /// A validator address (e.g. cosmosvaloper1...)
+    pub validator: String,
+    /// How much we have locked in the delegation
+    pub amount: cosmwasm_std::Coin,
+    /// How many shares the delegator has in the validator
+    pub share_ratio: Decimal256,
+}
+
+#[cw_serde]
 #[derive(Default)]
 pub enum TxStateStatus {
     #[default]
@@ -210,7 +226,7 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
             }?;
             coins.push(cosmwasm_std::Coin::new(amount.u128(), denom));
         }
-        let mut delegations: Vec<cosmwasm_std::Delegation> =
+        let mut delegations: Vec<DropDelegation> =
             Vec::with_capacity((storage_values.len() - 2) / 2);
         // first StorageValue is denom
         if !storage_values[1].value.is_empty() {
@@ -231,10 +247,11 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
                 }
                 let delegation_sdk: Delegation = Delegation::decode(chunk[0].value.as_slice())?;
 
-                let mut delegation_std = cosmwasm_std::Delegation {
+                let mut delegation_std = DropDelegation {
                     delegator: Addr::unchecked(delegation_sdk.delegator_address.as_str()),
                     validator: delegation_sdk.validator_address,
                     amount: Default::default(),
+                    share_ratio: Decimal256::one(),
                 };
 
                 if chunk[1].value.is_empty() {
@@ -267,12 +284,12 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
                     delegation_shares
                         .checked_mul(validator_tokens)?
                         .div(delegator_shares)
-                        .atomics(),
+                        .atomics()
+                        / Uint256::from(DECIMAL_FRACTIONAL),
                 )
                 .map_err(|err| NeutronError::Std(StdError::ConversionOverflow { source: err }))?
-                .u128()
-                .div(DECIMAL_FRACTIONAL);
-
+                .u128();
+                delegation_std.share_ratio = validator_tokens / delegator_shares;
                 delegation_std.amount = cosmwasm_std::Coin::new(delegated_tokens, &denom);
 
                 delegations.push(delegation_std);
