@@ -20,7 +20,7 @@ fn test_instantiate() {
     let res = crate::contract::instantiate(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &vec![]),
+        mock_info("owner", &[]),
         drop_staking_base::msg::distribution::InstantiateMsg {},
     )
     .unwrap();
