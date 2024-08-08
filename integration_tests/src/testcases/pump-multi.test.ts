@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { DropPump } from '../generated/contractLib';
+import { DropPump } from 'drop-ts-client';
 import {
   QueryClient,
   StakingExtension,
@@ -141,12 +141,6 @@ describe('Pump-Multi', () => {
         res.codeId,
         {
           connection_id: 'connection-0',
-          ibc_fees: {
-            timeout_fee: '10000',
-            ack_fee: '10000',
-            recv_fee: '0',
-            register_fee: '1000000',
-          },
           local_denom: 'untrn',
           refundee: neutronSecondUserAddress,
           timeout: {
@@ -174,12 +168,6 @@ describe('Pump-Multi', () => {
         res.codeId,
         {
           connection_id: 'connection-1',
-          ibc_fees: {
-            timeout_fee: '10000',
-            ack_fee: '10000',
-            recv_fee: '0',
-            register_fee: '1000000',
-          },
           local_denom: 'untrn',
           refundee: neutronSecondUserAddress,
           timeout: {
@@ -227,7 +215,7 @@ describe('Pump-Multi', () => {
           ica = res.registered.ica_address;
           return true;
       }
-    }, 210_000);
+    }, 260_000);
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();
     context.icaAddressGaia = ica;
@@ -376,8 +364,9 @@ describe('Pump-Multi', () => {
       const res = await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
         neutronSecondUserAddress,
       );
-      balance = res.data.balances.find((b) => b.denom.startsWith('ibc/'))
-        ?.amount;
+      balance = res.data.balances.find((b) =>
+        b.denom.startsWith('ibc/'),
+      )?.amount;
       return res.data.balances.length > 1;
     }, 60_000);
     expect(balance).toBe('1000');

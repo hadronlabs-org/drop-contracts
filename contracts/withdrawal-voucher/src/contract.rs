@@ -11,12 +11,13 @@ pub type Cw721VoucherContract<'a> = cw721_base::Cw721Contract<'a, Extension, Emp
 pub mod entry {
     use super::*;
 
-    use cosmwasm_std::entry_point;
-    use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
-    use drop_staking_base::msg::withdrawal_voucher::{ExecuteMsg, InstantiateMsg, QueryMsg};
+    use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult};
+    use drop_staking_base::msg::withdrawal_voucher::{
+        ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
+    };
 
     // This makes a conscious choice on the various generics used by the contract
-    #[entry_point]
+    #[cosmwasm_std::entry_point]
     pub fn instantiate(
         mut deps: DepsMut,
         env: Env,
@@ -27,7 +28,7 @@ pub mod entry {
         Cw721VoucherContract::default().instantiate(deps.branch(), env, info, msg)
     }
 
-    #[entry_point]
+    #[cosmwasm_std::entry_point]
     pub fn execute(
         deps: DepsMut,
         env: Env,
@@ -37,8 +38,25 @@ pub mod entry {
         Cw721VoucherContract::default().execute(deps, env, info, msg)
     }
 
-    #[entry_point]
+    #[cosmwasm_std::entry_point]
     pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         Cw721VoucherContract::default().query(deps, env, msg)
+    }
+
+    #[cosmwasm_std::entry_point]
+    pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+        let version: semver::Version = CONTRACT_VERSION
+            .parse()
+            .map_err(|e: semver::Error| StdError::generic_err(e.to_string()))?;
+        let storage_version: semver::Version = cw2::get_contract_version(deps.storage)?
+            .version
+            .parse()
+            .map_err(|e: semver::Error| StdError::generic_err(e.to_string()))?;
+
+        if storage_version < version {
+            cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+        }
+
+        Ok(Response::new())
     }
 }

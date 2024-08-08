@@ -3,21 +3,20 @@ use crate::contract::instantiate;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{
-    to_json_binary, Addr, Attribute, Binary, Decimal, Deps, Empty, Env, Event, Response, StdResult,
-    Timestamp, Uint128,
+    to_json_binary, Addr, Attribute, Binary, Decimal, Decimal256, Deps, Empty, Env, Event,
+    Response, StdResult, Timestamp, Uint128,
 };
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
 use drop_puppeteer_base::error::ContractError as PuppeteerContractError;
 use drop_puppeteer_base::msg::QueryMsg as PuppeteerQueryMsg;
+use drop_puppeteer_base::state::{Delegations, DropDelegation};
 use drop_staking_base::error::distribution::ContractError as DistributionContractError;
 use drop_staking_base::error::validatorset::ContractError as ValidatorSetContractError;
-use drop_staking_base::msg::distribution::IdealDelegation;
 use drop_staking_base::msg::strategy::QueryMsg;
 use drop_staking_base::msg::validatorset::QueryMsg as ValidatorSetQueryMsg;
 use drop_staking_base::msg::{
     distribution::QueryMsg as DistributionQueryMsg, strategy::InstantiateMsg,
 };
-use neutron_sdk::interchain_queries::v045::types::Delegations;
 
 const CORE_CONTRACT_ADDR: &str = "core_contract";
 const PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
@@ -76,28 +75,32 @@ fn puppeteer_query(
     match msg {
         PuppeteerQueryMsg::Config {} => todo!(),
         PuppeteerQueryMsg::Ica {} => todo!(),
+        PuppeteerQueryMsg::TxState {} => todo!(),
         PuppeteerQueryMsg::Transactions {} => todo!(),
-        PuppeteerQueryMsg::Extention { msg } => match msg {
+        PuppeteerQueryMsg::KVQueryIds {} => todo!(),
+        PuppeteerQueryMsg::Extension { msg } => match msg {
             drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {} => {
-                let mut delegations_amount: Vec<cosmwasm_std::Delegation> = Vec::new();
+                let mut delegations_amount: Vec<DropDelegation> = Vec::new();
                 for i in 0..3 {
-                    let delegation = cosmwasm_std::Delegation {
+                    let delegation = DropDelegation {
                         validator: format!("valoper{}", i),
                         delegator: Addr::unchecked("delegator".to_owned() + i.to_string().as_str()),
                         amount: cosmwasm_std::Coin {
                             denom: "uatom".to_string(),
                             amount: Uint128::from(100u128),
                         },
+                        share_ratio: Decimal256::one(),
                     };
                     delegations_amount.push(delegation);
                 }
-                let delegations = (
-                    Delegations {
+                let delegations = drop_staking_base::msg::puppeteer::DelegationsResponse {
+                    delegations: Delegations {
                         delegations: delegations_amount,
                     },
-                    0u64,
-                    Timestamp::default(),
-                );
+                    remote_height: 0u64,
+                    local_height: 0u64,
+                    timestamp: Timestamp::default(),
+                };
                 Ok(to_json_binary(&delegations)?)
             }
             _ => todo!(),
@@ -211,7 +214,7 @@ fn mock_app() -> App {
 fn test_initialization() {
     let mut deps = mock_dependencies();
     let msg = InstantiateMsg {
-        core_address: CORE_CONTRACT_ADDR.to_string(),
+        owner: CORE_CONTRACT_ADDR.to_string(),
         distribution_address: DISTRIBUTION_CONTRACT_ADDR.to_string(),
         puppeteer_address: PUPPETEER_CONTRACT_ADDR.to_string(),
         validator_set_address: VALIDATOR_SET_CONTRACT_ADDR.to_string(),
@@ -226,7 +229,7 @@ fn test_initialization() {
         vec![
             Event::new("crates.io:drop-staking__drop-strategy-instantiate".to_string())
                 .add_attributes(vec![
-                    Attribute::new("core_address".to_string(), CORE_CONTRACT_ADDR.to_string()),
+                    Attribute::new("owner".to_string(), CORE_CONTRACT_ADDR.to_string()),
                     Attribute::new(
                         "puppeteer_address".to_string(),
                         PUPPETEER_CONTRACT_ADDR.to_string()
@@ -258,7 +261,7 @@ fn test_config_query() {
         &mut app,
         strategy_id,
         InstantiateMsg {
-            core_address: CORE_CONTRACT_ADDR.to_string(),
+            owner: CORE_CONTRACT_ADDR.to_string(),
             distribution_address: distribution_contract.to_string(),
             puppeteer_address: puppeteer_contract.to_string(),
             validator_set_address: validator_set_contract.to_string(),
@@ -266,15 +269,14 @@ fn test_config_query() {
         },
     );
 
-    let config: drop_staking_base::msg::strategy::ConfigResponse = app
+    let config: drop_staking_base::msg::strategy::Config = app
         .wrap()
         .query_wasm_smart(strategy_contract.clone(), &QueryMsg::Config {})
         .unwrap();
 
     assert_eq!(
         config,
-        drop_staking_base::msg::strategy::ConfigResponse {
-            core_address: CORE_CONTRACT_ADDR.to_string(),
+        drop_staking_base::msg::strategy::Config {
             distribution_address: distribution_contract.to_string(),
             puppeteer_address: puppeteer_contract.to_string(),
             validator_set_address: validator_set_contract.to_string(),
@@ -296,7 +298,7 @@ fn test_ideal_deposit_calculation() {
         &mut app,
         strategy_id,
         InstantiateMsg {
-            core_address: CORE_CONTRACT_ADDR.to_string(),
+            owner: CORE_CONTRACT_ADDR.to_string(),
             distribution_address: distribution_contract.to_string(),
             puppeteer_address: puppeteer_contract.to_string(),
             validator_set_address: validator_set_contract.to_string(),
@@ -304,7 +306,7 @@ fn test_ideal_deposit_calculation() {
         },
     );
 
-    let ideal_deposit: Vec<drop_staking_base::msg::distribution::IdealDelegation> = app
+    let ideal_deposit: Vec<(String, Uint128)> = app
         .wrap()
         .query_wasm_smart(
             strategy_contract,
@@ -317,27 +319,9 @@ fn test_ideal_deposit_calculation() {
     assert_eq!(
         ideal_deposit,
         vec![
-            IdealDelegation {
-                valoper_address: "valoper0".to_string(),
-                ideal_stake: 134u128.into(),
-                current_stake: 100u128.into(),
-                stake_change: 34u128.into(),
-                weight: 100
-            },
-            IdealDelegation {
-                valoper_address: "valoper1".to_string(),
-                ideal_stake: 134u128.into(),
-                current_stake: 100u128.into(),
-                stake_change: 34u128.into(),
-                weight: 100
-            },
-            IdealDelegation {
-                valoper_address: "valoper2".to_string(),
-                ideal_stake: 132u128.into(),
-                current_stake: 100u128.into(),
-                stake_change: 32u128.into(),
-                weight: 100
-            }
+            ("valoper0".to_string(), Uint128::from(34u128)),
+            ("valoper1".to_string(), Uint128::from(34u128)),
+            ("valoper2".to_string(), Uint128::from(32u128))
         ]
     );
 }
@@ -355,7 +339,7 @@ fn test_ideal_withdraw_calculation() {
         &mut app,
         strategy_id,
         InstantiateMsg {
-            core_address: CORE_CONTRACT_ADDR.to_string(),
+            owner: CORE_CONTRACT_ADDR.to_string(),
             distribution_address: distribution_contract.to_string(),
             puppeteer_address: puppeteer_contract.to_string(),
             validator_set_address: validator_set_contract.to_string(),
@@ -363,7 +347,7 @@ fn test_ideal_withdraw_calculation() {
         },
     );
 
-    let ideal_deposit: Vec<drop_staking_base::msg::distribution::IdealDelegation> = app
+    let ideal_deposit: Vec<(String, Uint128)> = app
         .wrap()
         .query_wasm_smart(
             strategy_contract,
@@ -376,27 +360,9 @@ fn test_ideal_withdraw_calculation() {
     assert_eq!(
         ideal_deposit,
         vec![
-            IdealDelegation {
-                valoper_address: "valoper0".to_string(),
-                ideal_stake: 67u128.into(),
-                current_stake: 100u128.into(),
-                stake_change: 33u128.into(),
-                weight: 100
-            },
-            IdealDelegation {
-                valoper_address: "valoper1".to_string(),
-                ideal_stake: 67u128.into(),
-                current_stake: 100u128.into(),
-                stake_change: 33u128.into(),
-                weight: 100
-            },
-            IdealDelegation {
-                valoper_address: "valoper2".to_string(),
-                ideal_stake: 66u128.into(),
-                current_stake: 100u128.into(),
-                stake_change: 34u128.into(),
-                weight: 100
-            }
+            ("valoper0".to_string(), Uint128::from(33u128)),
+            ("valoper1".to_string(), Uint128::from(33u128)),
+            ("valoper2".to_string(), Uint128::from(34u128))
         ]
     );
 }

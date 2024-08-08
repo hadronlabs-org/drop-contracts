@@ -37,8 +37,7 @@ pub fn update_multiple_balances_query_msg(
     NeutronMsg::update_interchain_query(query_id, Some(keys), None, None)
 }
 
-/// Query message to get delegations and balance
-/// from a delegator to a list of validators
+/// Create a query message to get delegations and balance from a delegator to a list of validators
 pub fn new_delegations_and_balance_query_msg(
     connection_id: String,
     delegator: String,

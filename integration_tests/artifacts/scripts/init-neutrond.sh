@@ -10,11 +10,13 @@ IBCATOMDENOM=${IBCATOMDENOM:-uibcatom}
 IBCUSDCDENOM=${IBCUSDCDENOM:-uibcusdc}
 CONTRACTS_BINARIES_DIR=${CONTRACTS_BINARIES_DIR:-/opt/contracts}
 THIRD_PARTY_CONTRACTS_DIR=${THIRD_PARTY_CONTRACTS_DIR:-/opt/contracts_thirdparty}
+FEEMARKET_ENABLED=false
+ADMIN_MODULE_ADDRESS="neutron1hxskfdxpp5hqgtjj6am6nkjefhfzj359x0ar3z"
 
 
-DEMO_MNEMONIC_2="veteran try aware erosion drink dance decade comic dawn museum release episode original list ability owner size tuition surface ceiling depth seminar capable only"
-echo "$DEMO_MNEMONIC_2" | $BINARY keys add demowallet2 --home "$CHAIN_DIR" --recover --keyring-backend=test
-$BINARY add-genesis-account "$($BINARY --home "$CHAIN_DIR" keys show demowallet2 --keyring-backend test -a --home "$CHAIN_DIR")" "100000000000000$STAKEDENOM,100000000000000$IBCATOMDENOM,100000000000000$IBCUSDCDENOM"  --home "$CHAIN_DIR"
+# DEMO_MNEMONIC_2="veteran try aware erosion drink dance decade comic dawn museum release episode original list ability owner size tuition surface ceiling depth seminar capable only"
+# echo "$DEMO_MNEMONIC_2" | $BINARY keys add demowallet2 --home "$CHAIN_DIR" --recover --keyring-backend=test
+# $BINARY add-genesis-account "$($BINARY --home "$CHAIN_DIR" keys show demowallet2 --keyring-backend test -a --home "$CHAIN_DIR")" "100000000000000$STAKEDENOM,100000000000000$IBCATOMDENOM,100000000000000$IBCUSDCDENOM"  --home "$CHAIN_DIR"
 
 # IMPORTANT! minimum_gas_prices should always contain at least one record, otherwise the chain will not start or halt
 # ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2 denom is required by intgration tests (test:tokenomics)
@@ -54,6 +56,8 @@ SUBDAO_PRE_PROPOSE_CONTRACT=$CONTRACTS_BINARIES_DIR/cwd_subdao_pre_propose_singl
 SUBDAO_PROPOSAL_CONTRACT=$CONTRACTS_BINARIES_DIR/cwd_subdao_proposal_single.wasm
 CW4_VOTING_CONTRACT=$THIRD_PARTY_CONTRACTS_DIR/cw4_voting.wasm
 CW4_GROUP_CONTRACT=$THIRD_PARTY_CONTRACTS_DIR/cw4_group.wasm
+NEUTRON_CHAIN_MANAGER_CONTRACT=$CONTRACTS_BINARIES_DIR/neutron_chain_manager.wasm
+
 
 echo "Add consumer section..."
 $BINARY add-consumer-section --home "$CHAIN_DIR"
@@ -97,6 +101,8 @@ PROPOSAL_OVERRULE_CLOSE_PROPOSAL_ON_EXECUTION_FAILURE=false
 PROPOSAL_OVERRULE_THRESHOLD=0.005 # around 10 times lower than for regular proposals
 PROPOSAL_OVERRULE_LABEL="neutron.proposals.overrule"
 PRE_PROPOSE_OVERRULE_LABEL="neutron.proposals.overrule.pre_propose"
+NEUTRON_CHAIN_MANAGER_LABEL="neutron.chain.manager"
+
 
 ## Voting registry
 VOTING_REGISTRY_LABEL="neutron.voting"
@@ -178,6 +184,8 @@ SUBDAO_PRE_PROPOSE_BINARY_ID=$(store_binary             "$SUBDAO_PRE_PROPOSE_CON
 SUBDAO_PROPOSAL_BINARY_ID=$(store_binary                "$SUBDAO_PROPOSAL_CONTRACT")
 CW4_VOTING_CONTRACT_BINARY_ID=$(store_binary            "$CW4_VOTING_CONTRACT")
 CW4_GROUP_CONTRACT_BINARY_ID=$(store_binary             "$CW4_GROUP_CONTRACT")
+NEUTRON_CHAIN_MANAGER_BINARY_ID=$(store_binary          "$NEUTRON_CHAIN_MANAGER_CONTRACT")
+
 
 # WARNING!
 # The following code is needed to pre-generate the contract addresses
@@ -227,6 +235,8 @@ GRANTS_SUBDAO_PROPOSAL_CONTRACT_ADDRESS=$(genaddr      "$SUBDAO_PROPOSAL_BINARY_
 GRANTS_SUBDAO_PRE_PROPOSE_CONTRACT_ADDRESS=$(genaddr   "$SUBDAO_PRE_PROPOSE_BINARY_ID") && (( INSTANCE_ID_COUNTER++ ))
 GRANTS_SUBDAO_TIMELOCK_CONTRACT_ADDRESS=$(genaddr      "$SUBDAO_TIMELOCK_BINARY_ID") && (( INSTANCE_ID_COUNTER++ ))
 GRANTS_SUBDAO_GROUP_CONTRACT_ADDRESS=$(genaddr         "$CW4_GROUP_CONTRACT_BINARY_ID") && (( INSTANCE_ID_COUNTER++ ))
+NEUTRON_CHAIN_MANAGER_CONTRACT_ADDRESS=$(genaddr       "$NEUTRON_CHAIN_MANAGER_BINARY_ID") && (( INSTANCE_ID_COUNTER++ ))
+
 
 function check_json() {
   MSG=$1
@@ -439,7 +449,6 @@ NEUTRON_INVESTORS_VAULT_INIT='{
      "vesting_contract_address": "'"$NEUTRON_VESTING_INVESTORS_CONTRACT_ADDRRES"'",
      "owner": "'"$DAO_CONTRACT_ADDRESS"'",
      "description": "'"$NEUTRON_INVESTORS_VAULT_DESCRIPTION"'",
-     "denom":        "'"$STAKEDENOM"'",
      "name": "'"$NEUTRON_INVESTORS_VAULT_NAME"'"
 }'
 
@@ -612,6 +621,12 @@ GRANTS_SUBDAO_CORE_INIT_MSG='{
   "security_dao": "'"$SECURITY_SUBDAO_CORE_CONTRACT_ADDRESS"'"
 }'
 
+# CHAIN MANAGER
+NEUTRON_CHAIN_MANAGER_INIT_MSG='{
+  "initial_strategy_address": "'"$DAO_CONTRACT_ADDRESS"'"
+}'
+
+
 echo "Instantiate contracts"
 
 function init_contract() {
@@ -635,6 +650,8 @@ init_contract "$RESERVE_CONTRACT_BINARY_ID"                  "$RESERVE_INIT"    
 init_contract "$DISTRIBUTION_CONTRACT_BINARY_ID"             "$DISTRIBUTION_INIT"              "$DISTRIBUTION_LABEL"
 init_contract "$SUBDAO_CORE_BINARY_ID"                       "$SECURITY_SUBDAO_CORE_INIT_MSG"  "$SECURITY_SUBDAO_CORE_LABEL"
 init_contract "$SUBDAO_CORE_BINARY_ID"                       "$GRANTS_SUBDAO_CORE_INIT_MSG"    "$GRANTS_SUBDAO_CORE_LABEL"
+init_contract "$NEUTRON_CHAIN_MANAGER_BINARY_ID"             "$NEUTRON_CHAIN_MANAGER_INIT_MSG" "$NEUTRON_CHAIN_MANAGER_LABEL"
+
 
 ADD_SUBDAOS_MSG='{
   "update_sub_daos": {
@@ -710,12 +727,9 @@ function convert_bech32_base64_esc() {
 DAO_CONTRACT_ADDRESS_B64=$(convert_bech32_base64_esc "$DAO_CONTRACT_ADDRESS")
 echo $DAO_CONTRACT_ADDRESS_B64
 
-CONSUMER_REDISTRIBUTE_ACCOUNT_ADDRESS="neutron1x69dz0c0emw8m2c6kp5v6c08kgjxmu30f4a8w5"
-CONSUMER_REDISTRIBUTE_ACCOUNT_ADDRESS_B64=$(convert_bech32_base64_esc "$CONSUMER_REDISTRIBUTE_ACCOUNT_ADDRESS")
-
-set_genesis_param admins                                 "[\"$DAO_CONTRACT_ADDRESS\"]"                    # admin module
+set_genesis_param admins                                 "[\"$NEUTRON_CHAIN_MANAGER_CONTRACT_ADDRESS\"]"  # admin module
 set_genesis_param treasury_address                       "\"$DAO_CONTRACT_ADDRESS\""                      # feeburner
-set_genesis_param fee_collector_address                  "\"$DAO_CONTRACT_ADDRESS\""                      # tokenfactory
+set_genesis_param fee_collector_address                  "\"$DAO_CONTRACT_ADDRESS\","                      # tokenfactory
 set_genesis_param security_address                       "\"$SECURITY_SUBDAO_CORE_CONTRACT_ADDRESS\","    # cron
 set_genesis_param limit                                  5                                                # cron
 #set_genesis_param allow_messages                        "[\"*\"]"                                        # interchainaccounts
@@ -727,10 +741,19 @@ set_genesis_param minimum_gas_prices                     "$MIN_GAS_PRICES,"     
 set_genesis_param max_total_bypass_min_fee_msg_gas_usage "\"$MAX_TOTAL_BYPASS_MIN_FEE_MSG_GAS_USAGE\""    # globalfee
 set_genesis_param_jq ".app_state.globalfee.params.bypass_min_fee_msg_types" "$BYPASS_MIN_FEE_MSG_TYPES"   # globalfee
 set_genesis_param proposer_fee                          "\"0.25\""                                        # builder(POB)
-set_genesis_param escrow_account_address                "\"$CONSUMER_REDISTRIBUTE_ACCOUNT_ADDRESS_B64\"," # builder(POB)
+set_genesis_param escrow_account_address                "\"$DAO_CONTRACT_ADDRESS_B64\","                  # builder(POB)
 set_genesis_param sudo_call_gas_limit                   "\"1000000\""                                     # contractmanager
 set_genesis_param max_gas                               "\"1000000000\""                                  # consensus_params
-
+set_genesis_param vote_extensions_enable_height         "\"1\""                                           # consensus_params
+set_genesis_param_jq ".app_state.marketmap.params.admin" "\"$ADMIN_MODULE_ADDRESS\""                      # marketmap
+set_genesis_param_jq ".app_state.marketmap.params.market_authorities" "[\"$ADMIN_MODULE_ADDRESS\"]"       # marketmap
+set_genesis_param_jq ".app_state.feemarket.params.min_base_gas_price"    "\"0.0025\""                     # feemarket
+set_genesis_param_jq ".app_state.feemarket.params.fee_denom"       "\"untrn\""                            # feemarket
+set_genesis_param_jq ".app_state.feemarket.params.max_learning_rate" "\"0.5\""                            # feemarket
+set_genesis_param_jq ".app_state.feemarket.params.enabled" "$FEEMARKET_ENABLED"                            # feemarket
+set_genesis_param_jq ".app_state.feemarket.params.distribute_fees" "true"                                 # feemarket
+set_genesis_param_jq ".app_state.feemarket.state.base_gas_price" "\"0.0025\""                             # feemarket
+echo 5
 if ! jq -e . "$GENESIS_PATH" >/dev/null 2>&1; then
     echo "genesis appears to become incorrect json" >&2
     exit 1

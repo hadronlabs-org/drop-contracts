@@ -5,17 +5,17 @@ use astroport::pair::ExecuteMsg as PairExecuteMsg;
 use astroport::router::{ExecuteMsg as RouterExecuteMsg, SwapOperation};
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{
-    attr, coins, to_json_binary, Addr, Attribute, Coin, Empty, Event, Response, StdError,
+    attr, coins, to_json_binary, Addr, Attribute, Coin, Decimal, Empty, Event, Response, StdError,
     StdResult, Uint128,
 };
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
 use drop_helpers::answer::response;
 use drop_staking_base::msg::astroport_exchange_handler::{
-    ConfigResponse, ExecuteMsg, InstantiateMsg,
+    ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
-use drop_staking_base::msg::rewards_manager::QueryMsg;
 
 const CORE_CONTRACT_ADDR: &str = "core_contract";
+const PRICE_PROVIDER_CONTRACT_ADDR: &str = "price_provider_contract";
 const OWNER_CONTRACT_ADDR: &str = "owner_contract";
 const CRON_ADDR: &str = "cron_address";
 
@@ -92,6 +92,29 @@ fn pair_contract() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
+fn price_provider_contract() -> Box<dyn Contract<Empty>> {
+    let contract: ContractWrapper<
+        Empty,
+        Empty,
+        drop_staking_base::msg::price_provider::QueryMsg,
+        StdError,
+        StdError,
+        StdError,
+    > = ContractWrapper::new(
+        |_, _, _, _| Ok(Response::new()),
+        |_, _, _, _: Empty| Ok(Response::new()),
+        |_, _, _| to_json_binary(&Decimal::from_ratio(3u64, 2u64)),
+    );
+    Box::new(contract)
+}
+
+fn instantiate_price_provider_contract(app: &mut App) -> Addr {
+    instantiate_contract(
+        app,
+        price_provider_contract,
+        "price_provider_contract".to_string(),
+    )
+}
 fn instantiate_pair_contract(app: &mut App) -> Addr {
     instantiate_contract(app, pair_contract, "astroport pair contract".to_string())
 }
@@ -214,11 +237,13 @@ fn test_initialization() {
     let msg = InstantiateMsg {
         owner: OWNER_CONTRACT_ADDR.to_string(),
         core_contract: CORE_CONTRACT_ADDR.to_string(),
+        price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
         cron_address: CRON_ADDR.to_string(),
         pair_contract: "pair_contract".to_string(),
         router_contract: "router_contract".to_string(),
         from_denom: "ueth".to_string(),
         min_rewards: Uint128::one(),
+        max_spread: Decimal::percent(1),
     };
 
     let info = mock_info(OWNER_CONTRACT_ADDR, &[]);
@@ -230,9 +255,12 @@ fn test_initialization() {
             "crates.io:drop-staking__drop-astroport-exchange-handler-instantiate".to_string()
         )
         .add_attributes(vec![
-            Attribute::new("owner".to_string(), OWNER_CONTRACT_ADDR.to_string()),
             Attribute::new("core_contract".to_string(), CORE_CONTRACT_ADDR.to_string()),
             Attribute::new("cron_address".to_string(), CRON_ADDR.to_string()),
+            Attribute::new(
+                "price_provider_contract".to_string(),
+                PRICE_PROVIDER_CONTRACT_ADDR.to_string()
+            ),
             Attribute::new("pair_contract".to_string(), "pair_contract".to_string()),
             Attribute::new("router_contract".to_string(), "router_contract".to_string()),
             Attribute::new("from_denom".to_string(), "ueth".to_string()),
@@ -253,11 +281,13 @@ fn test_config_query() {
         InstantiateMsg {
             owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),
             from_denom: "ueth".to_string(),
             min_rewards: Uint128::one(),
+            max_spread: Decimal::percent(1),
         },
     );
 
@@ -269,9 +299,9 @@ fn test_config_query() {
     assert_eq!(
         config,
         ConfigResponse {
-            owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),
             from_denom: "ueth".to_string(),
@@ -289,6 +319,7 @@ fn test_exchange_through_pair_call() {
 
     let pair_contract = instantiate_pair_contract(&mut app);
     let router_contract = instantiate_router_contract(&mut app);
+    let price_provider_contract = instantiate_price_provider_contract(&mut app);
 
     let astroport_exchange_handler_code_id = app.store_code(astroport_handler_contract());
 
@@ -298,11 +329,13 @@ fn test_exchange_through_pair_call() {
         InstantiateMsg {
             owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
+            price_provider_contract: price_provider_contract.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: pair_contract.to_string(),
             router_contract: router_contract.to_string(),
             from_denom: "ueth".to_string(),
             min_rewards: Uint128::one(),
+            max_spread: Decimal::percent(1),
         },
     );
 
@@ -332,8 +365,8 @@ fn test_exchange_through_pair_call() {
             Attribute::new("message".to_string(), "PairExecuteMsg::Swap".to_string()),
             Attribute::new("to".to_string(), CORE_CONTRACT_ADDR.to_string()),
             Attribute::new("ask_asset_info".to_string(), "false".to_string()),
-            Attribute::new("belief_price".to_string(), "false".to_string()),
-            Attribute::new("max_spread".to_string(), "false".to_string()),
+            Attribute::new("belief_price".to_string(), "true".to_string()),
+            Attribute::new("max_spread".to_string(), "true".to_string()),
             Attribute::new("offer_asset".to_string(), "100ueth".to_string()),
             Attribute::new("funds_received".to_string(), "100ueth".to_string()),
         ]
@@ -348,6 +381,7 @@ fn test_exchange_through_router_call() {
 
     let pair_contract = instantiate_pair_contract(&mut app);
     let router_contract = instantiate_router_contract(&mut app);
+    let price_provider_contract = instantiate_price_provider_contract(&mut app);
 
     let astroport_exchange_handler_code_id = app.store_code(astroport_handler_contract());
 
@@ -357,11 +391,13 @@ fn test_exchange_through_router_call() {
         InstantiateMsg {
             owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
+            price_provider_contract: price_provider_contract.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: pair_contract.to_string(),
             router_contract: router_contract.to_string(),
             from_denom: "ueth".to_string(),
             min_rewards: Uint128::one(),
+            max_spread: Decimal::percent(1),
         },
     );
 
@@ -414,7 +450,7 @@ fn test_exchange_through_router_call() {
             ),
             Attribute::new("to".to_string(), CORE_CONTRACT_ADDR.to_string()),
             Attribute::new("minimum_receive".to_string(), "false".to_string()),
-            Attribute::new("max_spread".to_string(), "false".to_string()),
+            Attribute::new("max_spread".to_string(), "true".to_string()),
             Attribute::new("funds_received".to_string(), "100ueth".to_string()),
             Attribute::new("operation1".to_string(), "ueth/untrn".to_string()),
             Attribute::new("operation2".to_string(), "untrn/ueth".to_string()),
@@ -437,10 +473,12 @@ fn test_not_enough_balance_error() {
             owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),
             from_denom: "ueth".to_string(),
             min_rewards: Uint128::from(200u128),
+            max_spread: Decimal::percent(1),
         },
     );
 
@@ -479,10 +517,12 @@ fn test_unauthorized_router_call() {
             owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),
             from_denom: "ueth".to_string(),
             min_rewards: Uint128::one(),
+            max_spread: Decimal::percent(1),
         },
     );
 
@@ -528,11 +568,13 @@ fn test_unauthorized_config_update() {
         InstantiateMsg {
             owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),
             from_denom: "ueth".to_string(),
             min_rewards: Uint128::one(),
+            max_spread: Decimal::percent(1),
         },
     );
 
@@ -540,13 +582,14 @@ fn test_unauthorized_config_update() {
         sender_address,
         astroport_handler_contract.clone(),
         &ExecuteMsg::UpdateConfig {
-            owner: Some(OWNER_CONTRACT_ADDR.to_string()),
             core_contract: Some(CORE_CONTRACT_ADDR.to_string()),
+            price_provider_contract: Some(PRICE_PROVIDER_CONTRACT_ADDR.to_string()),
             cron_address: Some(CRON_ADDR.to_string()),
             pair_contract: Some("pair_contract".to_string()),
             router_contract: Some("router_contract".to_string()),
             from_denom: Some("ueth".to_string()),
             min_rewards: Some(Uint128::one()),
+            max_spread: Some(Decimal::percent(1)),
         },
         &[],
     );
@@ -573,11 +616,13 @@ fn test_config_update() {
         InstantiateMsg {
             owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
+            price_provider_contract: "price_provider_contract".to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),
             from_denom: "ueth".to_string(),
             min_rewards: Uint128::one(),
+            max_spread: Decimal::percent(1),
         },
     );
 
@@ -586,13 +631,14 @@ fn test_config_update() {
             Addr::unchecked(OWNER_CONTRACT_ADDR),
             astroport_handler_contract.clone(),
             &ExecuteMsg::UpdateConfig {
-                owner: Some("owner1".to_string()),
                 core_contract: Some("core1".to_string()),
                 cron_address: Some("cron1".to_string()),
+                price_provider_contract: Some("price_provider_contract_1".to_string()),
                 pair_contract: Some("pair_contract_1".to_string()),
                 router_contract: Some("router_contract_1".to_string()),
                 from_denom: Some("untrn".to_string()),
                 min_rewards: Some(Uint128::zero()),
+                max_spread: Some(Decimal::percent(1)),
             },
             &[],
         )
@@ -610,8 +656,11 @@ fn test_config_update() {
     assert_eq!(
         attrs,
         vec![
-            Attribute::new("owner".to_string(), "owner1".to_string()),
             Attribute::new("core_contract".to_string(), "core1".to_string()),
+            Attribute::new(
+                "price_provider_contract".to_string(),
+                "price_provider_contract_1".to_string()
+            ),
             Attribute::new("cron_address".to_string(), "cron1".to_string()),
             Attribute::new(
                 "router_contract".to_string(),
@@ -620,6 +669,7 @@ fn test_config_update() {
             Attribute::new("pair_contract".to_string(), "pair_contract_1".to_string()),
             Attribute::new("from_denom".to_string(), "untrn".to_string()),
             Attribute::new("min_rewards".to_string(), Uint128::zero()),
+            Attribute::new("max_spread".to_string(), "0.01".to_string()),
         ]
     );
 
@@ -631,8 +681,8 @@ fn test_config_update() {
     assert_eq!(
         config,
         ConfigResponse {
-            owner: "owner1".to_string(),
             core_contract: "core1".to_string(),
+            price_provider_contract: "price_provider_contract_1".to_string(),
             cron_address: "cron1".to_string(),
             pair_contract: "pair_contract_1".to_string(),
             router_contract: "router_contract_1".to_string(),
@@ -656,12 +706,14 @@ fn test_swap_operations_update() {
         astroport_exchange_handler_code_id,
         InstantiateMsg {
             owner: OWNER_CONTRACT_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),
             from_denom: "ueth".to_string(),
             min_rewards: Uint128::one(),
+            max_spread: Decimal::percent(1),
         },
     );
 
@@ -699,8 +751,8 @@ fn test_swap_operations_update() {
     assert_eq!(
         config,
         ConfigResponse {
-            owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),
@@ -727,8 +779,8 @@ fn test_swap_operations_update() {
     assert_eq!(
         config,
         ConfigResponse {
-            owner: OWNER_CONTRACT_ADDR.to_string(),
             core_contract: CORE_CONTRACT_ADDR.to_string(),
+            price_provider_contract: PRICE_PROVIDER_CONTRACT_ADDR.to_string(),
             cron_address: CRON_ADDR.to_string(),
             pair_contract: "pair_contract".to_string(),
             router_contract: "router_contract".to_string(),

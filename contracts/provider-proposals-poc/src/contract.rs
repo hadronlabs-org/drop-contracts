@@ -1,11 +1,11 @@
-use std::collections::HashMap;
-
 use cosmos_sdk_proto::cosmos::gov::v1beta1::ProposalStatus;
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, to_json_binary, Attribute, Binary, CosmosMsg, Decimal, Deps,
-    DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult, SubMsg, Uint128, WasmMsg,
+    attr, ensure_eq, to_json_binary, Attribute, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env,
+    MessageInfo, Order, Reply, Response, StdResult, SubMsg, Uint128, WasmMsg,
 };
+use std::collections::HashMap;
 
+use crate::error::{ContractError, ContractResult};
 use drop_helpers::answer::response;
 use drop_helpers::query_id::get_query_id;
 use drop_staking_base::msg::proposal_votes::ExecuteMsg as ProposalVotesExecuteMsg;
@@ -27,13 +27,11 @@ use neutron_sdk::interchain_queries::v045::register_queries::{
 use neutron_sdk::interchain_queries::v045::types::{GovernmentProposal, Proposal, ProposalVote};
 use neutron_sdk::sudo::msg::SudoMsg;
 
-use crate::error::{ContractError, ContractResult};
-
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
@@ -89,7 +87,7 @@ pub fn instantiate(
     .add_submessage(sub_msg))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => query_config(deps),
@@ -157,7 +155,7 @@ fn query_proposals(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
     to_json_binary(&proposals?)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
@@ -272,7 +270,7 @@ pub fn execute_update_votes(
     ))
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn sudo(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -412,7 +410,7 @@ fn update_voting_proposals_msg(
     }))
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> ContractResult<Response> {
     deps.api
         .debug(format!("WASMDEBUG: reply msg: {msg:?}").as_str());
@@ -431,8 +429,19 @@ fn proposals_votes_reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult
     Ok(Response::new())
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    deps.api.debug("WASMDEBUG: migrate");
-    Ok(Response::default())
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }

@@ -13,11 +13,12 @@ backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
-cosmwasm-std      = { workspace = true }
-cosmwasm-schema   = { workspace = true }
-neutron-sdk       = { workspace = true }
-thiserror         = { workspace = true }
-cw2               = { workspace = true }
-cw-storage-plus   = { workspace = true }
+cosmwasm-std = { workspace = true }
+cosmwasm-schema = { workspace = true }
+neutron-sdk = { workspace = true }
+thiserror = { workspace = true }
+cw2 = { workspace = true }
+cw-storage-plus = { workspace = true }
 drop-staking-base = { workspace = true }
-drop-helpers      = { workspace = true }
+drop-helpers = { workspace = true }
+semver = { workspace = true }

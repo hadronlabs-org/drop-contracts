@@ -1,16 +1,16 @@
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, from_json, to_json_binary, Attribute, BankMsg, Binary, Coin,
-    CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
+    attr, ensure_eq, from_json, to_json_binary, Attribute, BankMsg, Binary, Coin, CosmosMsg,
+    Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
-use cw2::set_contract_version;
 use cw721::NftInfoResponse;
+use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::{
     answer::response,
-    pause::{assert_paused, is_paused, set_pause, unpause, PauseInfoResponse},
+    pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse},
 };
 use drop_staking_base::{
     msg::{
-        withdrawal_manager::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveNftMsg},
+        withdrawal_manager::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveNftMsg},
         withdrawal_voucher::Extension,
     },
     state::{
@@ -24,20 +24,18 @@ use crate::error::{ContractError, ContractResult};
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(msg.owner.as_ref()))?;
 
     let attrs: Vec<Attribute> = vec![
         attr("action", "instantiate"),
-        attr("owner", &msg.owner),
         attr("core_contract", &msg.core_contract),
         attr("voucher_contract", &msg.voucher_contract),
         attr("base_denom", &msg.base_denom),
@@ -45,44 +43,48 @@ pub fn instantiate(
     CONFIG.save(
         deps.storage,
         &Config {
-            core_contract: msg.core_contract,
-            withdrawal_voucher_contract: msg.voucher_contract,
+            core_contract: deps.api.addr_validate(&msg.core_contract)?,
+            withdrawal_voucher_contract: deps.api.addr_validate(&msg.voucher_contract)?,
             base_denom: msg.base_denom,
-            owner: msg.owner,
         },
     )?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
+        QueryMsg::Ownership {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::PauseInfo {} => query_pause_info(deps),
     }
 }
 
 fn query_pause_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
-    if is_paused(deps.storage) {
+    if is_paused(deps.storage)? {
         to_json_binary(&PauseInfoResponse::Paused {})
     } else {
         to_json_binary(&PauseInfoResponse::Unpaused {})
     }
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
+        ExecuteMsg::UpdateOwnership(action) => {
+            update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
+            Ok(Response::new())
+        }
         ExecuteMsg::UpdateConfig {
-            owner,
             core_contract,
             voucher_contract,
-        } => execute_update_config(deps, info, owner, core_contract, voucher_contract),
+            base_denom,
+        } => execute_update_config(deps, info, core_contract, voucher_contract, base_denom),
         ExecuteMsg::ReceiveNft(Cw721ReceiveMsg {
             sender,
             token_id,
@@ -121,7 +123,7 @@ fn exec_unpause(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
-    unpause(deps.storage)?;
+    unpause(deps.storage);
 
     Ok(response(
         "exec_unpause",
@@ -133,27 +135,26 @@ fn exec_unpause(
 fn execute_update_config(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
-    owner: Option<String>,
     core_contract: Option<String>,
     voucher_contract: Option<String>,
+    base_denom: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     let mut config = CONFIG.load(deps.storage)?;
     let mut attrs: Vec<Attribute> = vec![attr("action", "update_config")];
-    if let Some(owner) = owner {
-        cw_ownable::initialize_owner(deps.storage, deps.api, Some(owner.as_ref()))?;
 
-        attrs.push(attr("owner", &owner));
-        config.owner = owner;
-    }
     if let Some(core_contract) = core_contract {
-        attrs.push(attr("core_contract", &core_contract));
-        config.core_contract = core_contract;
+        config.core_contract = deps.api.addr_validate(&core_contract)?;
+        attrs.push(attr("core_contract", core_contract));
     }
     if let Some(voucher_contract) = voucher_contract {
-        attrs.push(attr("voucher_contract", &voucher_contract));
-        config.withdrawal_voucher_contract = voucher_contract;
+        config.withdrawal_voucher_contract = deps.api.addr_validate(&voucher_contract)?;
+        attrs.push(attr("voucher_contract", voucher_contract));
+    }
+    if let Some(base_denom) = base_denom {
+        attrs.push(attr("base_denom", &base_denom));
+        config.base_denom = base_denom;
     }
     CONFIG.save(deps.storage, &config)?;
     Ok(response("update_config", CONTRACT_NAME, attrs))
@@ -166,7 +167,7 @@ fn execute_receive_nft_withdraw(
     token_id: String,
     receiver: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    assert_paused(deps.storage)?;
+    pause_guard(deps.storage)?;
 
     let mut attrs = vec![attr("action", "receive_nft")];
     let config = CONFIG.load(deps.storage)?;
@@ -179,12 +180,12 @@ fn execute_receive_nft_withdraw(
         config.withdrawal_voucher_contract,
         &drop_staking_base::msg::withdrawal_voucher::QueryMsg::NftInfo { token_id },
     )?;
-    let voucher_extention = voucher.extension.ok_or_else(|| ContractError::InvalidNFT {
+    let voucher_extension = voucher.extension.ok_or_else(|| ContractError::InvalidNFT {
         reason: "extension is not set".to_string(),
     })?;
 
     let batch_id =
-        voucher_extention
+        voucher_extension
             .batch_id
             .parse::<u128>()
             .map_err(|_| ContractError::InvalidNFT {
@@ -202,26 +203,53 @@ fn execute_receive_nft_withdraw(
         UnbondBatchStatus::Withdrawn,
         ContractError::BatchIsNotWithdrawn {}
     );
-    let slashing_effect = unbond_batch
-        .slashing_effect
-        .ok_or(ContractError::BatchSlashingEffectIsEmpty {})?;
 
-    let payout_amount = Uint128::min(
-        slashing_effect * voucher_extention.expected_amount,
-        voucher_extention.expected_amount,
-    ); //just in case
+    let user_share = Decimal::from_ratio(
+        voucher_extension.amount,
+        unbond_batch.total_dasset_amount_to_withdraw,
+    );
 
+    let payout_amount = user_share * unbond_batch.unbonded_amount.unwrap_or(Uint128::zero());
     let to_address = receiver.unwrap_or(sender);
     attrs.push(attr("batch_id", batch_id.to_string()));
     attrs.push(attr("payout_amount", payout_amount.to_string()));
     attrs.push(attr("to_address", &to_address));
 
-    let msg = CosmosMsg::Bank(BankMsg::Send {
+    let mut messages = vec![CosmosMsg::Bank(BankMsg::Send {
         to_address,
         amount: vec![Coin {
             denom: config.base_denom,
             amount: payout_amount,
         }],
-    });
-    Ok(response("execute-receive_nft", CONTRACT_NAME, attrs).add_message(msg))
+    })];
+
+    messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.core_contract.to_string(),
+        msg: to_json_binary(
+            &drop_staking_base::msg::core::ExecuteMsg::UpdateWithdrawnAmount {
+                batch_id,
+                withdrawn_amount: payout_amount,
+            },
+        )?,
+        funds: info.funds,
+    }));
+
+    Ok(response("execute-receive_nft", CONTRACT_NAME, attrs).add_messages(messages))
+}
+
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }

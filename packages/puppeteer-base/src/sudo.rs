@@ -1,16 +1,19 @@
 use crate::{
     msg::OpenAckVersion,
     r#trait::PuppeteerReconstruct,
-    state::{BaseConfig, PuppeteerBase, Transfer},
+    state::{
+        BalancesAndDelegations, BalancesAndDelegationsState, BaseConfig, PuppeteerBase, Transfer,
+    },
 };
 use cosmos_sdk_proto::cosmos::{
     bank::v1beta1::MsgSend,
     tx::v1beta1::{TxBody, TxRaw},
 };
-use cosmwasm_std::{Binary, DepsMut, Env, Response, StdError, Timestamp};
+use cosmwasm_std::{Binary, DepsMut, Env, Order, Response, StdError};
 use cw_storage_plus::Index;
 use neutron_sdk::{
     bindings::{
+        msg::NeutronMsg,
         query::{NeutronQuery, QueryRegisteredQueryResponse},
         types::Height,
     },
@@ -37,7 +40,7 @@ where
         query_id: u64,
         _height: Height,
         data: Binary,
-    ) -> NeutronResult<Response> {
+    ) -> NeutronResult<Response<NeutronMsg>> {
         let _config: T = self.config.load(deps.storage)?;
         let tx: TxRaw = TxRaw::decode(data.as_slice())?;
         let body: TxBody = TxBody::decode(tx.body_bytes.as_slice())?;
@@ -93,6 +96,66 @@ where
         Ok(deposits)
     }
 
+    pub fn sudo_delegations_and_balance_kv_query_result(
+        &self,
+        deps: DepsMut<NeutronQuery>,
+        env: Env,
+        query_id: u64,
+        version: &str,
+    ) -> NeutronResult<Response<NeutronMsg>> {
+        let chunks_len = self
+            .delegations_and_balances_query_id_chunk
+            .keys(deps.storage, None, None, Order::Ascending)
+            .count();
+        let chunk_id = self
+            .delegations_and_balances_query_id_chunk
+            .load(deps.storage, query_id)?;
+        let (remote_height, kv_results) = {
+            let registered_query_result = get_raw_interchain_query_result(deps.as_ref(), query_id)?;
+            (
+                registered_query_result.result.height,
+                registered_query_result.result.kv_results,
+            )
+        };
+        let data: BalancesAndDelegations = PuppeteerReconstruct::reconstruct(&kv_results, version)?;
+        let new_state = match self
+            .delegations_and_balances
+            .may_load(deps.storage, &remote_height)?
+        {
+            Some(mut state) => {
+                if !state.collected_chunks.contains(&chunk_id) {
+                    state
+                        .data
+                        .delegations
+                        .delegations
+                        .extend(data.delegations.delegations);
+                    state.collected_chunks.push(chunk_id);
+                }
+                state
+            }
+            None => BalancesAndDelegationsState {
+                data,
+                remote_height,
+                local_height: env.block.height,
+                timestamp: env.block.time,
+                collected_chunks: vec![chunk_id],
+            },
+        };
+        if new_state.collected_chunks.len() == chunks_len {
+            let prev_key = self
+                .last_complete_delegations_and_balances_key
+                .load(deps.storage)
+                .unwrap_or_default();
+            if prev_key < remote_height {
+                self.last_complete_delegations_and_balances_key
+                    .save(deps.storage, &remote_height)?;
+            }
+        }
+        self.delegations_and_balances
+            .save(deps.storage, &remote_height, &new_state)?;
+        Ok(Response::default())
+    }
+
     pub fn sudo_kv_query_result<
         X: PuppeteerReconstruct + std::fmt::Debug + Serialize + Clone + DeserializeOwned,
     >(
@@ -101,19 +164,24 @@ where
         env: Env,
         query_id: u64,
         version: &str,
-        storage: cw_storage_plus::Item<'a, (X, u64, Timestamp)>,
-    ) -> NeutronResult<Response> {
+        storage: cw_storage_plus::Item<'a, BalancesAndDelegationsState<X>>,
+    ) -> NeutronResult<Response<NeutronMsg>> {
         let registered_query_result = get_raw_interchain_query_result(deps.as_ref(), query_id)?;
-        deps.api.debug(&format!(
-            "WASMDEBUG: sudo_kv_query_result: registered_query_result: {:?}",
-            registered_query_result
-        ));
         let data =
             PuppeteerReconstruct::reconstruct(&registered_query_result.result.kv_results, version)?;
 
-        let height = env.block.height;
+        let height = registered_query_result.result.height;
         let timestamp = env.block.time;
-        storage.save(deps.storage, &(data, height, timestamp))?;
+        storage.save(
+            deps.storage,
+            &BalancesAndDelegationsState::<X> {
+                data,
+                remote_height: height,
+                local_height: env.block.height,
+                timestamp,
+                collected_chunks: vec![],
+            },
+        )?;
         Ok(Response::default())
     }
 
@@ -122,7 +190,7 @@ where
         deps: DepsMut<NeutronQuery>,
         env: Env,
         query_id: u64,
-    ) -> NeutronResult<Response> {
+    ) -> NeutronResult<Response<NeutronMsg>> {
         if let Some(mut item) = self
             .unbonding_delegations
             .idx
@@ -154,15 +222,16 @@ where
         &self,
         deps: DepsMut<NeutronQuery>,
         _env: Env,
-        _port_id: String,
-        _channel_id: String,
+        port_id: String,
+        channel_id: String,
         _counterparty_channel_id: String,
         counterparty_version: String,
-    ) -> NeutronResult<Response> {
+    ) -> NeutronResult<Response<NeutronMsg>> {
         let parsed_version: Result<OpenAckVersion, _> =
             serde_json_wasm::from_str(counterparty_version.as_str());
         if let Ok(parsed_version) = parsed_version {
-            self.ica.set_address(deps.storage, parsed_version.address)?;
+            self.ica
+                .set_address(deps.storage, parsed_version.address, port_id, channel_id)?;
             Ok(Response::default())
         } else {
             Err(NeutronError::Std(StdError::generic_err(

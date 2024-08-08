@@ -1,11 +1,12 @@
-use cosmwasm_std::{to_json_binary, Addr, Binary, Coin, Delegation, Uint128};
+use cosmwasm_std::{to_json_binary, Addr, Binary, Coin, Decimal256, Uint128};
 use drop_puppeteer_base::r#trait::PuppeteerReconstruct;
+use drop_puppeteer_base::state::{BalancesAndDelegations, DropDelegation};
 use neutron_sdk::interchain_queries::v047::helpers::create_account_denom_balance_key;
 use neutron_sdk::NeutronResult;
 use neutron_sdk::{bindings::types::StorageValue, interchain_queries::helpers::decode_and_convert};
 use prost::Message;
 
-use super::puppeteer::{BalancesAndDelegations, MultiBalances};
+use super::puppeteer::MultiBalances;
 
 #[test]
 fn test_reconstruct_multi_balances() {
@@ -92,7 +93,7 @@ fn test_reconstruct_balance_and_delegations_no_delegations() {
             }];
             assert_eq!(balances_and_delegations.balances.coins, expected_coins);
 
-            let expected_delegations: Vec<Delegation> = vec![];
+            let expected_delegations: Vec<DropDelegation> = vec![];
             assert_eq!(
                 balances_and_delegations.delegations.delegations,
                 expected_delegations
@@ -133,7 +134,7 @@ fn test_reconstruct_balance_and_delegations_with_delegations() {
     let delegation = cosmos_sdk_proto::cosmos::staking::v1beta1::Delegation {
         delegator_address: "delegator".to_string(),
         validator_address: "validator".to_string(),
-        shares: "1000".to_string(),
+        shares: "1000000000000000000000".to_string(),
     };
     let mut buf = Vec::new();
     delegation.encode(&mut buf).unwrap();
@@ -149,7 +150,7 @@ fn test_reconstruct_balance_and_delegations_with_delegations() {
         jailed: false,
         status: 1,
         tokens: "1000".to_string(),
-        delegator_shares: "1000".to_string(),
+        delegator_shares: "1000000000000000000000".to_string(),
         description: None,
         unbonding_height: 0,
         unbonding_time: None,
@@ -174,13 +175,14 @@ fn test_reconstruct_balance_and_delegations_with_delegations() {
             }];
             assert_eq!(balances_and_delegations.balances.coins, expected_coins);
 
-            let expected_delegations: Vec<Delegation> = vec![Delegation {
+            let expected_delegations: Vec<DropDelegation> = vec![DropDelegation {
                 delegator: Addr::unchecked("delegator"),
                 validator: "validator".to_string(),
                 amount: Coin {
                     denom: "uatom".to_string(),
                     amount: Uint128::from(1000u128),
                 },
+                share_ratio: Decimal256::one(),
             }];
             assert_eq!(
                 balances_and_delegations.delegations.delegations,

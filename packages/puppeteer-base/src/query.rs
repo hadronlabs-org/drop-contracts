@@ -23,8 +23,13 @@ where
         match msg {
             QueryMsg::Config {} => self.query_config(deps),
             QueryMsg::Ica {} => self.query_ica(deps),
+            QueryMsg::TxState {} => self.query_tx_state(deps),
             QueryMsg::Transactions {} => self.query_transactions(deps),
-            QueryMsg::Extention { msg } => Err(ContractError::Std(StdError::generic_err(format!(
+            QueryMsg::Extension { msg } => Err(ContractError::Std(StdError::generic_err(format!(
+                "Unsupported query message: {:?}",
+                msg
+            )))),
+            QueryMsg::KVQueryIds {} => Err(ContractError::Std(StdError::generic_err(format!(
                 "Unsupported query message: {:?}",
                 msg
             )))),
@@ -44,5 +49,10 @@ where
     fn query_transactions(&self, deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
         let transfers: Vec<Transfer> = self.recipient_transfers.load(deps.storage)?;
         Ok(to_json_binary(&transfers)?)
+    }
+
+    fn query_tx_state(&self, deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+        let tx_state = self.tx_state.may_load(deps.storage)?.unwrap_or_default();
+        Ok(to_json_binary(&tx_state)?)
     }
 }

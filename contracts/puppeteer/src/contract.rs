@@ -1,6 +1,6 @@
-use crate::{
-    proto::cosmos::base::v1beta1::Coin as ProtoCoin,
-    proto::liquidstaking::{
+use crate::proto::{
+    cosmos::base::v1beta1::Coin as ProtoCoin,
+    liquidstaking::{
         distribution::v1beta1::MsgWithdrawDelegatorReward,
         staking::v1beta1::{
             MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgDelegateResponse,
@@ -10,22 +10,29 @@ use crate::{
     },
 };
 use cosmos_sdk_proto::cosmos::{
+    authz::v1beta1::{GenericAuthorization, Grant, MsgGrant, MsgGrantResponse},
     bank::v1beta1::{MsgSend, MsgSendResponse},
     base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
-    staking::v1beta1::{MsgDelegate, MsgUndelegate},
+};
+use cosmos_sdk_proto::{
+    cosmos::{authz::v1beta1::MsgExec, distribution::v1beta1::MsgSetWithdrawAddress},
+    traits::MessageExt,
 };
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, to_json_binary, Addr, Attribute, CosmosMsg, Deps, Order, Reply,
-    StdError, SubMsg, Timestamp, Uint128, WasmMsg,
+    attr, ensure_eq, to_json_binary, Addr, Attribute, CosmosMsg, Deps, Order, Reply, StdError,
+    SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
-use cw2::set_contract_version;
 use drop_helpers::{
     answer::response,
+    ibc_client_state::query_client_state,
+    ibc_fee::query_ibc_fee,
     icq::{
         new_delegations_and_balance_query_msg, new_multiple_balances_query_msg,
-        update_balance_and_delegations_query_msg, update_multiple_balances_query_msg,
+        update_multiple_balances_query_msg,
     },
+    interchain::prepare_any_msg,
+    validation::validate_addresses,
 };
 use drop_puppeteer_base::{
     error::{ContractError, ContractResult},
@@ -35,28 +42,24 @@ use drop_puppeteer_base::{
     },
     proto::MsgIBCTransfer,
     state::{
-        PuppeteerBase, RedeemShareItem, ReplyMsg, TxState, TxStateStatus, UnbondingDelegation,
-        ICA_ID, LOCAL_DENOM,
+        Delegations, PuppeteerBase, RedeemShareItem, ReplyMsg, TxState, TxStateStatus,
+        UnbondingDelegation, ICA_ID, LOCAL_DENOM,
     },
 };
 use drop_staking_base::{
     msg::puppeteer::{
-        BalancesAndDelegations, ExecuteMsg, FeesResponse, InstantiateMsg, MigrateMsg, QueryExtMsg,
+        BalancesResponse, DelegationsResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryExtMsg,
     },
-    state::puppeteer::{
-        Config, ConfigOptional, KVQueryType, DELEGATIONS_AND_BALANCE, NON_NATIVE_REWARD_BALANCES,
-    },
+    state::puppeteer::{Config, ConfigOptional, KVQueryType, NON_NATIVE_REWARD_BALANCES},
 };
-use neutron_sdk::interchain_queries::v045::new_register_delegator_unbonding_delegations_query_msg;
 use neutron_sdk::{
-    bindings::{
-        msg::{IbcFee, NeutronMsg},
-        query::NeutronQuery,
-        types::ProtobufAny,
+    bindings::{msg::NeutronMsg, query::NeutronQuery, types::ProtobufAny},
+    interchain_queries::v045::{
+        new_register_delegator_unbonding_delegations_query_msg, types::Balances,
     },
     interchain_txs::helpers::decode_message_response,
     sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg},
-    NeutronError, NeutronResult,
+    NeutronResult,
 };
 use prost::Message;
 use std::{str::FromStr, vec};
@@ -65,58 +68,50 @@ pub type Puppeteer<'a> = PuppeteerBase<'a, Config, KVQueryType>;
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
+const DEFAULT_DELEGATIONS_QUERIES_CHUNK_SIZE: u32 = 15;
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
-    deps: DepsMut,
+    deps: DepsMut<NeutronQuery>,
     _env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: InstantiateMsg,
-) -> NeutronResult<Response> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let owner = deps.api.addr_validate(&msg.owner)?;
-
-    let allowed_senders = msg
-        .allowed_senders
-        .iter()
-        .map(|addr| deps.api.addr_validate(addr))
-        .collect::<StdResult<Vec<_>>>()?;
+) -> NeutronResult<Response<NeutronMsg>> {
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    let allowed_senders = validate_addresses(
+        deps.as_ref().into_empty(),
+        msg.allowed_senders.as_ref(),
+        None,
+    )?;
+    let owner = deps
+        .api
+        .addr_validate(&msg.owner.unwrap_or(info.sender.to_string()))?
+        .to_string();
+    validate_timeout(msg.timeout)?;
     let config = &Config {
         connection_id: msg.connection_id,
         port_id: msg.port_id,
         update_period: msg.update_period,
         remote_denom: msg.remote_denom,
-        owner,
         allowed_senders,
-        proxy_address: None,
         transfer_channel_id: msg.transfer_channel_id,
         sdk_version: msg.sdk_version,
+        timeout: msg.timeout,
+        delegations_queries_chunk_size: msg
+            .delegations_queries_chunk_size
+            .unwrap_or(DEFAULT_DELEGATIONS_QUERIES_CHUNK_SIZE),
     };
-    DELEGATIONS_AND_BALANCE.save(
-        deps.storage,
-        &(
-            BalancesAndDelegations {
-                balances: neutron_sdk::interchain_queries::v045::types::Balances { coins: vec![] },
-                delegations: neutron_sdk::interchain_queries::v045::types::Delegations {
-                    delegations: vec![],
-                },
-            },
-            0,
-            Timestamp::default(),
-        ),
-    )?;
-    Puppeteer::default().instantiate(deps, config)
+    Puppeteer::default().instantiate(deps, config, owner)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(
     deps: Deps<NeutronQuery>,
     env: Env,
     msg: QueryMsg<QueryExtMsg>,
 ) -> ContractResult<Binary> {
     match msg {
-        QueryMsg::Extention { msg } => match msg {
+        QueryMsg::Extension { msg } => match msg {
             QueryExtMsg::Delegations {} => query_delegations(deps),
             QueryExtMsg::Balances {} => query_balances(deps),
             QueryExtMsg::NonNativeRewardsBalances {} => query_non_native_rewards_balances(deps),
@@ -128,38 +123,95 @@ pub fn query(
                     .collect::<StdResult<Vec<_>>>()?,
             )
             .map_err(ContractError::Std),
-            QueryExtMsg::Fees {} => query_fees(deps),
+            QueryExtMsg::Ownership {} => {
+                let owner = cw_ownable::get_ownership(deps.storage)?;
+                to_json_binary(&owner).map_err(ContractError::Std)
+            }
         },
+        QueryMsg::KVQueryIds {} => query_kv_query_ids(deps),
         _ => Puppeteer::default().query(deps, env, msg),
     }
 }
 
-fn query_fees(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let fees = Puppeteer::default().ibc_fee.load(deps.storage)?;
-    let register_fee = Puppeteer::default().register_fee.load(deps.storage)?;
-    Ok(to_json_binary(&FeesResponse {
-        recv_fee: fees.recv_fee,
-        ack_fee: fees.ack_fee,
-        timeout_fee: fees.timeout_fee,
-        register_fee,
-    })?)
+fn query_kv_query_ids(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+    let kv_query_ids: StdResult<Vec<(_, _)>> = Puppeteer::default()
+        .kv_queries
+        .range(deps.storage, None, None, Order::Ascending)
+        .collect();
+
+    Ok(to_json_binary(&kv_query_ids?)?)
 }
 
 fn query_delegations(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let data = DELEGATIONS_AND_BALANCE.load(deps.storage)?;
-    to_json_binary(&(data.0.delegations, data.1, data.2)).map_err(ContractError::Std)
+    let puppeteer_base = Puppeteer::default();
+    match puppeteer_base
+        .last_complete_delegations_and_balances_key
+        .may_load(deps.storage)?
+    {
+        None => to_json_binary(&DelegationsResponse {
+            delegations: Delegations {
+                delegations: vec![],
+            },
+            remote_height: 0,
+            local_height: 0,
+            timestamp: Timestamp::default(),
+        }),
+        Some(last_key) => {
+            let last_data = puppeteer_base
+                .delegations_and_balances
+                .load(deps.storage, &last_key)?;
+            to_json_binary(&DelegationsResponse {
+                delegations: last_data.data.delegations,
+                remote_height: last_data.remote_height,
+                local_height: last_data.local_height,
+                timestamp: last_data.timestamp,
+            })
+        }
+    }
+    .map_err(ContractError::Std)
 }
 
 fn query_balances(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let data = DELEGATIONS_AND_BALANCE.load(deps.storage)?;
-    to_json_binary(&(data.0.balances, data.1, data.2)).map_err(ContractError::Std)
-}
-fn query_non_native_rewards_balances(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let data = NON_NATIVE_REWARD_BALANCES.load(deps.storage)?;
-    to_json_binary(&(data.0, data.1, data.2)).map_err(ContractError::Std)
+    let puppeteer_base = Puppeteer::default();
+    match puppeteer_base
+        .last_complete_delegations_and_balances_key
+        .may_load(deps.storage)?
+    {
+        None => to_json_binary(&BalancesResponse {
+            balances: Balances { coins: vec![] },
+            remote_height: 0,
+            local_height: 0,
+            timestamp: Timestamp::default(),
+        }),
+        Some(last_key) => {
+            let last_data = puppeteer_base
+                .delegations_and_balances
+                .load(deps.storage, &last_key)?;
+            to_json_binary(&BalancesResponse {
+                balances: last_data.data.balances,
+                remote_height: last_data.remote_height,
+                local_height: last_data.local_height,
+                timestamp: last_data.timestamp,
+            })
+        }
+    }
+    .map_err(ContractError::Std)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+fn query_non_native_rewards_balances(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+    let data = NON_NATIVE_REWARD_BALANCES.load(deps.storage)?;
+    to_json_binary(&BalancesResponse {
+        balances: Balances {
+            coins: data.data.coins,
+        },
+        remote_height: data.remote_height,
+        local_height: data.local_height,
+        timestamp: data.timestamp,
+    })
+    .map_err(ContractError::Std)
+}
+
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -168,53 +220,34 @@ pub fn execute(
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
     match msg {
-        ExecuteMsg::Delegate {
-            items,
-            timeout,
-            reply_to,
-        } => execute_delegate(deps, info, items, timeout, reply_to),
         ExecuteMsg::Undelegate {
             items,
             batch_id,
-            timeout,
             reply_to,
-        } => execute_undelegate(deps, info, items, batch_id, timeout, reply_to),
+        } => execute_undelegate(deps, info, items, batch_id, reply_to),
         ExecuteMsg::Redelegate {
             validator_from,
             validator_to,
             amount,
-            timeout,
             reply_to,
-        } => execute_redelegate(
-            deps,
-            info,
-            validator_from,
-            validator_to,
-            amount,
-            timeout,
-            reply_to,
-        ),
+        } => execute_redelegate(deps, info, validator_from, validator_to, amount, reply_to),
         ExecuteMsg::TokenizeShare {
             validator,
             amount,
-            timeout,
             reply_to,
-        } => execute_tokenize_share(deps, info, validator, amount, timeout, reply_to),
-        ExecuteMsg::RedeemShares {
-            items,
-            timeout,
-            reply_to,
-        } => execute_redeem_shares(deps, info, items, timeout, reply_to),
+        } => execute_tokenize_share(deps, info, validator, amount, reply_to),
+        ExecuteMsg::RedeemShares { items, reply_to } => {
+            execute_redeem_shares(deps, info, items, reply_to)
+        }
         ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
             validators,
             transfer,
-            timeout,
             reply_to,
-        } => execute_claim_rewards_and_optionaly_transfer(
-            deps, info, validators, transfer, timeout, reply_to,
-        ),
+        } => {
+            execute_claim_rewards_and_optionaly_transfer(deps, info, validators, transfer, reply_to)
+        }
         ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators } => {
-            register_balance_delegations_query(deps, info, validators)
+            register_delegations_and_balance_query(deps, info, validators)
         }
         ExecuteMsg::RegisterDelegatorUnbondingDelegationsQuery { validators } => {
             register_unbonding_delegations_query(deps, info, validators)
@@ -222,17 +255,20 @@ pub fn execute(
         ExecuteMsg::RegisterNonNativeRewardsBalancesQuery { denoms } => {
             register_non_native_rewards_balances_query(deps, info, denoms)
         }
-        ExecuteMsg::IBCTransfer {
-            timeout,
-            reply_to,
-            reason,
-        } => execute_ibc_transfer(deps, env, info, reason, timeout, reply_to),
-        ExecuteMsg::Transfer {
-            items,
-            timeout,
-            reply_to,
-        } => execute_transfer(deps, info, items, timeout, reply_to),
+        ExecuteMsg::IBCTransfer { reply_to, reason } => {
+            execute_ibc_transfer(deps, env, info, reason, reply_to)
+        }
+        ExecuteMsg::Transfer { items, reply_to } => execute_transfer(deps, info, items, reply_to),
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
+        ExecuteMsg::UpdateOwnership(action) => {
+            let attrs = vec![attr("action", "update_ownership")];
+            cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
+            Ok(response("update_ownership", CONTRACT_NAME, attrs))
+        }
+        ExecuteMsg::SetupProtocol {
+            delegate_grantee,
+            rewards_withdraw_address,
+        } => execute_setup_protocol(deps, env, info, delegate_grantee, rewards_withdraw_address),
         _ => puppeteer_base.execute(deps, env, info, msg.to_base_enum()),
     }
 }
@@ -248,15 +284,6 @@ fn execute_update_config(
     let mut config = puppeteer_base.config.load(deps.storage)?;
 
     let mut attrs: Vec<Attribute> = Vec::new();
-    if let Some(owner) = new_config.owner {
-        config.owner = owner.clone();
-        attrs.push(attr("owner", owner))
-    }
-
-    if let Some(proxy_address) = new_config.proxy_address {
-        config.proxy_address = Some(proxy_address.clone());
-        attrs.push(attr("proxy_address", proxy_address))
-    }
 
     if let Some(remote_denom) = new_config.remote_denom {
         config.remote_denom = remote_denom.clone();
@@ -279,13 +306,25 @@ fn execute_update_config(
     }
 
     if let Some(allowed_senders) = new_config.allowed_senders {
-        config.allowed_senders = allowed_senders.clone();
-        attrs.push(attr("allowed_senders", allowed_senders.len().to_string()))
+        let allowed_senders =
+            validate_addresses(deps.as_ref().into_empty(), allowed_senders.as_ref(), None)?;
+        attrs.push(attr("allowed_senders", allowed_senders.len().to_string()));
+        config.allowed_senders = allowed_senders
     }
 
     if let Some(transfer_channel_id) = new_config.transfer_channel_id {
         config.transfer_channel_id = transfer_channel_id.clone();
-        attrs.push(attr("transfer_channel_id", transfer_channel_id.to_string()))
+        attrs.push(attr("transfer_channel_id", transfer_channel_id))
+    }
+
+    if let Some(sdk_version) = new_config.sdk_version {
+        config.sdk_version = sdk_version.clone();
+        attrs.push(attr("sdk_version", sdk_version))
+    }
+    if let Some(timeout) = new_config.timeout {
+        validate_timeout(timeout)?;
+        attrs.push(attr("timeout", timeout.to_string()));
+        config.timeout = timeout;
     }
 
     puppeteer_base.update_config(deps.into_empty(), &config)?;
@@ -298,7 +337,6 @@ fn execute_ibc_transfer(
     env: Env,
     info: MessageInfo,
     reason: IBCTransferReason,
-    timeout: u64,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
@@ -308,7 +346,7 @@ fn execute_ibc_transfer(
     // exclude fees, no need to send local denom tokens to remote zone
     let message_funds: Vec<_> = info
         .funds
-        .iter()
+        .into_iter()
         .filter(|f| f.denom != LOCAL_DENOM)
         .collect();
     ensure_eq!(
@@ -332,9 +370,9 @@ fn execute_ibc_transfer(
             revision_number: None,
             revision_height: None,
         },
-        timeout_timestamp: env.block.time.plus_seconds(timeout).nanos(),
+        timeout_timestamp: env.block.time.plus_seconds(config.timeout).nanos(),
         memo: "".to_string(),
-        fee: puppeteer_base.ibc_fee.load(deps.storage)?,
+        fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
     };
     let submsg = puppeteer_base.msg_with_sudo_callback(
         deps,
@@ -346,7 +384,7 @@ fn execute_ibc_transfer(
             recipient: ica_address,
         },
         reply_to,
-        ReplyMsg::SudoPayload.to_reply_id(),
+        ReplyMsg::IbcTransfer.to_reply_id(),
     )?;
     Ok(Response::default().add_submessages(vec![submsg]))
 }
@@ -399,7 +437,7 @@ fn register_non_native_rewards_balances_query(
         .add_submessages(submessages))
 }
 
-fn register_balance_delegations_query(
+fn register_delegations_and_balance_query(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
     validators: Vec<String>,
@@ -407,37 +445,45 @@ fn register_balance_delegations_query(
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.storage)?;
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let kv_queries = puppeteer_base
-        .kv_queries
-        .range(deps.storage, None, None, Order::Ascending)
-        .collect::<Result<Vec<(u64, KVQueryType)>, _>>()?;
-    let ica = puppeteer_base.ica.get_address(deps.storage)?;
-    let mut messages = vec![];
+    cosmwasm_std::ensure!(
+        validators.len() < u16::MAX as usize,
+        StdError::generic_err("Too many validators provided")
+    );
+    let current_queries: Vec<u64> = puppeteer_base
+        .delegations_and_balances_query_id_chunk
+        .keys(deps.storage, None, None, Order::Ascending)
+        .collect::<StdResult<Vec<_>>>()?;
+    let messages = current_queries
+        .iter()
+        .map(|query_id| {
+            puppeteer_base
+                .delegations_and_balances_query_id_chunk
+                .remove(deps.storage, *query_id);
+            puppeteer_base.kv_queries.remove(deps.storage, *query_id);
+            NeutronMsg::remove_interchain_query(*query_id)
+        })
+        .collect::<Vec<_>>();
+
     let mut submessages = vec![];
-    for (query_id, query_type) in kv_queries {
-        if query_type == KVQueryType::DelegationsAndBalance {
-            messages.push(update_balance_and_delegations_query_msg(
-                query_id,
-                ica.to_string(),
-                config.remote_denom.to_string(),
-                validators.clone(),
-                config.sdk_version.as_str(),
-            )?); //no need to handle reply as nothing to update in the query
-        }
-    }
-    if messages.is_empty() {
+    let ica = puppeteer_base.ica.get_address(deps.storage)?;
+
+    for (i, chunk) in validators
+        .chunks(config.delegations_queries_chunk_size as usize)
+        .enumerate()
+    {
         submessages.push(SubMsg::reply_on_success(
             new_delegations_and_balance_query_msg(
                 config.connection_id.clone(),
                 ica.clone(),
                 config.remote_denom.clone(),
-                validators.clone(),
+                chunk.to_vec(),
                 config.update_period,
                 config.sdk_version.as_str(),
             )?,
-            ReplyMsg::KvDelegationsAndBalance.to_reply_id(),
+            ReplyMsg::KvDelegationsAndBalance { i: i as u16 }.to_reply_id(),
         ));
     }
+
     Ok(Response::new()
         .add_messages(messages)
         .add_submessages(submessages))
@@ -495,43 +541,64 @@ fn register_unbonding_delegations_query(
     Ok(Response::new().add_submessages(msgs))
 }
 
-fn execute_delegate(
+fn execute_setup_protocol(
     mut deps: DepsMut<NeutronQuery>,
+    env: Env,
     info: MessageInfo,
-    items: Vec<(String, Uint128)>,
-    timeout: Option<u64>,
-    reply_to: String,
+    delegate_grantee: String,
+    rewards_withdraw_address: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
-    deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
-    let delegator = puppeteer_base.ica.get_address(deps.storage)?;
-    let any_msgs = items
-        .iter()
-        .map(|(validator, amount)| MsgDelegate {
-            delegator_address: delegator.to_string(),
-            validator_address: validator.to_string(),
-            amount: Some(Coin {
-                denom: config.remote_denom.to_string(),
-                amount: amount.to_string(),
+    let ica = puppeteer_base.ica.get_address(deps.storage)?;
+    let mut any_msgs = vec![];
+    let grant_msg = MsgGrant {
+        grantee: delegate_grantee.clone(),
+        granter: ica.to_string(),
+        grant: Some(Grant {
+            authorization: Some(cosmos_sdk_proto::Any {
+                type_url: "/cosmos.authz.v1beta1.GenericAuthorization".to_string(),
+                value: GenericAuthorization {
+                    msg: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
+                }
+                .encode_to_vec(),
             }),
-        })
-        .map(|msg| prepare_any_msg(msg, "/cosmos.staking.v1beta1.MsgDelegate"))
-        .collect::<NeutronResult<Vec<ProtobufAny>>>()?;
-
+            expiration: Some(prost_types::Timestamp {
+                seconds: env
+                    .block
+                    .time
+                    .plus_days(365 * 120 + 30)
+                    .seconds()
+                    .try_into()
+                    .map_err(|_| ContractError::Std(StdError::generic_err("Invalid timestamp")))?,
+                nanos: 0,
+            }),
+        }),
+    };
+    let set_withdraw_address_msg = MsgSetWithdrawAddress {
+        delegator_address: ica.to_string(),
+        withdraw_address: rewards_withdraw_address.clone(),
+    };
+    any_msgs.push(prepare_any_msg(
+        grant_msg,
+        "/cosmos.authz.v1beta1.MsgGrant",
+    )?);
+    any_msgs.push(prepare_any_msg(
+        set_withdraw_address_msg,
+        "/cosmos.distribution.v1beta1.MsgSetWithdrawAddress",
+    )?);
     let submsg = compose_submsg(
         deps.branch(),
         config.clone(),
         any_msgs,
-        Transaction::Delegate {
-            interchain_account_id: ICA_ID.to_string(),
-            denom: config.remote_denom,
-            items,
+        Transaction::SetupProtocol {
+            interchain_account_id: ica.to_string(),
+            delegate_grantee,
+            rewards_withdraw_address,
         },
-        timeout,
-        reply_to,
+        "".to_string(),
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
 
@@ -542,7 +609,6 @@ fn execute_transfer(
     mut deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
     items: Vec<(String, cosmwasm_std::Coin)>,
-    timeout: Option<u64>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
@@ -578,7 +644,6 @@ fn execute_transfer(
             interchain_account_id: ICA_ID.to_string(),
             items,
         },
-        timeout,
         reply_to,
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
@@ -591,7 +656,6 @@ fn execute_claim_rewards_and_optionaly_transfer(
     info: MessageInfo,
     validators: Vec<String>,
     transfer: Option<TransferReadyBatchesMsg>,
-    timeout: Option<u64>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
@@ -615,16 +679,26 @@ fn execute_claim_rewards_and_optionaly_transfer(
             "/cosmos.bank.v1beta1.MsgSend",
         )?);
     }
+
+    let mut claim_msgs = vec![];
     for val in validators.clone() {
-        let withdraw_msg = MsgWithdrawDelegatorReward {
-            delegator_address: ica.to_string(),
-            validator_address: val,
-        };
-        any_msgs.push(prepare_any_msg(
-            withdraw_msg,
-            "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
-        )?);
+        claim_msgs.push(cosmos_sdk_proto::Any {
+            type_url: "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
+            value: MsgWithdrawDelegatorReward {
+                delegator_address: ica.to_string(),
+                validator_address: val,
+            }
+            .to_bytes()?,
+        })
     }
+
+    let grant_msg = MsgExec {
+        grantee: ica.to_string(),
+        msgs: claim_msgs,
+    };
+
+    any_msgs.push(prepare_any_msg(grant_msg, "/cosmos.authz.v1beta1.MsgExec")?);
+
     let submsg = compose_submsg(
         deps.branch(),
         config.clone(),
@@ -635,7 +709,6 @@ fn execute_claim_rewards_and_optionaly_transfer(
             denom: config.remote_denom.to_string(),
             transfer,
         },
-        timeout,
         reply_to,
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
@@ -648,7 +721,6 @@ fn execute_undelegate(
     info: MessageInfo,
     items: Vec<(String, Uint128)>,
     batch_id: u128,
-    timeout: Option<u64>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
@@ -657,18 +729,29 @@ fn execute_undelegate(
     validate_sender(&config, &info.sender)?;
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
     let delegator = puppeteer_base.ica.get_address(deps.storage)?;
-    let any_msgs = items
-        .iter()
-        .map(|(validator, amount)| MsgUndelegate {
-            delegator_address: delegator.to_string(),
-            validator_address: validator.to_string(),
-            amount: Some(Coin {
-                denom: config.remote_denom.to_string(),
-                amount: amount.to_string(),
-            }),
+    let mut undelegation_msgs = vec![];
+    for (validator, amount) in items.iter() {
+        undelegation_msgs.push(cosmos_sdk_proto::Any {
+            type_url: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
+            value: cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
+                delegator_address: delegator.to_string(),
+                validator_address: validator.to_string(),
+                amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                    denom: config.remote_denom.to_string(),
+                    amount: amount.to_string(),
+                }),
+            }
+            .to_bytes()?,
         })
-        .map(|msg| prepare_any_msg(msg, "/cosmos.staking.v1beta1.MsgUndelegate"))
-        .collect::<NeutronResult<Vec<ProtobufAny>>>()?;
+    }
+
+    let grant_msg = MsgExec {
+        grantee: delegator,
+        msgs: undelegation_msgs,
+    };
+
+    let any_msgs: Vec<neutron_sdk::bindings::types::ProtobufAny> =
+        vec![prepare_any_msg(grant_msg, "/cosmos.authz.v1beta1.MsgExec")?];
 
     let submsg = compose_submsg(
         deps.branch(),
@@ -680,7 +763,6 @@ fn execute_undelegate(
             batch_id,
             items,
         },
-        timeout,
         reply_to,
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
@@ -694,7 +776,6 @@ fn execute_redelegate(
     validator_from: String,
     validator_to: String,
     amount: Uint128,
-    timeout: Option<u64>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
@@ -727,7 +808,6 @@ fn execute_redelegate(
             denom: config.remote_denom,
             amount: amount.into(),
         },
-        timeout,
         reply_to,
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
@@ -740,7 +820,6 @@ fn execute_tokenize_share(
     info: MessageInfo,
     validator: String,
     amount: Uint128,
-    timeout: Option<u64>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
@@ -771,7 +850,6 @@ fn execute_tokenize_share(
             denom: config.remote_denom,
             amount: amount.into(),
         },
-        timeout,
         reply_to,
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
@@ -783,7 +861,6 @@ fn execute_redeem_shares(
     mut deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
     items: Vec<RedeemShareItem>,
-    timeout: Option<u64>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let attrs = vec![
@@ -815,7 +892,6 @@ fn execute_redeem_shares(
             interchain_account_id: ICA_ID.to_string(),
             items,
         },
-        timeout,
         reply_to,
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
@@ -824,38 +900,23 @@ fn execute_redeem_shares(
         .add_attributes(attrs))
 }
 
-fn prepare_any_msg<T: prost::Message>(msg: T, type_url: &str) -> NeutronResult<ProtobufAny> {
-    let mut buf = Vec::with_capacity(msg.encoded_len());
-
-    if let Err(e) = msg.encode(&mut buf) {
-        return Err(NeutronError::Std(StdError::generic_err(format!(
-            "Encode error: {e}"
-        ))));
-    }
-    Ok(ProtobufAny {
-        type_url: type_url.to_string(),
-        value: Binary::from(buf),
-    })
-}
-
 fn compose_submsg(
     mut deps: DepsMut<NeutronQuery>,
     config: Config,
     any_msgs: Vec<ProtobufAny>,
     transaction: Transaction,
-    timeout: Option<u64>,
     reply_to: String,
     reply_id: u64,
 ) -> NeutronResult<SubMsg<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
-    let ibc_fee: IbcFee = puppeteer_base.ibc_fee.load(deps.storage)?;
+    let ibc_fee = query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?;
     let connection_id = config.connection_id;
     let cosmos_msg = NeutronMsg::submit_tx(
         connection_id,
         ICA_ID.to_string(),
         any_msgs,
         "".to_string(),
-        timeout.unwrap_or(DEFAULT_TIMEOUT_SECONDS),
+        config.timeout,
         ibc_fee,
     );
     let submsg = puppeteer_base.msg_with_sudo_callback(
@@ -868,8 +929,12 @@ fn compose_submsg(
     Ok(submsg)
 }
 
-#[entry_point]
-pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResult<Response> {
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn sudo(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    msg: SudoMsg,
+) -> NeutronResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
     deps.api.debug(&format!(
         "WASMDEBUG: sudo call: {:?} block: {:?}",
@@ -890,13 +955,13 @@ pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResul
             deps.api
                 .debug(&format!("WASMDEBUG: KVQueryResult type {:?}", query_type));
             match query_type {
-                KVQueryType::DelegationsAndBalance => puppeteer_base.sudo_kv_query_result(
-                    deps,
-                    env,
-                    query_id,
-                    &config.sdk_version,
-                    DELEGATIONS_AND_BALANCE,
-                ),
+                KVQueryType::DelegationsAndBalance => puppeteer_base
+                    .sudo_delegations_and_balance_kv_query_result(
+                        deps,
+                        env,
+                        query_id,
+                        &config.sdk_version,
+                    ),
                 KVQueryType::NonNativeRewardsBalances => puppeteer_base.sudo_kv_query_result(
                     deps,
                     env,
@@ -927,10 +992,10 @@ pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> NeutronResul
 
 fn sudo_response(
     deps: DepsMut<NeutronQuery>,
-    _env: Env,
+    env: Env,
     request: RequestPacket,
     data: Binary,
-) -> NeutronResult<Response> {
+) -> NeutronResult<Response<NeutronMsg>> {
     deps.api.debug("WASMDEBUG: sudo response");
     let attrs = vec![
         attr("action", "sudo_response"),
@@ -940,6 +1005,14 @@ fn sudo_response(
     let seq_id = request
         .sequence
         .ok_or_else(|| StdError::generic_err("sequence not found"))?;
+    let channel_id = request
+        .clone()
+        .source_channel
+        .ok_or_else(|| StdError::generic_err("source_channel not found"))?;
+    let port_id = request
+        .clone()
+        .source_port
+        .ok_or_else(|| StdError::generic_err("source_port not found"))?;
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
     puppeteer_base.validate_tx_waiting_state(deps.as_ref())?;
     let reply_to = tx_state
@@ -968,6 +1041,16 @@ fn sudo_response(
             get_answers_from_msg_data(deps.as_ref(), msg_data)?
         }
     };
+
+    let client_state = query_client_state(&deps.as_ref(), channel_id, port_id)?;
+    let remote_height = client_state
+        .identified_client_state
+        .ok_or_else(|| StdError::generic_err("IBC client state identified_client_state not found"))?
+        .client_state
+        .latest_height
+        .ok_or_else(|| StdError::generic_err("IBC client state latest_height not found"))?
+        .revision_height;
+
     deps.api.debug(&format!(
         "WASMDEBUG: json: {request:?}",
         request = to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
@@ -976,22 +1059,29 @@ fn sudo_response(
                 request: request.clone(),
                 transaction: transaction.clone(),
                 answers: answers.clone(),
+                local_height: env.block.height,
+                remote_height: remote_height.u64(),
             },)
         ))?
     ));
-    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: reply_to.clone(),
-        msg: to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
-            ResponseHookMsg::Success(ResponseHookSuccessMsg {
-                request_id: seq_id,
-                request: request.clone(),
-                transaction: transaction.clone(),
-                answers,
-            }),
-        ))?,
-        funds: vec![],
-    });
-    Ok(response("sudo-response", "puppeteer", attrs).add_message(msg))
+    let mut msgs = vec![];
+    if !reply_to.is_empty() {
+        msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: reply_to.clone(),
+            msg: to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
+                ResponseHookMsg::Success(ResponseHookSuccessMsg {
+                    request_id: seq_id,
+                    request: request.clone(),
+                    transaction: transaction.clone(),
+                    answers,
+                    local_height: env.block.height,
+                    remote_height: remote_height.u64(),
+                }),
+            ))?,
+            funds: vec![],
+        }));
+    }
+    Ok(response("sudo-response", "puppeteer", attrs).add_messages(msgs))
 }
 
 fn get_answers_from_msg_data(
@@ -1030,6 +1120,12 @@ fn get_answers_from_msg_data(
                     },
                 )
             }
+            "/cosmos.authz.v1beta1.MsgGrant" => {
+                let _out: MsgGrantResponse = decode_message_response(&item.data)?;
+                ResponseAnswer::GrantDelegateResponse(
+                    drop_puppeteer_base::proto::MsgGrantResponse {},
+                )
+            }
             "/cosmos.staking.v1beta1.MsgRedeemTokensForShares" => {
                 let out: MsgRedeemTokensforSharesResponse = decode_message_response(&item.data)?;
                 ResponseAnswer::RedeemTokensforSharesResponse(
@@ -1049,10 +1145,8 @@ fn get_answers_from_msg_data(
                 ResponseAnswer::UnknownResponse {}
             }
         };
-        deps.api.debug(&format!(
-            "WASMDEBUG: sudo_response: answer: {answer:?}",
-            answer = answer
-        ));
+        deps.api
+            .debug(&format!("WASMDEBUG: sudo_response: answer: {answer:?}",));
         answers.push(answer);
     }
     Ok(answers)
@@ -1070,7 +1164,7 @@ fn sudo_error(
     _env: Env,
     request: RequestPacket,
     details: String,
-) -> NeutronResult<Response> {
+) -> NeutronResult<Response<NeutronMsg>> {
     let attrs = vec![
         attr("action", "sudo_error"),
         attr("request_id", request.sequence.unwrap_or(0).to_string()),
@@ -1079,8 +1173,6 @@ fn sudo_error(
     let puppeteer_base: PuppeteerBase<'_, Config, KVQueryType> = Puppeteer::default();
     deps.api.debug(&format!(
         "WASMDEBUG: sudo_error: request: {request:?} details: {details:?}",
-        request = request,
-        details = details
     ));
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
     puppeteer_base.validate_tx_waiting_state(deps.as_ref())?;
@@ -1121,7 +1213,7 @@ fn sudo_timeout(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     request: RequestPacket,
-) -> NeutronResult<Response> {
+) -> NeutronResult<Response<NeutronMsg>> {
     deps.api.debug(&format!(
         "WASMDEBUG: sudo_timeout: request: {request:?}",
         request = request
@@ -1170,15 +1262,19 @@ fn sudo_timeout(
     Ok(response("sudo-timeout", "puppeteer", attrs).add_message(msg))
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
     let puppeteer_base: PuppeteerBase<'_, Config, KVQueryType> = Puppeteer::default();
     match ReplyMsg::from_reply_id(msg.id) {
         ReplyMsg::SudoPayload => puppeteer_base.submit_tx_reply(deps, msg),
         ReplyMsg::IbcTransfer => puppeteer_base.submit_ibc_transfer_reply(deps, msg),
-        ReplyMsg::KvDelegationsAndBalance => {
-            puppeteer_base.register_kv_query_reply(deps, msg, KVQueryType::DelegationsAndBalance)
-        }
+        ReplyMsg::KvDelegationsAndBalance { i } => puppeteer_base
+            .register_delegations_and_balance_query_reply(
+                deps,
+                msg,
+                i,
+                KVQueryType::DelegationsAndBalance,
+            ),
         ReplyMsg::KvNonNativeRewardsBalances => {
             deps.api.debug(&format!(
                 "WASMDEBUG: NON_NATIVE_REWARDS_BALANCES_REPLY_ID {:?}",
@@ -1201,10 +1297,21 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
     }
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    deps.api.debug("WASMDEBUG: migrate");
-    Ok(Response::default())
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
+    Ok(Response::new())
 }
 
 fn validate_sender(config: &Config, sender: &Addr) -> StdResult<()> {
@@ -1212,5 +1319,15 @@ fn validate_sender(config: &Config, sender: &Addr) -> StdResult<()> {
         Ok(())
     } else {
         Err(StdError::generic_err("Sender is not allowed"))
+    }
+}
+
+fn validate_timeout(timeout: u64) -> StdResult<()> {
+    if timeout < 10 {
+        Err(StdError::generic_err(
+            "Timeout can not be less than 10 seconds",
+        ))
+    } else {
+        Ok(())
     }
 }

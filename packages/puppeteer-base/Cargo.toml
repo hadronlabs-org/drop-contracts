@@ -6,9 +6,9 @@ name = "drop-puppeteer-base"
 version = "1.0.0"
 
 exclude = [
-  # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
-  "contract.wasm",
-  "hash.txt",
+    # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
+    "contract.wasm",
+    "hash.txt",
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -24,15 +24,16 @@ library = []
 
 [dependencies]
 cosmos-sdk-proto = { workspace = true }
-neutron-sdk      = { workspace = true }
-prost            = { workspace = true }
-prost-types      = { workspace = true }
-thiserror        = { workspace = true }
-cosmwasm-schema  = { workspace = true }
-cosmwasm-std     = { workspace = true }
-cw-ownable       = { workspace = true }
-cw-storage-plus  = { workspace = true }
-serde            = { workspace = true }
-serde-json-wasm  = { workspace = true }
-drop-helpers     = { workspace = true }
-schemars         = { workspace = true }
+neutron-sdk = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
+thiserror = { workspace = true }
+cosmwasm-schema = { workspace = true }
+cosmwasm-std = { workspace = true }
+cw-ownable = { workspace = true }
+cw-storage-plus = { workspace = true }
+serde = { workspace = true }
+serde-json-wasm = { workspace = true }
+drop-helpers = { workspace = true }
+schemars = { workspace = true }
+semver = { workspace = true }

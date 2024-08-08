@@ -12,6 +12,8 @@ pub enum IcaState {
     Timeout,
     Registered {
         ica_address: String,
+        port_id: String,
+        channel_id: String,
     },
 }
 
@@ -58,18 +60,26 @@ impl<'a> Ica<'a> {
         &self,
         store: &mut dyn Storage,
         address: impl Into<String>,
+        port_id: impl Into<String>,
+        channel_id: impl Into<String>,
     ) -> StdResult<()> {
         self.0.save(
             store,
             &IcaState::Registered {
                 ica_address: address.into(),
+                port_id: port_id.into(),
+                channel_id: channel_id.into(),
             },
         )
     }
 
     pub fn get_address(&self, store: &dyn Storage) -> StdResult<String> {
         match self.load(store)? {
-            IcaState::Registered { ica_address } => Ok(ica_address),
+            IcaState::Registered {
+                ica_address,
+                port_id: _,
+                channel_id: _,
+            } => Ok(ica_address),
             IcaState::None => Err(StdError::generic_err(
                 "Interchain account is not registered. Please register it first",
             )),

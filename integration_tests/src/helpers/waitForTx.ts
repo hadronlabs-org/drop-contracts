@@ -1,8 +1,9 @@
 import { SigningStargateClient, StargateClient } from '@cosmjs/stargate';
 import { waitFor } from './waitFor';
+import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 
 export const waitForTx = async (
-  client: SigningStargateClient | StargateClient,
+  client: SigningStargateClient | SigningCosmWasmClient | StargateClient,
   hash: string,
   timeout: number = 10000,
   interval: number = 600,
