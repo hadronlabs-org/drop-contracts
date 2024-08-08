@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    testing::{mock_env, MockApi, MockQuerier, MockStorage},
+    testing::{mock_env, mock_info, MockApi, MockQuerier, MockStorage},
     to_json_binary, Empty, OwnedDeps, Querier, Uint128,
 };
 use drop_staking_base::msg::distribution::{Delegation, Delegations, QueryMsg};
@@ -12,6 +12,25 @@ fn mock_dependencies<Q: Querier + Default>() -> OwnedDeps<MockStorage, MockApi, 
         querier: Q::default(),
         custom_query_type: PhantomData,
     }
+}
+
+#[test]
+fn test_instantiate() {
+    let mut deps = mock_dependencies::<MockQuerier>();
+    let res = crate::contract::instantiate(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &vec![]),
+        drop_staking_base::msg::distribution::InstantiateMsg {},
+    )
+    .unwrap();
+
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_event(cosmwasm_std::Event::new(
+            "crates.io:drop-staking__drop-distribution-instantiate".to_string()
+        ))
+    );
 }
 
 #[test]
