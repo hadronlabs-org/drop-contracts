@@ -36,29 +36,72 @@ fn test_instantiate() {
 #[test]
 fn query_deposit_calculation() {
     let deps = mock_dependencies::<MockQuerier>();
-
-    let response = crate::contract::query(
-        deps.as_ref(),
-        mock_env(),
-        QueryMsg::CalcDeposit {
-            deposit: Uint128::from(100u128),
-            delegations: Delegations {
-                total: Uint128::zero(),
-                total_weight: 10,
-                delegations: vec![Delegation {
-                    valoper_address: "valoper1".to_string(),
-                    stake: Uint128::zero(),
-                    weight: 10u64,
-                }],
+    {
+        let response = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            QueryMsg::CalcDeposit {
+                deposit: Uint128::from(100u128),
+                delegations: Delegations {
+                    total: Uint128::zero(),
+                    total_weight: 10,
+                    delegations: vec![
+                        Delegation {
+                            valoper_address: "valoper1".to_string(),
+                            stake: Uint128::zero(),
+                            weight: 0u64,
+                        },
+                        Delegation {
+                            valoper_address: "valoper2".to_string(),
+                            stake: Uint128::zero(),
+                            weight: 10u64,
+                        },
+                    ],
+                },
             },
-        },
-    )
-    .unwrap();
+        )
+        .unwrap();
 
-    assert_eq!(
-        response,
-        to_json_binary(&vec![("valoper1".to_string(), Uint128::from(100u128))]).unwrap()
-    );
+        assert_eq!(
+            response,
+            to_json_binary(&vec![("valoper2".to_string(), Uint128::from(100u128))]).unwrap()
+        );
+    }
+    {
+        let response = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            QueryMsg::CalcDeposit {
+                deposit: Uint128::from(100u128),
+                delegations: Delegations {
+                    total: Uint128::zero(),
+                    total_weight: 20,
+                    delegations: vec![
+                        Delegation {
+                            valoper_address: "valoper1".to_string(),
+                            stake: Uint128::zero(),
+                            weight: 10u64,
+                        },
+                        Delegation {
+                            valoper_address: "valoper2".to_string(),
+                            stake: Uint128::zero(),
+                            weight: 10u64,
+                        },
+                    ],
+                },
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            response,
+            to_json_binary(&vec![
+                ("valoper1".to_string(), Uint128::from(50u128)),
+                ("valoper2".to_string(), Uint128::from(50u128))
+            ])
+            .unwrap()
+        );
+    }
 }
 
 #[test]
