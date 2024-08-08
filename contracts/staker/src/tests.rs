@@ -1,12 +1,12 @@
 use crate::contract::{execute, instantiate};
 use crate::error::ContractError;
 use cosmos_sdk_proto::traits::MessageExt;
-use cosmwasm_std::StdError;
 use cosmwasm_std::{
     coins,
     testing::{mock_env, mock_info},
     to_json_binary, Addr, CosmosMsg, Event, Response, SubMsg, Uint128,
 };
+use cosmwasm_std::{from_json, StdError};
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::state::staker::{
     Config, ConfigOptional, CONFIG, ICA, NON_STAKED_BALANCE, TX_STATE,
@@ -1688,4 +1688,115 @@ fn test_submit_ibc_transfer_reply() {
             )
         )
     }
+}
+
+#[test]
+fn test_query_tx_state() {
+    let mut deps = mock_dependencies(&[]);
+    let tx_state = drop_staking_base::state::staker::TxState {
+        status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+        seq_id: None,
+        transaction: None,
+        reply_to: None,
+    };
+    TX_STATE.save(deps.as_mut().storage, &tx_state).unwrap();
+    let res: drop_staking_base::state::staker::TxState = from_json(
+        crate::contract::query(
+            deps.as_ref().into_empty(),
+            mock_env(),
+            drop_staking_base::msg::staker::QueryMsg::TxState {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(res, tx_state);
+}
+
+#[test]
+fn test_query_non_staked_balance() {
+    let mut deps = mock_dependencies(&[]);
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(10000u64))
+        .unwrap();
+    let res: Uint128 = from_json(
+        crate::contract::query(
+            deps.as_ref().into_empty(),
+            mock_env(),
+            drop_staking_base::msg::staker::QueryMsg::NonStakedBalance {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(res, Uint128::from(10000u64));
+}
+
+#[test]
+fn test_query_all_balance() {
+    let mut deps = mock_dependencies(&[cosmwasm_std::Coin {
+        denom: "base_denom".to_string(),
+        amount: Uint128::from(123u64),
+    }]);
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(10000u64))
+        .unwrap();
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+    let res: Uint128 = from_json(
+        crate::contract::query(
+            deps.as_ref().into_empty(),
+            mock_env(),
+            drop_staking_base::msg::staker::QueryMsg::AllBalance {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(res, Uint128::from(10123u64));
+}
+
+#[test]
+fn test_query_ica() {
+    let mut deps = mock_dependencies(&[]);
+    ICA.set_address(
+        deps.as_mut().storage,
+        "ica_address".to_string(),
+        "port_id".to_string(),
+        "channel_id".to_string(),
+    )
+    .unwrap();
+    let res: drop_helpers::ica::IcaState = from_json(
+        crate::contract::query(
+            deps.as_ref().into_empty(),
+            mock_env(),
+            drop_staking_base::msg::staker::QueryMsg::Ica {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        drop_helpers::ica::IcaState::Registered {
+            ica_address: "ica_address".to_string(),
+            port_id: "port_id".to_string(),
+            channel_id: "channel_id".to_string(),
+        }
+    );
+}
+
+#[test]
+fn test_query_config() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+    let res: drop_staking_base::state::staker::Config = from_json(
+        crate::contract::query(
+            deps.as_ref().into_empty(),
+            mock_env(),
+            drop_staking_base::msg::staker::QueryMsg::Ica {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(res, get_default_config());
 }
