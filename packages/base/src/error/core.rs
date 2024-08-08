@@ -1,4 +1,7 @@
-use cosmwasm_std::{OverflowError, StdError, Uint128};
+use cosmwasm_std::{
+    ConversionOverflowError, Decimal256RangeExceeded, DivideByZeroError, OverflowError, StdError,
+    Uint128,
+};
 use cw_ownable::OwnershipError;
 use drop_helpers::pause::PauseError;
 use neutron_sdk::NeutronError;
@@ -24,6 +27,15 @@ pub enum ContractError {
     #[error("{0}")]
     OverflowError(#[from] OverflowError),
 
+    #[error("{0}")]
+    DivideByZeroError(#[from] DivideByZeroError),
+
+    #[error("{0}")]
+    ConversionOverflowError(#[from] ConversionOverflowError),
+
+    #[error("{0}")]
+    Decimal256RangeExceeded(#[from] Decimal256RangeExceeded),
+
     #[error("Unauthorized")]
     Unauthorized {},
 
@@ -41,6 +53,8 @@ pub enum ContractError {
 
     #[error("Invalid denom")]
     InvalidDenom {},
+    #[error("No delegations")]
+    NoDelegations {},
 
     #[error("Idle min interval is not reached")]
     IdleMinIntervalIsNotReached {},
@@ -115,6 +129,9 @@ pub enum ContractError {
 
     #[error("Unbonded amount must be less or equal to expected amount")]
     UnbondedAmountTooHigh {},
+
+    #[error("Validator info not found: {validator}")]
+    ValidatorInfoNotFound { validator: String },
 
     #[error("Fee must be in range [0.0, 1.0]")]
     InvalidFee {},

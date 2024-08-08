@@ -3,12 +3,13 @@ use crate::contract::instantiate;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{
-    to_json_binary, Addr, Attribute, Binary, Decimal, Deps, Empty, Env, Event, Response, StdResult,
-    Timestamp, Uint128,
+    to_json_binary, Addr, Attribute, Binary, Decimal, Decimal256, Deps, Empty, Env, Event,
+    Response, StdResult, Timestamp, Uint128,
 };
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
 use drop_puppeteer_base::error::ContractError as PuppeteerContractError;
 use drop_puppeteer_base::msg::QueryMsg as PuppeteerQueryMsg;
+use drop_puppeteer_base::state::{Delegations, DropDelegation};
 use drop_staking_base::error::distribution::ContractError as DistributionContractError;
 use drop_staking_base::error::validatorset::ContractError as ValidatorSetContractError;
 use drop_staking_base::msg::strategy::QueryMsg;
@@ -16,7 +17,6 @@ use drop_staking_base::msg::validatorset::QueryMsg as ValidatorSetQueryMsg;
 use drop_staking_base::msg::{
     distribution::QueryMsg as DistributionQueryMsg, strategy::InstantiateMsg,
 };
-use neutron_sdk::interchain_queries::v045::types::Delegations;
 
 const CORE_CONTRACT_ADDR: &str = "core_contract";
 const PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
@@ -80,15 +80,16 @@ fn puppeteer_query(
         PuppeteerQueryMsg::KVQueryIds {} => todo!(),
         PuppeteerQueryMsg::Extension { msg } => match msg {
             drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {} => {
-                let mut delegations_amount: Vec<cosmwasm_std::Delegation> = Vec::new();
+                let mut delegations_amount: Vec<DropDelegation> = Vec::new();
                 for i in 0..3 {
-                    let delegation = cosmwasm_std::Delegation {
+                    let delegation = DropDelegation {
                         validator: format!("valoper{}", i),
                         delegator: Addr::unchecked("delegator".to_owned() + i.to_string().as_str()),
                         amount: cosmwasm_std::Coin {
                             denom: "uatom".to_string(),
                             amount: Uint128::from(100u128),
                         },
+                        share_ratio: Decimal256::one(),
                     };
                     delegations_amount.push(delegation);
                 }
