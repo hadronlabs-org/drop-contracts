@@ -1,4 +1,4 @@
-use crate::contract::instantiate;
+use crate::contract::{execute, instantiate};
 
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
@@ -15,6 +15,9 @@ use drop_staking_base::msg::strategy::QueryMsg;
 use drop_staking_base::msg::validatorset::QueryMsg as ValidatorSetQueryMsg;
 use drop_staking_base::msg::{
     distribution::QueryMsg as DistributionQueryMsg, strategy::InstantiateMsg,
+};
+use drop_staking_base::state::strategy::{
+    DENOM, DISTRIBUTION_ADDRESS, PUPPETEER_ADDRESS, VALIDATOR_SET_ADDRESS,
 };
 use neutron_sdk::interchain_queries::v045::types::Delegations;
 
@@ -364,4 +367,94 @@ fn test_ideal_withdraw_calculation() {
             ("valoper2".to_string(), Uint128::from(34u128))
         ]
     );
+}
+
+#[test]
+fn test_update_config_unauthorized() {
+    let mut deps = mock_dependencies();
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_owner", &[]),
+        drop_staking_base::msg::strategy::ExecuteMsg::UpdateConfig {
+            new_config: drop_staking_base::msg::strategy::ConfigOptional {
+                puppeteer_address: Some("new_puppeteer_address".to_string()),
+                distribution_address: Some("new_distribution_address".to_string()),
+                validator_set_address: Some("new_validator_set_address".to_string()),
+                denom: Some("new_denom".to_string()),
+            },
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+    );
+}
+
+#[test]
+fn test_update_config() {
+    let mut deps = mock_dependencies();
+    PUPPETEER_ADDRESS
+        .save(
+            deps.as_mut().storage,
+            &cosmwasm_std::Addr::unchecked(PUPPETEER_CONTRACT_ADDR.to_string()),
+        )
+        .unwrap();
+    DISTRIBUTION_ADDRESS
+        .save(
+            deps.as_mut().storage,
+            &cosmwasm_std::Addr::unchecked(DISTRIBUTION_CONTRACT_ADDR.to_string()),
+        )
+        .unwrap();
+    VALIDATOR_SET_ADDRESS
+        .save(
+            deps.as_mut().storage,
+            &cosmwasm_std::Addr::unchecked(VALIDATOR_SET_CONTRACT_ADDR.to_string()),
+        )
+        .unwrap();
+    DENOM
+        .save(deps.as_mut().storage, &"denom".to_string())
+        .unwrap();
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let res = execute(
+        deps_mut,
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::strategy::ExecuteMsg::UpdateConfig {
+            new_config: drop_staking_base::msg::strategy::ConfigOptional {
+                puppeteer_address: Some("new_puppeteer_address".to_string()),
+                distribution_address: Some("new_distribution_address".to_string()),
+                validator_set_address: Some("new_validator_set_address".to_string()),
+                denom: Some("new_denom".to_string()),
+            },
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_event(
+            cosmwasm_std::Event::new(
+                "crates.io:drop-staking__drop-strategy-config_update".to_string()
+            )
+            .add_attributes(vec![
+                cosmwasm_std::attr(
+                    "puppeteer_address".to_string(),
+                    "new_puppeteer_address".to_string()
+                ),
+                cosmwasm_std::attr(
+                    "validator_set_address".to_string(),
+                    "new_validator_set_address".to_string()
+                ),
+                cosmwasm_std::attr(
+                    "distribution_address".to_string(),
+                    "new_distribution_address".to_string()
+                ),
+                cosmwasm_std::attr("denom".to_string(), "new_denom".to_string())
+            ])
+        )
+    )
 }
