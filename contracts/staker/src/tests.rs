@@ -1793,7 +1793,7 @@ fn test_query_config() {
         crate::contract::query(
             deps.as_ref().into_empty(),
             mock_env(),
-            drop_staking_base::msg::staker::QueryMsg::Ica {},
+            drop_staking_base::msg::staker::QueryMsg::Config {},
         )
         .unwrap(),
     )
