@@ -4,11 +4,11 @@ use cosmos_sdk_proto::traits::MessageExt;
 use cosmwasm_std::{
     coins,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, Coin, CosmosMsg, Event, Response, SubMsg, Uint128,
+    to_json_binary, Addr, CosmosMsg, Event, Response, SubMsg, Uint128,
 };
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::state::staker::{
-    Config, ConfigOptional, TxState, CONFIG, ICA, NON_STAKED_BALANCE, TX_STATE,
+    Config, ConfigOptional, CONFIG, ICA, NON_STAKED_BALANCE, TX_STATE,
 };
 use neutron_sdk::{
     bindings::msg::{IbcFee, NeutronMsg},
