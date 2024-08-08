@@ -1,6 +1,7 @@
 use crate::contract::{execute, instantiate};
 use crate::error::ContractError;
 use cosmos_sdk_proto::traits::MessageExt;
+use cosmwasm_std::StdError;
 use cosmwasm_std::{
     coins,
     testing::{mock_env, mock_info},
@@ -1521,5 +1522,139 @@ fn test_sudo_timeout() {
                 ])
             )
         );
+    }
+}
+
+#[test]
+fn test_submit_tx_reply() {
+    let mut deps = mock_dependencies(&[]);
+    {
+        let res = crate::contract::reply(
+            deps.as_mut().into_empty(),
+            mock_env(),
+            cosmwasm_std::Reply {
+                id: drop_staking_base::state::staker::reply_msg::SUDO_PAYLOAD,
+                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                    events: vec![],
+                    data: None,
+                }),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            StdError::GenericErr {
+                msg: "no result".to_string(),
+            }
+        );
+    }
+    {
+        TX_STATE
+            .save(
+                deps.as_mut().storage,
+                &drop_staking_base::state::staker::TxState {
+                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                    seq_id: None,
+                    transaction: None,
+                    reply_to: None,
+                },
+            )
+            .unwrap();
+        let res = crate::contract::reply(
+            deps.as_mut().into_empty(),
+            mock_env(),
+            cosmwasm_std::Reply {
+                id: drop_staking_base::state::staker::reply_msg::SUDO_PAYLOAD,
+                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                    events: vec![],
+                    data: Some(
+                        to_json_binary(&neutron_sdk::bindings::msg::MsgSubmitTxResponse {
+                            sequence_id: 0u64,
+                            channel: "channel-0".to_string(),
+                        })
+                        .unwrap(),
+                    ),
+                }),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            cosmwasm_std::Response::new().add_event(
+                cosmwasm_std::Event::new("puppeteer-base-reply-tx-payload-received".to_string())
+                    .add_attributes(vec![
+                        cosmwasm_std::attr("channel_id".to_string(), "channel-0".to_string()),
+                        cosmwasm_std::attr("seq_id".to_string(), "0".to_string())
+                    ])
+            )
+        )
+    }
+}
+
+#[test]
+fn test_submit_ibc_transfer_reply() {
+    let mut deps = mock_dependencies(&[]);
+    {
+        let res = crate::contract::reply(
+            deps.as_mut().into_empty(),
+            mock_env(),
+            cosmwasm_std::Reply {
+                id: drop_staking_base::state::staker::reply_msg::IBC_TRANSFER,
+                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                    events: vec![],
+                    data: None,
+                }),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            StdError::GenericErr {
+                msg: "no result".to_string(),
+            }
+        );
+    }
+    {
+        TX_STATE
+            .save(
+                deps.as_mut().storage,
+                &drop_staking_base::state::staker::TxState {
+                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                    seq_id: None,
+                    transaction: None,
+                    reply_to: None,
+                },
+            )
+            .unwrap();
+        let res = crate::contract::reply(
+            deps.as_mut().into_empty(),
+            mock_env(),
+            cosmwasm_std::Reply {
+                id: drop_staking_base::state::staker::reply_msg::IBC_TRANSFER,
+                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                    events: vec![],
+                    data: Some(
+                        to_json_binary(&neutron_sdk::bindings::msg::MsgSubmitTxResponse {
+                            sequence_id: 0u64,
+                            channel: "channel-0".to_string(),
+                        })
+                        .unwrap(),
+                    ),
+                }),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            cosmwasm_std::Response::new().add_event(
+                cosmwasm_std::Event::new(
+                    "puppeteer-base-reply-ibc-transfer-payload-received".to_string()
+                )
+                .add_attributes(vec![
+                    cosmwasm_std::attr("channel_id".to_string(), "channel-0".to_string()),
+                    cosmwasm_std::attr("seq_id".to_string(), "0".to_string())
+                ])
+            )
+        )
     }
 }
