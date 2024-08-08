@@ -1526,6 +1526,37 @@ fn test_sudo_timeout() {
 }
 
 #[test]
+fn test_sudo_open_ack() {
+    let mut deps = mock_dependencies(&[]);
+    {
+        let res = crate::contract::sudo(deps.as_mut(), mock_env(), neutron_sdk::sudo::msg::SudoMsg::OpenAck {
+            port_id: "port_id_1".to_string(),
+            channel_id: "channel_1".to_string(),
+            counterparty_channel_id: "counterparty_channel_id_1".to_string(),
+            counterparty_version: "{\"version\": \"1\",\"controller_connection_id\": \"connection_id\",\"host_connection_id\": \"host_connection_id\",\"address\": \"ica_address\",\"encoding\": \"amino\",\"tx_type\": \"cosmos-sdk/MsgSend\"}".to_string(),
+        }).unwrap();
+        assert_eq!(res, cosmwasm_std::Response::new());
+    }
+    {
+        let res = crate::contract::sudo(
+            deps.as_mut(),
+            mock_env(),
+            neutron_sdk::sudo::msg::SudoMsg::OpenAck {
+                port_id: "port_id_1".to_string(),
+                channel_id: "channel_1".to_string(),
+                counterparty_channel_id: "counterparty_channel_id_1".to_string(),
+                counterparty_version: "".to_string(),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            ContractError::Std(StdError::generic_err("can't parse version",))
+        );
+    }
+}
+
+#[test]
 fn test_submit_tx_reply() {
     let mut deps = mock_dependencies(&[]);
     {
