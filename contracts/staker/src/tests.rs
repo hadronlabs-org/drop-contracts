@@ -1262,9 +1262,34 @@ fn test_sudo_error() {
             crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
                 msg: "transaction not found".to_string()
             })
+        );
+    }
+    {
+        let res = crate::contract::sudo(
+            deps.as_mut(),
+            mock_env(),
+            neutron_sdk::sudo::msg::SudoMsg::Error {
+                request: neutron_sdk::sudo::msg::RequestPacket {
+                    sequence: None,
+                    source_port: Some("source_port".to_string()),
+                    source_channel: Some("source_channel".to_string()),
+                    destination_port: Some("destination_port".to_string()),
+                    destination_channel: Some("destination_channel".to_string()),
+                    data: None,
+                    timeout_height: None,
+                    timeout_timestamp: None,
+                },
+                details: "details".to_string(),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            res,
+            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+                msg: "sequence not found".to_string()
+            })
         )
     }
-    {}
     {
         TX_STATE
             .save(
