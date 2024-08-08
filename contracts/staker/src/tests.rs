@@ -672,51 +672,53 @@ fn test_stake() {
                 msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::SubmitTx {
                     connection_id: "connection".to_string(),
                     interchain_account_id: "drop_STAKER".to_string(),
-                    msgs: vec![neutron_sdk::bindings::types::ProtobufAny {
-                        type_url: "/cosmos.bank.v1beta1.MsgSend".to_string(),
-                        value: cosmwasm_std::Binary::from(
-                            cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSend {
-                                from_address: ica_address.clone(),
-                                to_address: puppeteer_ica.clone(),
-                                amount: vec![cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-                                    denom: config.remote_denom.to_string(),
-                                    amount: amount_to_stake.to_string()
-                                }]
-                            }
-                            .to_bytes()
-                            .unwrap()
-                        )
-                    },
-                    neutron_sdk::bindings::types::ProtobufAny {
-                        type_url: "/cosmos.authz.v1beta1.MsgExec".to_string(),
-                        value: cosmwasm_std::Binary::from(
-                            cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec {
-                                grantee: ica_address.clone(),
-                                msgs: msg_items
-                                    .iter()
-                                    .map(|(validator, amount)| {
-                                        cosmos_sdk_proto::Any {
-                                            type_url: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
-                                            value: cosmos_sdk_proto::cosmos::staking::v1beta1::MsgDelegate {
-                                                delegator_address: puppeteer_ica.clone(),
-                                                validator_address: validator.to_string(),
-                                                amount: Some(
-                                                    cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-                                                        denom: config.remote_denom.to_string(),
-                                                        amount: amount.to_string(),
-                                                    },
-                                                ),
+                    msgs: vec![
+                        neutron_sdk::bindings::types::ProtobufAny {
+                            type_url: "/cosmos.bank.v1beta1.MsgSend".to_string(),
+                            value: cosmwasm_std::Binary::from(
+                                cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSend {
+                                    from_address: ica_address.clone(),
+                                    to_address: puppeteer_ica.clone(),
+                                    amount: vec![cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                                        denom: config.remote_denom.to_string(),
+                                        amount: amount_to_stake.to_string()
+                                    }]
+                                }
+                                .to_bytes()
+                                .unwrap()
+                            )
+                        },
+                        neutron_sdk::bindings::types::ProtobufAny {
+                            type_url: "/cosmos.authz.v1beta1.MsgExec".to_string(),
+                            value: cosmwasm_std::Binary::from(
+                                cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec {
+                                    grantee: ica_address.clone(),
+                                    msgs: msg_items
+                                        .iter()
+                                        .map(|(validator, amount)| {
+                                            cosmos_sdk_proto::Any {
+                                                type_url: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
+                                                value: cosmos_sdk_proto::cosmos::staking::v1beta1::MsgDelegate {
+                                                    delegator_address: puppeteer_ica.clone(),
+                                                    validator_address: validator.to_string(),
+                                                    amount: Some(
+                                                        cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                                                            denom: config.remote_denom.to_string(),
+                                                            amount: amount.to_string(),
+                                                        },
+                                                    ),
+                                                }
+                                                .to_bytes()
+                                                .unwrap()
                                             }
-                                            .to_bytes()
-                                            .unwrap()
-                                        }
-                                    })
-                                    .collect()
-                            }
-                            .to_bytes()
-                            .unwrap()
-                        )
-                    }],
+                                        })
+                                        .collect()
+                                }
+                                .to_bytes()
+                                .unwrap()
+                            )
+                        }
+                    ],
                     memo: "".to_string(),
                     timeout: 10u64,
                     fee: IbcFee {
