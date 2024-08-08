@@ -56,10 +56,10 @@ pub const NON_STAKED_BALANCE: Item<Uint128> = Item::new("current_balance");
 pub const TX_STATE: Item<TxState> = Item::new("tx_state");
 
 pub use reply_msg::ReplyMsg;
-mod reply_msg {
+pub mod reply_msg {
     const OFFSET: u64 = u16::BITS as u64;
-    const SUDO_PAYLOAD: u64 = 1 << OFFSET;
-    const IBC_TRANSFER: u64 = 2 << OFFSET;
+    pub const SUDO_PAYLOAD: u64 = 1 << OFFSET;
+    pub const IBC_TRANSFER: u64 = 2 << OFFSET;
 
     #[cosmwasm_schema::cw_serde]
     pub enum ReplyMsg {
