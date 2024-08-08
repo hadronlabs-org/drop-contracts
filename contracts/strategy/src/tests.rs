@@ -1,5 +1,3 @@
-use std::f32::consts::E;
-
 use crate::contract::{execute, instantiate};
 
 use cosmwasm_schema::cw_serde;
