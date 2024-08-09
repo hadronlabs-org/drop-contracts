@@ -548,7 +548,7 @@ fn test_push() {
 }
 
 #[test]
-fn test_sudo_response_fail() {
+fn test_sudo_response_sequence_not_found() {
     let mut deps = mock_dependencies(&[]);
     let res = sudo(
         deps.as_mut(),
@@ -580,6 +580,49 @@ fn test_sudo_response_fail() {
 }
 
 #[test]
+#[allow(deprecated)]
+fn test_sudo_response_ack_not_implemented() {
+    let mut deps = mock_dependencies(&[]);
+    let res = sudo(
+        deps.as_mut(),
+        mock_env(),
+        SudoMsg::Response {
+            request: RequestPacket {
+                sequence: Some(0u64),
+                source_port: Some("transfer".to_string()),
+                source_channel: Some("channel-0".to_string()),
+                destination_port: Some("transfer".to_string()),
+                destination_channel: Some("channel-1".to_string()),
+                timeout_height: Some(RequestPacketTimeoutHeight {
+                    revision_height: Some(0u64),
+                    revision_number: Some(0u64),
+                }),
+                data: Some(Binary::from([0; 0])),
+                timeout_timestamp: Some(0u64),
+            },
+            data: Binary::from(
+                cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxMsgData {
+                    data: vec![cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                        msg_type: "something".to_string(),
+                        data: vec![],
+                    }],
+                    msg_responses: vec![],
+                }
+                .encode_to_vec(),
+            ),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        ContractError::Std(cosmwasm_std::StdError::generic_err(
+            "This type of acknowledgement is not implemented"
+        ))
+    );
+}
+
+#[test]
+#[allow(deprecated)]
 fn test_sudo_response() {
     let mut deps = mock_dependencies(&[]);
     let res = sudo(
@@ -599,7 +642,16 @@ fn test_sudo_response() {
                 data: Some(Binary::from([0; 0])),
                 timeout_timestamp: Some(0u64),
             },
-            data: Binary::from([0; 0]),
+            data: Binary::from(
+                cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxMsgData {
+                    data: vec![cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                        msg_type: "/ibc.applications.transfer.v1.MsgTransferResponse".to_string(),
+                        data: cosmos_sdk_proto::ibc::applications::transfer::v1::MsgTransferResponse {}.encode_to_vec(),
+                    }],
+                    msg_responses: vec![],
+                }
+                .encode_to_vec(),
+            ),
         },
     )
     .unwrap();
