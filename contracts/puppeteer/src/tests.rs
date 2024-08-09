@@ -3607,9 +3607,7 @@ fn test_query_extension_delegations_some() {
     assert_eq!(
         query_res,
         drop_staking_base::msg::puppeteer::DelegationsResponse {
-            delegations: Delegations {
-                delegations: delegations,
-            },
+            delegations: Delegations { delegations },
             remote_height: 123u64,
             local_height: 123u64,
             timestamp: Timestamp::default(),
@@ -3689,7 +3687,7 @@ fn test_query_extension_balances_some() {
     assert_eq!(
         query_res,
         drop_staking_base::msg::puppeteer::BalancesResponse {
-            balances: Balances { coins: coins },
+            balances: Balances { coins },
             remote_height: 123u64,
             local_height: 123u64,
             timestamp: Timestamp::default(),
@@ -3732,7 +3730,7 @@ fn test_query_non_native_rewards_balances() {
     assert_eq!(
         query_res,
         drop_staking_base::msg::puppeteer::BalancesResponse {
-            balances: Balances { coins: coins },
+            balances: Balances { coins },
             remote_height: 1u64,
             local_height: 2u64,
             timestamp: Timestamp::default(),
