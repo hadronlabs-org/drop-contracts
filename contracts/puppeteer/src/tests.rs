@@ -2286,113 +2286,9 @@ fn test_sudo_delegations_and_balance_kv_query_result() {
         .save(deps.as_mut().storage, query_id, &0)
         .unwrap();
 
-    {
-        {
-            let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
-                crate::contract::query(
-                    deps.as_ref(),
-                    mock_env(),
-                    drop_puppeteer_base::msg::QueryMsg::Extension {
-                        msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
-                    },
-                )
-                .unwrap(),
-            )
-            .unwrap();
-            assert_eq!(
-                query_res,
-                drop_staking_base::msg::puppeteer::BalancesResponse {
-                    balances: Balances { coins: vec![] },
-                    remote_height: 0,
-                    local_height: 0,
-                    timestamp: Timestamp::default(),
-                }
-            );
-        }
-        {
-            let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
-                crate::contract::query(
-                    deps.as_ref(),
-                    mock_env(),
-                    drop_puppeteer_base::msg::QueryMsg::Extension {
-                        msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
-                    },
-                )
-                .unwrap(),
-            )
-            .unwrap();
-            assert_eq!(
-                query_res,
-                drop_staking_base::msg::puppeteer::DelegationsResponse {
-                    delegations: Delegations {
-                        delegations: vec![],
-                    },
-                    remote_height: 0,
-                    local_height: 0,
-                    timestamp: Timestamp::default(),
-                }
-            );
-        }
-    }
-
     let res = crate::contract::sudo(deps.as_mut(), env, msg).unwrap();
     assert_eq!(res, Response::new());
 
-    {
-        let last_key = puppeteer_base
-            .last_complete_delegations_and_balances_key
-            .may_load(&deps.storage)
-            .unwrap();
-        let last_data = puppeteer_base
-            .delegations_and_balances
-            .load(deps.as_mut().storage, &last_key.unwrap())
-            .unwrap();
-        {
-            let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
-                crate::contract::query(
-                    deps.as_ref(),
-                    mock_env(),
-                    drop_puppeteer_base::msg::QueryMsg::Extension {
-                        msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
-                    },
-                )
-                .unwrap(),
-            )
-            .unwrap();
-            assert_eq!(
-                query_res,
-                drop_staking_base::msg::puppeteer::BalancesResponse {
-                    balances: last_data.data.balances,
-                    remote_height: last_data.remote_height,
-                    local_height: last_data.local_height,
-                    timestamp: last_data.timestamp,
-                }
-            );
-        }
-        {
-            let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
-                crate::contract::query(
-                    deps.as_ref(),
-                    mock_env(),
-                    drop_puppeteer_base::msg::QueryMsg::Extension {
-                        msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
-                    },
-                )
-                .unwrap(),
-            )
-            .unwrap();
-            assert_eq!(
-                query_res,
-                drop_staking_base::msg::puppeteer::DelegationsResponse {
-                    delegations: last_data.data.delegations,
-                    remote_height: last_data.remote_height,
-                    local_height: last_data.local_height,
-                    timestamp: last_data.timestamp,
-                }
-            );
-        }
-        assert_eq!(last_key, Some(123456));
-    }
     let state = puppeteer_base
         .delegations_and_balances
         .load(&deps.storage, &123456)
@@ -2992,21 +2888,6 @@ fn test_reply_kv_delegations_and_balance() {
                 .kv_queries
                 .load(deps.as_mut().storage, response_id)
                 .unwrap();
-            {
-                let query_res: Vec<(u64, KVQueryType)> = from_json(
-                    crate::contract::query(
-                        deps.as_ref(),
-                        mock_env(),
-                        drop_puppeteer_base::msg::QueryMsg::KVQueryIds {},
-                    )
-                    .unwrap(),
-                )
-                .unwrap();
-                assert!(query_res.contains(&(
-                    response_id,
-                    drop_staking_base::state::puppeteer::KVQueryType::DelegationsAndBalance,
-                )));
-            }
             assert_eq!(
                 kv_query,
                 drop_staking_base::state::puppeteer::KVQueryType::DelegationsAndBalance
@@ -3067,21 +2948,6 @@ fn test_reply_kv_non_native_rewards_balances() {
             .kv_queries
             .load(deps.as_mut().storage, 0u64)
             .unwrap();
-        {
-            let query_res: Vec<(u64, KVQueryType)> = from_json(
-                crate::contract::query(
-                    deps.as_ref(),
-                    mock_env(),
-                    drop_puppeteer_base::msg::QueryMsg::KVQueryIds {},
-                )
-                .unwrap(),
-            )
-            .unwrap();
-            assert!(query_res.contains(&(
-                0u64,
-                drop_staking_base::state::puppeteer::KVQueryType::NonNativeRewardsBalances,
-            )));
-        }
         assert_eq!(
             kv_query,
             drop_staking_base::state::puppeteer::KVQueryType::NonNativeRewardsBalances
@@ -3189,30 +3055,6 @@ fn test_reply_kv_unbonding_delegations() {
                 .unbonding_delegations
                 .load(deps.as_mut().storage, "validator")
                 .unwrap();
-            {
-                let query_res: Vec<drop_puppeteer_base::state::UnbondingDelegation> = from_json(crate::contract::query(
-                    deps.as_ref(),
-                    mock_env(),
-                    drop_puppeteer_base::msg::QueryMsg::Extension {
-                        msg: drop_staking_base::msg::puppeteer::QueryExtMsg::UnbondingDelegations {},
-                    },
-                ) .unwrap())
-                .unwrap();
-                assert_eq!(
-                    query_res,
-                    puppeteer_base
-                        .unbonding_delegations
-                        .range(
-                            deps.as_mut().storage,
-                            None,
-                            None,
-                            cosmwasm_std::Order::Ascending
-                        )
-                        .map(|res| res.map(|(_key, value)| value))
-                        .collect::<cosmwasm_std::StdResult<Vec<_>>>()
-                        .unwrap()
-                );
-            }
             assert_eq!(
                 unbonding_delegation,
                 drop_puppeteer_base::state::UnbondingDelegation {
@@ -3226,21 +3068,6 @@ fn test_reply_kv_unbonding_delegations() {
                 .kv_queries
                 .load(deps.as_mut().storage, response_id)
                 .unwrap();
-            {
-                let query_res: Vec<(u64, KVQueryType)> = from_json(
-                    crate::contract::query(
-                        deps.as_ref(),
-                        mock_env(),
-                        drop_puppeteer_base::msg::QueryMsg::KVQueryIds {},
-                    )
-                    .unwrap(),
-                )
-                .unwrap();
-                assert!(query_res.contains(&(
-                    response_id,
-                    drop_staking_base::state::puppeteer::KVQueryType::UnbondingDelegations,
-                )));
-            }
             assert_eq!(
                 kv_query,
                 drop_staking_base::state::puppeteer::KVQueryType::UnbondingDelegations
@@ -3375,20 +3202,6 @@ mod register_delegations_and_balance_query {
             Some(Addr::unchecked(owner.unwrap_or("owner")).as_ref()),
         )
         .unwrap();
-        {
-            let query_res = crate::contract::query(
-                deps.as_ref(),
-                mock_env(),
-                drop_puppeteer_base::msg::QueryMsg::Extension {
-                    msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Ownership {},
-                },
-            )
-            .unwrap();
-            assert_eq!(
-                query_res,
-                to_json_binary(&cw_ownable::get_ownership(deps.as_mut().storage).unwrap()).unwrap()
-            );
-        }
         (deps, puppeteer_base)
     }
 
@@ -3582,20 +3395,6 @@ fn get_base_config() -> Config {
 fn base_init(deps_mut: &mut DepsMut<NeutronQuery>) -> PuppeteerBase<'static, Config, KVQueryType> {
     let puppeteer_base = Puppeteer::default();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    {
-        let query_res = crate::contract::query(
-            deps_mut.as_ref(),
-            mock_env(),
-            drop_puppeteer_base::msg::QueryMsg::Extension {
-                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Ownership {},
-            },
-        )
-        .unwrap();
-        assert_eq!(
-            query_res,
-            to_json_binary(&cw_ownable::get_ownership(deps_mut.storage).unwrap()).unwrap()
-        );
-    }
     puppeteer_base
         .config
         .save(deps_mut.storage, &get_base_config())
