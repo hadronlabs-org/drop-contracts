@@ -25,8 +25,8 @@ impl CustomQuery for CustomQueryWrapper {}
 pub struct CustomMockApi {}
 
 impl Api for CustomMockApi {
-    fn addr_validate(&self, _input: &str) -> cosmwasm_std::StdResult<cosmwasm_std::Addr> {
-        Ok(cosmwasm_std::Addr::unchecked("some_address".to_string()))
+    fn addr_validate(&self, input: &str) -> cosmwasm_std::StdResult<cosmwasm_std::Addr> {
+        Ok(cosmwasm_std::Addr::unchecked(input))
     }
 
     fn addr_canonicalize(

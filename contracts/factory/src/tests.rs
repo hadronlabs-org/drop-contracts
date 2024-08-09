@@ -57,10 +57,6 @@ fn get_default_factory_state() -> State {
 #[test]
 fn test_instantiate() {
     let mut deps = mock_dependencies_with_api(&[]);
-    let deps_mut = deps.as_mut();
-    STATE
-        .save(deps_mut.storage, &get_default_factory_state())
-        .unwrap();
     deps.querier.add_stargate_query_response(
         "/cosmos.wasm.v1.Query/QueryCodeRequest",
         |data| -> cosmwasm_std::Binary {
@@ -492,7 +488,12 @@ fn test_instantiate() {
                         ),
                     ])
             )
+    );
+    cw_ownable::assert_owner(
+        deps.as_mut().storage,
+        &cosmwasm_std::Addr::unchecked("owner".to_string()),
     )
+    .unwrap();
 }
 
 #[test]
