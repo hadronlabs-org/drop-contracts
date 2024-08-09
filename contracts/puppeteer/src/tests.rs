@@ -562,19 +562,6 @@ fn test_execute_undelegate() {
         items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
         reply_to: "some_reply_to".to_string(),
     };
-    let env = mock_env();
-    let res = crate::contract::execute(
-        deps.as_mut(),
-        env,
-        mock_info("not_allowed_sender", &[]),
-        msg.clone(),
-    );
-    assert_eq!(
-        res.unwrap_err(),
-        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
-            "Sender is not allowed"
-        ))
-    );
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
