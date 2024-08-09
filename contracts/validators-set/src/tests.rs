@@ -4,7 +4,7 @@ use cosmwasm_std::{
     to_json_binary, Addr, Decimal, Event,
 };
 use drop_helpers::testing::mock_dependencies;
-use drop_staking_base::state::validatorset::ConfigOptional;
+use drop_staking_base::state::{provider_proposals::ProposalInfo, validatorset::ConfigOptional};
 
 #[test]
 fn instantiate() {
@@ -398,5 +398,170 @@ fn update_validators_info_ok() {
             })
         })
         .unwrap()
+    );
+}
+
+#[test]
+fn test_execute_update_validators_voting_unauthorized() {
+    let mut deps = mock_dependencies(&[]);
+    drop_staking_base::state::validatorset::CONFIG
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::validatorset::Config {
+                stats_contract: Addr::unchecked("stats_contract"),
+                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_provider_proposals_contract", &[]),
+        drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorsVoting {
+            proposal: ProposalInfo {
+                proposal: neutron_sdk::interchain_queries::v047::types::Proposal {
+                    proposal_id: 0u64,
+                    proposal_type: None,
+                    total_deposit: vec![],
+                    status: 0i32,
+                    submit_time: None,
+                    deposit_end_time: None,
+                    voting_start_time: None,
+                    voting_end_time: None,
+                    final_tally_result: None,
+                },
+                votes: None,
+                is_spam: false,
+            },
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_staking_base::error::validatorset::ContractError::Unauthorized {}
+    );
+}
+
+#[test]
+fn test_execute_update_validators_voting_spam_proposal() {
+    let mut deps = mock_dependencies(&[]);
+    drop_staking_base::state::validatorset::CONFIG
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::validatorset::Config {
+                stats_contract: Addr::unchecked("stats_contract"),
+                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("provider_proposals_contract", &[]),
+        drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorsVoting {
+            proposal: ProposalInfo {
+                proposal: neutron_sdk::interchain_queries::v047::types::Proposal {
+                    proposal_id: 0u64,
+                    proposal_type: None,
+                    total_deposit: vec![],
+                    status: 0i32,
+                    submit_time: None,
+                    deposit_end_time: None,
+                    voting_start_time: None,
+                    voting_end_time: None,
+                    final_tally_result: None,
+                },
+                votes: None,
+                is_spam: true,
+            },
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_event(
+            cosmwasm_std::Event::new(
+                "crates.io:drop-staking__drop-validators-set-update_validators_info".to_string()
+            )
+            .add_attribute("spam_proposal".to_string(), "0".to_string())
+        )
+    );
+}
+
+#[test]
+fn test_execute_update_validators_voting() {
+    let mut deps = mock_dependencies(&[]);
+    drop_staking_base::state::validatorset::CONFIG
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::validatorset::Config {
+                stats_contract: Addr::unchecked("stats_contract"),
+                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
+            },
+        )
+        .unwrap();
+    drop_staking_base::state::validatorset::VALIDATORS_SET
+        .save(
+            deps.as_mut().storage,
+            "voter".to_string(),
+            &drop_staking_base::state::validatorset::ValidatorInfo {
+                valoper_address: "valoper_address".to_string(),
+                weight: 0u64,
+                last_processed_remote_height: None,
+                last_processed_local_height: None,
+                last_validated_height: None,
+                last_commission_in_range: None,
+                uptime: Decimal::zero(),
+                tombstone: false,
+                jailed_number: None,
+                init_proposal: None,
+                total_passed_proposals: 0u64,
+                total_voted_proposals: 0u64,
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("provider_proposals_contract", &[]),
+        drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorsVoting {
+            proposal: ProposalInfo {
+                proposal: neutron_sdk::interchain_queries::v047::types::Proposal {
+                    proposal_id: 0u64,
+                    proposal_type: None,
+                    total_deposit: vec![],
+                    status: 0i32,
+                    submit_time: None,
+                    deposit_end_time: None,
+                    voting_start_time: None,
+                    voting_end_time: None,
+                    final_tally_result: None,
+                },
+                votes: Some(vec![
+                    neutron_sdk::interchain_queries::v047::types::ProposalVote {
+                        proposal_id: 0u64,
+                        voter: "voter".to_string(),
+                        options: vec![
+                            neutron_sdk::interchain_queries::v047::types::WeightedVoteOption {
+                                option: 0i32,
+                                weight: "weight".to_string(),
+                            },
+                        ],
+                    },
+                ]),
+                is_spam: false,
+            },
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_event(
+            cosmwasm_std::Event::new(
+                "crates.io:drop-staking__drop-validators-set-execute_update_validators_voting"
+                    .to_string()
+            )
+            .add_attribute("proposal_id".to_string(), "0".to_string())
+        )
     );
 }
