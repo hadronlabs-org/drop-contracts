@@ -1,5 +1,4 @@
 use crate::contract::{query, Puppeteer};
-use cosmos_sdk_proto::traits::MessageExt;
 use cosmwasm_schema::schemars;
 use cosmwasm_std::{
     coin, coins, from_json,
