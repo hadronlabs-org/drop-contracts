@@ -670,7 +670,7 @@ fn test_sudo_response() {
 }
 
 #[test]
-fn test_sudo_error_fail() {
+fn test_sudo_error_sequence_not_found() {
     let mut deps = mock_dependencies(&[]);
     let res = sudo(
         deps.as_mut(),
