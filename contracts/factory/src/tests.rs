@@ -753,7 +753,46 @@ fn test_proxy_core_unpause() {
 }
 
 #[test]
-fn test_admin_execute() {
+fn test_admin_execute_unauthorized() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("not_an_owner", &[]),
+        ExecuteMsg::AdminExecute {
+            msgs: vec![
+                cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
+                    contract_addr: "core_contract".to_string(),
+                    msg: to_json_binary(&CoreExecuteMsg::Pause {}).unwrap(),
+                    funds: vec![],
+                }),
+                cosmwasm_std::CosmosMsg::Bank(BankMsg::Send {
+                    to_address: "somebody".to_string(),
+                    amount: vec![
+                        cosmwasm_std::Coin {
+                            denom: "denom1".to_string(),
+                            amount: Uint128::from(10u64),
+                        },
+                        cosmwasm_std::Coin {
+                            denom: "denom2".to_string(),
+                            amount: Uint128::from(10u64),
+                        },
+                    ],
+                }),
+            ],
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+    );
+}
+
+#[test]
+fn test_admin_execute_authorized() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
@@ -820,7 +859,7 @@ fn test_admin_execute() {
 }
 
 #[test]
-fn test_pause() {
+fn test_pause_authorized() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
