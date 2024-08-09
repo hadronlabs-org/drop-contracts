@@ -673,81 +673,114 @@ fn test_update_config_validators_set_authorized() {
 }
 
 #[test]
-fn test_proxy_validators_set_update_validators() {
+fn test_proxy_validators_set_update_validators_unauthorized() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     STATE
         .save(deps_mut.storage, &get_default_factory_state())
         .unwrap();
-    {
-        let res = execute(
-            deps.as_mut().into_empty(),
-            mock_env(),
-            mock_info("owner", &[]),
-            ExecuteMsg::Proxy(crate::msg::ProxyMsg::ValidatorSet(
-                ValidatorSetMsg::UpdateValidators {
-                    validators: vec![
-                        drop_staking_base::msg::validatorset::ValidatorData {
-                            valoper_address: "valoper_address1".to_string(),
-                            weight: 10u64,
-                        },
-                        drop_staking_base::msg::validatorset::ValidatorData {
-                            valoper_address: "valoper_address2".to_string(),
-                            weight: 10u64,
-                        },
-                    ],
-                },
-            )),
-        )
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("not_an_owner", &[]),
+        ExecuteMsg::Proxy(crate::msg::ProxyMsg::ValidatorSet(
+            ValidatorSetMsg::UpdateValidators {
+                validators: vec![
+                    drop_staking_base::msg::validatorset::ValidatorData {
+                        valoper_address: "valoper_address1".to_string(),
+                        weight: 10u64,
+                    },
+                    drop_staking_base::msg::validatorset::ValidatorData {
+                        valoper_address: "valoper_address2".to_string(),
+                        weight: 10u64,
+                    },
+                ],
+            },
+        )),
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+    );
+}
+
+#[test]
+fn test_proxy_validators_set_update_validators_authorized() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    STATE
+        .save(deps_mut.storage, &get_default_factory_state())
         .unwrap();
-        assert_eq!(
-            res,
-            cosmwasm_std::Response::new()
-                .add_submessages(vec![
-                    cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
-                        cosmwasm_std::WasmMsg::Execute {
-                            contract_addr: "validators_set_contract".to_string(),
-                            msg: to_json_binary(&ValidatorSetExecuteMsg::UpdateValidators {
+
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::Proxy(crate::msg::ProxyMsg::ValidatorSet(
+            ValidatorSetMsg::UpdateValidators {
+                validators: vec![
+                    drop_staking_base::msg::validatorset::ValidatorData {
+                        valoper_address: "valoper_address1".to_string(),
+                        weight: 10u64,
+                    },
+                    drop_staking_base::msg::validatorset::ValidatorData {
+                        valoper_address: "valoper_address2".to_string(),
+                        weight: 10u64,
+                    },
+                ],
+            },
+        )),
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new()
+            .add_submessages(vec![
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Execute {
+                        contract_addr: "validators_set_contract".to_string(),
+                        msg: to_json_binary(&ValidatorSetExecuteMsg::UpdateValidators {
+                            validators: vec![
+                                drop_staking_base::msg::validatorset::ValidatorData {
+                                    valoper_address: "valoper_address1".to_string(),
+                                    weight: 10u64,
+                                },
+                                drop_staking_base::msg::validatorset::ValidatorData {
+                                    valoper_address: "valoper_address2".to_string(),
+                                    weight: 10u64,
+                                },
+                            ],
+                        })
+                        .unwrap(),
+                        funds: vec![],
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Execute {
+                        contract_addr: "puppeteer_contract".to_string(),
+                        msg: to_json_binary(
+                            &PuppeteerExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
                                 validators: vec![
-                                    drop_staking_base::msg::validatorset::ValidatorData {
-                                        valoper_address: "valoper_address1".to_string(),
-                                        weight: 10u64,
-                                    },
-                                    drop_staking_base::msg::validatorset::ValidatorData {
-                                        valoper_address: "valoper_address2".to_string(),
-                                        weight: 10u64,
-                                    },
-                                ],
-                            })
-                            .unwrap(),
-                            funds: vec![],
-                        }
-                    )),
-                    cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
-                        cosmwasm_std::WasmMsg::Execute {
-                            contract_addr: "puppeteer_contract".to_string(),
-                            msg: to_json_binary(
-                                &PuppeteerExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
-                                    validators: vec![
-                                        "valoper_address1".to_string(),
-                                        "valoper_address2".to_string()
-                                    ]
-                                }
-                            )
-                            .unwrap(),
-                            funds: vec![]
-                        }
-                    ))
-                ])
-                .add_event(
-                    cosmwasm_std::Event::new(
-                        "crates.io:drop-staking__drop-factory-execute-proxy-call".to_string()
-                    )
-                    .add_attribute("action".to_string(), "proxy-call".to_string())
+                                    "valoper_address1".to_string(),
+                                    "valoper_address2".to_string()
+                                ]
+                            }
+                        )
+                        .unwrap(),
+                        funds: vec![]
+                    }
+                ))
+            ])
+            .add_event(
+                cosmwasm_std::Event::new(
+                    "crates.io:drop-staking__drop-factory-execute-proxy-call".to_string()
                 )
-        )
-    }
+                .add_attribute("action".to_string(), "proxy-call".to_string())
+            )
+    )
 }
 
 #[test]
