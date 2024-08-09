@@ -75,6 +75,49 @@ fn test_instantiate() {
 }
 
 #[test]
+fn test_update_config_unauthorized() {
+    let mut deps = mock_dependencies(&[]);
+    let msg = drop_staking_base::msg::pump::InstantiateMsg {
+        dest_address: Some("dest_address".to_string()),
+        dest_channel: Some("dest_channel".to_string()),
+        dest_port: Some("dest_port".to_string()),
+        connection_id: "connection".to_string(),
+        refundee: Some("refundee".to_string()),
+        timeout: drop_staking_base::state::pump::PumpTimeout {
+            local: Some(0u64),
+            remote: 0u64,
+        },
+        local_denom: "local_denom".to_string(),
+        owner: Some("owner".to_string()),
+    };
+    let _ = instantiate(deps.as_mut(), mock_env(), mock_info("admin", &[]), msg).unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("admin", &[]),
+        drop_staking_base::msg::pump::ExecuteMsg::UpdateConfig {
+            new_config: Box::new(drop_staking_base::msg::pump::UpdateConfigMsg {
+                dest_address: Some("new_dest_address".to_string()),
+                dest_channel: Some("new_dest_channel".to_string()),
+                dest_port: Some("new_dest_port".to_string()),
+                connection_id: Some("new_connection".to_string()),
+                refundee: Some("new_refundee".to_string()),
+                timeout: Some(drop_staking_base::state::pump::PumpTimeout {
+                    local: Some(1u64),
+                    remote: 1u64,
+                }),
+                local_denom: Some("new_local_denom".to_string()),
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+    )
+}
+
+#[test]
 fn test_update_config() {
     let mut deps = mock_dependencies(&[]);
     let msg = drop_staking_base::msg::pump::InstantiateMsg {
@@ -90,7 +133,7 @@ fn test_update_config() {
         local_denom: "local_denom".to_string(),
         owner: Some("owner".to_string()),
     };
-    let _res = instantiate(deps.as_mut(), mock_env(), mock_info("admin", &[]), msg).unwrap();
+    let _ = instantiate(deps.as_mut(), mock_env(), mock_info("admin", &[]), msg).unwrap();
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap();
     let msg = drop_staking_base::msg::pump::UpdateConfigMsg {
@@ -123,16 +166,7 @@ fn test_update_config() {
             ("new_config", "UpdateConfigMsg { dest_address: Some(\"new_dest_address\"), dest_channel: Some(\"new_dest_channel\"), dest_port: Some(\"new_dest_port\"), connection_id: Some(\"new_connection\"), refundee: Some(\"new_refundee\"), timeout: Some(PumpTimeout { local: Some(1), remote: 1 }), local_denom: Some(\"new_local_denom\") }")
         ]))
     );
-    let config: drop_staking_base::state::pump::Config = from_json(
-        query(
-            deps.as_ref().into_empty(),
-            mock_env(),
-            drop_staking_base::msg::pump::QueryMsg::Config {},
-        )
-        .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(config, CONFIG.load(deps.as_ref().storage).unwrap());
+    let config = CONFIG.load(deps.as_ref().storage).unwrap();
     assert_eq!(
         config,
         Config {
