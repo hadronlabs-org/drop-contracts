@@ -3563,15 +3563,23 @@ fn test_query_extension_delegations_some() {
         .save(deps.as_mut().storage, &0u64)
         .unwrap();
     let delegations = vec![
-        Delegation {
+        DropDelegation {
             delegator: Addr::unchecked("delegator1"),
             validator: "validator1".to_string(),
             amount: cosmwasm_std::Coin::new(100, "denom1"),
+            share_ratio: Decimal256::from_ratio(
+                cosmwasm_std::Uint256::from(0u64),
+                cosmwasm_std::Uint256::from(1u64),
+            ),
         },
-        Delegation {
+        DropDelegation {
             delegator: Addr::unchecked("delegator2"),
             validator: "validator2".to_string(),
             amount: cosmwasm_std::Coin::new(100, "denom2"),
+            share_ratio: Decimal256::from_ratio(
+                cosmwasm_std::Uint256::from(0u64),
+                cosmwasm_std::Uint256::from(1u64),
+            ),
         },
     ];
     puppeteer_base
