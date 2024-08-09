@@ -3,7 +3,7 @@ use crate::{
     error::ContractError,
 };
 use cosmwasm_std::{
-    coins,
+    coins, from_json,
     testing::{mock_env, mock_info},
     to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Event, Response, SubMsg,
 };
@@ -867,4 +867,60 @@ fn test_sudo_open_ack() {
         }
     );
     assert_eq!(res, cosmwasm_std::Response::new());
+}
+
+#[test]
+fn test_query_config() {
+    let mut deps = mock_dependencies(&[]);
+    let config = get_default_config();
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    let query_res: drop_staking_base::state::pump::Config = from_json(
+        query(
+            deps.as_ref().into_empty(),
+            mock_env(),
+            drop_staking_base::msg::pump::QueryMsg::Config {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(query_res, config);
+}
+
+#[test]
+fn test_query_ica() {
+    let deps = mock_dependencies(&[]);
+    let query_res: drop_helpers::ica::IcaState = from_json(
+        query(
+            deps.as_ref().into_empty(),
+            mock_env(),
+            drop_staking_base::msg::pump::QueryMsg::Ica {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(query_res, IcaState::None {});
+}
+
+#[test]
+fn test_query_ownership() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap();
+    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
+        query(
+            deps.as_ref().into_empty(),
+            mock_env(),
+            drop_staking_base::msg::pump::QueryMsg::Ownership {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        cw_ownable::Ownership {
+            owner: Some(cosmwasm_std::Addr::unchecked("admin".to_string())),
+            pending_expiry: None,
+            pending_owner: None
+        }
+    );
 }
