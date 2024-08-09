@@ -1,8 +1,8 @@
 use crate::{
-    contract::{execute, instantiate},
+    contract::{execute, instantiate, query},
     msg::{
-        CoreMsg, CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, ProxyMsg, StakerParams,
-        UpdateConfigMsg, ValidatorSetMsg,
+        CoreMsg, CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, ProxyMsg, QueryMsg,
+        StakerParams, UpdateConfigMsg, ValidatorSetMsg,
     },
     state::{CodeIds, RemoteOpts, State, Timeout, STATE},
 };
@@ -1143,4 +1143,47 @@ fn test_unpause() {
                 )])
             )
     )
+}
+
+#[test]
+fn test_query_state() {
+    let mut deps = mock_dependencies(&[]);
+    STATE
+        .save(deps.as_mut().storage, &get_default_factory_state())
+        .unwrap();
+    let query_res: crate::state::State =
+        from_json(query(deps.as_ref(), mock_env(), QueryMsg::State {}).unwrap()).unwrap();
+    assert_eq!(query_res, get_default_factory_state());
+}
+
+#[test]
+fn test_query_pause_info() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("core_contract", |_| -> cosmwasm_std::Binary {
+            to_json_binary(&drop_helpers::pause::PauseInfoResponse::Paused {}).unwrap()
+        });
+    deps.querier.add_wasm_query_response(
+        "withdrawal_manager_contract",
+        |_| -> cosmwasm_std::Binary {
+            to_json_binary(&drop_helpers::pause::PauseInfoResponse::Unpaused {}).unwrap()
+        },
+    );
+    deps.querier
+        .add_wasm_query_response("rewards_manager_contract", |_| -> cosmwasm_std::Binary {
+            to_json_binary(&drop_helpers::pause::PauseInfoResponse::Paused {}).unwrap()
+        });
+    STATE
+        .save(deps.as_mut().storage, &get_default_factory_state())
+        .unwrap();
+    let query_res: crate::state::PauseInfoResponse =
+        from_json(query(deps.as_ref(), mock_env(), QueryMsg::PauseInfo {}).unwrap()).unwrap();
+    assert_eq!(
+        query_res,
+        crate::state::PauseInfoResponse {
+            core: drop_helpers::pause::PauseInfoResponse::Paused {},
+            withdrawal_manager: drop_helpers::pause::PauseInfoResponse::Unpaused {},
+            rewards_manager: drop_helpers::pause::PauseInfoResponse::Paused {},
+        }
+    );
 }
