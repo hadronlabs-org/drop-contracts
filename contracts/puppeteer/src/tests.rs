@@ -2856,3 +2856,50 @@ fn get_standard_fees() -> IbcFee {
         timeout_fee: coins(200, "untrn"),
     }
 }
+
+#[test]
+fn test_transfer_ownership() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let _ = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::UpdateOwnership(
+            cw_ownable::Action::TransferOwnership {
+                new_owner: "new_owner".to_string(),
+                expiry: Some(cw_ownable::Expiration::Never {}),
+            },
+        ),
+    )
+    .unwrap();
+    let _ = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("new_owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::UpdateOwnership(
+            cw_ownable::Action::AcceptOwnership {},
+        ),
+    )
+    .unwrap();
+    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
+        crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Ownership {},
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        cw_ownable::Ownership {
+            owner: Some(cosmwasm_std::Addr::unchecked("new_owner".to_string())),
+            pending_expiry: None,
+            pending_owner: None
+        }
+    );
+}
