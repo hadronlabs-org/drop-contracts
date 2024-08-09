@@ -13,6 +13,7 @@ export class Config {
     rest: string;
     gasPrice: GasPrice;
     gasAdjustment: string;
+    icaFee: string;
   };
   target: {
     rpc: string;
@@ -44,6 +45,7 @@ export class Config {
         process.env.RELAYER_NEUTRON_CHAIN_GAS_PRICES,
       ),
       gasAdjustment: process.env.NEUTRON_GAS_ADJUSTMENT,
+      icaFee: process.env.ICA_FEE_AMOUNT,
     };
 
     this.target = {

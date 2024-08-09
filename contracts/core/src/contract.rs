@@ -1,8 +1,8 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankMsg, BankQuery,
-    Binary, Coin, CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order,
-    QueryRequest, Response, StdError, StdResult, Uint128, Uint64, WasmMsg,
+    Binary, Coin, CosmosMsg, CustomQuery, Decimal, Decimal256, Deps, DepsMut, Env, MessageInfo,
+    Order, QueryRequest, Response, StdError, StdResult, Uint128, Uint256, Uint64, WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
@@ -35,6 +35,7 @@ use drop_staking_base::{
     },
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
+use neutron_sdk::interchain_queries::v047::types::DECIMAL_FRACTIONAL;
 use prost::Message;
 
 pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
@@ -1005,7 +1006,7 @@ fn execute_bond(
     r#ref: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
-    let Coin { amount, denom } = cw_utils::one_coin(&info)?;
+    let Coin { mut amount, denom } = cw_utils::one_coin(&info)?;
     if let Some(bond_limit) = config.bond_limit {
         if BONDED_AMOUNT.load(deps.storage)? + amount > bond_limit {
             return Err(ContractError::BondLimitExceeded {});
@@ -1018,7 +1019,13 @@ fn execute_bond(
     let exchange_rate = query_exchange_rate(deps.as_ref(), &config)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
 
-    if let check_denom::DenomType::LsmShare(remote_denom) = denom_type {
+    if let check_denom::DenomType::LsmShare(remote_denom, validator) = denom_type {
+        amount = calc_lsm_share_underlying_amount(
+            deps.as_ref(),
+            &config.puppeteer_contract,
+            &amount,
+            validator,
+        )?;
         if amount < config.lsm_min_bond_amount {
             return Err(ContractError::LSMBondAmountIsBelowMinimum {
                 min_stake_amount: config.lsm_min_bond_amount,
@@ -1038,7 +1045,6 @@ fn execute_bond(
             amount: vec![Coin::new(amount.u128(), denom)],
         }));
     }
-
     let issue_amount = amount * (Decimal::one() / exchange_rate);
     attrs.push(attr("issue_amount", issue_amount.to_string()));
 
@@ -1561,13 +1567,45 @@ fn get_pending_lsm_share_msg<T, X: CustomQuery>(
     }
 }
 
+fn calc_lsm_share_underlying_amount<T: CustomQuery>(
+    deps: Deps<T>,
+    puppeteer_contract: &Addr,
+    lsm_share: &Uint128,
+    validator: String,
+) -> ContractResult<Uint128> {
+    let delegations = deps
+        .querier
+        .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
+            puppeteer_contract,
+            &drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+            },
+        )?
+        .delegations
+        .delegations;
+    if delegations.is_empty() {
+        return Err(ContractError::NoDelegations {});
+    }
+    let validator_info = delegations
+        .iter()
+        .find(|one| one.validator == validator)
+        .ok_or(ContractError::ValidatorInfoNotFound {
+            validator: validator.clone(),
+        })?;
+    let share = Decimal256::from_atomics(*lsm_share, 0)?;
+    Ok(Uint128::try_from(
+        share.checked_mul(validator_info.share_ratio)?.atomics()
+            / Uint256::from(DECIMAL_FRACTIONAL),
+    )?)
+}
+
 pub mod check_denom {
     use super::*;
 
     #[derive(PartialEq, Debug)]
     pub enum DenomType {
         Base,
-        LsmShare(String),
+        LsmShare(String, String),
     }
 
     // XXX: cosmos_sdk_proto defines these structures for me,
@@ -1645,7 +1683,10 @@ pub mod check_denom {
             return Err(ContractError::InvalidDenom {});
         }
 
-        Ok(DenomType::LsmShare(trace.base_denom))
+        Ok(DenomType::LsmShare(
+            trace.base_denom.to_string(),
+            validator.to_string(),
+        ))
     }
 }
 

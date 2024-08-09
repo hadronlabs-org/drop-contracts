@@ -9,12 +9,14 @@ use crate::proto::{
         },
     },
 };
-use cosmos_sdk_proto::cosmos::distribution::v1beta1::MsgSetWithdrawAddress;
 use cosmos_sdk_proto::cosmos::{
     authz::v1beta1::{GenericAuthorization, Grant, MsgGrant, MsgGrantResponse},
     bank::v1beta1::{MsgSend, MsgSendResponse},
     base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
-    staking::v1beta1::MsgUndelegate,
+};
+use cosmos_sdk_proto::{
+    cosmos::{authz::v1beta1::MsgExec, distribution::v1beta1::MsgSetWithdrawAddress},
+    traits::MessageExt,
 };
 use cosmwasm_std::{
     attr, ensure_eq, to_json_binary, Addr, Attribute, CosmosMsg, Deps, Order, Reply, StdError,
@@ -40,8 +42,8 @@ use drop_puppeteer_base::{
     },
     proto::MsgIBCTransfer,
     state::{
-        PuppeteerBase, RedeemShareItem, ReplyMsg, TxState, TxStateStatus, UnbondingDelegation,
-        ICA_ID, LOCAL_DENOM,
+        Delegations, PuppeteerBase, RedeemShareItem, ReplyMsg, TxState, TxStateStatus,
+        UnbondingDelegation, ICA_ID, LOCAL_DENOM,
     },
 };
 use drop_staking_base::{
@@ -53,8 +55,7 @@ use drop_staking_base::{
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery, types::ProtobufAny},
     interchain_queries::v045::{
-        new_register_delegator_unbonding_delegations_query_msg,
-        types::{Balances, Delegations},
+        new_register_delegator_unbonding_delegations_query_msg, types::Balances,
     },
     interchain_txs::helpers::decode_message_response,
     sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg},
@@ -86,6 +87,7 @@ pub fn instantiate(
         .api
         .addr_validate(&msg.owner.unwrap_or(info.sender.to_string()))?
         .to_string();
+    validate_timeout(msg.timeout)?;
     let config = &Config {
         connection_id: msg.connection_id,
         port_id: msg.port_id,
@@ -320,6 +322,7 @@ fn execute_update_config(
         attrs.push(attr("sdk_version", sdk_version))
     }
     if let Some(timeout) = new_config.timeout {
+        validate_timeout(timeout)?;
         attrs.push(attr("timeout", timeout.to_string()));
         config.timeout = timeout;
     }
@@ -456,6 +459,7 @@ fn register_delegations_and_balance_query(
             puppeteer_base
                 .delegations_and_balances_query_id_chunk
                 .remove(deps.storage, *query_id);
+            puppeteer_base.kv_queries.remove(deps.storage, *query_id);
             NeutronMsg::remove_interchain_query(*query_id)
         })
         .collect::<Vec<_>>();
@@ -479,6 +483,7 @@ fn register_delegations_and_balance_query(
             ReplyMsg::KvDelegationsAndBalance { i: i as u16 }.to_reply_id(),
         ));
     }
+
     Ok(Response::new()
         .add_messages(messages)
         .add_submessages(submessages))
@@ -675,16 +680,26 @@ fn execute_claim_rewards_and_optionaly_transfer(
             "/cosmos.bank.v1beta1.MsgSend",
         )?);
     }
+
+    let mut claim_msgs = vec![];
     for val in validators.clone() {
-        let withdraw_msg = MsgWithdrawDelegatorReward {
-            delegator_address: ica.to_string(),
-            validator_address: val,
-        };
-        any_msgs.push(prepare_any_msg(
-            withdraw_msg,
-            "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
-        )?);
+        claim_msgs.push(cosmos_sdk_proto::Any {
+            type_url: "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
+            value: MsgWithdrawDelegatorReward {
+                delegator_address: ica.to_string(),
+                validator_address: val,
+            }
+            .to_bytes()?,
+        })
     }
+
+    let grant_msg = MsgExec {
+        grantee: ica.to_string(),
+        msgs: claim_msgs,
+    };
+
+    any_msgs.push(prepare_any_msg(grant_msg, "/cosmos.authz.v1beta1.MsgExec")?);
+
     let submsg = compose_submsg(
         deps.branch(),
         config.clone(),
@@ -715,18 +730,29 @@ fn execute_undelegate(
     validate_sender(&config, &info.sender)?;
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
     let delegator = puppeteer_base.ica.get_address(deps.storage)?;
-    let any_msgs = items
-        .iter()
-        .map(|(validator, amount)| MsgUndelegate {
-            delegator_address: delegator.to_string(),
-            validator_address: validator.to_string(),
-            amount: Some(Coin {
-                denom: config.remote_denom.to_string(),
-                amount: amount.to_string(),
-            }),
+    let mut undelegation_msgs = vec![];
+    for (validator, amount) in items.iter() {
+        undelegation_msgs.push(cosmos_sdk_proto::Any {
+            type_url: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
+            value: cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
+                delegator_address: delegator.to_string(),
+                validator_address: validator.to_string(),
+                amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                    denom: config.remote_denom.to_string(),
+                    amount: amount.to_string(),
+                }),
+            }
+            .to_bytes()?,
         })
-        .map(|msg| prepare_any_msg(msg, "/cosmos.staking.v1beta1.MsgUndelegate"))
-        .collect::<NeutronResult<Vec<ProtobufAny>>>()?;
+    }
+
+    let grant_msg = MsgExec {
+        grantee: delegator,
+        msgs: undelegation_msgs,
+    };
+
+    let any_msgs: Vec<neutron_sdk::bindings::types::ProtobufAny> =
+        vec![prepare_any_msg(grant_msg, "/cosmos.authz.v1beta1.MsgExec")?];
 
     let submsg = compose_submsg(
         deps.branch(),
@@ -1294,5 +1320,15 @@ fn validate_sender(config: &Config, sender: &Addr) -> StdResult<()> {
         Ok(())
     } else {
         Err(StdError::generic_err("Sender is not allowed"))
+    }
+}
+
+fn validate_timeout(timeout: u64) -> StdResult<()> {
+    if timeout < 10 {
+        Err(StdError::generic_err(
+            "Timeout can not be less than 10 seconds",
+        ))
+    } else {
+        Ok(())
     }
 }

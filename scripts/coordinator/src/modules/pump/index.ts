@@ -68,7 +68,7 @@ export class PumpModule extends ManagerModule {
         undefined,
         [
           {
-            amount: '20000',
+            amount: this.context.config.neutron.icaFee,
             denom: 'untrn',
           },
         ],

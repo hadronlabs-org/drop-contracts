@@ -1,9 +1,10 @@
 use crate::contract::{query, Puppeteer};
+use cosmos_sdk_proto::traits::MessageExt;
 use cosmwasm_schema::schemars;
 use cosmwasm_std::{
     coin, coins, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, Binary, CosmosMsg, Delegation, DepsMut, Event, Response, StdError,
+    to_json_binary, Addr, Binary, CosmosMsg, Decimal256, DepsMut, Event, Response, StdError,
     SubMsg, Timestamp, Uint128, Uint64,
 };
 use drop_helpers::{
@@ -14,8 +15,11 @@ use drop_helpers::{
 };
 use drop_puppeteer_base::{
     msg::IBCTransferReason,
-    state::{BalancesAndDelegations, BalancesAndDelegationsState, PuppeteerBase, ReplyMsg},
-};
+    state::{
+        BalancesAndDelegations, BalancesAndDelegationsState, Delegations, DropDelegation,
+        PuppeteerBase, ReplyMsg
+    }
+},
 use drop_staking_base::{
     msg::puppeteer::InstantiateMsg,
     state::puppeteer::{Config, ConfigOptional, KVQueryType, NON_NATIVE_REWARD_BALANCES},
@@ -26,7 +30,7 @@ use neutron_sdk::{
         query::{NeutronQuery, QueryRegisteredQueryResultResponse},
         types::{InterchainQueryResult, StorageValue},
     },
-    interchain_queries::v045::types::{Balances, Delegations},
+    interchain_queries::v045::types::Balances,
     query::min_ibc_fee::MinIbcFeeResponse,
     sudo::msg::{RequestPacketTimeoutHeight, SudoMsg},
     NeutronError,
@@ -565,19 +569,30 @@ fn test_execute_undelegate() {
         msg,
     )
     .unwrap();
-    let any_msg = neutron_sdk::bindings::types::ProtobufAny {
+
+    let msg = cosmos_sdk_proto::Any {
         type_url: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
-        value: Binary::from(
-            cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
-                delegator_address: "ica_address".to_string(),
-                validator_address: "valoper1".to_string(),
-                amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-                    denom: "remote_denom".to_string(),
-                    amount: "1000".to_string(),
-                }),
-            }
-            .encode_to_vec(),
-        ),
+        value: cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
+            delegator_address: "ica_address".to_string(),
+            validator_address: "valoper1".to_string(),
+            amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                denom: "remote_denom".to_string(),
+                amount: "1000".to_string(),
+            }),
+        }
+        .to_bytes()
+        .unwrap(),
+    };
+
+    let grant_msg = cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec {
+        grantee: "ica_address".to_string(),
+        msgs: vec![msg],
+    };
+    let mut buf = Vec::with_capacity(grant_msg.encoded_len());
+    grant_msg.encode(&mut buf).unwrap();
+    let any_msg = neutron_sdk::bindings::types::ProtobufAny {
+        type_url: "/cosmos.authz.v1beta1.MsgExec".to_string(),
+        value: Binary::from(buf),
     };
     assert_eq!(
         res,
@@ -2288,21 +2303,23 @@ fn test_sudo_delegations_and_balance_kv_query_result() {
                 },
                 delegations: Delegations {
                     delegations: vec![
-                        Delegation {
+                        DropDelegation {
                             delegator: Addr::unchecked(
                                 "cosmos1nujy3vl3rww3cy8tf8pdru5jp3f9ppmkadws553ck3qryg2tjanqt39xnv"
                             ),
                             validator: "cosmosvaloper1rndyjagfg0nsedl2uy5n92vssn8aj5n67t0nfx"
                                 .to_string(),
-                            amount: coin(13582465152, "stake")
+                            amount: coin(13582465152, "stake"),
+                            share_ratio: Decimal256::one()
                         },
-                        Delegation {
+                        DropDelegation {
                             delegator: Addr::unchecked(
                                 "cosmos1nujy3vl3rww3cy8tf8pdru5jp3f9ppmkadws553ck3qryg2tjanqt39xnv"
                             ),
                             validator: "cosmosvaloper1gh4vzw9wsfgl2h37qqnetet0m4wrzm7v7x3j9x"
                                 .to_string(),
-                            amount: coin(13582465152, "stake")
+                            amount: coin(13582465152, "stake"),
+                            share_ratio: Decimal256::one()
                         }
                     ]
                 }

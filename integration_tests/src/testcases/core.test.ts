@@ -2580,4 +2580,50 @@ describe('Core', () => {
       });
     });
   });
+
+  it('update validators set and check kv queries id', async () => {
+    const {
+      neutronUserAddress,
+      factoryContractClient,
+      validatorAddress,
+      secondValidatorAddress,
+    } = context;
+
+    const queryIdsOriginal =
+      await context.puppeteerContractClient.queryKVQueryIds();
+
+    expect(queryIdsOriginal).toEqual([[1, 'delegations_and_balance']]);
+
+    const res = await factoryContractClient.proxy(
+      neutronUserAddress,
+      {
+        validator_set: {
+          update_validators: {
+            validators: [
+              {
+                valoper_address: validatorAddress,
+                weight: 1,
+              },
+              {
+                valoper_address: secondValidatorAddress,
+                weight: 1,
+              },
+            ],
+          },
+        },
+      },
+      1.5,
+      undefined,
+      [
+        {
+          amount: '1000000',
+          denom: 'untrn',
+        },
+      ],
+    );
+    expect(res.transactionHash).toHaveLength(64);
+
+    const queryIdsNew = await context.puppeteerContractClient.queryKVQueryIds();
+    expect(queryIdsNew).toEqual([[2, 'delegations_and_balance']]);
+  });
 });
