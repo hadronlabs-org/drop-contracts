@@ -90,11 +90,11 @@ fn test_update_config_unauthorized() {
         local_denom: "local_denom".to_string(),
         owner: Some("owner".to_string()),
     };
-    let _ = instantiate(deps.as_mut(), mock_env(), mock_info("admin", &[]), msg).unwrap();
+    let _ = instantiate(deps.as_mut(), mock_env(), mock_info("owner", &[]), msg).unwrap();
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[]),
+        mock_info("not_an_owner", &[]),
         drop_staking_base::msg::pump::ExecuteMsg::UpdateConfig {
             new_config: Box::new(drop_staking_base::msg::pump::UpdateConfigMsg {
                 dest_address: Some("new_dest_address".to_string()),
