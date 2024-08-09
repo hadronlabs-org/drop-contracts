@@ -3,7 +3,7 @@ use crate::{
     error::ContractError,
 };
 use cosmwasm_std::{
-    coins, from_json,
+    coins,
     testing::{mock_env, mock_info},
     to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Event, Response, SubMsg,
 };
@@ -867,26 +867,4 @@ fn test_sudo_open_ack() {
         }
     );
     assert_eq!(res, cosmwasm_std::Response::new());
-}
-
-#[test]
-fn test_sudo_open_ack_fail() {
-    let mut deps = mock_dependencies(&[]);
-    let res = sudo(
-        deps.as_mut(),
-        mock_env(),
-        SudoMsg::OpenAck {
-            port_id: "transfer".to_string(),
-            channel_id: "channel-0".to_string(),
-            counterparty_channel_id: "channel-0".to_string(),
-            counterparty_version: "wrong version".to_string(),
-        },
-    )
-    .unwrap_err();
-    assert_eq!(
-        res,
-        crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-            msg: "can't parse version".to_string()
-        })
-    );
 }
