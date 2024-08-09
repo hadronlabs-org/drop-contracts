@@ -780,7 +780,7 @@ fn test_sudo_timeout() {
 }
 
 #[test]
-fn test_sudo_not_supported() {
+fn test_sudo_kv_query_result_not_supported() {
     let mut deps = mock_dependencies(&[]);
     let res = sudo(
         deps.as_mut(),
@@ -794,6 +794,11 @@ fn test_sudo_not_supported() {
             msg: "KVQueryResult and TxQueryResult are not supported".to_string()
         })
     );
+}
+
+#[test]
+fn test_sudo_tx_query_result_not_supported() {
+    let mut deps = mock_dependencies(&[]);
     let res = sudo(
         deps.as_mut(),
         mock_env(),
