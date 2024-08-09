@@ -605,7 +605,7 @@ fn test_update_config_validators_set() {
 }
 
 #[test]
-fn test_proxy() {
+fn test_proxy_validators_set_update_validators() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
@@ -680,58 +680,76 @@ fn test_proxy() {
                 )
         )
     }
-    {
-        let res = execute(
-            deps.as_mut().into_empty(),
-            mock_env(),
-            mock_info("owner", &[]),
-            ExecuteMsg::Proxy(ProxyMsg::Core(CoreMsg::Pause {})),
-        )
+}
+
+#[test]
+fn test_proxy_core_pause() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    STATE
+        .save(deps_mut.storage, &get_default_factory_state())
         .unwrap();
-        assert_eq!(
-            res,
-            cosmwasm_std::Response::new()
-                .add_submessage(cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
-                    cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "core_contract".to_string(),
-                        msg: to_json_binary(&CoreExecuteMsg::Pause {}).unwrap(),
-                        funds: vec![]
-                    }
-                )))
-                .add_event(
-                    cosmwasm_std::Event::new(
-                        "crates.io:drop-staking__drop-factory-execute-proxy-call".to_string()
-                    )
-                    .add_attribute("action".to_string(), "proxy-call".to_string())
+
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::Proxy(ProxyMsg::Core(CoreMsg::Pause {})),
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new()
+            .add_submessage(cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                cosmwasm_std::WasmMsg::Execute {
+                    contract_addr: "core_contract".to_string(),
+                    msg: to_json_binary(&CoreExecuteMsg::Pause {}).unwrap(),
+                    funds: vec![]
+                }
+            )))
+            .add_event(
+                cosmwasm_std::Event::new(
+                    "crates.io:drop-staking__drop-factory-execute-proxy-call".to_string()
                 )
-        )
-    }
-    {
-        let res = execute(
-            deps.as_mut().into_empty(),
-            mock_env(),
-            mock_info("owner", &[]),
-            ExecuteMsg::Proxy(ProxyMsg::Core(CoreMsg::Unpause {})),
-        )
+                .add_attribute("action".to_string(), "proxy-call".to_string())
+            )
+    )
+}
+
+#[test]
+fn test_proxy_core_unpause() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    STATE
+        .save(deps_mut.storage, &get_default_factory_state())
         .unwrap();
-        assert_eq!(
-            res,
-            cosmwasm_std::Response::new()
-                .add_submessage(cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
-                    cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "core_contract".to_string(),
-                        msg: to_json_binary(&CoreExecuteMsg::Unpause {}).unwrap(),
-                        funds: vec![]
-                    }
-                )))
-                .add_event(
-                    cosmwasm_std::Event::new(
-                        "crates.io:drop-staking__drop-factory-execute-proxy-call".to_string()
-                    )
-                    .add_attribute("action".to_string(), "proxy-call".to_string())
+
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::Proxy(ProxyMsg::Core(CoreMsg::Unpause {})),
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new()
+            .add_submessage(cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                cosmwasm_std::WasmMsg::Execute {
+                    contract_addr: "core_contract".to_string(),
+                    msg: to_json_binary(&CoreExecuteMsg::Unpause {}).unwrap(),
+                    funds: vec![]
+                }
+            )))
+            .add_event(
+                cosmwasm_std::Event::new(
+                    "crates.io:drop-staking__drop-factory-execute-proxy-call".to_string()
                 )
-        )
-    }
+                .add_attribute("action".to_string(), "proxy-call".to_string())
+            )
+    )
 }
 
 #[test]
