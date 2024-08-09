@@ -920,6 +920,88 @@ fn test_execute_tokenize_share() {
 }
 
 #[test]
+fn test_execute_redeem_shares_sender_is_not_allowed() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+            items: vec![drop_puppeteer_base::state::RedeemShareItem {
+                amount: Uint128::from(1000u128),
+                remote_denom: "remote_denom".to_string(),
+                local_denom: "local_denom".to_string(),
+            }],
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Sender is not allowed"
+        ))
+    );
+}
+
+#[test]
+fn test_execute_redeeem_shares_sender_not_idle() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let pupeteer_base = base_init(&mut deps.as_mut());
+    pupeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                seq_id: None,
+                status: drop_puppeteer_base::state::TxStateStatus::InProgress,
+                reply_to: Some("".to_string()),
+                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
+                    interchain_account_id: "ica_address".to_string(),
+                    delegate_grantee: "delegate_grantee".to_string(),
+                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                }),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+            items: vec![drop_puppeteer_base::state::RedeemShareItem {
+                amount: Uint128::from(1000u128),
+                remote_denom: "remote_denom".to_string(),
+                local_denom: "local_denom".to_string(),
+            }],
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
+            cosmwasm_std::StdError::generic_err(
+                "Transaction txState is not equal to expected: Idle".to_string()
+            )
+        ))
+    );
+}
+
+#[test]
 fn test_execute_redeem_share() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.add_custom_query_response(|_| {
@@ -929,46 +1011,32 @@ fn test_execute_redeem_share() {
         .unwrap()
     });
     let puppeteer_base = base_init(&mut deps.as_mut());
-    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
-        items: vec![drop_puppeteer_base::state::RedeemShareItem {
-            amount: Uint128::from(1000u128),
-            remote_denom: "remote_denom".to_string(),
-            local_denom: "local_denom".to_string(),
-        }],
-        reply_to: "some_reply_to".to_string(),
-    };
-    let env = mock_env();
-    let res = crate::contract::execute(
-        deps.as_mut(),
-        env,
-        mock_info("not_allowed_sender", &[]),
-        msg.clone(),
-    );
-    assert_eq!(
-        res.unwrap_err(),
-        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
-            "Sender is not allowed"
-        ))
-    );
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("allowed_sender", &[]),
-        msg,
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+            items: vec![drop_puppeteer_base::state::RedeemShareItem {
+                amount: Uint128::from(1000u128),
+                remote_denom: "remote_denom".to_string(),
+                local_denom: "local_denom".to_string(),
+            }],
+            reply_to: "some_reply_to".to_string(),
+        },
     )
     .unwrap();
-    let msg = crate::proto::liquidstaking::staking::v1beta1::MsgRedeemTokensforShares {
-        amount: Some(crate::proto::cosmos::base::v1beta1::Coin {
-            denom: "remote_denom".to_string(),
-            amount: "1000".to_string(),
-        }),
-        delegator_address: "ica_address".to_string(),
-    };
-    let mut buf = Vec::with_capacity(msg.encoded_len());
-    msg.encode(&mut buf).unwrap();
     let any_msg = neutron_sdk::bindings::types::ProtobufAny {
         type_url: "/cosmos.staking.v1beta1.MsgRedeemTokensForShares".to_string(),
-        value: Binary::from(buf),
+        value: Binary::from(
+            crate::proto::liquidstaking::staking::v1beta1::MsgRedeemTokensforShares {
+                amount: Some(crate::proto::cosmos::base::v1beta1::Coin {
+                    denom: "remote_denom".to_string(),
+                    amount: "1000".to_string(),
+                }),
+                delegator_address: "ica_address".to_string(),
+            }
+            .encode_to_vec(),
+        ),
     };
     assert_eq!(
         res,
