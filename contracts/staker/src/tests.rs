@@ -58,10 +58,18 @@ fn test_instantiate() {
             ("sender", "admin")
         ]))
     );
+    assert_eq!(
+        TX_STATE.load(deps.as_mut().storage).unwrap(),
+        drop_staking_base::state::staker::TxState::default()
+    );
     let config = CONFIG.load(deps.as_ref().storage).unwrap();
     let mut default_config = get_default_config();
     default_config.puppeteer_ica = None; // puppeteer_ica is not set at the time of instantiation
     assert_eq!(config, default_config);
+    assert_eq!(
+        NON_STAKED_BALANCE.load(deps.as_mut().storage).unwrap(),
+        Uint128::zero()
+    );
     let owner = cw_ownable::get_ownership(deps.as_ref().storage)
         .unwrap()
         .owner
