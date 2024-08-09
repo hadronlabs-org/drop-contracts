@@ -1,4 +1,4 @@
-use crate::contract::Puppeteer;
+use crate::contract::{query, Puppeteer};
 use cosmwasm_schema::schemars;
 use cosmwasm_std::{
     coin, coins, from_json,
@@ -18,7 +18,7 @@ use drop_puppeteer_base::{
 };
 use drop_staking_base::{
     msg::puppeteer::InstantiateMsg,
-    state::puppeteer::{Config, ConfigOptional, KVQueryType},
+    state::puppeteer::{Config, ConfigOptional, KVQueryType, NON_NATIVE_REWARD_BALANCES},
 };
 use neutron_sdk::{
     bindings::{
@@ -3442,4 +3442,291 @@ fn test_transfer_ownership() {
             pending_owner: None
         }
     );
+}
+
+#[test]
+fn test_query_kv_query_ids() {
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .kv_queries
+        .save(
+            deps.as_mut().storage,
+            0u64,
+            &KVQueryType::NonNativeRewardsBalances,
+        )
+        .unwrap();
+    let query_res: Vec<(u64, KVQueryType)> = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::KVQueryIds {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        vec![(0u64, KVQueryType::NonNativeRewardsBalances)]
+    );
+}
+
+#[test]
+fn test_query_extension_delegations_none() {
+    let deps = mock_dependencies(&[]);
+    let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        drop_staking_base::msg::puppeteer::DelegationsResponse {
+            delegations: Delegations {
+                delegations: vec![],
+            },
+            remote_height: 0,
+            local_height: 0,
+            timestamp: Timestamp::default(),
+        }
+    );
+}
+
+#[test]
+fn test_query_extension_delegations_some() {
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .last_complete_delegations_and_balances_key
+        .save(deps.as_mut().storage, &0u64)
+        .unwrap();
+    let delegations = vec![
+        Delegation {
+            delegator: Addr::unchecked("delegator1"),
+            validator: "validator1".to_string(),
+            amount: cosmwasm_std::Coin::new(100, "denom1"),
+        },
+        Delegation {
+            delegator: Addr::unchecked("delegator2"),
+            validator: "validator2".to_string(),
+            amount: cosmwasm_std::Coin::new(100, "denom2"),
+        },
+    ];
+    puppeteer_base
+        .delegations_and_balances
+        .save(
+            deps.as_mut().storage,
+            &0u64,
+            &BalancesAndDelegationsState {
+                data: BalancesAndDelegations {
+                    balances: Balances { coins: vec![] },
+                    delegations: Delegations {
+                        delegations: delegations.clone(),
+                    },
+                },
+                remote_height: 123u64,
+                local_height: 123u64,
+                timestamp: Timestamp::default(),
+                collected_chunks: vec![],
+            },
+        )
+        .unwrap();
+    let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        drop_staking_base::msg::puppeteer::DelegationsResponse {
+            delegations: Delegations {
+                delegations: delegations,
+            },
+            remote_height: 123u64,
+            local_height: 123u64,
+            timestamp: Timestamp::default(),
+        }
+    );
+}
+
+#[test]
+fn test_query_extension_balances_none() {
+    let deps = mock_dependencies(&[]);
+    let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        drop_staking_base::msg::puppeteer::BalancesResponse {
+            balances: Balances { coins: vec![] },
+            remote_height: 0,
+            local_height: 0,
+            timestamp: Timestamp::default(),
+        }
+    );
+}
+
+#[test]
+fn test_query_extension_balances_some() {
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .last_complete_delegations_and_balances_key
+        .save(deps.as_mut().storage, &0u64)
+        .unwrap();
+    let coins = vec![
+        cosmwasm_std::Coin::new(123u128, "denom1".to_string()),
+        cosmwasm_std::Coin::new(123u128, "denom2".to_string()),
+    ];
+    puppeteer_base
+        .delegations_and_balances
+        .save(
+            deps.as_mut().storage,
+            &0u64,
+            &BalancesAndDelegationsState {
+                data: BalancesAndDelegations {
+                    balances: Balances {
+                        coins: coins.clone(),
+                    },
+                    delegations: Delegations {
+                        delegations: vec![],
+                    },
+                },
+                remote_height: 123u64,
+                local_height: 123u64,
+                timestamp: Timestamp::default(),
+                collected_chunks: vec![],
+            },
+        )
+        .unwrap();
+    let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        drop_staking_base::msg::puppeteer::BalancesResponse {
+            balances: Balances { coins: coins },
+            remote_height: 123u64,
+            local_height: 123u64,
+            timestamp: Timestamp::default(),
+        }
+    );
+}
+
+#[test]
+fn test_query_non_native_rewards_balances() {
+    let mut deps = mock_dependencies(&[]);
+    let coins = vec![
+        cosmwasm_std::Coin::new(123u128, "denom1".to_string()),
+        cosmwasm_std::Coin::new(123u128, "denom2".to_string()),
+    ];
+    NON_NATIVE_REWARD_BALANCES
+        .save(
+            deps.as_mut().storage,
+            &BalancesAndDelegationsState {
+                data: drop_staking_base::msg::puppeteer::MultiBalances {
+                    coins: coins.clone(),
+                },
+                remote_height: 1u64,
+                local_height: 2u64,
+                timestamp: Timestamp::default(),
+                collected_chunks: vec![],
+            },
+        )
+        .unwrap();
+    let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::NonNativeRewardsBalances {},
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        drop_staking_base::msg::puppeteer::BalancesResponse {
+            balances: Balances { coins: coins },
+            remote_height: 1u64,
+            local_height: 2u64,
+            timestamp: Timestamp::default(),
+        }
+    );
+}
+
+#[test]
+fn test_unbonding_delegations() {
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    let unbonding_delegations = vec![
+        drop_puppeteer_base::state::UnbondingDelegation {
+            validator_address: "validator_address1".to_string(),
+            query_id: 1u64,
+            unbonding_delegations: vec![
+                neutron_sdk::interchain_queries::v047::types::UnbondingEntry {
+                    balance: Uint128::from(0u64),
+                    completion_time: None,
+                    creation_height: 0u64,
+                    initial_balance: Uint128::from(0u64),
+                },
+            ],
+            last_updated_height: 0u64,
+        },
+        drop_puppeteer_base::state::UnbondingDelegation {
+            validator_address: "validator_address2".to_string(),
+            query_id: 2u64,
+            unbonding_delegations: vec![],
+            last_updated_height: 0u64,
+        },
+    ];
+    puppeteer_base
+        .unbonding_delegations
+        .save(deps.as_mut().storage, "key1", &unbonding_delegations[0])
+        .unwrap();
+    puppeteer_base
+        .unbonding_delegations
+        .save(deps.as_mut().storage, "key2", &unbonding_delegations[1])
+        .unwrap();
+    let query_res: Vec<drop_puppeteer_base::state::UnbondingDelegation> = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::UnbondingDelegations {},
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(query_res, unbonding_delegations);
 }
