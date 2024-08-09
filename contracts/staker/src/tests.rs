@@ -78,6 +78,48 @@ fn test_instantiate() {
 }
 
 #[test]
+fn test_update_config_unauthorized() {
+    let mut deps = mock_dependencies(&[]);
+    instantiate(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("admin", &[]),
+        drop_staking_base::msg::staker::InstantiateMsg {
+            connection_id: "connection".to_string(),
+            timeout: 10u64,
+            port_id: "port_id".to_string(),
+            transfer_channel_id: "transfer_channel_id".to_string(),
+            remote_denom: "remote_denom".to_string(),
+            base_denom: "base_denom".to_string(),
+            allowed_senders: vec!["core".to_string()],
+            min_ibc_transfer: Uint128::from(10000u128),
+            min_staking_amount: Uint128::from(10000u128),
+            owner: Some("owner".to_string()),
+        },
+    )
+    .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("admin", &[]),
+        drop_staking_base::msg::staker::ExecuteMsg::UpdateConfig {
+            new_config: Box::new(ConfigOptional {
+                timeout: None,
+                allowed_senders: None,
+                puppeteer_ica: None,
+                min_ibc_transfer: None,
+                min_staking_amount: None,
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+    );
+}
+
+#[test]
 fn test_update_config() {
     let mut deps = mock_dependencies(&[]);
     let msg = drop_staking_base::msg::staker::InstantiateMsg {
@@ -92,22 +134,19 @@ fn test_update_config() {
         min_staking_amount: Uint128::from(10000u128),
         owner: Some("owner".to_string()),
     };
-    let _res = instantiate(deps.as_mut(), mock_env(), mock_info("admin", &[]), msg).unwrap();
-    let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap();
-    let msg = ConfigOptional {
-        timeout: Some(20u64),
-        allowed_senders: Some(vec!["new_core".to_string()]),
-        puppeteer_ica: Some("puppeteer_ica".to_string()),
-        min_ibc_transfer: Some(Uint128::from(110000u128)),
-        min_staking_amount: Some(Uint128::from(110000u128)),
-    };
+    let _res = instantiate(deps.as_mut(), mock_env(), mock_info("owner", &[]), msg).unwrap();
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[]),
+        mock_info("owner", &[]),
         drop_staking_base::msg::staker::ExecuteMsg::UpdateConfig {
-            new_config: Box::new(msg),
+            new_config: Box::new(ConfigOptional {
+                timeout: Some(20u64),
+                allowed_senders: Some(vec!["new_core".to_string()]),
+                puppeteer_ica: Some("puppeteer_ica".to_string()),
+                min_ibc_transfer: Some(Uint128::from(110000u128)),
+                min_staking_amount: Some(Uint128::from(110000u128)),
+            }),
         },
     )
     .unwrap();
