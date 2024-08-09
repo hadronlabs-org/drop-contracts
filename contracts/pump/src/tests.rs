@@ -124,7 +124,7 @@ fn test_update_config() {
         dest_address: Some("dest_address".to_string()),
         dest_channel: Some("dest_channel".to_string()),
         dest_port: Some("dest_port".to_string()),
-        connection_id: "connection".to_string(),
+        connection_id: "connection_id".to_string(),
         refundee: Some("refundee".to_string()),
         timeout: drop_staking_base::state::pump::PumpTimeout {
             local: Some(0u64),
@@ -140,7 +140,7 @@ fn test_update_config() {
         dest_address: Some("new_dest_address".to_string()),
         dest_channel: Some("new_dest_channel".to_string()),
         dest_port: Some("new_dest_port".to_string()),
-        connection_id: Some("new_connection".to_string()),
+        connection_id: Some("new_connection_id".to_string()),
         refundee: Some("new_refundee".to_string()),
         timeout: Some(drop_staking_base::state::pump::PumpTimeout {
             local: Some(1u64),
@@ -153,18 +153,26 @@ fn test_update_config() {
         mock_env(),
         mock_info("admin", &[]),
         drop_staking_base::msg::pump::ExecuteMsg::UpdateConfig {
-            new_config: Box::new(msg),
+            new_config: Box::new(msg.clone()),
         },
     )
     .unwrap();
     assert_eq!(
         res,
-        Response::new().add_event(Event::new(
-            "crates.io:drop-neutron-contracts__drop-pump-update_config"
-        ).add_attributes(vec![
-            ("action","update_config"),
-            ("new_config", "UpdateConfigMsg { dest_address: Some(\"new_dest_address\"), dest_channel: Some(\"new_dest_channel\"), dest_port: Some(\"new_dest_port\"), connection_id: Some(\"new_connection\"), refundee: Some(\"new_refundee\"), timeout: Some(PumpTimeout { local: Some(1), remote: 1 }), local_denom: Some(\"new_local_denom\") }")
-        ]))
+        Response::new().add_event(
+            Event::new("crates.io:drop-neutron-contracts__drop-pump-update_config").add_attributes(
+                vec![
+                    cosmwasm_std::attr("action", "update_config"),
+                    cosmwasm_std::attr("dest_address", "new_dest_address"),
+                    cosmwasm_std::attr("dest_channel", "new_dest_channel"),
+                    cosmwasm_std::attr("dest_port", "new_dest_port"),
+                    cosmwasm_std::attr("connection_id", "new_connection_id"),
+                    cosmwasm_std::attr("refundee", "new_refundee"),
+                    cosmwasm_std::attr("timeout", format!("{:?}", msg.timeout.unwrap())),
+                    cosmwasm_std::attr("local_denom", "new_local_denom"),
+                ]
+            )
+        )
     );
     let config = CONFIG.load(deps.as_ref().storage).unwrap();
     assert_eq!(
@@ -173,7 +181,7 @@ fn test_update_config() {
             dest_address: Some(Addr::unchecked("new_dest_address")),
             dest_channel: Some("new_dest_channel".to_string()),
             dest_port: Some("new_dest_port".to_string()),
-            connection_id: "new_connection".to_string(),
+            connection_id: "new_connection_id".to_string(),
             refundee: Some(Addr::unchecked("new_refundee")),
             timeout: drop_staking_base::state::pump::PumpTimeout {
                 local: Some(1u64),
