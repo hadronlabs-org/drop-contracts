@@ -334,7 +334,7 @@ fn test_execute_refund_success_refundee() {
 }
 
 #[test]
-fn test_execute_refund_success_owner() {
+fn test_execute_refund() {
     let msg = drop_staking_base::msg::pump::ExecuteMsg::Refund {
         coins: coins(200, "untrn"),
     };
@@ -342,11 +342,8 @@ fn test_execute_refund_success_owner() {
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
-    {
-        let deps = deps.as_mut();
-        cw_ownable::initialize_owner(deps.storage, deps.api, Some("owner")).unwrap();
-    }
-
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     let res = execute(deps.as_mut(), mock_env(), mock_info("owner", &[]), msg).unwrap();
     assert_eq!(
         res,
@@ -363,7 +360,7 @@ fn test_execute_refund_success_owner() {
 }
 
 #[test]
-fn test_execute_refund_permission_denied() {
+fn test_execute_refund_unauthorized() {
     let msg = drop_staking_base::msg::pump::ExecuteMsg::Refund {
         coins: coins(200, "untrn"),
     };
@@ -371,12 +368,15 @@ fn test_execute_refund_permission_denied() {
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
-    {
-        let deps = deps.as_mut();
-        cw_ownable::initialize_owner(deps.storage, deps.api, Some("owner")).unwrap();
-    }
-
-    let err = execute(deps.as_mut(), mock_env(), mock_info("nobody", &[]), msg).unwrap_err();
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let err = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_an_owner", &[]),
+        msg,
+    )
+    .unwrap_err();
     assert_eq!(err, crate::error::ContractError::Unauthorized {});
 }
 
