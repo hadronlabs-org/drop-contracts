@@ -497,7 +497,51 @@ fn test_instantiate() {
 }
 
 #[test]
-fn test_update_config_core() {
+fn test_update_config_core_unauthorized() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let new_core_config = drop_staking_base::state::core::ConfigOptional {
+        token_contract: None,
+        puppeteer_contract: None,
+        strategy_contract: None,
+        staker_contract: None,
+        withdrawal_voucher_contract: None,
+        withdrawal_manager_contract: None,
+        validators_set_contract: None,
+        base_denom: None,
+        remote_denom: None,
+        idle_min_interval: None,
+        unbonding_period: None,
+        unbonding_safe_period: None,
+        unbond_batch_switch_time: None,
+        pump_ica_address: None,
+        transfer_channel_id: None,
+        lsm_min_bond_amount: None,
+        lsm_redeem_threshold: None,
+        lsm_redeem_maximum_interval: None,
+        bond_limit: None,
+        rewards_receiver: None,
+        emergency_address: None,
+        min_stake_amount: None,
+    };
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("not_an_owner", &[]),
+        ExecuteMsg::UpdateConfig(Box::new(UpdateConfigMsg::Core(Box::new(
+            new_core_config.clone(),
+        )))),
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+    );
+}
+
+#[test]
+fn test_update_config_core_authorized() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
