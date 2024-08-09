@@ -403,6 +403,10 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
     match msg {
         QueryMsg::State {} => to_json_binary(&STATE.load(deps.storage)?),
         QueryMsg::PauseInfo {} => query_pause_info(deps),
+        QueryMsg::Ownership {} => {
+            let ownership = cw_ownable::get_ownership(deps.storage)?;
+            Ok(to_json_binary(&ownership)?)
+        }
     }
 }
 

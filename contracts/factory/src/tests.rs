@@ -1187,3 +1187,27 @@ fn test_query_pause_info() {
         }
     );
 }
+
+#[test]
+fn test_query_ownership() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            crate::msg::QueryMsg::Ownership {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        cw_ownable::Ownership {
+            owner: Some(cosmwasm_std::Addr::unchecked("owner".to_string())),
+            pending_expiry: None,
+            pending_owner: None
+        }
+    );
+}
