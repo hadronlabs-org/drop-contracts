@@ -496,68 +496,77 @@ fn test_instantiate() {
 }
 
 #[test]
-fn test_update_config() {
+fn test_update_config_core() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     STATE
         .save(deps_mut.storage, &get_default_factory_state())
         .unwrap();
-    {
-        let new_core_config = drop_staking_base::state::core::ConfigOptional {
-            token_contract: Some("token_contract1".to_string()),
-            puppeteer_contract: Some("puppeteer_contract1".to_string()),
-            strategy_contract: Some("strategy_contract1".to_string()),
-            staker_contract: Some("staker_contract1".to_string()),
-            withdrawal_voucher_contract: Some("withdrawal_voucher_contract1".to_string()),
-            withdrawal_manager_contract: Some("withdrawal_manager_contract1".to_string()),
-            validators_set_contract: Some("validators_set_contract1".to_string()),
-            base_denom: Some("base_denom1".to_string()),
-            remote_denom: Some("remote_denom1".to_string()),
-            idle_min_interval: Some(1u64),
-            unbonding_period: Some(1u64),
-            unbonding_safe_period: Some(1u64),
-            unbond_batch_switch_time: Some(1u64),
-            pump_ica_address: Some("pump_ica_address1".to_string()),
-            transfer_channel_id: Some("channel-1".to_string()),
-            lsm_min_bond_amount: Some(Uint128::from(1u64)),
-            lsm_redeem_threshold: Some(1u64),
-            lsm_redeem_maximum_interval: Some(1u64),
-            bond_limit: Some(Uint128::from(1u64)),
-            rewards_receiver: Some("rewards_receiver1".to_string()),
-            emergency_address: Some("emergency_address1".to_string()),
-            min_stake_amount: Some(Uint128::from(1u64)),
-        };
-        let res = execute(
-            deps.as_mut().into_empty(),
-            mock_env(),
-            mock_info("owner", &[]),
-            ExecuteMsg::UpdateConfig(Box::new(UpdateConfigMsg::Core(Box::new(
-                new_core_config.clone(),
-            )))),
-        )
-        .unwrap();
-        assert_eq!(
-            res,
-            cosmwasm_std::Response::new()
-                .add_event(
-                    cosmwasm_std::Event::new(
-                        "crates.io:drop-staking__drop-factory-execute-update-config"
-                    )
-                    .add_attributes(vec![attr("action", "update-config")])
+
+    let new_core_config = drop_staking_base::state::core::ConfigOptional {
+        token_contract: Some("token_contract1".to_string()),
+        puppeteer_contract: Some("puppeteer_contract1".to_string()),
+        strategy_contract: Some("strategy_contract1".to_string()),
+        staker_contract: Some("staker_contract1".to_string()),
+        withdrawal_voucher_contract: Some("withdrawal_voucher_contract1".to_string()),
+        withdrawal_manager_contract: Some("withdrawal_manager_contract1".to_string()),
+        validators_set_contract: Some("validators_set_contract1".to_string()),
+        base_denom: Some("base_denom1".to_string()),
+        remote_denom: Some("remote_denom1".to_string()),
+        idle_min_interval: Some(1u64),
+        unbonding_period: Some(1u64),
+        unbonding_safe_period: Some(1u64),
+        unbond_batch_switch_time: Some(1u64),
+        pump_ica_address: Some("pump_ica_address1".to_string()),
+        transfer_channel_id: Some("channel-1".to_string()),
+        lsm_min_bond_amount: Some(Uint128::from(1u64)),
+        lsm_redeem_threshold: Some(1u64),
+        lsm_redeem_maximum_interval: Some(1u64),
+        bond_limit: Some(Uint128::from(1u64)),
+        rewards_receiver: Some("rewards_receiver1".to_string()),
+        emergency_address: Some("emergency_address1".to_string()),
+        min_stake_amount: Some(Uint128::from(1u64)),
+    };
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::UpdateConfig(Box::new(UpdateConfigMsg::Core(Box::new(
+            new_core_config.clone(),
+        )))),
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new()
+            .add_event(
+                cosmwasm_std::Event::new(
+                    "crates.io:drop-staking__drop-factory-execute-update-config"
                 )
-                .add_submessages(vec![cosmwasm_std::SubMsg::new(
-                    cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "core_contract".to_string(),
-                        msg: to_json_binary(&CoreExecuteMsg::UpdateConfig {
-                            new_config: Box::new(new_core_config.clone())
-                        })
-                        .unwrap(),
-                        funds: vec![]
+                .add_attributes(vec![attr("action", "update-config")])
+            )
+            .add_submessages(vec![cosmwasm_std::SubMsg::new(
+                cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
+                    contract_addr: "core_contract".to_string(),
+                    msg: to_json_binary(&CoreExecuteMsg::UpdateConfig {
+                        new_config: Box::new(new_core_config.clone())
                     })
-                )])
-        );
-    }
+                    .unwrap(),
+                    funds: vec![]
+                })
+            )])
+    );
+}
+
+#[test]
+fn test_update_config_validators_set() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    STATE
+        .save(deps_mut.storage, &get_default_factory_state())
+        .unwrap();
     {
         let new_validator_set_config = drop_staking_base::state::validatorset::ConfigOptional {
             stats_contract: Some("validator_stats_contract".to_string()),
