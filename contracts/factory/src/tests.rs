@@ -859,6 +859,24 @@ fn test_admin_execute_authorized() {
 }
 
 #[test]
+fn test_pause_unauthorized() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("not_an_owner", &[]),
+        ExecuteMsg::Pause {},
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+    );
+}
+
+#[test]
 fn test_pause_authorized() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
