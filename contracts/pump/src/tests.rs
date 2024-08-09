@@ -821,6 +821,29 @@ fn test_sudo_tx_query_result_not_supported() {
 }
 
 #[test]
+fn test_sudo_open_ack_invalid_version() {
+    let mut deps = mock_dependencies(&[]);
+    assert_eq!(ICA.load(deps.as_mut().storage).unwrap(), IcaState::None);
+    let res = sudo(
+        deps.as_mut(),
+        mock_env(),
+        SudoMsg::OpenAck {
+            port_id: "transfer".to_string(),
+            channel_id: "channel-0".to_string(),
+            counterparty_channel_id: "channel-0".to_string(),
+            counterparty_version: "invalid_version".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        ContractError::Std(cosmwasm_std::StdError::generic_err(
+            "can't parse version".to_string()
+        ))
+    );
+}
+
+#[test]
 fn test_sudo_open_ack() {
     let mut deps = mock_dependencies(&[]);
     assert_eq!(ICA.load(deps.as_mut().storage).unwrap(), IcaState::None);
