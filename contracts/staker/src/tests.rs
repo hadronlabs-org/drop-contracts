@@ -183,17 +183,15 @@ fn test_register_ica_no_fee() {
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
-    let msg = drop_staking_base::msg::staker::ExecuteMsg::RegisterICA {};
-
-    let err = execute(
+    let res = execute(
         deps.as_mut(),
         mock_env(),
         mock_info("nobody", &[]),
-        msg.clone(),
+        drop_staking_base::msg::staker::ExecuteMsg::RegisterICA {},
     )
     .unwrap_err();
     assert_eq!(
-        err,
+        res,
         ContractError::InvalidFunds {
             reason: "missing fee in denom untrn".to_string()
         }
