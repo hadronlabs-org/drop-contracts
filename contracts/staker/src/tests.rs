@@ -1677,7 +1677,7 @@ fn test_sudo_open_ack() {
 }
 
 #[test]
-fn test_submit_tx_reply() {
+fn test_reply_submit_tx_reply() {
     let mut deps = mock_dependencies(&[]);
     {
         let res = crate::contract::reply(
@@ -1743,7 +1743,7 @@ fn test_submit_tx_reply() {
 }
 
 #[test]
-fn test_submit_ibc_transfer_reply() {
+fn test_reply_submit_ibc_transfer() {
     let mut deps = mock_dependencies(&[]);
     {
         let res = crate::contract::reply(
