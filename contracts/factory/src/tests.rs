@@ -841,7 +841,29 @@ fn test_proxy_core_pause_authorized() {
 }
 
 #[test]
-fn test_proxy_core_unpause() {
+fn test_proxy_core_unpause_unauthorized() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    STATE
+        .save(deps_mut.storage, &get_default_factory_state())
+        .unwrap();
+
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("not_an_owner", &[]),
+        ExecuteMsg::Proxy(ProxyMsg::Core(CoreMsg::Unpause {})),
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+    );
+}
+
+#[test]
+fn test_proxy_core_unpause_authorized() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
