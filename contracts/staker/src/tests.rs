@@ -450,157 +450,170 @@ fn test_ibc_transfer() {
 }
 
 #[test]
-fn test_stake() {
+fn test_stake_unauthorized() {
     let mut deps = mock_dependencies(&[]);
-    {
-        let config = get_default_config();
-        CONFIG.save(deps.as_mut().storage, &config).unwrap();
-        let msg_items = vec![
-            ("validator1".to_string(), Uint128::from(5000u64)),
-            ("validator2".to_string(), Uint128::from(5000u64)),
-        ];
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("unauthorized_sender", &coins(0u128, "untrn")),
-            drop_staking_base::msg::staker::ExecuteMsg::Stake {
-                items: msg_items.clone(),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(res, crate::error::ContractError::Unauthorized {})
-    }
-    {
-        let config = get_default_config();
-        CONFIG.save(deps.as_mut().storage, &config).unwrap();
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        let msg_items = vec![
-            ("validator1".to_string(), Uint128::from(5000u64)),
-            ("validator2".to_string(), Uint128::from(5000u64)),
-        ];
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("core", &coins(0u128, "untrn")),
-            drop_staking_base::msg::staker::ExecuteMsg::Stake {
-                items: msg_items.clone(),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::InvalidState {
-                reason: "tx_state is not idle".to_string()
-            }
-        )
-    }
-    {
-        let config = get_default_config();
-        CONFIG.save(deps.as_mut().storage, &config).unwrap();
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::Idle,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        NON_STAKED_BALANCE
-            .save(deps.as_mut().storage, &Uint128::from(0u64))
-            .unwrap();
-        let msg_items = vec![
-            ("validator1".to_string(), Uint128::from(5000u64)),
-            ("validator2".to_string(), Uint128::from(5000u64)),
-        ];
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("core", &coins(0u128, "untrn")),
-            drop_staking_base::msg::staker::ExecuteMsg::Stake {
-                items: msg_items.clone(),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::InvalidFunds {
-                reason: "no funds to stake".to_string()
-            }
-        )
-    }
-    {
-        let config = get_default_config();
-        deps.querier.add_custom_query_response(|_| {
-            to_json_binary(&MinIbcFeeResponse {
-                min_fee: IbcFee {
-                    recv_fee: vec![],
-                    ack_fee: coins(100, "untrn"),
-                    timeout_fee: coins(200, "untrn"),
-                },
-            })
-            .unwrap()
-        });
-        NON_STAKED_BALANCE
-            .save(deps.as_mut().storage, &Uint128::from(10000u64))
-            .unwrap();
-        CONFIG.save(deps.as_mut().storage, &config).unwrap();
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::Idle,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        ICA.set_address(
+    let config = get_default_config();
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    let msg_items = vec![
+        ("validator1".to_string(), Uint128::from(5000u64)),
+        ("validator2".to_string(), Uint128::from(5000u64)),
+    ];
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("unauthorized_sender", &coins(0u128, "untrn")),
+        drop_staking_base::msg::staker::ExecuteMsg::Stake {
+            items: msg_items.clone(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, crate::error::ContractError::Unauthorized {})
+}
+
+#[test]
+fn test_stake_not_idle() {
+    let mut deps = mock_dependencies(&[]);
+    let config = get_default_config();
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    TX_STATE
+        .save(
             deps.as_mut().storage,
-            "ica_address".to_string(),
-            "port_id".to_string(),
-            "channel_id".to_string(),
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
         )
         .unwrap();
-        let msg_items = vec![
-            ("validator1".to_string(), Uint128::from(0u64)),
-            ("validator2".to_string(), Uint128::from(0u64)),
-        ];
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("core", &coins(0u128, "untrn")),
-            drop_staking_base::msg::staker::ExecuteMsg::Stake {
-                items: msg_items.clone(),
+    let msg_items = vec![
+        ("validator1".to_string(), Uint128::from(5000u64)),
+        ("validator2".to_string(), Uint128::from(5000u64)),
+    ];
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &coins(0u128, "untrn")),
+        drop_staking_base::msg::staker::ExecuteMsg::Stake {
+            items: msg_items.clone(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::InvalidState {
+            reason: "tx_state is not idle".to_string()
+        }
+    )
+}
+
+#[test]
+fn test_stake_no_funds_to_stake() {
+    let mut deps = mock_dependencies(&[]);
+
+    let config = get_default_config();
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
             },
         )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::InvalidFunds {
-                reason: "amount is less than min_staking_amount".to_string()
-            }
+        .unwrap();
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(0u64))
+        .unwrap();
+    let msg_items = vec![
+        ("validator1".to_string(), Uint128::from(5000u64)),
+        ("validator2".to_string(), Uint128::from(5000u64)),
+    ];
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &coins(0u128, "untrn")),
+        drop_staking_base::msg::staker::ExecuteMsg::Stake {
+            items: msg_items.clone(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::InvalidFunds {
+            reason: "no funds to stake".to_string()
+        }
+    )
+}
+
+#[test]
+fn test_stake_less_than_min_staking_amount() {
+    let mut deps = mock_dependencies(&[]);
+    let config = get_default_config();
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: coins(100, "untrn"),
+                timeout_fee: coins(200, "untrn"),
+            },
+        })
+        .unwrap()
+    });
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(10000u64))
+        .unwrap();
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
         )
-    }
+        .unwrap();
+    ICA.set_address(
+        deps.as_mut().storage,
+        "ica_address".to_string(),
+        "port_id".to_string(),
+        "channel_id".to_string(),
+    )
+    .unwrap();
+    let msg_items = vec![
+        ("validator1".to_string(), Uint128::from(0u64)),
+        ("validator2".to_string(), Uint128::from(0u64)),
+    ];
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &coins(0u128, "untrn")),
+        drop_staking_base::msg::staker::ExecuteMsg::Stake {
+            items: msg_items.clone(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::InvalidFunds {
+            reason: "amount is less than min_staking_amount".to_string()
+        }
+    )
+}
+
+#[test]
+fn test_stake_not_enough_funds_to_stake() {
+    let mut deps = mock_dependencies(&[]);
     {
         let config = get_default_config();
         deps.querier.add_custom_query_response(|_| {
@@ -657,61 +670,118 @@ fn test_stake() {
             }
         )
     }
-    {
-        let config = get_default_config();
-        deps.querier.add_custom_query_response(|_| {
-            to_json_binary(&MinIbcFeeResponse {
-                min_fee: IbcFee {
-                    recv_fee: vec![],
-                    ack_fee: coins(100, "untrn"),
-                    timeout_fee: coins(200, "untrn"),
-                },
-            })
-            .unwrap()
-        });
-        NON_STAKED_BALANCE
-            .save(deps.as_mut().storage, &Uint128::from(10000u64))
-            .unwrap();
-        CONFIG.save(deps.as_mut().storage, &config).unwrap();
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::Idle,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        ICA.set_address(
-            deps.as_mut().storage,
-            "ica_address".to_string(),
-            "port_id".to_string(),
-            "channel_id".to_string(),
-        )
+}
+
+#[test]
+fn test_stake_puppeteer_ica_not_set() {
+    let mut deps = mock_dependencies(&[]);
+    let mut config = get_default_config();
+    config.puppeteer_ica = None;
+    config.min_staking_amount = Uint128::from(0u64);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: coins(100, "untrn"),
+                timeout_fee: coins(200, "untrn"),
+            },
+        })
+        .unwrap()
+    });
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(10000u64))
         .unwrap();
-        let msg_items = vec![
-            ("validator1".to_string(), Uint128::from(5000u64)),
-            ("validator2".to_string(), Uint128::from(5000u64)),
-        ];
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("core", &coins(0u128, "untrn")),
-            drop_staking_base::msg::staker::ExecuteMsg::Stake {
-                items: msg_items.clone(),
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
             },
         )
         .unwrap();
-        let ica_address = ICA.get_address(deps.as_mut().storage).unwrap();
-        let puppeteer_ica = config.puppeteer_ica.unwrap();
-        let amount_to_stake = msg_items
-            .iter()
-            .fold(Uint128::zero(), |acc, (_, amount)| acc + *amount);
-        assert_eq!(
+    ICA.set_address(
+        deps.as_mut().storage,
+        "ica_address".to_string(),
+        "port_id".to_string(),
+        "channel_id".to_string(),
+    )
+    .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &coins(0u128, "untrn")),
+        drop_staking_base::msg::staker::ExecuteMsg::Stake { items: vec![] },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        ContractError::Std(StdError::generic_err("puppeteer_ica not set"))
+    )
+}
+
+#[test]
+fn test_stake() {
+    let mut deps = mock_dependencies(&[]);
+    let config = get_default_config();
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: coins(100, "untrn"),
+                timeout_fee: coins(200, "untrn"),
+            },
+        })
+        .unwrap()
+    });
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(10000u64))
+        .unwrap();
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    ICA.set_address(
+        deps.as_mut().storage,
+        "ica_address".to_string(),
+        "port_id".to_string(),
+        "channel_id".to_string(),
+    )
+    .unwrap();
+    let msg_items = vec![
+        ("validator1".to_string(), Uint128::from(5000u64)),
+        ("validator2".to_string(), Uint128::from(5000u64)),
+    ];
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &coins(0u128, "untrn")),
+        drop_staking_base::msg::staker::ExecuteMsg::Stake {
+            items: msg_items.clone(),
+        },
+    )
+    .unwrap();
+    let ica_address = ICA.get_address(deps.as_mut().storage).unwrap();
+    let puppeteer_ica = config.puppeteer_ica.unwrap();
+    let amount_to_stake = msg_items
+        .iter()
+        .fold(Uint128::zero(), |acc, (_, amount)| acc + *amount);
+    assert_eq!(
             res,
             cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
                 id: 65536u64,
@@ -791,7 +861,6 @@ fn test_stake() {
                 ])
             )
         )
-    }
 }
 
 #[test]
