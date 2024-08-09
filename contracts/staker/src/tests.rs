@@ -58,15 +58,65 @@ fn test_instantiate() {
             ("sender", "admin")
         ]))
     );
+    assert_eq!(
+        TX_STATE.load(deps.as_mut().storage).unwrap(),
+        drop_staking_base::state::staker::TxState::default()
+    );
     let config = CONFIG.load(deps.as_ref().storage).unwrap();
     let mut default_config = get_default_config();
     default_config.puppeteer_ica = None; // puppeteer_ica is not set at the time of instantiation
     assert_eq!(config, default_config);
+    assert_eq!(
+        NON_STAKED_BALANCE.load(deps.as_mut().storage).unwrap(),
+        Uint128::zero()
+    );
     let owner = cw_ownable::get_ownership(deps.as_ref().storage)
         .unwrap()
         .owner
         .unwrap();
     assert_eq!(owner, Addr::unchecked("owner"));
+}
+
+#[test]
+fn test_update_config_unauthorized() {
+    let mut deps = mock_dependencies(&[]);
+    instantiate(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("admin", &[]),
+        drop_staking_base::msg::staker::InstantiateMsg {
+            connection_id: "connection".to_string(),
+            timeout: 10u64,
+            port_id: "port_id".to_string(),
+            transfer_channel_id: "transfer_channel_id".to_string(),
+            remote_denom: "remote_denom".to_string(),
+            base_denom: "base_denom".to_string(),
+            allowed_senders: vec!["core".to_string()],
+            min_ibc_transfer: Uint128::from(10000u128),
+            min_staking_amount: Uint128::from(10000u128),
+            owner: Some("owner".to_string()),
+        },
+    )
+    .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("admin", &[]),
+        drop_staking_base::msg::staker::ExecuteMsg::UpdateConfig {
+            new_config: Box::new(ConfigOptional {
+                timeout: None,
+                allowed_senders: None,
+                puppeteer_ica: None,
+                min_ibc_transfer: None,
+                min_staking_amount: None,
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+    );
 }
 
 #[test]
@@ -84,22 +134,19 @@ fn test_update_config() {
         min_staking_amount: Uint128::from(10000u128),
         owner: Some("owner".to_string()),
     };
-    let _res = instantiate(deps.as_mut(), mock_env(), mock_info("admin", &[]), msg).unwrap();
-    let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap();
-    let msg = ConfigOptional {
-        timeout: Some(20u64),
-        allowed_senders: Some(vec!["new_core".to_string()]),
-        puppeteer_ica: Some("puppeteer_ica".to_string()),
-        min_ibc_transfer: Some(Uint128::from(110000u128)),
-        min_staking_amount: Some(Uint128::from(110000u128)),
-    };
+    let _res = instantiate(deps.as_mut(), mock_env(), mock_info("owner", &[]), msg).unwrap();
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[]),
+        mock_info("owner", &[]),
         drop_staking_base::msg::staker::ExecuteMsg::UpdateConfig {
-            new_config: Box::new(msg),
+            new_config: Box::new(ConfigOptional {
+                timeout: Some(20u64),
+                allowed_senders: Some(vec!["new_core".to_string()]),
+                puppeteer_ica: Some("puppeteer_ica".to_string()),
+                min_ibc_transfer: Some(Uint128::from(110000u128)),
+                min_staking_amount: Some(Uint128::from(110000u128)),
+            }),
         },
     )
     .unwrap();
@@ -136,17 +183,15 @@ fn test_register_ica_no_fee() {
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
-    let msg = drop_staking_base::msg::staker::ExecuteMsg::RegisterICA {};
-
-    let err = execute(
+    let res = execute(
         deps.as_mut(),
         mock_env(),
         mock_info("nobody", &[]),
-        msg.clone(),
+        drop_staking_base::msg::staker::ExecuteMsg::RegisterICA {},
     )
     .unwrap_err();
     assert_eq!(
-        err,
+        res,
         ContractError::InvalidFunds {
             reason: "missing fee in denom untrn".to_string()
         }
@@ -231,331 +276,344 @@ fn test_register_ica() {
 }
 
 #[test]
+fn test_ibc_transfer_not_idle() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::InProgress,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("nobody", &coins(0u128, "untrn")),
+        drop_staking_base::msg::staker::ExecuteMsg::IBCTransfer {},
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::InvalidState {
+            reason: "tx_state is not idle".to_string()
+        }
+    );
+}
+
+#[test]
+fn test_ibc_transfer_less_than_min_ibc_transfer() {
+    let mut deps = mock_dependencies(&[cosmwasm_std::Coin {
+        denom: "base_denom".to_string(),
+        amount: Uint128::from(0u64),
+    }]);
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("nobody", &coins(0u128, "untrn")),
+        drop_staking_base::msg::staker::ExecuteMsg::IBCTransfer {},
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::InvalidFunds {
+            reason: "amount is less than min_ibc_transfer".to_string()
+        }
+    );
+}
+
+#[test]
 fn test_ibc_transfer() {
     let mut deps = mock_dependencies(&[cosmwasm_std::Coin {
         denom: "base_denom".to_string(),
         amount: Uint128::from(10000u64),
     }]);
-    {
-        CONFIG
-            .save(deps.as_mut().storage, &get_default_config())
-            .unwrap();
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::InProgress,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("nobody", &coins(0u128, "untrn")),
-            drop_staking_base::msg::staker::ExecuteMsg::IBCTransfer {},
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::InvalidState {
-                reason: "tx_state is not idle".to_string()
-            }
-        );
-    }
-    {
-        let mut invalid_contract_balance_deps = mock_dependencies(&[cosmwasm_std::Coin {
-            denom: "base_denom".to_string(),
-            amount: Uint128::from(0u64),
-        }]);
-        CONFIG
-            .save(
-                invalid_contract_balance_deps.as_mut().storage,
-                &get_default_config(),
-            )
-            .unwrap();
-        TX_STATE
-            .save(
-                invalid_contract_balance_deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::Idle,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        let res = execute(
-            invalid_contract_balance_deps.as_mut(),
-            mock_env(),
-            mock_info("nobody", &coins(0u128, "untrn")),
-            drop_staking_base::msg::staker::ExecuteMsg::IBCTransfer {},
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::InvalidFunds {
-                reason: "amount is less than min_ibc_transfer".to_string()
-            }
-        );
-    }
-    {
-        NON_STAKED_BALANCE
-            .save(deps.as_mut().storage, &Uint128::from(0u64))
-            .unwrap();
-        CONFIG
-            .save(deps.as_mut().storage, &get_default_config())
-            .unwrap();
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::Idle,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        ICA.set_address(
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(0u64))
+        .unwrap();
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+    TX_STATE
+        .save(
             deps.as_mut().storage,
-            "ica_address".to_string(),
-            "port_id".to_string(),
-            "channel_id".to_string(),
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
         )
         .unwrap();
-        deps.querier.add_custom_query_response(|_| {
-            to_json_binary(&MinIbcFeeResponse {
-                min_fee: IbcFee {
-                    recv_fee: vec![],
-                    ack_fee: coins(100, "untrn"),
-                    timeout_fee: coins(200, "untrn"),
-                },
+    ICA.set_address(
+        deps.as_mut().storage,
+        "ica_address".to_string(),
+        "port_id".to_string(),
+        "channel_id".to_string(),
+    )
+    .unwrap();
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: coins(100, "untrn"),
+                timeout_fee: coins(200, "untrn"),
+            },
+        })
+        .unwrap()
+    });
+    let env = mock_env();
+    let res = execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("nobody", &coins(0u128, "untrn")),
+        drop_staking_base::msg::staker::ExecuteMsg::IBCTransfer {},
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new()
+            .add_submessage(cosmwasm_std::SubMsg {
+                id: 131072u64,
+                msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::IbcTransfer {
+                    source_port: "port_id".to_string(),
+                    source_channel: "transfer_channel_id".to_string(),
+                    token: cosmwasm_std::Coin {
+                        denom: "base_denom".to_string(),
+                        amount: Uint128::from(10000u64),
+                    },
+                    sender: "cosmos2contract".to_string(),
+                    receiver: "ica_address".to_string(),
+                    timeout_height: neutron_sdk::sudo::msg::RequestPacketTimeoutHeight {
+                        revision_height: None,
+                        revision_number: None
+                    },
+                    timeout_timestamp: env
+                        .block
+                        .time
+                        .plus_seconds(CONFIG.load(deps.as_mut().storage).unwrap().timeout)
+                        .nanos(),
+                    memo: "".to_string(),
+                    fee: IbcFee {
+                        recv_fee: vec![],
+                        ack_fee: vec![cosmwasm_std::Coin {
+                            denom: "untrn".to_string(),
+                            amount: Uint128::from(100u64),
+                        }],
+                        timeout_fee: vec![cosmwasm_std::Coin {
+                            denom: "untrn".to_string(),
+                            amount: Uint128::from(200u64),
+                        }]
+                    }
+                }),
+                gas_limit: None,
+                reply_on: cosmwasm_std::ReplyOn::Success
             })
-            .unwrap()
-        });
-        let env = mock_env();
-        let res = execute(
-            deps.as_mut(),
-            env.clone(),
-            mock_info("nobody", &coins(0u128, "untrn")),
-            drop_staking_base::msg::staker::ExecuteMsg::IBCTransfer {},
-        )
-        .unwrap();
-        assert_eq!(
-            res,
-            cosmwasm_std::Response::new()
-                .add_submessage(cosmwasm_std::SubMsg {
-                    id: 131072u64,
-                    msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::IbcTransfer {
-                        source_port: "port_id".to_string(),
-                        source_channel: "transfer_channel_id".to_string(),
-                        token: cosmwasm_std::Coin {
-                            denom: "base_denom".to_string(),
-                            amount: Uint128::from(10000u64),
-                        },
-                        sender: "cosmos2contract".to_string(),
-                        receiver: "ica_address".to_string(),
-                        timeout_height: neutron_sdk::sudo::msg::RequestPacketTimeoutHeight {
-                            revision_height: None,
-                            revision_number: None
-                        },
-                        timeout_timestamp: env
-                            .block
-                            .time
-                            .plus_seconds(CONFIG.load(deps.as_mut().storage).unwrap().timeout)
-                            .nanos(),
-                        memo: "".to_string(),
-                        fee: IbcFee {
-                            recv_fee: vec![],
-                            ack_fee: vec![cosmwasm_std::Coin {
-                                denom: "untrn".to_string(),
-                                amount: Uint128::from(100u64),
-                            }],
-                            timeout_fee: vec![cosmwasm_std::Coin {
-                                denom: "untrn".to_string(),
-                                amount: Uint128::from(200u64),
-                            }]
-                        }
-                    }),
-                    gas_limit: None,
-                    reply_on: cosmwasm_std::ReplyOn::Success
-                })
-                .add_event(
-                    cosmwasm_std::Event::new(
-                        "crates.io:drop-neutron-contracts__drop-staker-ibc_transfer".to_string()
-                    )
-                    .add_attributes(vec![
-                        cosmwasm_std::attr("action".to_string(), "ibc_transfer".to_string()),
-                        cosmwasm_std::attr("connection_id".to_string(), "connection".to_string()),
-                        cosmwasm_std::attr("ica_id".to_string(), "drop_STAKER".to_string()),
-                        cosmwasm_std::attr("pending_amount".to_string(), "10000".to_string()),
-                    ])
+            .add_event(
+                cosmwasm_std::Event::new(
+                    "crates.io:drop-neutron-contracts__drop-staker-ibc_transfer".to_string()
                 )
-        );
-    }
+                .add_attributes(vec![
+                    cosmwasm_std::attr("action".to_string(), "ibc_transfer".to_string()),
+                    cosmwasm_std::attr("connection_id".to_string(), "connection".to_string()),
+                    cosmwasm_std::attr("ica_id".to_string(), "drop_STAKER".to_string()),
+                    cosmwasm_std::attr("pending_amount".to_string(), "10000".to_string()),
+                ])
+            )
+    );
 }
 
 #[test]
-fn test_stake() {
+fn test_stake_unauthorized() {
     let mut deps = mock_dependencies(&[]);
-    {
-        let config = get_default_config();
-        CONFIG.save(deps.as_mut().storage, &config).unwrap();
-        let msg_items = vec![
-            ("validator1".to_string(), Uint128::from(5000u64)),
-            ("validator2".to_string(), Uint128::from(5000u64)),
-        ];
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("unauthorized_sender", &coins(0u128, "untrn")),
-            drop_staking_base::msg::staker::ExecuteMsg::Stake {
-                items: msg_items.clone(),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(res, crate::error::ContractError::Unauthorized {})
-    }
-    {
-        let config = get_default_config();
-        CONFIG.save(deps.as_mut().storage, &config).unwrap();
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        let msg_items = vec![
-            ("validator1".to_string(), Uint128::from(5000u64)),
-            ("validator2".to_string(), Uint128::from(5000u64)),
-        ];
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("core", &coins(0u128, "untrn")),
-            drop_staking_base::msg::staker::ExecuteMsg::Stake {
-                items: msg_items.clone(),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::InvalidState {
-                reason: "tx_state is not idle".to_string()
-            }
-        )
-    }
-    {
-        let config = get_default_config();
-        CONFIG.save(deps.as_mut().storage, &config).unwrap();
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::Idle,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        NON_STAKED_BALANCE
-            .save(deps.as_mut().storage, &Uint128::from(0u64))
-            .unwrap();
-        let msg_items = vec![
-            ("validator1".to_string(), Uint128::from(5000u64)),
-            ("validator2".to_string(), Uint128::from(5000u64)),
-        ];
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("core", &coins(0u128, "untrn")),
-            drop_staking_base::msg::staker::ExecuteMsg::Stake {
-                items: msg_items.clone(),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::InvalidFunds {
-                reason: "no funds to stake".to_string()
-            }
-        )
-    }
-    {
-        let config = get_default_config();
-        deps.querier.add_custom_query_response(|_| {
-            to_json_binary(&MinIbcFeeResponse {
-                min_fee: IbcFee {
-                    recv_fee: vec![],
-                    ack_fee: coins(100, "untrn"),
-                    timeout_fee: coins(200, "untrn"),
-                },
-            })
-            .unwrap()
-        });
-        NON_STAKED_BALANCE
-            .save(deps.as_mut().storage, &Uint128::from(10000u64))
-            .unwrap();
-        CONFIG.save(deps.as_mut().storage, &config).unwrap();
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::Idle,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        ICA.set_address(
+    let config = get_default_config();
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    let msg_items = vec![
+        ("validator1".to_string(), Uint128::from(5000u64)),
+        ("validator2".to_string(), Uint128::from(5000u64)),
+    ];
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("unauthorized_sender", &coins(0u128, "untrn")),
+        drop_staking_base::msg::staker::ExecuteMsg::Stake {
+            items: msg_items.clone(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, crate::error::ContractError::Unauthorized {})
+}
+
+#[test]
+fn test_stake_not_idle() {
+    let mut deps = mock_dependencies(&[]);
+    let config = get_default_config();
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    TX_STATE
+        .save(
             deps.as_mut().storage,
-            "ica_address".to_string(),
-            "port_id".to_string(),
-            "channel_id".to_string(),
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
         )
         .unwrap();
-        let msg_items = vec![
-            ("validator1".to_string(), Uint128::from(0u64)),
-            ("validator2".to_string(), Uint128::from(0u64)),
-        ];
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("core", &coins(0u128, "untrn")),
-            drop_staking_base::msg::staker::ExecuteMsg::Stake {
-                items: msg_items.clone(),
+    let msg_items = vec![
+        ("validator1".to_string(), Uint128::from(5000u64)),
+        ("validator2".to_string(), Uint128::from(5000u64)),
+    ];
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &coins(0u128, "untrn")),
+        drop_staking_base::msg::staker::ExecuteMsg::Stake {
+            items: msg_items.clone(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::InvalidState {
+            reason: "tx_state is not idle".to_string()
+        }
+    )
+}
+
+#[test]
+fn test_stake_no_funds_to_stake() {
+    let mut deps = mock_dependencies(&[]);
+
+    let config = get_default_config();
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
             },
         )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::InvalidFunds {
-                reason: "amount is less than min_staking_amount".to_string()
-            }
+        .unwrap();
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(0u64))
+        .unwrap();
+    let msg_items = vec![
+        ("validator1".to_string(), Uint128::from(5000u64)),
+        ("validator2".to_string(), Uint128::from(5000u64)),
+    ];
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &coins(0u128, "untrn")),
+        drop_staking_base::msg::staker::ExecuteMsg::Stake {
+            items: msg_items.clone(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::InvalidFunds {
+            reason: "no funds to stake".to_string()
+        }
+    )
+}
+
+#[test]
+fn test_stake_less_than_min_staking_amount() {
+    let mut deps = mock_dependencies(&[]);
+    let config = get_default_config();
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: coins(100, "untrn"),
+                timeout_fee: coins(200, "untrn"),
+            },
+        })
+        .unwrap()
+    });
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(10000u64))
+        .unwrap();
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
         )
-    }
+        .unwrap();
+    ICA.set_address(
+        deps.as_mut().storage,
+        "ica_address".to_string(),
+        "port_id".to_string(),
+        "channel_id".to_string(),
+    )
+    .unwrap();
+    let msg_items = vec![
+        ("validator1".to_string(), Uint128::from(0u64)),
+        ("validator2".to_string(), Uint128::from(0u64)),
+    ];
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &coins(0u128, "untrn")),
+        drop_staking_base::msg::staker::ExecuteMsg::Stake {
+            items: msg_items.clone(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::InvalidFunds {
+            reason: "amount is less than min_staking_amount".to_string()
+        }
+    )
+}
+
+#[test]
+fn test_stake_not_enough_funds_to_stake() {
+    let mut deps = mock_dependencies(&[]);
     {
         let config = get_default_config();
         deps.querier.add_custom_query_response(|_| {
@@ -612,61 +670,118 @@ fn test_stake() {
             }
         )
     }
-    {
-        let config = get_default_config();
-        deps.querier.add_custom_query_response(|_| {
-            to_json_binary(&MinIbcFeeResponse {
-                min_fee: IbcFee {
-                    recv_fee: vec![],
-                    ack_fee: coins(100, "untrn"),
-                    timeout_fee: coins(200, "untrn"),
-                },
-            })
-            .unwrap()
-        });
-        NON_STAKED_BALANCE
-            .save(deps.as_mut().storage, &Uint128::from(10000u64))
-            .unwrap();
-        CONFIG.save(deps.as_mut().storage, &config).unwrap();
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::Idle,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        ICA.set_address(
-            deps.as_mut().storage,
-            "ica_address".to_string(),
-            "port_id".to_string(),
-            "channel_id".to_string(),
-        )
+}
+
+#[test]
+fn test_stake_puppeteer_ica_not_set() {
+    let mut deps = mock_dependencies(&[]);
+    let mut config = get_default_config();
+    config.puppeteer_ica = None;
+    config.min_staking_amount = Uint128::from(0u64);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: coins(100, "untrn"),
+                timeout_fee: coins(200, "untrn"),
+            },
+        })
+        .unwrap()
+    });
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(10000u64))
         .unwrap();
-        let msg_items = vec![
-            ("validator1".to_string(), Uint128::from(5000u64)),
-            ("validator2".to_string(), Uint128::from(5000u64)),
-        ];
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("core", &coins(0u128, "untrn")),
-            drop_staking_base::msg::staker::ExecuteMsg::Stake {
-                items: msg_items.clone(),
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
             },
         )
         .unwrap();
-        let ica_address = ICA.get_address(deps.as_mut().storage).unwrap();
-        let puppeteer_ica = config.puppeteer_ica.unwrap();
-        let amount_to_stake = msg_items
-            .iter()
-            .fold(Uint128::zero(), |acc, (_, amount)| acc + *amount);
-        assert_eq!(
+    ICA.set_address(
+        deps.as_mut().storage,
+        "ica_address".to_string(),
+        "port_id".to_string(),
+        "channel_id".to_string(),
+    )
+    .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &coins(0u128, "untrn")),
+        drop_staking_base::msg::staker::ExecuteMsg::Stake { items: vec![] },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        ContractError::Std(StdError::generic_err("puppeteer_ica not set"))
+    )
+}
+
+#[test]
+fn test_stake() {
+    let mut deps = mock_dependencies(&[]);
+    let config = get_default_config();
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: coins(100, "untrn"),
+                timeout_fee: coins(200, "untrn"),
+            },
+        })
+        .unwrap()
+    });
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(10000u64))
+        .unwrap();
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    ICA.set_address(
+        deps.as_mut().storage,
+        "ica_address".to_string(),
+        "port_id".to_string(),
+        "channel_id".to_string(),
+    )
+    .unwrap();
+    let msg_items = vec![
+        ("validator1".to_string(), Uint128::from(5000u64)),
+        ("validator2".to_string(), Uint128::from(5000u64)),
+    ];
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &coins(0u128, "untrn")),
+        drop_staking_base::msg::staker::ExecuteMsg::Stake {
+            items: msg_items.clone(),
+        },
+    )
+    .unwrap();
+    let ica_address = ICA.get_address(deps.as_mut().storage).unwrap();
+    let puppeteer_ica = config.puppeteer_ica.unwrap();
+    let amount_to_stake = msg_items
+        .iter()
+        .fold(Uint128::zero(), |acc, (_, amount)| acc + *amount);
+    assert_eq!(
             res,
             cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
                 id: 65536u64,
@@ -746,737 +861,740 @@ fn test_stake() {
                 ])
             )
         )
-    }
+}
+
+#[test]
+fn test_sudo_response_seq_id_does_not_match() {
+    let mut deps = mock_dependencies(&[]);
+
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Response {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: Some(1u64),
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: None,
+                destination_channel: None,
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            data: cosmwasm_std::Binary::from([0; 0]),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::InvalidState {
+            reason: "seq_id does not match".to_string()
+        }
+    )
+}
+
+#[test]
+fn test_sudo_response_invalid_tx_state() {
+    let mut deps = mock_dependencies(&[]);
+
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(10000u64))
+        .unwrap();
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Response {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: Some(0u64),
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: None,
+                destination_channel: None,
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            data: cosmwasm_std::Binary::from([0; 0]),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::InvalidState {
+            reason: "tx_state is not WaitingForAck".to_string()
+        }
+    )
+}
+
+#[test]
+fn test_sudo_response_tx_not_found() {
+    let mut deps = mock_dependencies(&[]);
+
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: Some(0u64),
+                transaction: None,
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Response {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: Some(0u64),
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: Some("destination_port".to_string()),
+                destination_channel: Some("destination_channel".to_string()),
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            data: cosmwasm_std::Binary::from([0; 0]),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+            msg: "transaction not found".to_string()
+        })
+    );
+}
+
+#[test]
+fn test_sudo_response_ibc_client_state_not_found() {
+    let mut deps = mock_dependencies(&[]);
+
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(10000u64))
+        .unwrap();
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    deps.querier.add_stargate_query_response(
+        "/ibc.core.channel.v1.Query/ChannelClientState",
+        |_data| {
+            to_json_binary(
+                &drop_helpers::ibc_client_state::ChannelClientStateResponse {
+                    identified_client_state: None,
+                    proof: None,
+                    proof_height: drop_helpers::ibc_client_state::Height {
+                        revision_number: cosmwasm_std::Uint64::from(0u64),
+                        revision_height: cosmwasm_std::Uint64::from(33333u64),
+                    },
+                },
+            )
+            .unwrap()
+        },
+    );
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Response {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: Some(0u64),
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: Some("destination_port".to_string()),
+                destination_channel: Some("destination_channel".to_string()),
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            data: cosmwasm_std::Binary::from([0; 0]),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+            msg: "IBC client state identified_client_state not found".to_string()
+        })
+    );
+}
+
+#[test]
+fn test_sudo_response_ibc_client_state_latest_height_not_found() {
+    let mut deps = mock_dependencies(&[]);
+
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(10000u64))
+        .unwrap();
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    deps.querier.add_stargate_query_response(
+        "/ibc.core.channel.v1.Query/ChannelClientState",
+        |_data| {
+            to_json_binary(
+                &drop_helpers::ibc_client_state::ChannelClientStateResponse {
+                    identified_client_state: Some(
+                        drop_helpers::ibc_client_state::IdentifiedClientState {
+                            client_id: "07-tendermint-0".to_string(),
+                            client_state: drop_helpers::ibc_client_state::ClientState {
+                                chain_id: "test-1".to_string(),
+                                type_url: "type_url".to_string(),
+                                trust_level: drop_helpers::ibc_client_state::Fraction {
+                                    numerator: cosmwasm_std::Uint64::from(1u64),
+                                    denominator: cosmwasm_std::Uint64::from(3u64),
+                                },
+                                trusting_period: Some("1000".to_string()),
+                                unbonding_period: Some("1500".to_string()),
+                                max_clock_drift: Some("1000".to_string()),
+                                frozen_height: None,
+                                latest_height: None,
+                                proof_specs: vec![],
+                                upgrade_path: vec![],
+                                allow_update_after_expiry: true,
+                                allow_update_after_misbehaviour: true,
+                            },
+                        },
+                    ),
+                    proof: None,
+                    proof_height: drop_helpers::ibc_client_state::Height {
+                        revision_number: cosmwasm_std::Uint64::from(0u64),
+                        revision_height: cosmwasm_std::Uint64::from(33333u64),
+                    },
+                },
+            )
+            .unwrap()
+        },
+    );
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Response {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: Some(0u64),
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: Some("destination_port".to_string()),
+                destination_channel: Some("destination_channel".to_string()),
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            data: cosmwasm_std::Binary::from([0; 0]),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+            msg: "IBC client state latest_height not found".to_string()
+        })
+    );
 }
 
 #[test]
 fn test_sudo_response() {
     let mut deps = mock_dependencies(&[]);
-    {
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: None,
-                    source_port: None,
-                    source_channel: None,
-                    destination_port: None,
-                    destination_channel: None,
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "sequence not found".to_string()
-            })
-        )
-    }
-    {
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: None,
-                    source_channel: None,
-                    destination_port: None,
-                    destination_channel: None,
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "source_channel not found".to_string()
-            })
-        )
-    }
-    {
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: None,
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: None,
-                    destination_channel: None,
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "source_port not found".to_string()
-            })
-        )
-    }
-    {
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::Idle,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(1u64),
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: None,
-                    destination_channel: None,
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::InvalidState {
-                reason: "seq_id does not match".to_string()
-            }
-        )
-    }
-    {
-        NON_STAKED_BALANCE
-            .save(deps.as_mut().storage, &Uint128::from(10000u64))
-            .unwrap();
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: None,
-                    destination_channel: None,
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::InvalidState {
-                reason: "tx_state is not WaitingForAck".to_string()
-            }
-        )
-    }
-    {
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
-                    seq_id: Some(0u64),
-                    transaction: None,
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: Some("destination_port".to_string()),
-                    destination_channel: Some("destination_channel".to_string()),
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "transaction not found".to_string()
-            })
-        );
-    }
-    {
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        deps.querier.add_stargate_query_response(
-            "/ibc.core.channel.v1.Query/ChannelClientState",
-            |_data| {
-                to_json_binary(
-                    &drop_helpers::ibc_client_state::ChannelClientStateResponse {
-                        identified_client_state: None,
-                        proof: None,
-                        proof_height: drop_helpers::ibc_client_state::Height {
-                            revision_number: cosmwasm_std::Uint64::from(0u64),
-                            revision_height: cosmwasm_std::Uint64::from(33333u64),
-                        },
-                    },
-                )
-                .unwrap()
-            },
-        );
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: Some("destination_port".to_string()),
-                    destination_channel: Some("destination_channel".to_string()),
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "IBC client state identified_client_state not found".to_string()
-            })
-        );
-    }
-    {
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        deps.querier.add_stargate_query_response(
-            "/ibc.core.channel.v1.Query/ChannelClientState",
-            |_data| {
-                to_json_binary(
-                    &drop_helpers::ibc_client_state::ChannelClientStateResponse {
-                        identified_client_state: Some(
-                            drop_helpers::ibc_client_state::IdentifiedClientState {
-                                client_id: "07-tendermint-0".to_string(),
-                                client_state: drop_helpers::ibc_client_state::ClientState {
-                                    chain_id: "test-1".to_string(),
-                                    type_url: "type_url".to_string(),
-                                    trust_level: drop_helpers::ibc_client_state::Fraction {
-                                        numerator: cosmwasm_std::Uint64::from(1u64),
-                                        denominator: cosmwasm_std::Uint64::from(3u64),
-                                    },
-                                    trusting_period: Some("1000".to_string()),
-                                    unbonding_period: Some("1500".to_string()),
-                                    max_clock_drift: Some("1000".to_string()),
-                                    frozen_height: None,
-                                    latest_height: None,
-                                    proof_specs: vec![],
-                                    upgrade_path: vec![],
-                                    allow_update_after_expiry: true,
-                                    allow_update_after_misbehaviour: true,
-                                },
-                            },
-                        ),
-                        proof: None,
-                        proof_height: drop_helpers::ibc_client_state::Height {
-                            revision_number: cosmwasm_std::Uint64::from(0u64),
-                            revision_height: cosmwasm_std::Uint64::from(33333u64),
-                        },
-                    },
-                )
-                .unwrap()
-            },
-        );
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: Some("destination_port".to_string()),
-                    destination_channel: Some("destination_channel".to_string()),
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "IBC client state latest_height not found".to_string()
-            })
-        );
-    }
-    {
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        deps.querier.add_stargate_query_response(
-            "/ibc.core.channel.v1.Query/ChannelClientState",
-            |_data| {
-                to_json_binary(
-                    &drop_helpers::ibc_client_state::ChannelClientStateResponse {
-                        identified_client_state: Some(
-                            drop_helpers::ibc_client_state::IdentifiedClientState {
-                                client_id: "07-tendermint-0".to_string(),
-                                client_state: drop_helpers::ibc_client_state::ClientState {
-                                    chain_id: "test-1".to_string(),
-                                    type_url: "type_url".to_string(),
-                                    trust_level: drop_helpers::ibc_client_state::Fraction {
-                                        numerator: cosmwasm_std::Uint64::from(1u64),
-                                        denominator: cosmwasm_std::Uint64::from(3u64),
-                                    },
-                                    trusting_period: Some("1000".to_string()),
-                                    unbonding_period: Some("1500".to_string()),
-                                    max_clock_drift: Some("1000".to_string()),
-                                    frozen_height: None,
-                                    latest_height: Some(drop_helpers::ibc_client_state::Height {
-                                        revision_number: cosmwasm_std::Uint64::from(0u64),
-                                        revision_height: cosmwasm_std::Uint64::from(54321u64),
-                                    }),
-                                    proof_specs: vec![],
-                                    upgrade_path: vec![],
-                                    allow_update_after_expiry: true,
-                                    allow_update_after_misbehaviour: true,
-                                },
-                            },
-                        ),
-                        proof: None,
-                        proof_height: drop_helpers::ibc_client_state::Height {
-                            revision_number: cosmwasm_std::Uint64::from(0u64),
-                            revision_height: cosmwasm_std::Uint64::from(33333u64),
-                        },
-                    },
-                )
-                .unwrap()
-            },
-        );
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: Some("destination_port".to_string()),
-                    destination_channel: Some("destination_channel".to_string()),
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
+
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(10000u64))
+        .unwrap();
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
             },
         )
         .unwrap();
-        assert_eq!(
-            res,
-            cosmwasm_std::Response::new()
-                .add_message(cosmwasm_std::CosmosMsg::Wasm(
-                    cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
-                        msg: to_json_binary(
-                            &drop_staking_base::msg::staker::ReceiverExecuteMsg::StakerHook(
-                                drop_staking_base::msg::staker::ResponseHookMsg::Success(
-                                    drop_staking_base::msg::staker::ResponseHookSuccessMsg {
-                                        request_id: 0u64,
-                                        request: neutron_sdk::sudo::msg::RequestPacket {
-                                            sequence: Some(0u64),
-                                            source_port: Some("source_port".to_string()),
-                                            source_channel: Some("source_channel".to_string()),
-                                            destination_port: Some("destination_port".to_string()),
-                                            destination_channel: Some(
-                                                "destination_channel".to_string()
-                                            ),
-                                            data: None,
-                                            timeout_height: None,
-                                            timeout_timestamp: None,
+    deps.querier.add_stargate_query_response(
+        "/ibc.core.channel.v1.Query/ChannelClientState",
+        |_data| {
+            to_json_binary(
+                &drop_helpers::ibc_client_state::ChannelClientStateResponse {
+                    identified_client_state: Some(
+                        drop_helpers::ibc_client_state::IdentifiedClientState {
+                            client_id: "07-tendermint-0".to_string(),
+                            client_state: drop_helpers::ibc_client_state::ClientState {
+                                chain_id: "test-1".to_string(),
+                                type_url: "type_url".to_string(),
+                                trust_level: drop_helpers::ibc_client_state::Fraction {
+                                    numerator: cosmwasm_std::Uint64::from(1u64),
+                                    denominator: cosmwasm_std::Uint64::from(3u64),
+                                },
+                                trusting_period: Some("1000".to_string()),
+                                unbonding_period: Some("1500".to_string()),
+                                max_clock_drift: Some("1000".to_string()),
+                                frozen_height: None,
+                                latest_height: Some(drop_helpers::ibc_client_state::Height {
+                                    revision_number: cosmwasm_std::Uint64::from(0u64),
+                                    revision_height: cosmwasm_std::Uint64::from(54321u64),
+                                }),
+                                proof_specs: vec![],
+                                upgrade_path: vec![],
+                                allow_update_after_expiry: true,
+                                allow_update_after_misbehaviour: true,
+                            },
+                        },
+                    ),
+                    proof: None,
+                    proof_height: drop_helpers::ibc_client_state::Height {
+                        revision_number: cosmwasm_std::Uint64::from(0u64),
+                        revision_height: cosmwasm_std::Uint64::from(33333u64),
+                    },
+                },
+            )
+            .unwrap()
+        },
+    );
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Response {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: Some(0u64),
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: Some("destination_port".to_string()),
+                destination_channel: Some("destination_channel".to_string()),
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            data: cosmwasm_std::Binary::from([0; 0]),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new()
+            .add_message(cosmwasm_std::CosmosMsg::Wasm(
+                cosmwasm_std::WasmMsg::Execute {
+                    contract_addr: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+                    msg: to_json_binary(
+                        &drop_staking_base::msg::staker::ReceiverExecuteMsg::StakerHook(
+                            drop_staking_base::msg::staker::ResponseHookMsg::Success(
+                                drop_staking_base::msg::staker::ResponseHookSuccessMsg {
+                                    request_id: 0u64,
+                                    request: neutron_sdk::sudo::msg::RequestPacket {
+                                        sequence: Some(0u64),
+                                        source_port: Some("source_port".to_string()),
+                                        source_channel: Some("source_channel".to_string()),
+                                        destination_port: Some("destination_port".to_string()),
+                                        destination_channel: Some(
+                                            "destination_channel".to_string()
+                                        ),
+                                        data: None,
+                                        timeout_height: None,
+                                        timeout_timestamp: None,
+                                    },
+                                    transaction:
+                                        drop_staking_base::state::staker::Transaction::Stake {
+                                            amount: Uint128::from(0u64)
                                         },
-                                        transaction:
-                                            drop_staking_base::state::staker::Transaction::Stake {
-                                                amount: Uint128::from(0u64)
-                                            },
-                                        local_height: 12345u64,
-                                        remote_height: 54321u64,
-                                    }
-                                )
+                                    local_height: 12345u64,
+                                    remote_height: 54321u64,
+                                }
                             )
                         )
-                        .unwrap(),
-                        funds: vec![]
-                    }
-                ))
-                .add_event(
-                    cosmwasm_std::Event::new(
-                        "crates.io:drop-neutron-contracts__drop-staker-sudo-response".to_string()
                     )
-                    .add_attributes(vec![
-                        cosmwasm_std::attr("action".to_string(), "sudo_response".to_string()),
-                        cosmwasm_std::attr("request_id".to_string(), "0".to_string())
-                    ])
+                    .unwrap(),
+                    funds: vec![]
+                }
+            ))
+            .add_event(
+                cosmwasm_std::Event::new(
+                    "crates.io:drop-neutron-contracts__drop-staker-sudo-response".to_string()
                 )
-        );
-    }
+                .add_attributes(vec![
+                    cosmwasm_std::attr("action".to_string(), "sudo_response".to_string()),
+                    cosmwasm_std::attr("request_id".to_string(), "0".to_string())
+                ])
+            )
+    );
+}
+
+#[test]
+fn test_sudo_error_invalid_tx_state() {
+    let mut deps = mock_dependencies(&[]);
+
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                seq_id: Some(0u64),
+                transaction: None,
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Error {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: Some(0u64),
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: Some("destination_port".to_string()),
+                destination_channel: Some("destination_channel".to_string()),
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            details: "details".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::InvalidState {
+            reason: "tx_state is not WaitingForAck".to_string()
+        }
+    )
+}
+
+#[test]
+fn test_sudo_error_tx_not_found() {
+    let mut deps = mock_dependencies(&[]);
+
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: Some(0u64),
+                transaction: None,
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Error {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: Some(0u64),
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: Some("destination_port".to_string()),
+                destination_channel: Some("destination_channel".to_string()),
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            details: "details".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+            msg: "transaction not found".to_string()
+        })
+    );
+}
+
+#[test]
+fn test_sudo_error_seq_id_not_found() {
+    let mut deps = mock_dependencies(&[]);
+
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: Some(0u64),
+                transaction: None,
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Error {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: None,
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: Some("destination_port".to_string()),
+                destination_channel: Some("destination_channel".to_string()),
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            details: "details".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+            msg: "sequence not found".to_string()
+        })
+    )
 }
 
 #[test]
 fn test_sudo_error() {
     let mut deps = mock_dependencies(&[]);
-    {
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::Idle,
-                    seq_id: Some(0u64),
-                    transaction: None,
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Error {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: Some("destination_port".to_string()),
-                    destination_channel: Some("destination_channel".to_string()),
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                details: "details".to_string(),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::InvalidState {
-                reason: "tx_state is not WaitingForAck".to_string()
-            }
-        )
-    }
-    {
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
-                    seq_id: Some(0u64),
-                    transaction: None,
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Error {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: Some("destination_port".to_string()),
-                    destination_channel: Some("destination_channel".to_string()),
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                details: "details".to_string(),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "transaction not found".to_string()
-            })
-        );
-    }
-    {
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Error {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: None,
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: Some("destination_port".to_string()),
-                    destination_channel: Some("destination_channel".to_string()),
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                details: "details".to_string(),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "sequence not found".to_string()
-            })
-        )
-    }
-    {
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::IBCTransfer {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        NON_STAKED_BALANCE
-            .save(deps.as_mut().storage, &Uint128::from(0u64))
-            .unwrap();
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Error {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: Some("destination_port".to_string()),
-                    destination_channel: Some("destination_channel".to_string()),
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                details: "details".to_string(),
+
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::IBCTransfer {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
             },
         )
         .unwrap();
-        assert_eq!(
-            res,
-            cosmwasm_std::Response::new()
-                .add_submessage(cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
-                    cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
-                        msg: to_json_binary(
-                            &&drop_staking_base::msg::staker::ReceiverExecuteMsg::StakerHook(
-                                drop_staking_base::msg::staker::ResponseHookMsg::Error(
-                                    drop_staking_base::msg::staker::ResponseHookErrorMsg {
-                                        request_id: 0u64,
-                                        transaction:
-                                            drop_staking_base::state::staker::Transaction::IBCTransfer {
-                                                amount: Uint128::from(0u64)
-                                            },
-                                        request: neutron_sdk::sudo::msg::RequestPacket {
-                                            sequence: Some(0u64),
-                                            source_port: Some("source_port".to_string()),
-                                            source_channel: Some("source_channel".to_string()),
-                                            destination_port: Some("destination_port".to_string()),
-                                            destination_channel: Some(
-                                                "destination_channel".to_string()
-                                            ),
-                                            data: None,
-                                            timeout_height: None,
-                                            timeout_timestamp: None
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(0u64))
+        .unwrap();
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Error {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: Some(0u64),
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: Some("destination_port".to_string()),
+                destination_channel: Some("destination_channel".to_string()),
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            details: "details".to_string(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new()
+            .add_submessage(cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                cosmwasm_std::WasmMsg::Execute {
+                    contract_addr: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+                    msg: to_json_binary(
+                        &&drop_staking_base::msg::staker::ReceiverExecuteMsg::StakerHook(
+                            drop_staking_base::msg::staker::ResponseHookMsg::Error(
+                                drop_staking_base::msg::staker::ResponseHookErrorMsg {
+                                    request_id: 0u64,
+                                    transaction:
+                                        drop_staking_base::state::staker::Transaction::IBCTransfer {
+                                            amount: Uint128::from(0u64)
                                         },
-                                        details: "details".to_string(),
-                                    }
-                                )
+                                    request: neutron_sdk::sudo::msg::RequestPacket {
+                                        sequence: Some(0u64),
+                                        source_port: Some("source_port".to_string()),
+                                        source_channel: Some("source_channel".to_string()),
+                                        destination_port: Some("destination_port".to_string()),
+                                        destination_channel: Some(
+                                            "destination_channel".to_string()
+                                        ),
+                                        data: None,
+                                        timeout_height: None,
+                                        timeout_timestamp: None
+                                    },
+                                    details: "details".to_string(),
+                                }
                             )
                         )
-                        .unwrap(),
-                        funds: vec![]
-                    }
-                )))
-                .add_event(
-                    cosmwasm_std::Event::new(
-                        "crates.io:drop-neutron-contracts__drop-staker-sudo-error".to_string()
                     )
-                    .add_attributes(vec![
-                        cosmwasm_std::attr("action".to_string(), "sudo_error".to_string()),
-                        cosmwasm_std::attr("request_id".to_string(), "0".to_string()),
-                        cosmwasm_std::attr("details".to_string(), "details".to_string())
-                    ])
+                    .unwrap(),
+                    funds: vec![]
+                }
+            )))
+            .add_event(
+                cosmwasm_std::Event::new(
+                    "crates.io:drop-neutron-contracts__drop-staker-sudo-error".to_string()
                 )
-        );
-    }
+                .add_attributes(vec![
+                    cosmwasm_std::attr("action".to_string(), "sudo_error".to_string()),
+                    cosmwasm_std::attr("request_id".to_string(), "0".to_string()),
+                    cosmwasm_std::attr("details".to_string(), "details".to_string())
+                ])
+            )
+    );
+}
+
+#[test]
+fn test_sudo_timeout_tx_not_found() {
+    let mut deps = mock_dependencies(&[]);
+
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: Some(0u64),
+                transaction: None,
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Error {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: Some(0u64),
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: Some("destination_port".to_string()),
+                destination_channel: Some("destination_channel".to_string()),
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            details: "details".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+            msg: "transaction not found".to_string()
+        })
+    );
+}
+
+#[test]
+fn test_sudo_timeout_seq_not_found() {
+    let mut deps = mock_dependencies(&[]);
+
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: Some(0u64),
+                transaction: None,
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Error {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: None,
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: Some("destination_port".to_string()),
+                destination_channel: Some("destination_channel".to_string()),
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            details: "details".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+            msg: "sequence not found".to_string()
+        })
+    )
 }
 
 #[test]
 fn test_sudo_timeout() {
     let mut deps = mock_dependencies(&[]);
-    {
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
-                    seq_id: Some(0u64),
-                    transaction: None,
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Error {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: Some("destination_port".to_string()),
-                    destination_channel: Some("destination_channel".to_string()),
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                details: "details".to_string(),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "transaction not found".to_string()
-            })
-        );
-    }
-    {
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Error {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: None,
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: Some("destination_port".to_string()),
-                    destination_channel: Some("destination_channel".to_string()),
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                details: "details".to_string(),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "sequence not found".to_string()
-            })
-        )
-    }
-    {
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::IBCTransfer {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        NON_STAKED_BALANCE
-            .save(deps.as_mut().storage, &Uint128::from(0u64))
-            .unwrap();
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Timeout {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: Some("destination_port".to_string()),
-                    destination_channel: Some("destination_channel".to_string()),
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
+
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::IBCTransfer {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
             },
         )
         .unwrap();
-        assert_eq!(
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(0u64))
+        .unwrap();
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Timeout {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: Some(0u64),
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: Some("destination_port".to_string()),
+                destination_channel: Some("destination_channel".to_string()),
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+        },
+    )
+    .unwrap();
+    assert_eq!(
         res,
         cosmwasm_std::Response::new()
             .add_submessage(cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
@@ -1521,173 +1639,181 @@ fn test_sudo_timeout() {
                     cosmwasm_std::attr("request_id".to_string(), "0".to_string())
                 ])
             )
-        );
-    }
+    );
+}
+
+#[test]
+fn test_sudo_open_ack_invalid_version() {
+    let mut deps = mock_dependencies(&[]);
+
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::OpenAck {
+            port_id: "port_id_1".to_string(),
+            channel_id: "channel_1".to_string(),
+            counterparty_channel_id: "counterparty_channel_id_1".to_string(),
+            counterparty_version: "".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        ContractError::Std(StdError::generic_err("can't parse version",))
+    );
 }
 
 #[test]
 fn test_sudo_open_ack() {
     let mut deps = mock_dependencies(&[]);
-    {
-        let res = crate::contract::sudo(deps.as_mut(), mock_env(), neutron_sdk::sudo::msg::SudoMsg::OpenAck {
+
+    let res = crate::contract::sudo(deps.as_mut(), mock_env(), neutron_sdk::sudo::msg::SudoMsg::OpenAck {
             port_id: "port_id_1".to_string(),
             channel_id: "channel_1".to_string(),
             counterparty_channel_id: "counterparty_channel_id_1".to_string(),
             counterparty_version: "{\"version\": \"1\",\"controller_connection_id\": \"connection_id\",\"host_connection_id\": \"host_connection_id\",\"address\": \"ica_address\",\"encoding\": \"amino\",\"tx_type\": \"cosmos-sdk/MsgSend\"}".to_string(),
         }).unwrap();
-        assert_eq!(res, cosmwasm_std::Response::new());
-    }
-    {
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::OpenAck {
-                port_id: "port_id_1".to_string(),
-                channel_id: "channel_1".to_string(),
-                counterparty_channel_id: "counterparty_channel_id_1".to_string(),
-                counterparty_version: "".to_string(),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            ContractError::Std(StdError::generic_err("can't parse version",))
-        );
-    }
+    assert_eq!(res, cosmwasm_std::Response::new());
 }
 
 #[test]
-fn test_submit_tx_reply() {
+fn test_reply_submit_tx_reply_no_result() {
     let mut deps = mock_dependencies(&[]);
-    {
-        let res = crate::contract::reply(
-            deps.as_mut().into_empty(),
-            mock_env(),
-            cosmwasm_std::Reply {
-                id: drop_staking_base::state::staker::reply_msg::SUDO_PAYLOAD,
-                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
-                    events: vec![],
-                    data: None,
-                }),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            StdError::GenericErr {
-                msg: "no result".to_string(),
-            }
-        );
-    }
-    {
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
-                    seq_id: None,
-                    transaction: None,
-                    reply_to: None,
-                },
-            )
-            .unwrap();
-        let res = crate::contract::reply(
-            deps.as_mut().into_empty(),
-            mock_env(),
-            cosmwasm_std::Reply {
-                id: drop_staking_base::state::staker::reply_msg::SUDO_PAYLOAD,
-                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
-                    events: vec![],
-                    data: Some(
-                        to_json_binary(&neutron_sdk::bindings::msg::MsgSubmitTxResponse {
-                            sequence_id: 0u64,
-                            channel: "channel-0".to_string(),
-                        })
-                        .unwrap(),
-                    ),
-                }),
-            },
-        )
-        .unwrap();
-        assert_eq!(
-            res,
-            cosmwasm_std::Response::new().add_event(
-                cosmwasm_std::Event::new("puppeteer-base-reply-tx-payload-received".to_string())
-                    .add_attributes(vec![
-                        cosmwasm_std::attr("channel_id".to_string(), "channel-0".to_string()),
-                        cosmwasm_std::attr("seq_id".to_string(), "0".to_string())
-                    ])
-            )
-        )
-    }
+
+    let res = crate::contract::reply(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        cosmwasm_std::Reply {
+            id: drop_staking_base::state::staker::reply_msg::SUDO_PAYLOAD,
+            result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                events: vec![],
+                data: None,
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        StdError::GenericErr {
+            msg: "no result".to_string(),
+        }
+    );
 }
 
 #[test]
-fn test_submit_ibc_transfer_reply() {
+fn test_reply_submit_tx_reply() {
     let mut deps = mock_dependencies(&[]);
-    {
-        let res = crate::contract::reply(
-            deps.as_mut().into_empty(),
-            mock_env(),
-            cosmwasm_std::Reply {
-                id: drop_staking_base::state::staker::reply_msg::IBC_TRANSFER,
-                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
-                    events: vec![],
-                    data: None,
-                }),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            StdError::GenericErr {
-                msg: "no result".to_string(),
-            }
-        );
-    }
-    {
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
-                    seq_id: None,
-                    transaction: None,
-                    reply_to: None,
-                },
-            )
-            .unwrap();
-        let res = crate::contract::reply(
-            deps.as_mut().into_empty(),
-            mock_env(),
-            cosmwasm_std::Reply {
-                id: drop_staking_base::state::staker::reply_msg::IBC_TRANSFER,
-                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
-                    events: vec![],
-                    data: Some(
-                        to_json_binary(&neutron_sdk::bindings::msg::MsgSubmitTxResponse {
-                            sequence_id: 0u64,
-                            channel: "channel-0".to_string(),
-                        })
-                        .unwrap(),
-                    ),
-                }),
+
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: None,
+                transaction: None,
+                reply_to: None,
             },
         )
         .unwrap();
-        assert_eq!(
-            res,
-            cosmwasm_std::Response::new().add_event(
-                cosmwasm_std::Event::new(
-                    "puppeteer-base-reply-ibc-transfer-payload-received".to_string()
-                )
+    let res = crate::contract::reply(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        cosmwasm_std::Reply {
+            id: drop_staking_base::state::staker::reply_msg::SUDO_PAYLOAD,
+            result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                events: vec![],
+                data: Some(
+                    to_json_binary(&neutron_sdk::bindings::msg::MsgSubmitTxResponse {
+                        sequence_id: 0u64,
+                        channel: "channel-0".to_string(),
+                    })
+                    .unwrap(),
+                ),
+            }),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_event(
+            cosmwasm_std::Event::new("puppeteer-base-reply-tx-payload-received".to_string())
                 .add_attributes(vec![
                     cosmwasm_std::attr("channel_id".to_string(), "channel-0".to_string()),
                     cosmwasm_std::attr("seq_id".to_string(), "0".to_string())
                 ])
-            )
         )
-    }
+    )
+}
+
+#[test]
+fn test_reply_submit_ibc_transfer_no_result() {
+    let mut deps = mock_dependencies(&[]);
+
+    let res = crate::contract::reply(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        cosmwasm_std::Reply {
+            id: drop_staking_base::state::staker::reply_msg::IBC_TRANSFER,
+            result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                events: vec![],
+                data: None,
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        StdError::GenericErr {
+            msg: "no result".to_string(),
+        }
+    );
+}
+
+#[test]
+fn test_reply_submit_ibc_transfer() {
+    let mut deps = mock_dependencies(&[]);
+
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: None,
+                transaction: None,
+                reply_to: None,
+            },
+        )
+        .unwrap();
+    let res = crate::contract::reply(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        cosmwasm_std::Reply {
+            id: drop_staking_base::state::staker::reply_msg::IBC_TRANSFER,
+            result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                events: vec![],
+                data: Some(
+                    to_json_binary(&neutron_sdk::bindings::msg::MsgSubmitTxResponse {
+                        sequence_id: 0u64,
+                        channel: "channel-0".to_string(),
+                    })
+                    .unwrap(),
+                ),
+            }),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_event(
+            cosmwasm_std::Event::new(
+                "puppeteer-base-reply-ibc-transfer-payload-received".to_string()
+            )
+            .add_attributes(vec![
+                cosmwasm_std::attr("channel_id".to_string(), "channel-0".to_string()),
+                cosmwasm_std::attr("seq_id".to_string(), "0".to_string())
+            ])
+        )
+    )
 }
 
 #[test]
@@ -1799,4 +1925,49 @@ fn test_query_config() {
     )
     .unwrap();
     assert_eq!(res, get_default_config());
+}
+
+#[test]
+fn test_transfer_ownership() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let _ = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::staker::ExecuteMsg::UpdateOwnership(
+            cw_ownable::Action::TransferOwnership {
+                new_owner: "new_owner".to_string(),
+                expiry: Some(cw_ownable::Expiration::Never {}),
+            },
+        ),
+    )
+    .unwrap();
+    let _ = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("new_owner", &[]),
+        drop_staking_base::msg::staker::ExecuteMsg::UpdateOwnership(
+            cw_ownable::Action::AcceptOwnership {},
+        ),
+    )
+    .unwrap();
+    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
+        crate::contract::query(
+            deps.as_ref().into_empty(),
+            mock_env(),
+            drop_staking_base::msg::staker::QueryMsg::Ownership {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        cw_ownable::Ownership {
+            owner: Some(cosmwasm_std::Addr::unchecked("new_owner".to_string())),
+            pending_expiry: None,
+            pending_owner: None
+        }
+    );
 }
