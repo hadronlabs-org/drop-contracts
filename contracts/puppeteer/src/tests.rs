@@ -2849,8 +2849,7 @@ fn test_reply_ibc_transfer() {
 }
 
 #[test]
-fn test_reply_kv_delegations_and_balance() {
-    let response_id: u64 = 0;
+fn test_reply_kv_delegations_and_balance_no_result() {
     for i in drop_puppeteer_base::state::reply_msg::KV_DELEGATIONS_AND_BALANCE_LOWER_BOUND
         ..(drop_puppeteer_base::state::reply_msg::KV_DELEGATIONS_AND_BALANCE_UPPER_BOUND + 1)
     {
@@ -2870,42 +2869,51 @@ fn test_reply_kv_delegations_and_balance() {
             .unwrap_err();
             assert_eq!(res, StdError::generic_err("no result"))
         }
-        {
-            let puppeteer_base = base_init(&mut deps.as_mut());
-            let res = crate::contract::reply(
-                deps.as_mut().into_empty(),
-                mock_env(),
-                cosmwasm_std::Reply {
-                    id: i,
-                    result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
-                        events: vec![],
-                        data: Some(
-                            to_json_binary(
-                                &neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse {
-                                    id: response_id,
-                                },
-                            )
-                            .unwrap(),
-                        ),
-                    }),
-                },
-            )
+    }
+}
+
+#[test]
+fn test_reply_kv_delegations_and_balance() {
+    let response_id: u64 = 0;
+    for i in drop_puppeteer_base::state::reply_msg::KV_DELEGATIONS_AND_BALANCE_LOWER_BOUND
+        ..(drop_puppeteer_base::state::reply_msg::KV_DELEGATIONS_AND_BALANCE_UPPER_BOUND + 1)
+    {
+        let mut deps = mock_dependencies(&[]);
+
+        let puppeteer_base = base_init(&mut deps.as_mut());
+        let res = crate::contract::reply(
+            deps.as_mut().into_empty(),
+            mock_env(),
+            cosmwasm_std::Reply {
+                id: i,
+                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                    events: vec![],
+                    data: Some(
+                        to_json_binary(
+                            &neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse {
+                                id: response_id,
+                            },
+                        )
+                        .unwrap(),
+                    ),
+                }),
+            },
+        )
+        .unwrap();
+        assert_eq!(res, cosmwasm_std::Response::new());
+        let delegations_and_balances_query_id_chunk: u16 = puppeteer_base
+            .delegations_and_balances_query_id_chunk
+            .load(deps.as_mut().storage, response_id)
             .unwrap();
-            assert_eq!(res, cosmwasm_std::Response::new());
-            let delegations_and_balances_query_id_chunk: u16 = puppeteer_base
-                .delegations_and_balances_query_id_chunk
-                .load(deps.as_mut().storage, response_id)
-                .unwrap();
-            assert_eq!(delegations_and_balances_query_id_chunk, i as u16);
-            let kv_query = puppeteer_base
-                .kv_queries
-                .load(deps.as_mut().storage, response_id)
-                .unwrap();
-            assert_eq!(
-                kv_query,
-                drop_staking_base::state::puppeteer::KVQueryType::DelegationsAndBalance
-            );
-        }
+        assert_eq!(delegations_and_balances_query_id_chunk, i as u16);
+        let kv_query = puppeteer_base
+            .kv_queries
+            .load(deps.as_mut().storage, response_id)
+            .unwrap();
+        assert_eq!(
+            kv_query,
+            drop_staking_base::state::puppeteer::KVQueryType::DelegationsAndBalance
+        );
     }
 }
 
