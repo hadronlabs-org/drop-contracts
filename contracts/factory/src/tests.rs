@@ -541,7 +541,7 @@ fn test_update_config_core_unauthorized() {
 }
 
 #[test]
-fn test_update_config_core_authorized() {
+fn test_update_config_core() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
@@ -629,7 +629,7 @@ fn test_update_config_validators_set_unauthorized() {
 }
 
 #[test]
-fn test_update_config_validators_set_authorized() {
+fn test_update_config_validators_set() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
@@ -707,7 +707,7 @@ fn test_proxy_validators_set_update_validators_unauthorized() {
 }
 
 #[test]
-fn test_proxy_validators_set_update_validators_authorized() {
+fn test_proxy_validators_set_update_validators() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
@@ -806,7 +806,7 @@ fn test_proxy_core_pause_unauthorized() {
 }
 
 #[test]
-fn test_proxy_core_pause_authorized() {
+fn test_proxy_core_pause() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
@@ -863,7 +863,7 @@ fn test_proxy_core_unpause_unauthorized() {
 }
 
 #[test]
-fn test_proxy_core_unpause_authorized() {
+fn test_proxy_core_unpause() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
@@ -937,7 +937,7 @@ fn test_admin_execute_unauthorized() {
 }
 
 #[test]
-fn test_admin_execute_authorized() {
+fn test_admin_execute() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
@@ -1022,7 +1022,7 @@ fn test_pause_unauthorized() {
 }
 
 #[test]
-fn test_pause_authorized() {
+fn test_pause() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
@@ -1093,7 +1093,7 @@ fn test_unpause_unauthorized() {
 }
 
 #[test]
-fn test_unpause_authorized() {
+fn test_unpause() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
