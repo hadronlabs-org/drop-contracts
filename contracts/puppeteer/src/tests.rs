@@ -1211,19 +1211,30 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
                     )
                     .unwrap(),
                     drop_helpers::interchain::prepare_any_msg(
-                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
-                            delegator_address: ica_address.clone(),
-                            validator_address: "validator1".to_string()
+                        cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec {
+                            grantee: ica_address.clone(),
+                            msgs: vec![
+                                cosmos_sdk_proto::Any {
+                                    value:
+                                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
+                                            delegator_address: ica_address.clone(),
+                                            validator_address: "validator1".to_string(),
+                                        }
+                                        .encode_to_vec(),
+                                    type_url: "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
+                                },
+                                cosmos_sdk_proto::Any {
+                                    value:
+                                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
+                                            delegator_address: ica_address.clone(),
+                                            validator_address: "validator2".to_string(),
+                                        }
+                                        .encode_to_vec(),
+                                    type_url: "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
+                                },
+                            ],
                         },
-                        "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
-                    )
-                    .unwrap(),
-                    drop_helpers::interchain::prepare_any_msg(
-                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
-                            delegator_address: ica_address.clone(),
-                            validator_address: "validator2".to_string()
-                        },
-                        "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
+                        "/cosmos.authz.v1beta1.MsgExec"
                     )
                     .unwrap()
                 ],
