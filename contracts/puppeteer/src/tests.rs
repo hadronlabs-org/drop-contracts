@@ -195,6 +195,13 @@ fn test_instantiate() {
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.as_ref().storage).unwrap();
     assert_eq!(config, get_base_config());
+    assert_eq!(
+        cosmwasm_std::Addr::unchecked("owner"),
+        cw_ownable::get_ownership(deps.as_mut().storage)
+            .unwrap()
+            .owner
+            .unwrap()
+    );
 }
 
 #[test]
