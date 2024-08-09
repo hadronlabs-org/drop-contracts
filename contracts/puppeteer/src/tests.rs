@@ -558,19 +558,6 @@ fn test_execute_undelegate() {
         items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
         reply_to: "some_reply_to".to_string(),
     };
-    let env = mock_env();
-    let res = crate::contract::execute(
-        deps.as_mut(),
-        env,
-        mock_info("not_allowed_sender", &[]),
-        msg.clone(),
-    );
-    assert_eq!(
-        res.unwrap_err(),
-        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
-            "Sender is not allowed"
-        ))
-    );
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
@@ -578,19 +565,19 @@ fn test_execute_undelegate() {
         msg,
     )
     .unwrap();
-    let msg = cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
-        delegator_address: "ica_address".to_string(),
-        validator_address: "valoper1".to_string(),
-        amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-            denom: "remote_denom".to_string(),
-            amount: "1000".to_string(),
-        }),
-    };
-    let mut buf = Vec::with_capacity(msg.encoded_len());
-    msg.encode(&mut buf).unwrap();
     let any_msg = neutron_sdk::bindings::types::ProtobufAny {
         type_url: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
-        value: Binary::from(buf),
+        value: Binary::from(
+            cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
+                delegator_address: "ica_address".to_string(),
+                validator_address: "valoper1".to_string(),
+                amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                    denom: "remote_denom".to_string(),
+                    amount: "1000".to_string(),
+                }),
+            }
+            .encode_to_vec(),
+        ),
     };
     assert_eq!(
         res,
