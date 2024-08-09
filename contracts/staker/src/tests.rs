@@ -864,442 +864,405 @@ fn test_stake() {
 }
 
 #[test]
-fn test_sudo_response() {
+fn test_sudo_response_seq_id_does_not_match() {
     let mut deps = mock_dependencies(&[]);
-    {
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: None,
-                    source_port: None,
-                    source_channel: None,
-                    destination_port: None,
-                    destination_channel: None,
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "sequence not found".to_string()
-            })
-        )
-    }
-    {
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: None,
-                    source_channel: None,
-                    destination_port: None,
-                    destination_channel: None,
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "source_channel not found".to_string()
-            })
-        )
-    }
-    {
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: None,
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: None,
-                    destination_channel: None,
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "source_port not found".to_string()
-            })
-        )
-    }
-    {
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::Idle,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(1u64),
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: None,
-                    destination_channel: None,
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::InvalidState {
-                reason: "seq_id does not match".to_string()
-            }
-        )
-    }
-    {
-        NON_STAKED_BALANCE
-            .save(deps.as_mut().storage, &Uint128::from(10000u64))
-            .unwrap();
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: None,
-                    destination_channel: None,
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::InvalidState {
-                reason: "tx_state is not WaitingForAck".to_string()
-            }
-        )
-    }
-    {
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
-                    seq_id: Some(0u64),
-                    transaction: None,
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: Some("destination_port".to_string()),
-                    destination_channel: Some("destination_channel".to_string()),
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "transaction not found".to_string()
-            })
-        );
-    }
-    {
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        deps.querier.add_stargate_query_response(
-            "/ibc.core.channel.v1.Query/ChannelClientState",
-            |_data| {
-                to_json_binary(
-                    &drop_helpers::ibc_client_state::ChannelClientStateResponse {
-                        identified_client_state: None,
-                        proof: None,
-                        proof_height: drop_helpers::ibc_client_state::Height {
-                            revision_number: cosmwasm_std::Uint64::from(0u64),
-                            revision_height: cosmwasm_std::Uint64::from(33333u64),
-                        },
-                    },
-                )
-                .unwrap()
-            },
-        );
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: Some("destination_port".to_string()),
-                    destination_channel: Some("destination_channel".to_string()),
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "IBC client state identified_client_state not found".to_string()
-            })
-        );
-    }
-    {
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        deps.querier.add_stargate_query_response(
-            "/ibc.core.channel.v1.Query/ChannelClientState",
-            |_data| {
-                to_json_binary(
-                    &drop_helpers::ibc_client_state::ChannelClientStateResponse {
-                        identified_client_state: Some(
-                            drop_helpers::ibc_client_state::IdentifiedClientState {
-                                client_id: "07-tendermint-0".to_string(),
-                                client_state: drop_helpers::ibc_client_state::ClientState {
-                                    chain_id: "test-1".to_string(),
-                                    type_url: "type_url".to_string(),
-                                    trust_level: drop_helpers::ibc_client_state::Fraction {
-                                        numerator: cosmwasm_std::Uint64::from(1u64),
-                                        denominator: cosmwasm_std::Uint64::from(3u64),
-                                    },
-                                    trusting_period: Some("1000".to_string()),
-                                    unbonding_period: Some("1500".to_string()),
-                                    max_clock_drift: Some("1000".to_string()),
-                                    frozen_height: None,
-                                    latest_height: None,
-                                    proof_specs: vec![],
-                                    upgrade_path: vec![],
-                                    allow_update_after_expiry: true,
-                                    allow_update_after_misbehaviour: true,
-                                },
-                            },
-                        ),
-                        proof: None,
-                        proof_height: drop_helpers::ibc_client_state::Height {
-                            revision_number: cosmwasm_std::Uint64::from(0u64),
-                            revision_height: cosmwasm_std::Uint64::from(33333u64),
-                        },
-                    },
-                )
-                .unwrap()
-            },
-        );
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: Some("destination_port".to_string()),
-                    destination_channel: Some("destination_channel".to_string()),
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-                msg: "IBC client state latest_height not found".to_string()
-            })
-        );
-    }
-    {
-        TX_STATE
-            .save(
-                deps.as_mut().storage,
-                &drop_staking_base::state::staker::TxState {
-                    status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
-                    seq_id: Some(0u64),
-                    transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    }),
-                    reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
-                },
-            )
-            .unwrap();
-        deps.querier.add_stargate_query_response(
-            "/ibc.core.channel.v1.Query/ChannelClientState",
-            |_data| {
-                to_json_binary(
-                    &drop_helpers::ibc_client_state::ChannelClientStateResponse {
-                        identified_client_state: Some(
-                            drop_helpers::ibc_client_state::IdentifiedClientState {
-                                client_id: "07-tendermint-0".to_string(),
-                                client_state: drop_helpers::ibc_client_state::ClientState {
-                                    chain_id: "test-1".to_string(),
-                                    type_url: "type_url".to_string(),
-                                    trust_level: drop_helpers::ibc_client_state::Fraction {
-                                        numerator: cosmwasm_std::Uint64::from(1u64),
-                                        denominator: cosmwasm_std::Uint64::from(3u64),
-                                    },
-                                    trusting_period: Some("1000".to_string()),
-                                    unbonding_period: Some("1500".to_string()),
-                                    max_clock_drift: Some("1000".to_string()),
-                                    frozen_height: None,
-                                    latest_height: Some(drop_helpers::ibc_client_state::Height {
-                                        revision_number: cosmwasm_std::Uint64::from(0u64),
-                                        revision_height: cosmwasm_std::Uint64::from(54321u64),
-                                    }),
-                                    proof_specs: vec![],
-                                    upgrade_path: vec![],
-                                    allow_update_after_expiry: true,
-                                    allow_update_after_misbehaviour: true,
-                                },
-                            },
-                        ),
-                        proof: None,
-                        proof_height: drop_helpers::ibc_client_state::Height {
-                            revision_number: cosmwasm_std::Uint64::from(0u64),
-                            revision_height: cosmwasm_std::Uint64::from(33333u64),
-                        },
-                    },
-                )
-                .unwrap()
-            },
-        );
-        let res = crate::contract::sudo(
-            deps.as_mut(),
-            mock_env(),
-            neutron_sdk::sudo::msg::SudoMsg::Response {
-                request: neutron_sdk::sudo::msg::RequestPacket {
-                    sequence: Some(0u64),
-                    source_port: Some("source_port".to_string()),
-                    source_channel: Some("source_channel".to_string()),
-                    destination_port: Some("destination_port".to_string()),
-                    destination_channel: Some("destination_channel".to_string()),
-                    data: None,
-                    timeout_height: None,
-                    timeout_timestamp: None,
-                },
-                data: cosmwasm_std::Binary::from([0; 0]),
+
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
             },
         )
         .unwrap();
-        assert_eq!(
-            res,
-            cosmwasm_std::Response::new()
-                .add_message(cosmwasm_std::CosmosMsg::Wasm(
-                    cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
-                        msg: to_json_binary(
-                            &drop_staking_base::msg::staker::ReceiverExecuteMsg::StakerHook(
-                                drop_staking_base::msg::staker::ResponseHookMsg::Success(
-                                    drop_staking_base::msg::staker::ResponseHookSuccessMsg {
-                                        request_id: 0u64,
-                                        request: neutron_sdk::sudo::msg::RequestPacket {
-                                            sequence: Some(0u64),
-                                            source_port: Some("source_port".to_string()),
-                                            source_channel: Some("source_channel".to_string()),
-                                            destination_port: Some("destination_port".to_string()),
-                                            destination_channel: Some(
-                                                "destination_channel".to_string()
-                                            ),
-                                            data: None,
-                                            timeout_height: None,
-                                            timeout_timestamp: None,
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Response {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: Some(1u64),
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: None,
+                destination_channel: None,
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            data: cosmwasm_std::Binary::from([0; 0]),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::InvalidState {
+            reason: "seq_id does not match".to_string()
+        }
+    )
+}
+
+#[test]
+fn test_sudo_response_invalid_tx_state() {
+    let mut deps = mock_dependencies(&[]);
+
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::Idle,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(10000u64))
+        .unwrap();
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Response {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: Some(0u64),
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: None,
+                destination_channel: None,
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            data: cosmwasm_std::Binary::from([0; 0]),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::InvalidState {
+            reason: "tx_state is not WaitingForAck".to_string()
+        }
+    )
+}
+
+#[test]
+fn test_sudo_response_tx_not_found() {
+    let mut deps = mock_dependencies(&[]);
+
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: Some(0u64),
+                transaction: None,
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Response {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: Some(0u64),
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: Some("destination_port".to_string()),
+                destination_channel: Some("destination_channel".to_string()),
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            data: cosmwasm_std::Binary::from([0; 0]),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+            msg: "transaction not found".to_string()
+        })
+    );
+}
+
+#[test]
+fn test_sudo_response_ibc_client_state_not_found() {
+    let mut deps = mock_dependencies(&[]);
+
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(10000u64))
+        .unwrap();
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    deps.querier.add_stargate_query_response(
+        "/ibc.core.channel.v1.Query/ChannelClientState",
+        |_data| {
+            to_json_binary(
+                &drop_helpers::ibc_client_state::ChannelClientStateResponse {
+                    identified_client_state: None,
+                    proof: None,
+                    proof_height: drop_helpers::ibc_client_state::Height {
+                        revision_number: cosmwasm_std::Uint64::from(0u64),
+                        revision_height: cosmwasm_std::Uint64::from(33333u64),
+                    },
+                },
+            )
+            .unwrap()
+        },
+    );
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Response {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: Some(0u64),
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: Some("destination_port".to_string()),
+                destination_channel: Some("destination_channel".to_string()),
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            data: cosmwasm_std::Binary::from([0; 0]),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+            msg: "IBC client state identified_client_state not found".to_string()
+        })
+    );
+}
+
+#[test]
+fn test_sudo_response_ibc_client_state_latest_height_not_found() {
+    let mut deps = mock_dependencies(&[]);
+
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(10000u64))
+        .unwrap();
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    deps.querier.add_stargate_query_response(
+        "/ibc.core.channel.v1.Query/ChannelClientState",
+        |_data| {
+            to_json_binary(
+                &drop_helpers::ibc_client_state::ChannelClientStateResponse {
+                    identified_client_state: Some(
+                        drop_helpers::ibc_client_state::IdentifiedClientState {
+                            client_id: "07-tendermint-0".to_string(),
+                            client_state: drop_helpers::ibc_client_state::ClientState {
+                                chain_id: "test-1".to_string(),
+                                type_url: "type_url".to_string(),
+                                trust_level: drop_helpers::ibc_client_state::Fraction {
+                                    numerator: cosmwasm_std::Uint64::from(1u64),
+                                    denominator: cosmwasm_std::Uint64::from(3u64),
+                                },
+                                trusting_period: Some("1000".to_string()),
+                                unbonding_period: Some("1500".to_string()),
+                                max_clock_drift: Some("1000".to_string()),
+                                frozen_height: None,
+                                latest_height: None,
+                                proof_specs: vec![],
+                                upgrade_path: vec![],
+                                allow_update_after_expiry: true,
+                                allow_update_after_misbehaviour: true,
+                            },
+                        },
+                    ),
+                    proof: None,
+                    proof_height: drop_helpers::ibc_client_state::Height {
+                        revision_number: cosmwasm_std::Uint64::from(0u64),
+                        revision_height: cosmwasm_std::Uint64::from(33333u64),
+                    },
+                },
+            )
+            .unwrap()
+        },
+    );
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Response {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: Some(0u64),
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: Some("destination_port".to_string()),
+                destination_channel: Some("destination_channel".to_string()),
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            data: cosmwasm_std::Binary::from([0; 0]),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
+            msg: "IBC client state latest_height not found".to_string()
+        })
+    );
+}
+
+#[test]
+fn test_sudo_response() {
+    let mut deps = mock_dependencies(&[]);
+
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(10000u64))
+        .unwrap();
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::staker::TxState {
+                status: drop_staking_base::state::staker::TxStateStatus::WaitingForAck,
+                seq_id: Some(0u64),
+                transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+    deps.querier.add_stargate_query_response(
+        "/ibc.core.channel.v1.Query/ChannelClientState",
+        |_data| {
+            to_json_binary(
+                &drop_helpers::ibc_client_state::ChannelClientStateResponse {
+                    identified_client_state: Some(
+                        drop_helpers::ibc_client_state::IdentifiedClientState {
+                            client_id: "07-tendermint-0".to_string(),
+                            client_state: drop_helpers::ibc_client_state::ClientState {
+                                chain_id: "test-1".to_string(),
+                                type_url: "type_url".to_string(),
+                                trust_level: drop_helpers::ibc_client_state::Fraction {
+                                    numerator: cosmwasm_std::Uint64::from(1u64),
+                                    denominator: cosmwasm_std::Uint64::from(3u64),
+                                },
+                                trusting_period: Some("1000".to_string()),
+                                unbonding_period: Some("1500".to_string()),
+                                max_clock_drift: Some("1000".to_string()),
+                                frozen_height: None,
+                                latest_height: Some(drop_helpers::ibc_client_state::Height {
+                                    revision_number: cosmwasm_std::Uint64::from(0u64),
+                                    revision_height: cosmwasm_std::Uint64::from(54321u64),
+                                }),
+                                proof_specs: vec![],
+                                upgrade_path: vec![],
+                                allow_update_after_expiry: true,
+                                allow_update_after_misbehaviour: true,
+                            },
+                        },
+                    ),
+                    proof: None,
+                    proof_height: drop_helpers::ibc_client_state::Height {
+                        revision_number: cosmwasm_std::Uint64::from(0u64),
+                        revision_height: cosmwasm_std::Uint64::from(33333u64),
+                    },
+                },
+            )
+            .unwrap()
+        },
+    );
+    let res = crate::contract::sudo(
+        deps.as_mut(),
+        mock_env(),
+        neutron_sdk::sudo::msg::SudoMsg::Response {
+            request: neutron_sdk::sudo::msg::RequestPacket {
+                sequence: Some(0u64),
+                source_port: Some("source_port".to_string()),
+                source_channel: Some("source_channel".to_string()),
+                destination_port: Some("destination_port".to_string()),
+                destination_channel: Some("destination_channel".to_string()),
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            data: cosmwasm_std::Binary::from([0; 0]),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new()
+            .add_message(cosmwasm_std::CosmosMsg::Wasm(
+                cosmwasm_std::WasmMsg::Execute {
+                    contract_addr: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+                    msg: to_json_binary(
+                        &drop_staking_base::msg::staker::ReceiverExecuteMsg::StakerHook(
+                            drop_staking_base::msg::staker::ResponseHookMsg::Success(
+                                drop_staking_base::msg::staker::ResponseHookSuccessMsg {
+                                    request_id: 0u64,
+                                    request: neutron_sdk::sudo::msg::RequestPacket {
+                                        sequence: Some(0u64),
+                                        source_port: Some("source_port".to_string()),
+                                        source_channel: Some("source_channel".to_string()),
+                                        destination_port: Some("destination_port".to_string()),
+                                        destination_channel: Some(
+                                            "destination_channel".to_string()
+                                        ),
+                                        data: None,
+                                        timeout_height: None,
+                                        timeout_timestamp: None,
+                                    },
+                                    transaction:
+                                        drop_staking_base::state::staker::Transaction::Stake {
+                                            amount: Uint128::from(0u64)
                                         },
-                                        transaction:
-                                            drop_staking_base::state::staker::Transaction::Stake {
-                                                amount: Uint128::from(0u64)
-                                            },
-                                        local_height: 12345u64,
-                                        remote_height: 54321u64,
-                                    }
-                                )
+                                    local_height: 12345u64,
+                                    remote_height: 54321u64,
+                                }
                             )
                         )
-                        .unwrap(),
-                        funds: vec![]
-                    }
-                ))
-                .add_event(
-                    cosmwasm_std::Event::new(
-                        "crates.io:drop-neutron-contracts__drop-staker-sudo-response".to_string()
                     )
-                    .add_attributes(vec![
-                        cosmwasm_std::attr("action".to_string(), "sudo_response".to_string()),
-                        cosmwasm_std::attr("request_id".to_string(), "0".to_string())
-                    ])
+                    .unwrap(),
+                    funds: vec![]
+                }
+            ))
+            .add_event(
+                cosmwasm_std::Event::new(
+                    "crates.io:drop-neutron-contracts__drop-staker-sudo-response".to_string()
                 )
-        );
-    }
+                .add_attributes(vec![
+                    cosmwasm_std::attr("action".to_string(), "sudo_response".to_string()),
+                    cosmwasm_std::attr("request_id".to_string(), "0".to_string())
+                ])
+            )
+    );
 }
 
 #[test]
