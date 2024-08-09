@@ -774,6 +774,82 @@ fn test_execute_redelegate() {
 }
 
 #[test]
+fn test_execute_tokenize_share_sender_is_not_allowed() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::TokenizeShare {
+            validator: "validator".to_string(),
+            amount: Uint128::from(123u64),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Sender is not allowed"
+        ))
+    );
+}
+
+#[test]
+fn test_execute_tokenize_share_sender_not_idle() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let pupeteer_base = base_init(&mut deps.as_mut());
+    pupeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                seq_id: None,
+                status: drop_puppeteer_base::state::TxStateStatus::InProgress,
+                reply_to: Some("".to_string()),
+                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
+                    interchain_account_id: "ica_address".to_string(),
+                    delegate_grantee: "delegate_grantee".to_string(),
+                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                }),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::TokenizeShare {
+            validator: "validator".to_string(),
+            amount: Uint128::from(123u64),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
+            cosmwasm_std::StdError::generic_err(
+                "Transaction txState is not equal to expected: Idle".to_string()
+            )
+        ))
+    );
+}
+
+#[test]
 fn test_execute_tokenize_share() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.add_custom_query_response(|_| {
@@ -783,81 +859,64 @@ fn test_execute_tokenize_share() {
         .unwrap()
     });
     let puppeteer_base = base_init(&mut deps.as_mut());
-    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::TokenizeShare {
-        validator: "validator".to_string(),
-        amount: Uint128::from(123u64),
-        reply_to: "some_reply_to".to_string(),
-    };
-    {
-        let res = crate::contract::execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("not_allowed_sender", &[]),
-            msg.clone(),
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
-                "Sender is not allowed"
-            ))
-        );
-    }
-    {
-        let res = crate::contract::execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("allowed_sender", &[]),
-            msg.clone(),
-        )
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::TokenizeShare {
+            validator: "validator".to_string(),
+            amount: Uint128::from(123u64),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap();
+    let delegator = puppeteer_base
+        .ica
+        .get_address(deps.as_mut().storage)
         .unwrap();
-        let delegator = puppeteer_base
-            .ica
-            .get_address(deps.as_mut().storage)
-            .unwrap();
-        assert_eq!(
-            res,
-            cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
-                id: 65536u64,
-                msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::submit_tx(
-                    "connection_id".to_string(),
-                    "DROP".to_string(),
-                    vec![drop_helpers::interchain::prepare_any_msg(
-                        crate::proto::liquidstaking::staking::v1beta1::MsgTokenizeShares {
-                            delegator_address: delegator.clone(),
-                            validator_address: "validator".to_string(),
-                            amount: Some(crate::proto::cosmos::base::v1beta1::Coin {
-                                denom: puppeteer_base
-                                    .config
-                                    .load(deps.as_mut().storage)
-                                    .unwrap()
-                                    .remote_denom,
-                                amount: "123".to_string(),
-                            }),
-                            tokenized_share_owner: delegator
-                        },
-                        "/cosmos.staking.v1beta1.MsgTokenizeShares",
-                    )
-                    .unwrap()],
-                    "".to_string(),
-                    100u64,
-                    IbcFee {
-                        recv_fee: vec![],
-                        ack_fee: vec![cosmwasm_std::Coin {
-                            denom: "untrn".to_string(),
-                            amount: Uint128::from(100u64),
-                        }],
-                        timeout_fee: vec![cosmwasm_std::Coin {
-                            denom: "untrn".to_string(),
-                            amount: Uint128::from(200u64),
-                        }],
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+            id: 65536u64,
+            msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::submit_tx(
+                "connection_id".to_string(),
+                "DROP".to_string(),
+                vec![drop_helpers::interchain::prepare_any_msg(
+                    crate::proto::liquidstaking::staking::v1beta1::MsgTokenizeShares {
+                        delegator_address: delegator.clone(),
+                        validator_address: "validator".to_string(),
+                        amount: Some(crate::proto::cosmos::base::v1beta1::Coin {
+                            denom: puppeteer_base
+                                .config
+                                .load(deps.as_mut().storage)
+                                .unwrap()
+                                .remote_denom,
+                            amount: "123".to_string(),
+                        }),
+                        tokenized_share_owner: delegator
                     },
-                )),
-                gas_limit: None,
-                reply_on: cosmwasm_std::ReplyOn::Success
-            }),
-        );
-    }
+                    "/cosmos.staking.v1beta1.MsgTokenizeShares",
+                )
+                .unwrap()],
+                "".to_string(),
+                100u64,
+                IbcFee {
+                    recv_fee: vec![],
+                    ack_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(100u64),
+                    }],
+                    timeout_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(200u64),
+                    }],
+                },
+            )),
+            gas_limit: None,
+            reply_on: cosmwasm_std::ReplyOn::Success
+        }),
+    );
 }
 
 #[test]
