@@ -1825,7 +1825,131 @@ fn test_execute_register_non_native_rewards_balances_query_has_several_non_nativ
 }
 
 #[test]
-fn test_execute_ibc_transfer() {
+fn test_execute_ibc_transfer_sender_is_not_allowed() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+            reason: IBCTransferReason::LSMShare,
+            reply_to: "owner".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Sender is not allowed"
+        ))
+    );
+}
+
+#[test]
+fn test_execute_ibc_transfer_many_coins() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(
+            "allowed_sender",
+            &[
+                cosmwasm_std::Coin {
+                    denom: "token1".to_string(),
+                    amount: Uint128::from(123u64),
+                },
+                cosmwasm_std::Coin {
+                    denom: "token2".to_string(),
+                    amount: Uint128::from(123u64),
+                },
+            ],
+        ),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+            reason: IBCTransferReason::LSMShare,
+            reply_to: "owner".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::InvalidFunds {
+            reason: "Only one coin is allowed".to_string()
+        }
+    )
+}
+
+#[test]
+fn test_execute_ibc_transfer_no_coins() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+            reason: IBCTransferReason::LSMShare,
+            reply_to: "owner".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::InvalidFunds {
+            reason: "Only one coin is allowed".to_string()
+        }
+    )
+}
+
+#[test]
+fn test_execute_ibc_transfer_not_idle() {
+    let mut deps = mock_dependencies(&[]);
+    let pupeteer_base = base_init(&mut deps.as_mut());
+    pupeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                seq_id: None,
+                status: drop_puppeteer_base::state::TxStateStatus::InProgress,
+                reply_to: Some("".to_string()),
+                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
+                    interchain_account_id: "ica_address".to_string(),
+                    delegate_grantee: "delegate_grantee".to_string(),
+                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                }),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+            reason: IBCTransferReason::LSMShare,
+            reply_to: "owner".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
+            cosmwasm_std::StdError::generic_err(
+                "Transaction txState is not equal to expected: Idle".to_string()
+            )
+        ))
+    );
+}
+
+#[test]
+fn test_execute_ibc_transfer_one_coin() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
@@ -1844,107 +1968,63 @@ fn test_execute_ibc_transfer() {
             "channel-0".to_string(),
         )
         .unwrap();
-    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
-        reason: IBCTransferReason::LSMShare,
-        reply_to: "owner".to_string(),
-    };
+
     let env = mock_env();
-    {
-        let res = crate::contract::execute(
-            deps.as_mut(),
-            env.clone(),
-            mock_info(
-                "allowed_sender",
-                &[
-                    cosmwasm_std::Coin {
-                        denom: "token1".to_string(),
-                        amount: Uint128::from(123u64),
-                    },
-                    cosmwasm_std::Coin {
-                        denom: "token2".to_string(),
-                        amount: Uint128::from(123u64),
-                    },
-                ],
-            ),
-            msg.clone(),
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            drop_puppeteer_base::error::ContractError::InvalidFunds {
-                reason: "Only one coin is allowed".to_string()
-            }
-        )
-    }
-    {
-        let res = crate::contract::execute(
-            deps.as_mut(),
-            env.clone(),
-            mock_info("allowed_sender", &[]),
-            msg.clone(),
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            drop_puppeteer_base::error::ContractError::InvalidFunds {
-                reason: "Only one coin is allowed".to_string()
-            }
-        )
-    }
-    {
-        let res = crate::contract::execute(
-            deps.as_mut(),
-            env.clone(),
-            mock_info(
-                "allowed_sender",
-                &[cosmwasm_std::Coin {
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info(
+            "allowed_sender",
+            &[cosmwasm_std::Coin {
+                denom: "uatom".to_string(),
+                amount: Uint128::from(123u64),
+            }],
+        ),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+            reason: IBCTransferReason::LSMShare,
+            reply_to: "owner".to_string(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+            id: 131072u64,
+            msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::IbcTransfer {
+                source_port: "port_id".to_string(),
+                source_channel: "transfer_channel_id".to_string(),
+                token: cosmwasm_std::Coin {
                     denom: "uatom".to_string(),
                     amount: Uint128::from(123u64),
-                }],
-            ),
-            msg.clone(),
-        )
-        .unwrap();
-        assert_eq!(
-            res,
-            cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
-                id: 131072u64,
-                msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::IbcTransfer {
-                    source_port: "port_id".to_string(),
-                    source_channel: "transfer_channel_id".to_string(),
-                    token: cosmwasm_std::Coin {
-                        denom: "uatom".to_string(),
-                        amount: Uint128::from(123u64),
-                    },
-                    sender: "cosmos2contract".to_string(),
-                    receiver: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
-                    timeout_height: RequestPacketTimeoutHeight {
-                        revision_height: None,
-                        revision_number: None
-                    },
-                    timeout_timestamp: env
-                        .block
-                        .time
-                        .plus_seconds(puppeteer_config.timeout)
-                        .nanos(),
-                    memo: "".to_string(),
-                    fee: IbcFee {
-                        recv_fee: vec![],
-                        ack_fee: vec![cosmwasm_std::Coin {
-                            denom: "untrn".to_string(),
-                            amount: Uint128::from(100u64),
-                        }],
-                        timeout_fee: vec![cosmwasm_std::Coin {
-                            denom: "untrn".to_string(),
-                            amount: Uint128::from(200u64),
-                        }]
-                    }
-                }),
-                gas_limit: None,
-                reply_on: cosmwasm_std::ReplyOn::Success,
-            })
-        )
-    }
+                },
+                sender: "cosmos2contract".to_string(),
+                receiver: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+                timeout_height: RequestPacketTimeoutHeight {
+                    revision_height: None,
+                    revision_number: None
+                },
+                timeout_timestamp: env
+                    .block
+                    .time
+                    .plus_seconds(puppeteer_config.timeout)
+                    .nanos(),
+                memo: "".to_string(),
+                fee: IbcFee {
+                    recv_fee: vec![],
+                    ack_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(100u64),
+                    }],
+                    timeout_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(200u64),
+                    }]
+                }
+            }),
+            gas_limit: None,
+            reply_on: cosmwasm_std::ReplyOn::Success,
+        })
+    )
 }
 
 #[test]
