@@ -381,10 +381,100 @@ fn test_execute_refund_unauthorized() {
 }
 
 #[test]
+fn test_push_no_destination_port() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: coins(100, "local_denom"),
+                timeout_fee: coins(200, "local_denom"),
+            },
+        })
+        .unwrap()
+    });
+    let mut config = get_default_config();
+    config.dest_port = None;
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    ICA.set_address(deps.as_mut().storage, "some", "port", "channel")
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("somebody", &[]),
+        drop_staking_base::msg::pump::ExecuteMsg::Push {
+            coins: vec![Coin::new(100u128, "remote_denom")],
+        }
+        .clone(),
+    )
+    .unwrap_err();
+    assert_eq!(res, crate::error::ContractError::NoDestinationPort {});
+}
+
+#[test]
+fn test_push_no_destintation_channel() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: coins(100, "local_denom"),
+                timeout_fee: coins(200, "local_denom"),
+            },
+        })
+        .unwrap()
+    });
+    let mut config = get_default_config();
+    config.dest_channel = None;
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    ICA.set_address(deps.as_mut().storage, "some", "port", "channel")
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("somebody", &[]),
+        drop_staking_base::msg::pump::ExecuteMsg::Push {
+            coins: vec![Coin::new(100u128, "remote_denom")],
+        }
+        .clone(),
+    )
+    .unwrap_err();
+    assert_eq!(res, crate::error::ContractError::NoDestinationChannel {});
+}
+
+#[test]
+fn test_push_no_destintation_address() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: coins(100, "local_denom"),
+                timeout_fee: coins(200, "local_denom"),
+            },
+        })
+        .unwrap()
+    });
+    let mut config = get_default_config();
+    config.dest_address = None;
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    ICA.set_address(deps.as_mut().storage, "some", "port", "channel")
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("somebody", &[]),
+        drop_staking_base::msg::pump::ExecuteMsg::Push {
+            coins: vec![Coin::new(100u128, "remote_denom")],
+        }
+        .clone(),
+    )
+    .unwrap_err();
+    assert_eq!(res, crate::error::ContractError::NoDestinationAddress {});
+}
+
+#[test]
 fn test_push() {
-    let msg = drop_staking_base::msg::pump::ExecuteMsg::Push {
-        coins: vec![Coin::new(100u128, "remote_denom")],
-    };
     let mut deps = mock_dependencies(&[]);
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
@@ -405,28 +495,13 @@ fn test_push() {
     let res = execute(
         deps.as_mut(),
         env.clone(),
-        mock_info("nobody", &[]),
-        msg.clone(),
+        mock_info("somebody", &[]),
+        drop_staking_base::msg::pump::ExecuteMsg::Push {
+            coins: vec![Coin::new(100u128, "remote_denom")],
+        }
+        .clone(),
     )
     .unwrap();
-    let msg = cosmos_sdk_proto::ibc::applications::transfer::v1::MsgTransfer {
-        source_port: "dest_port".to_string(),
-        source_channel: "dest_channel".to_string(),
-        token: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-            denom: "remote_denom".to_string(),
-            amount: "100".to_string(),
-        }),
-        sender: "some".to_string(),
-        receiver: "dest_address".to_string(),
-        timeout_height: None,
-        timeout_timestamp: env.block.time.plus_seconds(10).nanos(),
-    };
-    let mut buf = Vec::with_capacity(msg.encoded_len());
-    msg.encode(&mut buf).unwrap();
-    let any_msg = ProtobufAny {
-        type_url: "/ibc.applications.transfer.v1.MsgTransfer".to_string(),
-        value: Binary::from(buf),
-    };
     assert_eq!(
         res,
         Response::new()
@@ -443,7 +518,24 @@ fn test_push() {
             .add_message(CosmosMsg::Custom(NeutronMsg::submit_tx(
                 "connection".to_string(),
                 "drop_PUMP".to_string(),
-                vec![any_msg],
+                vec![ProtobufAny {
+                    type_url: "/ibc.applications.transfer.v1.MsgTransfer".to_string(),
+                    value: Binary::from(
+                        cosmos_sdk_proto::ibc::applications::transfer::v1::MsgTransfer {
+                            source_port: "dest_port".to_string(),
+                            source_channel: "dest_channel".to_string(),
+                            token: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                                denom: "remote_denom".to_string(),
+                                amount: "100".to_string(),
+                            }),
+                            sender: "some".to_string(),
+                            receiver: "dest_address".to_string(),
+                            timeout_height: None,
+                            timeout_timestamp: env.block.time.plus_seconds(10).nanos(),
+                        }
+                        .encode_to_vec(),
+                    ),
+                }],
                 "".to_string(),
                 10u64,
                 IbcFee {
