@@ -557,42 +557,41 @@ fn test_execute_undelegate() {
         .unwrap()
     });
     let puppeteer_base = base_init(&mut deps.as_mut());
-    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
-        batch_id: 0u128,
-        items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
-        reply_to: "some_reply_to".to_string(),
-    };
+    let ica_address = puppeteer_base
+        .ica
+        .get_address(deps.as_mut().storage)
+        .unwrap();
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("allowed_sender", &[]),
-        msg,
+        drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
+            batch_id: 0u128,
+            items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
+            reply_to: "some_reply_to".to_string(),
+        },
     )
     .unwrap();
-
-    let msg = cosmos_sdk_proto::Any {
-        type_url: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
-        value: cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
-            delegator_address: "ica_address".to_string(),
-            validator_address: "valoper1".to_string(),
-            amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-                denom: "remote_denom".to_string(),
-                amount: "1000".to_string(),
-            }),
-        }
-        .to_bytes()
-        .unwrap(),
-    };
-
-    let grant_msg = cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec {
-        grantee: "ica_address".to_string(),
-        msgs: vec![msg],
-    };
-    let mut buf = Vec::with_capacity(grant_msg.encoded_len());
-    grant_msg.encode(&mut buf).unwrap();
     let any_msg = neutron_sdk::bindings::types::ProtobufAny {
         type_url: "/cosmos.authz.v1beta1.MsgExec".to_string(),
-        value: Binary::from(buf),
+        value: Binary::from(
+            cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec {
+                grantee: ica_address,
+                msgs: vec![cosmos_sdk_proto::Any {
+                    type_url: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
+                    value: cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
+                        delegator_address: "ica_address".to_string(),
+                        validator_address: "valoper1".to_string(),
+                        amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                            denom: "remote_denom".to_string(),
+                            amount: "1000".to_string(),
+                        }),
+                    }
+                    .encode_to_vec(),
+                }],
+            }
+            .encode_to_vec(),
+        ),
     };
     assert_eq!(
         res,
