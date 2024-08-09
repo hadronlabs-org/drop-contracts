@@ -201,7 +201,7 @@ fn test_instantiate() {
 }
 
 #[test]
-fn test_execute_update_config() {
+fn test_execute_update_config_unauthorized() {
     let mut deps = mock_dependencies(&[]);
     let puppeteer_base = Puppeteer::default();
     puppeteer_base
@@ -222,60 +222,68 @@ fn test_execute_update_config() {
     };
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    {
-        let query_res = crate::contract::query(
-            deps.as_ref(),
-            mock_env(),
-            drop_puppeteer_base::msg::QueryMsg::Extension {
-                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Ownership {},
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_an_owner", &[]),
+        msg.clone(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
+    )
+}
+
+#[test]
+fn test_execute_update_config() {
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = Puppeteer::default();
+    puppeteer_base
+        .config
+        .save(deps.as_mut().storage, &get_base_config())
+        .unwrap();
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::UpdateConfig {
+            new_config: ConfigOptional {
+                update_period: Some(121u64),
+                remote_denom: Some("new_remote_denom".to_string()),
+                allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
+                transfer_channel_id: Some("new_transfer_channel_id".to_string()),
+                connection_id: Some("new_connection_id".to_string()),
+                port_id: Some("new_port_id".to_string()),
+                sdk_version: Some("0.47.0".to_string()),
+                timeout: Some(101u64),
             },
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new().add_event(
+            Event::new("crates.io:drop-neutron-contracts__drop-puppeteer-config_update")
+                .add_attributes(vec![
+                    ("remote_denom", "new_remote_denom"),
+                    ("connection_id", "new_connection_id"),
+                    ("port_id", "new_port_id"),
+                    ("update_period", "121"),
+                    ("allowed_senders", "1"),
+                    ("transfer_channel_id", "new_transfer_channel_id"),
+                    ("sdk_version", "0.47.0"),
+                    ("timeout", "101"),
+                ])
         )
-        .unwrap();
-        assert_eq!(
-            query_res,
-            to_json_binary(&cw_ownable::get_ownership(deps.as_mut().storage).unwrap()).unwrap()
-        );
-    }
-    {
-        let res = crate::contract::execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("not_an_owner", &[]),
-            msg.clone(),
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            drop_puppeteer_base::error::ContractError::OwnershipError(
-                cw_ownable::OwnershipError::NotOwner
-            )
-        )
-    }
-    {
-        let res = crate::contract::execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("owner", &[]),
-            msg.clone(),
-        )
-        .unwrap();
-        assert_eq!(
-            res,
-            Response::new().add_event(
-                Event::new("crates.io:drop-neutron-contracts__drop-puppeteer-config_update")
-                    .add_attributes(vec![
-                        ("remote_denom", "new_remote_denom"),
-                        ("connection_id", "new_connection_id"),
-                        ("port_id", "new_port_id"),
-                        ("update_period", "121"),
-                        ("allowed_senders", "1"),
-                        ("transfer_channel_id", "new_transfer_channel_id"),
-                        ("sdk_version", "0.47.0"),
-                        ("timeout", "101"),
-                    ])
-            )
-        );
-    }
+    );
+
     let config = puppeteer_base.config.load(deps.as_ref().storage).unwrap();
     assert_eq!(
         config,
