@@ -1,4 +1,4 @@
-use crate::contract::{execute, instantiate};
+use crate::contract::{execute, instantiate, query};
 
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
@@ -458,4 +458,49 @@ fn test_update_config() {
             ])
         )
     )
+}
+
+#[test]
+fn test_transfer_ownership() {
+    let mut deps = mock_dependencies();
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let _ = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::strategy::ExecuteMsg::UpdateOwnership(
+            cw_ownable::Action::TransferOwnership {
+                new_owner: "new_owner".to_string(),
+                expiry: Some(cw_ownable::Expiration::Never {}),
+            },
+        ),
+    )
+    .unwrap();
+    let _ = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("new_owner", &[]),
+        drop_staking_base::msg::strategy::ExecuteMsg::UpdateOwnership(
+            cw_ownable::Action::AcceptOwnership {},
+        ),
+    )
+    .unwrap();
+    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            drop_staking_base::msg::strategy::QueryMsg::Ownership {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        cw_ownable::Ownership {
+            owner: Some(cosmwasm_std::Addr::unchecked("new_owner".to_string())),
+            pending_expiry: None,
+            pending_owner: None
+        }
+    );
 }
