@@ -3,8 +3,8 @@ use crate::contract::{execute, instantiate, query};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{
-    to_json_binary, Addr, Attribute, Binary, Decimal, Decimal256, Deps, Empty, Env, Event,
-    Response, StdResult, Timestamp, Uint128, from_json
+    from_json, to_json_binary, Addr, Attribute, Binary, Decimal, Decimal256, Deps, Empty, Env,
+    Event, Response, StdResult, Timestamp, Uint128,
 };
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
 use drop_puppeteer_base::error::ContractError as PuppeteerContractError;
@@ -20,7 +20,6 @@ use drop_staking_base::msg::{
 use drop_staking_base::state::strategy::{
     DENOM, DISTRIBUTION_ADDRESS, PUPPETEER_ADDRESS, VALIDATOR_SET_ADDRESS,
 };
-use neutron_sdk::interchain_queries::v045::types::Delegations;
 
 const CORE_CONTRACT_ADDR: &str = "core_contract";
 const PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
