@@ -51,7 +51,7 @@ fn test_instantiate() {
         local_denom: "local_denom".to_string(),
         owner: Some("owner".to_string()),
     };
-    let res = instantiate(deps.as_mut(), mock_env(), mock_info("admin", &[]), msg).unwrap();
+    let res = instantiate(deps.as_mut(), mock_env(), mock_info("owner", &[]), msg).unwrap();
     assert_eq!(
         res,
         Response::new().add_event(Event::new(
@@ -60,30 +60,18 @@ fn test_instantiate() {
             ("contract_name", "crates.io:drop-neutron-contracts__drop-pump"),
             ("contract_version", "1.0.0"),
             ("msg", "InstantiateMsg { dest_address: Some(\"dest_address\"), dest_channel: Some(\"dest_channel\"), dest_port: Some(\"dest_port\"), connection_id: \"connection\", refundee: Some(\"refundee\"), timeout: PumpTimeout { local: Some(10), remote: 10 }, local_denom: \"local_denom\", owner: Some(\"owner\") }"),
-            ("sender", "admin")
+            ("sender", "owner")
         ]))
+    );
+    assert_eq!(
+        "owner",
+        cw_ownable::get_ownership(deps.as_ref().storage)
+            .unwrap()
+            .owner
+            .unwrap()
     );
     let config = CONFIG.load(deps.as_ref().storage).unwrap();
     assert_eq!(config, get_default_config());
-    {
-        let owner: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
-            query(
-                deps.as_ref().into_empty(),
-                mock_env(),
-                drop_staking_base::msg::pump::QueryMsg::Ownership {},
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(owner.owner.clone().unwrap(), Addr::unchecked("owner"));
-        assert_eq!(
-            owner.owner.unwrap(),
-            cw_ownable::get_ownership(deps.as_ref().storage)
-                .unwrap()
-                .owner
-                .unwrap()
-        )
-    }
 }
 
 #[test]
