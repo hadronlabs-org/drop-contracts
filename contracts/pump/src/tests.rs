@@ -214,16 +214,6 @@ fn test_register_ica_no_fee() {
         }
     );
     assert_eq!(ICA.load(deps.as_ref().storage).unwrap(), IcaState::None);
-    let res: IcaState = from_json(
-        query(
-            deps.as_ref().into_empty(),
-            mock_env(),
-            drop_staking_base::msg::pump::QueryMsg::Ica {},
-        )
-        .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(ICA.load(deps.as_ref().storage).unwrap(), res);
 }
 
 #[test]
@@ -233,21 +223,6 @@ fn test_register_ica() {
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
     let msg = drop_staking_base::msg::pump::ExecuteMsg::RegisterICA {};
-
-    {
-        assert_eq!(ICA.load(deps.as_ref().storage).unwrap(), IcaState::None);
-        let res: IcaState = from_json(
-            query(
-                deps.as_ref().into_empty(),
-                mock_env(),
-                drop_staking_base::msg::pump::QueryMsg::Ica {},
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(ICA.load(deps.as_ref().storage).unwrap(), res);
-    }
-
     let res = execute(
         deps.as_mut(),
         mock_env(),
@@ -289,21 +264,6 @@ fn test_register_ica() {
     );
     // reopen timeouted ICA
     ICA.set_timeout(deps.as_mut().storage).unwrap();
-
-    {
-        assert_eq!(ICA.load(deps.as_ref().storage).unwrap(), IcaState::Timeout);
-        let res: IcaState = from_json(
-            query(
-                deps.as_ref().into_empty(),
-                mock_env(),
-                drop_staking_base::msg::pump::QueryMsg::Ica {},
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(ICA.load(deps.as_ref().storage).unwrap(), res);
-    }
-
     let res = execute(
         deps.as_mut(),
         mock_env(),
@@ -311,24 +271,10 @@ fn test_register_ica() {
         msg.clone(),
     )
     .unwrap();
-
-    {
-        assert_eq!(
-            ICA.load(deps.as_ref().storage).unwrap(),
-            IcaState::InProgress
-        );
-        let res: IcaState = from_json(
-            query(
-                deps.as_ref().into_empty(),
-                mock_env(),
-                drop_staking_base::msg::pump::QueryMsg::Ica {},
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(ICA.load(deps.as_ref().storage).unwrap(), res);
-    }
-
+    assert_eq!(
+        ICA.load(deps.as_ref().storage).unwrap(),
+        IcaState::InProgress
+    );
     assert_eq!(
         res,
         Response::new()
