@@ -1072,6 +1072,92 @@ fn test_execute_redeem_share() {
 }
 
 #[test]
+fn test_execute_claim_rewards_and_optionaly_transfer_sender_is_not_allowed() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
+            validators: vec!["validator1".to_string(), "validator2".to_string()],
+            transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg {
+                batch_ids: vec![0u128, 1u128, 2u128],
+                emergency: true,
+                amount: Uint128::from(123u64),
+                recipient: "some_recipient".to_string(),
+            }),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Sender is not allowed"
+        ))
+    );
+}
+
+#[test]
+fn test_execute_claim_rewards_and_optionaly_transfer_not_idle() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let pupeteer_base = base_init(&mut deps.as_mut());
+    pupeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                seq_id: None,
+                status: drop_puppeteer_base::state::TxStateStatus::InProgress,
+                reply_to: Some("".to_string()),
+                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
+                    interchain_account_id: "ica_address".to_string(),
+                    delegate_grantee: "delegate_grantee".to_string(),
+                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                }),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
+            validators: vec!["validator1".to_string(), "validator2".to_string()],
+            transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg {
+                batch_ids: vec![0u128, 1u128, 2u128],
+                emergency: true,
+                amount: Uint128::from(123u64),
+                recipient: "some_recipient".to_string(),
+            }),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
+            cosmwasm_std::StdError::generic_err(
+                "Transaction txState is not equal to expected: Idle".to_string()
+            )
+        ))
+    );
+}
+
+#[test]
 fn test_execute_claim_rewards_and_optionaly_transfer() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.add_custom_query_response(|_| {
@@ -1081,44 +1167,28 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
         .unwrap()
     });
     let puppeteer_base = base_init(&mut deps.as_mut());
-    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
-        validators: vec!["validator1".to_string(), "validator2".to_string()],
-        transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg {
-            batch_ids: vec![0u128, 1u128, 2u128],
-            emergency: true,
-            amount: Uint128::from(123u64),
-            recipient: "some_recipient".to_string(),
-        }),
-        reply_to: "some_reply_to".to_string(),
-    };
-    {
-        let res = crate::contract::execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("not_allowed_sender", &[]),
-            msg.clone(),
-        )
-        .unwrap_err();
-        assert_eq!(
-            res,
-            drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
-                "Sender is not allowed"
-            ))
-        );
-    }
-    {
-        let res = crate::contract::execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("allowed_sender", &[]),
-            msg,
-        )
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
+            validators: vec!["validator1".to_string(), "validator2".to_string()],
+            transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg {
+                batch_ids: vec![0u128, 1u128, 2u128],
+                emergency: true,
+                amount: Uint128::from(123u64),
+                recipient: "some_recipient".to_string(),
+            }),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap();
+    let ica_address = puppeteer_base
+        .ica
+        .get_address(deps.as_mut().storage)
         .unwrap();
-        let ica_address = puppeteer_base
-            .ica
-            .get_address(deps.as_mut().storage)
-            .unwrap();
-        assert_eq!(
+    assert_eq!(
         res,
         cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
             id: 65536u64,
@@ -1177,7 +1247,6 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
             reply_on: cosmwasm_std::ReplyOn::Success
         }),
     );
-    }
 }
 
 #[test]
