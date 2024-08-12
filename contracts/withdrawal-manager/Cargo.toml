@@ -6,9 +6,9 @@ name = "drop-withdrawal-manager"
 version = "1.0.0"
 
 exclude = [
-  # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
-  "contract.wasm",
-  "hash.txt",
+    # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
+    "contract.wasm",
+    "hash.txt",
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -23,12 +23,13 @@ backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
-neutron-sdk         = { workspace = true }
-cosmwasm-schema     = { workspace = true }
-cosmwasm-std        = { workspace = true }
-cw-ownable          = { workspace = true }
-cw2                 = { workspace = true }
-cw721               = { workspace = true }
-drop-staking-base   = { workspace = true }
-drop-helpers        = { workspace = true }
-thiserror           = { workspace = true }
+neutron-sdk = { workspace = true }
+cosmwasm-schema = { workspace = true }
+cosmwasm-std = { workspace = true }
+cw-ownable = { workspace = true }
+cw2 = { workspace = true }
+cw721 = { workspace = true }
+drop-staking-base = { workspace = true }
+drop-helpers = { workspace = true }
+thiserror = { workspace = true }
+semver = { workspace = true }

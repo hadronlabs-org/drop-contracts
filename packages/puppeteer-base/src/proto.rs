@@ -9,6 +9,8 @@ pub struct MsgIBCTransfer {}
 
 #[cw_serde]
 pub struct MsgSendResponse {}
+#[cw_serde]
+pub struct MsgGrantResponse {}
 
 #[cw_serde]
 pub struct MsgUndelegateResponse {

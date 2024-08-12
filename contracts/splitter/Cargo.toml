@@ -1,0 +1,37 @@
+[package]
+authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>"]
+description = "Token flow splitter contract"
+edition = "2021"
+name = "drop-splitter"
+version = "1.0.0"
+
+exclude = [
+  # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
+  "contract.wasm",
+  "hash.txt",
+]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# use library feature to disable all instantiate/execute/query exports
+library = []
+
+[dependencies]
+cosmos-sdk-proto = { workspace = true }
+cosmwasm-schema = { workspace = true }
+cw-ownable = { workspace = true }
+cosmwasm-std = { workspace = true, features = ["cosmwasm_1_2"] }
+thiserror = { workspace = true }
+cw-utils = { workspace = true }
+cw2 = { workspace = true }
+semver = { workspace = true }
+drop-staking-base = { workspace = true }
+cw-storage-plus = { workspace = true, features = ["iterator"] }
+drop-helpers = { workspace = true }
+
+[dev-dependencies]
+cw-multi-test = { workspace = true }

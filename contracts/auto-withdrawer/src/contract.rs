@@ -13,7 +13,7 @@ use crate::{
 };
 use cosmwasm_std::{
     attr, ensure, ensure_eq, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut,
-    Env, Event, MessageInfo, Order, Reply, Response, SubMsg, WasmMsg,
+    Env, Event, MessageInfo, Order, Reply, Response, SubMsg, Uint64, WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
@@ -22,7 +22,7 @@ use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 pub const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 pub const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const CORE_UNBOND_REPLY_ID: u64 = 1;
-pub const PAGINATION_DEFAULT_LIMIT: usize = 100;
+pub const PAGINATION_DEFAULT_LIMIT: Uint64 = Uint64::new(100u64);
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
@@ -274,7 +274,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
 fn query_all_bondings(
     deps: Deps<NeutronQuery>,
     user: Option<String>,
-    limit: Option<usize>,
+    limit: Option<Uint64>,
     page_key: Option<String>,
 ) -> ContractResult<Binary> {
     let user = user.map(|addr| deps.api.addr_validate(&addr)).transpose()?;
@@ -290,8 +290,14 @@ fn query_all_bondings(
         ),
     };
 
+    let usize_limit = if limit <= Uint64::MAX {
+        limit.u64() as usize
+    } else {
+        return Err(ContractError::QueryBondingsLimitExceeded {});
+    };
+
     let mut bondings = vec![];
-    for i in (&mut iter).take(limit) {
+    for i in (&mut iter).take(usize_limit) {
         let (token_id, bonding) = i?;
         bondings.push(BondingResponse {
             token_id,
@@ -322,9 +328,17 @@ fn query_config(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn migrate(
-    _deps: DepsMut<NeutronQuery>,
+    deps: DepsMut<NeutronQuery>,
     _env: Env,
     _msg: MigrateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
     Ok(Response::new())
 }

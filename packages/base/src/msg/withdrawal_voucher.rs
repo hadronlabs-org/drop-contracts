@@ -10,4 +10,4 @@ pub type ExecuteMsg = cw721_base::ExecuteMsg<Extension, Empty>;
 pub type QueryMsg = cw721_base::QueryMsg<Empty>;
 
 #[cw_serde]
-pub enum MigrateMsg {}
+pub struct MigrateMsg {}

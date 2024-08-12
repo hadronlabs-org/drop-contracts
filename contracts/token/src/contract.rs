@@ -56,9 +56,6 @@ pub fn execute(
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let core = CORE_ADDRESS.load(deps.storage)?;
-    ensure_eq!(info.sender, core, ContractError::Unauthorized);
-
     match msg {
         ExecuteMsg::UpdateOwnership(action) => {
             cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
@@ -68,7 +65,7 @@ pub fn execute(
                 [],
             ))
         }
-        ExecuteMsg::Mint { amount, receiver } => mint(deps, amount, receiver),
+        ExecuteMsg::Mint { amount, receiver } => mint(deps, info, amount, receiver),
         ExecuteMsg::Burn {} => burn(deps, info),
         ExecuteMsg::SetTokenMetadata { token_metadata } => {
             set_token_metadata(deps, env, info, token_metadata)
@@ -78,10 +75,14 @@ pub fn execute(
 
 fn mint(
     deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
     amount: Uint128,
     receiver: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     ensure_ne!(amount, Uint128::zero(), ContractError::NothingToMint);
+
+    let core = CORE_ADDRESS.load(deps.storage)?;
+    ensure_eq!(info.sender, core, ContractError::Unauthorized);
 
     let denom = DENOM.load(deps.storage)?;
     let mint_msg = NeutronMsg::submit_mint_tokens(&denom, amount, &receiver);
@@ -98,6 +99,9 @@ fn mint(
 }
 
 fn burn(deps: DepsMut<NeutronQuery>, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
+    let core = CORE_ADDRESS.load(deps.storage)?;
+    ensure_eq!(info.sender, core, ContractError::Unauthorized);
+
     let denom = DENOM.load(deps.storage)?;
     let amount = cw_utils::must_pay(&info, &denom)?;
 
@@ -151,11 +155,15 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(
-    _deps: DepsMut,
-    _env: Env,
-    _msg: MigrateMsg,
-) -> ContractResult<Response<NeutronMsg>> {
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
+
     Ok(Response::new())
 }
 

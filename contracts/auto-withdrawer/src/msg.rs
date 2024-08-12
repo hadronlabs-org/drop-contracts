@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Coin;
+use cosmwasm_std::{Coin, Uint64};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -31,7 +31,7 @@ pub enum QueryMsg {
         /// Optionally filter bondings by user address
         user: Option<String>,
         /// Pagination limit. Default is 100
-        limit: Option<usize>,
+        limit: Option<Uint64>,
         /// Pagination offset
         page_key: Option<String>,
     },

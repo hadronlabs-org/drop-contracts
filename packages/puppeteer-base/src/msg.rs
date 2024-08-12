@@ -1,8 +1,8 @@
 use crate::{
     proto::{
-        MsgBeginRedelegateResponse, MsgDelegateResponse, MsgExecResponse, MsgIBCTransfer,
-        MsgRedeemTokensforSharesResponse, MsgSendResponse, MsgTokenizeSharesResponse,
-        MsgUndelegateResponse,
+        MsgBeginRedelegateResponse, MsgDelegateResponse, MsgExecResponse, MsgGrantResponse,
+        MsgIBCTransfer, MsgRedeemTokensforSharesResponse, MsgSendResponse,
+        MsgTokenizeSharesResponse, MsgUndelegateResponse,
     },
     state::RedeemShareItem,
 };
@@ -15,12 +15,6 @@ use schemars::JsonSchema;
 pub enum ExecuteMsg {
     RegisterICA {},
     RegisterQuery {},
-    SetFees {
-        recv_fee: Uint128,
-        ack_fee: Uint128,
-        timeout_fee: Uint128,
-        register_fee: Uint128,
-    },
 }
 
 #[cw_serde]
@@ -49,8 +43,12 @@ where
     Ica {},
     #[returns(Vec<Transaction>)]
     Transactions {},
+    #[returns(Vec<(u64, String)>)]
+    KVQueryIds {},
     #[returns(cosmwasm_std::Binary)]
-    Extention { msg: E },
+    Extension { msg: E },
+    #[returns(crate::state::TxState)]
+    TxState {},
 }
 
 #[cw_serde]
@@ -78,6 +76,8 @@ pub struct ResponseHookSuccessMsg {
     pub request: RequestPacket,
     pub transaction: Transaction,
     pub answers: Vec<ResponseAnswer>,
+    pub local_height: u64,
+    pub remote_height: u64,
 }
 #[cw_serde]
 pub struct ResponseHookErrorMsg {
@@ -89,6 +89,7 @@ pub struct ResponseHookErrorMsg {
 
 #[cw_serde]
 pub enum ResponseAnswer {
+    GrantDelegateResponse(MsgGrantResponse),
     DelegateResponse(MsgDelegateResponse),
     UndelegateResponse(MsgUndelegateResponse),
     BeginRedelegateResponse(MsgBeginRedelegateResponse),
@@ -102,11 +103,6 @@ pub enum ResponseAnswer {
 
 #[cw_serde]
 pub enum Transaction {
-    Delegate {
-        interchain_account_id: String,
-        denom: String,
-        items: Vec<(String, Uint128)>,
-    },
     Undelegate {
         interchain_account_id: String,
         items: Vec<(String, Uint128)>,
@@ -149,6 +145,11 @@ pub enum Transaction {
     Transfer {
         interchain_account_id: String,
         items: Vec<(String, cosmwasm_std::Coin)>,
+    },
+    SetupProtocol {
+        interchain_account_id: String,
+        delegate_grantee: String,
+        rewards_withdraw_address: String,
     },
 }
 
