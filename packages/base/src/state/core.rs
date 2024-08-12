@@ -125,10 +125,12 @@ pub fn unbond_batches_map<'a>() -> IndexedMap<'a, u128, UnbondBatch, UnbondBatch
 
 pub const UNBOND_BATCH_ID: Item<u128> = Item::new("batches_ids");
 pub const TOTAL_LSM_SHARES: Item<u128> = Item::new("total_lsm_shares");
+/// (local_denom, (remote_denom, shares_amount, real_amount))
 pub const PENDING_LSM_SHARES: Map<String, (String, Uint128, Uint128)> =
-    Map::new("pending_lsm_shares_v1"); // (local_denom, (remote_denom, shares_amount, real_amount))
+    Map::new("pending_lsm_shares_v1");
+/// (local_denom, (remote_denom, shares_amount, real_amount))
 pub const LSM_SHARES_TO_REDEEM: Map<String, (String, Uint128, Uint128)> =
-    Map::new("lsm_shares_to_redeem_v1"); // (local_denom, (remote_denom, shares_amount, real_amount))
+    Map::new("lsm_shares_to_redeem_v1");
 
 #[cw_serde]
 pub enum ContractState {
