@@ -120,7 +120,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
 }
 
 fn query_pending_lsm_shares(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let shares: Vec<(String, (String, Uint128))> = PENDING_LSM_SHARES
+    let shares: Vec<(String, (String, Uint128, Uint128))> = PENDING_LSM_SHARES
         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
         .collect::<StdResult<Vec<_>>>()?;
     to_json_binary(&shares).map_err(From::from)
@@ -135,7 +135,7 @@ fn query_pause_info(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
 }
 
 fn query_lsm_shares_to_redeem(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let shares: Vec<(String, (String, Uint128))> = LSM_SHARES_TO_REDEEM
+    let shares: Vec<(String, (String, Uint128, Uint128))> = LSM_SHARES_TO_REDEEM
         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
         .collect::<StdResult<Vec<_>>>()?;
     to_json_binary(&shares).map_err(From::from)
@@ -455,14 +455,19 @@ fn execute_puppeteer_hook(
                     if *reason == IBCTransferReason::LSMShare {
                         let current_pending =
                             PENDING_LSM_SHARES.may_load(deps.storage, denom.to_string())?;
-                        if let Some((remote_denom, current_amount)) = current_pending {
+                        if let Some((remote_denom, current_amount, real_amount)) = current_pending {
                             let sent_amount = Uint128::from(*amount);
                             LSM_SHARES_TO_REDEEM.update(
                                 deps.storage,
                                 denom.to_string(),
                                 |one| {
-                                    let mut new = one.unwrap_or((remote_denom, Uint128::zero()));
+                                    let mut new = one.unwrap_or((
+                                        remote_denom,
+                                        Uint128::zero(),
+                                        Uint128::zero(),
+                                    ));
                                     new.1 += sent_amount;
+                                    new.2 += real_amount;
                                     StdResult::Ok(new)
                                 },
                             )?;
@@ -476,6 +481,7 @@ fn execute_puppeteer_hook(
                                         Some(one) => {
                                             let mut new = one;
                                             new.1 -= Uint128::from(*amount);
+                                            new.2 -= real_amount;
                                             StdResult::Ok(new)
                                         }
                                         None => unreachable!("denom should be in the map"),
@@ -488,7 +494,9 @@ fn execute_puppeteer_hook(
                 drop_puppeteer_base::msg::Transaction::RedeemShares { items, .. } => {
                     let mut sum = 0u128;
                     for item in items {
-                        sum += item.amount.u128();
+                        let lsm_share = LSM_SHARES_TO_REDEEM
+                            .load(deps.storage, item.local_denom.to_string())?;
+                        sum += lsm_share.2.u128();
                         LSM_SHARES_TO_REDEEM.remove(deps.storage, item.local_denom.to_string());
                     }
                     TOTAL_LSM_SHARES.update(deps.storage, |one| StdResult::Ok(one - sum))?;
@@ -1012,14 +1020,13 @@ fn execute_bond(
             return Err(ContractError::BondLimitExceeded {});
         }
     }
-    BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total + amount))?;
     let denom_type = check_denom::check_denom(&deps.as_ref(), &denom, &config)?;
     let mut msgs = vec![];
     let mut attrs = vec![attr("action", "bond")];
     let exchange_rate = query_exchange_rate(deps.as_ref(), &config)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
-
     if let check_denom::DenomType::LsmShare(remote_denom, validator) = denom_type {
+        let share_amount = amount;
         amount = calc_lsm_share_underlying_amount(
             deps.as_ref(),
             &config.puppeteer_contract,
@@ -1034,8 +1041,9 @@ fn execute_bond(
         }
         TOTAL_LSM_SHARES.update(deps.storage, |total| StdResult::Ok(total + amount.u128()))?;
         PENDING_LSM_SHARES.update(deps.storage, denom, |one| {
-            let mut new = one.unwrap_or((remote_denom, Uint128::zero()));
-            new.1 += amount;
+            let mut new = one.unwrap_or((remote_denom, Uint128::zero(), Uint128::zero()));
+            new.1 += share_amount;
+            new.2 += amount;
             StdResult::Ok(new)
         })?;
     } else {
@@ -1045,6 +1053,7 @@ fn execute_bond(
             amount: vec![Coin::new(amount.u128(), denom)],
         }));
     }
+    BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total + amount))?;
     let issue_amount = amount * (Decimal::one() / exchange_rate);
     attrs.push(attr("issue_amount", issue_amount.to_string()));
 
@@ -1518,11 +1527,13 @@ pub fn get_pending_redeem_msg<T>(
 
     let items = shares_to_redeeem
         .iter()
-        .map(|(local_denom, (denom, amount))| RedeemShareItem {
-            amount: *amount,
-            local_denom: local_denom.to_string(),
-            remote_denom: denom.to_string(),
-        })
+        .map(
+            |(local_denom, (denom, amount, _real_amount))| RedeemShareItem {
+                amount: *amount,
+                local_denom: local_denom.to_string(),
+                remote_denom: denom.to_string(),
+            },
+        )
         .collect();
     Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_contract.to_string(),
@@ -1542,9 +1553,10 @@ fn get_pending_lsm_share_msg<T, X: CustomQuery>(
     env: &Env,
     funds: Vec<cosmwasm_std::Coin>,
 ) -> ContractResult<Option<CosmosMsg<T>>> {
-    let lsm_share: Option<(String, (String, Uint128))> = PENDING_LSM_SHARES.first(deps.storage)?;
+    let lsm_share: Option<(String, (String, Uint128, Uint128))> =
+        PENDING_LSM_SHARES.first(deps.storage)?;
     match lsm_share {
-        Some((local_denom, (_remote_denom, amount))) => {
+        Some((local_denom, (_remote_denom, amount, _real_amount))) => {
             Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: config.puppeteer_contract.to_string(),
                 msg: to_json_binary(
