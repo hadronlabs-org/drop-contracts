@@ -60,9 +60,7 @@ export class StakerModule extends ManagerModule {
     const balanceAmount = Uint64.fromString(balance.amount);
 
     if (balanceAmount >= this.config.stakerMinBalance) {
-      this.log.info(
-        `Transferring ${balanceAmount}${baseDenom} coins to the Neutron wallet...`,
-      );
+      this.log.info(`Transferring ${balanceAmount}${baseDenom} coins...`);
       const res = await this.contractClient.iBCTransfer(
         this.context.neutronWalletAddress,
         1.5,
