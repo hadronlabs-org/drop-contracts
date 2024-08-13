@@ -494,9 +494,9 @@ fn execute_puppeteer_hook(
                 drop_puppeteer_base::msg::Transaction::RedeemShares { items, .. } => {
                     let mut sum = 0u128;
                     for item in items {
-                        let lsm_share = LSM_SHARES_TO_REDEEM
+                        let (_remote_denom, _shares_amount, real_amount) = LSM_SHARES_TO_REDEEM
                             .load(deps.storage, item.local_denom.to_string())?;
-                        sum += lsm_share.2.u128();
+                        sum += real_amount.u128();
                         LSM_SHARES_TO_REDEEM.remove(deps.storage, item.local_denom.to_string());
                     }
                     TOTAL_LSM_SHARES.update(deps.storage, |one| StdResult::Ok(one - sum))?;
