@@ -345,6 +345,16 @@ factory_proxy_execute() {
   neutrond tx wasm execute "$factory_address" "$msg" --amount "$amount" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx | assert_success
 }
 
+migrate_contract() {
+  local contract_address="$1"
+  local code_id="$2"
+  local msg="$3"
+
+  echo "$msg" | jq '.'
+
+  neutrond tx wasm migrate "$contract_address" "$code_id" "$msg" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx | assert_success
+}
+
 get_counterparty_channel_id() {
   local ica_port="$1"
   local ica_channel="$2"
