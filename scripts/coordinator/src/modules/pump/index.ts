@@ -53,8 +53,8 @@ export class PumpModule extends ManagerModule {
     const targetBalanceAmount = Uint64.fromString(targetBalance.amount);
 
     const ntrnBalance = await this.context.neutronQueryClient.bank.balance(
-      this.icaAddress,
-      'ntrn',
+      this.config.contractAddress,
+      'untrn',
     );
 
     const ntrnBalanceAmount = Uint64.fromString(ntrnBalance.amount);
