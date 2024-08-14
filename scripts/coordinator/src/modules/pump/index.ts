@@ -45,33 +45,52 @@ export class PumpModule extends ManagerModule {
       }
     }
 
-    const balance = await this.context.targetQueryClient.bank.balance(
+    const targetBalance = await this.context.targetQueryClient.bank.balance(
       this.icaAddress,
       this.context.config.target.denom,
     );
 
-    const balanceAmount = Uint64.fromString(balance.amount);
+    const targetBalanceAmount = Uint64.fromString(targetBalance.amount);
 
-    if (balanceAmount > this.config.minBalance) {
-      this.log.info(`Pushing ${balanceAmount} coins to Neutron wallet...`);
+    const ntrnBalance = await this.context.targetQueryClient.bank.balance(
+      this.icaAddress,
+      'ntrn',
+    );
+
+    const ntrnBalanceAmount = Uint64.fromString(ntrnBalance.amount);
+
+    this.log.info(
+      `Contract balances: ${ntrnBalanceAmount}untrn, ${targetBalanceAmount}${this.context.config.target.denom}.`,
+    );
+
+    if (targetBalanceAmount > this.config.minBalance) {
+      this.log.info(
+        `Pushing ${targetBalanceAmount} coins to Neutron wallet...`,
+      );
+
+      const funds =
+        ntrnBalanceAmount < this.config.icaFeeBuffer
+          ? [
+              {
+                amount: this.context.config.neutron.icaFee,
+                denom: 'untrn',
+              },
+            ]
+          : [];
+
       const res = await this.contractClient.push(
         this.context.neutronWalletAddress,
         {
           coins: [
             {
-              amount: balanceAmount.toString(),
+              amount: targetBalanceAmount.toString(),
               denom: this.context.config.target.denom,
             },
           ],
         },
         1.5,
         undefined,
-        [
-          {
-            amount: this.context.config.neutron.icaFee,
-            denom: 'untrn',
-          },
-        ],
+        funds,
       );
 
       this.log.info(`Push response: ${JSONBig.stringify(res)}`);
@@ -85,6 +104,9 @@ export class PumpModule extends ManagerModule {
     this._config = {
       contractAddress: contractAddress,
       minBalance: Uint64.fromString(minBalance ?? '1000'),
+      icaFeeBuffer: Uint64.fromString(
+        process.env.ICA_FEE_COINS_BUFFER ?? '1000000',
+      ),
     };
 
     return this.config;
