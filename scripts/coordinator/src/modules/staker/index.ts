@@ -52,25 +52,42 @@ export class StakerModule extends ManagerModule {
     const { base_denom: baseDenom } =
       await this.coreContractClient.queryConfig();
 
-    const balance = await this.context.neutronQueryClient.bank.balance(
+    const baseDenomBalance = await this.context.neutronQueryClient.bank.balance(
       this.config.contractAddress,
       baseDenom,
     );
 
-    const balanceAmount = Uint64.fromString(balance.amount);
+    const balanceAmount = Uint64.fromString(baseDenomBalance.amount);
+
+    const ntrnBalance = await this.context.neutronQueryClient.bank.balance(
+      this.config.contractAddress,
+      'untrn',
+    );
+
+    const ntrnBalanceAmount = Uint64.fromString(ntrnBalance.amount);
+
+    this.log.info(
+      `Contract balances: ${ntrnBalanceAmount}untrn, ${balanceAmount}${baseDenom}.`,
+    );
 
     if (balanceAmount >= this.config.stakerMinBalance) {
       this.log.info(`Transferring ${balanceAmount}${baseDenom} coins...`);
+
+      const funds =
+        ntrnBalanceAmount < this.config.icaFeeBuffer
+          ? [
+              {
+                amount: this.context.config.neutron.icaFee,
+                denom: 'untrn',
+              },
+            ]
+          : [];
+
       const res = await this.contractClient.iBCTransfer(
         this.context.neutronWalletAddress,
         1.5,
         undefined,
-        [
-          {
-            amount: this.context.config.neutron.icaFee,
-            denom: 'untrn',
-          },
-        ],
+        funds,
       );
 
       this.log.info(`IBC transfer response: ${JSONBig.stringify(res)}`);
@@ -93,6 +110,9 @@ export class StakerModule extends ManagerModule {
         this.context.factoryContractHandler.factoryState.core_contract,
       stakerMinBalance: Uint64.fromString(
         process.env.STAKER_MIN_BALANCE ?? '1000000',
+      ),
+      icaFeeBuffer: Uint64.fromString(
+        process.env.ICA_FEE_COINS_BUFFER ?? '1000000',
       ),
     };
 
