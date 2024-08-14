@@ -2,7 +2,7 @@ import { ManagerModule } from '../../types/Module';
 import { DropPump } from 'drop-ts-client';
 import { PumpConfig } from './types/config';
 import { Context } from '../../types/Context';
-import { Uint64 } from '@cosmjs/math';
+import { Decimal } from '@cosmjs/math';
 import pino from 'pino';
 import JSONBig from 'json-bigint';
 
@@ -50,33 +50,32 @@ export class PumpModule extends ManagerModule {
       this.context.config.target.denom,
     );
 
-    const targetBalanceAmount = Uint64.fromString(targetBalance.amount);
+    const targetBalanceAmount = Decimal.fromAtomics(targetBalance.amount, 0);
 
     const ntrnBalance = await this.context.neutronQueryClient.bank.balance(
       this.config.contractAddress,
       'untrn',
     );
 
-    const ntrnBalanceAmount = Uint64.fromString(ntrnBalance.amount);
+    const ntrnBalanceAmount = Decimal.fromAtomics(ntrnBalance.amount, 0);
 
     this.log.info(
       `Contract balances: ${ntrnBalanceAmount}untrn, ${targetBalanceAmount}${this.context.config.target.denom}.`,
     );
 
-    if (targetBalanceAmount > this.config.minBalance) {
+    if (targetBalanceAmount.isGreaterThan(this.config.minBalance)) {
       this.log.info(
         `Pushing ${targetBalanceAmount} coins to Neutron wallet...`,
       );
 
-      const funds =
-        ntrnBalanceAmount < this.config.icaFeeBuffer
-          ? [
-              {
-                amount: this.context.config.neutron.icaFee,
-                denom: 'untrn',
-              },
-            ]
-          : [];
+      const funds = ntrnBalanceAmount.isLessThan(this.config.icaFeeBuffer)
+        ? [
+            {
+              amount: this.context.config.neutron.icaFee,
+              denom: 'untrn',
+            },
+          ]
+        : [];
 
       const res = await this.contractClient.push(
         this.context.neutronWalletAddress,
@@ -103,9 +102,10 @@ export class PumpModule extends ManagerModule {
   ): PumpConfig {
     this._config = {
       contractAddress: contractAddress,
-      minBalance: Uint64.fromString(minBalance ?? '1000'),
-      icaFeeBuffer: Uint64.fromString(
+      minBalance: Decimal.fromAtomics(minBalance ?? '1000', 0),
+      icaFeeBuffer: Decimal.fromAtomics(
         process.env.ICA_FEE_COINS_BUFFER ?? '1000000',
+        0,
       ),
     };
 

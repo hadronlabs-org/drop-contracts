@@ -4,7 +4,7 @@ import { StakerConfig } from './types/config';
 import { Context } from '../../types/Context';
 import pino from 'pino';
 import JSONBig from 'json-bigint';
-import { Uint64 } from '@cosmjs/math';
+import { Decimal } from '@cosmjs/math';
 
 const StakerContractClient = DropStaker.Client;
 const CoreContractClient = DropCore.Client;
@@ -57,31 +57,30 @@ export class StakerModule extends ManagerModule {
       baseDenom,
     );
 
-    const balanceAmount = Uint64.fromString(baseDenomBalance.amount);
+    const balanceAmount = Decimal.fromAtomics(baseDenomBalance.amount, 0);
 
     const ntrnBalance = await this.context.neutronQueryClient.bank.balance(
       this.config.contractAddress,
       'untrn',
     );
 
-    const ntrnBalanceAmount = Uint64.fromString(ntrnBalance.amount);
+    const ntrnBalanceAmount = Decimal.fromAtomics(ntrnBalance.amount, 0);
 
     this.log.info(
       `Contract balances: ${ntrnBalanceAmount}untrn, ${balanceAmount}${baseDenom}.`,
     );
 
-    if (balanceAmount >= this.config.stakerMinBalance) {
+    if (balanceAmount.isGreaterThanOrEqual(this.config.stakerMinBalance)) {
       this.log.info(`Transferring ${balanceAmount}${baseDenom} coins...`);
 
-      const funds =
-        ntrnBalanceAmount < this.config.icaFeeBuffer
-          ? [
-              {
-                amount: this.context.config.neutron.icaFee,
-                denom: 'untrn',
-              },
-            ]
-          : [];
+      const funds = ntrnBalanceAmount.isLessThan(this.config.icaFeeBuffer)
+        ? [
+            {
+              amount: this.context.config.neutron.icaFee,
+              denom: 'untrn',
+            },
+          ]
+        : [];
 
       const res = await this.contractClient.iBCTransfer(
         this.context.neutronWalletAddress,
@@ -108,11 +107,13 @@ export class StakerModule extends ManagerModule {
       coreContractAddress:
         process.env.CORE_CONTRACT_ADDRESS ||
         this.context.factoryContractHandler.factoryState.core_contract,
-      stakerMinBalance: Uint64.fromString(
+      stakerMinBalance: Decimal.fromAtomics(
         process.env.STAKER_MIN_BALANCE ?? '1000000',
+        0,
       ),
-      icaFeeBuffer: Uint64.fromString(
+      icaFeeBuffer: Decimal.fromAtomics(
         process.env.ICA_FEE_COINS_BUFFER ?? '1000000',
+        0,
       ),
     };
 

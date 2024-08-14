@@ -1,8 +1,8 @@
-import { Uint64 } from '@cosmjs/math';
+import { Decimal } from '@cosmjs/math';
 
 export type StakerConfig = {
   contractAddress: string;
   coreContractAddress: string;
-  stakerMinBalance: Uint64;
-  icaFeeBuffer: Uint64;
+  stakerMinBalance: Decimal;
+  icaFeeBuffer: Decimal;
 };
