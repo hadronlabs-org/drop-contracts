@@ -1510,7 +1510,7 @@ describe('Core', () => {
           return !!response;
         }, 100_000);
       });
-      it('query redepmtion rate', async () => {
+      it('query redemption rate', async () => {
         const exchangeRate =
           await context.coreContractClient.queryExchangeRate();
         const rate = await context.redemptionAdapterClient.queryRedemptionRate({
