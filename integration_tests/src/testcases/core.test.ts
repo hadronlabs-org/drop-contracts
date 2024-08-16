@@ -962,7 +962,7 @@ describe('Core', () => {
     await checkExchangeRate(context);
   });
 
-  it('query redepmtion rate', async () => {
+  it('query redemption rate', async () => {
     const rate = await context.redemptionAdapterClient.queryRedemptionRate({
       denom: `factory/${context.tokenContractClient.contractAddress}/udatom`,
     });
