@@ -963,11 +963,13 @@ describe('Core', () => {
   });
 
   it('query redepmtion rate', async () => {
+    const exchangeRate = await context.coreContractClient.queryExchangeRate();
     const rate = await context.redemptionAdapterClient.queryRedemptionRate({
       denom: `factory/${context.tokenContractClient.contractAddress}/udatom`,
     });
     expect(rate.redemption_rate).toEqual('1');
     expect(Date.now() / 1000 - rate.update_time).toBeLessThan(5);
+    expect(rate.redemption_rate).toEqual(exchangeRate);
   });
 
   it('delegate tokens on gaia side', async () => {
@@ -1509,11 +1511,14 @@ describe('Core', () => {
         }, 100_000);
       });
       it('query redepmtion rate', async () => {
+        const exchangeRate =
+          await context.coreContractClient.queryExchangeRate();
         const rate = await context.redemptionAdapterClient.queryRedemptionRate({
           denom: `factory/${context.tokenContractClient.contractAddress}/udatom`,
         });
         expect(rate.redemption_rate).toEqual('1');
         expect(Date.now() / 1000 - rate.update_time).toBeGreaterThan(15);
+        expect(exchangeRate).toEqual(rate.redemption_rate);
       });
       it('next tick goes to idle', async () => {
         const {
