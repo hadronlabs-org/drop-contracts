@@ -2,8 +2,8 @@ use cosmwasm_std::{attr, from_json, to_json_binary, Attribute, Decimal, Deps};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::response;
-use drop_staking_base::error::redepmtion_rate_adapter::{ContractError, ContractResult};
-use drop_staking_base::msg::redepmtion_rate_adapter::{
+use drop_staking_base::error::redemption_rate_adapter::{ContractError, ContractResult};
+use drop_staking_base::msg::redemption_rate_adapter::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, RedemptionRateResponse, UpdateConfig,
 };
 

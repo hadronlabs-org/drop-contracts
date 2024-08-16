@@ -1,5 +1,5 @@
 use cosmwasm_schema::write_api;
-use drop_staking_base::msg::redepmtion_rate_adapter::{
+use drop_staking_base::msg::redemption_rate_adapter::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
 
