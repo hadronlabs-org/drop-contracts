@@ -1,5 +1,5 @@
 #[allow(unused_imports)]
-use crate::state::redemtion_rate_adapter::Config;
+use crate::state::redemption_rate_adapter::Config;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Binary, Decimal};
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
