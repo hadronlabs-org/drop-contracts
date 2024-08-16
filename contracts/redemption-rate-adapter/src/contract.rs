@@ -7,7 +7,7 @@ use drop_staking_base::msg::redemption_rate_adapter::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, RedemptionRateResponse, UpdateConfig,
 };
 
-use drop_staking_base::state::redemtion_rate_adapter::{Config, CONFIG};
+use drop_staking_base::state::redemption_rate_adapter::{Config, CONFIG};
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
 
