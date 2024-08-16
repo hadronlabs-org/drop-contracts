@@ -930,7 +930,7 @@ fn test_transfer_ownership() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    let _ = execute(
+    execute(
         deps.as_mut(),
         mock_env(),
         mock_info("owner", &[]),
@@ -942,7 +942,7 @@ fn test_transfer_ownership() {
         ),
     )
     .unwrap();
-    let _ = execute(
+    execute(
         deps.as_mut(),
         mock_env(),
         mock_info("new_owner", &[]),
