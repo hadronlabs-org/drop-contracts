@@ -101,6 +101,7 @@ export class CoreModule extends ManagerModule {
       lastRedeem + config.lsm_redeem_maximum_interval > this.lastRun / 1000
     ) {
       this.log.info('Skipping tick because pending LSM shares is not ready');
+      return;
     }
 
     const lastPuppeteerResponse =
