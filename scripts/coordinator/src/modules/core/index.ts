@@ -93,9 +93,7 @@ export class CoreModule extends ManagerModule {
         'Skipping idle tick because idle min interval is not reached',
       );
       return;
-    }
-
-    if (
+    } else if (
       pendingLsmSharesAmount === 0 &&
       lsmSharesToRedeemAmount < config.lsm_redeem_threshold &&
       lastRedeem + config.lsm_redeem_maximum_interval > this.lastRun / 1000
