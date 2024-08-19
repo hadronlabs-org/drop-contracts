@@ -159,7 +159,6 @@ fn test_update_config() {
         bond_limit: Some(Uint128::new(2)),
         emergency_address: Some("new_emergency_address".to_string()),
         min_stake_amount: Some(Uint128::new(200)),
-        icq_update_delay: Some(5),
     };
     let expected_config = Config {
         token_contract: Addr::unchecked("new_token_contract"),

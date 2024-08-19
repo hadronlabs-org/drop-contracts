@@ -29,7 +29,6 @@ pub struct ConfigOptional {
     pub rewards_receiver: Option<String>,
     pub emergency_address: Option<String>,
     pub min_stake_amount: Option<Uint128>,
-    pub icq_update_delay: Option<u64>, // blocks
 }
 
 #[cw_serde]
