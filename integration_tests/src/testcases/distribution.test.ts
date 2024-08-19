@@ -86,15 +86,17 @@ describe('Distribution', () => {
     const res = await contractClient.queryCalcDeposit({
       deposit: '100',
       delegations: {
-        total: '141',
+        total_stake: '141',
+        total_on_top: '0',
         total_weight: 70,
         delegations: [
-          { valoper_address: 'valoper1', stake: '15', weight: 10 },
-          { valoper_address: 'valoper2', stake: '70', weight: 20 },
-          { valoper_address: 'valoper3', stake: '56', weight: 40 },
+          { valoper_address: 'valoper1', stake: '15', on_top: '0', weight: 10 },
+          { valoper_address: 'valoper2', stake: '70', on_top: '0', weight: 20 },
+          { valoper_address: 'valoper3', stake: '56', on_top: '0', weight: 40 },
         ],
       },
     });
+    res.sort((a, b) => a[0].localeCompare(b[0]));
 
     expect(res).toEqual([
       ['valoper1', '20'],
@@ -107,12 +109,28 @@ describe('Distribution', () => {
     const res = await contractClient.queryCalcWithdraw({
       withdraw: '50',
       delegations: {
-        total: '750',
+        total_stake: '750',
+        total_on_top: '0',
         total_weight: 70,
         delegations: [
-          { valoper_address: 'valoper1', stake: '100', weight: 10 },
-          { valoper_address: 'valoper2', stake: '250', weight: 20 },
-          { valoper_address: 'valoper3', stake: '400', weight: 40 },
+          {
+            valoper_address: 'valoper1',
+            stake: '100',
+            on_top: '0',
+            weight: 10,
+          },
+          {
+            valoper_address: 'valoper2',
+            stake: '250',
+            on_top: '0',
+            weight: 20,
+          },
+          {
+            valoper_address: 'valoper3',
+            stake: '400',
+            on_top: '0',
+            weight: 40,
+          },
         ],
       },
     });
