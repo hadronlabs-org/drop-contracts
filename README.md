@@ -8,7 +8,7 @@ This repository contains the smart contracts of Drop Protocol. The project is or
 
 - `integration_tests`: This directory includes comprehensive integration tests written in TypeScript and leveraging the Vitest testing framework. These tests verify the contracts' behavior in various scenarios, ensuring correctness and reliability.
 
-- `packages`: This directory contains reusable Rust packages that are shared across different contracts or tools. It helps modularize and streamline the codebase.
+- `packages`: This directory contains reusable Rust packages that are shared across different contracts or tools. It helps modulate and streamline the codebase.
 
 ## Getting Started
 
