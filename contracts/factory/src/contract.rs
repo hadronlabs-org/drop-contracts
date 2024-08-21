@@ -312,7 +312,6 @@ pub fn instantiate(
                 unbonding_safe_period: msg.core_params.unbonding_safe_period,
                 unbond_batch_switch_time: msg.core_params.unbond_batch_switch_time,
                 idle_min_interval: msg.core_params.idle_min_interval,
-                bond_limit: msg.core_params.bond_limit,
                 transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
                 lsm_min_bond_amount: msg.core_params.lsm_min_bond_amount,
                 lsm_redeem_threshold: msg.core_params.lsm_redeem_threshold,

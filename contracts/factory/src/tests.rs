@@ -288,7 +288,6 @@ fn test_instantiate() {
                             unbonding_period: 0,
                             unbonding_safe_period: 0,
                             unbond_batch_switch_time: 0,
-                            bond_limit: Some(Uint128::from(0u64)),
                             pump_ica_address: None,
                             transfer_channel_id: "channel-0".to_string(),
                             owner: "factory_contract".to_string(),
@@ -520,10 +519,10 @@ fn test_update_config_core_unauthorized() {
         lsm_min_bond_amount: None,
         lsm_redeem_threshold: None,
         lsm_redeem_maximum_interval: None,
-        bond_limit: None,
         rewards_receiver: None,
         emergency_address: None,
         min_stake_amount: None,
+        icq_update_delay: None,
     };
     let res = execute(
         deps.as_mut().into_empty(),
@@ -568,10 +567,10 @@ fn test_update_config_core() {
         lsm_min_bond_amount: Some(Uint128::from(1u64)),
         lsm_redeem_threshold: Some(1u64),
         lsm_redeem_maximum_interval: Some(1u64),
-        bond_limit: Some(Uint128::from(1u64)),
         rewards_receiver: Some("rewards_receiver1".to_string()),
         emergency_address: Some("emergency_address1".to_string()),
         min_stake_amount: Some(Uint128::from(1u64)),
+        icq_update_delay: Some(5u64),
     };
     let res = execute(
         deps.as_mut().into_empty(),
