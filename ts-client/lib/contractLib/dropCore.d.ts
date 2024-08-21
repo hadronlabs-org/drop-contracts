@@ -253,7 +253,6 @@ export interface DropCoreSchema {
 }
 export interface Config {
     base_denom: string;
-    bond_limit?: Uint128 | null;
     emergency_address?: string | null;
     icq_update_delay: number;
     idle_min_interval: number;
@@ -409,8 +408,8 @@ export interface UpdateConfigArgs {
 }
 export interface ConfigOptional {
     base_denom?: string | null;
-    bond_limit?: Uint128 | null;
     emergency_address?: string | null;
+    icq_update_delay?: number | null;
     idle_min_interval?: number | null;
     lsm_min_bond_amount?: Uint128 | null;
     lsm_redeem_maximum_interval?: number | null;
@@ -454,7 +453,6 @@ export interface ProcessEmergencyBatchArgs {
 }
 export interface InstantiateMsg {
     base_denom: string;
-    bond_limit?: Uint128 | null;
     emergency_address?: string | null;
     icq_update_delay: number;
     idle_min_interval: number;
@@ -506,7 +504,6 @@ export declare class Client {
     tick: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     puppeteerHook: (sender: string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     stakerHook: (sender: string, args: StakerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    resetBondedAmount: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     processEmergencyBatch: (sender: string, args: ProcessEmergencyBatchArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     pause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     unpause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

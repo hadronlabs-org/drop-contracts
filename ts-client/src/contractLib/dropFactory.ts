@@ -793,8 +793,8 @@ export interface State {
 }
 export interface ConfigOptional {
   base_denom?: string | null;
-  bond_limit?: Uint128 | null;
   emergency_address?: string | null;
+  icq_update_delay?: number | null;
   idle_min_interval?: number | null;
   lsm_min_bond_amount?: Uint128 | null;
   lsm_redeem_maximum_interval?: number | null;
