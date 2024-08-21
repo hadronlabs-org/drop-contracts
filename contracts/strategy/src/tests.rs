@@ -3,8 +3,8 @@ use crate::contract::{execute, instantiate, query};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{
-    to_json_binary, Addr, Attribute, Binary, Decimal, Decimal256, Deps, Empty, Env, Event,
-    Response, StdResult, Timestamp, Uint128,
+    from_json, to_json_binary, Addr, Attribute, Binary, Decimal, Decimal256, Deps, Empty, Env,
+    Event, Response, StdResult, Timestamp, Uint128,
 };
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
 use drop_puppeteer_base::error::ContractError as PuppeteerContractError;

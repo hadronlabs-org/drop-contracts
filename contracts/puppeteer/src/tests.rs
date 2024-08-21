@@ -1,5 +1,4 @@
 use crate::contract::Puppeteer;
-use cosmos_sdk_proto::traits::MessageExt;
 use cosmwasm_schema::schemars;
 use cosmwasm_std::{
     coin, coins, from_json,
@@ -3523,7 +3522,7 @@ fn test_query_kv_query_ids() {
         )
         .unwrap();
     let query_res: Vec<(u64, KVQueryType)> = from_json(
-        query(
+        crate::contract::query(
             deps.as_ref(),
             mock_env(),
             drop_puppeteer_base::msg::QueryMsg::KVQueryIds {},
@@ -3541,7 +3540,7 @@ fn test_query_kv_query_ids() {
 fn test_query_extension_delegations_none() {
     let deps = mock_dependencies(&[]);
     let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
-        query(
+        crate::contract::query(
             deps.as_ref(),
             mock_env(),
             drop_puppeteer_base::msg::QueryMsg::Extension {
@@ -3612,7 +3611,7 @@ fn test_query_extension_delegations_some() {
         )
         .unwrap();
     let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
-        query(
+        crate::contract::query(
             deps.as_ref(),
             mock_env(),
             drop_puppeteer_base::msg::QueryMsg::Extension {
@@ -3637,7 +3636,7 @@ fn test_query_extension_delegations_some() {
 fn test_query_extension_balances_none() {
     let deps = mock_dependencies(&[]);
     let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
-        query(
+        crate::contract::query(
             deps.as_ref(),
             mock_env(),
             drop_puppeteer_base::msg::QueryMsg::Extension {
@@ -3692,7 +3691,7 @@ fn test_query_extension_balances_some() {
         )
         .unwrap();
     let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
-        query(
+        crate::contract::query(
             deps.as_ref(),
             mock_env(),
             drop_puppeteer_base::msg::QueryMsg::Extension {
@@ -3735,7 +3734,7 @@ fn test_query_non_native_rewards_balances() {
         )
         .unwrap();
     let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
-        query(
+        crate::contract::query(
             deps.as_ref(),
             mock_env(),
             drop_puppeteer_base::msg::QueryMsg::Extension {
@@ -3790,7 +3789,7 @@ fn test_unbonding_delegations() {
         .save(deps.as_mut().storage, "key2", &unbonding_delegations[1])
         .unwrap();
     let query_res: Vec<drop_puppeteer_base::state::UnbondingDelegation> = from_json(
-        query(
+        crate::contract::query(
             deps.as_ref(),
             mock_env(),
             drop_puppeteer_base::msg::QueryMsg::Extension {
