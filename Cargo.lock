@@ -677,6 +677,7 @@ version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cw-multi-test",
  "cw-ownable",
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
@@ -848,6 +849,21 @@ dependencies = [
  "serde",
  "serde-json-wasm 1.0.1",
  "thiserror",
+]
+
+[[package]]
+name = "drop-redemption-rate-adapter"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "semver",
 ]
 
 [[package]]

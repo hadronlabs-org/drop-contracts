@@ -619,6 +619,7 @@ fn execute_transfer(
     let ica = puppeteer_base.ica.get_address(deps.storage)?;
     let mut any_msgs = vec![];
     for (val, amount) in items.clone() {
+        deps.api.addr_validate(&val)?;
         let transfer_msg = MsgSend {
             from_address: ica.to_string(),
             to_address: val.to_string(),
@@ -1084,7 +1085,7 @@ fn sudo_response(
     Ok(response("sudo-response", "puppeteer", attrs).add_messages(msgs))
 }
 
-fn get_answers_from_msg_data(
+pub fn get_answers_from_msg_data(
     deps: Deps<NeutronQuery>,
     msg_data: TxMsgData,
 ) -> NeutronResult<Vec<ResponseAnswer>> {

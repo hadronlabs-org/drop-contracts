@@ -410,3 +410,116 @@ fn query_config() {
         .unwrap()
     );
 }
+
+#[test]
+fn test_set_token_metadata_unauthorized() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("owner").as_ref()),
+    )
+    .unwrap();
+    DENOM
+        .save(deps.as_mut().storage, &String::from("denom"))
+        .unwrap();
+    let denom_metadata = DenomMetadata {
+        exponent: 6u32,
+        display: "display".to_string(),
+        name: "name".to_string(),
+        description: "description".to_string(),
+        symbol: "symbol".to_string(),
+        uri: None,
+        uri_hash: None,
+    };
+    let res = contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_an_owner", &[coin(160, "denom")]),
+        ExecuteMsg::SetTokenMetadata {
+            token_metadata: denom_metadata.clone(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+    );
+}
+
+#[test]
+fn test_set_token_metadata() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("owner").as_ref()),
+    )
+    .unwrap();
+    DENOM
+        .save(deps.as_mut().storage, &String::from("denom"))
+        .unwrap();
+    let denom_metadata = DenomMetadata {
+        exponent: 6u32,
+        display: "display".to_string(),
+        name: "name".to_string(),
+        description: "description".to_string(),
+        symbol: "symbol".to_string(),
+        uri: None,
+        uri_hash: None,
+    };
+    let res = contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[coin(160, "denom")]),
+        ExecuteMsg::SetTokenMetadata {
+            token_metadata: denom_metadata.clone(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new()
+            .add_submessage(cosmwasm_std::SubMsg {
+                id: 0u64,
+                msg: cosmwasm_std::CosmosMsg::Stargate {
+                    type_url: "/osmosis.tokenfactory.v1beta1.MsgSetDenomMetadata".to_string(),
+                    value: cosmwasm_std::Binary::from(
+                        MsgSetDenomMetadata {
+                            sender: "cosmos2contract".to_string(),
+                            metadata: Some(Metadata {
+                                denom_units: vec![
+                                    DenomUnit {
+                                        denom: "denom".to_string(),
+                                        exponent: 0,
+                                        aliases: vec![],
+                                    },
+                                    DenomUnit {
+                                        denom: denom_metadata.display.clone(),
+                                        exponent: denom_metadata.exponent,
+                                        aliases: vec![],
+                                    },
+                                ],
+                                base: "denom".to_string(),
+                                display: denom_metadata.display,
+                                name: denom_metadata.name,
+                                description: denom_metadata.description,
+                                symbol: denom_metadata.symbol,
+                                uri: denom_metadata.uri.unwrap_or_default(),
+                                uri_hash: denom_metadata.uri_hash.unwrap_or_default(),
+                            }),
+                        }
+                        .encode_to_vec(),
+                    ),
+                },
+                gas_limit: None,
+                reply_on: cosmwasm_std::ReplyOn::Never
+            })
+            .add_event(
+                cosmwasm_std::Event::new("drop-token-execute-set-denom-metadata".to_string())
+                    .add_attribute("denom".to_string(), "denom".to_string())
+            )
+    );
+}

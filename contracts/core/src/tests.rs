@@ -345,7 +345,11 @@ fn test_execute_tick_idle_get_pending_lsm_shares_transfer() {
         .save(
             deps.as_mut().storage,
             "remote_denom".to_string(),
-            &("local_denom".to_string(), Uint128::from(100u128)),
+            &(
+                "local_denom".to_string(),
+                Uint128::from(100u128),
+                Uint128::from(100u128),
+            ),
         )
         .unwrap();
     let mut env = mock_env();
@@ -437,7 +441,11 @@ fn test_idle_tick_pending_lsm_redeem() {
         .save(
             deps.as_mut().storage,
             "remote_denom_share1".to_string(),
-            &("local_denom_1".to_string(), Uint128::from(100u128)),
+            &(
+                "local_denom_1".to_string(),
+                Uint128::from(100u128),
+                Uint128::from(100u128),
+            ),
         )
         .unwrap();
     let mut env = mock_env();
@@ -454,14 +462,22 @@ fn test_idle_tick_pending_lsm_redeem() {
         .save(
             deps.as_mut().storage,
             "remote_denom_share2".to_string(),
-            &("local_denom_2".to_string(), Uint128::from(100u128)),
+            &(
+                "local_denom_2".to_string(),
+                Uint128::from(100u128),
+                Uint128::from(100u128),
+            ),
         )
         .unwrap();
     LSM_SHARES_TO_REDEEM
         .save(
             deps.as_mut().storage,
             "remote_denom_share3".to_string(),
-            &("local_denom_3".to_string(), Uint128::from(100u128)),
+            &(
+                "local_denom_3".to_string(),
+                Uint128::from(100u128),
+                Uint128::from(100u128),
+            ),
         )
         .unwrap();
 
@@ -3255,6 +3271,253 @@ fn test_bond_lsm_share_ok() {
 }
 
 #[test]
+fn test_bond_lsm_share_ok_with_low_ratio() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_stargate_query_response(
+        "/ibc.applications.transfer.v1.Query/DenomTrace",
+        |_data| {
+            to_json_binary(&QueryDenomTraceResponse {
+                denom_trace: DenomTrace {
+                    path: "transfer/transfer_channel".to_string(),
+                    base_denom: "valoper1/1".to_string(),
+                },
+            })
+            .unwrap()
+        },
+    );
+    deps.querier
+        .add_wasm_query_response("validators_set_contract", |_| {
+            to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
+                validator: Some(drop_staking_base::state::validatorset::ValidatorInfo {
+                    valoper_address: "valoper1".to_string(),
+                    weight: 1u64,
+                    last_processed_remote_height: None,
+                    last_processed_local_height: None,
+                    last_validated_height: None,
+                    last_commission_in_range: None,
+                    uptime: Decimal::one(),
+                    tombstone: false,
+                    jailed_number: None,
+                    init_proposal: None,
+                    total_passed_proposals: 0u64,
+                    total_voted_proposals: 0u64,
+                }),
+            })
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
+                    delegations: vec![DropDelegation {
+                        delegator: Addr::unchecked("delegator"),
+                        validator: "valoper1".to_string(),
+                        amount: Coin::new(1000, "remote_denom".to_string()),
+                        share_ratio: Decimal256::from_ratio(1u32, 2u32),
+                    }],
+                },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
+            .unwrap()
+        });
+    let mut env = mock_env();
+    env.block.time = Timestamp::from_seconds(1000);
+    TOTAL_LSM_SHARES
+        .save(deps.as_mut().storage, &0u128)
+        .unwrap();
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+        .unwrap();
+    BONDED_AMOUNT
+        .save(deps.as_mut().storage, &Uint128::zero())
+        .unwrap();
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::new(100)),
+        )
+        .unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        env,
+        mock_info("some", &[Coin::new(1000, "lsm_share")]),
+        ExecuteMsg::Bond {
+            receiver: None,
+            r#ref: None,
+        },
+    )
+    .unwrap();
+    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
+    let total_lsm_shares = TOTAL_LSM_SHARES.load(deps.as_ref().storage).unwrap();
+    let pending_lsm_shares = PENDING_LSM_SHARES
+        .load(deps.as_ref().storage, "lsm_share".to_string())
+        .unwrap();
+    assert_eq!(
+        pending_lsm_shares,
+        (
+            "valoper1/1".to_string(),
+            Uint128::from(1000u128),
+            Uint128::from(500u128)
+        )
+    );
+    assert_eq!(bonded_amount, Uint128::from(500u128));
+    assert_eq!(total_lsm_shares, 500u128);
+    assert_eq!(
+        res,
+        Response::new()
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-core-execute-bond")
+                    .add_attribute("action", "bond")
+                    .add_attribute("exchange_rate", "1")
+                    .add_attribute("issue_amount", "500")
+                    .add_attribute("receiver", "some")
+            )
+            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "token_contract".to_string(),
+                msg: to_json_binary(&drop_staking_base::msg::token::ExecuteMsg::Mint {
+                    amount: Uint128::from(500u128),
+                    receiver: "some".to_string()
+                })
+                .unwrap(),
+                funds: vec![],
+            })))
+    );
+}
+
+#[test]
+fn test_bond_lsm_share_ok_with_low_ratio_pending_already_there() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_stargate_query_response(
+        "/ibc.applications.transfer.v1.Query/DenomTrace",
+        |_data| {
+            to_json_binary(&QueryDenomTraceResponse {
+                denom_trace: DenomTrace {
+                    path: "transfer/transfer_channel".to_string(),
+                    base_denom: "valoper1/1".to_string(),
+                },
+            })
+            .unwrap()
+        },
+    );
+    deps.querier
+        .add_wasm_query_response("validators_set_contract", |_| {
+            to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
+                validator: Some(drop_staking_base::state::validatorset::ValidatorInfo {
+                    valoper_address: "valoper1".to_string(),
+                    weight: 1u64,
+                    last_processed_remote_height: None,
+                    last_processed_local_height: None,
+                    last_validated_height: None,
+                    last_commission_in_range: None,
+                    uptime: Decimal::one(),
+                    tombstone: false,
+                    jailed_number: None,
+                    init_proposal: None,
+                    total_passed_proposals: 0u64,
+                    total_voted_proposals: 0u64,
+                }),
+            })
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
+                    delegations: vec![DropDelegation {
+                        delegator: Addr::unchecked("delegator"),
+                        validator: "valoper1".to_string(),
+                        amount: Coin::new(1000, "remote_denom".to_string()),
+                        share_ratio: Decimal256::from_ratio(1u32, 2u32),
+                    }],
+                },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
+            .unwrap()
+        });
+    let mut env = mock_env();
+    env.block.time = Timestamp::from_seconds(1000);
+    TOTAL_LSM_SHARES
+        .save(deps.as_mut().storage, &0u128)
+        .unwrap();
+    PENDING_LSM_SHARES
+        .save(
+            deps.as_mut().storage,
+            "lsm_share".to_string(),
+            &(
+                "valoper1/1".to_string(),
+                Uint128::from(10000u128),
+                Uint128::from(5000u128),
+            ),
+        )
+        .unwrap();
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+        .unwrap();
+    BONDED_AMOUNT
+        .save(deps.as_mut().storage, &Uint128::zero())
+        .unwrap();
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(1000, 3, 100, 100, 600, Uint128::new(100)),
+        )
+        .unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        env,
+        mock_info("some", &[Coin::new(1000, "lsm_share")]),
+        ExecuteMsg::Bond {
+            receiver: None,
+            r#ref: None,
+        },
+    )
+    .unwrap();
+    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
+    let total_lsm_shares = TOTAL_LSM_SHARES.load(deps.as_ref().storage).unwrap();
+    let pending_lsm_shares = PENDING_LSM_SHARES
+        .load(deps.as_ref().storage, "lsm_share".to_string())
+        .unwrap();
+    assert_eq!(
+        pending_lsm_shares,
+        (
+            "valoper1/1".to_string(),
+            Uint128::from(11000u128),
+            Uint128::from(5500u128)
+        )
+    );
+    assert_eq!(bonded_amount, Uint128::from(500u128));
+    assert_eq!(total_lsm_shares, 500u128);
+    assert_eq!(
+        res,
+        Response::new()
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-core-execute-bond")
+                    .add_attribute("action", "bond")
+                    .add_attribute("exchange_rate", "1")
+                    .add_attribute("issue_amount", "500")
+                    .add_attribute("receiver", "some")
+            )
+            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "token_contract".to_string(),
+                msg: to_json_binary(&drop_staking_base::msg::token::ExecuteMsg::Mint {
+                    amount: Uint128::from(500u128),
+                    receiver: "some".to_string()
+                })
+                .unwrap(),
+                funds: vec![],
+            })))
+    );
+}
+
+#[test]
 fn test_unbond() {
     let mut deps = mock_dependencies(&[]);
     let mut env = mock_env();
@@ -3827,7 +4090,11 @@ mod pending_redeem_shares {
             .save(
                 deps.as_mut().storage,
                 "remote_denom_share1".to_string(),
-                &("local_denom_1".to_string(), Uint128::from(100u128)),
+                &(
+                    "local_denom_1".to_string(),
+                    Uint128::from(100u128),
+                    Uint128::from(100u128),
+                ),
             )
             .unwrap();
 
@@ -3862,7 +4129,11 @@ mod pending_redeem_shares {
             .save(
                 deps.as_mut().storage,
                 "local_denom_1".to_string(),
-                &("remote_denom_share1".to_string(), Uint128::from(100u128)),
+                &(
+                    "remote_denom_share1".to_string(),
+                    Uint128::from(100u128),
+                    Uint128::from(100u128),
+                ),
             )
             .unwrap();
 
@@ -3917,7 +4188,11 @@ mod pending_redeem_shares {
             .save(
                 deps.as_mut().storage,
                 "local_denom_1".to_string(),
-                &("remote_denom_share1".to_string(), Uint128::from(50u128)),
+                &(
+                    "remote_denom_share1".to_string(),
+                    Uint128::from(50u128),
+                    Uint128::from(50u128),
+                ),
             )
             .unwrap();
 
@@ -3925,7 +4200,11 @@ mod pending_redeem_shares {
             .save(
                 deps.as_mut().storage,
                 "local_denom_2".to_string(),
-                &("remote_denom_share2".to_string(), Uint128::from(100u128)),
+                &(
+                    "remote_denom_share2".to_string(),
+                    Uint128::from(100u128),
+                    Uint128::from(100u128),
+                ),
             )
             .unwrap();
 
@@ -3933,7 +4212,11 @@ mod pending_redeem_shares {
             .save(
                 deps.as_mut().storage,
                 "local_denom_3".to_string(),
-                &("remote_denom_share3".to_string(), Uint128::from(150u128)),
+                &(
+                    "remote_denom_share3".to_string(),
+                    Uint128::from(150u128),
+                    Uint128::from(150u128),
+                ),
             )
             .unwrap();
 

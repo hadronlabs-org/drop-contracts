@@ -1,8 +1,8 @@
 [package]
 authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>"]
-description = "Contract to deploy all Drop contracts"
+description = "Contract to provide redemption rate"
 edition = "2021"
-name = "drop-factory"
+name = "drop-redemption-rate-adapter"
 version = "1.0.0"
 
 exclude = [
@@ -25,16 +25,10 @@ library = []
 [dependencies]
 cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
-cw-storage-plus = { workspace = true }
-cw2 = { workspace = true }
-thiserror = { workspace = true }
-drop-staking-base = { workspace = true }
-drop-puppeteer-base = { workspace = true }
-drop-helpers = { workspace = true }
-drop-macros = { workspace = true }
-neutron-sdk = { workspace = true }
 cw-ownable = { workspace = true }
+cw2 = { workspace = true }
+drop-staking-base = { workspace = true }
+drop-helpers = { workspace = true }
 semver = { workspace = true }
-
-[dev-dependencies]
-cw-multi-test = { workspace = true }
+neutron-sdk = { workspace = true }
+cw-storage-plus = { workspace = true }

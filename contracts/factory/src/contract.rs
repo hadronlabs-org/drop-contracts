@@ -7,8 +7,8 @@ use crate::{
     state::{State, STATE},
 };
 use cosmwasm_std::{
-    attr, instantiate2_address, to_json_binary, Attribute, Binary, CodeInfoResponse, CosmosMsg,
-    Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
+    attr, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg, Deps, DepsMut,
+    Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use drop_helpers::answer::response;
 use drop_staking_base::state::splitter::Config as SplitterConfig;
@@ -168,7 +168,6 @@ pub fn instantiate(
         "rewards_pump_address",
         rewards_pump_address.to_string(),
     ));
-
     let core_contract = deps.api.addr_humanize(&core_address)?.to_string();
     let token_contract = deps.api.addr_humanize(&token_address)?.to_string();
     let withdrawal_voucher_contract = deps
@@ -193,7 +192,6 @@ pub fn instantiate(
         .to_string();
     let rewards_pump_contract = deps.api.addr_humanize(&rewards_pump_address)?.to_string();
     let splitter_contract = deps.api.addr_humanize(&splitter_address)?.to_string();
-
     let state = State {
         token_contract: token_contract.to_string(),
         core_contract: core_contract.to_string(),
@@ -405,6 +403,10 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
     match msg {
         QueryMsg::State {} => to_json_binary(&STATE.load(deps.storage)?),
         QueryMsg::PauseInfo {} => query_pause_info(deps),
+        QueryMsg::Ownership {} => {
+            let ownership = cw_ownable::get_ownership(deps.storage)?;
+            Ok(to_json_binary(&ownership)?)
+        }
     }
 }
 
@@ -453,9 +455,8 @@ pub fn execute(
 
 fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-
     let state = STATE.load(deps.storage)?;
-
+    let attrs = vec![attr("action", "pause")];
     let messages = vec![
         get_proxied_message(
             state.core_contract,
@@ -473,15 +474,13 @@ fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Neutr
             vec![],
         )?,
     ];
-
-    Ok(response("execute-pause", CONTRACT_NAME, Vec::<Attribute>::new()).add_messages(messages))
+    Ok(response("execute-pause", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-
     let state = STATE.load(deps.storage)?;
-
+    let attrs = vec![attr("action", "unpause")];
     let messages = vec![
         get_proxied_message(
             state.core_contract,
@@ -499,8 +498,7 @@ fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Neu
             vec![],
         )?,
     ];
-
-    Ok(response("execute-unpause", CONTRACT_NAME, Vec::<Attribute>::new()).add_messages(messages))
+    Ok(response("execute-unpause", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 fn execute_admin_execute(

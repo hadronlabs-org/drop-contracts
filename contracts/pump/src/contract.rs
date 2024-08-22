@@ -135,30 +135,40 @@ fn execute_update_config(
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut config = CONFIG.load(deps.storage)?;
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let attrs = vec![
-        attr("action", "update_config"),
-        attr("new_config", format!("{:?}", new_config)),
-    ];
+    let mut attrs = vec![attr("action", "update_config")];
     if let Some(dest_address) = new_config.dest_address {
-        config.dest_address = Some(Addr::unchecked(dest_address));
+        config.dest_address = Some(Addr::unchecked(dest_address.clone()));
+        attrs.push(cosmwasm_std::attr("dest_address".to_string(), dest_address));
     }
     if let Some(dest_channel) = new_config.dest_channel {
-        config.dest_channel = Some(dest_channel);
+        config.dest_channel = Some(dest_channel.clone());
+        attrs.push(cosmwasm_std::attr("dest_channel".to_string(), dest_channel));
     }
     if let Some(dest_port) = new_config.dest_port {
-        config.dest_port = Some(dest_port);
+        config.dest_port = Some(dest_port.clone());
+        attrs.push(cosmwasm_std::attr("dest_port".to_string(), dest_port));
     }
     if let Some(connection_id) = new_config.connection_id {
-        config.connection_id = connection_id;
+        config.connection_id = connection_id.clone();
+        attrs.push(cosmwasm_std::attr(
+            "connection_id".to_string(),
+            connection_id,
+        ));
     }
     if let Some(refundee) = new_config.refundee {
         config.refundee = Some(deps.api.addr_validate(&refundee)?);
+        attrs.push(cosmwasm_std::attr("refundee".to_string(), refundee));
     }
     if let Some(timeout) = new_config.timeout {
-        config.timeout = timeout;
+        config.timeout = timeout.clone();
+        attrs.push(cosmwasm_std::attr(
+            "timeout".to_string(),
+            format!("{:?}", timeout),
+        ));
     }
     if let Some(local_denom) = new_config.local_denom {
-        config.local_denom = local_denom;
+        config.local_denom = local_denom.clone();
+        attrs.push(cosmwasm_std::attr("local_denom".to_string(), local_denom));
     }
     CONFIG.save(deps.storage, &config)?;
     Ok(response("update_config", CONTRACT_NAME, attrs))

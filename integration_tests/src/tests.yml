@@ -50,6 +50,7 @@ jobs:
           --exclude-files "contracts/puppeteer-authz/*" 
           --exclude-files "contracts/validators-stats/*" 
           --exclude-files "contracts/provider-proposals-poc/*" 
+          --exclude-files "contracts/redemption-rate-adapter/*" 
           --exclude-files "*schema*" 
           --out Xml --output-dir ./
       - name: Produce the coverage report

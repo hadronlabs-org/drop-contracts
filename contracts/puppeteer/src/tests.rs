@@ -1,5 +1,4 @@
 use crate::contract::Puppeteer;
-use cosmos_sdk_proto::traits::MessageExt;
 use cosmwasm_schema::schemars;
 use cosmwasm_std::{
     coin, coins, from_json,
@@ -13,13 +12,16 @@ use drop_helpers::{
     },
     testing::mock_dependencies,
 };
-use drop_puppeteer_base::state::{
-    BalancesAndDelegations, BalancesAndDelegationsState, Delegations, DropDelegation,
-    PuppeteerBase, ReplyMsg,
+use drop_puppeteer_base::{
+    msg::IBCTransferReason,
+    state::{
+        BalancesAndDelegations, BalancesAndDelegationsState, Delegations, DropDelegation,
+        PuppeteerBase, ReplyMsg,
+    },
 };
 use drop_staking_base::{
     msg::puppeteer::InstantiateMsg,
-    state::puppeteer::{Config, ConfigOptional, KVQueryType},
+    state::puppeteer::{Config, ConfigOptional, KVQueryType, NON_NATIVE_REWARD_BALANCES},
 };
 use neutron_sdk::{
     bindings::{
@@ -29,7 +31,7 @@ use neutron_sdk::{
     },
     interchain_queries::v045::types::Balances,
     query::min_ibc_fee::MinIbcFeeResponse,
-    sudo::msg::SudoMsg,
+    sudo::msg::{RequestPacketTimeoutHeight, SudoMsg},
     NeutronError,
 };
 use prost::Message;
@@ -192,10 +194,17 @@ fn test_instantiate() {
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.as_ref().storage).unwrap();
     assert_eq!(config, get_base_config());
+    assert_eq!(
+        cosmwasm_std::Addr::unchecked("owner"),
+        cw_ownable::get_ownership(deps.as_mut().storage)
+            .unwrap()
+            .owner
+            .unwrap()
+    );
 }
 
 #[test]
-fn test_update_config() {
+fn test_execute_update_config_unauthorized() {
     let mut deps = mock_dependencies(&[]);
     let puppeteer_base = Puppeteer::default();
     puppeteer_base
@@ -216,9 +225,51 @@ fn test_update_config() {
     };
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    let env = mock_env();
-    let res =
-        crate::contract::execute(deps.as_mut(), env, mock_info("owner", &[]), msg.clone()).unwrap();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_an_owner", &[]),
+        msg.clone(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
+    )
+}
+
+#[test]
+fn test_execute_update_config() {
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = Puppeteer::default();
+    puppeteer_base
+        .config
+        .save(deps.as_mut().storage, &get_base_config())
+        .unwrap();
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::UpdateConfig {
+            new_config: ConfigOptional {
+                update_period: Some(121u64),
+                remote_denom: Some("new_remote_denom".to_string()),
+                allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
+                transfer_channel_id: Some("new_transfer_channel_id".to_string()),
+                connection_id: Some("new_connection_id".to_string()),
+                port_id: Some("new_port_id".to_string()),
+                sdk_version: Some("0.47.0".to_string()),
+                timeout: Some(101u64),
+            },
+        },
+    )
+    .unwrap();
     assert_eq!(
         res,
         Response::new().add_event(
@@ -235,6 +286,7 @@ fn test_update_config() {
                 ])
         )
     );
+
     let config = puppeteer_base.config.load(deps.as_ref().storage).unwrap();
     assert_eq!(
         config,
@@ -253,6 +305,33 @@ fn test_update_config() {
 }
 
 #[test]
+fn test_execute_setup_protocol_sender_is_not_allowed() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut());
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::SetupProtocol {
+            delegate_grantee: "delegate_grantee".to_string(),
+            rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+        },
+    );
+    assert_eq!(
+        res.unwrap_err(),
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Sender is not allowed"
+        ))
+    );
+}
+
+#[test]
 fn test_execute_setup_protocol() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.add_custom_query_response(|_| {
@@ -262,66 +341,57 @@ fn test_execute_setup_protocol() {
         .unwrap()
     });
     let pupeteer_base = base_init(&mut deps.as_mut());
-    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::SetupProtocol {
-        delegate_grantee: "delegate_grantee".to_string(),
-        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-    };
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("not_allowed_sender", &[]),
-        msg.clone(),
-    );
-    assert_eq!(
-        res.unwrap_err(),
-        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
-            "Sender is not allowed"
-        ))
-    );
-    let env = mock_env();
-    let res = crate::contract::execute(deps.as_mut(), env, mock_info("allowed_sender", &[]), msg)
-        .unwrap();
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::SetupProtocol {
+            delegate_grantee: "delegate_grantee".to_string(),
+            rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+        },
+    )
+    .unwrap();
     let authz_msg = {
-        let msg = cosmos_sdk_proto::cosmos::authz::v1beta1::MsgGrant {
-            granter: "ica_address".to_string(),
-            grantee: "delegate_grantee".to_string(),
-            grant: Some(cosmos_sdk_proto::cosmos::authz::v1beta1::Grant {
-                expiration: Some(prost_types::Timestamp {
-                    seconds: mock_env()
-                        .block
-                        .time
-                        .plus_days(365 * 120 + 30)
-                        .seconds()
-                        .try_into()
-                        .unwrap(),
-                    nanos: 0,
-                }),
-                authorization: Some(cosmos_sdk_proto::Any {
-                    type_url: "/cosmos.authz.v1beta1.GenericAuthorization".to_string(),
-                    value: cosmos_sdk_proto::cosmos::authz::v1beta1::GenericAuthorization {
-                        msg: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
-                    }
-                    .encode_to_vec(),
-                }),
-            }),
-        };
-        let mut buf = Vec::with_capacity(msg.encoded_len());
-        msg.encode(&mut buf).unwrap();
         neutron_sdk::bindings::types::ProtobufAny {
             type_url: "/cosmos.authz.v1beta1.MsgGrant".to_string(),
-            value: Binary::from(buf),
+            value: Binary::from(
+                cosmos_sdk_proto::cosmos::authz::v1beta1::MsgGrant {
+                    granter: "ica_address".to_string(),
+                    grantee: "delegate_grantee".to_string(),
+                    grant: Some(cosmos_sdk_proto::cosmos::authz::v1beta1::Grant {
+                        expiration: Some(prost_types::Timestamp {
+                            seconds: mock_env()
+                                .block
+                                .time
+                                .plus_days(365 * 120 + 30)
+                                .seconds()
+                                .try_into()
+                                .unwrap(),
+                            nanos: 0,
+                        }),
+                        authorization: Some(cosmos_sdk_proto::Any {
+                            type_url: "/cosmos.authz.v1beta1.GenericAuthorization".to_string(),
+                            value: cosmos_sdk_proto::cosmos::authz::v1beta1::GenericAuthorization {
+                                msg: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
+                            }
+                            .encode_to_vec(),
+                        }),
+                    }),
+                }
+                .encode_to_vec(),
+            ),
         }
     };
     let distribution_msg = {
-        let msg = cosmos_sdk_proto::cosmos::distribution::v1beta1::MsgSetWithdrawAddress {
-            delegator_address: "ica_address".to_string(),
-            withdraw_address: "rewards_withdraw_address".to_string(),
-        };
-        let mut buf = Vec::with_capacity(msg.encoded_len());
-        msg.encode(&mut buf).unwrap();
         neutron_sdk::bindings::types::ProtobufAny {
             type_url: "/cosmos.distribution.v1beta1.MsgSetWithdrawAddress".to_string(),
-            value: Binary::from(buf),
+            value: Binary::from(
+                cosmos_sdk_proto::cosmos::distribution::v1beta1::MsgSetWithdrawAddress {
+                    delegator_address: "ica_address".to_string(),
+                    withdraw_address: "rewards_withdraw_address".to_string(),
+                }
+                .encode_to_vec(),
+            ),
         }
     };
     assert_eq!(
@@ -355,6 +425,128 @@ fn test_execute_setup_protocol() {
 }
 
 #[test]
+fn test_execute_setup_protocol_not_idle() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let pupeteer_base = base_init(&mut deps.as_mut());
+    pupeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                seq_id: None,
+                status: drop_puppeteer_base::state::TxStateStatus::InProgress,
+                reply_to: Some("".to_string()),
+                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
+                    interchain_account_id: "ica_address".to_string(),
+                    delegate_grantee: "delegate_grantee".to_string(),
+                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                }),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::SetupProtocol {
+            delegate_grantee: "delegate_grantee".to_string(),
+            rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
+            cosmwasm_std::StdError::generic_err(
+                "Transaction txState is not equal to expected: Idle".to_string()
+            )
+        ))
+    );
+}
+
+#[test]
+fn test_execute_undelegate_sender_is_not_allowed() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
+            batch_id: 0u128,
+            items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Sender is not allowed"
+        ))
+    );
+}
+
+#[test]
+fn test_execute_undelegate_sender_not_idle() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let pupeteer_base = base_init(&mut deps.as_mut());
+    pupeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                seq_id: None,
+                status: drop_puppeteer_base::state::TxStateStatus::InProgress,
+                reply_to: Some("".to_string()),
+                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
+                    interchain_account_id: "ica_address".to_string(),
+                    delegate_grantee: "delegate_grantee".to_string(),
+                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                }),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
+            batch_id: 0u128,
+            items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
+            cosmwasm_std::StdError::generic_err(
+                "Transaction txState is not equal to expected: Idle".to_string()
+            )
+        ))
+    );
+}
+
+#[test]
 fn test_execute_undelegate() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.add_custom_query_response(|_| {
@@ -364,55 +556,41 @@ fn test_execute_undelegate() {
         .unwrap()
     });
     let puppeteer_base = base_init(&mut deps.as_mut());
-    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
-        batch_id: 0u128,
-        items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
-        reply_to: "some_reply_to".to_string(),
-    };
-    let env = mock_env();
-    let res = crate::contract::execute(
-        deps.as_mut(),
-        env,
-        mock_info("not_allowed_sender", &[]),
-        msg.clone(),
-    );
-    assert_eq!(
-        res.unwrap_err(),
-        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
-            "Sender is not allowed"
-        ))
-    );
+    let ica_address = puppeteer_base
+        .ica
+        .get_address(deps.as_mut().storage)
+        .unwrap();
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("allowed_sender", &[]),
-        msg,
+        drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
+            batch_id: 0u128,
+            items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
+            reply_to: "some_reply_to".to_string(),
+        },
     )
     .unwrap();
-
-    let msg = cosmos_sdk_proto::Any {
-        type_url: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
-        value: cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
-            delegator_address: "ica_address".to_string(),
-            validator_address: "valoper1".to_string(),
-            amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-                denom: "remote_denom".to_string(),
-                amount: "1000".to_string(),
-            }),
-        }
-        .to_bytes()
-        .unwrap(),
-    };
-
-    let grant_msg = cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec {
-        grantee: "ica_address".to_string(),
-        msgs: vec![msg],
-    };
-    let mut buf = Vec::with_capacity(grant_msg.encoded_len());
-    grant_msg.encode(&mut buf).unwrap();
     let any_msg = neutron_sdk::bindings::types::ProtobufAny {
         type_url: "/cosmos.authz.v1beta1.MsgExec".to_string(),
-        value: Binary::from(buf),
+        value: Binary::from(
+            cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec {
+                grantee: ica_address,
+                msgs: vec![cosmos_sdk_proto::Any {
+                    type_url: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
+                    value: cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
+                        delegator_address: "ica_address".to_string(),
+                        validator_address: "valoper1".to_string(),
+                        amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                            denom: "remote_denom".to_string(),
+                            amount: "1000".to_string(),
+                        }),
+                    }
+                    .encode_to_vec(),
+                }],
+            }
+            .encode_to_vec(),
+        ),
     };
     assert_eq!(
         res,
@@ -446,6 +624,382 @@ fn test_execute_undelegate() {
 }
 
 #[test]
+fn test_execute_redelegate_sender_is_not_allowed() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::Redelegate {
+            validator_from: "validator_from".to_string(),
+            validator_to: "validator_to".to_string(),
+            amount: Uint128::from(0u64),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Sender is not allowed"
+        ))
+    );
+}
+
+#[test]
+fn test_execute_redelegate_sender_not_idle() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let pupeteer_base = base_init(&mut deps.as_mut());
+    pupeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                seq_id: None,
+                status: drop_puppeteer_base::state::TxStateStatus::InProgress,
+                reply_to: Some("".to_string()),
+                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
+                    interchain_account_id: "ica_address".to_string(),
+                    delegate_grantee: "delegate_grantee".to_string(),
+                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                }),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::Redelegate {
+            validator_from: "validator_from".to_string(),
+            validator_to: "validator_to".to_string(),
+            amount: Uint128::from(0u64),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
+            cosmwasm_std::StdError::generic_err(
+                "Transaction txState is not equal to expected: Idle".to_string()
+            )
+        ))
+    );
+}
+
+#[test]
+fn test_execute_redelegate() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let puppeteer_base = base_init(&mut deps.as_mut());
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::Redelegate {
+            validator_from: "validator_from".to_string(),
+            validator_to: "validator_to".to_string(),
+            amount: Uint128::from(0u64),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+            id: 65536u64,
+            msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::submit_tx(
+                "connection_id".to_string(),
+                "DROP".to_string(),
+                vec![drop_helpers::interchain::prepare_any_msg(
+                    crate::proto::liquidstaking::staking::v1beta1::MsgBeginRedelegate {
+                        delegator_address: puppeteer_base
+                            .ica
+                            .get_address(deps.as_mut().storage)
+                            .unwrap(),
+                        validator_src_address: "validator_from".to_string(),
+                        validator_dst_address: "validator_to".to_string(),
+                        amount: Some(crate::proto::cosmos::base::v1beta1::Coin {
+                            denom: puppeteer_base
+                                .config
+                                .load(deps.as_mut().storage)
+                                .unwrap()
+                                .remote_denom,
+                            amount: "0".to_string(),
+                        }),
+                    },
+                    "/cosmos.staking.v1beta1.MsgBeginRedelegate",
+                )
+                .unwrap()],
+                "".to_string(),
+                100u64,
+                IbcFee {
+                    recv_fee: vec![],
+                    ack_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(100u64),
+                    }],
+                    timeout_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(200u64),
+                    }],
+                },
+            )),
+            gas_limit: None,
+            reply_on: cosmwasm_std::ReplyOn::Success
+        }),
+    );
+}
+
+#[test]
+fn test_execute_tokenize_share_sender_is_not_allowed() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::TokenizeShare {
+            validator: "validator".to_string(),
+            amount: Uint128::from(123u64),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Sender is not allowed"
+        ))
+    );
+}
+
+#[test]
+fn test_execute_tokenize_share_sender_not_idle() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let pupeteer_base = base_init(&mut deps.as_mut());
+    pupeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                seq_id: None,
+                status: drop_puppeteer_base::state::TxStateStatus::InProgress,
+                reply_to: Some("".to_string()),
+                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
+                    interchain_account_id: "ica_address".to_string(),
+                    delegate_grantee: "delegate_grantee".to_string(),
+                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                }),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::TokenizeShare {
+            validator: "validator".to_string(),
+            amount: Uint128::from(123u64),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
+            cosmwasm_std::StdError::generic_err(
+                "Transaction txState is not equal to expected: Idle".to_string()
+            )
+        ))
+    );
+}
+
+#[test]
+fn test_execute_tokenize_share() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let puppeteer_base = base_init(&mut deps.as_mut());
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::TokenizeShare {
+            validator: "validator".to_string(),
+            amount: Uint128::from(123u64),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap();
+    let delegator = puppeteer_base
+        .ica
+        .get_address(deps.as_mut().storage)
+        .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+            id: 65536u64,
+            msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::submit_tx(
+                "connection_id".to_string(),
+                "DROP".to_string(),
+                vec![drop_helpers::interchain::prepare_any_msg(
+                    crate::proto::liquidstaking::staking::v1beta1::MsgTokenizeShares {
+                        delegator_address: delegator.clone(),
+                        validator_address: "validator".to_string(),
+                        amount: Some(crate::proto::cosmos::base::v1beta1::Coin {
+                            denom: puppeteer_base
+                                .config
+                                .load(deps.as_mut().storage)
+                                .unwrap()
+                                .remote_denom,
+                            amount: "123".to_string(),
+                        }),
+                        tokenized_share_owner: delegator
+                    },
+                    "/cosmos.staking.v1beta1.MsgTokenizeShares",
+                )
+                .unwrap()],
+                "".to_string(),
+                100u64,
+                IbcFee {
+                    recv_fee: vec![],
+                    ack_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(100u64),
+                    }],
+                    timeout_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(200u64),
+                    }],
+                },
+            )),
+            gas_limit: None,
+            reply_on: cosmwasm_std::ReplyOn::Success
+        }),
+    );
+}
+
+#[test]
+fn test_execute_redeem_shares_sender_is_not_allowed() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+            items: vec![drop_puppeteer_base::state::RedeemShareItem {
+                amount: Uint128::from(1000u128),
+                remote_denom: "remote_denom".to_string(),
+                local_denom: "local_denom".to_string(),
+            }],
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Sender is not allowed"
+        ))
+    );
+}
+
+#[test]
+fn test_execute_redeeem_shares_sender_not_idle() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let pupeteer_base = base_init(&mut deps.as_mut());
+    pupeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                seq_id: None,
+                status: drop_puppeteer_base::state::TxStateStatus::InProgress,
+                reply_to: Some("".to_string()),
+                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
+                    interchain_account_id: "ica_address".to_string(),
+                    delegate_grantee: "delegate_grantee".to_string(),
+                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                }),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+            items: vec![drop_puppeteer_base::state::RedeemShareItem {
+                amount: Uint128::from(1000u128),
+                remote_denom: "remote_denom".to_string(),
+                local_denom: "local_denom".to_string(),
+            }],
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
+            cosmwasm_std::StdError::generic_err(
+                "Transaction txState is not equal to expected: Idle".to_string()
+            )
+        ))
+    );
+}
+
+#[test]
 fn test_execute_redeem_share() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.add_custom_query_response(|_| {
@@ -455,46 +1009,32 @@ fn test_execute_redeem_share() {
         .unwrap()
     });
     let puppeteer_base = base_init(&mut deps.as_mut());
-    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
-        items: vec![drop_puppeteer_base::state::RedeemShareItem {
-            amount: Uint128::from(1000u128),
-            remote_denom: "remote_denom".to_string(),
-            local_denom: "local_denom".to_string(),
-        }],
-        reply_to: "some_reply_to".to_string(),
-    };
-    let env = mock_env();
-    let res = crate::contract::execute(
-        deps.as_mut(),
-        env,
-        mock_info("not_allowed_sender", &[]),
-        msg.clone(),
-    );
-    assert_eq!(
-        res.unwrap_err(),
-        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
-            "Sender is not allowed"
-        ))
-    );
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("allowed_sender", &[]),
-        msg,
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+            items: vec![drop_puppeteer_base::state::RedeemShareItem {
+                amount: Uint128::from(1000u128),
+                remote_denom: "remote_denom".to_string(),
+                local_denom: "local_denom".to_string(),
+            }],
+            reply_to: "some_reply_to".to_string(),
+        },
     )
     .unwrap();
-    let msg = crate::proto::liquidstaking::staking::v1beta1::MsgRedeemTokensforShares {
-        amount: Some(crate::proto::cosmos::base::v1beta1::Coin {
-            denom: "remote_denom".to_string(),
-            amount: "1000".to_string(),
-        }),
-        delegator_address: "ica_address".to_string(),
-    };
-    let mut buf = Vec::with_capacity(msg.encoded_len());
-    msg.encode(&mut buf).unwrap();
     let any_msg = neutron_sdk::bindings::types::ProtobufAny {
         type_url: "/cosmos.staking.v1beta1.MsgRedeemTokensForShares".to_string(),
-        value: Binary::from(buf),
+        value: Binary::from(
+            crate::proto::liquidstaking::staking::v1beta1::MsgRedeemTokensforShares {
+                amount: Some(crate::proto::cosmos::base::v1beta1::Coin {
+                    denom: "remote_denom".to_string(),
+                    amount: "1000".to_string(),
+                }),
+                delegator_address: "ica_address".to_string(),
+            }
+            .encode_to_vec(),
+        ),
     };
     assert_eq!(
         res,
@@ -527,6 +1067,1165 @@ fn test_execute_redeem_share() {
             })
         }
     );
+}
+
+#[test]
+fn test_execute_claim_rewards_and_optionaly_transfer_sender_is_not_allowed() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
+            validators: vec!["validator1".to_string(), "validator2".to_string()],
+            transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg {
+                batch_ids: vec![0u128, 1u128, 2u128],
+                emergency: true,
+                amount: Uint128::from(123u64),
+                recipient: "some_recipient".to_string(),
+            }),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Sender is not allowed"
+        ))
+    );
+}
+
+#[test]
+fn test_execute_claim_rewards_and_optionaly_transfer_not_idle() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let pupeteer_base = base_init(&mut deps.as_mut());
+    pupeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                seq_id: None,
+                status: drop_puppeteer_base::state::TxStateStatus::InProgress,
+                reply_to: Some("".to_string()),
+                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
+                    interchain_account_id: "ica_address".to_string(),
+                    delegate_grantee: "delegate_grantee".to_string(),
+                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                }),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
+            validators: vec!["validator1".to_string(), "validator2".to_string()],
+            transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg {
+                batch_ids: vec![0u128, 1u128, 2u128],
+                emergency: true,
+                amount: Uint128::from(123u64),
+                recipient: "some_recipient".to_string(),
+            }),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
+            cosmwasm_std::StdError::generic_err(
+                "Transaction txState is not equal to expected: Idle".to_string()
+            )
+        ))
+    );
+}
+
+#[test]
+fn test_execute_claim_rewards_and_optionaly_transfer() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let puppeteer_base = base_init(&mut deps.as_mut());
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
+            validators: vec!["validator1".to_string(), "validator2".to_string()],
+            transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg {
+                batch_ids: vec![0u128, 1u128, 2u128],
+                emergency: true,
+                amount: Uint128::from(123u64),
+                recipient: "some_recipient".to_string(),
+            }),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap();
+    let ica_address = puppeteer_base
+        .ica
+        .get_address(deps.as_mut().storage)
+        .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+            id: 65536u64,
+            msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::submit_tx(
+                "connection_id".to_string(),
+                "DROP".to_string(),
+                vec![
+                    drop_helpers::interchain::prepare_any_msg(
+                        cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSend {
+                            from_address: ica_address.clone(),
+                            to_address: "some_recipient".to_string(),
+                            amount: vec![cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                                amount: "123".to_string(),
+                                denom: puppeteer_base
+                                    .config
+                                    .load(deps.as_mut().storage)
+                                    .unwrap()
+                                    .remote_denom
+                            }]
+                        },
+                        "/cosmos.bank.v1beta1.MsgSend",
+                    )
+                    .unwrap(),
+                    drop_helpers::interchain::prepare_any_msg(
+                        cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec {
+                            grantee: ica_address.clone(),
+                            msgs: vec![
+                                cosmos_sdk_proto::Any {
+                                    value:
+                                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
+                                            delegator_address: ica_address.clone(),
+                                            validator_address: "validator1".to_string(),
+                                        }
+                                        .encode_to_vec(),
+                                    type_url: "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
+                                },
+                                cosmos_sdk_proto::Any {
+                                    value:
+                                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
+                                            delegator_address: ica_address.clone(),
+                                            validator_address: "validator2".to_string(),
+                                        }
+                                        .encode_to_vec(),
+                                    type_url: "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
+                                },
+                            ],
+                        },
+                        "/cosmos.authz.v1beta1.MsgExec"
+                    )
+                    .unwrap()
+                ],
+                "".to_string(),
+                100u64,
+                IbcFee {
+                    recv_fee: vec![],
+                    ack_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(100u64),
+                    }],
+                    timeout_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(200u64),
+                    }],
+                },
+            )),
+            gas_limit: None,
+            reply_on: cosmwasm_std::ReplyOn::Success
+        }),
+    );
+}
+
+#[test]
+fn test_execute_register_balance_and_delegator_delegations_query_unauthorized() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("owner").as_ref()),
+    )
+    .unwrap();
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_an_owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery{
+        validators: vec!["neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(); 2]
+    },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
+    );
+}
+
+#[test]
+fn test_execute_register_balance_and_delegator_delegations_query_too_many_validators() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("owner").as_ref()),
+    )
+    .unwrap();
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery{
+        validators: vec!["neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(); u16::MAX as usize]
+    },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Too many validators provided"
+        ))
+    );
+}
+
+#[test]
+fn test_execute_register_balance_and_delegator_delegations_query() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("owner").as_ref()),
+    )
+    .unwrap();
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+    let msg_validators = vec!["neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(); 2];
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery{
+        validators: msg_validators.clone()
+    },
+    )
+    .unwrap();
+    let puppeteer_config = puppeteer_base.config.load(deps.as_mut().storage).unwrap();
+    let puppeteer_ica = puppeteer_base
+        .ica
+        .get_address(deps.as_mut().storage)
+        .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+            id: 196608u64,
+            msg: cosmwasm_std::CosmosMsg::Custom(
+                drop_helpers::icq::new_delegations_and_balance_query_msg(
+                    puppeteer_config.connection_id,
+                    puppeteer_ica,
+                    puppeteer_config.remote_denom,
+                    msg_validators,
+                    puppeteer_config.update_period,
+                    puppeteer_config.sdk_version.as_str()
+                )
+                .unwrap()
+            ),
+            gas_limit: None,
+            reply_on: cosmwasm_std::ReplyOn::Success
+        })
+    );
+}
+
+#[test]
+fn test_execute_register_unbonding_delegations_query_unauthorized() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("owner").as_ref()),
+    )
+    .unwrap();
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_an_owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery{
+        validators: vec!["neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(); 2]
+    },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
+    );
+}
+
+#[test]
+fn test_execute_register_unbonding_delegations_query_too_many_validators() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("owner").as_ref()),
+    )
+    .unwrap();
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterDelegatorUnbondingDelegationsQuery {
+            validators: vec![
+                "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string();
+                u16::MAX as usize
+            ],
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Too many validators provided"
+        ))
+    );
+}
+
+#[test]
+fn test_execute_register_unbonding_delegations_query() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("owner").as_ref()),
+    )
+    .unwrap();
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+    let msg_validators = vec!["neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(); 2];
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterDelegatorUnbondingDelegationsQuery {
+            validators: msg_validators.clone(),
+        },
+    )
+    .unwrap();
+    let puppeteer_config = puppeteer_base.config.load(deps.as_mut().storage).unwrap();
+    let puppeteer_ica = puppeteer_base
+        .ica
+        .get_address(deps.as_mut().storage)
+        .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_submessages(
+            msg_validators.into_iter().enumerate().map(|(i, validator)| {
+                cosmwasm_std::SubMsg {
+                    id: 327680u64 + i as u64,
+                    msg: cosmwasm_std::CosmosMsg::Custom(
+                        neutron_sdk::interchain_queries::v045::new_register_delegator_unbonding_delegations_query_msg(
+                            puppeteer_config.connection_id.clone(),
+                            puppeteer_ica.clone(),
+                            vec![validator],
+                            puppeteer_config.update_period
+                        )
+                        .unwrap()
+                    ),
+                    gas_limit: None,
+                    reply_on: cosmwasm_std::ReplyOn::Success
+                }
+            })
+        )
+    );
+}
+
+#[test]
+fn test_execute_register_non_native_rewards_balances_query_unauthorized() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("owner").as_ref()),
+    )
+    .unwrap();
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_an_owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
+            denoms: vec![],
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
+    );
+}
+
+#[test]
+fn test_execute_register_non_native_rewards_balances_query_empty_kv_queries() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("owner").as_ref()),
+    )
+    .unwrap();
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+    let msg_denoms = vec!["denom1".to_string(), "denom2".to_string()];
+
+    let puppeteer_config = puppeteer_base.config.load(deps.as_mut().storage).unwrap();
+    let puppeteer_ica = puppeteer_base
+        .ica
+        .get_address(deps.as_mut().storage)
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
+            denoms: msg_denoms.clone(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+            id: 262144u64,
+            msg: cosmwasm_std::CosmosMsg::Custom(
+                drop_helpers::icq::new_multiple_balances_query_msg(
+                    puppeteer_config.connection_id,
+                    puppeteer_ica,
+                    msg_denoms.clone(),
+                    puppeteer_config.update_period
+                )
+                .unwrap()
+            ),
+            gas_limit: None,
+            reply_on: cosmwasm_std::ReplyOn::Success
+        })
+    )
+}
+
+#[test]
+fn test_execute_register_non_native_rewards_balances_query_not_empty_kv_queries() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("owner").as_ref()),
+    )
+    .unwrap();
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+    let msg_denoms = vec!["denom1".to_string(), "denom2".to_string()];
+
+    let puppeteer_ica = puppeteer_base
+        .ica
+        .get_address(deps.as_mut().storage)
+        .unwrap();
+    puppeteer_base
+        .kv_queries
+        .save(
+            deps.as_mut().storage,
+            0u64,
+            &KVQueryType::NonNativeRewardsBalances,
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
+            denoms: msg_denoms.clone(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+            id: 0u64,
+            msg: cosmwasm_std::CosmosMsg::Custom(
+                drop_helpers::icq::update_multiple_balances_query_msg(
+                    0u64,
+                    puppeteer_ica,
+                    msg_denoms.clone()
+                )
+                .unwrap()
+            ),
+            gas_limit: None,
+            reply_on: cosmwasm_std::ReplyOn::Never
+        })
+    )
+}
+
+#[test]
+fn test_execute_register_non_native_rewards_balances_query_has_non_native_rewards_balances() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("owner").as_ref()),
+    )
+    .unwrap();
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+    let msg_denoms = vec!["denom1".to_string(), "denom2".to_string()];
+
+    let puppeteer_ica = puppeteer_base
+        .ica
+        .get_address(deps.as_mut().storage)
+        .unwrap();
+    puppeteer_base
+        .kv_queries
+        .save(
+            deps.as_mut().storage,
+            0u64,
+            &KVQueryType::NonNativeRewardsBalances,
+        )
+        .unwrap();
+    puppeteer_base
+        .kv_queries
+        .save(
+            deps.as_mut().storage,
+            1u64,
+            &KVQueryType::DelegationsAndBalance,
+        )
+        .unwrap();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
+            denoms: msg_denoms.clone(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+            id: 0u64,
+            msg: cosmwasm_std::CosmosMsg::Custom(
+                drop_helpers::icq::update_multiple_balances_query_msg(
+                    0u64,
+                    puppeteer_ica,
+                    msg_denoms.clone()
+                )
+                .unwrap()
+            ),
+            gas_limit: None,
+            reply_on: cosmwasm_std::ReplyOn::Never
+        })
+    )
+}
+
+#[test]
+fn test_execute_register_non_native_rewards_balances_query_has_several_non_native_rewards_balances()
+{
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("owner").as_ref()),
+    )
+    .unwrap();
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+    let msg_denoms = vec!["denom1".to_string(), "denom2".to_string()];
+
+    let puppeteer_ica = puppeteer_base
+        .ica
+        .get_address(deps.as_mut().storage)
+        .unwrap();
+    puppeteer_base
+        .kv_queries
+        .save(
+            deps.as_mut().storage,
+            0u64,
+            &KVQueryType::NonNativeRewardsBalances,
+        )
+        .unwrap();
+    puppeteer_base
+        .kv_queries
+        .save(
+            deps.as_mut().storage,
+            1u64,
+            &KVQueryType::DelegationsAndBalance,
+        )
+        .unwrap();
+    puppeteer_base
+        .kv_queries
+        .save(
+            deps.as_mut().storage,
+            2u64,
+            &KVQueryType::NonNativeRewardsBalances,
+        )
+        .unwrap();
+    puppeteer_base
+        .kv_queries
+        .save(
+            deps.as_mut().storage,
+            3u64,
+            &KVQueryType::DelegationsAndBalance,
+        )
+        .unwrap();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
+            denoms: msg_denoms.clone(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_submessages(vec![
+            cosmwasm_std::SubMsg {
+                id: 0u64,
+                msg: cosmwasm_std::CosmosMsg::Custom(
+                    drop_helpers::icq::update_multiple_balances_query_msg(
+                        0u64,
+                        puppeteer_ica.clone(),
+                        msg_denoms.clone()
+                    )
+                    .unwrap()
+                ),
+                gas_limit: None,
+                reply_on: cosmwasm_std::ReplyOn::Never
+            },
+            cosmwasm_std::SubMsg {
+                id: 0u64,
+                msg: cosmwasm_std::CosmosMsg::Custom(
+                    drop_helpers::icq::update_multiple_balances_query_msg(
+                        2u64,
+                        puppeteer_ica,
+                        msg_denoms.clone()
+                    )
+                    .unwrap()
+                ),
+                gas_limit: None,
+                reply_on: cosmwasm_std::ReplyOn::Never
+            }
+        ])
+    )
+}
+
+#[test]
+fn test_execute_ibc_transfer_sender_is_not_allowed() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+            reason: IBCTransferReason::LSMShare,
+            reply_to: "owner".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Sender is not allowed"
+        ))
+    );
+}
+
+#[test]
+fn test_execute_ibc_transfer_many_coins() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(
+            "allowed_sender",
+            &[
+                cosmwasm_std::Coin {
+                    denom: "token1".to_string(),
+                    amount: Uint128::from(123u64),
+                },
+                cosmwasm_std::Coin {
+                    denom: "token2".to_string(),
+                    amount: Uint128::from(123u64),
+                },
+            ],
+        ),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+            reason: IBCTransferReason::LSMShare,
+            reply_to: "owner".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::InvalidFunds {
+            reason: "Only one coin is allowed".to_string()
+        }
+    )
+}
+
+#[test]
+fn test_execute_ibc_transfer_no_coins() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+            reason: IBCTransferReason::LSMShare,
+            reply_to: "owner".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::InvalidFunds {
+            reason: "Only one coin is allowed".to_string()
+        }
+    )
+}
+
+#[test]
+fn test_execute_ibc_transfer_not_idle() {
+    let mut deps = mock_dependencies(&[]);
+    let pupeteer_base = base_init(&mut deps.as_mut());
+    pupeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                seq_id: None,
+                status: drop_puppeteer_base::state::TxStateStatus::InProgress,
+                reply_to: Some("".to_string()),
+                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
+                    interchain_account_id: "ica_address".to_string(),
+                    delegate_grantee: "delegate_grantee".to_string(),
+                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                }),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+            reason: IBCTransferReason::LSMShare,
+            reply_to: "owner".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
+            cosmwasm_std::StdError::generic_err(
+                "Transaction txState is not equal to expected: Idle".to_string()
+            )
+        ))
+    );
+}
+
+#[test]
+fn test_execute_ibc_transfer_one_coin() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    let puppeteer_config = puppeteer_base.config.load(deps.as_mut().storage).unwrap();
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+
+    let env = mock_env();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info(
+            "allowed_sender",
+            &[cosmwasm_std::Coin {
+                denom: "uatom".to_string(),
+                amount: Uint128::from(123u64),
+            }],
+        ),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+            reason: IBCTransferReason::LSMShare,
+            reply_to: "owner".to_string(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+            id: 131072u64,
+            msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::IbcTransfer {
+                source_port: "port_id".to_string(),
+                source_channel: "transfer_channel_id".to_string(),
+                token: cosmwasm_std::Coin {
+                    denom: "uatom".to_string(),
+                    amount: Uint128::from(123u64),
+                },
+                sender: "cosmos2contract".to_string(),
+                receiver: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+                timeout_height: RequestPacketTimeoutHeight {
+                    revision_height: None,
+                    revision_number: None
+                },
+                timeout_timestamp: env
+                    .block
+                    .time
+                    .plus_seconds(puppeteer_config.timeout)
+                    .nanos(),
+                memo: "".to_string(),
+                fee: IbcFee {
+                    recv_fee: vec![],
+                    ack_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(100u64),
+                    }],
+                    timeout_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(200u64),
+                    }]
+                }
+            }),
+            gas_limit: None,
+            reply_on: cosmwasm_std::ReplyOn::Success,
+        })
+    )
+}
+
+#[test]
+fn test_execute_transfer_sender_is_not_allowed() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
+            items: vec![],
+            reply_to: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Sender is not allowed"
+        ))
+    );
+}
+
+#[test]
+fn test_execute_transfer_not_idle() {
+    let mut deps = mock_dependencies(&[]);
+    let pupeteer_base = base_init(&mut deps.as_mut());
+    pupeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                seq_id: None,
+                status: drop_puppeteer_base::state::TxStateStatus::InProgress,
+                reply_to: Some("".to_string()),
+                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
+                    interchain_account_id: "ica_address".to_string(),
+                    delegate_grantee: "delegate_grantee".to_string(),
+                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                }),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
+            items: vec![],
+            reply_to: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
+            cosmwasm_std::StdError::generic_err(
+                "Transaction txState is not equal to expected: Idle".to_string()
+            )
+        ))
+    );
+}
+
+#[test]
+fn test_execute_transfer() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .ica
+        .set_address(
+            deps.as_mut().storage,
+            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            "transfer".to_string(),
+            "channel-0".to_string(),
+        )
+        .unwrap();
+    let puppeteer_ica = puppeteer_base
+        .ica
+        .get_address(deps.as_mut().storage)
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(
+            "allowed_sender",
+            &[cosmwasm_std::Coin {
+                denom: "uatom".to_string(),
+                amount: Uint128::from(123u64),
+            }],
+        ),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
+            items: vec![
+                (
+                    "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+                    cosmwasm_std::Coin {
+                        denom: "uatom".to_string(),
+                        amount: Uint128::from(123u64),
+                    },
+                ),
+                (
+                    "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+                    cosmwasm_std::Coin {
+                        denom: "uatom".to_string(),
+                        amount: Uint128::from(321u64),
+                    },
+                ),
+            ],
+            reply_to: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+            id: 65536u64,
+            msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::submit_tx(
+                "connection_id".to_string(),
+                "DROP".to_string(),
+                vec![
+                    drop_helpers::interchain::prepare_any_msg(
+                        cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSend {
+                            from_address: puppeteer_ica.clone(),
+                            to_address: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6"
+                                .to_string(),
+                            amount: vec![cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                                amount: "123".to_string(),
+                                denom: "uatom".to_string()
+                            }]
+                        },
+                        "/cosmos.bank.v1beta1.MsgSend",
+                    )
+                    .unwrap(),
+                    drop_helpers::interchain::prepare_any_msg(
+                        cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSend {
+                            from_address: puppeteer_ica.clone(),
+                            to_address: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6"
+                                .to_string(),
+                            amount: vec![cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                                amount: "321".to_string(),
+                                denom: "uatom".to_string()
+                            }]
+                        },
+                        "/cosmos.bank.v1beta1.MsgSend",
+                    )
+                    .unwrap()
+                ],
+                "".to_string(),
+                100,
+                IbcFee {
+                    recv_fee: vec![],
+                    ack_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(100u64),
+                    }],
+                    timeout_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(200u64),
+                    }]
+                }
+            )),
+            gas_limit: None,
+            reply_on: cosmwasm_std::ReplyOn::Success,
+        })
+    )
 }
 
 #[test]
@@ -570,7 +2269,7 @@ fn test_sudo_response_tx_state_wrong() {
 }
 
 #[test]
-fn test_sudo_kv_query_result() {
+fn test_sudo_delegations_and_balance_kv_query_result() {
     let mut deps = mock_dependencies(&[]);
 
     let query_id = 1u64;
@@ -598,13 +2297,6 @@ fn test_sudo_kv_query_result() {
 
     let res = crate::contract::sudo(deps.as_mut(), env, msg).unwrap();
     assert_eq!(res, Response::new());
-
-    let last_key = puppeteer_base
-        .last_complete_delegations_and_balances_key
-        .may_load(&deps.storage)
-        .unwrap();
-
-    assert_eq!(last_key, Some(123456));
 
     let state = puppeteer_base
         .delegations_and_balances
@@ -954,6 +2646,588 @@ fn test_sudo_response_timeout() {
     );
 }
 
+#[test]
+fn test_reply_sudo_payload_no_result() {
+    let mut deps = mock_dependencies(&[]);
+    let res = crate::contract::reply(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        cosmwasm_std::Reply {
+            id: drop_puppeteer_base::state::reply_msg::SUDO_PAYLOAD,
+            result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                events: vec![],
+                data: None,
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, StdError::generic_err("no result"));
+}
+
+#[test]
+fn test_reply_sudo_payload_tx_state_error() {
+    let mut deps = mock_dependencies(&[]);
+
+    let res = crate::contract::reply(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        cosmwasm_std::Reply {
+            id: drop_puppeteer_base::state::reply_msg::SUDO_PAYLOAD,
+            result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                events: vec![],
+                data: Some(Binary::from(
+                    "{\"sequence_id\":0,\"channel\":\"channel-0\"}".as_bytes(),
+                )),
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        StdError::NotFound {
+            kind: format!(
+                "type: drop_puppeteer_base::state::TxState; key: {:X?}",
+                "sudo_payload".as_bytes()
+            )
+        }
+    )
+}
+
+#[test]
+fn test_reply_sudo_payload() {
+    let mut deps = mock_dependencies(&[]);
+
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                status: drop_puppeteer_base::state::TxStateStatus::Idle,
+                seq_id: None,
+                transaction: None,
+                reply_to: None,
+            },
+        )
+        .unwrap();
+    let res = crate::contract::reply(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        cosmwasm_std::Reply {
+            id: drop_puppeteer_base::state::reply_msg::SUDO_PAYLOAD,
+            result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                events: vec![],
+                data: Some(Binary::from(
+                    "{\"sequence_id\":0,\"channel\":\"channel-0\"}".as_bytes(),
+                )),
+            }),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_event(
+            cosmwasm_std::Event::new("puppeteer-base-sudo-tx-payload-received".to_string())
+                .add_attributes(vec![
+                    cosmwasm_std::attr("channel_id".to_string(), "channel-0".to_string()),
+                    cosmwasm_std::attr("seq_id".to_string(), "0".to_string())
+                ])
+        )
+    );
+    let tx_state = puppeteer_base.tx_state.load(deps.as_mut().storage).unwrap();
+    assert_eq!(
+        tx_state,
+        drop_puppeteer_base::state::TxState {
+            seq_id: Some(0),
+            status: drop_puppeteer_base::state::TxStateStatus::WaitingForAck,
+            reply_to: None,
+            transaction: None,
+        }
+    );
+}
+
+#[test]
+fn test_reply_ibc_transfer_no_result() {
+    let mut deps = mock_dependencies(&[]);
+
+    let res = crate::contract::reply(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        cosmwasm_std::Reply {
+            id: drop_puppeteer_base::state::reply_msg::SUDO_PAYLOAD,
+            result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                events: vec![],
+                data: None,
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, StdError::generic_err("no result"))
+}
+
+#[test]
+fn test_reply_ibc_transfer_tx_state_error() {
+    let mut deps = mock_dependencies(&[]);
+
+    let res = crate::contract::reply(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        cosmwasm_std::Reply {
+            id: drop_puppeteer_base::state::reply_msg::SUDO_PAYLOAD,
+            result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                events: vec![],
+                data: Some(
+                    to_json_binary(&neutron_sdk::bindings::msg::MsgIbcTransferResponse {
+                        sequence_id: 0,
+                        channel: "channel-0".to_string(),
+                    })
+                    .unwrap(),
+                ),
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        StdError::NotFound {
+            kind: format!(
+                "type: drop_puppeteer_base::state::TxState; key: {:X?}",
+                "sudo_payload".as_bytes()
+            )
+        }
+    )
+}
+
+#[test]
+fn test_reply_ibc_transfer() {
+    let mut deps = mock_dependencies(&[]);
+
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                status: drop_puppeteer_base::state::TxStateStatus::Idle,
+                seq_id: None,
+                transaction: None,
+                reply_to: None,
+            },
+        )
+        .unwrap();
+    let res = crate::contract::reply(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        cosmwasm_std::Reply {
+            id: drop_puppeteer_base::state::reply_msg::IBC_TRANSFER,
+            result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                events: vec![],
+                data: Some(
+                    to_json_binary(&neutron_sdk::bindings::msg::MsgIbcTransferResponse {
+                        sequence_id: 0,
+                        channel: "channel-0".to_string(),
+                    })
+                    .unwrap(),
+                ),
+            }),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_event(
+            cosmwasm_std::Event::new(
+                "puppeteer-base-sudo-ibc-transfer-payload-received".to_string()
+            )
+            .add_attributes(vec![
+                cosmwasm_std::attr("channel_id".to_string(), "channel-0".to_string()),
+                cosmwasm_std::attr("seq_id".to_string(), "0".to_string())
+            ])
+        )
+    );
+    let tx_state = puppeteer_base.tx_state.load(deps.as_mut().storage).unwrap();
+    assert_eq!(
+        tx_state,
+        drop_puppeteer_base::state::TxState {
+            seq_id: Some(0),
+            status: drop_puppeteer_base::state::TxStateStatus::WaitingForAck,
+            reply_to: None,
+            transaction: None,
+        }
+    );
+}
+
+#[test]
+fn test_reply_kv_delegations_and_balance_no_result() {
+    for i in drop_puppeteer_base::state::reply_msg::KV_DELEGATIONS_AND_BALANCE_LOWER_BOUND
+        ..(drop_puppeteer_base::state::reply_msg::KV_DELEGATIONS_AND_BALANCE_UPPER_BOUND + 1)
+    {
+        let mut deps = mock_dependencies(&[]);
+        {
+            let res = crate::contract::reply(
+                deps.as_mut().into_empty(),
+                mock_env(),
+                cosmwasm_std::Reply {
+                    id: i,
+                    result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                        events: vec![],
+                        data: None,
+                    }),
+                },
+            )
+            .unwrap_err();
+            assert_eq!(res, StdError::generic_err("no result"))
+        }
+    }
+}
+
+#[test]
+fn test_reply_kv_delegations_and_balance() {
+    let response_id: u64 = 0;
+    for i in drop_puppeteer_base::state::reply_msg::KV_DELEGATIONS_AND_BALANCE_LOWER_BOUND
+        ..(drop_puppeteer_base::state::reply_msg::KV_DELEGATIONS_AND_BALANCE_UPPER_BOUND + 1)
+    {
+        let mut deps = mock_dependencies(&[]);
+
+        let puppeteer_base = base_init(&mut deps.as_mut());
+        let res = crate::contract::reply(
+            deps.as_mut().into_empty(),
+            mock_env(),
+            cosmwasm_std::Reply {
+                id: i,
+                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                    events: vec![],
+                    data: Some(
+                        to_json_binary(
+                            &neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse {
+                                id: response_id,
+                            },
+                        )
+                        .unwrap(),
+                    ),
+                }),
+            },
+        )
+        .unwrap();
+        assert_eq!(res, cosmwasm_std::Response::new());
+        let delegations_and_balances_query_id_chunk: u16 = puppeteer_base
+            .delegations_and_balances_query_id_chunk
+            .load(deps.as_mut().storage, response_id)
+            .unwrap();
+        assert_eq!(delegations_and_balances_query_id_chunk, i as u16);
+        let kv_query = puppeteer_base
+            .kv_queries
+            .load(deps.as_mut().storage, response_id)
+            .unwrap();
+        assert_eq!(
+            kv_query,
+            drop_staking_base::state::puppeteer::KVQueryType::DelegationsAndBalance
+        );
+    }
+}
+
+#[test]
+fn test_reply_kv_non_native_rewards_balances_no_result() {
+    let mut deps = mock_dependencies(&[]);
+
+    let res = crate::contract::reply(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        cosmwasm_std::Reply {
+            id: drop_puppeteer_base::state::reply_msg::KV_NON_NATIVE_REWARDS_BALANCES,
+            result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                events: vec![],
+                data: None,
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, StdError::generic_err("no result"))
+}
+
+#[test]
+fn test_reply_kv_non_native_rewards_balances() {
+    let mut deps = mock_dependencies(&[]);
+
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    let res = crate::contract::reply(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        cosmwasm_std::Reply {
+            id: drop_puppeteer_base::state::reply_msg::KV_NON_NATIVE_REWARDS_BALANCES,
+            result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                events: vec![],
+                data: Some(
+                    to_json_binary(
+                        &neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse {
+                            id: 0u64,
+                        },
+                    )
+                    .unwrap(),
+                ),
+            }),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_event(
+            cosmwasm_std::Event::new("puppeteer-base-sudo-kv-query-payload-received".to_string())
+                .add_attribute("query_id".to_string(), "0".to_string())
+        )
+    );
+    let kv_query = puppeteer_base
+        .kv_queries
+        .load(deps.as_mut().storage, 0u64)
+        .unwrap();
+    assert_eq!(
+        kv_query,
+        drop_staking_base::state::puppeteer::KVQueryType::NonNativeRewardsBalances
+    )
+}
+
+#[test]
+fn test_reply_kv_unbonding_delegations_tx_state_error() {
+    let response_id: u64 = 0;
+    for i in drop_puppeteer_base::state::reply_msg::KV_UNBONDING_DELEGATIONS_LOWER_BOUND
+        ..(drop_puppeteer_base::state::reply_msg::KV_UNBONDING_DELEGATIONS_UPPER_BOUND + 1)
+    {
+        let mut deps = mock_dependencies(&[]);
+        {
+            let _ = crate::contract::reply(
+                deps.as_mut().into_empty(),
+                mock_env(),
+                cosmwasm_std::Reply {
+                    id: i,
+                    result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                        events: vec![],
+                        data: Some(
+                            to_json_binary(
+                                &neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse {
+                                    id: response_id,
+                                },
+                            )
+                            .unwrap(),
+                        ),
+                    }),
+                },
+            )
+            .unwrap_err();
+        }
+    }
+}
+
+#[test]
+fn test_reply_kv_unbonding_delegations_no_result() {
+    for i in drop_puppeteer_base::state::reply_msg::KV_UNBONDING_DELEGATIONS_LOWER_BOUND
+        ..(drop_puppeteer_base::state::reply_msg::KV_UNBONDING_DELEGATIONS_UPPER_BOUND + 1)
+    {
+        let mut deps = mock_dependencies(&[]);
+
+        let puppeteer_base = base_init(&mut deps.as_mut());
+        puppeteer_base
+            .unbonding_delegations_reply_id_storage
+            .save(
+                deps.as_mut().storage,
+                i as u16,
+                &drop_puppeteer_base::state::UnbondingDelegation {
+                    validator_address: "validator".to_string(),
+                    query_id: 0u64,
+                    unbonding_delegations: vec![],
+                    last_updated_height: 0u64,
+                },
+            )
+            .unwrap();
+        let res = crate::contract::reply(
+            deps.as_mut().into_empty(),
+            mock_env(),
+            cosmwasm_std::Reply {
+                id: i,
+                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                    events: vec![],
+                    data: None,
+                }),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(res, StdError::generic_err("no result"))
+    }
+}
+
+#[test]
+fn test_reply_kv_unbonding_delegations() {
+    let response_id: u64 = 0;
+    for i in drop_puppeteer_base::state::reply_msg::KV_UNBONDING_DELEGATIONS_LOWER_BOUND
+        ..(drop_puppeteer_base::state::reply_msg::KV_UNBONDING_DELEGATIONS_UPPER_BOUND + 1)
+    {
+        let mut deps = mock_dependencies(&[]);
+
+        let puppeteer_base = base_init(&mut deps.as_mut());
+        puppeteer_base
+            .unbonding_delegations_reply_id_storage
+            .save(
+                deps.as_mut().storage,
+                i as u16,
+                &drop_puppeteer_base::state::UnbondingDelegation {
+                    validator_address: "validator".to_string(),
+                    query_id: 0u64,
+                    unbonding_delegations: vec![],
+                    last_updated_height: 0u64,
+                },
+            )
+            .unwrap();
+        let res = crate::contract::reply(
+            deps.as_mut().into_empty(),
+            mock_env(),
+            cosmwasm_std::Reply {
+                id: i,
+                result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
+                    events: vec![],
+                    data: Some(
+                        to_json_binary(
+                            &neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse {
+                                id: response_id,
+                            },
+                        )
+                        .unwrap(),
+                    ),
+                }),
+            },
+        )
+        .unwrap();
+        assert_eq!(res, cosmwasm_std::Response::new());
+        let _ = puppeteer_base
+            .unbonding_delegations_reply_id_storage
+            .load(deps.as_mut().storage, 0u16)
+            .unwrap_err();
+        let unbonding_delegation = puppeteer_base
+            .unbonding_delegations
+            .load(deps.as_mut().storage, "validator")
+            .unwrap();
+        assert_eq!(
+            unbonding_delegation,
+            drop_puppeteer_base::state::UnbondingDelegation {
+                validator_address: "validator".to_string(),
+                query_id: response_id,
+                unbonding_delegations: vec![],
+                last_updated_height: 0u64,
+            }
+        );
+        let kv_query = puppeteer_base
+            .kv_queries
+            .load(deps.as_mut().storage, response_id)
+            .unwrap();
+        assert_eq!(
+            kv_query,
+            drop_staking_base::state::puppeteer::KVQueryType::UnbondingDelegations
+        )
+    }
+}
+
+#[test]
+#[allow(deprecated)]
+fn test_get_answers_from_msg_data() {
+    let deps = mock_dependencies(&[]);
+    {
+        let res = crate::contract::get_answers_from_msg_data(
+            deps.as_ref(),
+            cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxMsgData {
+                msg_responses: vec![],
+                data: vec![cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                    msg_type: "incorrect_cosmos_msg_type".to_string(),
+                    data: vec![],
+                }],
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            vec![drop_puppeteer_base::msg::ResponseAnswer::UnknownResponse {}]
+        );
+    }
+    {
+        let res = crate::contract::get_answers_from_msg_data(
+            deps.as_ref(),
+            cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxMsgData {
+                msg_responses: vec![],
+                data: vec![
+                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                        msg_type: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
+                        data: (crate::proto::liquidstaking::staking::v1beta1::MsgDelegateResponse {})
+                            .encode_to_vec(),
+                    },
+                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                        msg_type: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
+                        data: (crate::proto::liquidstaking::staking::v1beta1::MsgUndelegateResponse {
+                            completion_time: None,
+                        })
+                        .encode_to_vec(),
+                    },
+                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                        msg_type: "/cosmos.staking.v1beta1.MsgTokenizeShares".to_string(),
+                        data:
+                            (crate::proto::liquidstaking::staking::v1beta1::MsgTokenizeSharesResponse {
+                                amount: None,
+                            })
+                            .encode_to_vec(),
+                    },
+                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                        msg_type: "/cosmos.staking.v1beta1.MsgBeginRedelegate".to_string(),
+                        data: (crate::proto::liquidstaking::staking::v1beta1::MsgBeginRedelegateResponse {
+                            completion_time: None
+                        })
+                            .encode_to_vec(),
+                    },
+                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                        msg_type: "/cosmos.authz.v1beta1.MsgGrant".to_string(),
+                        data: (cosmos_sdk_proto::cosmos::authz::v1beta1::MsgGrantResponse {}).encode_to_vec()
+                    },
+                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                        msg_type: "/cosmos.staking.v1beta1.MsgRedeemTokensForShares".to_string(),
+                        data: (crate::proto::liquidstaking::staking::v1beta1::MsgRedeemTokensforSharesResponse {
+                            amount: None
+                        }).encode_to_vec()
+                    },
+                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
+                        msg_type: "/cosmos.bank.v1beta1.MsgSend".to_string(),
+                        data: (cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSendResponse {}).encode_to_vec()
+                    },
+                ],
+            },
+        ).unwrap();
+        assert_eq!(
+            res,
+            vec![
+                drop_puppeteer_base::msg::ResponseAnswer::DelegateResponse(
+                    drop_puppeteer_base::proto::MsgDelegateResponse {}
+                ),
+                drop_puppeteer_base::msg::ResponseAnswer::UndelegateResponse(
+                    drop_puppeteer_base::proto::MsgUndelegateResponse {
+                        completion_time: None,
+                    }
+                ),
+                drop_puppeteer_base::msg::ResponseAnswer::TokenizeSharesResponse(
+                    drop_puppeteer_base::proto::MsgTokenizeSharesResponse { amount: None }
+                ),
+                drop_puppeteer_base::msg::ResponseAnswer::BeginRedelegateResponse(
+                    drop_puppeteer_base::proto::MsgBeginRedelegateResponse {
+                        completion_time: None
+                    }
+                ),
+                drop_puppeteer_base::msg::ResponseAnswer::GrantDelegateResponse(
+                    drop_puppeteer_base::proto::MsgGrantResponse {},
+                ),
+                drop_puppeteer_base::msg::ResponseAnswer::RedeemTokensforSharesResponse(
+                    drop_puppeteer_base::proto::MsgRedeemTokensforSharesResponse { amount: None }
+                ),
+                drop_puppeteer_base::msg::ResponseAnswer::TransferResponse(
+                    drop_puppeteer_base::proto::MsgSendResponse {}
+                )
+            ]
+        );
+    }
+}
+
 mod register_delegations_and_balance_query {
     use cosmwasm_std::{testing::MockApi, MemoryStorage, OwnedDeps, StdResult};
     use drop_helpers::testing::WasmMockQuerier;
@@ -1186,4 +3460,344 @@ fn get_standard_fees() -> IbcFee {
         ack_fee: coins(100, "untrn"),
         timeout_fee: coins(200, "untrn"),
     }
+}
+
+#[test]
+fn test_transfer_ownership() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::UpdateOwnership(
+            cw_ownable::Action::TransferOwnership {
+                new_owner: "new_owner".to_string(),
+                expiry: Some(cw_ownable::Expiration::Never {}),
+            },
+        ),
+    )
+    .unwrap();
+    crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("new_owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::UpdateOwnership(
+            cw_ownable::Action::AcceptOwnership {},
+        ),
+    )
+    .unwrap();
+    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
+        crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Ownership {},
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        cw_ownable::Ownership {
+            owner: Some(cosmwasm_std::Addr::unchecked("new_owner".to_string())),
+            pending_expiry: None,
+            pending_owner: None
+        }
+    );
+}
+
+#[test]
+fn test_query_kv_query_ids() {
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .kv_queries
+        .save(
+            deps.as_mut().storage,
+            0u64,
+            &KVQueryType::NonNativeRewardsBalances,
+        )
+        .unwrap();
+    let query_res: Vec<(u64, KVQueryType)> = from_json(
+        crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::KVQueryIds {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        vec![(0u64, KVQueryType::NonNativeRewardsBalances)]
+    );
+}
+
+#[test]
+fn test_query_extension_delegations_none() {
+    let deps = mock_dependencies(&[]);
+    let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
+        crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        drop_staking_base::msg::puppeteer::DelegationsResponse {
+            delegations: Delegations {
+                delegations: vec![],
+            },
+            remote_height: 0,
+            local_height: 0,
+            timestamp: Timestamp::default(),
+        }
+    );
+}
+
+#[test]
+fn test_query_extension_delegations_some() {
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .last_complete_delegations_and_balances_key
+        .save(deps.as_mut().storage, &0u64)
+        .unwrap();
+    let delegations = vec![
+        DropDelegation {
+            delegator: Addr::unchecked("delegator1"),
+            validator: "validator1".to_string(),
+            amount: cosmwasm_std::Coin::new(100, "denom1"),
+            share_ratio: Decimal256::from_ratio(
+                cosmwasm_std::Uint256::from(0u64),
+                cosmwasm_std::Uint256::from(1u64),
+            ),
+        },
+        DropDelegation {
+            delegator: Addr::unchecked("delegator2"),
+            validator: "validator2".to_string(),
+            amount: cosmwasm_std::Coin::new(100, "denom2"),
+            share_ratio: Decimal256::from_ratio(
+                cosmwasm_std::Uint256::from(0u64),
+                cosmwasm_std::Uint256::from(1u64),
+            ),
+        },
+    ];
+    puppeteer_base
+        .delegations_and_balances
+        .save(
+            deps.as_mut().storage,
+            &0u64,
+            &BalancesAndDelegationsState {
+                data: BalancesAndDelegations {
+                    balances: Balances { coins: vec![] },
+                    delegations: Delegations {
+                        delegations: delegations.clone(),
+                    },
+                },
+                remote_height: 123u64,
+                local_height: 123u64,
+                timestamp: Timestamp::default(),
+                collected_chunks: vec![],
+            },
+        )
+        .unwrap();
+    let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
+        crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        drop_staking_base::msg::puppeteer::DelegationsResponse {
+            delegations: Delegations { delegations },
+            remote_height: 123u64,
+            local_height: 123u64,
+            timestamp: Timestamp::default(),
+        }
+    );
+}
+
+#[test]
+fn test_query_extension_balances_none() {
+    let deps = mock_dependencies(&[]);
+    let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
+        crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        drop_staking_base::msg::puppeteer::BalancesResponse {
+            balances: Balances { coins: vec![] },
+            remote_height: 0,
+            local_height: 0,
+            timestamp: Timestamp::default(),
+        }
+    );
+}
+
+#[test]
+fn test_query_extension_balances_some() {
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .last_complete_delegations_and_balances_key
+        .save(deps.as_mut().storage, &0u64)
+        .unwrap();
+    let coins = vec![
+        cosmwasm_std::Coin::new(123u128, "denom1".to_string()),
+        cosmwasm_std::Coin::new(123u128, "denom2".to_string()),
+    ];
+    puppeteer_base
+        .delegations_and_balances
+        .save(
+            deps.as_mut().storage,
+            &0u64,
+            &BalancesAndDelegationsState {
+                data: BalancesAndDelegations {
+                    balances: Balances {
+                        coins: coins.clone(),
+                    },
+                    delegations: Delegations {
+                        delegations: vec![],
+                    },
+                },
+                remote_height: 123u64,
+                local_height: 123u64,
+                timestamp: Timestamp::default(),
+                collected_chunks: vec![],
+            },
+        )
+        .unwrap();
+    let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
+        crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        drop_staking_base::msg::puppeteer::BalancesResponse {
+            balances: Balances { coins },
+            remote_height: 123u64,
+            local_height: 123u64,
+            timestamp: Timestamp::default(),
+        }
+    );
+}
+
+#[test]
+fn test_query_non_native_rewards_balances() {
+    let mut deps = mock_dependencies(&[]);
+    let coins = vec![
+        cosmwasm_std::Coin::new(123u128, "denom1".to_string()),
+        cosmwasm_std::Coin::new(123u128, "denom2".to_string()),
+    ];
+    NON_NATIVE_REWARD_BALANCES
+        .save(
+            deps.as_mut().storage,
+            &BalancesAndDelegationsState {
+                data: drop_staking_base::msg::puppeteer::MultiBalances {
+                    coins: coins.clone(),
+                },
+                remote_height: 1u64,
+                local_height: 2u64,
+                timestamp: Timestamp::default(),
+                collected_chunks: vec![],
+            },
+        )
+        .unwrap();
+    let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
+        crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::NonNativeRewardsBalances {},
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        drop_staking_base::msg::puppeteer::BalancesResponse {
+            balances: Balances { coins },
+            remote_height: 1u64,
+            local_height: 2u64,
+            timestamp: Timestamp::default(),
+        }
+    );
+}
+
+#[test]
+fn test_unbonding_delegations() {
+    let mut deps = mock_dependencies(&[]);
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    let unbonding_delegations = vec![
+        drop_puppeteer_base::state::UnbondingDelegation {
+            validator_address: "validator_address1".to_string(),
+            query_id: 1u64,
+            unbonding_delegations: vec![
+                neutron_sdk::interchain_queries::v047::types::UnbondingEntry {
+                    balance: Uint128::from(0u64),
+                    completion_time: None,
+                    creation_height: 0u64,
+                    initial_balance: Uint128::from(0u64),
+                },
+            ],
+            last_updated_height: 0u64,
+        },
+        drop_puppeteer_base::state::UnbondingDelegation {
+            validator_address: "validator_address2".to_string(),
+            query_id: 2u64,
+            unbonding_delegations: vec![],
+            last_updated_height: 0u64,
+        },
+    ];
+    puppeteer_base
+        .unbonding_delegations
+        .save(deps.as_mut().storage, "key1", &unbonding_delegations[0])
+        .unwrap();
+    puppeteer_base
+        .unbonding_delegations
+        .save(deps.as_mut().storage, "key2", &unbonding_delegations[1])
+        .unwrap();
+    let query_res: Vec<drop_puppeteer_base::state::UnbondingDelegation> = from_json(
+        crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::UnbondingDelegations {},
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(query_res, unbonding_delegations);
 }
