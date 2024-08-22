@@ -97,6 +97,7 @@ impl Delegations {
         let mut total_stake = self.excess() + deposit;
         let stake_per_weight = Decimal::from_ratio(total_stake, self.total_weight);
         for d in self.delegations {
+            assert!(d.stake >= d.on_top);
             let weight = Decimal::from_atomics(d.weight, 0)?;
             let mut ideal_stake = stake_per_weight.checked_mul(weight)?.to_uint_ceil();
 
@@ -147,11 +148,11 @@ impl Delegations {
                 ideal_stake = total_stake;
             }
             total_stake -= ideal_stake;
-            if ideal_stake >= (d.stake - d.on_top) || to_withdraw.is_zero() {
+            if ideal_stake >= d.excess() || to_withdraw.is_zero() {
                 continue;
             }
 
-            let mut stake_change = (d.stake - d.on_top) - ideal_stake;
+            let mut stake_change = d.excess() - ideal_stake;
             if to_withdraw < stake_change {
                 stake_change = to_withdraw;
             }
@@ -203,10 +204,9 @@ impl Delegations {
     }
 
     fn excess(&self) -> Uint128 {
-        self.delegations.iter().fold(Uint128::zero(), |acc, d| {
-            assert!(d.stake >= d.on_top);
-            acc + (d.stake - d.on_top)
-        })
+        self.delegations
+            .iter()
+            .fold(Uint128::zero(), |acc, d| acc + d.excess())
     }
 }
 
@@ -216,6 +216,16 @@ pub struct Delegation {
     pub stake: Uint128,
     pub on_top: Uint128,
     pub weight: u64,
+}
+
+impl Delegation {
+    fn excess(&self) -> Uint128 {
+        if self.stake >= self.on_top {
+            self.stake - self.on_top
+        } else {
+            Uint128::zero()
+        }
+    }
 }
 
 #[cw_serde]

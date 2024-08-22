@@ -411,3 +411,21 @@ fn on_top_withdraw_from_three_of_three_undersatisfy() {
     let distribution = calc_withdraw(withdraw, delegations).unwrap();
     assert_distributions_eq(distribution, &[("1", 12), ("2", 13), ("3", 5)]);
 }
+
+#[test]
+fn withdraw_from_one_of_two_mixed_on_top_and_normal() {
+    let withdraw = Uint128::new(40);
+    let delegations = make_delegations(&[("1", 200, 210, 10), ("2", 100, 0, 10)]);
+
+    let distribution = calc_withdraw(withdraw, delegations).unwrap();
+    assert_distributions_eq(distribution, &[("2", 40)]);
+}
+
+#[test]
+fn withdraw_from_two_of_two_mixed_on_top_and_normal() {
+    let withdraw = Uint128::new(140);
+    let delegations = make_delegations(&[("1", 200, 210, 10), ("2", 100, 0, 10)]);
+
+    let distribution = calc_withdraw(withdraw, delegations).unwrap();
+    assert_distributions_eq(distribution, &[("1", 40), ("2", 100)]);
+}
