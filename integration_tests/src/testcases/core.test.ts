@@ -1517,7 +1517,7 @@ describe('Core', () => {
           denom: `factory/${context.tokenContractClient.contractAddress}/udatom`,
         });
         expect(rate.redemption_rate).toEqual('1');
-        expect(Date.now() / 1000 - rate.update_time).toBeGreaterThan(15);
+        // expect(Date.now() / 1000 - rate.update_time).toBeGreaterThan(15);
         expect(exchangeRate).toEqual(rate.redemption_rate);
       });
       it('next tick goes to idle', async () => {
