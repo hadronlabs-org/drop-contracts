@@ -1,4 +1,4 @@
-use cosmwasm_std::{attr, from_json, to_json_binary, Attribute, Decimal, Deps};
+use cosmwasm_std::{attr, to_json_binary, Attribute, Decimal, Deps};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::response;
@@ -65,29 +65,10 @@ fn query_redemption_rate(
         config.core_contract.clone(),
         &drop_staking_base::msg::core::QueryMsg::ExchangeRate {},
     )?;
-    let core_state: drop_staking_base::state::core::ContractState = deps.querier.query_wasm_smart(
-        config.core_contract.clone(),
-        &drop_staking_base::msg::core::QueryMsg::ContractState {},
-    )?;
-
-    let update_time = match core_state {
-        drop_staking_base::state::core::ContractState::Idle => env.block.time.seconds(),
-        _ => {
-            let last_idle_raw = deps
-                .querier
-                .query_wasm_raw(config.core_contract, b"last_tick")?
-                .ok_or_else(|| {
-                    ContractError::Std(cosmwasm_std::StdError::NotFound {
-                        kind: "last_tick".to_string(),
-                    })
-                })?;
-            from_json::<u64>(last_idle_raw)?
-        }
-    };
 
     Ok(to_json_binary(&RedemptionRateResponse {
         redemption_rate: exchange_rate,
-        update_time,
+        update_time: env.block.time.seconds(),
     })?)
 }
 
