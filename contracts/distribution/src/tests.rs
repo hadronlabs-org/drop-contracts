@@ -349,6 +349,15 @@ fn on_top_withdraw_from_one_of_two_satisfy_exactly() {
 }
 
 #[test]
+fn on_top_withdraw_from_one_of_two_mixed() {
+    let withdraw = Uint128::new(10);
+    let delegations = make_delegations(&[("1", 40, 40, 10), ("2", 10, 100, 10)]);
+
+    let distribution = calc_withdraw(withdraw, delegations).unwrap();
+    assert_distributions_eq(distribution, &[("1", 10)]);
+}
+
+#[test]
 fn on_top_withdraw_from_two_of_two_satisfy_exactly() {
     let withdraw = Uint128::new(40);
     let delegations = make_delegations(&[("1", 100, 80, 10), ("2", 200, 180, 10)]);
