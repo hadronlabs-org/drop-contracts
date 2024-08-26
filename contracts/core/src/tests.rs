@@ -1655,6 +1655,191 @@ fn test_tick_idle_unbonding_failed() {
 }
 
 #[test]
+#[should_panic]
+fn test_tick_idle_unbonding_failed_no_new() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
+                    delegations: vec![],
+                },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("staker_contract", |_| {
+            to_json_binary(&Uint128::zero()).unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("validators_set_contract", |_| {
+            to_json_binary(&vec![
+                drop_staking_base::state::validatorset::ValidatorInfo {
+                    valoper_address: "valoper_address".to_string(),
+                    weight: 1,
+                    last_processed_remote_height: None,
+                    last_processed_local_height: None,
+                    last_validated_height: None,
+                    last_commission_in_range: None,
+                    uptime: Decimal::one(),
+                    tombstone: false,
+                    jailed_number: None,
+                    init_proposal: None,
+                    total_passed_proposals: 0,
+                    total_voted_proposals: 0,
+                },
+            ])
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
+                    delegations: vec![],
+                },
+                remote_height: 12344u64,
+                local_height: 12344u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("strategy_contract", |_| {
+            to_json_binary(&vec![(
+                "valoper_address".to_string(),
+                Uint128::from(1000u128),
+            )])
+            .unwrap()
+        });
+
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(1000, 3, 100, 100, 6000, Uint128::one()),
+        )
+        .unwrap();
+    LD_DENOM
+        .save(deps.as_mut().storage, &"ld_denom".into())
+        .unwrap();
+    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+        .unwrap();
+    LAST_IDLE_CALL.save(deps.as_mut().storage, &0).unwrap();
+    LAST_ICA_CHANGE_HEIGHT
+        .save(deps.as_mut().storage, &0)
+        .unwrap();
+    TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
+    BONDED_AMOUNT
+        .save(deps.as_mut().storage, &Uint128::from(1000u128))
+        .unwrap();
+    FAILED_BATCH_ID.save(deps.as_mut().storage, &0).unwrap();
+    UNBOND_BATCH_ID.save(deps.as_mut().storage, &1).unwrap();
+    unbond_batches_map()
+        .save(
+            deps.as_mut().storage,
+            0,
+            &UnbondBatch {
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(1000u128),
+                total_unbond_items: 1,
+                status: UnbondBatchStatus::UnbondFailed,
+                expected_release_time: 0,
+                slashing_effect: None,
+                unbonded_amount: None,
+                withdrawn_amount: None,
+                status_timestamps: UnbondBatchStatusTimestamps {
+                    new: 0,
+                    unbond_requested: None,
+                    unbond_failed: None,
+                    unbonding: None,
+                    withdrawing: None,
+                    withdrawn: None,
+                    withdrawing_emergency: None,
+                    withdrawn_emergency: None,
+                },
+            },
+        )
+        .unwrap();
+    unbond_batches_map()
+        .save(
+            deps.as_mut().storage,
+            1,
+            &UnbondBatch {
+                total_dasset_amount_to_withdraw: Uint128::from(1000u128),
+                expected_native_asset_amount: Uint128::from(123123u128),
+                total_unbond_items: 123,
+                status: UnbondBatchStatus::UnbondRequested,
+                expected_release_time: 0,
+                slashing_effect: None,
+                unbonded_amount: None,
+                withdrawn_amount: None,
+                status_timestamps: UnbondBatchStatusTimestamps {
+                    new: 0,
+                    unbond_requested: None,
+                    unbond_failed: None,
+                    unbonding: None,
+                    withdrawing: None,
+                    withdrawn: None,
+                    withdrawing_emergency: None,
+                    withdrawn_emergency: None,
+                },
+            },
+        )
+        .unwrap();
+    let mut env = mock_env();
+    env.block.time = Timestamp::from_seconds(100000);
+    execute(
+        deps.as_mut(),
+        env,
+        mock_info("admin", &[Coin::new(1000, "untrn")]),
+        ExecuteMsg::Tick {},
+    )
+    .unwrap();
+}
+
+#[test]
 fn test_tick_no_puppeteer_response() {
     let mut deps = mock_dependencies(&[]);
     CONFIG

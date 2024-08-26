@@ -1350,6 +1350,9 @@ fn get_unbonding_msg<T>(
     };
     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
     if processing_failed_batch {
+        let current_batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
+        let current_batch = unbond_batches_map().load(deps.storage, current_batch_id)?;
+        assert_eq!(current_batch.status, UnbondBatchStatus::New);
         attrs.push(attr("knot", "025"));
     } else {
         attrs.push(attr("knot", "026"));
