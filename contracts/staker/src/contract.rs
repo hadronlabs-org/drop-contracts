@@ -294,7 +294,7 @@ fn execute_stake(
         deps,
         cosmos_msg,
         Transaction::Stake {
-            amount: non_staked_balance,
+            amount: amount_to_stake,
         },
         ReplyMsg::SudoPayload.to_reply_id(),
         Some(info.sender.to_string()),
