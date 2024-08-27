@@ -17,7 +17,6 @@ This repository contains the smart contracts of Drop Protocol. The project is or
 Ensure that you have the following installed:
 
 - Rust (via [rustup](https://rustup.rs/))
-- Cosmwasm (check out the [Cosmwasm documentation](https://cosmwasm.com/home/about/)
 - Node.js (for TypeScript integration tests)
 - Yarn (as an alternative package manager)
 - Docker (to manage images)
