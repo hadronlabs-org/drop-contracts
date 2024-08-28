@@ -154,11 +154,6 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
             denom: LD_DENOM.load(deps.storage)?,
         }))?;
 
-    let mut exchange_rate_denominator = ld_total_supply.amount.amount;
-    if exchange_rate_denominator.is_zero() {
-        return Ok(Decimal::one());
-    }
-
     let delegations_response = deps
         .querier
         .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
@@ -192,17 +187,19 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
         let failed_batch = unbond_batches_map().load(deps.storage, failed_batch_id)?;
         unprocessed_dasset_to_unbond += failed_batch.total_dasset_amount_to_withdraw;
     }
-    exchange_rate_denominator += unprocessed_dasset_to_unbond;
+
     let staker_balance: Uint128 = deps.querier.query_wasm_smart(
         &config.staker_contract,
         &drop_staking_base::msg::staker::QueryMsg::AllBalance {},
     )?;
     let total_lsm_shares = Uint128::new(TOTAL_LSM_SHARES.load(deps.storage)?);
-    // arithmetic operations order is important here as we don't want to overflow
+
     let exchange_rate_numerator = delegations_amount + staker_balance + total_lsm_shares;
-    if exchange_rate_numerator.is_zero() {
+    let exchange_rate_denominator = ld_total_supply.amount.amount + unprocessed_dasset_to_unbond;
+    if exchange_rate_numerator.is_zero() || exchange_rate_denominator.is_zero() {
         return Ok(Decimal::one());
     }
+
     let exchange_rate = Decimal::from_ratio(exchange_rate_numerator, exchange_rate_denominator);
     Ok(exchange_rate)
 }
