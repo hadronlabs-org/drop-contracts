@@ -501,6 +501,7 @@ fn test_tick_idle_claim_wo_unbond() {
                 drop_staking_base::state::validatorset::ValidatorInfo {
                     valoper_address: "valoper_address".to_string(),
                     weight: 1,
+                    on_top: Uint128::zero(),
                     last_processed_remote_height: None,
                     last_processed_local_height: None,
                     last_validated_height: None,
@@ -660,6 +661,7 @@ fn test_tick_idle_claim_with_unbond_transfer() {
                 drop_staking_base::state::validatorset::ValidatorInfo {
                     valoper_address: "valoper_address".to_string(),
                     weight: 1,
+                    on_top: Uint128::zero(),
                     last_processed_remote_height: None,
                     last_processed_local_height: None,
                     last_validated_height: None,
@@ -2422,6 +2424,7 @@ mod check_denom {
                         validator: Some(drop_staking_base::state::validatorset::ValidatorInfo {
                             valoper_address: "valoper12345".to_string(),
                             weight: 1u64,
+                            on_top: Uint128::zero(),
                             last_processed_remote_height: None,
                             last_processed_local_height: None,
                             last_validated_height: None,
