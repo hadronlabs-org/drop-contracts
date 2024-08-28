@@ -200,7 +200,6 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
     )?;
     let total_lsm_shares = Uint128::new(TOTAL_LSM_SHARES.load(deps.storage)?);
     let delegations_amount = query_total_bonded(deps, config)?;
-    // arithmetic operations order is important here as we don't want to overflow
     let exchange_rate_numerator = delegations_amount + staker_balance + total_lsm_shares;
     let exchange_rate_denominator = ld_total_supply.amount.amount + unprocessed_dasset_to_unbond;
     if exchange_rate_numerator.is_zero() || exchange_rate_denominator.is_zero() {
