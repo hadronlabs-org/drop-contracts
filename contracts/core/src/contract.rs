@@ -505,9 +505,7 @@ fn execute_puppeteer_hook(
         drop_puppeteer_base::msg::ResponseHookMsg::Error(err_msg) => {
             match err_msg.transaction {
                 drop_puppeteer_base::msg::Transaction::Transfer { .. } // this one is for transfering non-native rewards
-                | drop_puppeteer_base::msg::Transaction::RedeemShares { .. }
-                | drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer { .. } => { // this goes to idle and then ruled in tick_idle
-                // IBC transfer for LSM shares and pending stake
+                | drop_puppeteer_base::msg::Transaction::RedeemShares { .. } => { // this goes to idle and then ruled in tick_idle
                 FSM.go_to(deps.storage, ContractState::Idle)?
             }
             drop_puppeteer_base::msg::Transaction::IBCTransfer { reason, .. } => {
