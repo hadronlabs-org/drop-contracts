@@ -3510,23 +3510,25 @@ fn test_bond_lsm_share_ok_with_low_ratio() {
             })
             .unwrap()
         });
-    deps.querier
-        .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![DropDelegation {
-                        delegator: Addr::unchecked("delegator"),
-                        validator: "valoper1".to_string(),
-                        amount: Coin::new(1000, "remote_denom".to_string()),
-                        share_ratio: Decimal256::from_ratio(1u32, 2u32),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
-        });
+    for _ in 0..2 {
+        deps.querier
+            .add_wasm_query_response("puppeteer_contract", |_| {
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![DropDelegation {
+                            delegator: Addr::unchecked("delegator"),
+                            validator: "valoper1".to_string(),
+                            amount: Coin::new(1000, "remote_denom".to_string()),
+                            share_ratio: Decimal256::from_ratio(1u32, 2u32),
+                        }],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap()
+            });
+    }
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(1000);
     TOTAL_LSM_SHARES
@@ -3546,6 +3548,32 @@ fn test_bond_lsm_share_ok_with_low_ratio() {
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
+    UNBOND_BATCH_ID.save(&mut deps.storage, &0).unwrap();
+    unbond_batches_map()
+        .save(
+            &mut deps.storage,
+            0,
+            &UnbondBatch {
+                total_dasset_amount_to_withdraw: Uint128::zero(),
+                expected_native_asset_amount: Uint128::zero(),
+                total_unbond_items: 0,
+                status: UnbondBatchStatus::New,
+                expected_release_time: 0,
+                slashing_effect: None,
+                unbonded_amount: None,
+                withdrawn_amount: None,
+                status_timestamps: get_default_unbond_batch_status_timestamps(),
+            },
+        )
+        .unwrap();
+    deps.querier
+        .add_wasm_query_response("staker_contract", |data| {
+            let req: StakerQueryMsg = from_json(data).unwrap();
+            match req {
+                StakerQueryMsg::AllBalance {} => to_json_binary(&Uint128::new(1)).unwrap(),
+                _ => unimplemented!(),
+            }
+        });
     let res = execute(
         deps.as_mut(),
         env,
@@ -3628,23 +3656,51 @@ fn test_bond_lsm_share_ok_with_low_ratio_pending_already_there() {
             })
             .unwrap()
         });
+    for _ in 0..2 {
+        deps.querier
+            .add_wasm_query_response("puppeteer_contract", |_| {
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![DropDelegation {
+                            delegator: Addr::unchecked("delegator"),
+                            validator: "valoper1".to_string(),
+                            amount: Coin::new(1000, "remote_denom".to_string()),
+                            share_ratio: Decimal256::from_ratio(1u32, 2u32),
+                        }],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap()
+            });
+    }
     deps.querier
-        .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![DropDelegation {
-                        delegator: Addr::unchecked("delegator"),
-                        validator: "valoper1".to_string(),
-                        amount: Coin::new(1000, "remote_denom".to_string()),
-                        share_ratio: Decimal256::from_ratio(1u32, 2u32),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+        .add_wasm_query_response("staker_contract", |data| {
+            let req: StakerQueryMsg = from_json(data).unwrap();
+            match req {
+                StakerQueryMsg::AllBalance {} => to_json_binary(&Uint128::new(1)).unwrap(),
+                _ => unimplemented!(),
+            }
         });
+    UNBOND_BATCH_ID.save(&mut deps.storage, &0).unwrap();
+    unbond_batches_map()
+        .save(
+            &mut deps.storage,
+            0,
+            &UnbondBatch {
+                total_dasset_amount_to_withdraw: Uint128::zero(),
+                expected_native_asset_amount: Uint128::zero(),
+                total_unbond_items: 0,
+                status: UnbondBatchStatus::New,
+                expected_release_time: 0,
+                slashing_effect: None,
+                unbonded_amount: None,
+                withdrawn_amount: None,
+                status_timestamps: get_default_unbond_batch_status_timestamps(),
+            },
+        )
+        .unwrap();
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(1000);
     TOTAL_LSM_SHARES
