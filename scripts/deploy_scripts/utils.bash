@@ -72,7 +72,7 @@ assert_success() {
 store_code() {
   local res
   res="$(neutrond tx wasm store "$ARTIFACTS_DIR/drop_$1.wasm" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx)"
-  declare -g "$1_code_id=$(echo "$res" | jq -r "$(select_attr "store_code" "code_id")")"
+  eval "$1_code_id=$(echo "$res" | jq -r "$(select_attr "store_code" "code_id")")"
 }
 
 deploy_wasm_code() {
