@@ -1485,6 +1485,7 @@ fn test_tick_idle_unbonding_failed() {
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
         .unwrap();
+    TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
     FAILED_BATCH_ID.save(deps.as_mut().storage, &0).unwrap();
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &1).unwrap();
     unbond_batches_map()
@@ -3515,7 +3516,7 @@ fn test_bond_lsm_share_ok_with_low_ratio() {
             })
             .unwrap()
         });
-    for _ in 0..2 {
+    for _ in 0..3 {
         deps.querier
             .add_wasm_query_response("puppeteer_contract", |_| {
                 to_json_binary(&DelegationsResponse {
@@ -3607,7 +3608,7 @@ fn test_bond_lsm_share_ok_with_low_ratio() {
             Uint128::from(500u128)
         )
     );
-    assert_eq!(bonded_amount, Uint128::from(500u128));
+    assert_eq!(bonded_amount, Uint128::from(1000u128));
     assert_eq!(total_lsm_shares, 500u128);
     assert_eq!(
         res,
