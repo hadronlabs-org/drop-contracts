@@ -41,4 +41,4 @@ build_arm64: schema clippy test fmt doc compile_arm64 check_contracts
 build: schema clippy test fmt doc compile check_contracts
 
 build_ts_client: schema
-	@cd ts-client && yarn && yarn generate && cd ../integration_tests && yarn
+	@cd ts-client && yarn && yarn generate
