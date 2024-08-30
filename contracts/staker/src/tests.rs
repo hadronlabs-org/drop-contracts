@@ -740,7 +740,7 @@ fn test_stake() {
         .unwrap()
     });
     NON_STAKED_BALANCE
-        .save(deps.as_mut().storage, &Uint128::from(10000u64))
+        .save(deps.as_mut().storage, &Uint128::from(12000u64))
         .unwrap();
     CONFIG.save(deps.as_mut().storage, &config).unwrap();
     TX_STATE
@@ -860,7 +860,19 @@ fn test_stake() {
                     cosmwasm_std::attr("amount_to_stake".to_string(), "10000".to_string()),
                 ])
             )
-        )
+        );
+    let tx_state = TX_STATE.load(deps.as_ref().storage).unwrap();
+    assert_eq!(
+        tx_state,
+        drop_staking_base::state::staker::TxState {
+            status: drop_staking_base::state::staker::TxStateStatus::InProgress,
+            seq_id: None,
+            transaction: Some(drop_staking_base::state::staker::Transaction::Stake {
+                amount: Uint128::from(10000u64),
+            }),
+            reply_to: Some("core".to_string()),
+        }
+    );
 }
 
 #[test]
