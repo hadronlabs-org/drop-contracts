@@ -732,6 +732,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-native-bond-provider"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "semver",
+]
+
+[[package]]
 name = "drop-price-provider"
 version = "1.0.0"
 dependencies = [

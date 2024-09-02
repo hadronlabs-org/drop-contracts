@@ -53,6 +53,7 @@ pub enum ContractError {
 
     #[error("Invalid denom")]
     InvalidDenom {},
+
     #[error("No delegations")]
     NoDelegations {},
 

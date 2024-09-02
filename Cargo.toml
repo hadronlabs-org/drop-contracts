@@ -9,6 +9,7 @@ members = [
     "contracts/hook-tester",
     "contracts/withdrawal-voucher",
     "contracts/withdrawal-manager",
+    "contracts/native-bond-provider",
     "contracts/proposal-votes-poc",
     "contracts/provider-proposals-poc",
     "contracts/pump",
