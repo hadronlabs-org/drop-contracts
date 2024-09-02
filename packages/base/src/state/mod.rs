@@ -1,6 +1,8 @@
 pub mod astroport_exchange_handler;
 pub mod core;
 pub mod hook_tester;
+pub mod lsm_share_bond_provider;
+pub mod native_bond_provider;
 pub mod price_provider;
 pub mod proposal_votes;
 pub mod provider_proposals;
@@ -9,7 +11,6 @@ pub mod puppeteer;
 pub mod redemption_rate_adapter;
 pub mod rewards_manager;
 pub mod splitter;
-pub mod staker;
 pub mod strategy;
 pub mod token;
 pub mod validatorset;

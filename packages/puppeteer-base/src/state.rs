@@ -19,7 +19,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::ops::Div;
 use std::str::FromStr;
 
-use crate::{msg::Transaction, r#trait::PuppeteerReconstruct};
+use crate::{peripheral_hook::Transaction, r#trait::PuppeteerReconstruct};
 
 pub struct PuppeteerBase<'a, T, U>
 where

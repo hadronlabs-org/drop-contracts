@@ -1,6 +1,7 @@
 use crate::{
     error::{ContractError, ContractResult},
-    msg::{ExecuteMsg, Transaction},
+    msg::ExecuteMsg,
+    peripheral_hook::Transaction,
     state::{BaseConfig, PuppeteerBase, TxState, TxStateStatus, ICA_ID, LOCAL_DENOM},
 };
 use cosmwasm_std::{

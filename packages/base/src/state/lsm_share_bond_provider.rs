@@ -1,29 +1,21 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128};
-use cw_storage_plus::Item;
-use drop_helpers::ica::Ica;
+use cw_storage_plus::{Item, Map};
+use drop_puppeteer_base::peripheral_hook::Transaction;
+use optfield::optfield;
 
+#[optfield(pub ConfigOptional, attrs)]
 #[cw_serde]
 pub struct Config {
+    pub puppeteer_contract: Addr,
+    pub core_contract: Addr,
+    pub validators_set_contract: Addr,
     pub port_id: String,
     pub transfer_channel_id: String,
-    pub connection_id: String,
-    pub timeout: u64,
-    pub remote_denom: String,
-    pub base_denom: String,
-    pub allowed_senders: Vec<Addr>,
-    pub puppeteer_ica: Option<String>,
-    pub min_ibc_transfer: Uint128,
-    pub min_staking_amount: Uint128,
-}
-
-#[cw_serde]
-pub struct ConfigOptional {
-    pub timeout: Option<u64>,
-    pub allowed_senders: Option<Vec<String>>,
-    pub puppeteer_ica: Option<String>,
-    pub min_ibc_transfer: Option<Uint128>,
-    pub min_staking_amount: Option<Uint128>,
+    pub timeout: u64, // timeout for interchain transactions in seconds
+    pub lsm_min_bond_amount: Uint128,
+    pub lsm_redeem_threshold: u64,        //amount of lsm denoms
+    pub lsm_redeem_maximum_interval: u64, //seconds
 }
 
 #[cw_serde]
@@ -36,49 +28,47 @@ pub enum TxStateStatus {
 }
 
 #[cw_serde]
-pub enum Transaction {
-    Stake { amount: Uint128 },
-    IBCTransfer { amount: Uint128 },
-}
-#[cw_serde]
 #[derive(Default)]
 pub struct TxState {
     pub status: TxStateStatus,
-    pub seq_id: Option<u64>,
     pub transaction: Option<Transaction>,
-    pub reply_to: Option<String>,
 }
 
-pub const CONFIG: Item<Config> = Item::new("core");
-pub const ICA: Ica = Ica::new("ica");
-pub const ICA_ID: &str = "drop_STAKER";
-pub const NON_STAKED_BALANCE: Item<Uint128> = Item::new("current_balance");
 pub const TX_STATE: Item<TxState> = Item::new("tx_state");
+pub const CONFIG: Item<Config> = Item::new("config");
+pub const TOTAL_LSM_SHARES_REAL_AMOUNT: Item<u128> = Item::new("total_lsm_shares_real_amount_v0");
+/// (local_denom, (remote_denom, shares_amount, real_amount))
+pub const PENDING_LSM_SHARES: Map<String, (String, Uint128, Uint128)> =
+    Map::new("pending_lsm_shares_v0");
+/// (local_denom, (remote_denom, shares_amount, real_amount))
+pub const LSM_SHARES_TO_REDEEM: Map<String, (String, Uint128, Uint128)> =
+    Map::new("lsm_shares_to_redeem_v0");
+pub const LAST_LSM_REDEEM: Item<u64> = Item::new("last_lsm_redeem_v0");
 
 pub use reply_msg::ReplyMsg;
 pub mod reply_msg {
     const OFFSET: u64 = u16::BITS as u64;
-    pub const SUDO_PAYLOAD: u64 = 1 << OFFSET;
-    pub const IBC_TRANSFER: u64 = 2 << OFFSET;
+    pub const IBC_TRANSFER: u64 = 1 << OFFSET;
+    pub const REDEEM: u64 = 2 << OFFSET;
 
     #[cosmwasm_schema::cw_serde]
     pub enum ReplyMsg {
-        SudoPayload,
         IbcTransfer,
+        Redeem,
     }
 
     impl ReplyMsg {
         pub fn to_reply_id(&self) -> u64 {
             match self {
-                ReplyMsg::SudoPayload => SUDO_PAYLOAD,
                 ReplyMsg::IbcTransfer => IBC_TRANSFER,
+                ReplyMsg::Redeem => REDEEM,
             }
         }
 
         pub fn from_reply_id(reply_id: u64) -> Self {
             match reply_id {
-                SUDO_PAYLOAD => Self::SudoPayload,
                 IBC_TRANSFER => Self::IbcTransfer,
+                REDEEM => Self::Redeem,
                 _ => unreachable!(),
             }
         }
@@ -90,14 +80,14 @@ pub mod reply_msg {
 
         #[test]
         fn enum_variant_from_reply_id() {
-            assert_eq!(ReplyMsg::from_reply_id(SUDO_PAYLOAD), ReplyMsg::SudoPayload);
             assert_eq!(ReplyMsg::from_reply_id(IBC_TRANSFER), ReplyMsg::IbcTransfer);
+            assert_eq!(ReplyMsg::from_reply_id(REDEEM), ReplyMsg::Redeem);
         }
 
         #[test]
         fn enum_variant_to_reply_id() {
-            assert_eq!(ReplyMsg::SudoPayload.to_reply_id(), SUDO_PAYLOAD);
             assert_eq!(ReplyMsg::IbcTransfer.to_reply_id(), IBC_TRANSFER);
+            assert_eq!(ReplyMsg::Redeem.to_reply_id(), REDEEM);
         }
 
         #[test]

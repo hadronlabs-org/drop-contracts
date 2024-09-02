@@ -7,7 +7,7 @@ use prost::Message;
 use crate::state::puppeteer::ConfigOptional;
 use cosmos_sdk_proto::cosmos::base::v1beta1::Coin as CosmosCoin;
 use drop_puppeteer_base::{
-    msg::{ExecuteMsg as BaseExecuteMsg, IBCTransferReason, TransferReadyBatchesMsg},
+    msg::{ExecuteMsg as BaseExecuteMsg, TransferReadyBatchesMsg},
     r#trait::PuppeteerReconstruct,
     state::{Delegations, RedeemShareItem},
 };
@@ -29,6 +29,7 @@ pub struct InstantiateMsg {
     pub transfer_channel_id: String,
     pub sdk_version: String,
     pub timeout: u64,
+    pub native_bond_provider: String,
     pub delegations_queries_chunk_size: Option<u32>,
 }
 
@@ -47,8 +48,11 @@ pub enum ExecuteMsg {
         denoms: Vec<String>,
     },
     SetupProtocol {
-        delegate_grantee: String,
         rewards_withdraw_address: String,
+    },
+    Delegate {
+        items: Vec<(String, Uint128)>,
+        reply_to: String,
     },
     Undelegate {
         items: Vec<(String, Uint128)>,
@@ -68,10 +72,6 @@ pub enum ExecuteMsg {
     },
     RedeemShares {
         items: Vec<RedeemShareItem>,
-        reply_to: String,
-    },
-    IBCTransfer {
-        reason: IBCTransferReason,
         reply_to: String,
     },
     Transfer {

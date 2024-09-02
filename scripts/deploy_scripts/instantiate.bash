@@ -53,10 +53,6 @@ main() {
   pre_deploy_check_balance
   pre_deploy_check_ibc_connection 
   deploy_factory
-  register_staker_ica
-  print_hermes_command $staker_ica_port $staker_ica_channel
-  wait_ica_address "staker" $staker_address
-  staker_counterparty_channel_id=$(get_counterparty_channel_id $staker_ica_port $staker_ica_channel)
   
   register_rewards_pump_ica
   print_hermes_command $rewards_pump_ica_port $rewards_pump_ica_channel
@@ -68,19 +64,16 @@ main() {
   wait_ica_address "puppeteer" $puppeteer_address
   puppeteer_counterparty_channel_id=$(get_counterparty_channel_id $puppeteer_ica_port $puppeteer_ica_channel)
 
-
   update_msg='{
-    "update_config":{
-      "new_config":{
-        "puppeteer_ica":"'"$puppeteer_ica_address"'"
-      }
+    "add_bond_provider":{
+      "bond_provider_address": "'"$native_bond_provider_address"'"
     }
   }'
 
   msg='{
     "wasm":{
       "execute":{
-        "contract_addr":"'"$staker_address"'",
+        "contract_addr":"'"$core_address"'",
         "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64 | tr -d "\n")"'",
         "funds": []
       }
@@ -88,32 +81,26 @@ main() {
   }'
 
   factory_admin_execute $factory_address "$msg"
-  echo "[OK] Add Puppeteer ICA address to Staker contract config"
+  echo "[OK] Add Native bond provider to the Core contract"
 
   update_msg='{
-   "setup_protocol": {
-      "delegate_grantee": "'"$staker_ica_address"'",
-      "rewards_withdraw_address": "'"$rewards_pump_ica_address"'"
+    "add_bond_provider":{
+      "bond_provider_address": "'"$lsm_share_bond_provider_address"'"
     }
   }'
 
   msg='{
     "wasm":{
       "execute":{
-        "contract_addr":"'"$puppeteer_address"'",
+        "contract_addr":"'"$core_address"'",
         "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64 | tr -d "\n")"'",
-        "funds": [
-          {
-            "amount": "20000",
-            "denom": "untrn"
-          }
-        ]
+        "funds": []
       }
     }
   }'
 
-  factory_admin_execute $factory_address "$msg" 20000untrn
-  echo "[OK] Grant staker to delegate funds from puppeteer ICA"
+  factory_admin_execute $factory_address "$msg"
+  echo "[OK] Add LSM share bond provider to the Core contract"
 
   msg='{
     "validator_set": {
@@ -154,7 +141,6 @@ main() {
   echo   "list = ["
   echo   "  ['$puppeteer_ica_port', '$puppeteer_ica_channel'],"
   echo   "  ['$pump_ica_port', '$pump_ica_channel'],"
-  echo   "  ['$staker_ica_port', '$staker_ica_channel']"
   echo   "]"
   echo
   echo   "[[chains]]"
@@ -163,7 +149,6 @@ main() {
   echo   "list = ["
   echo   "  ['icahost', '$puppeteer_counterparty_channel_id'],"
   echo   "  ['icahost', '$pump_counterparty_channel_id'],"
-  echo   "  ['icahost', '$staker_counterparty_channel_id']"
   echo   "]"
   
 }
