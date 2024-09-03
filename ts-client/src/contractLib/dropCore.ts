@@ -1,5 +1,6 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
+export type ArrayOfString = string[];
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -290,6 +291,7 @@ export type Timestamp2 = Uint64;
 
 export interface DropCoreSchema {
   responses:
+    | ArrayOfString
     | Config
     | ContractState
     | Uint1281
@@ -313,6 +315,7 @@ export interface DropCoreSchema {
     | PuppeteerHookArgs
     | StakerHookArgs
     | ProcessEmergencyBatchArgs
+    | SetBondHooksArgs
     | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
@@ -514,6 +517,9 @@ export interface ProcessEmergencyBatchArgs {
   batch_id: number;
   unbonded_amount: Uint128;
 }
+export interface SetBondHooksArgs {
+  hooks: string[];
+}
 export interface InstantiateMsg {
   base_denom: string;
   bond_limit?: Uint128 | null;
@@ -628,6 +634,9 @@ export class Client {
   queryFailedBatch = async(): Promise<FailedBatchResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { failed_batch: {} });
   }
+  queryBondHooks = async(): Promise<ArrayOfString> => {
+    return this.client.queryContractSmart(this.contractAddress, { bond_hooks: {} });
+  }
   queryPauseInfo = async(): Promise<PauseInfoResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
   }
@@ -666,6 +675,10 @@ export class Client {
   processEmergencyBatch = async(sender:string, args: ProcessEmergencyBatchArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { process_emergency_batch: args }, fee || "auto", memo, funds);
+  }
+  setBondHooks = async(sender:string, args: SetBondHooksArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { set_bond_hooks: args }, fee || "auto", memo, funds);
   }
   pause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

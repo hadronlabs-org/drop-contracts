@@ -1,5 +1,6 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
+export type ArrayOfString = string[];
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -245,9 +246,9 @@ export type Expiration = {
  */
 export type Timestamp2 = Uint64;
 export interface DropCoreSchema {
-    responses: Config | ContractState | Uint1281 | Decimal | FailedBatchResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | LastStakerResponse | String | PauseInfoResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Uint1282 | Uint1283 | UnbondBatch | UnbondBatchesResponse;
+    responses: ArrayOfString | Config | ContractState | Uint1281 | Decimal | FailedBatchResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | LastStakerResponse | String | PauseInfoResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Uint1282 | Uint1283 | UnbondBatch | UnbondBatchesResponse;
     query: UnbondBatchArgs | UnbondBatchesArgs;
-    execute: BondArgs | UpdateConfigArgs | UpdateWithdrawnAmountArgs | PuppeteerHookArgs | StakerHookArgs | ProcessEmergencyBatchArgs | UpdateOwnershipArgs;
+    execute: BondArgs | UpdateConfigArgs | UpdateWithdrawnAmountArgs | PuppeteerHookArgs | StakerHookArgs | ProcessEmergencyBatchArgs | SetBondHooksArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -452,6 +453,9 @@ export interface ProcessEmergencyBatchArgs {
     batch_id: number;
     unbonded_amount: Uint128;
 }
+export interface SetBondHooksArgs {
+    hooks: string[];
+}
 export interface InstantiateMsg {
     base_denom: string;
     bond_limit?: Uint128 | null;
@@ -498,6 +502,7 @@ export declare class Client {
     queryTotalBonded: () => Promise<Uint128>;
     queryTotalLSMShares: () => Promise<Uint128>;
     queryFailedBatch: () => Promise<FailedBatchResponse>;
+    queryBondHooks: () => Promise<ArrayOfString>;
     queryPauseInfo: () => Promise<PauseInfoResponse>;
     bond: (sender: string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     unbond: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
@@ -508,6 +513,7 @@ export declare class Client {
     stakerHook: (sender: string, args: StakerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     resetBondedAmount: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     processEmergencyBatch: (sender: string, args: ProcessEmergencyBatchArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    setBondHooks: (sender: string, args: SetBondHooksArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     pause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     unpause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

@@ -5,7 +5,7 @@ use crate::contract::{
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockStorage},
-    to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, Decimal256, Event, OwnedDeps,
+    to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, Decimal256, Event, OwnedDeps, ReplyOn,
     Response, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
@@ -13,20 +13,20 @@ use drop_puppeteer_base::{
     msg::TransferReadyBatchesMsg,
     state::{Delegations, DropDelegation, RedeemShareItem},
 };
-use drop_staking_base::state::core::{FAILED_BATCH_ID, LAST_STAKER_RESPONSE};
 use drop_staking_base::{
     error::core::ContractError,
     msg::{
-        core::{ExecuteMsg, FailedBatchResponse, InstantiateMsg},
+        core::{ExecuteMsg, FailedBatchResponse, InstantiateMsg, QueryMsg},
         puppeteer::{BalancesResponse, DelegationsResponse},
         staker::QueryMsg as StakerQueryMsg,
         strategy::QueryMsg as StrategyQueryMsg,
     },
     state::core::{
         unbond_batches_map, Config, ConfigOptional, ContractState, UnbondBatch, UnbondBatchStatus,
-        UnbondBatchStatusTimestamps, BONDED_AMOUNT, CONFIG, FSM, LAST_ICA_CHANGE_HEIGHT,
-        LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LD_DENOM, LSM_SHARES_TO_REDEEM,
-        PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+        UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_HOOKS, CONFIG, FAILED_BATCH_ID, FSM,
+        LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE,
+        LAST_STAKER_RESPONSE, LD_DENOM, LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES,
+        UNBOND_BATCH_ID,
     },
 };
 use neutron_sdk::{
@@ -196,6 +196,30 @@ fn test_update_config() {
     assert!(res.is_ok());
     let config = CONFIG.load(deps.as_ref().storage).unwrap();
     assert_eq!(config, expected_config);
+}
+
+#[test]
+fn test_query_config() {
+    let mut deps = mock_dependencies(&[]);
+    let config = get_default_config(0, 0, 0, 0, 0, Uint128::new(0));
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    assert_eq!(
+        from_json::<Config>(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap())
+            .unwrap(),
+        config
+    );
+}
+
+#[test]
+fn query_ownership() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    assert_eq!(
+        from_json::<String>(&query(deps.as_ref(), mock_env(), QueryMsg::Owner {}).unwrap())
+            .unwrap(),
+        String::from("owner"),
+    );
 }
 
 #[test]
@@ -2793,6 +2817,7 @@ fn test_bond_wo_receiver() {
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
+    BOND_HOOKS.save(deps.as_mut().storage, &vec![]).unwrap();
     let res = execute(
         deps.as_mut(),
         env,
@@ -2850,6 +2875,7 @@ fn test_bond_with_receiver() {
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
+    BOND_HOOKS.save(deps.as_mut().storage, &vec![]).unwrap();
     let res = execute(
         deps.as_mut(),
         env,
@@ -3065,6 +3091,7 @@ fn test_bond_lsm_share_increase_exchange_rate() {
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
+    BOND_HOOKS.save(deps.as_mut().storage, &vec![]).unwrap();
     UNBOND_BATCH_ID.save(&mut deps.storage, &0).unwrap();
     unbond_batches_map()
         .save(
@@ -3234,6 +3261,7 @@ fn test_bond_lsm_share_ok() {
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
+    BOND_HOOKS.save(deps.as_mut().storage, &vec![]).unwrap();
     let res = execute(
         deps.as_mut(),
         env,
@@ -3341,6 +3369,7 @@ fn test_bond_lsm_share_ok_with_low_ratio() {
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
+    BOND_HOOKS.save(deps.as_mut().storage, &vec![]).unwrap();
     let res = execute(
         deps.as_mut(),
         env,
@@ -3470,6 +3499,7 @@ fn test_bond_lsm_share_ok_with_low_ratio_pending_already_there() {
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
+    BOND_HOOKS.save(deps.as_mut().storage, &vec![]).unwrap();
     let res = execute(
         deps.as_mut(),
         env,
@@ -4249,6 +4279,334 @@ mod pending_redeem_shares {
                 .unwrap(),
                 funds: vec![],
             }))
+        );
+    }
+}
+
+mod bond_hooks {
+    use super::*;
+    use drop_staking_base::msg::core::{BondCallback, BondHook};
+
+    #[test]
+    fn set_bond_hooks_unauthorized() {
+        let mut deps = mock_dependencies(&[]);
+
+        {
+            let deps_mut = deps.as_mut();
+            cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+        }
+
+        let error = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("stranger", &[]),
+            ExecuteMsg::SetBondHooks { hooks: vec![] },
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            error,
+            ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+        );
+    }
+
+    #[test]
+    fn set_bond_hooks() {
+        let mut deps = mock_dependencies(&[]);
+
+        {
+            let deps_mut = deps.as_mut();
+            cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+        }
+
+        let response = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            ExecuteMsg::SetBondHooks {
+                hooks: vec![String::from("val_ref")],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            BOND_HOOKS.load(deps.as_ref().storage).unwrap(),
+            vec![Addr::unchecked("val_ref")]
+        );
+
+        assert_eq!(
+            response,
+            Response::new().add_event(
+                Event::new("crates.io:drop-staking__drop-core-execute-set-bond-hooks")
+                    .add_attribute("contract", "val_ref")
+            )
+        );
+    }
+
+    #[test]
+    fn set_bond_hooks_override() {
+        let mut deps = mock_dependencies(&[]);
+
+        {
+            let deps_mut = deps.as_mut();
+            cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+        }
+
+        BOND_HOOKS
+            .save(deps.as_mut().storage, &vec![Addr::unchecked("val_ref")])
+            .unwrap();
+
+        let response = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            ExecuteMsg::SetBondHooks {
+                hooks: vec![String::from("validator_set")],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            BOND_HOOKS.load(deps.as_ref().storage).unwrap(),
+            vec![Addr::unchecked("validator_set")]
+        );
+
+        assert_eq!(
+            response,
+            Response::new().add_event(
+                Event::new("crates.io:drop-staking__drop-core-execute-set-bond-hooks")
+                    .add_attribute("contract", "validator_set")
+            )
+        );
+    }
+
+    #[test]
+    fn set_bond_hooks_clear() {
+        let mut deps = mock_dependencies(&[]);
+
+        {
+            let deps_mut = deps.as_mut();
+            cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+        }
+
+        BOND_HOOKS
+            .save(deps.as_mut().storage, &vec![Addr::unchecked("val_ref")])
+            .unwrap();
+
+        let response = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("owner", &[]),
+            ExecuteMsg::SetBondHooks { hooks: vec![] },
+        )
+        .unwrap();
+
+        assert_eq!(
+            BOND_HOOKS.load(deps.as_ref().storage).unwrap(),
+            Vec::<Addr>::new()
+        );
+
+        assert_eq!(
+            response,
+            Response::new().add_event(Event::new(
+                "crates.io:drop-staking__drop-core-execute-set-bond-hooks"
+            ))
+        );
+    }
+
+    #[test]
+    fn query_bond_hooks() {
+        let mut deps = mock_dependencies(&[]);
+
+        BOND_HOOKS
+            .save(deps.as_mut().storage, &vec![Addr::unchecked("val_ref")])
+            .unwrap();
+
+        assert_eq!(
+            from_json::<Vec<String>>(
+                &query(deps.as_ref(), mock_env(), QueryMsg::BondHooks {}).unwrap()
+            )
+            .unwrap(),
+            vec![String::from("val_ref")]
+        );
+    }
+
+    #[test]
+    fn execute_bond_with_active_bond_hook_no_ref() {
+        let mut deps = mock_dependencies(&[]);
+
+        FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+            .unwrap();
+        BONDED_AMOUNT
+            .save(deps.as_mut().storage, &Uint128::zero())
+            .unwrap();
+        CONFIG
+            .save(
+                deps.as_mut().storage,
+                &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
+            )
+            .unwrap();
+        LD_DENOM
+            .save(deps.as_mut().storage, &"ld_denom".into())
+            .unwrap();
+        BOND_HOOKS
+            .save(deps.as_mut().storage, &vec![Addr::unchecked("val_ref")])
+            .unwrap();
+
+        let response = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("user", &[Coin::new(1000, "base_denom")]),
+            ExecuteMsg::Bond {
+                receiver: None,
+                r#ref: None,
+            },
+        )
+        .unwrap();
+
+        let bond_hook_messages = &response.messages[2..];
+        assert_eq!(bond_hook_messages.len(), 1);
+        assert_eq!(
+            bond_hook_messages,
+            vec![SubMsg {
+                id: 0,
+                gas_limit: None,
+                reply_on: ReplyOn::Never,
+                msg: CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: String::from("val_ref"),
+                    funds: vec![],
+                    msg: to_json_binary(&BondCallback::BondCallback(BondHook {
+                        amount: Uint128::new(1000),
+                        dasset_minted: Uint128::new(1000),
+                        sender: Addr::unchecked("user"),
+                        denom: String::from("base_denom"),
+                        r#ref: None,
+                    }))
+                    .unwrap(),
+                })
+            }]
+        );
+    }
+
+    #[test]
+    fn execute_bond_with_active_bond_hook() {
+        let mut deps = mock_dependencies(&[]);
+
+        FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+            .unwrap();
+        BONDED_AMOUNT
+            .save(deps.as_mut().storage, &Uint128::zero())
+            .unwrap();
+        CONFIG
+            .save(
+                deps.as_mut().storage,
+                &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
+            )
+            .unwrap();
+        LD_DENOM
+            .save(deps.as_mut().storage, &"ld_denom".into())
+            .unwrap();
+        BOND_HOOKS
+            .save(deps.as_mut().storage, &vec![Addr::unchecked("val_ref")])
+            .unwrap();
+
+        let response = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("user", &[Coin::new(1000, "base_denom")]),
+            ExecuteMsg::Bond {
+                receiver: None,
+                r#ref: Some(String::from("valoper")),
+            },
+        )
+        .unwrap();
+
+        let bond_hook_messages = &response.messages[2..];
+        assert_eq!(bond_hook_messages.len(), 1);
+        assert_eq!(
+            bond_hook_messages,
+            vec![SubMsg {
+                id: 0,
+                gas_limit: None,
+                reply_on: ReplyOn::Never,
+                msg: CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: String::from("val_ref"),
+                    funds: vec![],
+                    msg: to_json_binary(&BondCallback::BondCallback(BondHook {
+                        amount: Uint128::new(1000),
+                        dasset_minted: Uint128::new(1000),
+                        sender: Addr::unchecked("user"),
+                        denom: String::from("base_denom"),
+                        r#ref: Some(String::from("valoper")),
+                    }))
+                    .unwrap(),
+                })
+            }]
+        );
+    }
+
+    #[test]
+    fn execute_bond_with_active_bond_hooks() {
+        let mut deps = mock_dependencies(&[]);
+
+        let hooks = ["val_ref", "validator_set", "logger", "indexer"];
+
+        FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
+            .unwrap();
+        BONDED_AMOUNT
+            .save(deps.as_mut().storage, &Uint128::zero())
+            .unwrap();
+        CONFIG
+            .save(
+                deps.as_mut().storage,
+                &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
+            )
+            .unwrap();
+        LD_DENOM
+            .save(deps.as_mut().storage, &"ld_denom".into())
+            .unwrap();
+        BOND_HOOKS
+            .save(
+                deps.as_mut().storage,
+                &hooks.iter().map(|hook| Addr::unchecked(*hook)).collect(),
+            )
+            .unwrap();
+
+        let response = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("user", &[Coin::new(1000, "base_denom")]),
+            ExecuteMsg::Bond {
+                receiver: None,
+                r#ref: Some(String::from("valoper")),
+            },
+        )
+        .unwrap();
+
+        let bond_hook_messages = &response.messages[2..];
+        assert_eq!(bond_hook_messages.len(), 4);
+        assert_eq!(
+            bond_hook_messages,
+            hooks
+                .iter()
+                .map(|hook| SubMsg {
+                    id: 0,
+                    gas_limit: None,
+                    reply_on: ReplyOn::Never,
+                    msg: CosmosMsg::<NeutronMsg>::Wasm(WasmMsg::Execute {
+                        contract_addr: String::from(*hook),
+                        funds: vec![],
+                        msg: to_json_binary(&BondCallback::BondCallback(BondHook {
+                            amount: Uint128::new(1000),
+                            dasset_minted: Uint128::new(1000),
+                            sender: Addr::unchecked("user"),
+                            denom: String::from("base_denom"),
+                            r#ref: Some(String::from("valoper")),
+                        }))
+                        .unwrap(),
+                    })
+                })
+                .collect::<Vec<_>>()
         );
     }
 }
