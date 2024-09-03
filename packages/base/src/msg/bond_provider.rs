@@ -14,6 +14,6 @@ pub enum QueryMsg {
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    Bond { coin: Coin, exchange_rate: Decimal },
+    Bond {},
     ProcessOnIdle {},
 }
