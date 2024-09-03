@@ -104,7 +104,7 @@ export class Client {
     this.client = client;
     this.contractAddress = contractAddress;
   }
-  mustBeSigningClient() {
+  mustBeSigningClient(): Error {
     return new Error("This client is not a SigningCosmWasmClient");
   }
   static async instantiate(
@@ -144,14 +144,17 @@ export class Client {
   }
   bond = async(sender:string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { bond: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.bondMsg(args), fee || "auto", memo, funds);
   }
+  bondMsg = (args: BondArgs): { bond: BondArgs } => { return { bond: args }; }
   unbond = async(sender:string, args: UnbondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { unbond: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.unbondMsg(args), fee || "auto", memo, funds);
   }
+  unbondMsg = (args: UnbondArgs): { unbond: UnbondArgs } => { return { unbond: args }; }
   withdraw = async(sender:string, args: WithdrawArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { withdraw: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.withdrawMsg(args), fee || "auto", memo, funds);
   }
+  withdrawMsg = (args: WithdrawArgs): { withdraw: WithdrawArgs } => { return { withdraw: args }; }
 }

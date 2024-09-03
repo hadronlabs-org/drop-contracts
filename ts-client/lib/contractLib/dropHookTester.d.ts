@@ -219,9 +219,27 @@ export declare class Client {
     queryAnswers: () => Promise<ArrayOfResponseHookSuccessMsg>;
     queryErrors: () => Promise<ArrayOfResponseHookErrorMsg>;
     setConfig: (sender: string, args: SetConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    setConfigMsg: (args: SetConfigArgs) => {
+        set_config: SetConfigArgs;
+    };
     undelegate: (sender: string, args: UndelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    undelegateMsg: (args: UndelegateArgs) => {
+        undelegate: UndelegateArgs;
+    };
     redelegate: (sender: string, args: RedelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    redelegateMsg: (args: RedelegateArgs) => {
+        redelegate: RedelegateArgs;
+    };
     tokenizeShare: (sender: string, args: TokenizeShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    tokenizeShareMsg: (args: TokenizeShareArgs) => {
+        tokenize_share: TokenizeShareArgs;
+    };
     redeemShare: (sender: string, args: RedeemShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    redeemShareMsg: (args: RedeemShareArgs) => {
+        redeem_share: RedeemShareArgs;
+    };
     puppeteerHook: (sender: string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    puppeteerHookMsg: (args: PuppeteerHookArgs) => {
+        puppeteer_hook: PuppeteerHookArgs;
+    };
 }

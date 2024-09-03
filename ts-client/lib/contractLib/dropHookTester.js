@@ -36,37 +36,43 @@ class Client {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { set_config: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.setConfigMsg(args), fee || "auto", memo, funds);
     };
+    setConfigMsg = (args) => { return { set_config: args }; };
     undelegate = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { undelegate: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.undelegateMsg(args), fee || "auto", memo, funds);
     };
+    undelegateMsg = (args) => { return { undelegate: args }; };
     redelegate = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { redelegate: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.redelegateMsg(args), fee || "auto", memo, funds);
     };
+    redelegateMsg = (args) => { return { redelegate: args }; };
     tokenizeShare = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { tokenize_share: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.tokenizeShareMsg(args), fee || "auto", memo, funds);
     };
+    tokenizeShareMsg = (args) => { return { tokenize_share: args }; };
     redeemShare = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { redeem_share: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.redeemShareMsg(args), fee || "auto", memo, funds);
     };
+    redeemShareMsg = (args) => { return { redeem_share: args }; };
     puppeteerHook = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.puppeteerHookMsg(args), fee || "auto", memo, funds);
     };
+    puppeteerHookMsg = (args) => { return { puppeteer_hook: args }; };
 }
 exports.Client = Client;

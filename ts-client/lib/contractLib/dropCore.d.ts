@@ -500,15 +500,51 @@ export declare class Client {
     queryFailedBatch: () => Promise<FailedBatchResponse>;
     queryPauseInfo: () => Promise<PauseInfoResponse>;
     bond: (sender: string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    bondMsg: (args: BondArgs) => {
+        bond: BondArgs;
+    };
     unbond: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    unbondMsg: () => {
+        unbond: {};
+    };
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateConfigMsg: (args: UpdateConfigArgs) => {
+        update_config: UpdateConfigArgs;
+    };
     updateWithdrawnAmount: (sender: string, args: UpdateWithdrawnAmountArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateWithdrawnAmountMsg: (args: UpdateWithdrawnAmountArgs) => {
+        update_withdrawn_amount: UpdateWithdrawnAmountArgs;
+    };
     tick: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    tickMsg: () => {
+        tick: {};
+    };
     puppeteerHook: (sender: string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    puppeteerHookMsg: (args: PuppeteerHookArgs) => {
+        puppeteer_hook: PuppeteerHookArgs;
+    };
     stakerHook: (sender: string, args: StakerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    stakerHookMsg: (args: StakerHookArgs) => {
+        staker_hook: StakerHookArgs;
+    };
     resetBondedAmount: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    resetBondedAmountMsg: () => {
+        reset_bonded_amount: {};
+    };
     processEmergencyBatch: (sender: string, args: ProcessEmergencyBatchArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    processEmergencyBatchMsg: (args: ProcessEmergencyBatchArgs) => {
+        process_emergency_batch: ProcessEmergencyBatchArgs;
+    };
     pause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    pauseMsg: () => {
+        pause: {};
+    };
     unpause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    unpauseMsg: () => {
+        unpause: {};
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
 }

@@ -70,4 +70,7 @@ export declare class Client {
     queryKVQueryIds: () => Promise<KvQueryIds>;
     queryState: () => Promise<ArrayOfValidatorState>;
     registerStatsQueries: (sender: string, args: RegisterStatsQueriesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    registerStatsQueriesMsg: (args: RegisterStatsQueriesArgs) => {
+        register_stats_queries: RegisterStatsQueriesArgs;
+    };
 }

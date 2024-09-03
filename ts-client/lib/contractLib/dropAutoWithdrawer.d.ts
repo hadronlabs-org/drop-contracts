@@ -96,6 +96,15 @@ export declare class Client {
     queryBondings: (args: BondingsArgs) => Promise<BondingsResponse>;
     queryConfig: () => Promise<InstantiateMsg>;
     bond: (sender: string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    bondMsg: (args: BondArgs) => {
+        bond: BondArgs;
+    };
     unbond: (sender: string, args: UnbondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    unbondMsg: (args: UnbondArgs) => {
+        unbond: UnbondArgs;
+    };
     withdraw: (sender: string, args: WithdrawArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    withdrawMsg: (args: WithdrawArgs) => {
+        withdraw: WithdrawArgs;
+    };
 }

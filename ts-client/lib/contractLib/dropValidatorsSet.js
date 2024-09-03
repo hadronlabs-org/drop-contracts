@@ -42,31 +42,36 @@ class Client {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.updateConfigMsg(args), fee || "auto", memo, funds);
     };
+    updateConfigMsg = (args) => { return { update_config: args }; };
     updateValidators = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { update_validators: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.updateValidatorsMsg(args), fee || "auto", memo, funds);
     };
+    updateValidatorsMsg = (args) => { return { update_validators: args }; };
     updateValidatorsInfo = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { update_validators_info: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.updateValidatorsInfoMsg(args), fee || "auto", memo, funds);
     };
+    updateValidatorsInfoMsg = (args) => { return { update_validators_info: args }; };
     updateValidatorsVoting = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { update_validators_voting: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.updateValidatorsVotingMsg(args), fee || "auto", memo, funds);
     };
+    updateValidatorsVotingMsg = (args) => { return { update_validators_voting: args }; };
     updateOwnership = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.updateOwnershipMsg(args), fee || "auto", memo, funds);
     };
+    updateOwnershipMsg = (args) => { return { update_ownership: args }; };
 }
 exports.Client = Client;
