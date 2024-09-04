@@ -721,6 +721,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-lsm-share-bond-provider"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-puppeteer-base",
+ "drop-staking-base",
+ "neutron-sdk",
+ "prost",
+ "semver",
+]
+
+[[package]]
 name = "drop-macros"
 version = "1.0.0"
 dependencies = [

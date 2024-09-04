@@ -3,6 +3,7 @@ pub mod bond_provider;
 pub mod core;
 pub mod distribution;
 pub mod hook_tester;
+pub mod lsm_share_bond_provider;
 pub mod native_bond_provider;
 pub mod price_provider;
 pub mod proposal_votes;
