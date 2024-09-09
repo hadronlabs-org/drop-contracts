@@ -114,7 +114,7 @@ fn execute_update_config(
     let mut attrs: Vec<Attribute> = Vec::new();
 
     if let Some(staker_contract) = new_config.staker_contract {
-        state.staker_contract = deps.api.addr_validate(&staker_contract.to_string())?;
+        state.staker_contract = deps.api.addr_validate(staker_contract.as_ref())?;
         attrs.push(attr("staker_contract", staker_contract))
     }
 

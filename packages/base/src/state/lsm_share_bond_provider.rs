@@ -10,7 +10,8 @@ pub struct Config {
     pub core_contract: Addr,
     pub validators_set_contract: Addr,
     pub transfer_channel_id: String,
-    pub lsm_redeem_threshold: u64,
+    pub lsm_redeem_threshold: u64,        //amount of lsm denoms
+    pub lsm_redeem_maximum_interval: u64, //seconds
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

@@ -173,6 +173,7 @@ pub fn pausable(metadata: TokenStream, input: TokenStream) -> TokenStream {
 /// ```
 /// use drop_macros::bond_provider_query;
 /// use cosmwasm_schema::{cw_serde, QueryResponses};
+/// use cosmwasm_std::{Coin, Decimal};
 ///
 ///
 /// #[bond_provider_query]
@@ -184,6 +185,8 @@ pub fn pausable(metadata: TokenStream, input: TokenStream) -> TokenStream {
 /// Will transform the enum to:
 ///
 /// ```
+/// use cosmwasm_std::{Coin, Decimal};
+///
 /// enum QueryMsg {
 ///     /// Returns flag wether this bond provider can be used with this denom.
 ///     CanBond { denom: String },
@@ -203,6 +206,7 @@ pub fn pausable(metadata: TokenStream, input: TokenStream) -> TokenStream {
 /// use drop_macros::bond_provider_query;
 /// use cosmwasm_schema::{cw_serde, QueryResponses};
 /// use cosmwasm_std::Empty;
+/// use cosmwasm_std::{Coin, Decimal};
 ///
 ///
 /// #[derive(Clone)]
@@ -285,8 +289,9 @@ pub fn bond_provider_query(metadata: TokenStream, input: TokenStream) -> TokenSt
 /// Will transform the enum to:
 ///
 /// ```
+///
 /// enum ExecuteMsg {
-///     Bond { coin: Coin, exchange_rate: Decimal },
+///     Bond { },
 ///     ProcessOnIdle {},
 /// }
 /// ```

@@ -12,7 +12,8 @@ pub struct InstantiateMsg {
     pub core_contract: String,
     pub validators_set_contract: String,
     pub transfer_channel_id: String,
-    pub lsm_redeem_threshold: u64,
+    pub lsm_redeem_threshold: u64,        //amount of lsm denoms
+    pub lsm_redeem_maximum_interval: u64, //seconds
 }
 
 #[bond_provider]

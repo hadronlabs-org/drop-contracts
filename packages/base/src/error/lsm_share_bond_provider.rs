@@ -1,4 +1,4 @@
-use cosmwasm_std::{OverflowError, StdError};
+use cosmwasm_std::{ConversionOverflowError, Decimal256RangeExceeded, OverflowError, StdError};
 use cw_ownable::OwnershipError;
 use neutron_sdk::NeutronError;
 use thiserror::Error;
@@ -40,6 +40,9 @@ pub enum ContractError {
 
     #[error("{0}")]
     Decimal256RangeExceeded(#[from] Decimal256RangeExceeded),
+
+    #[error("{0}")]
+    ConversionOverflowError(#[from] ConversionOverflowError),
 }
 
 impl From<semver::Error> for ContractError {

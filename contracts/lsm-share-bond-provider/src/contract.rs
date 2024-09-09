@@ -1,10 +1,12 @@
 use cosmwasm_std::{
-    attr, to_json_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, CustomQuery, Decimal,
-    Decimal256, Deps, StdResult, Uint128, Uint256,
+    attr, ensure_eq, to_json_binary, Addr, Attribute, Coin, CosmosMsg, CustomQuery, Decimal,
+    Decimal256, Deps, StdResult, Uint128, Uint256, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::{attr_coin, response};
+use drop_puppeteer_base::msg::IBCTransferReason;
+use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::error::lsm_share_bond_provider::{ContractError, ContractResult};
 use drop_staking_base::msg::lsm_share_bond_provider::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
@@ -38,8 +40,9 @@ pub fn instantiate(
         puppeteer_contract: puppeteer_contract.clone(),
         core_contract: core_contract.clone(),
         validators_set_contract: validators_set_contract.clone(),
-        transfer_channel_id: msg.transfer_channel_id,
+        transfer_channel_id: msg.transfer_channel_id.to_string(),
         lsm_redeem_threshold: msg.lsm_redeem_threshold,
+        lsm_redeem_maximum_interval: msg.lsm_redeem_maximum_interval,
     };
     CONFIG.save(deps.storage, config)?;
 
@@ -53,7 +56,11 @@ pub fn instantiate(
             attr("core_contract", core_contract),
             attr("validators_set_contract", validators_set_contract),
             attr("transfer_channel_id", msg.transfer_channel_id),
-            attr("lsm_redeem_threshold", msg.lsm_redeem_threshold),
+            attr("lsm_redeem_threshold", msg.lsm_redeem_threshold.to_string()),
+            attr(
+                "lsm_redeem_maximum_interval",
+                msg.lsm_redeem_maximum_interval.to_string(),
+            ),
         ],
     ))
 }
@@ -99,14 +106,14 @@ fn query_can_process_on_idle(deps: Deps<NeutronQuery>, env: Env) -> ContractResu
     let lsm_redeem_threshold = config.lsm_redeem_threshold as usize;
 
     if pending_lsm_shares_count > 0 {
-        Ok(to_json_binary(&true)?)
+        return Ok(to_json_binary(&true)?);
     }
 
     if lsm_shares_to_redeem_count == lsm_redeem_threshold
         || ((lsm_shares_to_redeem_count < lsm_redeem_threshold)
             && (last_lsm_redeem + config.lsm_redeem_maximum_interval > env.block.time.seconds()))
     {
-        Ok(to_json_binary(&true)?)
+        return Ok(to_json_binary(&true)?);
     }
 
     Ok(to_json_binary(&false)?)
@@ -147,32 +154,34 @@ pub fn execute(
         }
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
         ExecuteMsg::Bond {} => execute_bond(deps, info),
-        ExecuteMsg::ProcessOnIdle {} => execute_process_on_idle(deps, info),
+        ExecuteMsg::ProcessOnIdle {} => execute_process_on_idle(deps, env, info),
         ExecuteMsg::PuppeteerHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
     }
 }
 
 fn execute_process_on_idle(
     deps: DepsMut<NeutronQuery>,
+    env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let config = CONFIG.load(deps.storage)?;
+
     let mut attrs = vec![attr("action", "process_on_idle")];
+    let mut messages: Vec<CosmosMsg<NeutronMsg>> = vec![];
 
     attrs.push(attr("knot", "036"));
-    if let Some(lsm_msg) = get_pending_redeem_msg(deps.as_ref(), config, &env, info.funds.clone())?
+    if let Some(lsm_msg) = get_pending_redeem_msg(deps.as_ref(), &config, &env, info.funds.clone())?
     {
         messages.push(lsm_msg);
         attrs.push(attr("knot", "037"));
-        FSM.go_to(deps.storage, ContractState::LSMRedeem)?;
         attrs.push(attr("knot", "038"));
     } else {
         attrs.push(attr("knot", "041"));
         if let Some(lsm_msg) =
-            get_pending_lsm_share_msg(deps.as_ref(), config, &env, info.funds.clone())?
+            get_pending_lsm_share_msg(deps.as_ref(), &config, &env, info.funds.clone())?
         {
             messages.push(lsm_msg);
             attrs.push(attr("knot", "042"));
-            FSM.go_to(deps.storage, ContractState::LSMTransfer)?;
             attrs.push(attr("knot", "043"));
         }
     }
@@ -201,7 +210,7 @@ fn execute_update_config(
     let mut attrs: Vec<Attribute> = Vec::new();
 
     if let Some(puppeteer_contract) = new_config.puppeteer_contract {
-        state.puppeteer_contract = deps.api.addr_validate(&puppeteer_contract.to_string())?;
+        state.puppeteer_contract = deps.api.addr_validate(puppeteer_contract.as_ref())?;
         attrs.push(attr("puppeteer_contract", puppeteer_contract))
     }
 
@@ -229,7 +238,7 @@ fn execute_bond(
     TOTAL_LSM_SHARES.update(deps.storage, |total| {
         StdResult::Ok(total + real_amount.u128())
     })?;
-    PENDING_LSM_SHARES.update(deps.storage, denom, |one| {
+    PENDING_LSM_SHARES.update(deps.storage, denom.to_string(), |one| {
         let mut new = one.unwrap_or((check_denom.remote_denom, Uint128::zero(), Uint128::zero()));
         new.1 += amount;
         new.2 += real_amount;
@@ -255,88 +264,58 @@ fn execute_puppeteer_hook(
         config.puppeteer_contract,
         ContractError::Unauthorized {}
     );
-    match msg.clone() {
-        drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) => {
-            LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &success_msg.remote_height)?;
-            match &success_msg.transaction {
-                drop_puppeteer_base::msg::Transaction::IBCTransfer {
-                    denom,
-                    amount,
-                    reason,
-                    recipient: _,
-                } => {
-                    if *reason == IBCTransferReason::LSMShare {
-                        let current_pending =
-                            PENDING_LSM_SHARES.may_load(deps.storage, denom.to_string())?;
-                        if let Some((remote_denom, shares_amount, real_amount)) = current_pending {
-                            let sent_amount = Uint128::from(*amount);
-                            LSM_SHARES_TO_REDEEM.update(
-                                deps.storage,
-                                denom.to_string(),
-                                |one| {
-                                    let mut new = one.unwrap_or((
-                                        remote_denom,
-                                        Uint128::zero(),
-                                        Uint128::zero(),
-                                    ));
-                                    new.1 += sent_amount;
-                                    new.2 += real_amount;
-                                    StdResult::Ok(new)
-                                },
-                            )?;
-                            if shares_amount == sent_amount {
-                                PENDING_LSM_SHARES.remove(deps.storage, denom.to_string());
-                            } else {
-                                PENDING_LSM_SHARES.update(
-                                    deps.storage,
-                                    denom.to_string(),
-                                    |one| match one {
-                                        Some(one) => {
-                                            let mut new = one;
-                                            new.1 -= Uint128::from(*amount);
-                                            new.2 -= real_amount;
-                                            StdResult::Ok(new)
-                                        }
-                                        None => unreachable!("denom should be in the map"),
-                                    },
-                                )?;
-                            }
+    if let drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) = msg.clone() {
+        match &success_msg.transaction {
+            drop_puppeteer_base::msg::Transaction::IBCTransfer {
+                denom,
+                amount,
+                reason,
+                recipient: _,
+            } => {
+                if *reason == IBCTransferReason::LSMShare {
+                    let current_pending =
+                        PENDING_LSM_SHARES.may_load(deps.storage, denom.to_string())?;
+                    if let Some((remote_denom, shares_amount, real_amount)) = current_pending {
+                        let sent_amount = Uint128::from(*amount);
+                        LSM_SHARES_TO_REDEEM.update(deps.storage, denom.to_string(), |one| {
+                            let mut new =
+                                one.unwrap_or((remote_denom, Uint128::zero(), Uint128::zero()));
+                            new.1 += sent_amount;
+                            new.2 += real_amount;
+                            StdResult::Ok(new)
+                        })?;
+                        if shares_amount == sent_amount {
+                            PENDING_LSM_SHARES.remove(deps.storage, denom.to_string());
+                        } else {
+                            PENDING_LSM_SHARES.update(deps.storage, denom.to_string(), |one| {
+                                match one {
+                                    Some(one) => {
+                                        let mut new = one;
+                                        new.1 -= Uint128::from(*amount);
+                                        new.2 -= real_amount;
+                                        StdResult::Ok(new)
+                                    }
+                                    None => unreachable!("denom should be in the map"),
+                                }
+                            })?;
                         }
                     }
                 }
-                drop_puppeteer_base::msg::Transaction::RedeemShares { items, .. } => {
-                    let mut sum = 0u128;
-                    for item in items {
-                        let (_remote_denom, _shares_amount, real_amount) = LSM_SHARES_TO_REDEEM
-                            .load(deps.storage, item.local_denom.to_string())?;
-                        sum += real_amount.u128();
-                        LSM_SHARES_TO_REDEEM.remove(deps.storage, item.local_denom.to_string());
-                    }
-                    TOTAL_LSM_SHARES.update(deps.storage, |one| StdResult::Ok(one - sum))?;
-                    LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
+            }
+            drop_puppeteer_base::msg::Transaction::RedeemShares { items, .. } => {
+                let mut sum = 0u128;
+                for item in items {
+                    let (_remote_denom, _shares_amount, real_amount) =
+                        LSM_SHARES_TO_REDEEM.load(deps.storage, item.local_denom.to_string())?;
+                    sum += real_amount.u128();
+                    LSM_SHARES_TO_REDEEM.remove(deps.storage, item.local_denom.to_string());
                 }
-                _ => {}
+                TOTAL_LSM_SHARES.update(deps.storage, |one| StdResult::Ok(one - sum))?;
+                LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
             }
-        }
-        drop_puppeteer_base::msg::ResponseHookMsg::Error(err_msg) => {
-            match err_msg.transaction {
-                drop_puppeteer_base::msg::Transaction::Transfer { .. } // this one is for transfering non-native rewards
-                | drop_puppeteer_base::msg::Transaction::RedeemShares { .. }
-                | drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer { .. } => { // this goes to idle and then ruled in tick_idle
-                // IBC transfer for LSM shares and pending stake
-                FSM.go_to(deps.storage, ContractState::Idle)?
-            }
-            drop_puppeteer_base::msg::Transaction::IBCTransfer { reason, .. } => {
-                if reason == IBCTransferReason::LSMShare {
-                    FSM.go_to(deps.storage, ContractState::Idle)?;
-                }
-            }
-                _ => {}
-            }
+            _ => {}
         }
     }
-
-    LAST_PUPPETEER_RESPONSE.save(deps.storage, &msg)?;
 
     Ok(response(
         "execute-puppeteer_hook",
