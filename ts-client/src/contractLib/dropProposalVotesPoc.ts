@@ -55,7 +55,7 @@ export class Client {
     this.client = client;
     this.contractAddress = contractAddress;
   }
-  mustBeSigningClient() {
+  mustBeSigningClient(): Error {
     return new Error("This client is not a SigningCosmWasmClient");
   }
   static async instantiate(
@@ -95,14 +95,17 @@ export class Client {
   }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.updateConfigMsg(args), fee || "auto", memo, funds);
   }
+  updateConfigMsg = (args: UpdateConfigArgs): { update_config: UpdateConfigArgs } => { return { update_config: args }; }
   updateActiveProposals = async(sender:string, args: UpdateActiveProposalsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_active_proposals: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.updateActiveProposalsMsg(args), fee || "auto", memo, funds);
   }
+  updateActiveProposalsMsg = (args: UpdateActiveProposalsArgs): { update_active_proposals: UpdateActiveProposalsArgs } => { return { update_active_proposals: args }; }
   updateVotersList = async(sender:string, args: UpdateVotersListArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_voters_list: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.updateVotersListMsg(args), fee || "auto", memo, funds);
   }
+  updateVotersListMsg = (args: UpdateVotersListArgs): { update_voters_list: UpdateVotersListArgs } => { return { update_voters_list: args }; }
 }

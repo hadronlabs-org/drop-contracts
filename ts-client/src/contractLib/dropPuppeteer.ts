@@ -301,7 +301,7 @@ export class Client {
     this.client = client;
     this.contractAddress = contractAddress;
   }
-  mustBeSigningClient() {
+  mustBeSigningClient(): Error {
     return new Error("This client is not a SigningCosmWasmClient");
   }
   static async instantiate(
@@ -353,62 +353,77 @@ export class Client {
   }
   registerICA = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { register_i_c_a: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.registerICAMsg(), fee || "auto", memo, funds);
   }
+  registerICAMsg = (): { register_i_c_a: {} } => { return { register_i_c_a: {} } }
   registerQuery = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { register_query: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.registerQueryMsg(), fee || "auto", memo, funds);
   }
+  registerQueryMsg = (): { register_query: {} } => { return { register_query: {} } }
   registerBalanceAndDelegatorDelegationsQuery = async(sender:string, args: RegisterBalanceAndDelegatorDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { register_balance_and_delegator_delegations_query: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.registerBalanceAndDelegatorDelegationsQueryMsg(args), fee || "auto", memo, funds);
   }
+  registerBalanceAndDelegatorDelegationsQueryMsg = (args: RegisterBalanceAndDelegatorDelegationsQueryArgs): { register_balance_and_delegator_delegations_query: RegisterBalanceAndDelegatorDelegationsQueryArgs } => { return { register_balance_and_delegator_delegations_query: args }; }
   registerDelegatorUnbondingDelegationsQuery = async(sender:string, args: RegisterDelegatorUnbondingDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { register_delegator_unbonding_delegations_query: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.registerDelegatorUnbondingDelegationsQueryMsg(args), fee || "auto", memo, funds);
   }
+  registerDelegatorUnbondingDelegationsQueryMsg = (args: RegisterDelegatorUnbondingDelegationsQueryArgs): { register_delegator_unbonding_delegations_query: RegisterDelegatorUnbondingDelegationsQueryArgs } => { return { register_delegator_unbonding_delegations_query: args }; }
   registerNonNativeRewardsBalancesQuery = async(sender:string, args: RegisterNonNativeRewardsBalancesQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { register_non_native_rewards_balances_query: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.registerNonNativeRewardsBalancesQueryMsg(args), fee || "auto", memo, funds);
   }
+  registerNonNativeRewardsBalancesQueryMsg = (args: RegisterNonNativeRewardsBalancesQueryArgs): { register_non_native_rewards_balances_query: RegisterNonNativeRewardsBalancesQueryArgs } => { return { register_non_native_rewards_balances_query: args }; }
   setupProtocol = async(sender:string, args: SetupProtocolArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { setup_protocol: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.setupProtocolMsg(args), fee || "auto", memo, funds);
   }
+  setupProtocolMsg = (args: SetupProtocolArgs): { setup_protocol: SetupProtocolArgs } => { return { setup_protocol: args }; }
   undelegate = async(sender:string, args: UndelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { undelegate: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.undelegateMsg(args), fee || "auto", memo, funds);
   }
+  undelegateMsg = (args: UndelegateArgs): { undelegate: UndelegateArgs } => { return { undelegate: args }; }
   redelegate = async(sender:string, args: RedelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { redelegate: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.redelegateMsg(args), fee || "auto", memo, funds);
   }
+  redelegateMsg = (args: RedelegateArgs): { redelegate: RedelegateArgs } => { return { redelegate: args }; }
   tokenizeShare = async(sender:string, args: TokenizeShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { tokenize_share: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.tokenizeShareMsg(args), fee || "auto", memo, funds);
   }
+  tokenizeShareMsg = (args: TokenizeShareArgs): { tokenize_share: TokenizeShareArgs } => { return { tokenize_share: args }; }
   redeemShares = async(sender:string, args: RedeemSharesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { redeem_shares: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.redeemSharesMsg(args), fee || "auto", memo, funds);
   }
+  redeemSharesMsg = (args: RedeemSharesArgs): { redeem_shares: RedeemSharesArgs } => { return { redeem_shares: args }; }
   iBCTransfer = async(sender:string, args: IBCTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { i_b_c_transfer: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.iBCTransferMsg(args), fee || "auto", memo, funds);
   }
+  iBCTransferMsg = (args: IBCTransferArgs): { i_b_c_transfer: IBCTransferArgs } => { return { i_b_c_transfer: args }; }
   transfer = async(sender:string, args: TransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { transfer: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.transferMsg(args), fee || "auto", memo, funds);
   }
+  transferMsg = (args: TransferArgs): { transfer: TransferArgs } => { return { transfer: args }; }
   claimRewardsAndOptionalyTransfer = async(sender:string, args: ClaimRewardsAndOptionalyTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { claim_rewards_and_optionaly_transfer: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.claimRewardsAndOptionalyTransferMsg(args), fee || "auto", memo, funds);
   }
+  claimRewardsAndOptionalyTransferMsg = (args: ClaimRewardsAndOptionalyTransferArgs): { claim_rewards_and_optionaly_transfer: ClaimRewardsAndOptionalyTransferArgs } => { return { claim_rewards_and_optionaly_transfer: args }; }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.updateConfigMsg(args), fee || "auto", memo, funds);
   }
+  updateConfigMsg = (args: UpdateConfigArgs): { update_config: UpdateConfigArgs } => { return { update_config: args }; }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.updateOwnershipMsg(args), fee || "auto", memo, funds);
   }
+  updateOwnershipMsg = (args: UpdateOwnershipArgs): { update_ownership: UpdateOwnershipArgs } => { return { update_ownership: args }; }
 }

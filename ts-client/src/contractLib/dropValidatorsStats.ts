@@ -75,7 +75,7 @@ export class Client {
     this.client = client;
     this.contractAddress = contractAddress;
   }
-  mustBeSigningClient() {
+  mustBeSigningClient(): Error {
     return new Error("This client is not a SigningCosmWasmClient");
   }
   static async instantiate(
@@ -118,6 +118,7 @@ export class Client {
   }
   registerStatsQueries = async(sender:string, args: RegisterStatsQueriesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { register_stats_queries: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.registerStatsQueriesMsg(args), fee || "auto", memo, funds);
   }
+  registerStatsQueriesMsg = (args: RegisterStatsQueriesArgs): { register_stats_queries: RegisterStatsQueriesArgs } => { return { register_stats_queries: args }; }
 }

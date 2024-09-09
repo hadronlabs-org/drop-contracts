@@ -48,31 +48,36 @@ class Client {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { register_i_c_a: {} }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.registerICAMsg(), fee || "auto", memo, funds);
     };
+    registerICAMsg = () => { return { register_i_c_a: {} }; };
     stake = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { stake: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.stakeMsg(args), fee || "auto", memo, funds);
     };
+    stakeMsg = (args) => { return { stake: args }; };
     iBCTransfer = async (sender, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { i_b_c_transfer: {} }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.iBCTransferMsg(), fee || "auto", memo, funds);
     };
+    iBCTransferMsg = () => { return { i_b_c_transfer: {} }; };
     updateConfig = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.updateConfigMsg(args), fee || "auto", memo, funds);
     };
+    updateConfigMsg = (args) => { return { update_config: args }; };
     updateOwnership = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.updateOwnershipMsg(args), fee || "auto", memo, funds);
     };
+    updateOwnershipMsg = (args) => { return { update_ownership: args }; };
 }
 exports.Client = Client;

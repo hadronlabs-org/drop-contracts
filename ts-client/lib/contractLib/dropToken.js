@@ -36,25 +36,29 @@ class Client {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { mint: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.mintMsg(args), fee || "auto", memo, funds);
     };
+    mintMsg = (args) => { return { mint: args }; };
     burn = async (sender, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { burn: {} }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.burnMsg(), fee || "auto", memo, funds);
     };
+    burnMsg = () => { return { burn: {} }; };
     setTokenMetadata = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { set_token_metadata: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.setTokenMetadataMsg(args), fee || "auto", memo, funds);
     };
+    setTokenMetadataMsg = (args) => { return { set_token_metadata: args }; };
     updateOwnership = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.updateOwnershipMsg(args), fee || "auto", memo, funds);
     };
+    updateOwnershipMsg = (args) => { return { update_ownership: args }; };
 }
 exports.Client = Client;

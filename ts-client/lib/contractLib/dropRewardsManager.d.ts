@@ -118,9 +118,27 @@ export declare class Client {
     queryOwnership: () => Promise<OwnershipForString>;
     queryPauseInfo: () => Promise<PauseInfoResponse>;
     addHandler: (sender: string, args: AddHandlerArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    addHandlerMsg: (args: AddHandlerArgs) => {
+        add_handler: AddHandlerArgs;
+    };
     removeHandler: (sender: string, args: RemoveHandlerArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    removeHandlerMsg: (args: RemoveHandlerArgs) => {
+        remove_handler: RemoveHandlerArgs;
+    };
     exchangeRewards: (sender: string, args: ExchangeRewardsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    exchangeRewardsMsg: (args: ExchangeRewardsArgs) => {
+        exchange_rewards: ExchangeRewardsArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
     pause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    pauseMsg: () => {
+        pause: {};
+    };
     unpause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    unpauseMsg: () => {
+        unpause: {};
+    };
 }

@@ -194,8 +194,23 @@ export declare class Client {
     queryTxState: () => Promise<TxState>;
     queryOwnership: () => Promise<OwnershipForString>;
     registerICA: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    registerICAMsg: () => {
+        register_i_c_a: {};
+    };
     stake: (sender: string, args: StakeArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    stakeMsg: (args: StakeArgs) => {
+        stake: StakeArgs;
+    };
     iBCTransfer: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    iBCTransferMsg: () => {
+        i_b_c_transfer: {};
+    };
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateConfigMsg: (args: UpdateConfigArgs) => {
+        update_config: UpdateConfigArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
 }

@@ -50,6 +50,15 @@ export declare class Client {
     queryConfig: () => Promise<Config>;
     queryMetrics: () => Promise<Metrics>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateConfigMsg: (args: UpdateConfigArgs) => {
+        update_config: UpdateConfigArgs;
+    };
     updateActiveProposals: (sender: string, args: UpdateActiveProposalsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateActiveProposalsMsg: (args: UpdateActiveProposalsArgs) => {
+        update_active_proposals: UpdateActiveProposalsArgs;
+    };
     updateVotersList: (sender: string, args: UpdateVotersListArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateVotersListMsg: (args: UpdateVotersListArgs) => {
+        update_voters_list: UpdateVotersListArgs;
+    };
 }

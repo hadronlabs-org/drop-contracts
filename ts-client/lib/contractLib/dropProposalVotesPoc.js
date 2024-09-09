@@ -36,19 +36,22 @@ class Client {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.updateConfigMsg(args), fee || "auto", memo, funds);
     };
+    updateConfigMsg = (args) => { return { update_config: args }; };
     updateActiveProposals = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { update_active_proposals: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.updateActiveProposalsMsg(args), fee || "auto", memo, funds);
     };
+    updateActiveProposalsMsg = (args) => { return { update_active_proposals: args }; };
     updateVotersList = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { update_voters_list: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.updateVotersListMsg(args), fee || "auto", memo, funds);
     };
+    updateVotersListMsg = (args) => { return { update_voters_list: args }; };
 }
 exports.Client = Client;

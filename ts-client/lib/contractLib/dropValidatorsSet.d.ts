@@ -220,8 +220,23 @@ export declare class Client {
     queryValidators: () => Promise<ArrayOfValidatorInfo>;
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateConfigMsg: (args: UpdateConfigArgs) => {
+        update_config: UpdateConfigArgs;
+    };
     updateValidators: (sender: string, args: UpdateValidatorsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateValidatorsMsg: (args: UpdateValidatorsArgs) => {
+        update_validators: UpdateValidatorsArgs;
+    };
     updateValidatorsInfo: (sender: string, args: UpdateValidatorsInfoArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateValidatorsInfoMsg: (args: UpdateValidatorsInfoArgs) => {
+        update_validators_info: UpdateValidatorsInfoArgs;
+    };
     updateValidatorsVoting: (sender: string, args: UpdateValidatorsVotingArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateValidatorsVotingMsg: (args: UpdateValidatorsVotingArgs) => {
+        update_validators_voting: UpdateValidatorsVotingArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
 }

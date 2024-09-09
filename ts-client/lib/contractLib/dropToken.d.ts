@@ -138,7 +138,19 @@ export declare class Client {
     queryConfig: () => Promise<ConfigResponse>;
     queryOwnership: () => Promise<OwnershipForString>;
     mint: (sender: string, args: MintArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    mintMsg: (args: MintArgs) => {
+        mint: MintArgs;
+    };
     burn: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    burnMsg: () => {
+        burn: {};
+    };
     setTokenMetadata: (sender: string, args: SetTokenMetadataArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    setTokenMetadataMsg: (args: SetTokenMetadataArgs) => {
+        set_token_metadata: SetTokenMetadataArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
 }

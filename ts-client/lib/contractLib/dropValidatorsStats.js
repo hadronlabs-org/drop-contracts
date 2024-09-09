@@ -39,7 +39,8 @@ class Client {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { register_stats_queries: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.registerStatsQueriesMsg(args), fee || "auto", memo, funds);
     };
+    registerStatsQueriesMsg = (args) => { return { register_stats_queries: args }; };
 }
 exports.Client = Client;

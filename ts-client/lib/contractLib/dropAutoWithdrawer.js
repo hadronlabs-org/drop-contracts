@@ -36,19 +36,22 @@ class Client {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { bond: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.bondMsg(args), fee || "auto", memo, funds);
     };
+    bondMsg = (args) => { return { bond: args }; };
     unbond = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { unbond: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.unbondMsg(args), fee || "auto", memo, funds);
     };
+    unbondMsg = (args) => { return { unbond: args }; };
     withdraw = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { withdraw: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.withdrawMsg(args), fee || "auto", memo, funds);
     };
+    withdrawMsg = (args) => { return { withdraw: args }; };
 }
 exports.Client = Client;

@@ -103,6 +103,15 @@ export declare class Client {
     queryPrice: (args: PriceArgs) => Promise<Decimal>;
     queryOwnership: () => Promise<OwnershipForString>;
     removeDenom: (sender: string, args: RemoveDenomArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    removeDenomMsg: (args: RemoveDenomArgs) => {
+        remove_denom: RemoveDenomArgs;
+    };
     setPrice: (sender: string, args: SetPriceArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    setPriceMsg: (args: SetPriceArgs) => {
+        set_price: SetPriceArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
 }

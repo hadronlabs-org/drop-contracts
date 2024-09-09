@@ -141,5 +141,11 @@ export declare class Client {
     queryGetProposals: () => Promise<ArrayOfProposalInfo>;
     queryMetrics: () => Promise<Metrics>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateConfigMsg: (args: UpdateConfigArgs) => {
+        update_config: UpdateConfigArgs;
+    };
     updateProposalVotes: (sender: string, args: UpdateProposalVotesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateProposalVotesMsg: (args: UpdateProposalVotesArgs) => {
+        update_proposal_votes: UpdateProposalVotesArgs;
+    };
 }
