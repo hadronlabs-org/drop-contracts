@@ -214,9 +214,40 @@ fn execute_update_config(
         attrs.push(attr("puppeteer_contract", puppeteer_contract))
     }
 
+    if let Some(core_contract) = new_config.core_contract {
+        state.core_contract = deps.api.addr_validate(core_contract.as_ref())?;
+        attrs.push(attr("core_contract", core_contract))
+    }
+
+    if let Some(validators_set_contract) = new_config.validators_set_contract {
+        state.validators_set_contract = deps.api.addr_validate(validators_set_contract.as_ref())?;
+        attrs.push(attr("validators_set_contract", validators_set_contract))
+    }
+
+    if let Some(transfer_channel_id) = new_config.transfer_channel_id {
+        state.transfer_channel_id = transfer_channel_id.to_string();
+        attrs.push(attr("transfer_channel_id", transfer_channel_id))
+    }
+
+    if let Some(lsm_redeem_threshold) = new_config.lsm_redeem_threshold {
+        state.lsm_redeem_threshold = lsm_redeem_threshold;
+        attrs.push(attr(
+            "lsm_redeem_threshold",
+            lsm_redeem_threshold.to_string(),
+        ))
+    }
+
+    if let Some(lsm_redeem_maximum_interval) = new_config.lsm_redeem_maximum_interval {
+        state.lsm_redeem_maximum_interval = lsm_redeem_maximum_interval;
+        attrs.push(attr(
+            "lsm_redeem_maximum_interval",
+            lsm_redeem_maximum_interval.to_string(),
+        ))
+    }
+
     CONFIG.save(deps.storage, &state)?;
 
-    Ok(response("update_config", CONTRACT_NAME, Vec::<Attribute>::new()).add_attributes(attrs))
+    Ok(response("update_config", CONTRACT_NAME, attrs))
 }
 
 fn execute_bond(

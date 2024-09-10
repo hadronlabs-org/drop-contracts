@@ -125,7 +125,7 @@ fn execute_update_config(
 
     CONFIG.save(deps.storage, &state)?;
 
-    Ok(response("update_config", CONTRACT_NAME, Vec::<Attribute>::new()).add_attributes(attrs))
+    Ok(response("update_config", CONTRACT_NAME, attrs))
 }
 
 fn execute_bond(

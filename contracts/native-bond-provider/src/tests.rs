@@ -147,6 +147,17 @@ fn update_config_ok() {
     )
     .unwrap();
     assert_eq!(response.messages.len(), 0);
+    assert_eq!(
+        response.events,
+        vec![
+            Event::new("crates.io:drop-staking__drop-native-bond-provider-update_config")
+                .add_attributes([
+                    attr("staker_contract", "staker_contract_1"),
+                    attr("base_denom", "base_denom_1")
+                ])
+        ]
+    );
+    assert!(response.attributes.is_empty());
 
     let config = crate::contract::query(
         deps.as_ref(),
