@@ -1,12 +1,93 @@
 use cosmwasm_std::{
     from_json,
-    testing::{mock_env, mock_info},
-    to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, Event, Response, SubMsg, Uint128,
+    testing::{mock_env, mock_info, MockApi},
+    to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, Decimal256, Event, MemoryStorage,
+    OwnedDeps, Response, SubMsg, Timestamp, Uint128,
 };
 use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
-use drop_helpers::testing::mock_dependencies;
-use drop_staking_base::state::lsm_share_bond_provider::ConfigOptional;
+use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
+use drop_puppeteer_base::state::{Delegations, DropDelegation};
+use drop_staking_base::{
+    msg::puppeteer::DelegationsResponse,
+    state::lsm_share_bond_provider::{Config, ConfigOptional, CONFIG, LAST_LSM_REDEEM},
+};
+use neutron_sdk::bindings::query::NeutronQuery;
+
+use crate::contract::check_denom::{DenomTrace, QueryDenomTraceResponse};
+
+fn get_default_config(lsm_redeem_threshold: u64, lsm_redeem_maximum_interval: u64) -> Config {
+    Config {
+        puppeteer_contract: Addr::unchecked("puppeteer_contract"),
+        core_contract: Addr::unchecked("core_contract"),
+        validators_set_contract: Addr::unchecked("validators_set_contract"),
+        transfer_channel_id: "transfer_channel_id".to_string(),
+        lsm_redeem_threshold,
+        lsm_redeem_maximum_interval,
+    }
+}
+
+fn lsm_denom_query_config(
+    deps: &mut OwnedDeps<MemoryStorage, MockApi, WasmMockQuerier, NeutronQuery>,
+) {
+    deps.querier.add_stargate_query_response(
+        "/ibc.applications.transfer.v1.Query/DenomTrace",
+        |_| {
+            to_json_binary(&QueryDenomTraceResponse {
+                denom_trace: DenomTrace {
+                    base_denom: "valoper12345/1".to_string(),
+                    path: "transfer/transfer_channel_id".to_string(),
+                },
+            })
+            .unwrap()
+        },
+    );
+    deps.querier
+        .add_wasm_query_response("validators_set_contract", |request| {
+            let request =
+                from_json::<drop_staking_base::msg::validatorset::QueryMsg>(request).unwrap();
+            if let drop_staking_base::msg::validatorset::QueryMsg::Validator { valoper } = request {
+                assert_eq!(valoper, "valoper12345");
+                to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
+                    validator: Some(drop_staking_base::state::validatorset::ValidatorInfo {
+                        valoper_address: "valoper12345".to_string(),
+                        weight: 1u64,
+                        last_processed_remote_height: None,
+                        last_processed_local_height: None,
+                        last_validated_height: None,
+                        last_commission_in_range: None,
+                        uptime: Decimal::one(),
+                        tombstone: false,
+                        jailed_number: None,
+                        init_proposal: None,
+                        total_passed_proposals: 0u64,
+                        total_voted_proposals: 0u64,
+                    }),
+                })
+                .unwrap()
+            } else {
+                unimplemented!()
+            }
+        });
+
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
+                    delegations: vec![DropDelegation {
+                        delegator: Addr::unchecked("delegator"),
+                        validator: "valoper12345".to_string(),
+                        amount: Coin::new(1000, "remote_denom".to_string()),
+                        share_ratio: Decimal256::one(),
+                    }],
+                },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
+            .unwrap()
+        });
+}
 
 #[test]
 fn instantiate() {
@@ -31,17 +112,7 @@ fn instantiate() {
         .load(deps.as_ref().storage)
         .unwrap();
 
-    assert_eq!(
-        config,
-        drop_staking_base::state::lsm_share_bond_provider::Config {
-            puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-            core_contract: Addr::unchecked("core_contract"),
-            validators_set_contract: Addr::unchecked("validators_set_contract"),
-            transfer_channel_id: "transfer_channel_id".to_string(),
-            lsm_redeem_threshold: 100u64,
-            lsm_redeem_maximum_interval: 200u64,
-        }
-    );
+    assert_eq!(config, get_default_config(100u64, 200u64));
 
     assert_eq!(response.messages.len(), 0);
     assert_eq!(
@@ -62,58 +133,11 @@ fn instantiate() {
 }
 
 #[test]
-fn query_config() {
-    let mut deps = mock_dependencies(&[]);
-    drop_staking_base::state::lsm_share_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::lsm_share_bond_provider::Config {
-                puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-                core_contract: Addr::unchecked("core_contract"),
-                validators_set_contract: Addr::unchecked("validators_set_contract"),
-                transfer_channel_id: "transfer_channel_id".to_string(),
-                lsm_redeem_threshold: 100u64,
-                lsm_redeem_maximum_interval: 200u64,
-            },
-        )
-        .unwrap();
-
-    let response = crate::contract::query(
-        deps.as_ref(),
-        mock_env(),
-        drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::Config {},
-    )
-    .unwrap();
-    assert_eq!(
-        response,
-        to_json_binary(&drop_staking_base::state::lsm_share_bond_provider::Config {
-            puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-            core_contract: Addr::unchecked("core_contract"),
-            validators_set_contract: Addr::unchecked("validators_set_contract"),
-            transfer_channel_id: "transfer_channel_id".to_string(),
-            lsm_redeem_threshold: 100u64,
-            lsm_redeem_maximum_interval: 200u64,
-        })
-        .unwrap()
-    );
-}
-
-#[test]
 fn update_config_wrong_owner() {
     let mut deps = mock_dependencies(&[]);
 
     drop_staking_base::state::lsm_share_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::lsm_share_bond_provider::Config {
-                puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-                core_contract: Addr::unchecked("core_contract"),
-                validators_set_contract: Addr::unchecked("validators_set_contract"),
-                transfer_channel_id: "transfer_channel_id".to_string(),
-                lsm_redeem_threshold: 100u64,
-                lsm_redeem_maximum_interval: 200u64,
-            },
-        )
+        .save(deps.as_mut().storage, &get_default_config(100u64, 200u64))
         .unwrap();
 
     let error = crate::contract::execute(
@@ -153,17 +177,7 @@ fn update_config_ok() {
     );
 
     drop_staking_base::state::lsm_share_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::lsm_share_bond_provider::Config {
-                puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-                core_contract: Addr::unchecked("core_contract"),
-                validators_set_contract: Addr::unchecked("validators_set_contract"),
-                transfer_channel_id: "transfer_channel_id".to_string(),
-                lsm_redeem_threshold: 100u64,
-                lsm_redeem_maximum_interval: 200u64,
-            },
-        )
+        .save(deps.as_mut().storage, &get_default_config(100u64, 200u64))
         .unwrap();
 
     let response = crate::contract::execute(
@@ -218,249 +232,6 @@ fn update_config_ok() {
             lsm_redeem_maximum_interval: 400u64,
         })
         .unwrap()
-    );
-}
-
-#[test]
-fn query_can_process_idle() {
-    let deps = mock_dependencies(&[]);
-
-    let response = crate::contract::query(
-        deps.as_ref(),
-        mock_env(),
-        drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::CanProcessOnIdle {},
-    )
-    .unwrap();
-    assert_eq!(response, to_json_binary(&false).unwrap());
-}
-
-#[test]
-fn query_ownership() {
-    let mut deps = mock_dependencies(&[]);
-
-    let deps_mut = deps.as_mut();
-
-    cw_ownable::initialize_owner(
-        deps_mut.storage,
-        deps_mut.api,
-        Some(Addr::unchecked("core").as_ref()),
-    )
-    .unwrap();
-
-    let response = crate::contract::query(
-        deps.as_ref(),
-        mock_env(),
-        drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::Ownership {},
-    )
-    .unwrap();
-
-    assert_eq!(
-        response,
-        to_json_binary(&Ownership {
-            owner: Some(Addr::unchecked("core")),
-            pending_owner: None,
-            pending_expiry: None
-        })
-        .unwrap()
-    );
-}
-
-#[test]
-fn query_can_bond_ok() {
-    let mut deps = mock_dependencies(&[]);
-
-    drop_staking_base::state::lsm_share_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::lsm_share_bond_provider::Config {
-                puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-                core_contract: Addr::unchecked("core_contract"),
-                validators_set_contract: Addr::unchecked("validators_set_contract"),
-                transfer_channel_id: "transfer_channel_id".to_string(),
-                lsm_redeem_threshold: 100u64,
-                lsm_redeem_maximum_interval: 200u64,
-            },
-        )
-        .unwrap();
-
-    let can_bond = crate::contract::query(
-        deps.as_ref(),
-        mock_env(),
-        drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::CanBond {
-            denom: "base_denom".to_string(),
-        },
-    )
-    .unwrap();
-
-    assert_eq!(can_bond, to_json_binary(&true).unwrap());
-}
-
-#[test]
-fn query_can_bond_false() {
-    let mut deps = mock_dependencies(&[]);
-
-    drop_staking_base::state::lsm_share_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::lsm_share_bond_provider::Config {
-                puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-                core_contract: Addr::unchecked("core_contract"),
-                validators_set_contract: Addr::unchecked("validators_set_contract"),
-                transfer_channel_id: "transfer_channel_id".to_string(),
-                lsm_redeem_threshold: 100u64,
-                lsm_redeem_maximum_interval: 200u64,
-            },
-        )
-        .unwrap();
-
-    let can_bond = crate::contract::query(
-        deps.as_ref(),
-        mock_env(),
-        drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::CanBond {
-            denom: "wrong_denom".to_string(),
-        },
-    )
-    .unwrap();
-
-    assert_eq!(can_bond, to_json_binary(&false).unwrap());
-}
-
-#[test]
-fn query_token_amount() {
-    let mut deps = mock_dependencies(&[]);
-
-    drop_staking_base::state::lsm_share_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::lsm_share_bond_provider::Config {
-                puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-                core_contract: Addr::unchecked("core_contract"),
-                validators_set_contract: Addr::unchecked("validators_set_contract"),
-                transfer_channel_id: "transfer_channel_id".to_string(),
-                lsm_redeem_threshold: 100u64,
-                lsm_redeem_maximum_interval: 200u64,
-            },
-        )
-        .unwrap();
-
-    let token_amount = crate::contract::query(
-        deps.as_ref(),
-        mock_env(),
-        drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::TokenAmount {
-            coin: Coin {
-                denom: "base_denom".to_string(),
-                amount: 100u128.into(),
-            },
-            exchange_rate: Decimal::one(),
-        },
-    )
-    .unwrap();
-
-    assert_eq!(token_amount, to_json_binary(&100u128).unwrap());
-}
-
-#[test]
-fn query_token_amount_half() {
-    let mut deps = mock_dependencies(&[]);
-
-    drop_staking_base::state::lsm_share_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::lsm_share_bond_provider::Config {
-                puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-                core_contract: Addr::unchecked("core_contract"),
-                validators_set_contract: Addr::unchecked("validators_set_contract"),
-                transfer_channel_id: "transfer_channel_id".to_string(),
-                lsm_redeem_threshold: 100u64,
-                lsm_redeem_maximum_interval: 200u64,
-            },
-        )
-        .unwrap();
-
-    let token_amount = crate::contract::query(
-        deps.as_ref(),
-        mock_env(),
-        drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::TokenAmount {
-            coin: Coin {
-                denom: "base_denom".to_string(),
-                amount: 100u128.into(),
-            },
-            exchange_rate: Decimal::from_atomics(Uint128::from(5u64), 1).unwrap(),
-        },
-    )
-    .unwrap();
-
-    assert_eq!(token_amount, to_json_binary(&200u128).unwrap());
-}
-
-#[test]
-fn query_token_amount_above_one() {
-    let mut deps = mock_dependencies(&[]);
-
-    drop_staking_base::state::lsm_share_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::lsm_share_bond_provider::Config {
-                puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-                core_contract: Addr::unchecked("core_contract"),
-                validators_set_contract: Addr::unchecked("validators_set_contract"),
-                transfer_channel_id: "transfer_channel_id".to_string(),
-                lsm_redeem_threshold: 100u64,
-                lsm_redeem_maximum_interval: 200u64,
-            },
-        )
-        .unwrap();
-
-    let token_amount = crate::contract::query(
-        deps.as_ref(),
-        mock_env(),
-        drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::TokenAmount {
-            coin: Coin {
-                denom: "base_denom".to_string(),
-                amount: 100u128.into(),
-            },
-            exchange_rate: Decimal::from_atomics(Uint128::from(11u64), 1).unwrap(),
-        },
-    )
-    .unwrap();
-
-    assert_eq!(token_amount, to_json_binary(&90u128).unwrap());
-}
-
-#[test]
-fn query_token_amount_wrong_denom() {
-    let mut deps = mock_dependencies(&[]);
-
-    drop_staking_base::state::lsm_share_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::lsm_share_bond_provider::Config {
-                puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-                core_contract: Addr::unchecked("core_contract"),
-                validators_set_contract: Addr::unchecked("validators_set_contract"),
-                transfer_channel_id: "transfer_channel_id".to_string(),
-                lsm_redeem_threshold: 100u64,
-                lsm_redeem_maximum_interval: 200u64,
-            },
-        )
-        .unwrap();
-
-    let error = crate::contract::query(
-        deps.as_ref(),
-        mock_env(),
-        drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::TokenAmount {
-            coin: Coin {
-                denom: "wrong_denom".to_string(),
-                amount: 100u128.into(),
-            },
-            exchange_rate: Decimal::one(),
-        },
-    )
-    .unwrap_err();
-
-    assert_eq!(
-        error,
-        drop_staking_base::error::lsm_share_bond_provider::ContractError::InvalidDenom {}
     );
 }
 
@@ -670,4 +441,703 @@ fn execute_bond_multiple_denoms() {
             PaymentError::MultipleDenoms {}
         )
     );
+}
+mod queries_tests {
+    use std::borrow::{Borrow, BorrowMut};
+
+    use cosmwasm_std::{Decimal256, Timestamp};
+    use drop_puppeteer_base::state::{Delegations, DropDelegation};
+    use drop_staking_base::msg::puppeteer::DelegationsResponse;
+
+    use crate::contract::check_denom::{DenomTrace, QueryDenomTraceResponse};
+
+    use super::*;
+
+    #[test]
+    fn query_config() {
+        let mut deps = mock_dependencies(&[]);
+        drop_staking_base::state::lsm_share_bond_provider::CONFIG
+            .save(deps.as_mut().storage, &get_default_config(100u64, 200u64))
+            .unwrap();
+
+        let response = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::Config {},
+        )
+        .unwrap();
+        assert_eq!(
+            response,
+            to_json_binary(&get_default_config(100u64, 200u64)).unwrap()
+        );
+    }
+
+    #[test]
+    fn query_token_amount_wrong_denom() {
+        let mut deps = mock_dependencies(&[]);
+
+        drop_staking_base::state::lsm_share_bond_provider::CONFIG
+            .save(
+                deps.as_mut().storage,
+                &drop_staking_base::state::lsm_share_bond_provider::Config {
+                    puppeteer_contract: Addr::unchecked("puppeteer_contract"),
+                    core_contract: Addr::unchecked("core_contract"),
+                    validators_set_contract: Addr::unchecked("validators_set_contract"),
+                    transfer_channel_id: "transfer_channel_id".to_string(),
+                    lsm_redeem_threshold: 100u64,
+                    lsm_redeem_maximum_interval: 200u64,
+                },
+            )
+            .unwrap();
+
+        let error = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::TokenAmount {
+                coin: Coin {
+                    denom: "wrong_denom".to_string(),
+                    amount: 100u128.into(),
+                },
+                exchange_rate: Decimal::one(),
+            },
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            error,
+            drop_staking_base::error::lsm_share_bond_provider::ContractError::InvalidDenom {}
+        );
+    }
+
+    #[test]
+    fn query_can_process_idle_with_enough_interval() {
+        let mut deps = mock_dependencies(&[]);
+        let deps_mut = deps.as_mut();
+
+        let env = mock_env();
+        let lsm_redeem_maximum_interval = 100;
+
+        drop_staking_base::state::lsm_share_bond_provider::CONFIG
+            .save(
+                deps_mut.storage,
+                &get_default_config(2u64, lsm_redeem_maximum_interval),
+            )
+            .unwrap();
+
+        LAST_LSM_REDEEM
+            .save(
+                deps_mut.storage,
+                &(env.block.time.seconds() - lsm_redeem_maximum_interval * 2),
+            )
+            .unwrap();
+
+        drop_staking_base::state::lsm_share_bond_provider::LSM_SHARES_TO_REDEEM
+            .save(
+                deps_mut.storage,
+                "lsm_denom_1".to_string(),
+                &("lsm_denom_1".to_string(), Uint128::one(), Uint128::one()),
+            )
+            .unwrap();
+
+        let response = crate::contract::query(
+            deps.as_ref(),
+            env,
+            drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::CanProcessOnIdle {},
+        )
+        .unwrap();
+        assert_eq!(response, to_json_binary(&true).unwrap());
+    }
+
+    #[test]
+    fn query_can_process_false_below_threshold() {
+        let mut deps = mock_dependencies(&[]);
+        let deps_mut = deps.as_mut();
+
+        let env = mock_env();
+
+        drop_staking_base::state::lsm_share_bond_provider::CONFIG
+            .save(deps_mut.storage, &get_default_config(100u64, 200u64))
+            .unwrap();
+
+        LAST_LSM_REDEEM
+            .save(deps_mut.storage, &(env.block.time.seconds()))
+            .unwrap();
+
+        drop_staking_base::state::lsm_share_bond_provider::LSM_SHARES_TO_REDEEM
+            .save(
+                deps_mut.storage,
+                "lsm_denom_1".to_string(),
+                &("lsm_denom_1".to_string(), Uint128::one(), Uint128::one()),
+            )
+            .unwrap();
+
+        let response = crate::contract::query(
+            deps.as_ref(),
+            env,
+            drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::CanProcessOnIdle {},
+        )
+        .unwrap();
+        assert_eq!(response, to_json_binary(&false).unwrap());
+    }
+
+    #[test]
+    fn query_ownership() {
+        let mut deps = mock_dependencies(&[]);
+
+        let deps_mut = deps.as_mut();
+
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(Addr::unchecked("core").as_ref()),
+        )
+        .unwrap();
+
+        let response = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::Ownership {},
+        )
+        .unwrap();
+
+        assert_eq!(
+            response,
+            to_json_binary(&Ownership {
+                owner: Some(Addr::unchecked("core")),
+                pending_owner: None,
+                pending_expiry: None
+            })
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn query_can_bond_ok() {
+        let mut deps = mock_dependencies(&[]);
+
+        drop_staking_base::state::lsm_share_bond_provider::CONFIG
+            .save(
+                deps.as_mut().storage,
+                &drop_staking_base::state::lsm_share_bond_provider::Config {
+                    puppeteer_contract: Addr::unchecked("puppeteer_contract"),
+                    core_contract: Addr::unchecked("core_contract"),
+                    validators_set_contract: Addr::unchecked("validators_set_contract"),
+                    transfer_channel_id: "transfer_channel_id".to_string(),
+                    lsm_redeem_threshold: 100u64,
+                    lsm_redeem_maximum_interval: 200u64,
+                },
+            )
+            .unwrap();
+
+        let can_bond = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::CanBond {
+                denom: "base_denom".to_string(),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(can_bond, to_json_binary(&true).unwrap());
+    }
+
+    #[test]
+    fn query_pending_lsm_shares() {
+        let mut deps = mock_dependencies(&[]);
+
+        let deps_mut = deps.as_mut();
+
+        drop_staking_base::state::lsm_share_bond_provider::PENDING_LSM_SHARES
+            .save(
+                deps_mut.storage,
+                "lsm_denom_1".to_string(),
+                &("lsm_denom_1".to_string(), Uint128::one(), Uint128::one()),
+            )
+            .unwrap();
+
+        let can_bond = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::PendingLSMShares {},
+        )
+        .unwrap();
+
+        assert_eq!(
+            can_bond,
+            to_json_binary(&vec![(
+                "lsm_denom_1".to_string(),
+                ("lsm_denom_1".to_string(), Uint128::one(), Uint128::one())
+            )])
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn query_lsm_shares_to_redeem() {
+        let mut deps = mock_dependencies(&[]);
+
+        let deps_mut = deps.as_mut();
+
+        drop_staking_base::state::lsm_share_bond_provider::LSM_SHARES_TO_REDEEM
+            .save(
+                deps_mut.storage,
+                "lsm_denom_1".to_string(),
+                &("lsm_denom_1".to_string(), Uint128::one(), Uint128::one()),
+            )
+            .unwrap();
+
+        let can_bond = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::LSMSharesToRedeem {},
+        )
+        .unwrap();
+
+        assert_eq!(
+            can_bond,
+            to_json_binary(&vec![(
+                "lsm_denom_1".to_string(),
+                ("lsm_denom_1".to_string(), Uint128::one(), Uint128::one())
+            )])
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn query_total_lsm_shares() {
+        let mut deps = mock_dependencies(&[]);
+
+        let deps_mut = deps.as_mut();
+
+        drop_staking_base::state::lsm_share_bond_provider::TOTAL_LSM_SHARES
+            .save(deps_mut.storage, &100u128)
+            .unwrap();
+
+        let can_bond = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::TotalLSMShares {},
+        )
+        .unwrap();
+
+        assert_eq!(can_bond, to_json_binary(&100u128).unwrap());
+    }
+
+    #[test]
+    fn query_can_bond_false() {
+        let mut deps = mock_dependencies(&[]);
+
+        drop_staking_base::state::lsm_share_bond_provider::CONFIG
+            .save(
+                deps.as_mut().storage,
+                &drop_staking_base::state::lsm_share_bond_provider::Config {
+                    puppeteer_contract: Addr::unchecked("puppeteer_contract"),
+                    core_contract: Addr::unchecked("core_contract"),
+                    validators_set_contract: Addr::unchecked("validators_set_contract"),
+                    transfer_channel_id: "transfer_channel_id".to_string(),
+                    lsm_redeem_threshold: 100u64,
+                    lsm_redeem_maximum_interval: 200u64,
+                },
+            )
+            .unwrap();
+
+        let can_bond = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::CanBond {
+                denom: "wrong_denom".to_string(),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(can_bond, to_json_binary(&false).unwrap());
+    }
+
+    #[test]
+    fn query_can_process_idle_false_without_shares() {
+        let mut deps = mock_dependencies(&[]);
+        let deps_mut = deps.as_mut();
+
+        CONFIG
+            .save(deps_mut.storage, &get_default_config(100u64, 200u64))
+            .unwrap();
+
+        LAST_LSM_REDEEM.save(deps_mut.storage, &0).unwrap();
+
+        let response = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::CanProcessOnIdle {},
+        )
+        .unwrap();
+        assert_eq!(response, to_json_binary(&false).unwrap());
+    }
+
+    #[test]
+    fn query_can_process_idle_with_pending_shares() {
+        let mut deps = mock_dependencies(&[]);
+        let deps_mut = deps.as_mut();
+
+        drop_staking_base::state::lsm_share_bond_provider::CONFIG
+            .save(deps_mut.storage, &get_default_config(100u64, 200u64))
+            .unwrap();
+
+        drop_staking_base::state::lsm_share_bond_provider::PENDING_LSM_SHARES
+            .save(
+                deps_mut.storage,
+                "lsm_denom_1".to_string(),
+                &("lsm_denom_1".to_string(), Uint128::one(), Uint128::one()),
+            )
+            .unwrap();
+
+        let response = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::CanProcessOnIdle {},
+        )
+        .unwrap();
+        assert_eq!(response, to_json_binary(&true).unwrap());
+    }
+
+    #[test]
+    fn query_can_process_idle_with_enough_redeem_shares() {
+        let mut deps = mock_dependencies(&[]);
+        let deps_mut = deps.as_mut();
+
+        drop_staking_base::state::lsm_share_bond_provider::CONFIG
+            .save(deps_mut.storage, &get_default_config(2u64, 200u64))
+            .unwrap();
+
+        LAST_LSM_REDEEM.save(deps_mut.storage, &0).unwrap();
+
+        drop_staking_base::state::lsm_share_bond_provider::LSM_SHARES_TO_REDEEM
+            .save(
+                deps_mut.storage,
+                "lsm_denom_1".to_string(),
+                &("lsm_denom_1".to_string(), Uint128::one(), Uint128::one()),
+            )
+            .unwrap();
+
+        drop_staking_base::state::lsm_share_bond_provider::LSM_SHARES_TO_REDEEM
+            .save(
+                deps_mut.storage,
+                "lsm_denom_2".to_string(),
+                &("lsm_denom_2".to_string(), Uint128::one(), Uint128::one()),
+            )
+            .unwrap();
+
+        let response = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::CanProcessOnIdle {},
+        )
+        .unwrap();
+        assert_eq!(response, to_json_binary(&true).unwrap());
+    }
+
+    #[test]
+    fn query_token_amount() {
+        let mut deps = mock_dependencies(&[]);
+        lsm_denom_query_config(deps.borrow_mut());
+
+        drop_staking_base::state::lsm_share_bond_provider::CONFIG
+            .save(deps.as_mut().storage, &get_default_config(100u64, 200u64))
+            .unwrap();
+
+        let token_amount = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::TokenAmount {
+                coin: Coin {
+                    denom: "ibc/12345678".to_string(),
+                    amount: 100u128.into(),
+                },
+                exchange_rate: Decimal::one(),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(token_amount, to_json_binary(&100u128).unwrap());
+    }
+
+    #[test]
+    fn query_token_amount_half() {
+        let mut deps = mock_dependencies(&[]);
+
+        drop_staking_base::state::lsm_share_bond_provider::CONFIG
+            .save(deps.as_mut().storage, &get_default_config(100u64, 200u64))
+            .unwrap();
+
+        let token_amount = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::TokenAmount {
+                coin: Coin {
+                    denom: "base_denom".to_string(),
+                    amount: 100u128.into(),
+                },
+                exchange_rate: Decimal::from_atomics(Uint128::from(5u64), 1).unwrap(),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(token_amount, to_json_binary(&200u128).unwrap());
+    }
+
+    #[test]
+    fn query_token_amount_above_one() {
+        let mut deps = mock_dependencies(&[]);
+
+        drop_staking_base::state::lsm_share_bond_provider::CONFIG
+            .save(deps.as_mut().storage, &get_default_config(100u64, 200u64))
+            .unwrap();
+
+        let token_amount = crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_staking_base::msg::lsm_share_bond_provider::QueryMsg::TokenAmount {
+                coin: Coin {
+                    denom: "base_denom".to_string(),
+                    amount: 100u128.into(),
+                },
+                exchange_rate: Decimal::from_atomics(Uint128::from(11u64), 1).unwrap(),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(token_amount, to_json_binary(&90u128).unwrap());
+    }
+}
+
+mod check_denom {
+
+    use drop_staking_base::error::lsm_share_bond_provider::ContractError;
+
+    use crate::contract::check_denom::{DenomData, DenomTrace, QueryDenomTraceResponse};
+
+    use super::*;
+
+    #[test]
+    fn invalid_port() {
+        let mut deps = mock_dependencies(&[]);
+        deps.querier.add_stargate_query_response(
+            "/ibc.applications.transfer.v1.Query/DenomTrace",
+            |_| {
+                to_json_binary(&QueryDenomTraceResponse {
+                    denom_trace: DenomTrace {
+                        base_denom: "valoper12345/1".to_string(),
+                        path: "icahost/transfer_channel_id".to_string(),
+                    },
+                })
+                .unwrap()
+            },
+        );
+        let err = crate::contract::check_denom::check_denom(
+            &deps.as_ref(),
+            "ibc/12345678",
+            &get_default_config(100, 200),
+        )
+        .unwrap_err();
+        assert_eq!(err, ContractError::InvalidDenom {});
+    }
+
+    #[test]
+    fn invalid_channel() {
+        let mut deps = mock_dependencies(&[]);
+        deps.querier.add_stargate_query_response(
+            "/ibc.applications.transfer.v1.Query/DenomTrace",
+            |_| {
+                to_json_binary(&QueryDenomTraceResponse {
+                    denom_trace: DenomTrace {
+                        base_denom: "valoper12345/1".to_string(),
+                        path: "transfer/unknown_channel".to_string(),
+                    },
+                })
+                .unwrap()
+            },
+        );
+        let err = crate::contract::check_denom::check_denom(
+            &deps.as_ref(),
+            "ibc/12345678",
+            &get_default_config(100, 200),
+        )
+        .unwrap_err();
+        assert_eq!(err, ContractError::InvalidDenom {});
+    }
+
+    #[test]
+    fn invalid_port_and_channel() {
+        let mut deps = mock_dependencies(&[]);
+        deps.querier.add_stargate_query_response(
+            "/ibc.applications.transfer.v1.Query/DenomTrace",
+            |_| {
+                to_json_binary(&QueryDenomTraceResponse {
+                    denom_trace: DenomTrace {
+                        base_denom: "valoper12345/1".to_string(),
+                        path: "icahost/unknown_channel".to_string(),
+                    },
+                })
+                .unwrap()
+            },
+        );
+        let err = crate::contract::check_denom::check_denom(
+            &deps.as_ref(),
+            "ibc/12345678",
+            &get_default_config(100, 200),
+        )
+        .unwrap_err();
+        assert_eq!(err, ContractError::InvalidDenom {});
+    }
+
+    #[test]
+    fn not_an_lsm_share() {
+        let mut deps = mock_dependencies(&[]);
+        deps.querier.add_stargate_query_response(
+            "/ibc.applications.transfer.v1.Query/DenomTrace",
+            |_| {
+                to_json_binary(&QueryDenomTraceResponse {
+                    denom_trace: DenomTrace {
+                        base_denom: "unknown_denom".to_string(),
+                        path: "transfer/transfer_channel_id".to_string(),
+                    },
+                })
+                .unwrap()
+            },
+        );
+        let err = crate::contract::check_denom::check_denom(
+            &deps.as_ref(),
+            "ibc/12345678",
+            &get_default_config(100, 200),
+        )
+        .unwrap_err();
+        assert_eq!(err, ContractError::InvalidDenom {});
+    }
+
+    #[test]
+    fn unknown_validator() {
+        let mut deps = mock_dependencies(&[]);
+        deps.querier.add_stargate_query_response(
+            "/ibc.applications.transfer.v1.Query/DenomTrace",
+            |_| {
+                to_json_binary(&QueryDenomTraceResponse {
+                    denom_trace: DenomTrace {
+                        base_denom: "valoper98765/1".to_string(),
+                        path: "transfer/transfer_channel_id".to_string(),
+                    },
+                })
+                .unwrap()
+            },
+        );
+        let query_called = std::rc::Rc::new(std::cell::RefCell::new(false));
+        let query_called_cb = std::rc::Rc::clone(&query_called);
+        deps.querier
+            .add_wasm_query_response("validators_set_contract", move |request| {
+                let request =
+                    from_json::<drop_staking_base::msg::validatorset::QueryMsg>(request).unwrap();
+                if let drop_staking_base::msg::validatorset::QueryMsg::Validator { valoper } =
+                    request
+                {
+                    assert_eq!(valoper, "valoper98765");
+
+                    query_called_cb.replace(true);
+                    to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
+                        validator: None,
+                    })
+                    .unwrap()
+                } else {
+                    unimplemented!()
+                }
+            });
+        let err = crate::contract::check_denom::check_denom(
+            &deps.as_ref(),
+            "ibc/12345678",
+            &get_default_config(100, 200),
+        )
+        .unwrap_err();
+        assert_eq!(err, ContractError::InvalidDenom {});
+        assert!(*query_called.borrow());
+    }
+
+    #[test]
+    fn invalid_validator_index() {
+        let mut deps = mock_dependencies(&[]);
+        deps.querier.add_stargate_query_response(
+            "/ibc.applications.transfer.v1.Query/DenomTrace",
+            |_| {
+                to_json_binary(&QueryDenomTraceResponse {
+                    denom_trace: DenomTrace {
+                        base_denom: "valoper12345/1/2".to_string(),
+                        path: "transfer/transfer_channel_id".to_string(),
+                    },
+                })
+                .unwrap()
+            },
+        );
+        let err = crate::contract::check_denom::check_denom(
+            &deps.as_ref(),
+            "ibc/12345678",
+            &get_default_config(100, 200),
+        )
+        .unwrap_err();
+        assert_eq!(err, ContractError::InvalidDenom {});
+    }
+
+    #[test]
+    fn known_validator() {
+        let mut deps = mock_dependencies(&[]);
+        deps.querier.add_stargate_query_response(
+            "/ibc.applications.transfer.v1.Query/DenomTrace",
+            |_| {
+                to_json_binary(&QueryDenomTraceResponse {
+                    denom_trace: DenomTrace {
+                        base_denom: "valoper12345/1".to_string(),
+                        path: "transfer/transfer_channel_id".to_string(),
+                    },
+                })
+                .unwrap()
+            },
+        );
+        deps.querier
+            .add_wasm_query_response("validators_set_contract", |request| {
+                let request =
+                    from_json::<drop_staking_base::msg::validatorset::QueryMsg>(request).unwrap();
+                if let drop_staking_base::msg::validatorset::QueryMsg::Validator { valoper } =
+                    request
+                {
+                    assert_eq!(valoper, "valoper12345");
+                    to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
+                        validator: Some(drop_staking_base::state::validatorset::ValidatorInfo {
+                            valoper_address: "valoper12345".to_string(),
+                            weight: 1u64,
+                            last_processed_remote_height: None,
+                            last_processed_local_height: None,
+                            last_validated_height: None,
+                            last_commission_in_range: None,
+                            uptime: Decimal::one(),
+                            tombstone: false,
+                            jailed_number: None,
+                            init_proposal: None,
+                            total_passed_proposals: 0u64,
+                            total_voted_proposals: 0u64,
+                        }),
+                    })
+                    .unwrap()
+                } else {
+                    unimplemented!()
+                }
+            });
+        let denom_data = crate::contract::check_denom::check_denom(
+            &deps.as_ref(),
+            "ibc/12345678",
+            &get_default_config(100, 200),
+        )
+        .unwrap();
+        assert_eq!(
+            denom_data,
+            DenomData {
+                remote_denom: "valoper12345/1".to_string(),
+                validator: "valoper12345".to_string()
+            }
+        );
+    }
 }

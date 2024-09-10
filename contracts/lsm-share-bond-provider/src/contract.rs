@@ -26,7 +26,7 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut<NeutronQuery>,
-    _env: Env,
+    env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
@@ -47,6 +47,7 @@ pub fn instantiate(
     CONFIG.save(deps.storage, config)?;
 
     TOTAL_LSM_SHARES.save(deps.storage, &0)?;
+    LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
 
     Ok(response(
         "instantiate",
@@ -76,7 +77,26 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
             coin,
             exchange_rate,
         } => query_token_amount(deps, coin, exchange_rate),
+        QueryMsg::PendingLSMShares {} => query_pending_lsm_shares(deps),
+        QueryMsg::LSMSharesToRedeem {} => query_lsm_shares_to_redeem(deps),
+        QueryMsg::TotalLSMShares {} => {
+            to_json_binary(&TOTAL_LSM_SHARES.load(deps.storage)?).map_err(From::from)
+        }
     }
+}
+
+fn query_pending_lsm_shares(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+    let shares: Vec<(String, (String, Uint128, Uint128))> = PENDING_LSM_SHARES
+        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+        .collect::<StdResult<Vec<_>>>()?;
+    to_json_binary(&shares).map_err(From::from)
+}
+
+fn query_lsm_shares_to_redeem(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+    let shares: Vec<(String, (String, Uint128, Uint128))> = LSM_SHARES_TO_REDEEM
+        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+        .collect::<StdResult<Vec<_>>>()?;
+    to_json_binary(&shares).map_err(From::from)
 }
 
 fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Binary> {
@@ -98,6 +118,10 @@ fn query_can_process_on_idle(deps: Deps<NeutronQuery>, env: Env) -> ContractResu
         .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
         .count();
 
+    if pending_lsm_shares_count > 0 {
+        return Ok(to_json_binary(&true)?);
+    }
+
     let lsm_shares_to_redeem_count = LSM_SHARES_TO_REDEEM
         .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
         .count();
@@ -105,13 +129,9 @@ fn query_can_process_on_idle(deps: Deps<NeutronQuery>, env: Env) -> ContractResu
     let last_lsm_redeem = LAST_LSM_REDEEM.load(deps.storage)?;
     let lsm_redeem_threshold = config.lsm_redeem_threshold as usize;
 
-    if pending_lsm_shares_count > 0 {
-        return Ok(to_json_binary(&true)?);
-    }
-
-    if lsm_shares_to_redeem_count == lsm_redeem_threshold
+    if lsm_shares_to_redeem_count >= lsm_redeem_threshold
         || ((lsm_shares_to_redeem_count < lsm_redeem_threshold)
-            && (last_lsm_redeem + config.lsm_redeem_maximum_interval > env.block.time.seconds()))
+            && (last_lsm_redeem + config.lsm_redeem_maximum_interval < env.block.time.seconds()))
     {
         return Ok(to_json_binary(&true)?);
     }
@@ -185,16 +205,6 @@ fn execute_process_on_idle(
             attrs.push(attr("knot", "043"));
         }
     }
-
-    // let mut state = CONFIG.load(deps.storage)?;
-    // let mut attrs: Vec<Attribute> = Vec::new();
-
-    // if let Some(puppeteer_contract) = new_config.puppeteer_contract {
-    //     state.puppeteer_contract = deps.api.addr_validate(&puppeteer_contract.to_string())?;
-    //     attrs.push(attr("puppeteer_contract", puppeteer_contract))
-    // }
-
-    // CONFIG.save(deps.storage, &state)?;
 
     Ok(response("update_config", CONTRACT_NAME, Vec::<Attribute>::new()).add_attributes(attrs))
 }
@@ -449,12 +459,45 @@ fn get_pending_lsm_share_msg<T, X: CustomQuery>(
     }
 }
 
+fn calc_lsm_share_underlying_amount<T: CustomQuery>(
+    deps: Deps<T>,
+    puppeteer_contract: &Addr,
+    lsm_share: &Uint128,
+    validator: String,
+) -> ContractResult<Uint128> {
+    let delegations = deps
+        .querier
+        .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
+            puppeteer_contract,
+            &drop_puppeteer_base::msg::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+            },
+        )?
+        .delegations
+        .delegations;
+    if delegations.is_empty() {
+        return Err(ContractError::NoDelegations {});
+    }
+    let validator_info = delegations
+        .iter()
+        .find(|one| one.validator == validator)
+        .ok_or(ContractError::ValidatorInfoNotFound {
+            validator: validator.clone(),
+        })?;
+    let share = Decimal256::from_atomics(*lsm_share, 0)?;
+    Ok(Uint128::try_from(
+        share.checked_mul(validator_info.share_ratio)?.atomics()
+            / Uint256::from(DECIMAL_FRACTIONAL),
+    )?)
+}
+
 pub mod check_denom {
     use cosmwasm_schema::cw_serde;
     use cosmwasm_std::{QueryRequest, StdError, StdResult};
 
     use super::*;
 
+    #[cw_serde]
     pub struct DenomData {
         pub remote_denom: String,
         pub validator: String,
@@ -536,36 +579,4 @@ pub mod check_denom {
             validator: validator.to_string(),
         })
     }
-}
-
-fn calc_lsm_share_underlying_amount<T: CustomQuery>(
-    deps: Deps<T>,
-    puppeteer_contract: &Addr,
-    lsm_share: &Uint128,
-    validator: String,
-) -> ContractResult<Uint128> {
-    let delegations = deps
-        .querier
-        .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
-            puppeteer_contract,
-            &drop_puppeteer_base::msg::QueryMsg::Extension {
-                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
-            },
-        )?
-        .delegations
-        .delegations;
-    if delegations.is_empty() {
-        return Err(ContractError::NoDelegations {});
-    }
-    let validator_info = delegations
-        .iter()
-        .find(|one| one.validator == validator)
-        .ok_or(ContractError::ValidatorInfoNotFound {
-            validator: validator.clone(),
-        })?;
-    let share = Decimal256::from_atomics(*lsm_share, 0)?;
-    Ok(Uint128::try_from(
-        share.checked_mul(validator_info.share_ratio)?.atomics()
-            / Uint256::from(DECIMAL_FRACTIONAL),
-    )?)
 }
