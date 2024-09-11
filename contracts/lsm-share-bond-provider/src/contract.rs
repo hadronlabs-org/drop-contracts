@@ -129,6 +129,10 @@ fn query_can_process_on_idle(deps: Deps<NeutronQuery>, env: Env) -> ContractResu
     let last_lsm_redeem = LAST_LSM_REDEEM.load(deps.storage)?;
     let lsm_redeem_threshold = config.lsm_redeem_threshold as usize;
 
+    if pending_lsm_shares_count == 0 && lsm_shares_to_redeem_count == 0 {
+        return Ok(to_json_binary(&false)?);
+    }
+
     if lsm_shares_to_redeem_count >= lsm_redeem_threshold
         || ((lsm_shares_to_redeem_count < lsm_redeem_threshold)
             && (last_lsm_redeem + config.lsm_redeem_maximum_interval < env.block.time.seconds()))
@@ -280,7 +284,11 @@ fn execute_bond(
         StdResult::Ok(total + real_amount.u128())
     })?;
     PENDING_LSM_SHARES.update(deps.storage, denom.to_string(), |one| {
-        let mut new = one.unwrap_or((check_denom.remote_denom, Uint128::zero(), Uint128::zero()));
+        let mut new = one.unwrap_or((
+            check_denom.remote_denom.to_string(),
+            Uint128::zero(),
+            Uint128::zero(),
+        ));
         new.1 += amount;
         new.2 += real_amount;
         StdResult::Ok(new)
@@ -289,7 +297,14 @@ fn execute_bond(
     Ok(response(
         "bond",
         CONTRACT_NAME,
-        [attr_coin("received_funds", amount.to_string(), denom)],
+        [
+            attr_coin("received_funds", amount.to_string(), denom),
+            attr_coin(
+                "bonded_funds",
+                real_amount.to_string(),
+                check_denom.remote_denom,
+            ),
+        ],
     ))
 }
 
