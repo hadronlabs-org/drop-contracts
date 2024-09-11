@@ -117,7 +117,7 @@ fn lsm_denom_query_config(
 }
 
 #[test]
-fn instantiate() {
+fn test_instantiate() {
     let mut deps = mock_dependencies(&[]);
     let response = crate::contract::instantiate(
         deps.as_mut(),
@@ -160,7 +160,7 @@ fn instantiate() {
 }
 
 #[test]
-fn update_config_wrong_owner() {
+fn test_update_config_wrong_owner() {
     let mut deps = mock_dependencies(&[]);
 
     drop_staking_base::state::lsm_share_bond_provider::CONFIG
@@ -192,7 +192,7 @@ fn update_config_wrong_owner() {
 }
 
 #[test]
-fn update_config_ok() {
+fn test_update_config_ok() {
     let mut deps = mock_dependencies(&[]);
 
     let deps_mut = deps.as_mut();
@@ -263,7 +263,7 @@ fn update_config_ok() {
 }
 
 #[test]
-fn update_ownership() {
+fn test_update_ownership() {
     let mut deps = mock_dependencies(&[]);
 
     let deps_mut = deps.as_mut();
@@ -306,7 +306,7 @@ fn update_ownership() {
 }
 
 #[test]
-fn process_on_idle_supported() {
+fn test_process_on_idle_supported() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
 
@@ -338,7 +338,7 @@ fn process_on_idle_supported() {
 }
 
 #[test]
-fn execute_bond() {
+fn test_execute_bond() {
     let mut deps = mock_dependencies(&[]);
     lsm_denom_query_config(deps.borrow_mut());
 
@@ -405,7 +405,7 @@ fn execute_bond() {
 }
 
 #[test]
-fn execute_bond_wrong_denom() {
+fn test_execute_bond_wrong_denom() {
     let mut deps = mock_dependencies(&[]);
     lsm_denom_query_config(deps.borrow_mut());
 
@@ -438,7 +438,7 @@ fn execute_bond_wrong_denom() {
 }
 
 #[test]
-fn execute_bond_no_funds() {
+fn test_execute_bond_no_funds() {
     let mut deps = mock_dependencies(&[]);
 
     drop_staking_base::state::lsm_share_bond_provider::CONFIG
@@ -472,7 +472,7 @@ fn execute_bond_no_funds() {
 }
 
 #[test]
-fn execute_bond_multiple_denoms() {
+fn test_execute_bond_multiple_denoms() {
     let mut deps = mock_dependencies(&[]);
 
     drop_staking_base::state::lsm_share_bond_provider::CONFIG
@@ -515,7 +515,7 @@ mod query {
     use super::*;
 
     #[test]
-    fn config() {
+    fn test_config() {
         let mut deps = mock_dependencies(&[]);
         drop_staking_base::state::lsm_share_bond_provider::CONFIG
             .save(deps.as_mut().storage, &get_default_config(100u64, 200u64))
@@ -534,7 +534,7 @@ mod query {
     }
 
     #[test]
-    fn token_amount_wrong_denom() {
+    fn test_token_amount_wrong_denom() {
         let mut deps = mock_dependencies(&[]);
         lsm_denom_query_config(deps.borrow_mut());
 
@@ -572,7 +572,7 @@ mod query {
     }
 
     #[test]
-    fn can_process_idle_with_enough_interval() {
+    fn test_can_process_idle_with_enough_interval() {
         let mut deps = mock_dependencies(&[]);
         let deps_mut = deps.as_mut();
 
@@ -611,7 +611,7 @@ mod query {
     }
 
     #[test]
-    fn can_process_false_below_threshold() {
+    fn test_can_process_false_below_threshold() {
         let mut deps = mock_dependencies(&[]);
         let deps_mut = deps.as_mut();
 
@@ -643,7 +643,7 @@ mod query {
     }
 
     #[test]
-    fn ownership() {
+    fn test_ownership() {
         let mut deps = mock_dependencies(&[]);
 
         let deps_mut = deps.as_mut();
@@ -674,7 +674,7 @@ mod query {
     }
 
     #[test]
-    fn can_bond_ok() {
+    fn test_can_bond_ok() {
         let mut deps = mock_dependencies(&[]);
         lsm_denom_query_config(deps.borrow_mut());
 
@@ -705,7 +705,7 @@ mod query {
     }
 
     #[test]
-    fn can_bond_false() {
+    fn test_can_bond_false() {
         let mut deps = mock_dependencies(&[]);
         lsm_denom_query_config(deps.borrow_mut());
 
@@ -736,7 +736,7 @@ mod query {
     }
 
     #[test]
-    fn pending_lsm_shares() {
+    fn test_pending_lsm_shares() {
         let mut deps = mock_dependencies(&[]);
 
         let deps_mut = deps.as_mut();
@@ -767,7 +767,7 @@ mod query {
     }
 
     #[test]
-    fn lsm_shares_to_redeem() {
+    fn test_lsm_shares_to_redeem() {
         let mut deps = mock_dependencies(&[]);
 
         let deps_mut = deps.as_mut();
@@ -798,7 +798,7 @@ mod query {
     }
 
     #[test]
-    fn total_lsm_shares() {
+    fn test_total_lsm_shares() {
         let mut deps = mock_dependencies(&[]);
 
         let deps_mut = deps.as_mut();
@@ -818,7 +818,7 @@ mod query {
     }
 
     #[test]
-    fn can_process_idle_false_without_shares() {
+    fn test_can_process_idle_false_without_shares() {
         let mut deps = mock_dependencies(&[]);
         let deps_mut = deps.as_mut();
 
@@ -838,7 +838,7 @@ mod query {
     }
 
     #[test]
-    fn can_process_idle_with_pending_shares() {
+    fn test_can_process_idle_with_pending_shares() {
         let mut deps = mock_dependencies(&[]);
         let deps_mut = deps.as_mut();
 
@@ -864,7 +864,7 @@ mod query {
     }
 
     #[test]
-    fn can_process_idle_with_enough_redeem_shares() {
+    fn test_can_process_idle_with_enough_redeem_shares() {
         let mut deps = mock_dependencies(&[]);
         let deps_mut = deps.as_mut();
 
@@ -900,7 +900,7 @@ mod query {
     }
 
     #[test]
-    fn token_amount() {
+    fn test_token_amount() {
         let mut deps = mock_dependencies(&[]);
         lsm_denom_query_config(deps.borrow_mut());
 
@@ -925,7 +925,7 @@ mod query {
     }
 
     #[test]
-    fn token_amount_half() {
+    fn test_token_amount_half() {
         let mut deps = mock_dependencies(&[]);
         lsm_denom_query_config(deps.borrow_mut());
 
@@ -950,7 +950,7 @@ mod query {
     }
 
     #[test]
-    fn token_amount_above_one() {
+    fn test_token_amount_above_one() {
         let mut deps = mock_dependencies(&[]);
         lsm_denom_query_config(deps.borrow_mut());
 
@@ -984,7 +984,7 @@ mod check_denom {
     use super::*;
 
     #[test]
-    fn invalid_port() {
+    fn test_invalid_port() {
         let mut deps = mock_dependencies(&[]);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
@@ -1008,7 +1008,7 @@ mod check_denom {
     }
 
     #[test]
-    fn invalid_channel() {
+    fn test_invalid_channel() {
         let mut deps = mock_dependencies(&[]);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
@@ -1032,7 +1032,7 @@ mod check_denom {
     }
 
     #[test]
-    fn invalid_port_and_channel() {
+    fn test_invalid_port_and_channel() {
         let mut deps = mock_dependencies(&[]);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
@@ -1056,7 +1056,7 @@ mod check_denom {
     }
 
     #[test]
-    fn not_an_lsm_share() {
+    fn test_not_an_lsm_share() {
         let mut deps = mock_dependencies(&[]);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
@@ -1080,7 +1080,7 @@ mod check_denom {
     }
 
     #[test]
-    fn unknown_validator() {
+    fn test_unknown_validator() {
         let mut deps = mock_dependencies(&[]);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
@@ -1125,7 +1125,7 @@ mod check_denom {
     }
 
     #[test]
-    fn invalid_validator_index() {
+    fn test_invalid_validator_index() {
         let mut deps = mock_dependencies(&[]);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
@@ -1149,7 +1149,7 @@ mod check_denom {
     }
 
     #[test]
-    fn known_validator() {
+    fn test_known_validator() {
         let mut deps = mock_dependencies(&[]);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",

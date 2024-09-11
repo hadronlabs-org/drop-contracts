@@ -9,6 +9,7 @@ use drop_helpers::answer::response;
 use drop_helpers::pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse};
 use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
 use drop_puppeteer_base::state::RedeemShareItem;
+use drop_staking_base::state::core::BOND_PROVIDERS;
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
@@ -116,6 +117,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
         QueryMsg::FailedBatch {} => to_json_binary(&FailedBatchResponse {
             response: FAILED_BATCH_ID.may_load(deps.storage)?,
         })?,
+        QueryMsg::BondProviders {} => query_bond_providers(deps)?,
     })
 }
 
@@ -139,6 +141,13 @@ fn query_lsm_shares_to_redeem(deps: Deps<NeutronQuery>) -> ContractResult<Binary
         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
         .collect::<StdResult<Vec<_>>>()?;
     to_json_binary(&shares).map_err(From::from)
+}
+
+fn query_bond_providers(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+    let provider: Vec<(Addr, bool)> = BOND_PROVIDERS
+        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+        .collect::<StdResult<Vec<_>>>()?;
+    to_json_binary(&provider).map_err(From::from)
 }
 
 fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractResult<Decimal> {
@@ -291,7 +300,59 @@ pub fn execute(
         ExecuteMsg::StakerHook(msg) => execute_staker_hook(deps, env, info, *msg),
         ExecuteMsg::Pause {} => exec_pause(deps, info),
         ExecuteMsg::Unpause {} => exec_unpause(deps, info),
+        ExecuteMsg::AddBondProvider {
+            bond_provider_address,
+        } => execute_add_bond_provider(deps, info, bond_provider_address),
+        ExecuteMsg::RemoveBondProvider {
+            bond_provider_address,
+        } => execute_remove_bond_provider(deps, info, bond_provider_address),
     }
+}
+
+fn execute_add_bond_provider(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    bond_provider_address: String,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    let bond_provider_address = deps.api.addr_validate(&bond_provider_address)?;
+
+    if BOND_PROVIDERS.has(deps.storage, bond_provider_address.clone()) {
+        return Err(ContractError::BondProviderAlreadyExists {});
+    }
+
+    BOND_PROVIDERS.save(deps.storage, bond_provider_address.clone(), &true)?;
+
+    Ok(response(
+        "execute-add_bond_provider",
+        CONTRACT_NAME,
+        vec![
+            attr("action", "add_bond_provider"),
+            attr("bond_provider_address", bond_provider_address.to_string()),
+        ],
+    ))
+}
+
+fn execute_remove_bond_provider(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    bond_provider_address: String,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    let bond_provider_address = deps.api.addr_validate(&bond_provider_address)?;
+
+    BOND_PROVIDERS.remove(deps.storage, bond_provider_address.clone());
+
+    Ok(response(
+        "execute-remove_bond_provider",
+        CONTRACT_NAME,
+        vec![
+            attr("action", "remove_bond_provider"),
+            attr("bond_provider_address", bond_provider_address.to_string()),
+        ],
+    ))
 }
 
 fn exec_pause(

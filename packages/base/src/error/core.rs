@@ -137,6 +137,9 @@ pub enum ContractError {
     #[error("Fee must be in range [0.0, 1.0]")]
     InvalidFee {},
 
+    #[error("Bond provider already exists")]
+    BondProviderAlreadyExists {},
+
     #[error("Semver parsing error: {0}")]
     SemVer(String),
 }

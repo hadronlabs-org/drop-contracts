@@ -13,7 +13,6 @@ use drop_puppeteer_base::{
     msg::TransferReadyBatchesMsg,
     state::{Delegations, DropDelegation, RedeemShareItem},
 };
-use drop_staking_base::state::core::{FAILED_BATCH_ID, LAST_STAKER_RESPONSE};
 use drop_staking_base::{
     error::core::ContractError,
     msg::{
@@ -28,6 +27,10 @@ use drop_staking_base::{
         LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LD_DENOM, LSM_SHARES_TO_REDEEM,
         PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
     },
+};
+use drop_staking_base::{
+    msg::core::QueryMsg,
+    state::core::{FAILED_BATCH_ID, LAST_STAKER_RESPONSE},
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -294,6 +297,75 @@ fn test_execute_reset_bonded_amount() {
     );
     let amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
     assert_eq!(amount, Uint128::zero());
+}
+
+#[test]
+fn test_add_remove_bond_provider() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap();
+
+    let bond_providers =
+        crate::contract::query(deps.as_ref(), mock_env(), QueryMsg::BondProviders {}).unwrap();
+
+    assert_eq!(
+        bond_providers,
+        to_json_binary::<Vec<(Addr, bool)>>(&vec![]).unwrap()
+    );
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("admin", &[]),
+        ExecuteMsg::AddBondProvider {
+            bond_provider_address: "bond_provider".to_string(),
+        },
+    );
+    assert_eq!(
+        res,
+        Ok(Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-core-execute-add_bond_provider")
+                .add_attributes(vec![
+                    ("action", "add_bond_provider"),
+                    ("bond_provider_address", "bond_provider")
+                ])
+        ))
+    );
+
+    let bond_providers =
+        crate::contract::query(deps.as_ref(), mock_env(), QueryMsg::BondProviders {}).unwrap();
+
+    assert_eq!(
+        bond_providers,
+        to_json_binary(&vec![(Addr::unchecked("bond_provider"), true)]).unwrap()
+    );
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("admin", &[]),
+        ExecuteMsg::RemoveBondProvider {
+            bond_provider_address: "bond_provider".to_string(),
+        },
+    );
+    assert_eq!(
+        res,
+        Ok(Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-core-execute-remove_bond_provider")
+                .add_attributes(vec![
+                    ("action", "remove_bond_provider"),
+                    ("bond_provider_address", "bond_provider")
+                ])
+        ))
+    );
+
+    let bond_providers =
+        crate::contract::query(deps.as_ref(), mock_env(), QueryMsg::BondProviders {}).unwrap();
+
+    assert_eq!(
+        bond_providers,
+        to_json_binary::<Vec<(Addr, bool)>>(&vec![]).unwrap()
+    );
 }
 
 #[test]

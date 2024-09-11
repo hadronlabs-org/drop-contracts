@@ -4,7 +4,7 @@ use crate::{
     state::core::{Config, ConfigOptional},
 };
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Deps, Uint128, Uint64};
+use cosmwasm_std::{Addr, Deps, Uint128, Uint64};
 use cw_ownable::cw_ownable_execute;
 #[allow(unused_imports)]
 use drop_helpers::pause::PauseInfoResponse;
@@ -120,6 +120,8 @@ pub enum QueryMsg {
     LSMSharesToRedeem {},
     #[returns(Uint128)]
     TotalBonded {},
+    #[returns(Vec<Addr>)]
+    BondProviders {},
     #[returns(Uint128)]
     TotalLSMShares {},
     #[returns(FailedBatchResponse)]
@@ -136,6 +138,12 @@ pub enum ExecuteMsg {
     },
     Unbond {},
     //permissioned
+    AddBondProvider {
+        bond_provider_address: String,
+    },
+    RemoveBondProvider {
+        bond_provider_address: String,
+    },
     UpdateConfig {
         new_config: Box<ConfigOptional>,
     },
