@@ -630,26 +630,20 @@ fn execute_tick_idle(
     attrs.push(attr("knot", "002"));
     attrs.push(attr("knot", "003"));
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
-        attrs.push(attr("knot", "036"));
-        if let Some(lsm_msg) =
-            get_pending_redeem_msg(deps.as_ref(), config, &env, info.funds.clone())?
-        {
-            messages.push(lsm_msg);
-            attrs.push(attr("knot", "037"));
-            FSM.go_to(deps.storage, ContractState::LSMRedeem)?;
-            attrs.push(attr("knot", "038"));
-        } else {
-            attrs.push(attr("knot", "041"));
-            if let Some(lsm_msg) =
-                get_pending_lsm_share_msg(deps.as_ref(), config, &env, info.funds.clone())?
-            {
-                messages.push(lsm_msg);
-                attrs.push(attr("knot", "042"));
-                FSM.go_to(deps.storage, ContractState::LSMTransfer)?;
-                attrs.push(attr("knot", "043"));
-            } else {
-                //return error if none
-                return Err(ContractError::IdleMinIntervalIsNotReached {});
+        let bond_providers = query_bond_providers(deps.as_ref())?;
+        for provider in bond_providers {
+            let can_process_on_idle: bool = deps.querier.query_wasm_smart(
+                provider.0.to_string(),
+                &drop_staking_base::msg::bond_provider::QueryMsg::CanProcessOnIdle {},
+            )?;
+            if can_process_on_idle {
+                messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: provider.0.to_string(),
+                    msg: to_json_binary(
+                        &drop_staking_base::msg::bond_provider::ExecuteMsg::ProcessOnIdle {},
+                    )?,
+                    funds: vec![],
+                }));
             }
         }
     } else {
@@ -1133,6 +1127,8 @@ fn execute_bond(
                 })?,
                 funds: vec![],
             }));
+
+            break;
         }
     }
 
