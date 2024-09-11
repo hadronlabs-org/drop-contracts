@@ -117,7 +117,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
         QueryMsg::FailedBatch {} => to_json_binary(&FailedBatchResponse {
             response: FAILED_BATCH_ID.may_load(deps.storage)?,
         })?,
-        QueryMsg::BondProviders {} => query_bond_providers(deps)?,
+        QueryMsg::BondProviders {} => to_json_binary(&query_bond_providers(deps)?)?,
     })
 }
 
@@ -143,11 +143,11 @@ fn query_lsm_shares_to_redeem(deps: Deps<NeutronQuery>) -> ContractResult<Binary
     to_json_binary(&shares).map_err(From::from)
 }
 
-fn query_bond_providers(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+fn query_bond_providers(deps: Deps<NeutronQuery>) -> ContractResult<Vec<(Addr, bool)>> {
     let provider: Vec<(Addr, bool)> = BOND_PROVIDERS
         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
         .collect::<StdResult<Vec<_>>>()?;
-    to_json_binary(&provider).map_err(From::from)
+    Ok(provider)
 }
 
 fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractResult<Decimal> {
@@ -1075,70 +1075,67 @@ fn execute_bond(
     r#ref: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
-    let Coin { mut amount, denom } = cw_utils::one_coin(&info)?;
+    let Coin { amount, denom } = cw_utils::one_coin(&info)?;
     if let Some(bond_limit) = config.bond_limit {
         if BONDED_AMOUNT.load(deps.storage)? + amount > bond_limit {
             return Err(ContractError::BondLimitExceeded {});
         }
     }
-    let denom_type = check_denom::check_denom(&deps.as_ref(), &denom, &config)?;
     let mut msgs = vec![];
     let mut attrs = vec![attr("action", "bond")];
     let exchange_rate = query_exchange_rate(deps.as_ref(), &config)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
-    if let check_denom::DenomType::LsmShare(remote_denom, validator) = denom_type {
-        let share_amount = amount;
-        let real_amount = calc_lsm_share_underlying_amount(
-            deps.as_ref(),
-            &config.puppeteer_contract,
-            &amount,
-            validator,
-        )?;
-        if real_amount < config.lsm_min_bond_amount {
-            return Err(ContractError::LSMBondAmountIsBelowMinimum {
-                min_stake_amount: config.lsm_min_bond_amount,
-                bond_amount: real_amount,
-            });
-        }
-        TOTAL_LSM_SHARES.update(deps.storage, |total| {
-            StdResult::Ok(total + real_amount.u128())
-        })?;
-        PENDING_LSM_SHARES.update(deps.storage, denom, |one| {
-            let mut new = one.unwrap_or((remote_denom, Uint128::zero(), Uint128::zero()));
-            new.1 += share_amount;
-            new.2 += real_amount;
-            StdResult::Ok(new)
-        })?;
-        amount = real_amount;
-    } else {
-        // if it's not LSM share, we send this amount to the staker
-        msgs.push(CosmosMsg::Bank(BankMsg::Send {
-            to_address: config.staker_contract.to_string(),
-            amount: vec![Coin::new(amount.u128(), denom)],
-        }));
-    }
-    BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total + amount))?;
-    let issue_amount = amount * (Decimal::one() / exchange_rate);
-    attrs.push(attr("issue_amount", issue_amount.to_string()));
 
-    let receiver = receiver.map_or(Ok::<String, ContractError>(info.sender.to_string()), |a| {
-        deps.api.addr_validate(&a)?;
-        Ok(a)
-    })?;
-    attrs.push(attr("receiver", receiver.clone()));
-    if let Some(r#ref) = r#ref {
-        if !r#ref.is_empty() {
-            attrs.push(attr("ref", r#ref));
+    let bond_providers = query_bond_providers(deps.as_ref())?;
+    for provider in bond_providers {
+        let can_bond: bool = deps.querier.query_wasm_smart(
+            provider.0.to_string(),
+            &drop_staking_base::msg::bond_provider::QueryMsg::CanBond {
+                denom: denom.clone(),
+            },
+        )?;
+        if can_bond {
+            let issue_amount: Uint128 = deps.querier.query_wasm_smart(
+                provider.0.to_string(),
+                &drop_staking_base::msg::bond_provider::QueryMsg::TokenAmount {
+                    coin: Coin::new(amount.u128(), denom.clone()),
+                    exchange_rate,
+                },
+            )?;
+            attrs.push(attr("issue_amount", issue_amount.to_string()));
+
+            msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: provider.0.to_string(),
+                msg: to_json_binary(&drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {})?,
+                funds: vec![Coin::new(amount.u128(), denom.clone())],
+            }));
+
+            BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total + amount))?;
+
+            let receiver = receiver.clone().map_or(
+                Ok::<String, ContractError>(info.sender.to_string()),
+                |a| {
+                    deps.api.addr_validate(&a)?;
+                    Ok(a)
+                },
+            )?;
+            attrs.push(attr("receiver", receiver.clone()));
+            if let Some(r#ref) = r#ref.clone() {
+                if !r#ref.is_empty() {
+                    attrs.push(attr("ref", r#ref));
+                }
+            }
+            msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: config.token_contract.to_string(),
+                msg: to_json_binary(&TokenExecuteMsg::Mint {
+                    amount: issue_amount,
+                    receiver,
+                })?,
+                funds: vec![],
+            }));
         }
     }
-    msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.token_contract.into_string(),
-        msg: to_json_binary(&TokenExecuteMsg::Mint {
-            amount: issue_amount,
-            receiver,
-        })?,
-        funds: vec![],
-    }));
+
     Ok(response("execute-bond", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 

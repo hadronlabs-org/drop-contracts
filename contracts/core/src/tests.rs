@@ -23,9 +23,9 @@ use drop_staking_base::{
     },
     state::core::{
         unbond_batches_map, Config, ConfigOptional, ContractState, UnbondBatch, UnbondBatchStatus,
-        UnbondBatchStatusTimestamps, BONDED_AMOUNT, CONFIG, FSM, LAST_ICA_CHANGE_HEIGHT,
-        LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LD_DENOM, LSM_SHARES_TO_REDEEM,
-        PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+        UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_PROVIDERS, CONFIG, FSM,
+        LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LD_DENOM,
+        LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
     },
 };
 use drop_staking_base::{
@@ -2849,6 +2849,25 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
 #[test]
 fn test_bond_wo_receiver() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&BalancesResponse {
+                balances: Balances { coins: vec![] },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
+            .unwrap()
+        });
+
+    BOND_PROVIDERS
+        .save(
+            deps.as_mut().storage,
+            Addr::unchecked("native_provider"),
+            &true,
+        )
+        .unwrap();
+
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
