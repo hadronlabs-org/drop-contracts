@@ -770,6 +770,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-proto"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-std",
+ "prost",
+ "prost-types",
+ "tendermint-proto",
+]
+
+[[package]]
 name = "drop-provider-proposals-poc"
 version = "1.0.0"
 dependencies = [
@@ -821,13 +831,13 @@ dependencies = [
  "cw-ownable",
  "cw2 1.1.2",
  "drop-helpers",
+ "drop-proto",
  "drop-puppeteer-base",
  "drop-staking-base",
  "neutron-sdk",
  "prost",
  "prost-types",
  "semver",
- "tendermint-proto",
 ]
 
 [[package]]
@@ -848,6 +858,25 @@ dependencies = [
  "serde",
  "serde-json-wasm 1.0.1",
  "thiserror",
+]
+
+[[package]]
+name = "drop-puppeteer-initia"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-proto",
+ "drop-puppeteer-base",
+ "drop-staking-base",
+ "neutron-sdk",
+ "prost",
+ "prost-types",
+ "semver",
 ]
 
 [[package]]
@@ -893,6 +922,7 @@ dependencies = [
  "cw-ownable",
  "cw2 1.1.2",
  "drop-helpers",
+ "drop-proto",
  "drop-staking-base",
  "neutron-sdk",
  "prost",

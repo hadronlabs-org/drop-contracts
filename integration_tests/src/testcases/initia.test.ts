@@ -8,6 +8,7 @@ import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { join } from 'path';
 import fs from 'fs';
 import { DropSplitter } from 'drop-ts-client';
+import { sleep } from '../helpers/sleep';
 
 const DropSplitterClass = DropSplitter.Client;
 
@@ -74,5 +75,6 @@ describe('Splitter', () => {
 
   it('instantiate', async () => {
     console.log('123');
+    await sleep(30_000);
   });
 });

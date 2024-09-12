@@ -12,6 +12,8 @@ use drop_helpers::{
     answer::response, ibc_client_state::query_client_state, ibc_fee::query_ibc_fee,
     interchain::prepare_any_msg, validation::validate_addresses,
 };
+use drop_proto::proto::initia::mstaking::v1::InitiaMsgDelegate;
+use drop_staking_base::state::staker::{ChainType, CHAIN_TYPE};
 use drop_staking_base::{
     msg::staker::{
         ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion, QueryMsg, ReceiverExecuteMsg,
@@ -76,6 +78,10 @@ pub fn instantiate(
         },
     )?;
     NON_STAKED_BALANCE.save(deps.storage, &Uint128::zero())?;
+    CHAIN_TYPE.save(
+        deps.storage,
+        &msg.chain_type.unwrap_or(ChainType::default()),
+    )?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
@@ -252,19 +258,15 @@ fn execute_stake(
             "puppeteer_ica not set",
         )))?;
     let mut delegations = vec![];
+    let chain_type = CHAIN_TYPE.load(deps.storage).unwrap_or_default();
     for (validator, amount) in items {
-        delegations.push(cosmos_sdk_proto::Any {
-            type_url: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
-            value: MsgDelegate {
-                delegator_address: puppeteer_ica.to_string(),
-                validator_address: validator.to_string(),
-                amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-                    denom: config.remote_denom.to_string(),
-                    amount: amount.to_string(),
-                }),
-            }
-            .to_bytes()?,
-        });
+        delegations.push(get_delegate_msg(
+            chain_type.clone(),
+            puppeteer_ica.to_string(),
+            validator,
+            config.remote_denom.to_string(),
+            amount.to_string(),
+        )?);
     }
     let grant_msg = MsgExec {
         grantee: ica.to_string(),
@@ -661,4 +663,33 @@ pub fn submit_ibc_transfer_reply(deps: DepsMut, msg: Reply) -> StdResult<Respons
         "puppeteer-base",
         atts,
     ))
+}
+
+fn get_delegate_msg(
+    chain_type: ChainType,
+    delegator: String,
+    validator: String,
+    denom: String,
+    amount: String,
+) -> ContractResult<cosmos_sdk_proto::Any> {
+    match chain_type {
+        ChainType::BasicCosmos => Ok(cosmos_sdk_proto::Any {
+            type_url: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
+            value: MsgDelegate {
+                delegator_address: delegator,
+                validator_address: validator,
+                amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin { denom, amount }),
+            }
+            .to_bytes()?,
+        }),
+        ChainType::Initia => Ok(cosmos_sdk_proto::Any {
+            type_url: "/initia.mstaking.v1.MsgDelegate".to_string(),
+            value: InitiaMsgDelegate {
+                delegator_address: delegator,
+                validator_address: validator,
+                amount: vec![drop_proto::proto::cosmos::base::v1beta1::Coin { denom, amount }],
+            }
+            .to_bytes()?,
+        }),
+    }
 }

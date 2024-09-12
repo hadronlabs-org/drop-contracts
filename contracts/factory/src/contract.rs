@@ -277,6 +277,7 @@ pub fn instantiate(
                 base_denom: msg.base_denom.clone(),
                 min_ibc_transfer: msg.staker_params.min_ibc_transfer,
                 min_staking_amount: msg.staker_params.min_stake_amount,
+                chain_type: msg.staker_params.chain_type,
             })?,
             funds: vec![],
             salt: Binary::from(salt),

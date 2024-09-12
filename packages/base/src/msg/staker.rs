@@ -1,4 +1,4 @@
-use crate::state::staker::{ConfigOptional, Transaction};
+use crate::state::staker::{ChainType, ConfigOptional, Transaction};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
 use neutron_sdk::sudo::msg::RequestPacket;
@@ -50,6 +50,7 @@ pub struct InstantiateMsg {
     pub allowed_senders: Vec<String>,
     pub min_ibc_transfer: Uint128,
     pub min_staking_amount: Uint128,
+    pub chain_type: Option<ChainType>,
 }
 
 #[cw_serde]

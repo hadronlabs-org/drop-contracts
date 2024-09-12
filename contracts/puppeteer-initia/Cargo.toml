@@ -1,8 +1,8 @@
 [package]
 authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>"]
-description = "Contract to stake tokens on remote zone using authz"
+description = "Contract to facilitate base interchain features"
 edition = "2021"
-name = "drop-staker"
+name = "drop-puppeteer-initia"
 version = "1.0.0"
 
 exclude = [
@@ -26,13 +26,13 @@ library = []
 cosmos-sdk-proto = { workspace = true }
 neutron-sdk = { workspace = true }
 prost = { workspace = true }
+prost-types = { workspace = true }
 cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
-serde-json-wasm = { workspace = true }
-thiserror = { workspace = true }
-drop-helpers = { workspace = true }
-drop-staking-base = { workspace = true }
-drop-proto = { workspace = true }
 cw-ownable = { workspace = true }
 cw2 = { workspace = true }
+drop-staking-base = { workspace = true }
+drop-helpers = { workspace = true }
+drop-proto = { workspace = true }
+drop-puppeteer-base = { workspace = true }
 semver = { workspace = true }

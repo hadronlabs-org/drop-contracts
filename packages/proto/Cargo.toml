@@ -1,8 +1,8 @@
 [package]
 authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>"]
-description = "Contract to stake tokens on remote zone using authz"
+description = "Protos"
 edition = "2021"
-name = "drop-staker"
+name = "drop-proto"
 version = "1.0.0"
 
 exclude = [
@@ -23,16 +23,7 @@ backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
-cosmos-sdk-proto = { workspace = true }
-neutron-sdk = { workspace = true }
 prost = { workspace = true }
-cosmwasm-schema = { workspace = true }
+prost-types = { workspace = true }
 cosmwasm-std = { workspace = true }
-serde-json-wasm = { workspace = true }
-thiserror = { workspace = true }
-drop-helpers = { workspace = true }
-drop-staking-base = { workspace = true }
-drop-proto = { workspace = true }
-cw-ownable = { workspace = true }
-cw2 = { workspace = true }
-semver = { workspace = true }
+tendermint-proto = { workspace = true }
