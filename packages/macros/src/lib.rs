@@ -173,7 +173,7 @@ pub fn pausable(metadata: TokenStream, input: TokenStream) -> TokenStream {
 /// ```
 /// use drop_macros::bond_provider_query;
 /// use cosmwasm_schema::{cw_serde, QueryResponses};
-/// use cosmwasm_std::{Coin, Decimal};
+/// use cosmwasm_std::{Coin, Decimal, Uint128};
 ///
 ///
 /// #[bond_provider_query]
@@ -185,7 +185,6 @@ pub fn pausable(metadata: TokenStream, input: TokenStream) -> TokenStream {
 /// Will transform the enum to:
 ///
 /// ```
-/// use cosmwasm_std::{Coin, Decimal};
 ///
 /// enum QueryMsg {
 ///     /// Returns flag wether this bond provider can be used with this denom.
@@ -193,7 +192,9 @@ pub fn pausable(metadata: TokenStream, input: TokenStream) -> TokenStream {
 ///     /// Returns flag wethers this bond provider can be used during idle state of the core.
 ///     CanProcessOnIdle {},
 ///     /// Returns amount of drop tokens to be minted with provided coin
-///     TokenAmount { coin: Coin, exchange_rate: Decimal },
+///     TokensAmount { coin: Coin, exchange_rate: Decimal },
+///     /// Returns amount of locked but not processed tokens in the async bonding provider like LSM shares
+///     AsyncTokensAmount {},
 /// }
 /// ```
 ///
@@ -206,7 +207,7 @@ pub fn pausable(metadata: TokenStream, input: TokenStream) -> TokenStream {
 /// use drop_macros::bond_provider_query;
 /// use cosmwasm_schema::{cw_serde, QueryResponses};
 /// use cosmwasm_std::Empty;
-/// use cosmwasm_std::{Coin, Decimal};
+/// use cosmwasm_std::{Coin, Decimal, Uint128};
 ///
 ///
 /// #[derive(Clone)]
@@ -248,15 +249,22 @@ pub fn bond_provider_query(metadata: TokenStream, input: TokenStream) -> TokenSt
             })
             .unwrap();
 
-            let token_amount: Variant = syn::parse2(quote! {
+            let tokens_amount: Variant = syn::parse2(quote! {
                 #[returns(Decimal)]
-                TokenAmount { coin: Coin, exchange_rate: Decimal }
+                TokensAmount { coin: Coin, exchange_rate: Decimal }
+            })
+            .unwrap();
+
+            let async_tokens_amount: Variant = syn::parse2(quote! {
+                #[returns(Uint128)]
+                AsyncTokensAmount {}
             })
             .unwrap();
 
             variants.push(can_bond);
             variants.push(can_process_on_idle);
-            variants.push(token_amount);
+            variants.push(tokens_amount);
+            variants.push(async_tokens_amount);
         }
         _ => {
             return syn::Error::new(

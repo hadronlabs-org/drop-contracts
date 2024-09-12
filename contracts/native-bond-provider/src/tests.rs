@@ -288,7 +288,7 @@ fn query_token_amount() {
     let token_amount = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::TokenAmount {
+        drop_staking_base::msg::native_bond_provider::QueryMsg::TokensAmount {
             coin: Coin {
                 denom: "base_denom".to_string(),
                 amount: 100u128.into(),
@@ -318,7 +318,7 @@ fn query_token_amount_half() {
     let token_amount = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::TokenAmount {
+        drop_staking_base::msg::native_bond_provider::QueryMsg::TokensAmount {
             coin: Coin {
                 denom: "base_denom".to_string(),
                 amount: 100u128.into(),
@@ -348,7 +348,7 @@ fn query_token_amount_above_one() {
     let token_amount = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::TokenAmount {
+        drop_staking_base::msg::native_bond_provider::QueryMsg::TokensAmount {
             coin: Coin {
                 denom: "base_denom".to_string(),
                 amount: 100u128.into(),
@@ -378,7 +378,7 @@ fn query_token_amount_wrong_denom() {
     let error = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::TokenAmount {
+        drop_staking_base::msg::native_bond_provider::QueryMsg::TokensAmount {
             coin: Coin {
                 denom: "wrong_denom".to_string(),
                 amount: 100u128.into(),

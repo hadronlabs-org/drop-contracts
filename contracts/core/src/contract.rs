@@ -151,6 +151,7 @@ fn query_bond_providers(deps: Deps<NeutronQuery>) -> ContractResult<Vec<(Addr, b
 }
 
 fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractResult<Decimal> {
+    println!("query_exchange_rate: 1");
     let fsm_state = FSM.get_current_state(deps.storage)?;
     if fsm_state != ContractState::Idle {
         return Ok(EXCHANGE_RATE
@@ -158,6 +159,7 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
             .unwrap_or((Decimal::one(), 0))
             .0);
     }
+    println!("query_exchange_rate: 2");
     let ld_total_supply: cosmwasm_std::SupplyResponse =
         deps.querier.query(&QueryRequest::Bank(BankQuery::Supply {
             denom: LD_DENOM.load(deps.storage)?,
@@ -167,6 +169,7 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
     if exchange_rate_denominator.is_zero() {
         return Ok(Decimal::one());
     }
+    println!("query_exchange_rate: 3");
 
     let delegations_response = deps
         .querier
@@ -176,6 +179,7 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
             msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
         },
     )?;
+    println!("query_exchange_rate: 4");
 
     let delegations_amount: Uint128 = delegations_response
         .delegations
@@ -206,9 +210,19 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
         &config.staker_contract,
         &drop_staking_base::msg::staker::QueryMsg::AllBalance {},
     )?;
-    let total_lsm_shares = Uint128::new(TOTAL_LSM_SHARES.load(deps.storage)?);
+    println!("staker_balance: {:?}", staker_balance);
+    let mut total_async_shares: Uint128 = Uint128::zero();
+    let bond_providers = query_bond_providers(deps)?;
+    for provider in bond_providers {
+        let async_tokens_amount: Uint128 = deps.querier.query_wasm_smart(
+            provider.0.to_string(),
+            &drop_staking_base::msg::bond_provider::QueryMsg::AsyncTokensAmount {},
+        )?;
+
+        total_async_shares += async_tokens_amount;
+    }
     // arithmetic operations order is important here as we don't want to overflow
-    let exchange_rate_numerator = delegations_amount + staker_balance + total_lsm_shares;
+    let exchange_rate_numerator = delegations_amount + staker_balance + total_async_shares;
     if exchange_rate_numerator.is_zero() {
         return Ok(Decimal::one());
     }
@@ -1091,7 +1105,7 @@ fn execute_bond(
         if can_bond {
             let issue_amount: Uint128 = deps.querier.query_wasm_smart(
                 provider.0.to_string(),
-                &drop_staking_base::msg::bond_provider::QueryMsg::TokenAmount {
+                &drop_staking_base::msg::bond_provider::QueryMsg::TokensAmount {
                     coin: Coin::new(amount.u128(), denom.clone()),
                     exchange_rate,
                 },
