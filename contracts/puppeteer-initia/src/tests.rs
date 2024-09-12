@@ -222,7 +222,7 @@ fn test_update_config() {
     assert_eq!(
         res,
         Response::new().add_event(
-            Event::new("crates.io:drop-neutron-contracts__drop-puppeteer-config_update")
+            Event::new("crates.io:drop-neutron-contracts__drop-puppeteer-initia-config_update")
                 .add_attributes(vec![
                     ("remote_denom", "new_remote_denom"),
                     ("connection_id", "new_connection_id"),
