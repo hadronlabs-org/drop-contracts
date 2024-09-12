@@ -483,8 +483,8 @@ fn test_execute_redeem_share() {
         msg,
     )
     .unwrap();
-    let msg = crate::proto::liquidstaking::staking::v1beta1::MsgRedeemTokensforShares {
-        amount: Some(crate::proto::cosmos::base::v1beta1::Coin {
+    let msg = drop_proto::proto::liquidstaking::staking::v1beta1::MsgRedeemTokensforShares {
+        amount: Some(drop_proto::proto::cosmos::base::v1beta1::Coin {
             denom: "remote_denom".to_string(),
             amount: "1000".to_string(),
         }),

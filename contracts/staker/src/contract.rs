@@ -78,10 +78,7 @@ pub fn instantiate(
         },
     )?;
     NON_STAKED_BALANCE.save(deps.storage, &Uint128::zero())?;
-    CHAIN_TYPE.save(
-        deps.storage,
-        &msg.chain_type.unwrap_or(ChainType::default()),
-    )?;
+    CHAIN_TYPE.save(deps.storage, &msg.chain_type.unwrap_or_default())?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 

@@ -43,6 +43,7 @@ fn test_instantiate() {
         min_ibc_transfer: Uint128::from(10000u128),
         min_staking_amount: Uint128::from(10000u128),
         owner: Some("owner".to_string()),
+        chain_type: None,
     };
     let res = instantiate(deps.as_mut(), mock_env(), mock_info("admin", &[]), msg).unwrap();
     assert_eq!(
@@ -81,6 +82,7 @@ fn test_update_config() {
         min_ibc_transfer: Uint128::from(10000u128),
         min_staking_amount: Uint128::from(10000u128),
         owner: Some("owner".to_string()),
+        chain_type: None,
     };
     let _res = instantiate(deps.as_mut(), mock_env(), mock_info("admin", &[]), msg).unwrap();
     let deps_mut = deps.as_mut();
