@@ -73,13 +73,13 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::Config {} => query_config(deps, env),
         QueryMsg::CanBond { denom } => query_can_bond(deps, denom),
         QueryMsg::CanProcessOnIdle {} => query_can_process_on_idle(deps, env),
-        QueryMsg::TokenAmount {
+        QueryMsg::TokensAmount {
             coin,
             exchange_rate,
         } => query_token_amount(deps, coin, exchange_rate),
         QueryMsg::PendingLSMShares {} => query_pending_lsm_shares(deps),
         QueryMsg::LSMSharesToRedeem {} => query_lsm_shares_to_redeem(deps),
-        QueryMsg::TotalLSMShares {} => {
+        QueryMsg::AsyncTokensAmount {} => {
             to_json_binary(&TOTAL_LSM_SHARES.load(deps.storage)?).map_err(From::from)
         }
     }
@@ -134,8 +134,7 @@ fn query_can_process_on_idle(deps: Deps<NeutronQuery>, env: Env) -> ContractResu
     }
 
     if lsm_shares_to_redeem_count >= lsm_redeem_threshold
-        || ((lsm_shares_to_redeem_count < lsm_redeem_threshold)
-            && (last_lsm_redeem + config.lsm_redeem_maximum_interval < env.block.time.seconds()))
+        || (last_lsm_redeem + config.lsm_redeem_maximum_interval < env.block.time.seconds())
     {
         return Ok(to_json_binary(&true)?);
     }

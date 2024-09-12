@@ -31,8 +31,6 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     #[returns(crate::state::lsm_share_bond_provider::Config)]
     Config {},
-    #[returns(Uint128)]
-    TotalLSMShares {},
     #[returns(Vec<(String,(String, Uint128))>)]
     PendingLSMShares {},
     #[returns(Vec<(String,(String, Uint128))>)]

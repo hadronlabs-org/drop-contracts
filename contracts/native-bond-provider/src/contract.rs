@@ -47,10 +47,11 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::Config {} => query_config(deps, env),
         QueryMsg::CanBond { denom } => query_can_bond(deps, denom),
         QueryMsg::CanProcessOnIdle {} => Ok(to_json_binary(&false)?),
-        QueryMsg::TokenAmount {
+        QueryMsg::TokensAmount {
             coin,
             exchange_rate,
         } => query_token_amount(deps, coin, exchange_rate),
+        QueryMsg::AsyncTokensAmount {} => Ok(to_json_binary(&0)?),
     }
 }
 
