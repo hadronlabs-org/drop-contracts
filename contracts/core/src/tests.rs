@@ -2849,21 +2849,20 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
 #[test]
 fn test_bond_wo_receiver() {
     let mut deps = mock_dependencies(&[]);
+
     deps.querier
-        .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances { coins: vec![] },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+        .add_wasm_query_response("native_provider_address", |_| {
+            to_json_binary(&true).unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("native_provider_address", |_| {
+            to_json_binary(&Uint128::from(1000u128)).unwrap()
         });
 
     BOND_PROVIDERS
         .save(
             deps.as_mut().storage,
-            Addr::unchecked("native_provider"),
+            Addr::unchecked("native_provider_address"),
             &true,
         )
         .unwrap();
@@ -2906,9 +2905,11 @@ fn test_bond_wo_receiver() {
                     .add_attribute("issue_amount", "1000")
                     .add_attribute("receiver", "some")
             )
-            .add_submessage(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-                to_address: "staker_contract".to_string(),
-                amount: vec![Coin::new(1000, "base_denom")]
+            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "native_provider_address".to_string(),
+                msg: to_json_binary(&drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {})
+                    .unwrap(),
+                funds: vec![Coin::new(1000, "base_denom")],
             })))
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token_contract".to_string(),
@@ -2925,12 +2926,28 @@ fn test_bond_wo_receiver() {
 #[test]
 fn test_bond_with_receiver() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("native_provider_address", |_| {
+            to_json_binary(&true).unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("native_provider_address", |_| {
+            to_json_binary(&Uint128::from(1000u128)).unwrap()
+        });
+
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
     BONDED_AMOUNT
         .save(deps.as_mut().storage, &Uint128::zero())
+        .unwrap();
+    BOND_PROVIDERS
+        .save(
+            deps.as_mut().storage,
+            Addr::unchecked("native_provider_address"),
+            &true,
+        )
         .unwrap();
     CONFIG
         .save(
@@ -2964,9 +2981,11 @@ fn test_bond_with_receiver() {
                     .add_attribute("receiver", "receiver")
                     .add_attribute("ref", "ref")
             )
-            .add_submessage(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-                to_address: "staker_contract".to_string(),
-                amount: vec![Coin::new(1000, "base_denom")]
+            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "native_provider_address".to_string(),
+                msg: to_json_binary(&drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {})
+                    .unwrap(),
+                funds: vec![Coin::new(1000, "base_denom")],
             })))
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token_contract".to_string(),

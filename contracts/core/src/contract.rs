@@ -1104,7 +1104,7 @@ fn execute_bond(
                 funds: vec![Coin::new(amount.u128(), denom.clone())],
             }));
 
-            BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total + amount))?;
+            BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total + issue_amount))?;
 
             let receiver = receiver.clone().map_or(
                 Ok::<String, ContractError>(info.sender.to_string()),
