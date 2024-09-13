@@ -12,6 +12,7 @@ use cw_utils::PaymentError;
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
 use drop_puppeteer_base::state::{Delegations, DropDelegation};
 use drop_staking_base::{
+    error::lsm_share_bond_provider::ContractError,
     msg::puppeteer::DelegationsResponse,
     state::lsm_share_bond_provider::{
         Config, ConfigOptional, CONFIG, LAST_LSM_REDEEM, TOTAL_LSM_SHARES,
@@ -41,6 +42,7 @@ pub struct QueryDenomTraceRequest {
 
 fn lsm_denom_query_config(
     deps: &mut OwnedDeps<MemoryStorage, MockApi, WasmMockQuerier, NeutronQuery>,
+    unknown_validator: bool,
 ) {
     deps.querier.add_stargate_query_response(
         "/ibc.applications.transfer.v1.Query/DenomTrace",
@@ -69,29 +71,37 @@ fn lsm_denom_query_config(
             }
         },
     );
+
     deps.querier
-        .add_wasm_query_response("validators_set_contract", |request| {
+        .add_wasm_query_response("validators_set_contract", move |request| {
             let request =
                 from_json::<drop_staking_base::msg::validatorset::QueryMsg>(request).unwrap();
             if let drop_staking_base::msg::validatorset::QueryMsg::Validator { valoper } = request {
                 assert_eq!(valoper, "valoper12345");
-                to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
-                    validator: Some(drop_staking_base::state::validatorset::ValidatorInfo {
-                        valoper_address: "valoper12345".to_string(),
-                        weight: 1u64,
-                        last_processed_remote_height: None,
-                        last_processed_local_height: None,
-                        last_validated_height: None,
-                        last_commission_in_range: None,
-                        uptime: Decimal::one(),
-                        tombstone: false,
-                        jailed_number: None,
-                        init_proposal: None,
-                        total_passed_proposals: 0u64,
-                        total_voted_proposals: 0u64,
-                    }),
-                })
-                .unwrap()
+                if unknown_validator {
+                    to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
+                        validator: None,
+                    })
+                    .unwrap()
+                } else {
+                    to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
+                        validator: Some(drop_staking_base::state::validatorset::ValidatorInfo {
+                            valoper_address: "valoper12345".to_string(),
+                            weight: 1u64,
+                            last_processed_remote_height: None,
+                            last_processed_local_height: None,
+                            last_validated_height: None,
+                            last_commission_in_range: None,
+                            uptime: Decimal::one(),
+                            tombstone: false,
+                            jailed_number: None,
+                            init_proposal: None,
+                            total_passed_proposals: 0u64,
+                            total_voted_proposals: 0u64,
+                        }),
+                    })
+                    .unwrap()
+                }
             } else {
                 unimplemented!()
             }
@@ -340,7 +350,7 @@ fn test_process_on_idle_supported() {
 #[test]
 fn test_execute_bond() {
     let mut deps = mock_dependencies(&[]);
-    lsm_denom_query_config(deps.borrow_mut());
+    lsm_denom_query_config(deps.borrow_mut(), false);
 
     let deps_mut = deps.as_mut();
 
@@ -390,6 +400,9 @@ fn test_execute_bond() {
     )
     .unwrap();
 
+    let total_lsm_shares = TOTAL_LSM_SHARES.load(deps.as_ref().storage).unwrap();
+    assert_eq!(total_lsm_shares, 100u128);
+
     assert_eq!(
         pending_lsm_shares,
         to_json_binary::<Vec<(String, (String, Uint128, Uint128))>>(&vec![(
@@ -407,20 +420,10 @@ fn test_execute_bond() {
 #[test]
 fn test_execute_bond_wrong_denom() {
     let mut deps = mock_dependencies(&[]);
-    lsm_denom_query_config(deps.borrow_mut());
+    lsm_denom_query_config(deps.borrow_mut(), false);
 
     drop_staking_base::state::lsm_share_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::lsm_share_bond_provider::Config {
-                puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-                core_contract: Addr::unchecked("core_contract"),
-                validators_set_contract: Addr::unchecked("validators_set_contract"),
-                transfer_channel_id: "transfer_channel_id".to_string(),
-                lsm_redeem_threshold: 100u64,
-                lsm_redeem_maximum_interval: 200u64,
-            },
-        )
+        .save(deps.as_mut().storage, &get_default_config(100u64, 200u64))
         .unwrap();
 
     let error = crate::contract::execute(
@@ -442,17 +445,7 @@ fn test_execute_bond_no_funds() {
     let mut deps = mock_dependencies(&[]);
 
     drop_staking_base::state::lsm_share_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::lsm_share_bond_provider::Config {
-                puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-                core_contract: Addr::unchecked("core_contract"),
-                validators_set_contract: Addr::unchecked("validators_set_contract"),
-                transfer_channel_id: "transfer_channel_id".to_string(),
-                lsm_redeem_threshold: 100u64,
-                lsm_redeem_maximum_interval: 200u64,
-            },
-        )
+        .save(deps.as_mut().storage, &get_default_config(100u64, 200u64))
         .unwrap();
 
     let error = crate::contract::execute(
@@ -474,404 +467,21 @@ fn test_execute_bond_no_funds() {
 #[test]
 fn test_bond_lsm_share_wrong_validator() {
     let mut deps = mock_dependencies(&[]);
-    deps.querier
-        .add_wasm_query_response("native_provider_address", |_| {
-            to_json_binary(&Uint128::from(100u128)).unwrap()
-        });
-    deps.querier
-        .add_wasm_query_response("native_provider_address", |_| {
-            to_json_binary(&true).unwrap()
-        });
-    deps.querier
-        .add_wasm_query_response("native_provider_address", |_| {
-            to_json_binary(&Uint128::from(100500u128)).unwrap()
-        });
+    lsm_denom_query_config(deps.borrow_mut(), true);
 
-    BOND_PROVIDERS
-        .save(
-            deps.as_mut().storage,
-            Addr::unchecked("native_provider_address"),
-            &true,
-        )
+    drop_staking_base::state::lsm_share_bond_provider::CONFIG
+        .save(deps.as_mut().storage, &get_default_config(100u64, 200u64))
         .unwrap();
-    let mut env = mock_env();
-    env.block.time = Timestamp::from_seconds(1000);
-    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
-        .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
-    CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 600, Uint128::new(100)),
-        )
-        .unwrap();
-    let res = execute(
-        deps.as_mut(),
-        env,
-        mock_info("some", &[Coin::new(1000, "lsm_share")]),
-        ExecuteMsg::Bond {
-            receiver: None,
-            r#ref: None,
-        },
-    );
-    assert!(res.is_err());
-    assert_eq!(res, Err(ContractError::InvalidDenom {}));
-}
 
-#[test]
-fn test_bond_lsm_share_ok() {
-    let mut deps = mock_dependencies(&[]);
-    deps.querier.add_stargate_query_response(
-        "/ibc.applications.transfer.v1.Query/DenomTrace",
-        |_data| {
-            to_json_binary(&QueryDenomTraceResponse {
-                denom_trace: DenomTrace {
-                    path: "transfer/transfer_channel".to_string(),
-                    base_denom: "valoper1/1".to_string(),
-                },
-            })
-            .unwrap()
-        },
-    );
-    deps.querier
-        .add_wasm_query_response("validators_set_contract", |_| {
-            to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
-                validator: Some(drop_staking_base::state::validatorset::ValidatorInfo {
-                    valoper_address: "valoper1".to_string(),
-                    weight: 1u64,
-                    last_processed_remote_height: None,
-                    last_processed_local_height: None,
-                    last_validated_height: None,
-                    last_commission_in_range: None,
-                    uptime: Decimal::one(),
-                    tombstone: false,
-                    jailed_number: None,
-                    init_proposal: None,
-                    total_passed_proposals: 0u64,
-                    total_voted_proposals: 0u64,
-                }),
-            })
-            .unwrap()
-        });
-    deps.querier
-        .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![DropDelegation {
-                        delegator: Addr::unchecked("delegator"),
-                        validator: "valoper1".to_string(),
-                        amount: Coin::new(1000, "remote_denom".to_string()),
-                        share_ratio: Decimal256::one(),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
-        });
-    let mut env = mock_env();
-    env.block.time = Timestamp::from_seconds(1000);
-    TOTAL_LSM_SHARES
-        .save(deps.as_mut().storage, &0u128)
-        .unwrap();
-    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
-        .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
-    CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 600, Uint128::new(100)),
-        )
-        .unwrap();
-    LD_DENOM
-        .save(deps.as_mut().storage, &"ld_denom".into())
-        .unwrap();
-    let res = execute(
+    let error = crate::contract::execute(
         deps.as_mut(),
-        env,
-        mock_info("some", &[Coin::new(1000, "lsm_share")]),
-        ExecuteMsg::Bond {
-            receiver: None,
-            r#ref: None,
-        },
+        mock_env(),
+        mock_info("core", &[Coin::new(1000u128, "wrong_lsm_share")]),
+        drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::Bond {},
     )
-    .unwrap();
-    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
-    let total_lsm_shares = TOTAL_LSM_SHARES.load(deps.as_ref().storage).unwrap();
-    assert_eq!(bonded_amount, Uint128::from(1000u128));
-    assert_eq!(total_lsm_shares, 1000u128);
-    assert_eq!(
-        res,
-        Response::new()
-            .add_event(
-                Event::new("crates.io:drop-staking__drop-core-execute-bond")
-                    .add_attribute("action", "bond")
-                    .add_attribute("exchange_rate", "1")
-                    .add_attribute("issue_amount", "1000")
-                    .add_attribute("receiver", "some")
-            )
-            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "token_contract".to_string(),
-                msg: to_json_binary(&drop_staking_base::msg::token::ExecuteMsg::Mint {
-                    amount: Uint128::from(1000u128),
-                    receiver: "some".to_string()
-                })
-                .unwrap(),
-                funds: vec![],
-            })))
-    );
-}
+    .unwrap_err();
 
-#[test]
-fn test_bond_lsm_share_ok_with_low_ratio() {
-    let mut deps = mock_dependencies(&[]);
-    deps.querier.add_stargate_query_response(
-        "/ibc.applications.transfer.v1.Query/DenomTrace",
-        |_data| {
-            to_json_binary(&QueryDenomTraceResponse {
-                denom_trace: DenomTrace {
-                    path: "transfer/transfer_channel".to_string(),
-                    base_denom: "valoper1/1".to_string(),
-                },
-            })
-            .unwrap()
-        },
-    );
-    deps.querier
-        .add_wasm_query_response("validators_set_contract", |_| {
-            to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
-                validator: Some(drop_staking_base::state::validatorset::ValidatorInfo {
-                    valoper_address: "valoper1".to_string(),
-                    weight: 1u64,
-                    last_processed_remote_height: None,
-                    last_processed_local_height: None,
-                    last_validated_height: None,
-                    last_commission_in_range: None,
-                    uptime: Decimal::one(),
-                    tombstone: false,
-                    jailed_number: None,
-                    init_proposal: None,
-                    total_passed_proposals: 0u64,
-                    total_voted_proposals: 0u64,
-                }),
-            })
-            .unwrap()
-        });
-    deps.querier
-        .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![DropDelegation {
-                        delegator: Addr::unchecked("delegator"),
-                        validator: "valoper1".to_string(),
-                        amount: Coin::new(1000, "remote_denom".to_string()),
-                        share_ratio: Decimal256::from_ratio(1u32, 2u32),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
-        });
-    let mut env = mock_env();
-    env.block.time = Timestamp::from_seconds(1000);
-    TOTAL_LSM_SHARES
-        .save(deps.as_mut().storage, &0u128)
-        .unwrap();
-    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
-        .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
-    CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 600, Uint128::new(100)),
-        )
-        .unwrap();
-    LD_DENOM
-        .save(deps.as_mut().storage, &"ld_denom".into())
-        .unwrap();
-    let res = execute(
-        deps.as_mut(),
-        env,
-        mock_info("some", &[Coin::new(1000, "lsm_share")]),
-        ExecuteMsg::Bond {
-            receiver: None,
-            r#ref: None,
-        },
-    )
-    .unwrap();
-    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
-    let total_lsm_shares = TOTAL_LSM_SHARES.load(deps.as_ref().storage).unwrap();
-    let pending_lsm_shares = PENDING_LSM_SHARES
-        .load(deps.as_ref().storage, "lsm_share".to_string())
-        .unwrap();
-    assert_eq!(
-        pending_lsm_shares,
-        (
-            "valoper1/1".to_string(),
-            Uint128::from(1000u128),
-            Uint128::from(500u128)
-        )
-    );
-    assert_eq!(bonded_amount, Uint128::from(500u128));
-    assert_eq!(total_lsm_shares, 500u128);
-    assert_eq!(
-        res,
-        Response::new()
-            .add_event(
-                Event::new("crates.io:drop-staking__drop-core-execute-bond")
-                    .add_attribute("action", "bond")
-                    .add_attribute("exchange_rate", "1")
-                    .add_attribute("issue_amount", "500")
-                    .add_attribute("receiver", "some")
-            )
-            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "token_contract".to_string(),
-                msg: to_json_binary(&drop_staking_base::msg::token::ExecuteMsg::Mint {
-                    amount: Uint128::from(500u128),
-                    receiver: "some".to_string()
-                })
-                .unwrap(),
-                funds: vec![],
-            })))
-    );
-}
-
-#[test]
-fn test_bond_lsm_share_ok_with_low_ratio_pending_already_there() {
-    let mut deps = mock_dependencies(&[]);
-    deps.querier.add_stargate_query_response(
-        "/ibc.applications.transfer.v1.Query/DenomTrace",
-        |_data| {
-            to_json_binary(&QueryDenomTraceResponse {
-                denom_trace: DenomTrace {
-                    path: "transfer/transfer_channel".to_string(),
-                    base_denom: "valoper1/1".to_string(),
-                },
-            })
-            .unwrap()
-        },
-    );
-    deps.querier
-        .add_wasm_query_response("validators_set_contract", |_| {
-            to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
-                validator: Some(drop_staking_base::state::validatorset::ValidatorInfo {
-                    valoper_address: "valoper1".to_string(),
-                    weight: 1u64,
-                    last_processed_remote_height: None,
-                    last_processed_local_height: None,
-                    last_validated_height: None,
-                    last_commission_in_range: None,
-                    uptime: Decimal::one(),
-                    tombstone: false,
-                    jailed_number: None,
-                    init_proposal: None,
-                    total_passed_proposals: 0u64,
-                    total_voted_proposals: 0u64,
-                }),
-            })
-            .unwrap()
-        });
-    deps.querier
-        .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![DropDelegation {
-                        delegator: Addr::unchecked("delegator"),
-                        validator: "valoper1".to_string(),
-                        amount: Coin::new(1000, "remote_denom".to_string()),
-                        share_ratio: Decimal256::from_ratio(1u32, 2u32),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
-        });
-    let mut env = mock_env();
-    env.block.time = Timestamp::from_seconds(1000);
-    TOTAL_LSM_SHARES
-        .save(deps.as_mut().storage, &0u128)
-        .unwrap();
-    PENDING_LSM_SHARES
-        .save(
-            deps.as_mut().storage,
-            "lsm_share".to_string(),
-            &(
-                "valoper1/1".to_string(),
-                Uint128::from(10000u128),
-                Uint128::from(5000u128),
-            ),
-        )
-        .unwrap();
-    FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
-        .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
-    CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 600, Uint128::new(100)),
-        )
-        .unwrap();
-    LD_DENOM
-        .save(deps.as_mut().storage, &"ld_denom".into())
-        .unwrap();
-    let res = execute(
-        deps.as_mut(),
-        env,
-        mock_info("some", &[Coin::new(1000, "lsm_share")]),
-        ExecuteMsg::Bond {
-            receiver: None,
-            r#ref: None,
-        },
-    )
-    .unwrap();
-    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
-    let total_lsm_shares = TOTAL_LSM_SHARES.load(deps.as_ref().storage).unwrap();
-    let pending_lsm_shares = PENDING_LSM_SHARES
-        .load(deps.as_ref().storage, "lsm_share".to_string())
-        .unwrap();
-    assert_eq!(
-        pending_lsm_shares,
-        (
-            "valoper1/1".to_string(),
-            Uint128::from(11000u128),
-            Uint128::from(5500u128)
-        )
-    );
-    assert_eq!(bonded_amount, Uint128::from(500u128));
-    assert_eq!(total_lsm_shares, 500u128);
-    assert_eq!(
-        res,
-        Response::new()
-            .add_event(
-                Event::new("crates.io:drop-staking__drop-core-execute-bond")
-                    .add_attribute("action", "bond")
-                    .add_attribute("exchange_rate", "1")
-                    .add_attribute("issue_amount", "500")
-                    .add_attribute("receiver", "some")
-            )
-            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "token_contract".to_string(),
-                msg: to_json_binary(&drop_staking_base::msg::token::ExecuteMsg::Mint {
-                    amount: Uint128::from(500u128),
-                    receiver: "some".to_string()
-                })
-                .unwrap(),
-                funds: vec![],
-            })))
-    );
+    assert_eq!(error, ContractError::InvalidDenom {});
 }
 
 #[test]
@@ -939,7 +549,7 @@ mod query {
     #[test]
     fn test_token_amount_wrong_denom() {
         let mut deps = mock_dependencies(&[]);
-        lsm_denom_query_config(deps.borrow_mut());
+        lsm_denom_query_config(deps.borrow_mut(), false);
 
         drop_staking_base::state::lsm_share_bond_provider::CONFIG
             .save(
@@ -1079,7 +689,7 @@ mod query {
     #[test]
     fn test_can_bond_ok() {
         let mut deps = mock_dependencies(&[]);
-        lsm_denom_query_config(deps.borrow_mut());
+        lsm_denom_query_config(deps.borrow_mut(), false);
 
         drop_staking_base::state::lsm_share_bond_provider::CONFIG
             .save(
@@ -1110,7 +720,7 @@ mod query {
     #[test]
     fn test_can_bond_false() {
         let mut deps = mock_dependencies(&[]);
-        lsm_denom_query_config(deps.borrow_mut());
+        lsm_denom_query_config(deps.borrow_mut(), false);
 
         drop_staking_base::state::lsm_share_bond_provider::CONFIG
             .save(
@@ -1305,7 +915,7 @@ mod query {
     #[test]
     fn test_token_amount() {
         let mut deps = mock_dependencies(&[]);
-        lsm_denom_query_config(deps.borrow_mut());
+        lsm_denom_query_config(deps.borrow_mut(), false);
 
         CONFIG
             .save(deps.as_mut().storage, &get_default_config(100u64, 200u64))
@@ -1330,7 +940,7 @@ mod query {
     #[test]
     fn test_token_amount_half() {
         let mut deps = mock_dependencies(&[]);
-        lsm_denom_query_config(deps.borrow_mut());
+        lsm_denom_query_config(deps.borrow_mut(), false);
 
         CONFIG
             .save(deps.as_mut().storage, &get_default_config(100u64, 200u64))
@@ -1355,7 +965,7 @@ mod query {
     #[test]
     fn test_token_amount_above_one() {
         let mut deps = mock_dependencies(&[]);
-        lsm_denom_query_config(deps.borrow_mut());
+        lsm_denom_query_config(deps.borrow_mut(), false);
 
         CONFIG
             .save(deps.as_mut().storage, &get_default_config(100u64, 200u64))
