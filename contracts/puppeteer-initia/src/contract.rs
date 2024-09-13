@@ -561,7 +561,7 @@ fn execute_setup_protocol(
             authorization: Some(cosmos_sdk_proto::Any {
                 type_url: "/cosmos.authz.v1beta1.GenericAuthorization".to_string(),
                 value: GenericAuthorization {
-                    msg: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
+                    msg: "/initia.mstaking.v1.MsgDelegate".to_string(),
                 }
                 .encode_to_vec(),
             }),

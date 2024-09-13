@@ -7,7 +7,8 @@ RUN apt install -y curl git build-essential
 
 WORKDIR /code
 COPY . /code/
-
+RUN go mod edit -replace=github.com/cosmos/ibc-go/v8@v8.2.0=github.com/ratik/ibc-go/v8@v8.2.0-debug
+RUN go mod tidy
 RUN LEDGER_ENABLED=false make build
 
 RUN cp /go/pkg/mod/github.com/initia\-labs/movevm@v*/api/libmovevm.`uname -m`.so /lib/libmovevm.so

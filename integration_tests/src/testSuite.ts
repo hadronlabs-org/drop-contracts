@@ -131,7 +131,7 @@ const networkConfigs = {
     chain_id: 'testinitia',
     denom: redefinedParams.denom || 'uinit',
     image: `${ORG}${process.env.REMOTE_CHAIN ?? 'initia-test'}${VERSION}`,
-    prefix: redefinedParams.prefix || 'uinit',
+    prefix: redefinedParams.prefix || 'init',
     trace: true,
     validators: 2,
     commands: redefinedParams.commands,
