@@ -1,5 +1,6 @@
 use crate::state::native_bond_provider::ConfigOptional;
 use cosmwasm_schema::{cw_serde, QueryResponses};
+#[allow(unused_imports)]
 use cosmwasm_std::{Coin, Decimal, Uint128};
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 use drop_macros::{bond_provider, bond_provider_query};

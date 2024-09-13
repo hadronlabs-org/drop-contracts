@@ -16,6 +16,14 @@ use drop_staking_base::{
     msg::{
         core::{InstantiateMsg as CoreInstantiateMsg, QueryMsg as CoreQueryMsg},
         distribution::InstantiateMsg as DistributionInstantiateMsg,
+        lsm_share_bond_provider::{
+            InstantiateMsg as LsmShareBondProviderInstantiateMsg,
+            QueryMsg as LsmShareBondProviderQueryMsg,
+        },
+        native_bond_provider::{
+            InstantiateMsg as NativeBondProviderInstantiateMsg,
+            QueryMsg as NativeBondProviderQueryMsg,
+        },
         pump::InstantiateMsg as RewardsPumpInstantiateMsg,
         puppeteer::InstantiateMsg as PuppeteerInstantiateMsg,
         rewards_manager::{
@@ -86,6 +94,10 @@ pub fn instantiate(
         get_code_checksum(deps.as_ref(), msg.code_ids.splitter_code_id)?;
     let rewards_pump_contract_checksum =
         get_code_checksum(deps.as_ref(), msg.code_ids.rewards_pump_code_id)?;
+    let lsm_share_contract_checksum =
+        get_code_checksum(deps.as_ref(), msg.code_ids.lsm_share_bond_provider_code_id)?;
+    let native_bond_contract_checksum =
+        get_code_checksum(deps.as_ref(), msg.code_ids.native_bond_provider_code_id)?;
     let salt = msg.salt.as_bytes();
 
     let token_address =
@@ -168,6 +180,22 @@ pub fn instantiate(
         "rewards_pump_address",
         rewards_pump_address.to_string(),
     ));
+    let lsm_share_bond_provider_address =
+        instantiate2_address(&lsm_share_contract_checksum, &canonical_self_address, salt)?;
+    attrs.push(attr(
+        "lsm_share_bond_provider_address",
+        lsm_share_bond_provider_address.to_string(),
+    ));
+    let native_bond_provider_address = instantiate2_address(
+        &native_bond_contract_checksum,
+        &canonical_self_address,
+        salt,
+    )?;
+    attrs.push(attr(
+        "native_bond_provider_address",
+        native_bond_provider_address.to_string(),
+    ));
+
     let core_contract = deps.api.addr_humanize(&core_address)?.to_string();
     let token_contract = deps.api.addr_humanize(&token_address)?.to_string();
     let withdrawal_voucher_contract = deps
@@ -192,6 +220,15 @@ pub fn instantiate(
         .to_string();
     let rewards_pump_contract = deps.api.addr_humanize(&rewards_pump_address)?.to_string();
     let splitter_contract = deps.api.addr_humanize(&splitter_address)?.to_string();
+    let lsm_share_bond_provider_contract = deps
+        .api
+        .addr_humanize(&lsm_share_bond_provider_address)?
+        .to_string();
+    let native_bond_provider_contract = deps
+        .api
+        .addr_humanize(&native_bond_provider_address)?
+        .to_string();
+
     let state = State {
         token_contract: token_contract.to_string(),
         core_contract: core_contract.to_string(),
@@ -205,6 +242,8 @@ pub fn instantiate(
         rewards_manager_contract: rewards_manager_contract.to_string(),
         rewards_pump_contract: rewards_pump_contract.to_string(),
         splitter_contract: splitter_contract.to_string(),
+        lsm_share_bond_provider_contract: lsm_share_bond_provider_contract.to_string(),
+        native_bond_provider_contract: native_bond_provider_contract.to_string(),
     };
     STATE.save(deps.storage, &state)?;
 
@@ -307,7 +346,7 @@ pub fn instantiate(
                 base_denom: msg.base_denom.clone(),
                 remote_denom: msg.remote_opts.denom.to_string(),
                 pump_ica_address: None,
-                validators_set_contract,
+                validators_set_contract: validators_set_contract.to_string(),
                 unbonding_period: msg.core_params.unbonding_period,
                 unbonding_safe_period: msg.core_params.unbonding_safe_period,
                 unbond_batch_switch_time: msg.core_params.unbond_batch_switch_time,
@@ -389,6 +428,34 @@ pub fn instantiate(
                 },
                 local_denom: msg.local_denom.to_string(),
                 owner: Some(env.contract.address.to_string()),
+            })?,
+            funds: vec![],
+            salt: Binary::from(salt),
+        }),
+        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
+            admin: Some(env.contract.address.to_string()),
+            code_id: msg.code_ids.lsm_share_bond_provider_code_id,
+            label: get_contract_label("lsm-share-bond-provider"),
+            msg: to_json_binary(&LsmShareBondProviderInstantiateMsg {
+                owner: env.contract.address.to_string(),
+                core_contract: core_contract.to_string(),
+                puppeteer_contract: puppeteer_contract.to_string(),
+                validators_set_contract,
+                transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
+                lsm_redeem_threshold: msg.core_params.lsm_redeem_threshold,
+                lsm_redeem_maximum_interval: msg.core_params.lsm_redeem_max_interval,
+            })?,
+            funds: vec![],
+            salt: Binary::from(salt),
+        }),
+        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
+            admin: Some(env.contract.address.to_string()),
+            code_id: msg.code_ids.native_bond_provider_code_id,
+            label: get_contract_label("native-bond-provider"),
+            msg: to_json_binary(&NativeBondProviderInstantiateMsg {
+                owner: env.contract.address.to_string(),
+                base_denom: msg.base_denom.to_string(),
+                staker_contract: staker_contract.to_string(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),

@@ -1,4 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+#[allow(unused_imports)]
 use cosmwasm_std::{Coin, Decimal, Uint128};
 use drop_macros::{bond_provider, bond_provider_query};
 

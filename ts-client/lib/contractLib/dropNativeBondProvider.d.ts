@@ -1,6 +1,21 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { Coin } from "@cosmjs/amino";
+/**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint128 = string;
+export type Boolean = boolean;
+export type Boolean1 = boolean;
 /**
  * A human readable address.
  *
@@ -52,11 +67,25 @@ export type Uint64 = string;
  */
 export type Decimal = string;
 /**
- * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
- * This is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
-export type Binary = string;
+export type Uint1281 = string;
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal1 = string;
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -66,16 +95,16 @@ export type UpdateOwnershipArgs = {
         new_owner: string;
     };
 } | "accept_ownership" | "renounce_ownership";
-export interface DropRedemptionRateAdapterSchema {
-    responses: Config | OwnershipForString | RedemptionRateResponse;
-    query: RedemptionRateArgs;
+export interface DropNativeBondProviderSchema {
+    responses: Uint128 | Boolean | Boolean1 | Config | OwnershipForString | Decimal;
+    query: CanBondArgs | TokensAmountArgs;
     execute: UpdateConfigArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
 export interface Config {
-    core_contract: Addr;
-    denom: string;
+    base_denom: string;
+    staker_contract: Addr;
 }
 /**
  * The contract's ownership info
@@ -94,25 +123,29 @@ export interface OwnershipForString {
      */
     pending_owner?: string | null;
 }
-export interface RedemptionRateResponse {
-    redemption_rate: Decimal;
-    update_time: number;
-}
-export interface RedemptionRateArgs {
+export interface CanBondArgs {
     denom: string;
-    params?: Binary | null;
+}
+export interface TokensAmountArgs {
+    coin: Coin;
+    exchange_rate: Decimal1;
+}
+export interface Coin {
+    amount: Uint1281;
+    denom: string;
+    [k: string]: unknown;
 }
 export interface UpdateConfigArgs {
-    new_config: UpdateConfig;
+    new_config: ConfigOptional;
 }
-export interface UpdateConfig {
-    core_contract: string;
-    denom: string;
+export interface ConfigOptional {
+    base_denom?: string | null;
+    staker_contract?: Addr | null;
 }
 export interface InstantiateMsg {
-    core_contract: string;
-    denom: string;
+    base_denom: string;
     owner: string;
+    staker_contract: string;
 }
 export declare class Client {
     private readonly client;
@@ -122,8 +155,13 @@ export declare class Client {
     static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
     static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
     queryConfig: () => Promise<Config>;
-    queryRedemptionRate: (args: RedemptionRateArgs) => Promise<RedemptionRateResponse>;
+    queryCanBond: (args: CanBondArgs) => Promise<Boolean>;
+    queryCanProcessOnIdle: () => Promise<Boolean>;
+    queryTokensAmount: (args: TokensAmountArgs) => Promise<Decimal>;
+    queryAsyncTokensAmount: () => Promise<Uint128>;
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    bond: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    processOnIdle: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
 }

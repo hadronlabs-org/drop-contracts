@@ -62,6 +62,9 @@ class Client {
     queryTotalBonded = async () => {
         return this.client.queryContractSmart(this.contractAddress, { total_bonded: {} });
     };
+    queryBondProviders = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { bond_providers: {} });
+    };
     queryTotalLSMShares = async () => {
         return this.client.queryContractSmart(this.contractAddress, { total_l_s_m_shares: {} });
     };
@@ -82,6 +85,18 @@ class Client {
             throw this.mustBeSigningClient();
         }
         return this.client.execute(sender, this.contractAddress, { unbond: {} }, fee || "auto", memo, funds);
+    };
+    addBondProvider = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { add_bond_provider: args }, fee || "auto", memo, funds);
+    };
+    removeBondProvider = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { remove_bond_provider: args }, fee || "auto", memo, funds);
     };
     updateConfig = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {

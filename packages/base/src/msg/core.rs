@@ -4,6 +4,7 @@ use crate::{
     state::core::{Config, ConfigOptional},
 };
 use cosmwasm_schema::{cw_serde, QueryResponses};
+#[allow(unused_imports)]
 use cosmwasm_std::{Addr, Deps, Uint128, Uint64};
 use cw_ownable::cw_ownable_execute;
 #[allow(unused_imports)]

@@ -185,6 +185,7 @@ pub fn pausable(metadata: TokenStream, input: TokenStream) -> TokenStream {
 /// Will transform the enum to:
 ///
 /// ```
+///use cosmwasm_std::{Coin, Decimal};
 ///
 /// enum QueryMsg {
 ///     /// Returns flag wether this bond provider can be used with this denom.
