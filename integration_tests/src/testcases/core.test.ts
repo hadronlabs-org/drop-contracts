@@ -12,6 +12,8 @@ import {
   DropSplitter,
   DropToken,
   DropRedemptionRateAdapter,
+  DropLsmShareBondProvider,
+  DropNativeBondProvider,
 } from 'drop-ts-client';
 import {
   QueryClient,
@@ -56,6 +58,8 @@ const DropRewardsManagerClass = DropRewardsManager.Client;
 const DropRewardsPumpClass = DropPump.Client;
 const DropSplitterClass = DropSplitter.Client;
 const DropRedemptionAdapterClass = DropRedemptionRateAdapter.Client;
+const DropLsmShareBondProviderClass = DropLsmShareBondProvider.Client;
+const DropNativeBondProviderClass = DropNativeBondProvider.Client;
 
 const UNBONDING_TIME = 360;
 
@@ -83,6 +87,12 @@ describe('Core', () => {
     rewardsManagerContractClient?: InstanceType<typeof DropRewardsManagerClass>;
     rewardsPumpContractClient?: InstanceType<typeof DropRewardsPumpClass>;
     redemptionAdapterClient?: InstanceType<typeof DropRedemptionAdapterClass>;
+    lsmShareBondProviderContractClient?: InstanceType<
+      typeof DropLsmShareBondProviderClass
+    >;
+    nativeBondProviderContractClient?: InstanceType<
+      typeof DropNativeBondProviderClass
+    >;
     account?: AccountData;
     icaAddress?: string;
     stakerIcaAddress?: string;
@@ -113,6 +123,8 @@ describe('Core', () => {
       rewardsManager?: number;
       splitter?: number;
       pump?: number;
+      lsmShareBondProvider?: number;
+      nativeBondProvider?: number;
     };
     exchangeRate?: number;
     neutronIBCDenom?: string;
@@ -411,6 +423,31 @@ describe('Core', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.redemptionRateAdapter = res.codeId;
     }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(
+            __dirname,
+            '../../../artifacts/drop_lsm_share_bond_provider.wasm',
+          ),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.lsmShareBondProvider = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_native_bond_provider.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.nativeBondProvider = res.codeId;
+    }
 
     const res = await client.upload(
       account.address,
@@ -438,6 +475,8 @@ describe('Core', () => {
           rewards_manager_code_id: context.codeIds.rewardsManager,
           splitter_code_id: context.codeIds.splitter,
           rewards_pump_code_id: context.codeIds.pump,
+          lsm_share_bond_provider_code_id: context.codeIds.lsmShareBondProvider,
+          native_bond_provider_code_id: context.codeIds.nativeBondProvider,
         },
         remote_opts: {
           connection_id: 'connection-0',
@@ -575,6 +614,16 @@ describe('Core', () => {
       context.client,
       res.splitter_contract,
     );
+    context.lsmShareBondProviderContractClient =
+      new DropLsmShareBondProvider.Client(
+        context.client,
+        res.lsm_share_bond_provider_contract,
+      );
+    context.nativeBondProviderContractClient =
+      new DropNativeBondProvider.Client(
+        context.client,
+        res.native_bond_provider_contract,
+      );
   });
 
   it('deploy redemption rate adapter', async () => {
@@ -813,6 +862,36 @@ describe('Core', () => {
     );
     expect(context.exchangeRate).toEqual(1);
     await checkExchangeRate(context);
+  });
+  it('register native bond provider in the core', async () => {
+    const res = await context.factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.coreContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    add_bond_provider: {
+                      bond_provider_address:
+                        context.nativeBondProviderContractClient
+                          .contractAddress,
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      1.5,
+      undefined,
+      [],
+    );
+    expect(res.transactionHash).toHaveLength(64);
   });
 
   it('bond failed as over limit', async () => {

@@ -16,14 +16,8 @@ use drop_staking_base::{
     msg::{
         core::{InstantiateMsg as CoreInstantiateMsg, QueryMsg as CoreQueryMsg},
         distribution::InstantiateMsg as DistributionInstantiateMsg,
-        lsm_share_bond_provider::{
-            InstantiateMsg as LsmShareBondProviderInstantiateMsg,
-            QueryMsg as LsmShareBondProviderQueryMsg,
-        },
-        native_bond_provider::{
-            InstantiateMsg as NativeBondProviderInstantiateMsg,
-            QueryMsg as NativeBondProviderQueryMsg,
-        },
+        lsm_share_bond_provider::InstantiateMsg as LsmShareBondProviderInstantiateMsg,
+        native_bond_provider::InstantiateMsg as NativeBondProviderInstantiateMsg,
         pump::InstantiateMsg as RewardsPumpInstantiateMsg,
         puppeteer::InstantiateMsg as PuppeteerInstantiateMsg,
         rewards_manager::{

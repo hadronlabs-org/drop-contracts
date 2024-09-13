@@ -16,6 +16,8 @@ use drop_staking_base::{
     msg::{
         core::{ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg},
         distribution::InstantiateMsg as DistributionInstantiateMsg,
+        lsm_share_bond_provider::InstantiateMsg as LsmShareBondProviderInstantiateMsg,
+        native_bond_provider::InstantiateMsg as NativeBondProviderInstantiateMsg,
         pump::InstantiateMsg as RewardsPumpInstantiateMsg,
         puppeteer::{ExecuteMsg as PuppeteerExecuteMsg, InstantiateMsg as PuppeteerInstantiateMsg},
         rewards_manager::{
@@ -51,6 +53,8 @@ fn get_default_factory_state() -> State {
         rewards_manager_contract: "rewards_manager_contract".to_string(),
         rewards_pump_contract: "rewards_pump_contract".to_string(),
         splitter_contract: "splitter_contract".to_string(),
+        lsm_share_bond_provider_contract: "lsm_share_bond_provider_contract".to_string(),
+        native_bond_provider_contract: "native_bond_provider_contract".to_string(),
     }
 }
 
@@ -84,6 +88,8 @@ fn test_instantiate() {
             rewards_manager_code_id: 10,
             rewards_pump_code_id: 11,
             splitter_code_id: 12,
+            lsm_share_bond_provider_code_id: 13,
+            native_bond_provider_code_id: 14,
         },
         remote_opts: RemoteOpts {
             denom: "denom".to_string(),
@@ -390,6 +396,40 @@ fn test_instantiate() {
                         salt: cosmwasm_std::Binary::from("salt".as_bytes())
                     }
                 )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Instantiate2 {
+                        admin: Some("factory_contract".to_string()),
+                        code_id: 13,
+                        label: "drop-staking-lsm-share-bond-provider".to_string(),
+                        msg: to_json_binary(&LsmShareBondProviderInstantiateMsg {
+                            owner: "factory_contract".to_string(),
+                            core_contract: "some_humanized_address".to_string(),
+                            puppeteer_contract: "some_humanized_address".to_string(),
+                            validators_set_contract: "some_humanized_address".to_string(),
+                            transfer_channel_id: "channel-0".to_string(),
+                            lsm_redeem_threshold: 0,
+                            lsm_redeem_maximum_interval: 0,
+                        })
+                        .unwrap(),
+                        funds: vec![],
+                        salt: cosmwasm_std::Binary::from("salt".as_bytes()),
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Instantiate2 {
+                        admin: Some("factory_contract".to_string()),
+                        code_id: 14,
+                        label: "drop-staking-native-bond-provider".to_string(),
+                        msg: to_json_binary(&NativeBondProviderInstantiateMsg {
+                            owner: "factory_contract".to_string(),
+                            base_denom: "base_denom".to_string(),
+                            staker_contract: "some_humanized_address".to_string(),
+                        })
+                        .unwrap(),
+                        funds: vec![],
+                        salt: cosmwasm_std::Binary::from("salt".as_bytes()),
+                    }
+                ))
             ])
             .add_event(
                 cosmwasm_std::Event::new("crates.io:drop-staking__drop-factory-instantiate")
@@ -415,6 +455,8 @@ fn test_instantiate() {
                                     rewards_manager_code_id: 10,
                                     rewards_pump_code_id: 11,
                                     splitter_code_id: 12,
+                                    lsm_share_bond_provider_code_id: 13,
+                                    native_bond_provider_code_id: 14
                                 }
                             )
                         ),
@@ -485,6 +527,14 @@ fn test_instantiate() {
                         cosmwasm_std::attr(
                             "rewards_pump_address",
                             "6FC09E9FDF411D71139AB50762FB9862D4F519DC21EADB93E93195388E164F25"
+                        ),
+                        cosmwasm_std::attr(
+                            "lsm_share_bond_provider_address",
+                            "1D482178B63387218844AA22FC89A3D4465BD4CC07A8DC1232C62EFE4838F955"
+                        ),
+                        cosmwasm_std::attr(
+                            "native_bond_provider_address",
+                            "4F119F34DBA97DC2D8E9268BC9513D26CF27BA148EF73DDE924F79A97CA47BBF"
                         ),
                     ])
             )

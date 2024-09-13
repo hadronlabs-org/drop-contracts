@@ -706,6 +706,8 @@ export interface PauseInfoResponse {
 export interface State {
     core_contract: string;
     distribution_contract: string;
+    lsm_share_bond_provider_contract: string;
+    native_bond_provider_contract: string;
     puppeteer_contract: string;
     rewards_manager_contract: string;
     rewards_pump_contract: string;
@@ -1131,6 +1133,8 @@ export interface InstantiateMsg {
 export interface CodeIds {
     core_code_id: number;
     distribution_code_id: number;
+    lsm_share_bond_provider_code_id: number;
+    native_bond_provider_code_id: number;
     puppeteer_code_id: number;
     rewards_manager_code_id: number;
     rewards_pump_code_id: number;
