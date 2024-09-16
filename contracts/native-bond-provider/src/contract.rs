@@ -1,4 +1,6 @@
-use cosmwasm_std::{attr, to_json_binary, Attribute, BankMsg, Coin, CosmosMsg, Decimal, Deps};
+use cosmwasm_std::{
+    attr, to_json_binary, Attribute, BankMsg, Coin, CosmosMsg, Decimal, Deps, Uint128,
+};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::{attr_coin, response};
@@ -51,7 +53,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
             coin,
             exchange_rate,
         } => query_token_amount(deps, coin, exchange_rate),
-        QueryMsg::AsyncTokensAmount {} => Ok(to_json_binary(&0)?),
+        QueryMsg::AsyncTokensAmount {} => Ok(to_json_binary(&Uint128::zero())?),
     }
 }
 

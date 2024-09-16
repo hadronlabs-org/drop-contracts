@@ -1,15 +1,15 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankQuery, Binary, Coin,
-    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest,
-    Response, StdError, StdResult, Uint128, Uint64, WasmMsg,
+    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest, Reply,
+    Response, StdError, StdResult, SubMsg, SubMsgResult, Uint128, Uint64, WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
 use drop_helpers::pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse};
 use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
 use drop_puppeteer_base::state::RedeemShareItem;
-use drop_staking_base::state::core::BOND_PROVIDERS;
+use drop_staking_base::state::core::{BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID};
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
@@ -29,7 +29,7 @@ use drop_staking_base::{
             UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse, BONDED_AMOUNT,
             CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL,
             LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE, LD_DENOM,
-            LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+            UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
         withdrawal_voucher::{Metadata, Trait},
@@ -78,7 +78,6 @@ pub fn instantiate(
     FSM.set_initial_state(deps.storage, ContractState::Idle)?;
     LAST_IDLE_CALL.save(deps.storage, &0)?;
     LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &0)?;
-    TOTAL_LSM_SHARES.save(deps.storage, &0)?;
     BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
     LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
@@ -94,8 +93,6 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
                 .unwrap_or(Addr::unchecked(""))
                 .to_string(),
         )?,
-        QueryMsg::PendingLSMShares {} => query_pending_lsm_shares(deps)?,
-        QueryMsg::LSMSharesToRedeem {} => query_lsm_shares_to_redeem(deps)?,
         QueryMsg::TotalBonded {} => to_json_binary(&BONDED_AMOUNT.load(deps.storage)?)?,
         QueryMsg::ExchangeRate {} => {
             let config = CONFIG.load(deps.storage)?;
@@ -112,19 +109,13 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
             response: LAST_STAKER_RESPONSE.may_load(deps.storage)?,
         })?,
         QueryMsg::PauseInfo {} => query_pause_info(deps)?,
-        QueryMsg::TotalLSMShares {} => to_json_binary(&TOTAL_LSM_SHARES.load(deps.storage)?)?,
+        QueryMsg::TotalLSMShares {} => to_json_binary(&query_total_async_tokens(deps)?)?,
+        QueryMsg::TotalAsyncTokens {} => to_json_binary(&query_total_async_tokens(deps)?)?,
         QueryMsg::FailedBatch {} => to_json_binary(&FailedBatchResponse {
             response: FAILED_BATCH_ID.may_load(deps.storage)?,
         })?,
         QueryMsg::BondProviders {} => to_json_binary(&query_bond_providers(deps)?)?,
     })
-}
-
-fn query_pending_lsm_shares(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let shares: Vec<(String, (String, Uint128, Uint128))> = PENDING_LSM_SHARES
-        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .collect::<StdResult<Vec<_>>>()?;
-    to_json_binary(&shares).map_err(From::from)
 }
 
 fn query_pause_info(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
@@ -135,11 +126,25 @@ fn query_pause_info(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     }
 }
 
-fn query_lsm_shares_to_redeem(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let shares: Vec<(String, (String, Uint128, Uint128))> = LSM_SHARES_TO_REDEEM
-        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .collect::<StdResult<Vec<_>>>()?;
-    to_json_binary(&shares).map_err(From::from)
+fn query_total_async_tokens(deps: Deps<NeutronQuery>) -> ContractResult<Uint128> {
+    let mut total_async_shares = Uint128::zero();
+    let bond_providers = query_bond_providers(deps)?;
+    for provider in bond_providers {
+        deps.api
+            .debug(format!("WASMDEBUG: query_async_tokens, provider: {provider:?}").as_str());
+        let async_tokens_amount: Uint128 = deps.querier.query_wasm_smart(
+            provider.0.to_string(),
+            &drop_staking_base::msg::bond_provider::QueryMsg::AsyncTokensAmount {},
+        )?;
+        deps.api.debug(
+            format!("WASMDEBUG: query_async_tokens, async_tokens_amount: {async_tokens_amount:?}")
+                .as_str(),
+        );
+
+        total_async_shares += async_tokens_amount;
+    }
+
+    Ok(total_async_shares)
 }
 
 fn query_bond_providers(deps: Deps<NeutronQuery>) -> ContractResult<Vec<(Addr, bool)>> {
@@ -150,7 +155,7 @@ fn query_bond_providers(deps: Deps<NeutronQuery>) -> ContractResult<Vec<(Addr, b
 }
 
 fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractResult<Decimal> {
-    println!("query_exchange_rate: 1");
+    deps.api.debug("WASMDEBUG: query_exchange_rate: 1");
     let fsm_state = FSM.get_current_state(deps.storage)?;
     if fsm_state != ContractState::Idle {
         return Ok(EXCHANGE_RATE
@@ -158,7 +163,7 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
             .unwrap_or((Decimal::one(), 0))
             .0);
     }
-    println!("query_exchange_rate: 2");
+    deps.api.debug("WASMDEBUG: query_exchange_rate: 2");
     let ld_total_supply: cosmwasm_std::SupplyResponse =
         deps.querier.query(&QueryRequest::Bank(BankQuery::Supply {
             denom: LD_DENOM.load(deps.storage)?,
@@ -168,7 +173,7 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
     if exchange_rate_denominator.is_zero() {
         return Ok(Decimal::one());
     }
-    println!("query_exchange_rate: 3");
+    deps.api.debug("WASMDEBUG: query_exchange_rate: 3");
 
     let delegations_response = deps
         .querier
@@ -178,7 +183,7 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
             msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
         },
     )?;
-    println!("query_exchange_rate: 4");
+    deps.api.debug("WASMDEBUG: query_exchange_rate: 4");
 
     let delegations_amount: Uint128 = delegations_response
         .delegations
@@ -210,16 +215,12 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
         &drop_staking_base::msg::staker::QueryMsg::AllBalance {},
     )?;
     println!("staker_balance: {:?}", staker_balance);
-    let mut total_async_shares: Uint128 = Uint128::zero();
-    let bond_providers = query_bond_providers(deps)?;
-    for provider in bond_providers {
-        let async_tokens_amount: Uint128 = deps.querier.query_wasm_smart(
-            provider.0.to_string(),
-            &drop_staking_base::msg::bond_provider::QueryMsg::AsyncTokensAmount {},
-        )?;
+    let total_async_shares = query_total_async_tokens(deps)?;
 
-        total_async_shares += async_tokens_amount;
-    }
+    deps.api.debug(
+        format!("WASMDEBUG: query_exchange_rate, total_async_shares: {total_async_shares:?}")
+            .as_str(),
+    );
     // arithmetic operations order is important here as we don't want to overflow
     let exchange_rate_numerator = delegations_amount + staker_balance + total_async_shares;
     if exchange_rate_numerator.is_zero() {
@@ -1089,11 +1090,14 @@ fn execute_bond(
         }
     }
     let mut msgs = vec![];
+    let mut sub_msgs = vec![];
     let mut attrs = vec![attr("action", "bond")];
     let exchange_rate = query_exchange_rate(deps.as_ref(), &config)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
 
     let bond_providers = query_bond_providers(deps.as_ref())?;
+    deps.api
+        .debug(format!("WASMDEBUG: execute_bond, bond_providers: {bond_providers:?}").as_str());
     for provider in bond_providers {
         let can_bond: bool = deps.querier.query_wasm_smart(
             provider.0.to_string(),
@@ -1101,7 +1105,13 @@ fn execute_bond(
                 denom: denom.clone(),
             },
         )?;
+        deps.api.debug(
+            format!("WASMDEBUG: execute_bond, provider: {provider:?}, can_bond: {can_bond:?}")
+                .as_str(),
+        );
         if can_bond {
+            attrs.push(attr("used_bond_provider", provider.0.to_string()));
+            deps.api.debug("WASMDEBUG: execute_bond, can_bond loop: 1");
             let issue_amount: Uint128 = deps.querier.query_wasm_smart(
                 provider.0.to_string(),
                 &drop_staking_base::msg::bond_provider::QueryMsg::TokensAmount {
@@ -1109,15 +1119,26 @@ fn execute_bond(
                     exchange_rate,
                 },
             )?;
+            deps.api.debug("WASMDEBUG: execute_bond, can_bond loop: 2");
             attrs.push(attr("issue_amount", issue_amount.to_string()));
 
-            msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: provider.0.to_string(),
-                msg: to_json_binary(&drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {})?,
-                funds: vec![Coin::new(amount.u128(), denom.clone())],
-            }));
+            let sub_msg = SubMsg::reply_on_error(
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: provider.0.to_string(),
+                    msg: to_json_binary(
+                        &drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {},
+                    )?,
+                    funds: vec![Coin::new(amount.u128(), denom.clone())],
+                }),
+                BOND_PROVIDER_REPLY_ID,
+            );
+
+            sub_msgs.push(sub_msg);
+
+            deps.api.debug("WASMDEBUG: execute_bond, can_bond loop: 3");
 
             BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total + issue_amount))?;
+            deps.api.debug("WASMDEBUG: execute_bond, can_bond loop: 4");
 
             let receiver = receiver.clone().map_or(
                 Ok::<String, ContractError>(info.sender.to_string()),
@@ -1126,12 +1147,14 @@ fn execute_bond(
                     Ok(a)
                 },
             )?;
+            deps.api.debug("WASMDEBUG: execute_bond, can_bond loop: 4");
             attrs.push(attr("receiver", receiver.clone()));
             if let Some(r#ref) = r#ref.clone() {
                 if !r#ref.is_empty() {
                     attrs.push(attr("ref", r#ref));
                 }
             }
+            deps.api.debug("WASMDEBUG: execute_bond, can_bond loop: 5");
             msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: config.token_contract.to_string(),
                 msg: to_json_binary(&TokenExecuteMsg::Mint {
@@ -1140,12 +1163,15 @@ fn execute_bond(
                 })?,
                 funds: vec![],
             }));
+            deps.api.debug("WASMDEBUG: execute_bond, can_bond loop: 6");
 
             break;
         }
     }
 
-    Ok(response("execute-bond", CONTRACT_NAME, attrs).add_messages(msgs))
+    Ok(response("execute-bond", CONTRACT_NAME, attrs)
+        .add_submessages(sub_msgs)
+        .add_messages(msgs))
 }
 
 fn execute_update_config(
@@ -1615,6 +1641,24 @@ pub fn get_pending_redeem_msg<T>(
         )?,
         funds,
     })))
+}
+
+pub fn reply(deps: Deps, _env: Env, msg: Reply) -> ContractResult<Response> {
+    deps.api
+        .debug(format!("WASMDEBUG: reply, msg: {msg:?}").as_str());
+    match msg.id {
+        BOND_PROVIDER_REPLY_ID => bond_provider_reply(deps, msg),
+        id => Err(ContractError::UnknownReplyId { id }),
+    }
+}
+
+fn bond_provider_reply(deps: Deps, msg: Reply) -> ContractResult<Response> {
+    deps.api.debug("WASMDEBUG: bond_provider_reply: 1");
+    if let SubMsgResult::Err(err) = msg.result {
+        return Err(ContractError::BondProviderError { message: err });
+    }
+
+    Ok(Response::new())
 }
 
 pub mod check_denom {

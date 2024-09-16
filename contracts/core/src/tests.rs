@@ -23,9 +23,9 @@ use drop_staking_base::{
     },
     state::core::{
         unbond_batches_map, Config, ConfigOptional, ContractState, UnbondBatch, UnbondBatchStatus,
-        UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_PROVIDERS, CONFIG, FSM,
-        LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LD_DENOM,
-        LSM_SHARES_TO_REDEEM, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+        UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG,
+        FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE,
+        LD_DENOM, LSM_SHARES_TO_REDEEM, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
     },
 };
 use drop_staking_base::{
@@ -2732,15 +2732,21 @@ fn test_bond_wo_receiver() {
                 Event::new("crates.io:drop-staking__drop-core-execute-bond")
                     .add_attribute("action", "bond")
                     .add_attribute("exchange_rate", "1")
+                    .add_attribute("used_bond_provider", "native_provider_address")
                     .add_attribute("issue_amount", "1000")
                     .add_attribute("receiver", "some")
             )
-            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "native_provider_address".to_string(),
-                msg: to_json_binary(&drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {})
+            .add_submessage(SubMsg::reply_on_error(
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "native_provider_address".to_string(),
+                    msg: to_json_binary(
+                        &drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {}
+                    )
                     .unwrap(),
-                funds: vec![Coin::new(1000, "base_denom")],
-            })))
+                    funds: vec![Coin::new(1000, "base_denom")],
+                }),
+                BOND_PROVIDER_REPLY_ID
+            ))
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token_contract".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::token::ExecuteMsg::Mint {
@@ -2807,16 +2813,22 @@ fn test_bond_with_receiver() {
                 Event::new("crates.io:drop-staking__drop-core-execute-bond")
                     .add_attribute("action", "bond")
                     .add_attribute("exchange_rate", "1")
+                    .add_attribute("used_bond_provider", "native_provider_address")
                     .add_attribute("issue_amount", "1000")
                     .add_attribute("receiver", "receiver")
                     .add_attribute("ref", "ref")
             )
-            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "native_provider_address".to_string(),
-                msg: to_json_binary(&drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {})
+            .add_submessage(SubMsg::reply_on_error(
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "native_provider_address".to_string(),
+                    msg: to_json_binary(
+                        &drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {}
+                    )
                     .unwrap(),
-                funds: vec![Coin::new(1000, "base_denom")],
-            })))
+                    funds: vec![Coin::new(1000, "base_denom")],
+                }),
+                BOND_PROVIDER_REPLY_ID
+            ))
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token_contract".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::token::ExecuteMsg::Mint {

@@ -115,16 +115,14 @@ pub enum QueryMsg {
     LastPuppeteerResponse {},
     #[returns(LastStakerResponse)]
     LastStakerResponse {},
-    #[returns(Vec<(String,(String, Uint128))>)]
-    PendingLSMShares {},
-    #[returns(Vec<(String,(String, Uint128))>)]
-    LSMSharesToRedeem {},
     #[returns(Uint128)]
     TotalBonded {},
     #[returns(Vec<Addr>)]
     BondProviders {},
     #[returns(Uint128)]
-    TotalLSMShares {},
+    TotalLSMShares {}, // used for backward compatibility
+    #[returns(Uint128)]
+    TotalAsyncTokens {},
     #[returns(FailedBatchResponse)]
     FailedBatch {},
 }

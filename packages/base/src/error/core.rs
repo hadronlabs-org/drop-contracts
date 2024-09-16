@@ -140,6 +140,12 @@ pub enum ContractError {
     #[error("Bond provider already exists")]
     BondProviderAlreadyExists {},
 
+    #[error("Bond provider error: {message}")]
+    BondProviderError { message: String },
+
+    #[error("unknown reply id: {id}")]
+    UnknownReplyId { id: u64 },
+
     #[error("Semver parsing error: {0}")]
     SemVer(String),
 }

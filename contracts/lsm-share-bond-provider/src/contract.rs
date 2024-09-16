@@ -8,6 +8,7 @@ use drop_helpers::answer::{attr_coin, response};
 use drop_puppeteer_base::msg::IBCTransferReason;
 use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::error::lsm_share_bond_provider::{ContractError, ContractResult};
+use drop_staking_base::msg::core::LastPuppeteerResponse;
 use drop_staking_base::msg::lsm_share_bond_provider::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
@@ -79,6 +80,9 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         } => query_token_amount(deps, coin, exchange_rate),
         QueryMsg::PendingLSMShares {} => query_pending_lsm_shares(deps),
         QueryMsg::LSMSharesToRedeem {} => query_lsm_shares_to_redeem(deps),
+        QueryMsg::LastPuppeteerResponse {} => to_json_binary(&LastPuppeteerResponse {
+            response: LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?,
+        })?,
         QueryMsg::AsyncTokensAmount {} => {
             to_json_binary(&TOTAL_LSM_SHARES.load(deps.storage)?).map_err(From::from)
         }
@@ -267,10 +271,16 @@ fn execute_bond(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
+    deps.api
+        .debug("WASMDEBUG: lsm-share-bond-provider, execute_bond: 1");
     let Coin { amount, denom } = cw_utils::one_coin(&info)?;
     let config = CONFIG.load(deps.storage)?;
+    deps.api
+        .debug("WASMDEBUG: lsm-share-bond-provider, execute_bond: 2");
 
     let check_denom = check_denom::check_denom(&deps.as_ref(), &denom, &config)?;
+    deps.api
+        .debug("WASMDEBUG: lsm-share-bond-provider, execute_bond: 3");
 
     let real_amount = calc_lsm_share_underlying_amount(
         deps.as_ref(),
@@ -278,10 +288,14 @@ fn execute_bond(
         &amount,
         check_denom.validator,
     )?;
+    deps.api
+        .debug("WASMDEBUG: lsm-share-bond-provider, execute_bond: 4");
 
     TOTAL_LSM_SHARES.update(deps.storage, |total| {
         StdResult::Ok(total + real_amount.u128())
     })?;
+    deps.api
+        .debug("WASMDEBUG: lsm-share-bond-provider, execute_bond: 5");
     PENDING_LSM_SHARES.update(deps.storage, denom.to_string(), |one| {
         let mut new = one.unwrap_or((
             check_denom.remote_denom.to_string(),
@@ -292,6 +306,8 @@ fn execute_bond(
         new.2 += real_amount;
         StdResult::Ok(new)
     })?;
+    deps.api
+        .debug("WASMDEBUG: lsm-share-bond-provider, execute_bond: 6");
 
     Ok(response(
         "bond",

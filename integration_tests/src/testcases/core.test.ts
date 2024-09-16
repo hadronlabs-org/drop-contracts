@@ -893,6 +893,50 @@ describe('Core', () => {
     );
     expect(res.transactionHash).toHaveLength(64);
   });
+  it('register lsm share bond provider in the core', async () => {
+    const res = await context.factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.coreContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    add_bond_provider: {
+                      bond_provider_address:
+                        context.lsmShareBondProviderContractClient
+                          .contractAddress,
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      1.5,
+      undefined,
+      [],
+    );
+    expect(res.transactionHash).toHaveLength(64);
+  });
+  it('query list of bond providers', async () => {
+    const { coreContractClient } = context;
+    const bondProviders = await coreContractClient.queryBondProviders();
+
+    expect(bondProviders.length).toEqual(2);
+
+    expect(bondProviders.flat()).toContain(
+      context.lsmShareBondProviderContractClient.contractAddress,
+    );
+
+    expect(bondProviders.flat()).toContain(
+      context.nativeBondProviderContractClient.contractAddress,
+    );
+  });
 
   it('bond failed as over limit', async () => {
     const { coreContractClient, neutronUserAddress, neutronIBCDenom } = context;
@@ -959,6 +1003,20 @@ describe('Core', () => {
       ],
     );
     expect(res.transactionHash).toHaveLength(64);
+    const contractAttributes = res.events.find(
+      (e) => e.type === 'wasm-crates.io:drop-staking__drop-core-execute-bond',
+    ).attributes;
+
+    const attributesList = contractAttributes.map((e) => e.key);
+    expect(attributesList).toContain('used_bond_provider');
+
+    const usedBondProvider = contractAttributes.find(
+      (e) => e.key === 'used_bond_provider',
+    );
+    expect(usedBondProvider.value).toEqual(
+      context.nativeBondProviderContractClient.contractAddress,
+    );
+
     await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 1);
     const balances =
       await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
@@ -1120,7 +1178,7 @@ describe('Core', () => {
   });
   it('bond tokenized share from unregistered validator', async () => {
     const { coreContractClient, neutronUserAddress } = context;
-    const res = coreContractClient.bond(
+    const res = await coreContractClient.bond(
       neutronUserAddress,
       {},
       1.6,
@@ -1132,7 +1190,14 @@ describe('Core', () => {
         },
       ],
     );
-    await expect(res).rejects.toThrowError(/Invalid denom/);
+
+    const contractAttributes = res.events.find(
+      (e) => e.type === 'wasm-crates.io:drop-staking__drop-core-execute-bond',
+    ).attributes;
+
+    const attributesList = contractAttributes.map((e) => e.key);
+    expect(attributesList).not.toContain('used_bond_provider');
+
     await checkExchangeRate(context);
   });
   it('add validators into validators set', async () => {
@@ -1169,6 +1234,7 @@ describe('Core', () => {
         },
       ],
     );
+
     expect(res.transactionHash).toHaveLength(64);
   });
 
@@ -1905,7 +1971,7 @@ describe('Core', () => {
             await checkExchangeRate(context);
           }
         });
-        it('verify pending lsm shares', async () => {
+        it.skip('verify pending lsm shares', async () => {
           const pending =
             await context.coreContractClient.queryPendingLSMShares();
           expect(pending).toHaveLength(2);
@@ -1934,7 +2000,7 @@ describe('Core', () => {
           );
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();
-          expect(state).toEqual('l_s_m_transfer');
+          expect(state).toEqual('idle');
           await checkExchangeRate(context);
         });
         it('wait for the response from puppeteer', async () => {

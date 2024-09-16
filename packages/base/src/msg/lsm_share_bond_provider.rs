@@ -6,6 +6,8 @@ use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 use drop_macros::{bond_provider, bond_provider_query};
 use drop_puppeteer_base::msg::ResponseHookMsg as PuppeteerResponseHookMsg;
 
+use super::core::LastPuppeteerResponse;
+
 #[cw_serde]
 pub struct InstantiateMsg {
     pub owner: String,
@@ -36,6 +38,8 @@ pub enum QueryMsg {
     PendingLSMShares {},
     #[returns(Vec<(String,(String, Uint128))>)]
     LSMSharesToRedeem {},
+    #[returns(LastPuppeteerResponse)]
+    LastPuppeteerResponse {},
 }
 
 #[cw_serde]
