@@ -569,8 +569,7 @@ fn execute_tick(
     match current_state {
         ContractState::Idle => execute_tick_idle(deps.branch(), env, info, &config),
         //
-        ContractState::LSMRedeem => execute_tick_peripheral(deps.branch(), env, info, &config),
-        ContractState::LSMTransfer => execute_tick_peripheral(deps.branch(), env, info, &config),
+        ContractState::Peripheral => execute_tick_peripheral(deps.branch(), env, info, &config),
         //
         ContractState::Claiming => execute_tick_claiming(deps.branch(), env, info, &config),
         ContractState::StakingBond => execute_tick_staking_bond(deps.branch(), env, info, &config),
@@ -587,6 +586,7 @@ fn execute_tick_idle(
     let mut attrs = vec![attr("action", "tick_idle"), attr("knot", "000")];
     let last_idle_call = LAST_IDLE_CALL.load(deps.storage)?;
     let mut messages = vec![];
+    let mut sub_msgs = vec![];
     cache_exchange_rate(deps.branch(), env.clone(), config)?;
     attrs.push(attr("knot", "002"));
     attrs.push(attr("knot", "003"));
@@ -606,13 +606,20 @@ fn execute_tick_idle(
                     .as_str(),
             );
             if can_process_on_idle {
-                messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: provider.to_string(),
-                    msg: to_json_binary(
-                        &drop_staking_base::msg::bond_provider::ExecuteMsg::ProcessOnIdle {},
-                    )?,
-                    funds: vec![],
-                }));
+                let sub_msg = SubMsg::reply_on_error(
+                    CosmosMsg::Wasm(WasmMsg::Execute {
+                        contract_addr: provider.to_string(),
+                        msg: to_json_binary(
+                            &drop_staking_base::msg::bond_provider::ExecuteMsg::ProcessOnIdle {},
+                        )?,
+                        funds: vec![],
+                    }),
+                    BOND_PROVIDER_REPLY_ID,
+                );
+
+                sub_msgs.push(sub_msg);
+
+                FSM.go_to(deps.storage, ContractState::Peripheral)?;
             }
             deps.api
                 .debug("WASMDEBUG: core_contract. execute_tick_idle: 3");
@@ -819,7 +826,9 @@ fn execute_tick_idle(
             attrs.push(attr("state", "claiming"));
         }
     }
-    Ok(response("execute-tick_idle", CONTRACT_NAME, attrs).add_messages(messages))
+    Ok(response("execute-tick_idle", CONTRACT_NAME, attrs)
+        .add_messages(messages)
+        .add_submessages(sub_msgs))
 }
 
 fn execute_tick_peripheral(

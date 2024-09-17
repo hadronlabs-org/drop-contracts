@@ -2000,7 +2000,7 @@ describe('Core', () => {
           );
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();
-          expect(state).toEqual('idle');
+          expect(state).toEqual('peripheral');
           await checkExchangeRate(context);
         });
         it('wait for the response from puppeteer', async () => {
@@ -2060,7 +2060,7 @@ describe('Core', () => {
           expect(state).toEqual('idle');
           await checkExchangeRate(context);
         });
-        it('tick to lsm transfer', async () => {
+        it('tick to peripheral', async () => {
           const { neutronUserAddress } = context;
           const res = await context.coreContractClient.tick(
             neutronUserAddress,
@@ -2070,7 +2070,7 @@ describe('Core', () => {
           );
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();
-          expect(state).toEqual('l_s_m_transfer');
+          expect(state).toEqual('peripheral');
           await checkExchangeRate(context);
         });
         it('wait for the response from puppeteer', async () => {
@@ -2135,7 +2135,7 @@ describe('Core', () => {
         });
         it('verify pending lsm shares to unbond', async () => {
           const pending =
-            await context.coreContractClient.queryLSMSharesToRedeem();
+            await context.lsmShareBondProviderContractClient.queryLSMSharesToRedeem();
           expect(pending).toHaveLength(2);
         });
         it('tick to idle', async () => {
@@ -2161,7 +2161,7 @@ describe('Core', () => {
           expect(state).toEqual('idle');
           await checkExchangeRate(context);
         });
-        it('tick to redeem', async () => {
+        it('tick to peripheral', async () => {
           const { neutronUserAddress } = context;
           const res = await context.coreContractClient.tick(
             neutronUserAddress,
@@ -2171,7 +2171,7 @@ describe('Core', () => {
           );
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();
-          expect(state).toEqual('l_s_m_redeem');
+          expect(state).toEqual('peripheral');
           await checkExchangeRate(context);
         });
         it('imeediately tick again fails', async () => {
@@ -2188,7 +2188,7 @@ describe('Core', () => {
         it('await for pending length decrease', async () => {
           await waitFor(async () => {
             const pending =
-              await context.coreContractClient.queryLSMSharesToRedeem();
+              await context.lsmShareBondProviderContractClient.queryLSMSharesToRedeem();
             return pending.length === 0;
           }, 30_000);
         });

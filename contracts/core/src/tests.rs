@@ -447,14 +447,17 @@ fn test_execute_tick_idle_process_bondig_provider() {
                     ]
                 )
             )
-            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "lsm_provider_address".to_string(),
-                msg: to_json_binary(
-                    &drop_staking_base::msg::bond_provider::ExecuteMsg::ProcessOnIdle {}
-                )
-                .unwrap(),
-                funds: vec![],
-            })))
+            .add_submessage(SubMsg::reply_on_error(
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "lsm_provider_address".to_string(),
+                    msg: to_json_binary(
+                        &drop_staking_base::msg::bond_provider::ExecuteMsg::ProcessOnIdle {}
+                    )
+                    .unwrap(),
+                    funds: vec![],
+                }),
+                BOND_PROVIDER_REPLY_ID
+            ))
     );
 }
 
