@@ -1220,3 +1220,188 @@ mod check_denom {
         );
     }
 }
+
+mod pending_redeem_shares {
+    use cosmwasm_std::{CosmosMsg, WasmMsg};
+    use drop_puppeteer_base::state::RedeemShareItem;
+    use drop_staking_base::state::lsm_share_bond_provider::LSM_SHARES_TO_REDEEM;
+    use neutron_sdk::bindings::msg::NeutronMsg;
+
+    use crate::contract::get_pending_redeem_msg;
+
+    use super::*;
+
+    pub const MOCK_PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
+
+    #[test]
+    fn no_pending_lsm_shares() {
+        let mut deps = mock_dependencies(&[]);
+
+        let config = &get_default_config(100u64, 200u64);
+
+        LAST_LSM_REDEEM.save(deps.as_mut().storage, &0).unwrap();
+
+        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
+            get_pending_redeem_msg(deps.as_ref(), config, &mock_env(), vec![]).unwrap();
+
+        assert_eq!(redeem_res, None);
+    }
+
+    #[test]
+    fn lsm_shares_below_threshold() {
+        let mut deps = mock_dependencies(&[]);
+
+        let config = &get_default_config(100u64, 200u64);
+
+        let env = &mock_env();
+
+        LSM_SHARES_TO_REDEEM
+            .save(
+                deps.as_mut().storage,
+                "remote_denom_share1".to_string(),
+                &(
+                    "local_denom_1".to_string(),
+                    Uint128::from(100u128),
+                    Uint128::from(100u128),
+                ),
+            )
+            .unwrap();
+
+        LAST_LSM_REDEEM
+            .save(deps.as_mut().storage, &env.block.time.seconds())
+            .unwrap();
+
+        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
+            get_pending_redeem_msg(deps.as_ref(), config, env, vec![]).unwrap();
+
+        assert_eq!(redeem_res, None);
+    }
+
+    #[test]
+    fn lsm_shares_pass_threshold() {
+        let mut deps = mock_dependencies(&[]);
+
+        let lsm_redeem_maximum_interval = 100;
+
+        let config = &get_default_config(100u64, lsm_redeem_maximum_interval);
+
+        let env = &mock_env();
+
+        LSM_SHARES_TO_REDEEM
+            .save(
+                deps.as_mut().storage,
+                "local_denom_1".to_string(),
+                &(
+                    "remote_denom_share1".to_string(),
+                    Uint128::from(100u128),
+                    Uint128::from(100u128),
+                ),
+            )
+            .unwrap();
+
+        LAST_LSM_REDEEM
+            .save(
+                deps.as_mut().storage,
+                &(env.block.time.seconds() - lsm_redeem_maximum_interval * 2),
+            )
+            .unwrap();
+
+        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
+            get_pending_redeem_msg(deps.as_ref(), config, env, vec![]).unwrap();
+
+        assert_eq!(
+            redeem_res,
+            Some(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: MOCK_PUPPETEER_CONTRACT_ADDR.to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+                        items: vec![RedeemShareItem {
+                            amount: Uint128::from(100u128),
+                            local_denom: "local_denom_1".to_string(),
+                            remote_denom: "remote_denom_share1".to_string(),
+                        }],
+                        reply_to: env.contract.address.to_string(),
+                    },
+                )
+                .unwrap(),
+                funds: vec![],
+            }))
+        );
+    }
+
+    #[test]
+    fn lsm_shares_limit_redeem() {
+        let mut deps = mock_dependencies(&[]);
+
+        let config = &get_default_config(2u64, 200u64);
+
+        let env = &mock_env();
+
+        LSM_SHARES_TO_REDEEM
+            .save(
+                deps.as_mut().storage,
+                "local_denom_1".to_string(),
+                &(
+                    "remote_denom_share1".to_string(),
+                    Uint128::from(50u128),
+                    Uint128::from(50u128),
+                ),
+            )
+            .unwrap();
+
+        LSM_SHARES_TO_REDEEM
+            .save(
+                deps.as_mut().storage,
+                "local_denom_2".to_string(),
+                &(
+                    "remote_denom_share2".to_string(),
+                    Uint128::from(100u128),
+                    Uint128::from(100u128),
+                ),
+            )
+            .unwrap();
+
+        LSM_SHARES_TO_REDEEM
+            .save(
+                deps.as_mut().storage,
+                "local_denom_3".to_string(),
+                &(
+                    "remote_denom_share3".to_string(),
+                    Uint128::from(150u128),
+                    Uint128::from(150u128),
+                ),
+            )
+            .unwrap();
+
+        LAST_LSM_REDEEM.save(deps.as_mut().storage, &0).unwrap();
+
+        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
+            get_pending_redeem_msg(deps.as_ref(), config, env, vec![]).unwrap();
+
+        assert_eq!(
+            redeem_res,
+            Some(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: MOCK_PUPPETEER_CONTRACT_ADDR.to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+                        items: vec![
+                            RedeemShareItem {
+                                amount: Uint128::from(50u128),
+                                local_denom: "local_denom_1".to_string(),
+                                remote_denom: "remote_denom_share1".to_string(),
+                            },
+                            RedeemShareItem {
+                                amount: Uint128::from(100u128),
+                                local_denom: "local_denom_2".to_string(),
+                                remote_denom: "remote_denom_share2".to_string(),
+                            }
+                        ],
+                        reply_to: env.contract.address.to_string(),
+                    },
+                )
+                .unwrap(),
+                funds: vec![],
+            }))
+        );
+    }
+}

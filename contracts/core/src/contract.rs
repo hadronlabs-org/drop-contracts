@@ -1,14 +1,13 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankQuery, Binary, Coin,
-    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest, Reply,
-    Response, StdError, StdResult, SubMsg, SubMsgResult, Uint128, Uint64, WasmMsg,
+    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Empty, Env, MessageInfo, Order, QueryRequest,
+    Reply, Response, StdError, StdResult, SubMsg, SubMsgResult, Uint128, Uint64, WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
 use drop_helpers::pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse};
 use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
-use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::state::core::{BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID};
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
@@ -28,8 +27,7 @@ use drop_staking_base::{
             unbond_batches_map, Config, ConfigOptional, ContractState, UnbondBatch,
             UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse, BONDED_AMOUNT,
             CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL,
-            LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE, LD_DENOM,
-            UNBOND_BATCH_ID,
+            LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE, LD_DENOM, UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
         withdrawal_voucher::{Metadata, Trait},
@@ -79,7 +77,6 @@ pub fn instantiate(
     LAST_IDLE_CALL.save(deps.storage, &0)?;
     LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &0)?;
     BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
-    LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
@@ -133,7 +130,7 @@ fn query_total_async_tokens(deps: Deps<NeutronQuery>) -> ContractResult<Uint128>
         deps.api
             .debug(format!("WASMDEBUG: query_async_tokens, provider: {provider:?}").as_str());
         let async_tokens_amount: Uint128 = deps.querier.query_wasm_smart(
-            provider.0.to_string(),
+            provider.to_string(),
             &drop_staking_base::msg::bond_provider::QueryMsg::AsyncTokensAmount {},
         )?;
         deps.api.debug(
@@ -147,11 +144,13 @@ fn query_total_async_tokens(deps: Deps<NeutronQuery>) -> ContractResult<Uint128>
     Ok(total_async_shares)
 }
 
-fn query_bond_providers(deps: Deps<NeutronQuery>) -> ContractResult<Vec<(Addr, bool)>> {
-    let provider: Vec<(Addr, bool)> = BOND_PROVIDERS
+fn query_bond_providers(deps: Deps<NeutronQuery>) -> ContractResult<Vec<Addr>> {
+    Ok(BOND_PROVIDERS
         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .collect::<StdResult<Vec<_>>>()?;
-    Ok(provider)
+        .collect::<StdResult<Vec<(Addr, Empty)>>>()?
+        .into_iter()
+        .map(|(addr, _)| addr)
+        .collect())
 }
 
 fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractResult<Decimal> {
@@ -336,7 +335,8 @@ fn execute_add_bond_provider(
         return Err(ContractError::BondProviderAlreadyExists {});
     }
 
-    BOND_PROVIDERS.save(deps.storage, bond_provider_address.clone(), &true)?;
+    let empty = Empty {};
+    BOND_PROVIDERS.save(deps.storage, bond_provider_address.clone(), &empty)?;
 
     Ok(response(
         "execute-add_bond_provider",
@@ -507,78 +507,25 @@ fn execute_staker_hook(
 
 fn execute_puppeteer_hook(
     deps: DepsMut<NeutronQuery>,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
     msg: drop_puppeteer_base::msg::ResponseHookMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
-    ensure_eq!(
-        info.sender,
-        config.puppeteer_contract,
+
+    let allowed_senders: Vec<_> = vec![config.puppeteer_contract]
+        .into_iter()
+        .chain(query_bond_providers(deps.as_ref())?)
+        .collect();
+
+    ensure!(
+        allowed_senders.contains(&info.sender),
         ContractError::Unauthorized {}
     );
+
     match msg.clone() {
         drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) => {
             LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &success_msg.remote_height)?;
-            match &success_msg.transaction {
-                drop_puppeteer_base::msg::Transaction::IBCTransfer {
-                    denom,
-                    amount,
-                    reason,
-                    recipient: _,
-                } => {
-                    if *reason == IBCTransferReason::LSMShare {
-                        let current_pending =
-                            PENDING_LSM_SHARES.may_load(deps.storage, denom.to_string())?;
-                        if let Some((remote_denom, shares_amount, real_amount)) = current_pending {
-                            let sent_amount = Uint128::from(*amount);
-                            LSM_SHARES_TO_REDEEM.update(
-                                deps.storage,
-                                denom.to_string(),
-                                |one| {
-                                    let mut new = one.unwrap_or((
-                                        remote_denom,
-                                        Uint128::zero(),
-                                        Uint128::zero(),
-                                    ));
-                                    new.1 += sent_amount;
-                                    new.2 += real_amount;
-                                    StdResult::Ok(new)
-                                },
-                            )?;
-                            if shares_amount == sent_amount {
-                                PENDING_LSM_SHARES.remove(deps.storage, denom.to_string());
-                            } else {
-                                PENDING_LSM_SHARES.update(
-                                    deps.storage,
-                                    denom.to_string(),
-                                    |one| match one {
-                                        Some(one) => {
-                                            let mut new = one;
-                                            new.1 -= Uint128::from(*amount);
-                                            new.2 -= real_amount;
-                                            StdResult::Ok(new)
-                                        }
-                                        None => unreachable!("denom should be in the map"),
-                                    },
-                                )?;
-                            }
-                        }
-                    }
-                }
-                drop_puppeteer_base::msg::Transaction::RedeemShares { items, .. } => {
-                    let mut sum = 0u128;
-                    for item in items {
-                        let (_remote_denom, _shares_amount, real_amount) = LSM_SHARES_TO_REDEEM
-                            .load(deps.storage, item.local_denom.to_string())?;
-                        sum += real_amount.u128();
-                        LSM_SHARES_TO_REDEEM.remove(deps.storage, item.local_denom.to_string());
-                    }
-                    TOTAL_LSM_SHARES.update(deps.storage, |one| StdResult::Ok(one - sum))?;
-                    LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
-                }
-                _ => {}
-            }
         }
         drop_puppeteer_base::msg::ResponseHookMsg::Error(err_msg) => {
             match err_msg.transaction {
@@ -644,21 +591,31 @@ fn execute_tick_idle(
     attrs.push(attr("knot", "002"));
     attrs.push(attr("knot", "003"));
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
+        deps.api
+            .debug("WASMDEBUG: core_contract. execute_tick_idle: 1");
         let bond_providers = query_bond_providers(deps.as_ref())?;
+        deps.api
+            .debug("WASMDEBUG: core_contract. execute_tick_idle: 2");
         for provider in bond_providers {
             let can_process_on_idle: bool = deps.querier.query_wasm_smart(
-                provider.0.to_string(),
+                provider.to_string(),
                 &drop_staking_base::msg::bond_provider::QueryMsg::CanProcessOnIdle {},
             )?;
+            deps.api.debug(
+                format!("WASMDEBUG: execute_bond, provider: {provider:?}, can_process_on_idle: {can_process_on_idle:?}")
+                    .as_str(),
+            );
             if can_process_on_idle {
                 messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: provider.0.to_string(),
+                    contract_addr: provider.to_string(),
                     msg: to_json_binary(
                         &drop_staking_base::msg::bond_provider::ExecuteMsg::ProcessOnIdle {},
                     )?,
                     funds: vec![],
                 }));
             }
+            deps.api
+                .debug("WASMDEBUG: core_contract. execute_tick_idle: 3");
         }
     } else {
         LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
@@ -1100,7 +1057,7 @@ fn execute_bond(
         .debug(format!("WASMDEBUG: execute_bond, bond_providers: {bond_providers:?}").as_str());
     for provider in bond_providers {
         let can_bond: bool = deps.querier.query_wasm_smart(
-            provider.0.to_string(),
+            provider.to_string(),
             &drop_staking_base::msg::bond_provider::QueryMsg::CanBond {
                 denom: denom.clone(),
             },
@@ -1110,10 +1067,10 @@ fn execute_bond(
                 .as_str(),
         );
         if can_bond {
-            attrs.push(attr("used_bond_provider", provider.0.to_string()));
+            attrs.push(attr("used_bond_provider", provider.to_string()));
             deps.api.debug("WASMDEBUG: execute_bond, can_bond loop: 1");
             let issue_amount: Uint128 = deps.querier.query_wasm_smart(
-                provider.0.to_string(),
+                provider.to_string(),
                 &drop_staking_base::msg::bond_provider::QueryMsg::TokensAmount {
                     coin: Coin::new(amount.u128(), denom.clone()),
                     exchange_rate,
@@ -1124,7 +1081,7 @@ fn execute_bond(
 
             let sub_msg = SubMsg::reply_on_error(
                 CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: provider.0.to_string(),
+                    contract_addr: provider.to_string(),
                     msg: to_json_binary(
                         &drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {},
                     )?,
@@ -1596,51 +1553,6 @@ fn new_unbond(now: u64) -> UnbondBatch {
             withdrawn_emergency: None,
         },
     }
-}
-
-pub fn get_pending_redeem_msg<T>(
-    deps: Deps<NeutronQuery>,
-    config: &Config,
-    env: &Env,
-    funds: Vec<cosmwasm_std::Coin>,
-) -> ContractResult<Option<CosmosMsg<T>>> {
-    let pending_lsm_shares_count = LSM_SHARES_TO_REDEEM
-        .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .count();
-    let last_lsm_redeem = LAST_LSM_REDEEM.load(deps.storage)?;
-    let lsm_redeem_threshold = config.lsm_redeem_threshold as usize;
-
-    if pending_lsm_shares_count == 0
-        || ((pending_lsm_shares_count < lsm_redeem_threshold)
-            && (last_lsm_redeem + config.lsm_redeem_maximum_interval > env.block.time.seconds()))
-    {
-        return Ok(None);
-    }
-    let shares_to_redeeem = LSM_SHARES_TO_REDEEM
-        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .take(lsm_redeem_threshold)
-        .collect::<StdResult<Vec<_>>>()?;
-
-    let items = shares_to_redeeem
-        .iter()
-        .map(
-            |(local_denom, (denom, share_amount, _real_amount))| RedeemShareItem {
-                amount: *share_amount,
-                local_denom: local_denom.to_string(),
-                remote_denom: denom.to_string(),
-            },
-        )
-        .collect();
-    Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.puppeteer_contract.to_string(),
-        msg: to_json_binary(
-            &drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
-                items,
-                reply_to: env.contract.address.to_string(),
-            },
-        )?,
-        funds,
-    })))
 }
 
 pub fn reply(deps: Deps, _env: Env, msg: Reply) -> ContractResult<Response> {

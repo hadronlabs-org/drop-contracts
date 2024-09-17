@@ -221,6 +221,7 @@ fn test_instantiate() {
                             owner: Some("factory_contract".to_string()),
                             allowed_senders: vec![
                                 "some_humanized_address".to_string(),
+                                "some_humanized_address".to_string(),
                                 "factory_contract".to_string()
                             ],
                             transfer_channel_id: "channel-0".to_string(),

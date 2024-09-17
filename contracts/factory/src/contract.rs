@@ -279,7 +279,11 @@ pub fn instantiate(
             code_id: msg.code_ids.puppeteer_code_id,
             label: get_contract_label("puppeteer"),
             msg: to_json_binary(&PuppeteerInstantiateMsg {
-                allowed_senders: vec![core_contract.to_string(), env.contract.address.to_string()],
+                allowed_senders: vec![
+                    lsm_share_bond_provider_contract.to_string(),
+                    core_contract.to_string(),
+                    env.contract.address.to_string(),
+                ],
                 owner: Some(env.contract.address.to_string()),
                 remote_denom: msg.remote_opts.denom.to_string(),
                 update_period: msg.remote_opts.update_period,

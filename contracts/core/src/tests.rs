@@ -5,13 +5,13 @@ use crate::contract::{
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockStorage},
-    to_json_binary, Addr, Coin, CosmosMsg, Decimal, Decimal256, Event, OwnedDeps, Response, SubMsg,
-    Timestamp, Uint128, WasmMsg,
+    to_json_binary, Addr, Coin, CosmosMsg, Decimal, Decimal256, Empty, Event, OwnedDeps, Response,
+    SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
 use drop_puppeteer_base::{
     msg::TransferReadyBatchesMsg,
-    state::{Delegations, DropDelegation, RedeemShareItem},
+    state::{Delegations, DropDelegation},
 };
 use drop_staking_base::{
     error::core::ContractError,
@@ -24,8 +24,8 @@ use drop_staking_base::{
     state::core::{
         unbond_batches_map, Config, ConfigOptional, ContractState, UnbondBatch, UnbondBatchStatus,
         UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG,
-        FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE,
-        LD_DENOM, LSM_SHARES_TO_REDEEM, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+        FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM,
+        TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
     },
 };
 use drop_staking_base::{
@@ -33,8 +33,7 @@ use drop_staking_base::{
     state::core::{FAILED_BATCH_ID, LAST_STAKER_RESPONSE},
 };
 use neutron_sdk::{
-    bindings::{msg::NeutronMsg, query::NeutronQuery},
-    interchain_queries::v045::types::Balances,
+    bindings::query::NeutronQuery, interchain_queries::v045::types::Balances,
     sudo::msg::RequestPacket,
 };
 use std::vec;
@@ -337,7 +336,7 @@ fn test_add_remove_bond_provider() {
 
     assert_eq!(
         bond_providers,
-        to_json_binary(&vec![(Addr::unchecked("bond_provider"), true)]).unwrap()
+        to_json_binary(&vec![Addr::unchecked("bond_provider")]).unwrap()
     );
 
     let res = execute(
@@ -397,11 +396,12 @@ fn test_execute_tick_idle_process_bondig_provider() {
             .unwrap()
         });
 
+    let empty = Empty {};
     BOND_PROVIDERS
         .save(
             deps.as_mut().storage,
             Addr::unchecked("lsm_provider_address"),
-            &true,
+            &empty,
         )
         .unwrap();
 
@@ -2689,11 +2689,12 @@ fn test_bond_wo_receiver() {
             to_json_binary(&Uint128::from(1000u128)).unwrap()
         });
 
+    let empty = Empty {};
     BOND_PROVIDERS
         .save(
             deps.as_mut().storage,
             Addr::unchecked("native_provider_address"),
-            &true,
+            &empty,
         )
         .unwrap();
 
@@ -2778,11 +2779,12 @@ fn test_bond_with_receiver() {
     BONDED_AMOUNT
         .save(deps.as_mut().storage, &Uint128::zero())
         .unwrap();
+    let empty = Empty {};
     BOND_PROVIDERS
         .save(
             deps.as_mut().storage,
             Addr::unchecked("native_provider_address"),
-            &true,
+            &empty,
         )
         .unwrap();
     CONFIG
@@ -2938,11 +2940,12 @@ fn test_bond_lsm_share_increase_exchange_rate() {
             to_json_binary(&Uint128::from(100500u128)).unwrap()
         });
 
+    let empty = Empty {};
     BOND_PROVIDERS
         .save(
             deps.as_mut().storage,
             Addr::unchecked("native_provider_address"),
-            &true,
+            &empty,
         )
         .unwrap();
 
@@ -3540,200 +3543,6 @@ mod check_denom {
         assert_eq!(
             denom_type,
             DenomType::LsmShare("valoper12345/1".to_string(), "valoper12345".to_string())
-        );
-    }
-}
-
-mod pending_redeem_shares {
-    use crate::contract::get_pending_redeem_msg;
-
-    use super::*;
-
-    #[test]
-    fn no_pending_lsm_shares() {
-        let mut deps = mock_dependencies(&[]);
-
-        let config = &get_default_config(1000, 3, 100, 100, 600, Uint128::new(100));
-
-        LAST_LSM_REDEEM.save(deps.as_mut().storage, &0).unwrap();
-
-        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
-            get_pending_redeem_msg(deps.as_ref(), config, &mock_env(), vec![]).unwrap();
-
-        assert_eq!(redeem_res, None);
-    }
-
-    #[test]
-    fn lsm_shares_below_threshold() {
-        let mut deps = mock_dependencies(&[]);
-
-        let config = &get_default_config(1000, 3, 100, 100, 600, Uint128::new(100));
-
-        let env = &mock_env();
-
-        LSM_SHARES_TO_REDEEM
-            .save(
-                deps.as_mut().storage,
-                "remote_denom_share1".to_string(),
-                &(
-                    "local_denom_1".to_string(),
-                    Uint128::from(100u128),
-                    Uint128::from(100u128),
-                ),
-            )
-            .unwrap();
-
-        LAST_LSM_REDEEM
-            .save(deps.as_mut().storage, &env.block.time.seconds())
-            .unwrap();
-
-        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
-            get_pending_redeem_msg(deps.as_ref(), config, env, vec![]).unwrap();
-
-        assert_eq!(redeem_res, None);
-    }
-
-    #[test]
-    fn lsm_shares_pass_threshold() {
-        let mut deps = mock_dependencies(&[]);
-
-        let lsm_redeem_maximum_interval = 100;
-
-        let config = &get_default_config(
-            1000,
-            3,
-            lsm_redeem_maximum_interval,
-            100,
-            600,
-            Uint128::new(100),
-        );
-
-        let env = &mock_env();
-
-        LSM_SHARES_TO_REDEEM
-            .save(
-                deps.as_mut().storage,
-                "local_denom_1".to_string(),
-                &(
-                    "remote_denom_share1".to_string(),
-                    Uint128::from(100u128),
-                    Uint128::from(100u128),
-                ),
-            )
-            .unwrap();
-
-        LAST_LSM_REDEEM
-            .save(
-                deps.as_mut().storage,
-                &(env.block.time.seconds() - lsm_redeem_maximum_interval * 2),
-            )
-            .unwrap();
-
-        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
-            get_pending_redeem_msg(deps.as_ref(), config, env, vec![]).unwrap();
-
-        assert_eq!(
-            redeem_res,
-            Some(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: MOCK_PUPPETEER_CONTRACT_ADDR.to_string(),
-                msg: to_json_binary(
-                    &drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
-                        items: vec![RedeemShareItem {
-                            amount: Uint128::from(100u128),
-                            local_denom: "local_denom_1".to_string(),
-                            remote_denom: "remote_denom_share1".to_string(),
-                        }],
-                        reply_to: env.contract.address.to_string(),
-                    },
-                )
-                .unwrap(),
-                funds: vec![],
-            }))
-        );
-    }
-
-    #[test]
-    fn lsm_shares_limit_redeem() {
-        let mut deps = mock_dependencies(&[]);
-
-        let lsm_redeem_maximum_interval = 100;
-
-        let config = &get_default_config(
-            1000,
-            2,
-            lsm_redeem_maximum_interval,
-            100,
-            600,
-            Uint128::new(100),
-        );
-
-        let env = &mock_env();
-
-        LSM_SHARES_TO_REDEEM
-            .save(
-                deps.as_mut().storage,
-                "local_denom_1".to_string(),
-                &(
-                    "remote_denom_share1".to_string(),
-                    Uint128::from(50u128),
-                    Uint128::from(50u128),
-                ),
-            )
-            .unwrap();
-
-        LSM_SHARES_TO_REDEEM
-            .save(
-                deps.as_mut().storage,
-                "local_denom_2".to_string(),
-                &(
-                    "remote_denom_share2".to_string(),
-                    Uint128::from(100u128),
-                    Uint128::from(100u128),
-                ),
-            )
-            .unwrap();
-
-        LSM_SHARES_TO_REDEEM
-            .save(
-                deps.as_mut().storage,
-                "local_denom_3".to_string(),
-                &(
-                    "remote_denom_share3".to_string(),
-                    Uint128::from(150u128),
-                    Uint128::from(150u128),
-                ),
-            )
-            .unwrap();
-
-        LAST_LSM_REDEEM.save(deps.as_mut().storage, &0).unwrap();
-
-        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
-            get_pending_redeem_msg(deps.as_ref(), config, env, vec![]).unwrap();
-
-        assert_eq!(
-            redeem_res,
-            Some(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: MOCK_PUPPETEER_CONTRACT_ADDR.to_string(),
-                msg: to_json_binary(
-                    &drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
-                        items: vec![
-                            RedeemShareItem {
-                                amount: Uint128::from(50u128),
-                                local_denom: "local_denom_1".to_string(),
-                                remote_denom: "remote_denom_share1".to_string(),
-                            },
-                            RedeemShareItem {
-                                amount: Uint128::from(100u128),
-                                local_denom: "local_denom_2".to_string(),
-                                remote_denom: "remote_denom_share2".to_string(),
-                            }
-                        ],
-                        reply_to: env.contract.address.to_string(),
-                    },
-                )
-                .unwrap(),
-                funds: vec![],
-            }))
         );
     }
 }

@@ -1971,9 +1971,9 @@ describe('Core', () => {
             await checkExchangeRate(context);
           }
         });
-        it.skip('verify pending lsm shares', async () => {
+        it('verify pending lsm shares', async () => {
           const pending =
-            await context.coreContractClient.queryPendingLSMShares();
+            await context.lsmShareBondProviderContractClient.queryPendingLSMShares();
           expect(pending).toHaveLength(2);
         });
       });
@@ -2039,7 +2039,7 @@ describe('Core', () => {
           await waitFor(async () => {
             try {
               const res =
-                await context.coreContractClient.queryPendingLSMShares();
+                await context.lsmShareBondProviderContractClient.queryPendingLSMShares();
               pending = res;
             } catch (e) {
               //
@@ -2109,7 +2109,7 @@ describe('Core', () => {
           await waitFor(async () => {
             try {
               const res =
-                await context.coreContractClient.queryPendingLSMShares();
+                await context.lsmShareBondProviderContractClient.queryPendingLSMShares();
               pending = res;
             } catch (e) {
               //

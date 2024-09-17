@@ -1,6 +1,6 @@
 use crate::msg::staker::ResponseHookMsg as StakerResponseHookMsg;
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Decimal, Uint128};
+use cosmwasm_std::{Addr, Decimal, Empty, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use drop_helpers::fsm::{Fsm, Transition};
 use drop_puppeteer_base::msg::ResponseHookMsg as PuppeteerResponseHookMsg;
@@ -214,4 +214,4 @@ pub const BONDED_AMOUNT: Item<Uint128> = Item::new("bonded_amount"); // to be us
 pub const LAST_LSM_REDEEM: Item<u64> = Item::new("last_lsm_redeem");
 pub const EXCHANGE_RATE: Item<(Decimal, u64)> = Item::new("exchange_rate");
 pub const LD_DENOM: Item<String> = Item::new("ld_denom");
-pub const BOND_PROVIDERS: Map<Addr, bool> = Map::new("bond_providers");
+pub const BOND_PROVIDERS: Map<Addr, Empty> = Map::new("bond_providers");
