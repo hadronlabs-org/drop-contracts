@@ -41,21 +41,26 @@ use drop_puppeteer_base::{
         ResponseHookMsg, ResponseHookSuccessMsg, Transaction, TransferReadyBatchesMsg,
     },
     proto::MsgIBCTransfer,
+    r#trait::PuppeteerReconstruct,
     state::{
-        Delegations, PuppeteerBase, RedeemShareItem, ReplyMsg, TxState, TxStateStatus,
-        UnbondingDelegation, ICA_ID, LOCAL_DENOM,
+        BalancesAndDelegationsState, PuppeteerBase, RedeemShareItem, ReplyMsg, TxState,
+        TxStateStatus, UnbondingDelegation, ICA_ID, LOCAL_DENOM,
     },
 };
 use drop_staking_base::{
     msg::puppeteer::{
         BalancesResponse, DelegationsResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryExtMsg,
     },
-    state::puppeteer::{Config, ConfigOptional, KVQueryType, NON_NATIVE_REWARD_BALANCES},
+    state::puppeteer::{
+        BalancesAndDelegations, Config, ConfigOptional, Delegations, KVQueryType,
+        NON_NATIVE_REWARD_BALANCES,
+    },
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery, types::ProtobufAny},
-    interchain_queries::v045::{
-        new_register_delegator_unbonding_delegations_query_msg, types::Balances,
+    interchain_queries::{
+        queries::get_raw_interchain_query_result,
+        v045::{new_register_delegator_unbonding_delegations_query_msg, types::Balances},
     },
     interchain_txs::helpers::decode_message_response,
     sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg},
@@ -64,7 +69,7 @@ use neutron_sdk::{
 use prost::Message;
 use std::{str::FromStr, vec};
 
-pub type Puppeteer<'a> = PuppeteerBase<'a, Config, KVQueryType>;
+pub type Puppeteer<'a> = PuppeteerBase<'a, Config, KVQueryType, BalancesAndDelegations>;
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -955,13 +960,12 @@ pub fn sudo(
             deps.api
                 .debug(&format!("WASMDEBUG: KVQueryResult type {:?}", query_type));
             match query_type {
-                KVQueryType::DelegationsAndBalance => puppeteer_base
-                    .sudo_delegations_and_balance_kv_query_result(
-                        deps,
-                        env,
-                        query_id,
-                        &config.sdk_version,
-                    ),
+                KVQueryType::DelegationsAndBalance => sudo_delegations_and_balance_kv_query_result(
+                    deps,
+                    env,
+                    query_id,
+                    &config.sdk_version,
+                ),
                 KVQueryType::NonNativeRewardsBalances => puppeteer_base.sudo_kv_query_result(
                     deps,
                     env,
@@ -1172,7 +1176,8 @@ fn sudo_error(
         attr("request_id", request.sequence.unwrap_or(0).to_string()),
         attr("details", details.clone()),
     ];
-    let puppeteer_base: PuppeteerBase<'_, Config, KVQueryType> = Puppeteer::default();
+    let puppeteer_base: PuppeteerBase<'_, Config, KVQueryType, BalancesAndDelegations> =
+        Puppeteer::default();
     deps.api.debug(&format!(
         "WASMDEBUG: sudo_error: request: {request:?} details: {details:?}",
     ));
@@ -1266,7 +1271,8 @@ fn sudo_timeout(
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
-    let puppeteer_base: PuppeteerBase<'_, Config, KVQueryType> = Puppeteer::default();
+    let puppeteer_base: PuppeteerBase<'_, Config, KVQueryType, BalancesAndDelegations> =
+        Puppeteer::default();
     match ReplyMsg::from_reply_id(msg.id) {
         ReplyMsg::SudoPayload => puppeteer_base.submit_tx_reply(deps, msg),
         ReplyMsg::IbcTransfer => puppeteer_base.submit_ibc_transfer_reply(deps, msg),
@@ -1314,6 +1320,73 @@ pub fn migrate(
     }
 
     Ok(Response::new())
+}
+
+fn sudo_delegations_and_balance_kv_query_result(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    query_id: u64,
+    version: &str,
+) -> NeutronResult<Response<NeutronMsg>> {
+    let puppeteer_base = Puppeteer::default();
+    let chunks_len = puppeteer_base
+        .delegations_and_balances_query_id_chunk
+        .keys(deps.storage, None, None, Order::Ascending)
+        .count();
+    let chunk_id = puppeteer_base
+        .delegations_and_balances_query_id_chunk
+        .load(deps.storage, query_id)?;
+    let (remote_height, kv_results) = {
+        let registered_query_result = get_raw_interchain_query_result(deps.as_ref(), query_id)?;
+        (
+            registered_query_result.result.height,
+            registered_query_result.result.kv_results,
+        )
+    };
+    deps.api.debug(&format!(
+        "WASMDEBUG KVQueryResult kv_results: {:?}",
+        kv_results
+    ));
+    let data: BalancesAndDelegations =
+        PuppeteerReconstruct::reconstruct(&kv_results, version, None)?;
+    let new_state = match puppeteer_base
+        .delegations_and_balances
+        .may_load(deps.storage, &remote_height)?
+    {
+        Some(mut state) => {
+            if !state.collected_chunks.contains(&chunk_id) {
+                state
+                    .data
+                    .delegations
+                    .delegations
+                    .extend(data.delegations.delegations);
+                state.collected_chunks.push(chunk_id);
+            }
+            state
+        }
+        None => BalancesAndDelegationsState {
+            data,
+            remote_height,
+            local_height: env.block.height,
+            timestamp: env.block.time,
+            collected_chunks: vec![chunk_id],
+        },
+    };
+    if new_state.collected_chunks.len() == chunks_len {
+        let prev_key = puppeteer_base
+            .last_complete_delegations_and_balances_key
+            .load(deps.storage)
+            .unwrap_or_default();
+        if prev_key < remote_height {
+            puppeteer_base
+                .last_complete_delegations_and_balances_key
+                .save(deps.storage, &remote_height)?;
+        }
+    }
+    puppeteer_base
+        .delegations_and_balances
+        .save(deps.storage, &remote_height, &new_state)?;
+    Ok(Response::default())
 }
 
 fn validate_sender(config: &Config, sender: &Addr) -> StdResult<()> {

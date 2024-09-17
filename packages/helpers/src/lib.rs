@@ -4,6 +4,7 @@ pub mod ibc_client_state;
 pub mod ibc_fee;
 pub mod ica;
 pub mod icq;
+pub mod icq_initia;
 pub mod interchain;
 pub mod pause;
 pub mod query_id;

@@ -13,13 +13,12 @@ use drop_helpers::{
     },
     testing::mock_dependencies,
 };
-use drop_puppeteer_base::state::{
-    BalancesAndDelegations, BalancesAndDelegationsState, Delegations, DropDelegation,
-    PuppeteerBase, ReplyMsg,
-};
+use drop_puppeteer_base::state::{BalancesAndDelegationsState, PuppeteerBase, ReplyMsg};
 use drop_staking_base::{
     msg::puppeteer::InstantiateMsg,
-    state::puppeteer::{Config, ConfigOptional, KVQueryType},
+    state::puppeteer::{
+        BalancesAndDelegations, Config, ConfigOptional, Delegations, DropDelegation, KVQueryType,
+    },
 };
 use neutron_sdk::{
     bindings::{
@@ -36,6 +35,13 @@ use prost::Message;
 use schemars::_serde_json::to_string;
 
 use std::vec;
+
+type PuppeteerBaseType = PuppeteerBase<
+    'static,
+    drop_staking_base::state::puppeteer::Config,
+    KVQueryType,
+    BalancesAndDelegations,
+>;
 
 fn build_interchain_query_response() -> Binary {
     let res: Vec<StorageValue> = from_json(
@@ -965,7 +971,7 @@ mod register_delegations_and_balance_query {
         owner: Option<&str>,
     ) -> (
         OwnedDeps<MemoryStorage, MockApi, WasmMockQuerier, NeutronQuery>,
-        PuppeteerBase<'static, drop_staking_base::state::puppeteer::Config, KVQueryType>,
+        PuppeteerBaseType,
     ) {
         let mut deps = mock_dependencies(&[]);
         let puppeteer_base = base_init(&mut deps.as_mut());
@@ -1166,7 +1172,7 @@ fn get_base_config() -> Config {
     }
 }
 
-fn base_init(deps_mut: &mut DepsMut<NeutronQuery>) -> PuppeteerBase<'static, Config, KVQueryType> {
+fn base_init(deps_mut: &mut DepsMut<NeutronQuery>) -> PuppeteerBaseType {
     let puppeteer_base = Puppeteer::default();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     puppeteer_base

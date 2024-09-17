@@ -946,6 +946,7 @@ dependencies = [
  "cw721-base 0.18.0",
  "drop-helpers",
  "drop-macros",
+ "drop-proto",
  "drop-puppeteer-base",
  "neutron-sdk",
  "optfield",

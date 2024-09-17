@@ -1,17 +1,11 @@
-use cosmos_sdk_proto::cosmos::{
-    base::v1beta1::Coin as CosmosCoin,
-    staking::v1beta1::{Delegation, Params, Validator as CosmosValidator},
-};
+use cosmos_sdk_proto::cosmos::base::v1beta1::Coin as CosmosCoin;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Addr;
-use cosmwasm_std::{from_json, Decimal256, StdError, Uint128, Uint256};
-use cw_storage_plus::Item;
+use cosmwasm_std::{Decimal256, StdError, Uint128, Uint256};
 
 use drop_helpers::version::version_to_u32;
-use drop_puppeteer_base::{
-    r#trait::PuppeteerReconstruct,
-    state::{BalancesAndDelegationsState, BaseConfig},
-};
+use drop_proto::proto::initia::mstaking::v1::{Delegation, Validator as InitiaValidator};
+use drop_puppeteer_base::r#trait::PuppeteerReconstruct;
 use neutron_sdk::{
     interchain_queries::v045::{helpers::deconstruct_account_denom_balance_key, types::Balances},
     NeutronError, NeutronResult,
@@ -20,54 +14,12 @@ use prost::Message;
 use std::ops::Div;
 use std::str::FromStr;
 
-use crate::msg::puppeteer::MultiBalances;
-
-#[cw_serde]
-pub struct ConfigOptional {
-    pub connection_id: Option<String>,
-    pub port_id: Option<String>,
-    pub update_period: Option<u64>,
-    pub remote_denom: Option<String>,
-    pub allowed_senders: Option<Vec<String>>,
-    pub transfer_channel_id: Option<String>,
-    pub sdk_version: Option<String>,
-    pub timeout: Option<u64>,
-}
-
-#[cw_serde]
-pub struct Config {
-    pub connection_id: String,
-    pub port_id: String,
-    pub update_period: u64, // update period in seconds for ICQ queries
-    pub remote_denom: String,
-    pub allowed_senders: Vec<Addr>,
-    pub transfer_channel_id: String,
-    pub sdk_version: String,
-    pub timeout: u64, // timeout for interchain transactions in seconds
-    pub delegations_queries_chunk_size: u32,
-}
-
-impl BaseConfig for Config {
-    fn connection_id(&self) -> String {
-        self.connection_id.clone()
-    }
-
-    fn update_period(&self) -> u64 {
-        self.update_period
-    }
-}
-
 #[cw_serde]
 pub enum KVQueryType {
     UnbondingDelegations,
     DelegationsAndBalance,
     NonNativeRewardsBalances,
 }
-
-pub const CONFIG: Item<Config> = Item::new("config");
-
-pub const NON_NATIVE_REWARD_BALANCES: Item<BalancesAndDelegationsState<MultiBalances>> =
-    Item::new("non_native_reward_balances");
 
 pub const DECIMAL_PLACES: u32 = 18;
 const DECIMAL_FRACTIONAL: u128 = 10u128.pow(DECIMAL_PLACES);
@@ -98,7 +50,7 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
     fn reconstruct(
         storage_values: &[neutron_sdk::bindings::types::StorageValue],
         version: &str,
-        _denom: Option<&str>,
+        denom: Option<&str>,
     ) -> NeutronResult<Self> {
         let version = version_to_u32(version)?;
         if storage_values.is_empty() {
@@ -125,19 +77,15 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
             }?;
             coins.push(cosmwasm_std::Coin::new(amount.u128(), denom));
         }
-        let mut delegations: Vec<DropDelegation> =
-            Vec::with_capacity((storage_values.len() - 2) / 2);
+        let total_validators = (storage_values.len() - 1) / 2;
+        let mut delegations: Vec<DropDelegation> = Vec::with_capacity(total_validators);
+
         // first StorageValue is denom
-        if !storage_values[1].value.is_empty() {
-            let denom = match version {
-                ver if ver >= version_to_u32("0.47.0")? => {
-                    // Parse as Params and get bond_denom
-                    Params::decode(storage_values[1].value.as_slice())?.bond_denom
-                }
-                // For versions below "0.47.0", parse as string
-                _ => from_json(&storage_values[1].value)?,
-            };
-            for chunk in storage_values[2..].chunks(2) {
+        let denom =
+            denom.ok_or_else(|| NeutronError::InvalidQueryResultFormat("denom is empty".into()))?;
+        if total_validators > 0 {
+            println!("total_validators {}", total_validators);
+            for chunk in storage_values[1..].chunks(2) {
                 if chunk[0].value.is_empty() {
                     // Incoming delegation can actually be empty, this just means that delegation
                     // is not present on remote chain, which is to be expected. So, if it doesn't
@@ -145,7 +93,7 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
                     continue;
                 }
                 let delegation_sdk: Delegation = Delegation::decode(chunk[0].value.as_slice())?;
-
+                println!("delegation {:?}", delegation_sdk);
                 let mut delegation_std = DropDelegation {
                     delegator: Addr::unchecked(delegation_sdk.delegator_address.as_str()),
                     validator: delegation_sdk.validator_address,
@@ -161,21 +109,50 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
                         "validator is empty".into(),
                     ));
                 }
-                let validator: CosmosValidator =
-                    CosmosValidator::decode(chunk[1].value.as_slice())?;
+                let validator: InitiaValidator =
+                    InitiaValidator::decode(chunk[1].value.as_slice())?;
 
                 let delegation_shares = Decimal256::from_atomics(
-                    Uint128::from_str(&delegation_sdk.shares)?,
+                    Uint128::from_str(
+                        &delegation_sdk
+                            .shares
+                            .iter()
+                            .find(|o| o.denom == denom)
+                            .ok_or(NeutronError::InvalidQueryResultFormat(
+                                "denom not found".to_string(),
+                            ))?
+                            .amount,
+                    )?,
                     DECIMAL_PLACES,
                 )?;
 
                 let delegator_shares = Decimal256::from_atomics(
-                    Uint128::from_str(&validator.delegator_shares)?,
+                    Uint128::from_str(
+                        &validator
+                            .delegator_shares
+                            .iter()
+                            .find(|o| o.denom == denom)
+                            .ok_or(NeutronError::InvalidQueryResultFormat(
+                                "denom not found".to_string(),
+                            ))?
+                            .amount,
+                    )?,
                     DECIMAL_PLACES,
                 )?;
 
-                let validator_tokens =
-                    Decimal256::from_atomics(Uint128::from_str(&validator.tokens)?, 0)?;
+                let validator_tokens = Decimal256::from_atomics(
+                    Uint128::from_str(
+                        &validator
+                            .tokens
+                            .iter()
+                            .find(|o| o.denom == denom)
+                            .ok_or(NeutronError::InvalidQueryResultFormat(
+                                "denom not found".to_string(),
+                            ))?
+                            .amount,
+                    )?,
+                    0,
+                )?;
 
                 // https://github.com/cosmos/cosmos-sdk/blob/35ae2c4c72d4aeb33447d5a7af23ca47f786606e/x/staking/keeper/querier.go#L463
                 // delegated_tokens = quotient(delegation.shares * validator.tokens / validator.total_shares);
@@ -189,7 +166,7 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
                 .map_err(|err| NeutronError::Std(StdError::ConversionOverflow { source: err }))?
                 .u128();
                 delegation_std.share_ratio = validator_tokens / delegator_shares;
-                delegation_std.amount = cosmwasm_std::Coin::new(delegated_tokens, &denom);
+                delegation_std.amount = cosmwasm_std::Coin::new(delegated_tokens, denom);
 
                 delegations.push(delegation_std);
             }

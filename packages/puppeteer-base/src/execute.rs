@@ -1,6 +1,7 @@
 use crate::{
     error::{ContractError, ContractResult},
     msg::{ExecuteMsg, Transaction},
+    r#trait::PuppeteerReconstruct,
     state::{BaseConfig, PuppeteerBase, TxState, TxStateStatus, ICA_ID, LOCAL_DENOM},
 };
 use cosmwasm_std::{
@@ -15,10 +16,11 @@ use neutron_sdk::{
 };
 use serde::{de::DeserializeOwned, Serialize};
 
-impl<'a, T, U> PuppeteerBase<'a, T, U>
+impl<'a, T, U, P> PuppeteerBase<'a, T, U, P>
 where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
     U: Serialize + DeserializeOwned + Clone,
+    P: PuppeteerReconstruct + std::fmt::Debug + Serialize + Clone,
 {
     pub fn instantiate<X: CustomQuery, Z>(
         &self,

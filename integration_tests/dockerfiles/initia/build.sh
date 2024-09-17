@@ -2,7 +2,7 @@
 DIR="$(dirname $0)"
 cd $DIR
 VERSION=$(cat ../../package.json | jq -r '.version')
-git clone https://github.com/initia-labs/initia -b v0.2.15
+# git clone https://github.com/initia-labs/initia -b v0.2.15
 cp ./Dockerfile ./initia
 if [[ "$CI" == "true" ]]; then
     VERSION="_$VERSION"

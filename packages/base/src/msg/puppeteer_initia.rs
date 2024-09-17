@@ -4,7 +4,8 @@ use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 use drop_helpers::version::version_to_u32;
 use prost::Message;
 
-use crate::state::puppeteer::{ConfigOptional, Delegations};
+use crate::state::puppeteer::ConfigOptional;
+use crate::state::puppeteer_initia::Delegations;
 use cosmos_sdk_proto::cosmos::base::v1beta1::Coin as CosmosCoin;
 use drop_puppeteer_base::{
     msg::{ExecuteMsg as BaseExecuteMsg, IBCTransferReason, TransferReadyBatchesMsg},
