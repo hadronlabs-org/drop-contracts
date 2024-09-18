@@ -48,14 +48,14 @@ fn build_interchain_query_response() -> Binary {
     let res: Vec<StorageValue> = from_json(
         r#"[
         { 
-            "storage_prefix": "bank", 
-            "key": "AiAGQH98yCVJqCpXNMGv5tJqXLn9DeS8jWgMFJwm5y+v33Vpbml0", 
-            "value": "" 
+            "storage_prefix": "move", 
+            "key": "Ic5jswvkK4MrI/1JN/zrinSchHJlDIF9G1QwYgftNUhlAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABDmZ1bmdpYmxlX2Fzc2V0DUZ1bmdpYmxlU3RvcmUA", 
+            "value": "jkczvavPfUr8PRTw3UbJv1L7D86eS5lsk54ZW4vIkdlAQg8AAAAAAAA=" 
         }, 
-        { "storage_prefix": "mstaking", "key": "MQZAf3zIJUmoKlc0wa/m0mpcuf0N5LyNaAwUnCbnL6/fnKbdd7BotR1+NCHdGp02tpxlSrs=", "value": "" }, 
-        { "storage_prefix": "mstaking", "key": "IZym3XewaLUdfjQh3RqdNracZUq7", "value": "CjJpbml0dmFsb3BlcjFuam5kNmFhc2R6NjM2bDM1eTh3MzQ4ZmtrNnd4Mmo0bWtwd3o1eRJDCh0vY29zbW9zLmNyeXB0by5lZDI1NTE5LlB1YktleRIiCiAXPTosyAAap3Pk/99dxadG4OwwCuDyMXSpzlBTqEkJdCADKhMKBXVpbml0EgoxOTAwNTAwMDAwMiUKBXVpbml0EhwxOTAwNTAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwOgwKCnZhbGluaXRpYTBKAFJLCjsKEjEwMDAwMDAwMDAwMDAwMDAwMBISMjAwMDAwMDAwMDAwMDAwMDAwGhExMDAwMDAwMDAwMDAwMDAwMBIMCLq4obcGEJSu3aQCWhMKBXVpbml0EgoxOTAwNTAwMDAwYgoxOTAwNTAwMDAw" },
-        { "storage_prefix": "mstaking", "key": "MQZAf3zIJUmoKlc0wa/m0mpcuf0N5LyNaAwUnCbnL6/fqF8tdCzaDYCM062zhqpR6ZtjFYI=", "value": "" },
-        { "storage_prefix": "mstaking", "key": "IahfLXQs2g2AjNOts4aqUembYxWC", "value": "CjJpbml0dmFsb3BlcjE0cDBqNmFwdm1neGNwcnhuNGtlY2QyajNheGRreDl2ejltdm4wZBJDCh0vY29zbW9zLmNyeXB0by5lZDI1NTE5LlB1YktleRIiCiBOflyLtayCbPFLP2WtREcHkBfxphtlyaNxvkTY7r0ygCADKhIKBXVpbml0EgkxMDA1MDAwMDAyJAoFdWluaXQSGzEwMDUwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDoMCgp2YWxpbml0aWExSgBSSwo7ChIxMDAwMDAwMDAwMDAwMDAwMDASEjIwMDAwMDAwMDAwMDAwMDAwMBoRMTAwMDAwMDAwMDAwMDAwMDASDAi6uKG3BhCUrt2kAloSCgV1aW5pdBIJMTAwNTAwMDAwYgkxMDA1MDAwMDA=" }
+        { "storage_prefix": "mstaking", "key": "MSAoG+iyVNDbRvwp5/kzQaQRxfpHrIWdnjVbylPmOd4RlQJCiPT53CyU/s49W6PCRxoH2qoo", "value": "Cj9pbml0MTlxZDczdmo1NnJkNWRscGZ1bHVueHNkeXo4emw1M2F2c2t3ZXVkMm1lZmY3dnd3N3p4MnNjMjB1cDkSMmluaXR2YWxvcGVyMXFmcGczYThlbXNrZmZsa3c4NGQ2OHNqOHJncmE0MjNnMjkzbjB2GiEKBXVpbml0EhgyNTAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=" }, 
+        { "storage_prefix": "mstaking", "key": "IQJCiPT53CyU/s49W6PCRxoH2qoo", "value": "CjJpbml0dmFsb3BlcjFxZnBnM2E4ZW1za2ZmbGt3ODRkNjhzajhyZ3JhNDIzZzI5M24wdhJDCh0vY29zbW9zLmNyeXB0by5lZDI1NTE5LlB1YktleRIiCiDKjQQoFRI6RerldUGN3U3X52vosJbBX1HS3umeKk8MGSADKhIKBXVpbml0EgkxMDAyNTAwMDAyJAoFdWluaXQSGzEwMDI1MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDoMCgp2YWxpbml0aWExSgBSSgo7ChIxMDAwMDAwMDAwMDAwMDAwMDASEjIwMDAwMDAwMDAwMDAwMDAwMBoRMTAwMDAwMDAwMDAwMDAwMDASCwj+4aq3BhDgweoYWhIKBXVpbml0EgkxMDAyNTAwMDBiCTEwMDI1MDAwMA==" },
+        { "storage_prefix": "mstaking", "key": "MSAoG+iyVNDbRvwp5/kzQaQRxfpHrIWdnjVbylPmOd4RlcvW2aq5k+ivPghDmm52oBROavhD", "value": "Cj9pbml0MTlxZDczdmo1NnJkNWRscGZ1bHVueHNkeXo4emw1M2F2c2t3ZXVkMm1lZmY3dnd3N3p4MnNjMjB1cDkSMmluaXR2YWxvcGVyMWUwdGRuMjRlajA1Mjcwc2dnd2R4dWE0cXozOHg0N3pyYXpyOHEyGiEKBXVpbml0EhgyNTAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=" },
+        { "storage_prefix": "mstaking", "key": "IcvW2aq5k+ivPghDmm52oBROavhD", "value": "CjJpbml0dmFsb3BlcjFlMHRkbjI0ZWowNTI3MHNnZ3dkeHVhNHF6Mzh4NDd6cmF6cjhxMhJDCh0vY29zbW9zLmNyeXB0by5lZDI1NTE5LlB1YktleRIiCiCdzLj4xXrONiYkaAXv+aJfymTNHnWq8mQ99mLqS8ruLCADKhMKBXVpbml0EgoxOTAwMjUwMDAwMiUKBXVpbml0EhwxOTAwMjUwMDAwMDAwMDAwMDAwMDAwMDAwMDAwOgwKCnZhbGluaXRpYTBKAFJKCjsKEjEwMDAwMDAwMDAwMDAwMDAwMBISMjAwMDAwMDAwMDAwMDAwMDAwGhExMDAwMDAwMDAwMDAwMDAwMBILCP7hqrcGEODB6hhaEwoFdWluaXQSCjE5MDAyNTAwMDBiCjE5MDAyNTAwMDA=" }
       ]"#,
     )
     .unwrap();
@@ -294,7 +294,7 @@ fn test_execute_undelegate() {
     .unwrap();
 
     let msg = cosmos_sdk_proto::Any {
-        type_url: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
+        type_url: "/initia.mstaking.v1.MsgUndelegate".to_string(),
         value: cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
             delegator_address: "ica_address".to_string(),
             validator_address: "valoper1".to_string(),
@@ -493,7 +493,12 @@ fn test_sudo_kv_query_result() {
             &KVQueryType::DelegationsAndBalance {},
         )
         .unwrap();
-
+    let mut config = get_base_config();
+    config.remote_denom = "uinit".to_string();
+    puppeteer_base
+        .config
+        .save(deps.as_mut().storage, &config)
+        .unwrap();
     puppeteer_base
         .delegations_and_balances_query_id_chunk
         .save(deps.as_mut().storage, query_id, &0)
@@ -519,26 +524,26 @@ fn test_sudo_kv_query_result() {
         BalancesAndDelegationsState {
             data: BalancesAndDelegations {
                 balances: Balances {
-                    coins: vec![coin(29558778, "stake")]
+                    coins: vec![coin(1000000, "uinit")]
                 },
                 delegations: Delegations {
                     delegations: vec![
                         DropDelegation {
                             delegator: Addr::unchecked(
-                                "cosmos1nujy3vl3rww3cy8tf8pdru5jp3f9ppmkadws553ck3qryg2tjanqt39xnv"
+                                "init19qd73vj56rd5dlpfulunxsdyz8zl53avskweud2meff7vww7zx2sc20up9"
                             ),
-                            validator: "cosmosvaloper1rndyjagfg0nsedl2uy5n92vssn8aj5n67t0nfx"
+                            validator: "initvaloper1qfpg3a8emskfflkw84d68sj8rgra423g293n0v"
                                 .to_string(),
-                            amount: coin(13582465152, "stake"),
+                            amount: coin(250000, "uinit"),
                             share_ratio: Decimal256::one()
                         },
                         DropDelegation {
                             delegator: Addr::unchecked(
-                                "cosmos1nujy3vl3rww3cy8tf8pdru5jp3f9ppmkadws553ck3qryg2tjanqt39xnv"
+                                "init19qd73vj56rd5dlpfulunxsdyz8zl53avskweud2meff7vww7zx2sc20up9"
                             ),
-                            validator: "cosmosvaloper1gh4vzw9wsfgl2h37qqnetet0m4wrzm7v7x3j9x"
+                            validator: "initvaloper1e0tdn24ej05270sggwdxua4qz38x47zrazr8q2"
                                 .to_string(),
-                            amount: coin(13582465152, "stake"),
+                            amount: coin(250000, "uinit"),
                             share_ratio: Decimal256::one()
                         }
                     ]
@@ -947,7 +952,7 @@ mod register_delegations_and_balance_query {
         assert_eq!(
             res,
             Response::new().add_submessages(vec![SubMsg::reply_on_success(
-                drop_helpers::icq::new_delegations_and_balance_query_msg(
+                drop_helpers::icq_initia::new_delegations_and_balance_query_msg(
                     "connection_id".to_string(),
                     "cosmos1m9l358xunhhwds0568za49mzhvuxx9uxre5tud".to_string(),
                     "remote_denom".to_string(),
@@ -956,7 +961,6 @@ mod register_delegations_and_balance_query {
                         "cosmos14xcrdjwwxtf9zr7dvaa97wy056se6r5e8q68mw".to_string(),
                     ],
                     60,
-                    "0.47.0",
                 )
                 .unwrap(),
                 ReplyMsg::KvDelegationsAndBalance { i: 0 }.to_reply_id(),
@@ -1010,7 +1014,7 @@ mod register_delegations_and_balance_query {
                 ])
                 .add_submessages(vec![
                     SubMsg::reply_on_success(
-                        drop_helpers::icq::new_delegations_and_balance_query_msg(
+                        drop_helpers::icq_initia::new_delegations_and_balance_query_msg(
                             "connection_id".to_string(),
                             "cosmos1m9l358xunhhwds0568za49mzhvuxx9uxre5tud".to_string(),
                             "remote_denom".to_string(),
@@ -1019,19 +1023,17 @@ mod register_delegations_and_balance_query {
                                 "cosmos14xcrdjwwxtf9zr7dvaa97wy056se6r5e8q68mw".to_string(),
                             ],
                             60,
-                            "0.47.0",
                         )
                         .unwrap(),
                         ReplyMsg::KvDelegationsAndBalance { i: 0 }.to_reply_id(),
                     ),
                     SubMsg::reply_on_success(
-                        drop_helpers::icq::new_delegations_and_balance_query_msg(
+                        drop_helpers::icq_initia::new_delegations_and_balance_query_msg(
                             "connection_id".to_string(),
                             "cosmos1m9l358xunhhwds0568za49mzhvuxx9uxre5tud".to_string(),
                             "remote_denom".to_string(),
                             vec!["cosmos15tuf2ewxle6jj6eqd4jm579vpahydzwdsvkrhn".to_string(),],
                             60,
-                            "0.47.0",
                         )
                         .unwrap(),
                         ReplyMsg::KvDelegationsAndBalance { i: 1 }.to_reply_id(),
