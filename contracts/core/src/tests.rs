@@ -2996,7 +2996,6 @@ fn test_bond_lsm_share_increase_exchange_rate() {
         },
     )
     .unwrap();
-    // println!("{:?}", res);
     let issue_amount = res.events[0]
         .attributes
         .iter()

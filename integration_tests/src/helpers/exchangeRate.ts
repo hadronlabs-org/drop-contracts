@@ -102,12 +102,6 @@ export async function compareExchangeRates(
   context: any,
   decimals: number = DEFAULT_EXCHANGE_RATE_DECIMALS,
 ): Promise<boolean> {
-  console.log((await calcExchangeRate(context)).toFixed(decimals));
-  console.log(
-    Number(await context.coreContractClient.queryExchangeRate()).toFixed(
-      decimals,
-    ),
-  );
   return (
     (await calcExchangeRate(context)).toFixed(decimals) ===
     Number(await context.coreContractClient.queryExchangeRate()).toFixed(

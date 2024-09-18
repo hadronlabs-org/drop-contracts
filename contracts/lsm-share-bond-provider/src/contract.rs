@@ -193,15 +193,10 @@ fn execute_process_on_idle(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api
-        .debug("WASMDEBUG: lsm-share-bond-provider, execute_process_on_idle: 1");
     let config = CONFIG.load(deps.storage)?;
 
     let mut attrs = vec![attr("action", "process_on_idle")];
     let mut messages: Vec<CosmosMsg<NeutronMsg>> = vec![];
-
-    deps.api
-        .debug("WASMDEBUG: lsm-share-bond-provider, execute_process_on_idle: 2");
 
     attrs.push(attr("knot", "036"));
     if let Some(lsm_msg) = get_pending_redeem_msg(deps.as_ref(), &config, &env, info.funds.clone())?
@@ -209,25 +204,16 @@ fn execute_process_on_idle(
         messages.push(lsm_msg);
         attrs.push(attr("knot", "037"));
         attrs.push(attr("knot", "038"));
-        deps.api
-            .debug("WASMDEBUG: lsm-share-bond-provider, execute_process_on_idle: 2.1");
     } else {
         attrs.push(attr("knot", "041"));
-        deps.api
-            .debug("WASMDEBUG: lsm-share-bond-provider, execute_process_on_idle: 2.2");
         if let Some(lsm_msg) =
             get_pending_lsm_share_msg(deps.as_ref(), &config, &env, info.funds.clone())?
         {
             messages.push(lsm_msg);
             attrs.push(attr("knot", "042"));
             attrs.push(attr("knot", "043"));
-            deps.api
-                .debug("WASMDEBUG: lsm-share-bond-provider, execute_process_on_idle: 2.3");
         }
     }
-
-    deps.api
-        .debug("WASMDEBUG: lsm-share-bond-provider, execute_process_on_idle: 3");
 
     Ok(
         response("update_config", CONTRACT_NAME, Vec::<Attribute>::new())
@@ -291,16 +277,10 @@ fn execute_bond(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api
-        .debug("WASMDEBUG: lsm-share-bond-provider, execute_bond: 1");
     let Coin { amount, denom } = cw_utils::one_coin(&info)?;
     let config = CONFIG.load(deps.storage)?;
-    deps.api
-        .debug("WASMDEBUG: lsm-share-bond-provider, execute_bond: 2");
 
     let check_denom = check_denom::check_denom(&deps.as_ref(), &denom, &config)?;
-    deps.api
-        .debug("WASMDEBUG: lsm-share-bond-provider, execute_bond: 3");
 
     let real_amount = calc_lsm_share_underlying_amount(
         deps.as_ref(),
@@ -308,14 +288,10 @@ fn execute_bond(
         &amount,
         check_denom.validator,
     )?;
-    deps.api
-        .debug("WASMDEBUG: lsm-share-bond-provider, execute_bond: 4");
 
     TOTAL_LSM_SHARES.update(deps.storage, |total| {
         StdResult::Ok(total + real_amount.u128())
     })?;
-    deps.api
-        .debug("WASMDEBUG: lsm-share-bond-provider, execute_bond: 5");
     PENDING_LSM_SHARES.update(deps.storage, denom.to_string(), |one| {
         let mut new = one.unwrap_or((
             check_denom.remote_denom.to_string(),
@@ -326,8 +302,6 @@ fn execute_bond(
         new.2 += real_amount;
         StdResult::Ok(new)
     })?;
-    deps.api
-        .debug("WASMDEBUG: lsm-share-bond-provider, execute_bond: 6");
 
     Ok(response(
         "bond",
@@ -350,15 +324,11 @@ fn execute_puppeteer_hook(
     msg: drop_puppeteer_base::msg::ResponseHookMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
-    deps.api
-        .debug("WASMDEBUG: lsm-share-bond-provider, execute_puppeteer_hook: 1");
     ensure_eq!(
         info.sender,
         config.puppeteer_contract,
         ContractError::Unauthorized {}
     );
-    deps.api
-        .debug("WASMDEBUG: lsm-share-bond-provider, execute_puppeteer_hook: 2");
     if let drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) = msg.clone() {
         match &success_msg.transaction {
             drop_puppeteer_base::msg::Transaction::IBCTransfer {
@@ -411,22 +381,14 @@ fn execute_puppeteer_hook(
             _ => {}
         }
     }
-    deps.api
-        .debug("WASMDEBUG: lsm-share-bond-provider, execute_puppeteer_hook: 3");
 
     LAST_PUPPETEER_RESPONSE.save(deps.storage, &msg)?;
-
-    deps.api
-        .debug("WASMDEBUG: lsm-share-bond-provider, execute_puppeteer_hook: 4");
 
     let hook_message = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.core_contract.to_string(),
         msg: to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(msg))?,
         funds: vec![],
     });
-
-    deps.api
-        .debug("WASMDEBUG: lsm-share-bond-provider, execute_puppeteer_hook: 5");
 
     Ok(response(
         "execute-puppeteer_hook",

@@ -78,8 +78,6 @@ fn hook_success(
     _info: MessageInfo,
     answer: ResponseHookSuccessMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api
-        .debug(&format!("WASMDEBUG: hook_success: {:?}", answer));
     let attrs = vec![attr("action", "hook-success")];
     ANSWERS.update(deps.storage, |mut answers| -> ContractResult<_> {
         answers.push(answer);
@@ -94,8 +92,6 @@ fn hook_error(
     _info: MessageInfo,
     answer: ResponseHookErrorMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api
-        .debug(&format!("WASMDEBUG: hook_error: {:?}", answer));
     let attrs = vec![attr("action", "hook-success")];
     ERRORS.update(deps.storage, |mut errors| -> ContractResult<_> {
         errors.push(answer);

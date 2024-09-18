@@ -127,16 +127,10 @@ fn query_total_async_tokens(deps: Deps<NeutronQuery>) -> ContractResult<Uint128>
     let mut total_async_shares = Uint128::zero();
     let bond_providers = query_bond_providers(deps)?;
     for provider in bond_providers {
-        deps.api
-            .debug(format!("WASMDEBUG: query_async_tokens, provider: {provider:?}").as_str());
         let async_tokens_amount: Uint128 = deps.querier.query_wasm_smart(
             provider.to_string(),
             &drop_staking_base::msg::bond_provider::QueryMsg::AsyncTokensAmount {},
         )?;
-        deps.api.debug(
-            format!("WASMDEBUG: query_async_tokens, async_tokens_amount: {async_tokens_amount:?}")
-                .as_str(),
-        );
 
         total_async_shares += async_tokens_amount;
     }
@@ -154,7 +148,6 @@ fn query_bond_providers(deps: Deps<NeutronQuery>) -> ContractResult<Vec<Addr>> {
 }
 
 fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractResult<Decimal> {
-    deps.api.debug("WASMDEBUG: query_exchange_rate: 1");
     let fsm_state = FSM.get_current_state(deps.storage)?;
     if fsm_state != ContractState::Idle {
         return Ok(EXCHANGE_RATE
@@ -162,7 +155,6 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
             .unwrap_or((Decimal::one(), 0))
             .0);
     }
-    deps.api.debug("WASMDEBUG: query_exchange_rate: 2");
     let ld_total_supply: cosmwasm_std::SupplyResponse =
         deps.querier.query(&QueryRequest::Bank(BankQuery::Supply {
             denom: LD_DENOM.load(deps.storage)?,
@@ -172,7 +164,6 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
     if exchange_rate_denominator.is_zero() {
         return Ok(Decimal::one());
     }
-    deps.api.debug("WASMDEBUG: query_exchange_rate: 3");
 
     let delegations_response = deps
         .querier
@@ -182,7 +173,6 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
             msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
         },
     )?;
-    deps.api.debug("WASMDEBUG: query_exchange_rate: 4");
 
     let delegations_amount: Uint128 = delegations_response
         .delegations
@@ -213,13 +203,8 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
         &config.staker_contract,
         &drop_staking_base::msg::staker::QueryMsg::AllBalance {},
     )?;
-    println!("staker_balance: {:?}", staker_balance);
     let total_async_shares = query_total_async_tokens(deps)?;
 
-    deps.api.debug(
-        format!("WASMDEBUG: query_exchange_rate, total_async_shares: {total_async_shares:?}")
-            .as_str(),
-    );
     // arithmetic operations order is important here as we don't want to overflow
     let exchange_rate_numerator = delegations_amount + staker_balance + total_async_shares;
     if exchange_rate_numerator.is_zero() {
@@ -591,20 +576,12 @@ fn execute_tick_idle(
     attrs.push(attr("knot", "002"));
     attrs.push(attr("knot", "003"));
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
-        deps.api
-            .debug("WASMDEBUG: core_contract. execute_tick_idle: 1");
         let bond_providers = query_bond_providers(deps.as_ref())?;
-        deps.api
-            .debug("WASMDEBUG: core_contract. execute_tick_idle: 2");
         for provider in bond_providers {
             let can_process_on_idle: bool = deps.querier.query_wasm_smart(
                 provider.to_string(),
                 &drop_staking_base::msg::bond_provider::QueryMsg::CanProcessOnIdle {},
             )?;
-            deps.api.debug(
-                format!("WASMDEBUG: execute_bond, provider: {provider:?}, can_process_on_idle: {can_process_on_idle:?}")
-                    .as_str(),
-            );
             if can_process_on_idle {
                 let sub_msg = SubMsg::reply_on_error(
                     CosmosMsg::Wasm(WasmMsg::Execute {
@@ -621,8 +598,6 @@ fn execute_tick_idle(
 
                 FSM.go_to(deps.storage, ContractState::Peripheral)?;
             }
-            deps.api
-                .debug("WASMDEBUG: core_contract. execute_tick_idle: 3");
         }
     } else {
         LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
@@ -1062,8 +1037,6 @@ fn execute_bond(
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
 
     let bond_providers = query_bond_providers(deps.as_ref())?;
-    deps.api
-        .debug(format!("WASMDEBUG: execute_bond, bond_providers: {bond_providers:?}").as_str());
     for provider in bond_providers {
         let can_bond: bool = deps.querier.query_wasm_smart(
             provider.to_string(),
@@ -1071,13 +1044,8 @@ fn execute_bond(
                 denom: denom.clone(),
             },
         )?;
-        deps.api.debug(
-            format!("WASMDEBUG: execute_bond, provider: {provider:?}, can_bond: {can_bond:?}")
-                .as_str(),
-        );
         if can_bond {
             attrs.push(attr("used_bond_provider", provider.to_string()));
-            deps.api.debug("WASMDEBUG: execute_bond, can_bond loop: 1");
             let issue_amount: Uint128 = deps.querier.query_wasm_smart(
                 provider.to_string(),
                 &drop_staking_base::msg::bond_provider::QueryMsg::TokensAmount {
@@ -1085,7 +1053,6 @@ fn execute_bond(
                     exchange_rate,
                 },
             )?;
-            deps.api.debug("WASMDEBUG: execute_bond, can_bond loop: 2");
             attrs.push(attr("issue_amount", issue_amount.to_string()));
 
             let sub_msg = SubMsg::reply_on_error(
@@ -1101,10 +1068,7 @@ fn execute_bond(
 
             sub_msgs.push(sub_msg);
 
-            deps.api.debug("WASMDEBUG: execute_bond, can_bond loop: 3");
-
             BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total + issue_amount))?;
-            deps.api.debug("WASMDEBUG: execute_bond, can_bond loop: 4");
 
             let receiver = receiver.clone().map_or(
                 Ok::<String, ContractError>(info.sender.to_string()),
@@ -1113,14 +1077,12 @@ fn execute_bond(
                     Ok(a)
                 },
             )?;
-            deps.api.debug("WASMDEBUG: execute_bond, can_bond loop: 4");
             attrs.push(attr("receiver", receiver.clone()));
             if let Some(r#ref) = r#ref.clone() {
                 if !r#ref.is_empty() {
                     attrs.push(attr("ref", r#ref));
                 }
             }
-            deps.api.debug("WASMDEBUG: execute_bond, can_bond loop: 5");
             msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: config.token_contract.to_string(),
                 msg: to_json_binary(&TokenExecuteMsg::Mint {
@@ -1129,7 +1091,6 @@ fn execute_bond(
                 })?,
                 funds: vec![],
             }));
-            deps.api.debug("WASMDEBUG: execute_bond, can_bond loop: 6");
 
             break;
         }
@@ -1565,16 +1526,13 @@ fn new_unbond(now: u64) -> UnbondBatch {
 }
 
 pub fn reply(deps: Deps, _env: Env, msg: Reply) -> ContractResult<Response> {
-    deps.api
-        .debug(format!("WASMDEBUG: reply, msg: {msg:?}").as_str());
     match msg.id {
         BOND_PROVIDER_REPLY_ID => bond_provider_reply(deps, msg),
         id => Err(ContractError::UnknownReplyId { id }),
     }
 }
 
-fn bond_provider_reply(deps: Deps, msg: Reply) -> ContractResult<Response> {
-    deps.api.debug("WASMDEBUG: bond_provider_reply: 1");
+fn bond_provider_reply(_deps: Deps, msg: Reply) -> ContractResult<Response> {
     if let SubMsgResult::Err(err) = msg.result {
         return Err(ContractError::BondProviderError { message: err });
     }
