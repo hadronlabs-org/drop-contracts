@@ -115,6 +115,44 @@ main() {
   factory_admin_execute $factory_address "$msg" 20000untrn
   echo "[OK] Grant staker to delegate funds from puppeteer ICA"
 
+  update_msg='{
+    "add_bond_provider":{
+      "bond_provider_address": "'"$native_bond_provider_address"'"
+    }
+  }'
+
+  msg='{
+    "wasm":{
+      "execute":{
+        "contract_addr":"'"$core_address"'",
+        "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64 | tr -d "\n")"'",
+        "funds": []
+      }
+    }
+  }'
+
+  factory_admin_execute $factory_address "$msg"
+  echo "[OK] Add Native bond provider to the Core contract"
+
+  update_msg='{
+    "add_bond_provider":{
+      "bond_provider_address": "'"$lsm_share_bond_provider_address"'"
+    }
+  }'
+
+  msg='{
+    "wasm":{
+      "execute":{
+        "contract_addr":"'"$core_address"'",
+        "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64 | tr -d "\n")"'",
+        "funds": []
+      }
+    }
+  }'
+
+  factory_admin_execute $factory_address "$msg"
+  echo "[OK] Add LSM share bond provider to the Core contract"
+
   msg='{
     "validator_set": {
       "update_validators": {
