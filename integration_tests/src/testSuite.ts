@@ -170,10 +170,6 @@ const networkConfigs = {
         : '0uinit',
       'rosetta.enable': true,
     },
-    // upload: redefinedParams.upload || ['./artifacts/scripts/init-gaia.sh'],
-    // post_start: redefinedParams.postUpload || [
-    //   `/opt/init-gaia.sh > /opt/init-gaia.log 2>&1`,
-    // ],
   },
   neutron: {
     binary: 'neutrond',

@@ -10,7 +10,10 @@ use neutron_sdk::{
 };
 use sha3::{Digest, Sha3_256 as Sha256};
 
-const VM_STORE_SUFFIX: [u8; 63] = [
+// Looking at https://github.com/initia-labs/initia/blob/dbf293c80719d748bbe5f8142fbaf7a98e37fdcb/x/move/keeper/fungible_asset.go#L19
+// we can see that bz returned from k.GetResourceBytes is permanent for every address and denom
+// so we can use it as a suffix for every key
+const MOVE_VM_STORE_SUFFIX: [u8; 63] = [
     0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
     0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0xe, 0x66, 0x75, 0x6e,
     0x67, 0x69, 0x62, 0x6c, 0x65, 0x5f, 0x61, 0x73, 0x73, 0x65, 0x74, 0xd, 0x46, 0x75, 0x6e, 0x67,
@@ -101,7 +104,7 @@ pub fn create_account_denom_balance_key<AddrBytes: AsRef<[u8]>, S: AsRef<str>>(
     let mut key: Vec<u8> = vec![0x21]; //VM_STORE_PREFIX
     let addr_key = create_addr_key(addr, denom);
     key.extend_from_slice(&addr_key);
-    key.extend_from_slice(&VM_STORE_SUFFIX);
+    key.extend_from_slice(&MOVE_VM_STORE_SUFFIX);
     key
 }
 
