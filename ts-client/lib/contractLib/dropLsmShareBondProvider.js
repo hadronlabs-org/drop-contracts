@@ -35,6 +35,9 @@ class Client {
     queryLSMSharesToRedeem = async () => {
         return this.client.queryContractSmart(this.contractAddress, { l_s_m_shares_to_redeem: {} });
     };
+    queryLastPuppeteerResponse = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { last_puppeteer_response: {} });
+    };
     queryCanBond = async (args) => {
         return this.client.queryContractSmart(this.contractAddress, { can_bond: args });
     };

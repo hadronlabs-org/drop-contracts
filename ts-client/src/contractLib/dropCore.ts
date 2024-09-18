@@ -25,7 +25,7 @@ export type ArrayOfAddr = Addr[];
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type ContractState = "idle" | "l_s_m_transfer" | "l_s_m_redeem" | "claiming" | "unbonding" | "staking_bond";
+export type ContractState = "idle" | "peripheral" | "claiming" | "unbonding" | "staking_bond";
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -46,7 +46,6 @@ export type Uint1281 = string;
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal = string;
-export type ArrayOfTupleOfStringAndTupleOfStringAndUint128 = [string, [string, Uint128]][];
 export type ResponseHookMsg =
   | {
       success: ResponseHookSuccessMsg;
@@ -170,7 +169,6 @@ export type PauseInfoResponse =
   | {
       unpaused: {};
     };
-export type ArrayOfTupleOfStringAndTupleOfStringAndUint1281 = [string, [string, Uint128]][];
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -199,6 +197,20 @@ export type Uint1282 = string;
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint1283 = string;
+/**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint1284 = string;
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
@@ -297,14 +309,13 @@ export interface DropCoreSchema {
     | Uint1281
     | Decimal
     | FailedBatchResponse
-    | ArrayOfTupleOfStringAndTupleOfStringAndUint128
     | LastPuppeteerResponse
     | LastStakerResponse
     | String
     | PauseInfoResponse
-    | ArrayOfTupleOfStringAndTupleOfStringAndUint1281
     | Uint1282
     | Uint1283
+    | Uint1284
     | UnbondBatch
     | UnbondBatchesResponse;
   query: UnbondBatchArgs | UnbondBatchesArgs;
@@ -623,12 +634,6 @@ export class Client {
   queryLastStakerResponse = async(): Promise<LastStakerResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { last_staker_response: {} });
   }
-  queryPendingLSMShares = async(): Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128> => {
-    return this.client.queryContractSmart(this.contractAddress, { pending_l_s_m_shares: {} });
-  }
-  queryLSMSharesToRedeem = async(): Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128> => {
-    return this.client.queryContractSmart(this.contractAddress, { l_s_m_shares_to_redeem: {} });
-  }
   queryTotalBonded = async(): Promise<Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { total_bonded: {} });
   }
@@ -637,6 +642,9 @@ export class Client {
   }
   queryTotalLSMShares = async(): Promise<Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { total_l_s_m_shares: {} });
+  }
+  queryTotalAsyncTokens = async(): Promise<Uint128> => {
+    return this.client.queryContractSmart(this.contractAddress, { total_async_tokens: {} });
   }
   queryFailedBatch = async(): Promise<FailedBatchResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { failed_batch: {} });

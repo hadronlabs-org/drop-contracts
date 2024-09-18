@@ -53,12 +53,6 @@ class Client {
     queryLastStakerResponse = async () => {
         return this.client.queryContractSmart(this.contractAddress, { last_staker_response: {} });
     };
-    queryPendingLSMShares = async () => {
-        return this.client.queryContractSmart(this.contractAddress, { pending_l_s_m_shares: {} });
-    };
-    queryLSMSharesToRedeem = async () => {
-        return this.client.queryContractSmart(this.contractAddress, { l_s_m_shares_to_redeem: {} });
-    };
     queryTotalBonded = async () => {
         return this.client.queryContractSmart(this.contractAddress, { total_bonded: {} });
     };
@@ -67,6 +61,9 @@ class Client {
     };
     queryTotalLSMShares = async () => {
         return this.client.queryContractSmart(this.contractAddress, { total_l_s_m_shares: {} });
+    };
+    queryTotalAsyncTokens = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { total_async_tokens: {} });
     };
     queryFailedBatch = async () => {
         return this.client.queryContractSmart(this.contractAddress, { failed_batch: {} });

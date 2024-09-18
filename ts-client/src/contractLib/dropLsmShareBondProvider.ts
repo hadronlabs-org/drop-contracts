@@ -41,57 +41,7 @@ export type Addr = string;
  */
 export type Uint1281 = string;
 export type ArrayOfTupleOfStringAndTupleOfStringAndUint128 = [string, [string, Uint1281]][];
-/**
- * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
- */
-export type Expiration =
-  | {
-      at_height: number;
-    }
-  | {
-      at_time: Timestamp2;
-    }
-  | {
-      never: {};
-    };
-/**
- * A point in time in nanosecond precision.
- *
- * This type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.
- *
- * ## Examples
- *
- * ``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);
- *
- * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
- */
-export type Timestamp2 = Uint64;
-/**
- * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u64` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
- *
- * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
- */
-export type Uint64 = string;
-export type ArrayOfTupleOfStringAndTupleOfStringAndUint1281 = [string, [string, Uint1281]][];
-/**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal = string;
-/**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal1 = string;
-export type PuppeteerHookArgs =
+export type ResponseHookMsg =
   | {
       success: ResponseHookSuccessMsg;
     }
@@ -204,6 +154,63 @@ export type Transaction =
     };
 export type IBCTransferReason = "l_s_m_share" | "stake";
 /**
+ * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
+ */
+export type Expiration =
+  | {
+      at_height: number;
+    }
+  | {
+      at_time: Timestamp2;
+    }
+  | {
+      never: {};
+    };
+/**
+ * A point in time in nanosecond precision.
+ *
+ * This type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.
+ *
+ * ## Examples
+ *
+ * ``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);
+ *
+ * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
+ */
+export type Timestamp2 = Uint64;
+/**
+ * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u64` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
+ *
+ * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
+ */
+export type Uint64 = string;
+export type ArrayOfTupleOfStringAndTupleOfStringAndUint1281 = [string, [string, Uint1281]][];
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal = string;
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal1 = string;
+export type PuppeteerHookArgs =
+  | {
+      success: ResponseHookSuccessMsg;
+    }
+  | {
+      error: ResponseHookErrorMsg;
+    };
+/**
  * Actions that can be taken to alter the contract's ownership
  */
 export type UpdateOwnershipArgs =
@@ -223,6 +230,7 @@ export interface DropLsmShareBondProviderSchema {
     | Boolean1
     | Config
     | ArrayOfTupleOfStringAndTupleOfStringAndUint128
+    | LastPuppeteerResponse
     | OwnershipForString
     | ArrayOfTupleOfStringAndTupleOfStringAndUint1281
     | Decimal;
@@ -239,45 +247,8 @@ export interface Config {
   transfer_channel_id: string;
   validators_set_contract: Addr;
 }
-/**
- * The contract's ownership info
- */
-export interface OwnershipForString {
-  /**
-   * The contract's current owner. `None` if the ownership has been renounced.
-   */
-  owner?: string | null;
-  /**
-   * The deadline for the pending owner to accept the ownership. `None` if there isn't a pending ownership transfer, or if a transfer exists and it doesn't have a deadline.
-   */
-  pending_expiry?: Expiration | null;
-  /**
-   * The account who has been proposed to take over the ownership. `None` if there isn't a pending ownership transfer.
-   */
-  pending_owner?: string | null;
-}
-export interface CanBondArgs {
-  denom: string;
-}
-export interface TokensAmountArgs {
-  coin: Coin;
-  exchange_rate: Decimal1;
-}
-export interface Coin {
-  amount: Uint1281;
-  denom: string;
-  [k: string]: unknown;
-}
-export interface UpdateConfigArgs {
-  new_config: ConfigOptional;
-}
-export interface ConfigOptional {
-  core_contract?: Addr | null;
-  lsm_redeem_maximum_interval?: number | null;
-  lsm_redeem_threshold?: number | null;
-  puppeteer_contract?: Addr | null;
-  transfer_channel_id?: string | null;
-  validators_set_contract?: Addr | null;
+export interface LastPuppeteerResponse {
+  response?: ResponseHookMsg | null;
 }
 export interface ResponseHookSuccessMsg {
   answers: ResponseAnswer[];
@@ -301,6 +272,11 @@ export interface MsgBeginRedelegateResponse {
 }
 export interface MsgTokenizeSharesResponse {
   amount?: Coin | null;
+}
+export interface Coin {
+  amount: Uint1281;
+  denom: string;
+  [k: string]: unknown;
 }
 export interface MsgRedeemTokensforSharesResponse {
   amount?: Coin | null;
@@ -342,6 +318,41 @@ export interface ResponseHookErrorMsg {
   request: RequestPacket;
   request_id: number;
   transaction: Transaction;
+}
+/**
+ * The contract's ownership info
+ */
+export interface OwnershipForString {
+  /**
+   * The contract's current owner. `None` if the ownership has been renounced.
+   */
+  owner?: string | null;
+  /**
+   * The deadline for the pending owner to accept the ownership. `None` if there isn't a pending ownership transfer, or if a transfer exists and it doesn't have a deadline.
+   */
+  pending_expiry?: Expiration | null;
+  /**
+   * The account who has been proposed to take over the ownership. `None` if there isn't a pending ownership transfer.
+   */
+  pending_owner?: string | null;
+}
+export interface CanBondArgs {
+  denom: string;
+}
+export interface TokensAmountArgs {
+  coin: Coin;
+  exchange_rate: Decimal1;
+}
+export interface UpdateConfigArgs {
+  new_config: ConfigOptional;
+}
+export interface ConfigOptional {
+  core_contract?: Addr | null;
+  lsm_redeem_maximum_interval?: number | null;
+  lsm_redeem_threshold?: number | null;
+  puppeteer_contract?: Addr | null;
+  transfer_channel_id?: string | null;
+  validators_set_contract?: Addr | null;
 }
 export interface InstantiateMsg {
   core_contract: string;
@@ -407,6 +418,9 @@ export class Client {
   }
   queryLSMSharesToRedeem = async(): Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128> => {
     return this.client.queryContractSmart(this.contractAddress, { l_s_m_shares_to_redeem: {} });
+  }
+  queryLastPuppeteerResponse = async(): Promise<LastPuppeteerResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, { last_puppeteer_response: {} });
   }
   queryCanBond = async(args: CanBondArgs): Promise<Boolean> => {
     return this.client.queryContractSmart(this.contractAddress, { can_bond: args });
