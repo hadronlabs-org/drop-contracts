@@ -4,11 +4,18 @@ use neutron_sdk::{
     interchain_queries::{
         helpers::{decode_and_convert, length_prefix},
         types::QueryPayload,
-        v045::types::BANK_STORE_KEY,
         v047::types::{BALANCES_PREFIX, DELEGATION_KEY, VALIDATORS_KEY},
     },
     NeutronResult,
 };
+use sha3::{Digest, Sha3_256 as Sha256};
+
+const VM_STORE_SUFFIX: [u8; 63] = [
+    0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0xe, 0x66, 0x75, 0x6e,
+    0x67, 0x69, 0x62, 0x6c, 0x65, 0x5f, 0x61, 0x73, 0x73, 0x65, 0x74, 0xd, 0x46, 0x75, 0x6e, 0x67,
+    0x69, 0x62, 0x6c, 0x65, 0x53, 0x74, 0x6f, 0x72, 0x65, 0x0,
+];
 
 pub fn get_balance_and_delegations_keys(
     delegator: String,
@@ -17,17 +24,16 @@ pub fn get_balance_and_delegations_keys(
     store_key: String,
 ) -> NeutronResult<Vec<KVKey>> {
     let delegator_addr = decode_and_convert(&delegator)?;
-    let balance_key = create_account_denom_balance_key(&delegator_addr, denom)?;
+    let balance_key = create_account_denom_balance_key(&delegator_addr, denom);
     // Allocate memory for such KV keys as:
-    // * staking module params to get staking denomination
     // * validators structures to calculate amount of delegated tokens
     // * delegations structures to get info about delegations itself and balance
     let mut keys: Vec<KVKey> = Vec::with_capacity(validators.len() * 2 + 1);
 
     // // create KV key to get balance of the delegator
     keys.push(KVKey {
-        path: BANK_STORE_KEY.to_string(),
-        key: Binary(balance_key),
+        path: "move".to_string(),
+        key: Binary(balance_key.to_vec()),
     });
 
     for v in validators {
@@ -91,11 +97,27 @@ pub fn new_delegations_and_balance_query_msg(
 pub fn create_account_denom_balance_key<AddrBytes: AsRef<[u8]>, S: AsRef<str>>(
     addr: AddrBytes,
     denom: S,
-) -> NeutronResult<Vec<u8>> {
-    let mut account_balance_key = create_account_balances_prefix(addr)?;
-    account_balance_key.extend_from_slice(denom.as_ref().as_bytes());
+) -> Vec<u8> {
+    let mut key: Vec<u8> = vec![0x21]; //VM_STORE_PREFIX
+    let addr_key = create_addr_key(addr, denom);
+    key.extend_from_slice(&addr_key);
+    key.extend_from_slice(&VM_STORE_SUFFIX);
+    key
+}
 
-    Ok(account_balance_key)
+pub fn create_addr_key<AddrBytes: AsRef<[u8]>, S: AsRef<str>>(
+    addr: AddrBytes,
+    denom: S,
+) -> [u8; 32] {
+    let padded_address = pad_with_zeros_to_32_bytes(addr.as_ref());
+    let denom_metadata = get_denom_metadata(denom.as_ref().to_string());
+    // hash sha256 (padded_address + denom_metadata + 0xFC)
+    let mut hasher = Sha256::new();
+    hasher.update(&padded_address);
+    hasher.update(&denom_metadata);
+    hasher.update(&[0xFC]);
+    let result = hasher.finalize();
+    result.as_slice().try_into().unwrap()
 }
 
 pub fn create_account_balances_prefix<AddrBytes: AsRef<[u8]>>(
@@ -105,4 +127,24 @@ pub fn create_account_balances_prefix<AddrBytes: AsRef<[u8]>>(
     prefix.extend_from_slice(length_prefix(addr)?.as_slice());
 
     Ok(prefix)
+}
+
+fn get_denom_metadata(denom: String) -> [u8; 32] {
+    // create [u8, 32] where last is 1
+    let mut acc_key = [0u8; 32];
+    acc_key[31] = 1;
+    let to_hash = [&acc_key, denom.as_bytes(), &[0xFE]].concat();
+    // hash sha256 (acc_key + denom + 0xFE)
+    let mut hasher = Sha256::new();
+    hasher.update(&to_hash);
+    let result = hasher.finalize();
+    result.as_slice().try_into().unwrap() // must not fail as we know the size of sha256 hash
+}
+
+fn pad_with_zeros_to_32_bytes(data: &[u8]) -> [u8; 32] {
+    let mut padded_data = [0u8; 32];
+    let len = data.len();
+    assert!(len <= 32, "Data is too long to pad");
+    padded_data[..len].copy_from_slice(&data[..len]);
+    padded_data
 }

@@ -1,15 +1,9 @@
-use cosmos_sdk_proto::cosmos::base::v1beta1::Coin as CosmosCoin;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Addr;
 use cosmwasm_std::{Decimal256, StdError, Uint128, Uint256};
-
-use drop_helpers::version::version_to_u32;
 use drop_proto::proto::initia::mstaking::v1::{Delegation, Validator as InitiaValidator};
 use drop_puppeteer_base::r#trait::PuppeteerReconstruct;
-use neutron_sdk::{
-    interchain_queries::v045::{helpers::deconstruct_account_denom_balance_key, types::Balances},
-    NeutronError, NeutronResult,
-};
+use neutron_sdk::{interchain_queries::v045::types::Balances, NeutronError, NeutronResult};
 use prost::Message;
 use std::ops::Div;
 use std::str::FromStr;
@@ -49,40 +43,36 @@ pub struct DropDelegation {
 impl PuppeteerReconstruct for BalancesAndDelegations {
     fn reconstruct(
         storage_values: &[neutron_sdk::bindings::types::StorageValue],
-        version: &str,
+        _version: &str,
         denom: Option<&str>,
     ) -> NeutronResult<Self> {
-        let version = version_to_u32(version)?;
+        let denom =
+            denom.ok_or_else(|| NeutronError::InvalidQueryResultFormat("denom is empty".into()))?;
         if storage_values.is_empty() {
             return Err(NeutronError::InvalidQueryResultFormat(
                 "storage_values length is 0".into(),
             ));
         }
-        let mut coins: Vec<cosmwasm_std::Coin> = Vec::with_capacity(storage_values.len());
+        let mut coins: Vec<cosmwasm_std::Coin> = Vec::with_capacity(1);
         let kv = &storage_values[0];
         if kv.value.len() > 0 {
-            let (_, denom) = deconstruct_account_denom_balance_key(kv.key.to_vec())?;
-            let amount: Uint128 = match version {
-                ver if ver >= version_to_u32("0.47.0")? => {
-                    // Directly parse Uint128 from the string obtained from kv.value
-                    Uint128::from_str(&String::from_utf8(kv.value.to_vec()).map_err(|_| {
-                        NeutronError::InvalidQueryResultFormat("Invalid utf8".to_string())
-                    })?)
-                }
-                // For versions below "0.47.0", use the existing balance.amount
-                _ => {
-                    let balance = CosmosCoin::decode(kv.value.as_slice())?;
-                    Uint128::from_str(balance.amount.as_str())
-                }
-            }?;
-            coins.push(cosmwasm_std::Coin::new(amount.u128(), denom));
+            if kv.value.len() < 40 {
+                return Err(NeutronError::InvalidQueryResultFormat(
+                    "balance value length is less than 40".into(),
+                ));
+            }
+            // first 32 bytes in the value are the address
+            // next 8 bytes - u64 is balance in LE
+            let balance: u64 = u64::from_le_bytes(kv.value[32..40].try_into().unwrap());
+            let coin = cosmwasm_std::Coin {
+                denom: denom.to_string(),
+                amount: balance.into(),
+            };
+            coins.push(cosmwasm_std::Coin::from(coin));
         }
         let total_validators = (storage_values.len() - 1) / 2;
         let mut delegations: Vec<DropDelegation> = Vec::with_capacity(total_validators);
 
-        // first StorageValue is denom
-        let denom =
-            denom.ok_or_else(|| NeutronError::InvalidQueryResultFormat("denom is empty".into()))?;
         if total_validators > 0 {
             println!("total_validators {}", total_validators);
             for chunk in storage_values[1..].chunks(2) {
@@ -93,7 +83,6 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
                     continue;
                 }
                 let delegation_sdk: Delegation = Delegation::decode(chunk[0].value.as_slice())?;
-                println!("delegation {:?}", delegation_sdk);
                 let mut delegation_std = DropDelegation {
                     delegator: Addr::unchecked(delegation_sdk.delegator_address.as_str()),
                     validator: delegation_sdk.validator_address,
