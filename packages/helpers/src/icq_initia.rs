@@ -113,9 +113,9 @@ pub fn create_addr_key<AddrBytes: AsRef<[u8]>, S: AsRef<str>>(
     let denom_metadata = get_denom_metadata(denom.as_ref().to_string());
     // hash sha256 (padded_address + denom_metadata + 0xFC)
     let mut hasher = Sha256::new();
-    hasher.update(&padded_address);
-    hasher.update(&denom_metadata);
-    hasher.update(&[0xFC]);
+    hasher.update(padded_address);
+    hasher.update(denom_metadata);
+    hasher.update([0xFC]);
     let result = hasher.finalize();
     result.as_slice().try_into().unwrap()
 }

@@ -68,7 +68,7 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
                 denom: denom.to_string(),
                 amount: balance.into(),
             };
-            coins.push(cosmwasm_std::Coin::from(coin));
+            coins.push(coin);
         }
         let total_validators = (storage_values.len() - 1) / 2;
         let mut delegations: Vec<DropDelegation> = Vec::with_capacity(total_validators);
