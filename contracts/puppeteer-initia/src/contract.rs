@@ -23,12 +23,11 @@ use drop_helpers::{
 };
 use drop_proto::proto::{
     cosmos::base::v1beta1::Coin as ProtoCoin,
+    initia::mstaking::v1::MsgBeginRedelegate,
     liquidstaking::{
         distribution::v1beta1::MsgWithdrawDelegatorReward,
         staking::v1beta1::{
-            MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgDelegateResponse,
-            MsgRedeemTokensforShares, MsgRedeemTokensforSharesResponse, MsgTokenizeShares,
-            MsgTokenizeSharesResponse, MsgUndelegateResponse,
+            MsgBeginRedelegateResponse, MsgDelegateResponse, MsgUndelegateResponse,
         },
     },
 };
@@ -65,7 +64,7 @@ use neutron_sdk::{
     NeutronResult,
 };
 use prost::Message;
-use std::{str::FromStr, vec};
+use std::vec;
 
 pub type Puppeteer<'a> = PuppeteerBase<'a, Config, KVQueryType, BalancesAndDelegations>;
 
@@ -793,10 +792,10 @@ fn execute_redelegate(
         delegator_address: delegator,
         validator_src_address: validator_from.to_string(),
         validator_dst_address: validator_to.to_string(),
-        amount: Some(ProtoCoin {
+        amount: vec![ProtoCoin {
             denom: config.remote_denom.to_string(),
             amount: amount.to_string(),
-        }),
+        }],
     };
 
     let submsg = compose_submsg(
@@ -804,7 +803,7 @@ fn execute_redelegate(
         config.clone(),
         vec![prepare_any_msg(
             redelegate_msg,
-            "/cosmos.staking.v1beta1.MsgBeginRedelegate",
+            "/initia.mstaking.v1.MsgBeginRedelegate",
         )?],
         Transaction::Redelegate {
             interchain_account_id: ICA_ID.to_string(),
@@ -821,88 +820,22 @@ fn execute_redelegate(
 }
 
 fn execute_tokenize_share(
-    mut deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
-    validator: String,
-    amount: Uint128,
-    reply_to: String,
+    _deps: DepsMut<NeutronQuery>,
+    _info: MessageInfo,
+    _validator: String,
+    _amount: Uint128,
+    _reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let puppeteer_base = Puppeteer::default();
-    deps.api.addr_validate(&reply_to)?;
-    let config: Config = puppeteer_base.config.load(deps.storage)?;
-    validate_sender(&config, &info.sender)?;
-    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
-    let delegator = puppeteer_base.ica.get_address(deps.storage)?;
-    let tokenize_msg = MsgTokenizeShares {
-        delegator_address: delegator.clone(),
-        validator_address: validator.to_string(),
-        tokenized_share_owner: delegator,
-        amount: Some(ProtoCoin {
-            denom: config.remote_denom.to_string(),
-            amount: amount.to_string(),
-        }),
-    };
-    let submsg = compose_submsg(
-        deps.branch(),
-        config.clone(),
-        vec![prepare_any_msg(
-            tokenize_msg,
-            "/cosmos.staking.v1beta1.MsgTokenizeShares",
-        )?],
-        Transaction::TokenizeShare {
-            interchain_account_id: ICA_ID.to_string(),
-            validator,
-            denom: config.remote_denom,
-            amount: amount.into(),
-        },
-        reply_to,
-        ReplyMsg::SudoPayload.to_reply_id(),
-    )?;
-
-    Ok(Response::default().add_submessages(vec![submsg]))
+    panic!("Not implemented")
 }
 
 fn execute_redeem_shares(
-    mut deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
-    items: Vec<RedeemShareItem>,
-    reply_to: String,
+    _deps: DepsMut<NeutronQuery>,
+    _info: MessageInfo,
+    _items: Vec<RedeemShareItem>,
+    _reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let attrs = vec![
-        attr("action", "redeem_share"),
-        attr("items", format!("{:?}", items)),
-    ];
-    let puppeteer_base = Puppeteer::default();
-    deps.api.addr_validate(&reply_to)?;
-    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
-    let config: Config = puppeteer_base.config.load(deps.storage)?;
-    validate_sender(&config, &info.sender)?;
-    let delegator = puppeteer_base.ica.get_address(deps.storage)?;
-    let any_msgs = items
-        .iter()
-        .map(|one| MsgRedeemTokensforShares {
-            delegator_address: delegator.to_string(),
-            amount: Some(ProtoCoin {
-                denom: one.remote_denom.to_string(),
-                amount: one.amount.to_string(),
-            }),
-        })
-        .map(|msg| prepare_any_msg(msg, "/cosmos.staking.v1beta1.MsgRedeemTokensForShares"))
-        .collect::<NeutronResult<Vec<ProtobufAny>>>()?;
-    let submsg = compose_submsg(
-        deps.branch(),
-        config,
-        any_msgs,
-        Transaction::RedeemShares {
-            interchain_account_id: ICA_ID.to_string(),
-            items,
-        },
-        reply_to,
-        ReplyMsg::SudoPayload.to_reply_id(),
-    )?;
-    Ok(Response::default()
-        .add_submessages(vec![submsg])
-        .add_attributes(attrs))
+    panic!("Not implemented")
 }
 
 fn compose_submsg(
@@ -1096,11 +1029,11 @@ fn get_answers_from_msg_data(
     #[allow(deprecated)]
     for item in msg_data.data {
         let answer = match item.msg_type.as_str() {
-            "/cosmos.staking.v1beta1.MsgDelegate" => {
+            "/initia.mstaking.v1.MsgDelegate" => {
                 let _out: MsgDelegateResponse = decode_message_response(&item.data)?;
                 ResponseAnswer::DelegateResponse(drop_puppeteer_base::proto::MsgDelegateResponse {})
             }
-            "/cosmos.staking.v1beta1.MsgUndelegate" => {
+            "/initia.mstaking.v1.MsgUndelegate" => {
                 let out: MsgUndelegateResponse = decode_message_response(&item.data)?;
                 ResponseAnswer::UndelegateResponse(
                     drop_puppeteer_base::proto::MsgUndelegateResponse {
@@ -1108,15 +1041,7 @@ fn get_answers_from_msg_data(
                     },
                 )
             }
-            "/cosmos.staking.v1beta1.MsgTokenizeShares" => {
-                let out: MsgTokenizeSharesResponse = decode_message_response(&item.data)?;
-                ResponseAnswer::TokenizeSharesResponse(
-                    drop_puppeteer_base::proto::MsgTokenizeSharesResponse {
-                        amount: out.amount.map(convert_coin).transpose()?,
-                    },
-                )
-            }
-            "/cosmos.staking.v1beta1.MsgBeginRedelegate" => {
+            "/initia.mstaking.v1.MsgBeginRedelegate" => {
                 let out: MsgBeginRedelegateResponse = decode_message_response(&item.data)?;
                 ResponseAnswer::BeginRedelegateResponse(
                     drop_puppeteer_base::proto::MsgBeginRedelegateResponse {
@@ -1128,14 +1053,6 @@ fn get_answers_from_msg_data(
                 let _out: MsgGrantResponse = decode_message_response(&item.data)?;
                 ResponseAnswer::GrantDelegateResponse(
                     drop_puppeteer_base::proto::MsgGrantResponse {},
-                )
-            }
-            "/cosmos.staking.v1beta1.MsgRedeemTokensForShares" => {
-                let out: MsgRedeemTokensforSharesResponse = decode_message_response(&item.data)?;
-                ResponseAnswer::RedeemTokensforSharesResponse(
-                    drop_puppeteer_base::proto::MsgRedeemTokensforSharesResponse {
-                        amount: out.amount.map(convert_coin).transpose()?,
-                    },
                 )
             }
             "/cosmos.bank.v1beta1.MsgSend" => {
@@ -1154,15 +1071,6 @@ fn get_answers_from_msg_data(
         answers.push(answer);
     }
     Ok(answers)
-}
-
-fn convert_coin(
-    coin: drop_proto::proto::cosmos::base::v1beta1::Coin,
-) -> StdResult<cosmwasm_std::Coin> {
-    Ok(cosmwasm_std::Coin {
-        denom: coin.denom,
-        amount: Uint128::from_str(&coin.amount)?,
-    })
 }
 
 fn sudo_error(
