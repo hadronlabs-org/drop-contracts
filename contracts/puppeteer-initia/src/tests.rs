@@ -15,10 +15,10 @@ use drop_helpers::{
 };
 use drop_puppeteer_base::state::{BalancesAndDelegationsState, PuppeteerBase, ReplyMsg};
 use drop_staking_base::{
-    msg::puppeteer_initia::InstantiateMsg,
+    msg::puppeteer::InstantiateMsg,
     state::{
-        puppeteer::{Config, ConfigOptional, KVQueryType},
-        puppeteer_initia::{BalancesAndDelegations, Delegations, DropDelegation},
+        puppeteer::{Config, ConfigOptional, Delegations, DropDelegation, KVQueryType},
+        puppeteer_initia::BalancesAndDelegations,
     },
 };
 use neutron_sdk::{
@@ -105,7 +105,7 @@ fn test_update_config() {
         .config
         .save(deps.as_mut().storage, &get_base_config())
         .unwrap();
-    let msg = drop_staking_base::msg::puppeteer_initia::ExecuteMsg::UpdateConfig {
+    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::UpdateConfig {
         new_config: ConfigOptional {
             update_period: Some(121u64),
             remote_denom: Some("new_remote_denom".to_string()),
@@ -165,7 +165,7 @@ fn test_execute_setup_protocol() {
         .unwrap()
     });
     let pupeteer_base = base_init(&mut deps.as_mut());
-    let msg = drop_staking_base::msg::puppeteer_initia::ExecuteMsg::SetupProtocol {
+    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::SetupProtocol {
         delegate_grantee: "delegate_grantee".to_string(),
         rewards_withdraw_address: "rewards_withdraw_address".to_string(),
     };
@@ -267,7 +267,7 @@ fn test_execute_undelegate() {
         .unwrap()
     });
     let puppeteer_base = base_init(&mut deps.as_mut());
-    let msg = drop_staking_base::msg::puppeteer_initia::ExecuteMsg::Undelegate {
+    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
         batch_id: 0u128,
         items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
         reply_to: "some_reply_to".to_string(),
@@ -358,7 +358,7 @@ fn test_execute_redeem_share() {
         .unwrap()
     });
     let puppeteer_base = base_init(&mut deps.as_mut());
-    let msg = drop_staking_base::msg::puppeteer_initia::ExecuteMsg::RedeemShares {
+    let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
         items: vec![drop_puppeteer_base::state::RedeemShareItem {
             amount: Uint128::from(1000u128),
             remote_denom: "remote_denom".to_string(),
@@ -891,7 +891,7 @@ mod register_delegations_and_balance_query {
     fn non_owner() {
         let (mut deps, _puppeteer_base) = setup(None);
         let env = mock_env();
-        let msg = drop_staking_base::msg::puppeteer_initia::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: vec![] } ;
+        let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: vec![] } ;
         let res = crate::contract::execute(deps.as_mut(), env, mock_info("not_owner", &[]), msg);
         assert!(res.is_err());
         assert_eq!(
@@ -909,7 +909,7 @@ mod register_delegations_and_balance_query {
             validators.push(format!("valoper{}", i));
         }
 
-        let msg = drop_staking_base::msg::puppeteer_initia::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
+        let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
             validators
         };
         let res = crate::contract::execute(deps.as_mut(), env, mock_info("owner", &[]), msg);
@@ -939,7 +939,7 @@ mod register_delegations_and_balance_query {
             )
             .unwrap();
 
-        let msg = drop_staking_base::msg::puppeteer_initia::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
+        let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
             validators
         };
         let res = crate::contract::execute(
@@ -995,7 +995,7 @@ mod register_delegations_and_balance_query {
             .delegations_and_balances_query_id_chunk
             .save(deps.as_mut().storage, 2, &3)
             .unwrap();
-        let msg = drop_staking_base::msg::puppeteer_initia::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
+        let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
             validators
         };
         let res = crate::contract::execute(

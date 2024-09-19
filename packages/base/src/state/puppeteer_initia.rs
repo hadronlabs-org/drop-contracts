@@ -8,6 +8,8 @@ use prost::Message;
 use std::ops::Div;
 use std::str::FromStr;
 
+use super::puppeteer::{Delegations, DropDelegation};
+
 #[cw_serde]
 pub enum KVQueryType {
     UnbondingDelegations,
@@ -22,22 +24,6 @@ const DECIMAL_FRACTIONAL: u128 = 10u128.pow(DECIMAL_PLACES);
 pub struct BalancesAndDelegations {
     pub balances: Balances,
     pub delegations: Delegations,
-}
-
-#[cw_serde]
-pub struct Delegations {
-    pub delegations: Vec<DropDelegation>,
-}
-
-#[cw_serde]
-pub struct DropDelegation {
-    pub delegator: Addr,
-    /// A validator address (e.g. cosmosvaloper1...)
-    pub validator: String,
-    /// How much we have locked in the delegation
-    pub amount: cosmwasm_std::Coin,
-    /// How many shares the delegator has in the validator
-    pub share_ratio: Decimal256,
 }
 
 impl PuppeteerReconstruct for BalancesAndDelegations {

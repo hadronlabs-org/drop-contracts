@@ -46,12 +46,12 @@ use drop_puppeteer_base::{
     },
 };
 use drop_staking_base::{
-    msg::puppeteer_initia::{
+    msg::puppeteer::{
         BalancesResponse, DelegationsResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryExtMsg,
     },
     state::{
-        puppeteer::{Config, ConfigOptional, KVQueryType, NON_NATIVE_REWARD_BALANCES},
-        puppeteer_initia::{BalancesAndDelegations, Delegations},
+        puppeteer::{Config, ConfigOptional, Delegations, KVQueryType, NON_NATIVE_REWARD_BALANCES},
+        puppeteer_initia::BalancesAndDelegations,
     },
 };
 use neutron_sdk::{
