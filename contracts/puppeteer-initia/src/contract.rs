@@ -13,12 +13,8 @@ use cosmwasm_std::{
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{
-    answer::response,
-    ibc_client_state::query_client_state,
-    ibc_fee::query_ibc_fee,
-    icq::{new_multiple_balances_query_msg, update_multiple_balances_query_msg},
-    icq_initia::new_delegations_and_balance_query_msg,
-    interchain::prepare_any_msg,
+    answer::response, ibc_client_state::query_client_state, ibc_fee::query_ibc_fee,
+    icq_initia::new_delegations_and_balance_query_msg, interchain::prepare_any_msg,
     validation::validate_addresses,
 };
 use drop_proto::proto::{
@@ -40,8 +36,8 @@ use drop_puppeteer_base::{
     proto::MsgIBCTransfer,
     r#trait::PuppeteerReconstruct,
     state::{
-        BalancesAndDelegationsState, PuppeteerBase, RedeemShareItem, ReplyMsg, TxState,
-        TxStateStatus, UnbondingDelegation, ICA_ID, LOCAL_DENOM,
+        BalancesAndDelegationsState, PuppeteerBase, ReplyMsg, TxState, TxStateStatus, ICA_ID,
+        LOCAL_DENOM,
     },
 };
 use drop_staking_base::{
@@ -49,16 +45,13 @@ use drop_staking_base::{
         BalancesResponse, DelegationsResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryExtMsg,
     },
     state::{
-        puppeteer::{Config, ConfigOptional, Delegations, KVQueryType, NON_NATIVE_REWARD_BALANCES},
+        puppeteer::{Config, ConfigOptional, Delegations, KVQueryType},
         puppeteer_initia::BalancesAndDelegations,
     },
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery, types::ProtobufAny},
-    interchain_queries::{
-        queries::get_raw_interchain_query_result,
-        v045::{new_register_delegator_unbonding_delegations_query_msg, types::Balances},
-    },
+    interchain_queries::{queries::get_raw_interchain_query_result, v045::types::Balances},
     interchain_txs::helpers::decode_message_response,
     sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg},
     NeutronResult,
@@ -116,7 +109,7 @@ pub fn query(
         QueryMsg::Extension { msg } => match msg {
             QueryExtMsg::Delegations {} => query_delegations(deps),
             QueryExtMsg::Balances {} => query_balances(deps),
-            QueryExtMsg::NonNativeRewardsBalances {} => query_non_native_rewards_balances(deps),
+            QueryExtMsg::NonNativeRewardsBalances {} => unimplemented!(),
             QueryExtMsg::UnbondingDelegations {} => to_json_binary(
                 &Puppeteer::default()
                     .unbonding_delegations
@@ -200,19 +193,6 @@ fn query_balances(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     .map_err(ContractError::Std)
 }
 
-fn query_non_native_rewards_balances(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let data = NON_NATIVE_REWARD_BALANCES.load(deps.storage)?;
-    to_json_binary(&BalancesResponse {
-        balances: Balances {
-            coins: data.data.coins,
-        },
-        remote_height: data.remote_height,
-        local_height: data.local_height,
-        timestamp: data.timestamp,
-    })
-    .map_err(ContractError::Std)
-}
-
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
@@ -233,13 +213,9 @@ pub fn execute(
             amount,
             reply_to,
         } => execute_redelegate(deps, info, validator_from, validator_to, amount, reply_to),
-        ExecuteMsg::TokenizeShare {
-            validator,
-            amount,
-            reply_to,
-        } => execute_tokenize_share(deps, info, validator, amount, reply_to),
-        ExecuteMsg::RedeemShares { items, reply_to } => {
-            execute_redeem_shares(deps, info, items, reply_to)
+        ExecuteMsg::TokenizeShare { .. } => unimplemented!(),
+        ExecuteMsg::RedeemShares { .. } => {
+            unimplemented!()
         }
         ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
             validators,
@@ -251,12 +227,10 @@ pub fn execute(
         ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators } => {
             register_delegations_and_balance_query(deps, info, validators)
         }
-        ExecuteMsg::RegisterDelegatorUnbondingDelegationsQuery { validators } => {
-            register_unbonding_delegations_query(deps, info, validators)
+        ExecuteMsg::RegisterDelegatorUnbondingDelegationsQuery { .. } => {
+            unimplemented!()
         }
-        ExecuteMsg::RegisterNonNativeRewardsBalancesQuery { denoms } => {
-            register_non_native_rewards_balances_query(deps, info, denoms)
-        }
+        ExecuteMsg::RegisterNonNativeRewardsBalancesQuery { .. } => unimplemented!(),
         ExecuteMsg::IBCTransfer { reply_to, reason } => {
             execute_ibc_transfer(deps, env, info, reason, reply_to)
         }
@@ -391,54 +365,6 @@ fn execute_ibc_transfer(
     Ok(Response::default().add_submessages(vec![submsg]))
 }
 
-fn register_non_native_rewards_balances_query(
-    deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
-    denoms: Vec<String>,
-) -> ContractResult<Response<NeutronMsg>> {
-    deps.api.debug(&format!(
-        "WASMDEBUG: register_non_native_rewards_balances_query denoms:{:?}",
-        denoms
-    ));
-    let puppeteer_base = Puppeteer::default();
-    let config = puppeteer_base.config.load(deps.storage)?;
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let kv_queries = puppeteer_base
-        .kv_queries
-        .range(deps.storage, None, None, Order::Ascending)
-        .collect::<Result<Vec<(u64, KVQueryType)>, _>>()?;
-    let ica = puppeteer_base.ica.get_address(deps.storage)?;
-    let mut messages = vec![];
-    let mut submessages = vec![];
-    for (query_id, query_type) in kv_queries {
-        if query_type == KVQueryType::NonNativeRewardsBalances {
-            messages.push(update_multiple_balances_query_msg(
-                query_id,
-                ica.clone(),
-                denoms.clone(),
-            )?);
-        }
-    }
-    if messages.is_empty() {
-        submessages.push(SubMsg::reply_on_success(
-            new_multiple_balances_query_msg(
-                config.connection_id.clone(),
-                ica.clone(),
-                denoms,
-                config.update_period,
-            )?,
-            ReplyMsg::KvNonNativeRewardsBalances.to_reply_id(),
-        ));
-    }
-    deps.api.debug(&format!(
-        "WASMDEBUG: register_non_native_rewards_balances_query messages:{:?} submessages:{:?}",
-        messages, submessages
-    ));
-    Ok(Response::new()
-        .add_messages(messages)
-        .add_submessages(submessages))
-}
-
 fn register_delegations_and_balance_query(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
@@ -491,58 +417,6 @@ fn register_delegations_and_balance_query(
     Ok(Response::new()
         .add_messages(messages)
         .add_submessages(submessages))
-}
-
-fn register_unbonding_delegations_query(
-    deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
-    validators: Vec<String>,
-) -> ContractResult<Response<NeutronMsg>> {
-    let puppeteer_base = Puppeteer::default();
-    let config = puppeteer_base.config.load(deps.storage)?;
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-
-    cosmwasm_std::ensure!(
-        validators.len() < u16::MAX as usize,
-        StdError::generic_err("Too many validators provided")
-    );
-
-    // TODO: this code will leave behind many registered ICQs when called again
-    //       we need to call RegisterDelegations and RegisterUnbondingDelegations together
-    //       and update existing queries
-
-    let delegator = puppeteer_base.ica.get_address(deps.storage)?;
-    let msgs = validators
-        .into_iter()
-        .enumerate()
-        .map(|(i, validator)| {
-            puppeteer_base.unbonding_delegations_reply_id_storage.save(
-                deps.storage,
-                i as u16,
-                &UnbondingDelegation {
-                    validator_address: validator.clone(),
-                    query_id: 0,
-                    unbonding_delegations: vec![],
-                    last_updated_height: 0,
-                },
-            )?;
-
-            Ok(SubMsg::reply_on_success(
-                new_register_delegator_unbonding_delegations_query_msg(
-                    config.connection_id.clone(),
-                    delegator.clone(),
-                    vec![validator],
-                    config.update_period,
-                )?,
-                ReplyMsg::KvUnbondingDelegations {
-                    validator_index: i as u16,
-                }
-                .to_reply_id(),
-            ))
-        })
-        .collect::<ContractResult<Vec<_>>>()?;
-
-    Ok(Response::new().add_submessages(msgs))
 }
 
 fn execute_setup_protocol(
@@ -819,25 +693,6 @@ fn execute_redelegate(
     Ok(Response::default().add_submessages(vec![submsg]))
 }
 
-fn execute_tokenize_share(
-    _deps: DepsMut<NeutronQuery>,
-    _info: MessageInfo,
-    _validator: String,
-    _amount: Uint128,
-    _reply_to: String,
-) -> ContractResult<Response<NeutronMsg>> {
-    panic!("Not implemented")
-}
-
-fn execute_redeem_shares(
-    _deps: DepsMut<NeutronQuery>,
-    _info: MessageInfo,
-    _items: Vec<RedeemShareItem>,
-    _reply_to: String,
-) -> ContractResult<Response<NeutronMsg>> {
-    panic!("Not implemented")
-}
-
 fn compose_submsg(
     mut deps: DepsMut<NeutronQuery>,
     config: Config,
@@ -899,16 +754,8 @@ pub fn sudo(
                     query_id,
                     &config.sdk_version,
                 ),
-                KVQueryType::NonNativeRewardsBalances => puppeteer_base.sudo_kv_query_result(
-                    deps,
-                    env,
-                    query_id,
-                    &config.sdk_version,
-                    NON_NATIVE_REWARD_BALANCES,
-                ),
-                KVQueryType::UnbondingDelegations => {
-                    puppeteer_base.sudo_unbonding_delegations_kv_query_result(deps, env, query_id)
-                }
+                KVQueryType::NonNativeRewardsBalances => unimplemented!(),
+                KVQueryType::UnbondingDelegations => unimplemented!(),
             }
         }
         SudoMsg::OpenAck {
@@ -1196,25 +1043,8 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
                 KVQueryType::DelegationsAndBalance,
             )
         }
-        ReplyMsg::KvNonNativeRewardsBalances => {
-            deps.api.debug(&format!(
-                "WASMDEBUG: NON_NATIVE_REWARDS_BALANCES_REPLY_ID {:?}",
-                msg
-            ));
-            puppeteer_base.register_kv_query_reply(deps, msg, KVQueryType::NonNativeRewardsBalances)
-        }
-        ReplyMsg::KvUnbondingDelegations { validator_index } => {
-            deps.api.debug(&format!(
-                "WASMDEBUG: UNBONDING_DELEGATIONS_REPLY_ID {:?}",
-                msg
-            ));
-            puppeteer_base.register_unbonding_delegations_query_reply(
-                deps,
-                msg,
-                validator_index,
-                KVQueryType::UnbondingDelegations,
-            )
-        }
+        ReplyMsg::KvNonNativeRewardsBalances => unimplemented!(),
+        ReplyMsg::KvUnbondingDelegations { .. } => unimplemented!(),
     }
 }
 

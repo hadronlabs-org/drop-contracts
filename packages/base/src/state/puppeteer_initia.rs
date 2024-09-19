@@ -60,7 +60,6 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
         let mut delegations: Vec<DropDelegation> = Vec::with_capacity(total_validators);
 
         if total_validators > 0 {
-            println!("total_validators {}", total_validators);
             for chunk in storage_values[1..].chunks(2) {
                 if chunk[0].value.is_empty() {
                     // Incoming delegation can actually be empty, this just means that delegation
