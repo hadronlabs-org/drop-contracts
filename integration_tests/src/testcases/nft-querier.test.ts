@@ -840,6 +840,14 @@ describe('NFT Querier', () => {
     expect(res).toBe('unready');
   });
 
+  it('try wrong nft', async () => {
+    await expect(
+      context.nftQuerierContractClient.queryNftState({
+        nft_id: 'wrong_nft_id',
+      }),
+    ).rejects.toThrowError(/Unknown NFT ID given/);
+  });
+
   describe('state machine', () => {
     const ica: { balance?: number } = {};
     describe('prepare', () => {
