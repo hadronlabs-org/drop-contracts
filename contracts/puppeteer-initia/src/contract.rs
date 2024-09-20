@@ -332,9 +332,7 @@ fn execute_ibc_transfer(
             reason: "Only one coin is allowed".to_string()
         }
     );
-    let coin = message_funds.first().ok_or(ContractError::InvalidFunds {
-        reason: "No funds".to_string(),
-    })?;
+    let coin = message_funds.first().unwrap(); // safe to unwrap bc of ensure_eq
     let ica_address = puppeteer_base.ica.get_address(deps.storage)?;
     let msg = NeutronMsg::IbcTransfer {
         source_port: config.port_id,
