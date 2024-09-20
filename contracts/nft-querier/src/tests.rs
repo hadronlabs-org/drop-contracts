@@ -6,10 +6,13 @@ use crate::{
 use cosmwasm_std::{
     attr, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, MessageInfo, Response, Uint128,
+    to_json_binary, Addr, Empty, MessageInfo, Response, Uint128,
 };
 use cw721::{NftInfoResponse, OwnerOfResponse};
 use drop_helpers::testing::mock_dependencies;
+use drop_staking_base::msg::withdrawal_voucher::Extension;
+
+pub type Cw721VoucherContract<'a> = cw721_base::Cw721Contract<'a, Extension, Empty, Empty, Empty>;
 
 #[test]
 fn test_execute_instantiate() {
@@ -276,6 +279,66 @@ fn test_query_nft_state_unready() {
     .unwrap();
 
     assert_eq!(res, NftState::Unready);
+}
+
+#[test]
+fn test_query_nft_state_unknown_nft_id() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                factory_contract: "factory_contract".to_string(),
+            },
+        )
+        .unwrap();
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&drop_staking_base::state::factory::State {
+                token_contract: "token_contract".to_string(),
+                core_contract: "core_contract".to_string(),
+                puppeteer_contract: "puppeteer_contract".to_string(),
+                staker_contract: "staker_contract".to_string(),
+                withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
+                withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
+                strategy_contract: "strategy_contract".to_string(),
+                validators_set_contract: "validators_set_contract".to_string(),
+                distribution_contract: "distribution_contract".to_string(),
+                rewards_manager_contract: "rewards_manager_contract".to_string(),
+                rewards_pump_contract: "rewards_pump_contract".to_string(),
+                splitter_contract: "splitter_contract".to_string(),
+            })
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("withdrawal_voucher_contract", move |_| {
+            to_json_binary(&cosmwasm_std::Binary::from(
+                Cw721VoucherContract::default()
+                    .query(
+                        mock_dependencies(&[]).as_ref().into_empty(),
+                        mock_env(),
+                        cw721_base::QueryMsg::AllNftInfo {
+                            token_id: "wrong_token_id".to_string(),
+                            include_expired: None,
+                        },
+                    )
+                    .unwrap_err()
+                    .to_string()
+                    .as_bytes(),
+            ))
+            .unwrap()
+        });
+
+    let res = crate::contract::query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::NftState {
+            nft_id: "nft".to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(res, crate::error::ContractError::UnknownNftId {})
 }
 
 #[test]

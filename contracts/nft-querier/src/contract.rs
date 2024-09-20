@@ -3,9 +3,7 @@ use crate::{
     msg::{ExecuteMsg, InstantiateMsg, NftState, QueryMsg},
     state::{Config, CONFIG},
 };
-use cosmwasm_std::{
-    attr, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
-};
+use cosmwasm_std::{attr, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response};
 use cw721::AllNftInfoResponse;
 use drop_helpers::answer::response;
 use drop_staking_base::{
@@ -39,27 +37,33 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
-pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     match msg {
-        QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?),
+        QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?).map_err(From::from),
         QueryMsg::NftState { nft_id } => query_nft_id(deps, env, nft_id),
-        QueryMsg::Ownership {} => to_json_binary(&cw_ownable::get_ownership(deps.storage)?),
+        QueryMsg::Ownership {} => {
+            to_json_binary(&cw_ownable::get_ownership(deps.storage)?).map_err(From::from)
+        }
     }
 }
 
-fn query_nft_id(deps: Deps<NeutronQuery>, _env: Env, nft_id: String) -> StdResult<Binary> {
+fn query_nft_id(deps: Deps<NeutronQuery>, _env: Env, nft_id: String) -> ContractResult<Binary> {
     let factory_state: FactoryState = deps.querier.query_wasm_smart(
         CONFIG.load(deps.storage)?.factory_contract,
         &FactoryQueryMsg::State {},
     )?;
     let nft_details: AllNftInfoResponse<drop_staking_base::msg::withdrawal_voucher::Extension> =
-        deps.querier.query_wasm_smart(
+        match deps.querier.query_wasm_smart(
             factory_state.withdrawal_voucher_contract,
             &WithdrawalVoucherQueryMsg::AllNftInfo {
                 token_id: nft_id,
                 include_expired: None,
             },
-        )?;
+        ) {
+            Ok(res) => res,
+            Err(_) => return Err(crate::error::ContractError::UnknownNftId {}),
+        };
+
     let batch_id = nft_details.info.extension.unwrap().batch_id;
     let unbond_batch: drop_staking_base::state::core::UnbondBatch = deps.querier.query_wasm_smart(
         factory_state.core_contract,
@@ -71,7 +75,7 @@ fn query_nft_id(deps: Deps<NeutronQuery>, _env: Env, nft_id: String) -> StdResul
         drop_staking_base::state::core::UnbondBatchStatus::Withdrawn => NftState::Ready,
         _ => NftState::Unready,
     };
-    to_json_binary(&nft_status)
+    to_json_binary(&nft_status).map_err(From::from)
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]

@@ -36,3 +36,4 @@ neutron-sdk = { workspace = true }
 cw-ownable = { workspace = true }
 semver = { workspace = true }
 cw721 = { workspace = true }
+cw721-base = { workspace = true }

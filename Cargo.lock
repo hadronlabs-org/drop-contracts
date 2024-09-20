@@ -740,6 +740,7 @@ dependencies = [
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
  "cw721 0.18.0",
+ "cw721-base 0.18.0",
  "drop-helpers",
  "drop-macros",
  "drop-puppeteer-base",

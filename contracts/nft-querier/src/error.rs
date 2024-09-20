@@ -9,9 +9,7 @@ pub enum ContractError {
     Std(#[from] StdError),
     #[error("{0}")]
     OwnershipError(#[from] OwnershipError),
-    #[error("Unauthorized")]
-    Unauthorized {},
-    #[error("Unknown NFT ID")]
+    #[error("Unknown NFT ID given")]
     UnknownNftId {},
 }
 
