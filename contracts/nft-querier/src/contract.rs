@@ -35,7 +35,7 @@ pub fn instantiate(
             factory_contract: msg.factory_contract,
         },
     )?;
-    Ok(Response::default())
+    Ok(Response::default().add_attribute("owner", info.sender))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
@@ -43,6 +43,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Bin
     match msg {
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::NftState { nft_id } => query_nft_id(deps, env, nft_id),
+        QueryMsg::Ownership {} => to_json_binary(&cw_ownable::get_ownership(deps.storage)?),
     }
 }
 
@@ -81,7 +82,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, env, new_config),
+        ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
         ExecuteMsg::UpdateOwnership(action) => {
             cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
             Ok(response::<(&str, &str), _>(
@@ -95,9 +96,10 @@ pub fn execute(
 
 fn execute_update_config(
     deps: DepsMut,
-    _env: Env,
+    info: MessageInfo,
     msg: Config,
 ) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut attrs = vec![attr("action", "update-config")];
     let mut config = CONFIG.load(deps.storage)?;
 
