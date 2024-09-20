@@ -1,12 +1,28 @@
 use crate::{
-    error::{ContractError, ContractResult},
-    msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
+    error::ContractResult,
+    msg::{
+        ExecuteMsg,
+        InstantiateMsg,
+        //NftState,
+        QueryMsg,
+    },
     state::{Config, CONFIG},
 };
 use cosmwasm_std::{
-    attr, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    attr,
+    to_json_binary,
+    Binary,
+    Deps,
+    DepsMut,
+    Env,
+    MessageInfo,
+    // QueryRequest,
+    Response,
+    StdResult,
+    // WasmQuery,
 };
 use drop_helpers::answer::response;
+//use drop_staking_base::msg::withdrawal_voucher::QueryMsg as WithdrawalVoucherQueryMsg;
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
@@ -39,7 +55,21 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Bin
 }
 
 fn query_nft_id(_deps: Deps<NeutronQuery>, _env: Env, _nft_id: String) -> StdResult<Binary> {
-    return Ok(Binary::default());
+    // let withdrawal_voucher_address = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+    //     contract_addr: CONFIG.load(deps.storage)?.factory_contract,
+    //     msg: Binary::from(to_json_binary(&WithdrawalVoucherQueryMsg::AllNftInfo {
+    //         token_id: nft_id,
+    //         include_expired: None,
+    //     })?),
+    // }));
+    // deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+    //     contract_addr: CONFIG.load(deps.storage)?.factory_contract,
+    //     msg: Binary::from(to_json_binary(&WithdrawalVoucherQueryMsg::AllNftInfo {
+    //         token_id: nft_id,
+    //         include_expired: None,
+    //     })?),
+    // }))
+    Ok(Binary::default())
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
