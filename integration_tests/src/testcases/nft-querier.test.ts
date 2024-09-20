@@ -635,4 +635,20 @@ describe('Core', () => {
     });
     expect(res).toBe('unready');
   });
+
+  it('try to withdraw before withdrawn', async () => {
+    const { withdrawalVoucherContractClient, neutronUserAddress } = context;
+    const tokenId = `0_${neutronUserAddress}_1`;
+    await expect(
+      withdrawalVoucherContractClient.sendNft(neutronUserAddress, {
+        token_id: tokenId,
+        contract: context.withdrawalManagerContractClient.contractAddress,
+        msg: Buffer.from(
+          JSON.stringify({
+            withdraw: {},
+          }),
+        ).toString('base64'),
+      }),
+    ).rejects.toThrowError(/is not withdrawn yet/);
+  });
 });
