@@ -67,10 +67,11 @@ fn execute_update_config(
     _env: Env,
     msg: Config,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let attrs = vec![attr("action", "update-config")];
-    match deps.api.addr_validate(&msg.factory_contract.clone()) {
-        Ok(_) => CONFIG.save(deps.storage, &msg)?,
-        Err(err) => return ContractResult::Err(ContractError::Std(err)),
-    }
+    let mut attrs = vec![attr("action", "update-config")];
+    let mut config = CONFIG.load(deps.storage)?;
+
+    config.factory_contract = deps.api.addr_validate(&msg.factory_contract)?.to_string();
+    attrs.push(attr("factory_contract", msg.factory_contract));
+
     return ContractResult::Ok(Response::default().add_attributes(attrs));
 }
