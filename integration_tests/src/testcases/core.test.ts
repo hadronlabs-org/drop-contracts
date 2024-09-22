@@ -653,6 +653,18 @@ describe('Core', () => {
     });
   });
 
+  it('bond is paused', async () => {
+    await expect(
+      context.coreContractClient.bond(context.account.address, {}),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
+  it('unbond is paused', async () => {
+    await expect(
+      context.coreContractClient.unbond(context.account.address),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
   it('unpause protocol', async () => {
     const { account, factoryContractClient: contractClient } = context;
 
