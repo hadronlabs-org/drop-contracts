@@ -37,17 +37,17 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
-pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResult<Binary> {
+pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?).map_err(From::from),
-        QueryMsg::NftState { nft_id } => query_nft_id(deps, env, nft_id),
+        QueryMsg::NftState { nft_id } => query_nft_state(deps, nft_id),
         QueryMsg::Ownership {} => {
             to_json_binary(&cw_ownable::get_ownership(deps.storage)?).map_err(From::from)
         }
     }
 }
 
-fn query_nft_id(deps: Deps<NeutronQuery>, _env: Env, nft_id: String) -> ContractResult<Binary> {
+fn query_nft_state(deps: Deps<NeutronQuery>, nft_id: String) -> ContractResult<Binary> {
     let factory_state: FactoryState = deps.querier.query_wasm_smart(
         CONFIG.load(deps.storage)?.factory_contract,
         &FactoryQueryMsg::State {},
