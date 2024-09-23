@@ -1,5 +1,5 @@
 use cosmwasm_schema::write_api;
-use drop_staking_base::msg::factory::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
+use drop_nft_querier::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 
 fn main() {
     write_api! {

@@ -1,11 +1,3 @@
-use crate::{
-    error::ContractResult,
-    msg::{
-        ExecuteMsg, InstantiateMsg, MigrateMsg, ProxyMsg, QueryMsg, UpdateConfigMsg,
-        ValidatorSetMsg,
-    },
-    state::{State, STATE},
-};
 use cosmwasm_std::{
     attr, instantiate2_address, to_json_binary, Attribute, Binary, CodeInfoResponse, CosmosMsg,
     Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
@@ -13,9 +5,14 @@ use cosmwasm_std::{
 use drop_helpers::answer::response;
 use drop_staking_base::state::splitter::Config as SplitterConfig;
 use drop_staking_base::{
+    error::factory::ContractResult,
     msg::{
         core::{InstantiateMsg as CoreInstantiateMsg, QueryMsg as CoreQueryMsg},
         distribution::InstantiateMsg as DistributionInstantiateMsg,
+        factory::{
+            ExecuteMsg, InstantiateMsg, MigrateMsg, ProxyMsg, QueryMsg, UpdateConfigMsg,
+            ValidatorSetMsg,
+        },
         pump::InstantiateMsg as RewardsPumpInstantiateMsg,
         puppeteer::InstantiateMsg as PuppeteerInstantiateMsg,
         rewards_manager::{
@@ -32,7 +29,10 @@ use drop_staking_base::{
         },
         withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
     },
-    state::pump::PumpTimeout,
+    state::{
+        factory::{State, STATE},
+        pump::PumpTimeout,
+    },
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -411,7 +411,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
 fn query_pause_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
     let state = STATE.load(deps.storage)?;
 
-    to_json_binary(&crate::state::PauseInfoResponse {
+    to_json_binary(&drop_staking_base::state::factory::PauseInfoResponse {
         core: deps
             .querier
             .query_wasm_smart(state.core_contract, &CoreQueryMsg::PauseInfo {})?,
@@ -569,14 +569,14 @@ fn execute_proxy_msg(
             }
         },
         ProxyMsg::Core(msg) => match msg {
-            crate::msg::CoreMsg::Pause {} => {
+            drop_staking_base::msg::factory::CoreMsg::Pause {} => {
                 messages.push(get_proxied_message(
                     state.core_contract,
                     drop_staking_base::msg::core::ExecuteMsg::Pause {},
                     vec![],
                 )?);
             }
-            crate::msg::CoreMsg::Unpause {} => {
+            drop_staking_base::msg::factory::CoreMsg::Unpause {} => {
                 messages.push(get_proxied_message(
                     state.core_contract,
                     drop_staking_base::msg::core::ExecuteMsg::Unpause {},
@@ -627,7 +627,7 @@ pub fn migrate(
 }
 
 fn get_splitter_receivers(
-    fee_params: Option<crate::msg::FeeParams>,
+    fee_params: Option<drop_staking_base::msg::factory::FeeParams>,
     staker_address: String,
 ) -> ContractResult<Vec<(String, cosmwasm_std::Uint128)>> {
     match fee_params {
