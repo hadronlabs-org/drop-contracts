@@ -309,7 +309,7 @@ fn test_ideal_deposit_calculation() {
         },
     );
 
-    let ideal_deposit: Vec<(String, Uint128)> = app
+    let mut ideal_deposit: Vec<(String, Uint128)> = app
         .wrap()
         .query_wasm_smart(
             strategy_contract,
@@ -318,6 +318,7 @@ fn test_ideal_deposit_calculation() {
             },
         )
         .unwrap();
+    ideal_deposit.sort();
 
     assert_eq!(
         ideal_deposit,
@@ -350,7 +351,7 @@ fn test_ideal_withdraw_calculation() {
         },
     );
 
-    let ideal_deposit: Vec<(String, Uint128)> = app
+    let mut ideal_deposit: Vec<(String, Uint128)> = app
         .wrap()
         .query_wasm_smart(
             strategy_contract,
@@ -359,6 +360,7 @@ fn test_ideal_withdraw_calculation() {
             },
         )
         .unwrap();
+    ideal_deposit.sort();
 
     assert_eq!(
         ideal_deposit,

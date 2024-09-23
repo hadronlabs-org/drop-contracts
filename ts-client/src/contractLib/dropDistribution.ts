@@ -30,10 +30,12 @@ export interface CalcDepositArgs {
 }
 export interface Delegations {
   delegations: Delegation[];
-  total: Uint128;
+  total_on_top: Uint128;
+  total_stake: Uint128;
   total_weight: number;
 }
 export interface Delegation {
+  on_top: Uint128;
   stake: Uint128;
   valoper_address: string;
   weight: number;
