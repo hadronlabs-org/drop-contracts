@@ -106,6 +106,29 @@ fn test_execute_update_config() {
 }
 
 #[test]
+fn test_query_config() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                factory_contract: "factory_contract".to_string(),
+            },
+        )
+        .unwrap();
+
+    let res: Config =
+        from_json(crate::contract::query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap())
+            .unwrap();
+    assert_eq!(
+        res,
+        Config {
+            factory_contract: "factory_contract".to_string(),
+        }
+    );
+}
+
+#[test]
 fn test_query_nft_state_ready() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
