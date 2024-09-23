@@ -4,7 +4,8 @@ use crate::{
     state::core::{Config, ConfigOptional},
 };
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Deps, Uint128, Uint64};
+#[allow(unused_imports)]
+use cosmwasm_std::{Addr, Deps, Uint128, Uint64};
 use cw_ownable::cw_ownable_execute;
 #[allow(unused_imports)]
 use drop_helpers::pause::PauseInfoResponse;
@@ -114,14 +115,14 @@ pub enum QueryMsg {
     LastPuppeteerResponse {},
     #[returns(LastStakerResponse)]
     LastStakerResponse {},
-    #[returns(Vec<(String,(String, Uint128))>)]
-    PendingLSMShares {},
-    #[returns(Vec<(String,(String, Uint128))>)]
-    LSMSharesToRedeem {},
     #[returns(Uint128)]
     TotalBonded {},
+    #[returns(Vec<Addr>)]
+    BondProviders {},
     #[returns(Uint128)]
-    TotalLSMShares {},
+    TotalLSMShares {}, // used for backward compatibility
+    #[returns(Uint128)]
+    TotalAsyncTokens {},
     #[returns(FailedBatchResponse)]
     FailedBatch {},
 }
@@ -136,6 +137,12 @@ pub enum ExecuteMsg {
     },
     Unbond {},
     //permissioned
+    AddBondProvider {
+        bond_provider_address: String,
+    },
+    RemoveBondProvider {
+        bond_provider_address: String,
+    },
     UpdateConfig {
         new_config: Box<ConfigOptional>,
     },

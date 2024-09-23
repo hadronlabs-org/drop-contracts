@@ -10,6 +10,7 @@ import {
   DropWithdrawalVoucher,
   DropSplitter,
   DropToken,
+  DropNativeBondProvider,
 } from 'drop-ts-client';
 import {
   QueryClient,
@@ -51,6 +52,7 @@ const DropWithdrawalVoucherClass = DropWithdrawalVoucher.Client;
 const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
 const DropRewardsPumpClass = DropPump.Client;
 const DropSplitterClass = DropSplitter.Client;
+const DropNativeBondProviderClass = DropNativeBondProvider.Client;
 
 const UNBONDING_TIME = 360;
 
@@ -75,6 +77,9 @@ describe('Core Slashing', () => {
     >;
     withdrawalManagerContractClient?: InstanceType<
       typeof DropWithdrawalManagerClass
+    >;
+    nativeBondProviderContractClient?: InstanceType<
+      typeof DropNativeBondProviderClass
     >;
     account?: AccountData;
     icaAddress?: string;
@@ -108,6 +113,8 @@ describe('Core Slashing', () => {
       rewardsManager?: number;
       splitter?: number;
       pump?: number;
+      lsmShareBondProvider?: number;
+      nativeBondProvider?: number;
     };
     neutronIBCDenom?: string;
   } = { codeIds: {} };
@@ -390,6 +397,31 @@ describe('Core Slashing', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.pump = res.codeId;
     }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(
+            __dirname,
+            '../../../artifacts/drop_lsm_share_bond_provider.wasm',
+          ),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.lsmShareBondProvider = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_native_bond_provider.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.nativeBondProvider = res.codeId;
+    }
 
     const res = await client.upload(
       account.address,
@@ -417,6 +449,8 @@ describe('Core Slashing', () => {
           staker_code_id: context.codeIds.staker,
           splitter_code_id: context.codeIds.splitter,
           rewards_pump_code_id: context.codeIds.pump,
+          lsm_share_bond_provider_code_id: context.codeIds.lsmShareBondProvider,
+          native_bond_provider_code_id: context.codeIds.nativeBondProvider,
         },
         remote_opts: {
           connection_id: 'connection-0',
@@ -508,6 +542,11 @@ describe('Core Slashing', () => {
       context.client,
       res.token_contract,
     );
+    context.nativeBondProviderContractClient =
+      new DropNativeBondProvider.Client(
+        context.client,
+        res.native_bond_provider_contract,
+      );
   });
   it('register staker ICA', async () => {
     const { stakerContractClient, neutronUserAddress } = context;
@@ -658,6 +697,36 @@ describe('Core Slashing', () => {
     expect(res.transactionHash).toHaveLength(64);
     const pupRes = await context.puppeteerContractClient.queryTxState();
     expect(pupRes.status).toBe('waiting_for_ack');
+  });
+  it('register native bond provider in the core', async () => {
+    const res = await context.factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.coreContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    add_bond_provider: {
+                      bond_provider_address:
+                        context.nativeBondProviderContractClient
+                          .contractAddress,
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      1.5,
+      undefined,
+      [],
+    );
+    expect(res.transactionHash).toHaveLength(64);
   });
   it('wait puppeteer response', async () => {
     const { puppeteerContractClient } = context;

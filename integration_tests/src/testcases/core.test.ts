@@ -12,6 +12,8 @@ import {
   DropSplitter,
   DropToken,
   DropRedemptionRateAdapter,
+  DropLsmShareBondProvider,
+  DropNativeBondProvider,
 } from 'drop-ts-client';
 import {
   QueryClient,
@@ -56,6 +58,8 @@ const DropRewardsManagerClass = DropRewardsManager.Client;
 const DropRewardsPumpClass = DropPump.Client;
 const DropSplitterClass = DropSplitter.Client;
 const DropRedemptionAdapterClass = DropRedemptionRateAdapter.Client;
+const DropLsmShareBondProviderClass = DropLsmShareBondProvider.Client;
+const DropNativeBondProviderClass = DropNativeBondProvider.Client;
 
 const UNBONDING_TIME = 360;
 
@@ -83,6 +87,12 @@ describe('Core', () => {
     rewardsManagerContractClient?: InstanceType<typeof DropRewardsManagerClass>;
     rewardsPumpContractClient?: InstanceType<typeof DropRewardsPumpClass>;
     redemptionAdapterClient?: InstanceType<typeof DropRedemptionAdapterClass>;
+    lsmShareBondProviderContractClient?: InstanceType<
+      typeof DropLsmShareBondProviderClass
+    >;
+    nativeBondProviderContractClient?: InstanceType<
+      typeof DropNativeBondProviderClass
+    >;
     account?: AccountData;
     icaAddress?: string;
     stakerIcaAddress?: string;
@@ -113,6 +123,8 @@ describe('Core', () => {
       rewardsManager?: number;
       splitter?: number;
       pump?: number;
+      lsmShareBondProvider?: number;
+      nativeBondProvider?: number;
     };
     exchangeRate?: number;
     neutronIBCDenom?: string;
@@ -411,6 +423,31 @@ describe('Core', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.redemptionRateAdapter = res.codeId;
     }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(
+            __dirname,
+            '../../../artifacts/drop_lsm_share_bond_provider.wasm',
+          ),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.lsmShareBondProvider = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_native_bond_provider.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.nativeBondProvider = res.codeId;
+    }
 
     const res = await client.upload(
       account.address,
@@ -438,6 +475,8 @@ describe('Core', () => {
           rewards_manager_code_id: context.codeIds.rewardsManager,
           splitter_code_id: context.codeIds.splitter,
           rewards_pump_code_id: context.codeIds.pump,
+          lsm_share_bond_provider_code_id: context.codeIds.lsmShareBondProvider,
+          native_bond_provider_code_id: context.codeIds.nativeBondProvider,
         },
         remote_opts: {
           connection_id: 'connection-0',
@@ -575,6 +614,16 @@ describe('Core', () => {
       context.client,
       res.splitter_contract,
     );
+    context.lsmShareBondProviderContractClient =
+      new DropLsmShareBondProvider.Client(
+        context.client,
+        res.lsm_share_bond_provider_contract,
+      );
+    context.nativeBondProviderContractClient =
+      new DropNativeBondProvider.Client(
+        context.client,
+        res.native_bond_provider_contract,
+      );
   });
 
   it('deploy redemption rate adapter', async () => {
@@ -814,6 +863,80 @@ describe('Core', () => {
     expect(context.exchangeRate).toEqual(1);
     await checkExchangeRate(context);
   });
+  it('register native bond provider in the core', async () => {
+    const res = await context.factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.coreContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    add_bond_provider: {
+                      bond_provider_address:
+                        context.nativeBondProviderContractClient
+                          .contractAddress,
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      1.5,
+      undefined,
+      [],
+    );
+    expect(res.transactionHash).toHaveLength(64);
+  });
+  it('register lsm share bond provider in the core', async () => {
+    const res = await context.factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.coreContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    add_bond_provider: {
+                      bond_provider_address:
+                        context.lsmShareBondProviderContractClient
+                          .contractAddress,
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      1.5,
+      undefined,
+      [],
+    );
+    expect(res.transactionHash).toHaveLength(64);
+  });
+  it('query list of bond providers', async () => {
+    const { coreContractClient } = context;
+    const bondProviders = await coreContractClient.queryBondProviders();
+
+    expect(bondProviders.length).toEqual(2);
+
+    expect(bondProviders.flat()).toContain(
+      context.lsmShareBondProviderContractClient.contractAddress,
+    );
+
+    expect(bondProviders.flat()).toContain(
+      context.nativeBondProviderContractClient.contractAddress,
+    );
+  });
 
   it('bond failed as over limit', async () => {
     const { coreContractClient, neutronUserAddress, neutronIBCDenom } = context;
@@ -880,6 +1003,20 @@ describe('Core', () => {
       ],
     );
     expect(res.transactionHash).toHaveLength(64);
+    const contractAttributes = res.events.find(
+      (e) => e.type === 'wasm-crates.io:drop-staking__drop-core-execute-bond',
+    ).attributes;
+
+    const attributesList = contractAttributes.map((e) => e.key);
+    expect(attributesList).toContain('used_bond_provider');
+
+    const usedBondProvider = contractAttributes.find(
+      (e) => e.key === 'used_bond_provider',
+    );
+    expect(usedBondProvider.value).toEqual(
+      context.nativeBondProviderContractClient.contractAddress,
+    );
+
     await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 1);
     const balances =
       await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
@@ -1041,7 +1178,7 @@ describe('Core', () => {
   });
   it('bond tokenized share from unregistered validator', async () => {
     const { coreContractClient, neutronUserAddress } = context;
-    const res = coreContractClient.bond(
+    const res = await coreContractClient.bond(
       neutronUserAddress,
       {},
       1.6,
@@ -1053,7 +1190,14 @@ describe('Core', () => {
         },
       ],
     );
-    await expect(res).rejects.toThrowError(/Invalid denom/);
+
+    const contractAttributes = res.events.find(
+      (e) => e.type === 'wasm-crates.io:drop-staking__drop-core-execute-bond',
+    ).attributes;
+
+    const attributesList = contractAttributes.map((e) => e.key);
+    expect(attributesList).not.toContain('used_bond_provider');
+
     await checkExchangeRate(context);
   });
   it('add validators into validators set', async () => {
@@ -1090,6 +1234,7 @@ describe('Core', () => {
         },
       ],
     );
+
     expect(res.transactionHash).toHaveLength(64);
   });
 
@@ -1828,7 +1973,7 @@ describe('Core', () => {
         });
         it('verify pending lsm shares', async () => {
           const pending =
-            await context.coreContractClient.queryPendingLSMShares();
+            await context.lsmShareBondProviderContractClient.queryPendingLSMShares();
           expect(pending).toHaveLength(2);
         });
       });
@@ -1855,7 +2000,7 @@ describe('Core', () => {
           );
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();
-          expect(state).toEqual('l_s_m_transfer');
+          expect(state).toEqual('peripheral');
           await checkExchangeRate(context);
         });
         it('wait for the response from puppeteer', async () => {
@@ -1894,7 +2039,7 @@ describe('Core', () => {
           await waitFor(async () => {
             try {
               const res =
-                await context.coreContractClient.queryPendingLSMShares();
+                await context.lsmShareBondProviderContractClient.queryPendingLSMShares();
               pending = res;
             } catch (e) {
               //
@@ -1915,7 +2060,7 @@ describe('Core', () => {
           expect(state).toEqual('idle');
           await checkExchangeRate(context);
         });
-        it('tick to lsm transfer', async () => {
+        it('tick to peripheral', async () => {
           const { neutronUserAddress } = context;
           const res = await context.coreContractClient.tick(
             neutronUserAddress,
@@ -1925,7 +2070,7 @@ describe('Core', () => {
           );
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();
-          expect(state).toEqual('l_s_m_transfer');
+          expect(state).toEqual('peripheral');
           await checkExchangeRate(context);
         });
         it('wait for the response from puppeteer', async () => {
@@ -1964,7 +2109,7 @@ describe('Core', () => {
           await waitFor(async () => {
             try {
               const res =
-                await context.coreContractClient.queryPendingLSMShares();
+                await context.lsmShareBondProviderContractClient.queryPendingLSMShares();
               pending = res;
             } catch (e) {
               //
@@ -1990,7 +2135,7 @@ describe('Core', () => {
         });
         it('verify pending lsm shares to unbond', async () => {
           const pending =
-            await context.coreContractClient.queryLSMSharesToRedeem();
+            await context.lsmShareBondProviderContractClient.queryLSMSharesToRedeem();
           expect(pending).toHaveLength(2);
         });
         it('tick to idle', async () => {
@@ -2016,7 +2161,7 @@ describe('Core', () => {
           expect(state).toEqual('idle');
           await checkExchangeRate(context);
         });
-        it('tick to redeem', async () => {
+        it('tick to peripheral', async () => {
           const { neutronUserAddress } = context;
           const res = await context.coreContractClient.tick(
             neutronUserAddress,
@@ -2026,7 +2171,7 @@ describe('Core', () => {
           );
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();
-          expect(state).toEqual('l_s_m_redeem');
+          expect(state).toEqual('peripheral');
           await checkExchangeRate(context);
         });
         it('imeediately tick again fails', async () => {
@@ -2043,7 +2188,7 @@ describe('Core', () => {
         it('await for pending length decrease', async () => {
           await waitFor(async () => {
             const pending =
-              await context.coreContractClient.queryLSMSharesToRedeem();
+              await context.lsmShareBondProviderContractClient.queryLSMSharesToRedeem();
             return pending.length === 0;
           }, 30_000);
         });

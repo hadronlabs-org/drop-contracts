@@ -15,6 +15,8 @@ pub struct CodeIds {
     pub rewards_manager_code_id: u64,
     pub splitter_code_id: u64,
     pub rewards_pump_code_id: u64,
+    pub lsm_share_bond_provider_code_id: u64,
+    pub native_bond_provider_code_id: u64,
 }
 
 #[cw_serde]
@@ -48,6 +50,8 @@ pub struct State {
     pub rewards_manager_contract: String,
     pub rewards_pump_contract: String,
     pub splitter_contract: String,
+    pub lsm_share_bond_provider_contract: String,
+    pub native_bond_provider_contract: String,
 }
 
 #[cw_serde]

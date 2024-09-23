@@ -53,6 +53,7 @@ pub enum ContractError {
 
     #[error("Invalid denom")]
     InvalidDenom {},
+
     #[error("No delegations")]
     NoDelegations {},
 
@@ -135,6 +136,15 @@ pub enum ContractError {
 
     #[error("Fee must be in range [0.0, 1.0]")]
     InvalidFee {},
+
+    #[error("Bond provider already exists")]
+    BondProviderAlreadyExists {},
+
+    #[error("Bond provider error: {message}")]
+    BondProviderError { message: String },
+
+    #[error("unknown reply id: {id}")]
+    UnknownReplyId { id: u64 },
 
     #[error("Semver parsing error: {0}")]
     SemVer(String),

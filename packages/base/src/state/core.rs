@@ -1,6 +1,6 @@
 use crate::msg::staker::ResponseHookMsg as StakerResponseHookMsg;
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Decimal, Uint128};
+use cosmwasm_std::{Addr, Decimal, Empty, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use drop_helpers::fsm::{Fsm, Transition};
 use drop_puppeteer_base::msg::ResponseHookMsg as PuppeteerResponseHookMsg;
@@ -135,8 +135,7 @@ pub const LSM_SHARES_TO_REDEEM: Map<String, (String, Uint128, Uint128)> =
 #[cw_serde]
 pub enum ContractState {
     Idle,
-    LSMTransfer,
-    LSMRedeem,
+    Peripheral,
     Claiming,
     Unbonding,
     StakingBond,
@@ -145,18 +144,10 @@ pub enum ContractState {
 const TRANSITIONS: &[Transition<ContractState>] = &[
     Transition {
         from: ContractState::Idle,
-        to: ContractState::LSMTransfer,
+        to: ContractState::Peripheral,
     },
     Transition {
-        from: ContractState::Idle,
-        to: ContractState::LSMRedeem,
-    },
-    Transition {
-        from: ContractState::LSMTransfer,
-        to: ContractState::Idle,
-    },
-    Transition {
-        from: ContractState::LSMRedeem,
+        from: ContractState::Peripheral,
         to: ContractState::Idle,
     },
     Transition {
@@ -201,6 +192,8 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
     },
 ];
 
+pub const BOND_PROVIDER_REPLY_ID: u64 = 1;
+
 pub const FSM: Fsm<ContractState> = Fsm::new("machine_state", TRANSITIONS);
 pub const LAST_IDLE_CALL: Item<u64> = Item::new("last_tick");
 pub const LAST_ICA_CHANGE_HEIGHT: Item<u64> = Item::new("last_ica_change_height");
@@ -212,3 +205,4 @@ pub const BONDED_AMOUNT: Item<Uint128> = Item::new("bonded_amount"); // to be us
 pub const LAST_LSM_REDEEM: Item<u64> = Item::new("last_lsm_redeem");
 pub const EXCHANGE_RATE: Item<(Decimal, u64)> = Item::new("exchange_rate");
 pub const LD_DENOM: Item<String> = Item::new("ld_denom");
+pub const BOND_PROVIDERS: Map<Addr, Empty> = Map::new("bond_providers");

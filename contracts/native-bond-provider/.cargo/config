@@ -1,0 +1,2 @@
+[alias]
+schema = "run --bin drop-native-bond-provider-schema"

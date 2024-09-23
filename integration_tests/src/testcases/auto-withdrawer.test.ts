@@ -11,6 +11,7 @@ import {
   DropWithdrawalVoucher,
   DropSplitter,
   DropToken,
+  DropNativeBondProvider,
 } from 'drop-ts-client';
 import {
   QueryClient,
@@ -50,6 +51,8 @@ const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
 const DropAutoWithdrawerClass = DropAutoWithdrawer.Client;
 const DropRewardsPumpClass = DropPump.Client;
 const DropSplitterClass = DropSplitter.Client;
+const DropNativeBondProviderClass = DropNativeBondProvider.Client;
+
 const UNBONDING_TIME = 360;
 
 describe('Auto withdrawer', () => {
@@ -73,6 +76,9 @@ describe('Auto withdrawer', () => {
     >;
     withdrawalManagerContractClient?: InstanceType<
       typeof DropWithdrawalManagerClass
+    >;
+    nativeBondProviderContractClient?: InstanceType<
+      typeof DropNativeBondProviderClass
     >;
     autoWithdrawerContractClient?: InstanceType<typeof DropAutoWithdrawerClass>;
     account?: AccountData;
@@ -104,6 +110,8 @@ describe('Auto withdrawer', () => {
       rewardsManager?: number;
       splitter?: number;
       pump?: number;
+      lsmShareBondProvider?: number;
+      nativeBondProvider?: number;
     };
     exchangeRate?: number;
     neutronIBCDenom?: string;
@@ -387,6 +395,32 @@ describe('Auto withdrawer', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.pump = res.codeId;
     }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(
+            __dirname,
+            '../../../artifacts/drop_lsm_share_bond_provider.wasm',
+          ),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.lsmShareBondProvider = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_native_bond_provider.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.nativeBondProvider = res.codeId;
+    }
+
     const res = await client.upload(
       account.address,
       fs.readFileSync(join(__dirname, '../../../artifacts/drop_factory.wasm')),
@@ -412,6 +446,8 @@ describe('Auto withdrawer', () => {
           staker_code_id: context.codeIds.staker,
           splitter_code_id: context.codeIds.splitter,
           rewards_pump_code_id: context.codeIds.pump,
+          lsm_share_bond_provider_code_id: context.codeIds.lsmShareBondProvider,
+          native_bond_provider_code_id: context.codeIds.nativeBondProvider,
         },
         remote_opts: {
           connection_id: 'connection-0',
@@ -534,6 +570,11 @@ describe('Auto withdrawer', () => {
       context.client,
       res.rewards_pump_contract,
     );
+    context.nativeBondProviderContractClient =
+      new DropNativeBondProvider.Client(
+        context.client,
+        res.native_bond_provider_contract,
+      );
     context.tokenContractClient = new DropToken.Client(
       context.client,
       res.token_contract,
@@ -693,6 +734,36 @@ describe('Auto withdrawer', () => {
     expect(res.transactionHash).toHaveLength(64);
     const pupRes = await context.puppeteerContractClient.queryTxState();
     expect(pupRes.status).toBe('waiting_for_ack');
+  });
+  it('register native bond provider in the core', async () => {
+    const res = await context.factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.coreContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    add_bond_provider: {
+                      bond_provider_address:
+                        context.nativeBondProviderContractClient
+                          .contractAddress,
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      1.5,
+      undefined,
+      [],
+    );
+    expect(res.transactionHash).toHaveLength(64);
   });
   it('wait puppeteer response', async () => {
     const { puppeteerContractClient } = context;

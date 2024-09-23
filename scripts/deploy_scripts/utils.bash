@@ -76,7 +76,7 @@ store_code() {
 }
 
 deploy_wasm_code() {
-  for contract in factory core distribution puppeteer rewards_manager strategy token staker validators_set withdrawal_manager withdrawal_voucher pump splitter; do
+  for contract in factory core distribution puppeteer rewards_manager strategy token staker validators_set withdrawal_manager withdrawal_voucher pump splitter lsm_share_bond_provider native_bond_provider; do
       store_code "$contract"
       code_id="${contract}_code_id"
       printf '[OK] %-24s code ID: %s\n' "$contract" "${!code_id}"
@@ -148,7 +148,9 @@ deploy_factory() {
       "staker_code_id":'"$staker_code_id"',
       "rewards_manager_code_id":'"$rewards_manager_code_id"',
       "splitter_code_id": '"$splitter_code_id"',
-      "rewards_pump_code_id": '"$pump_code_id"'
+      "rewards_pump_code_id": '"$pump_code_id"',
+      "lsm_share_bond_provider_code_id": '"$lsm_share_bond_provider_code_id"'
+      "native_bond_provider_code_id": '"$native_bond_provider_code_id"'
     },
     "remote_opts":{
       "connection_id":"'"$neutron_side_connection_id"'",
@@ -195,6 +197,8 @@ deploy_factory() {
     --from "$DEPLOY_WALLET" "${ntx[@]}"                                     \
       | wait_ntx | jq -r "$(select_attr "wasm-crates.io:drop-staking__drop-factory-instantiate" "_contract_address")")"
   echo "[OK] Factory address: $factory_address"
+  core_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
+    | jq -r '.data.core_contract')"
   staker_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.staker_contract')"
   splitter_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
@@ -207,6 +211,10 @@ deploy_factory() {
     | jq -r '.data.puppeteer_contract')"
   withdrawal_manager_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.withdrawal_manager_contract')"
+  lsm_share_bond_provider_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
+    | jq -r '.data.lsm_share_bond_provider_contract')"
+  native_bond_provider_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
+    | jq -r '.data.native_bond_provider_contract')"
   echo "[OK] Staker contract: $staker_address"
   echo "[OK] Puppeteer contract: $puppeteer_address"
   echo "[OK] Withdrawal manager contract: $withdrawal_manager_address"
