@@ -146,6 +146,7 @@ fn validator_set_query(_deps: Deps, _env: Env, msg: ValidatorSetQueryMsg) -> Std
                 let validator = drop_staking_base::state::validatorset::ValidatorInfo {
                     valoper_address: format!("valoper{}", i),
                     weight: 100,
+                    on_top: Uint128::zero(),
                     last_processed_remote_height: None,
                     last_processed_local_height: None,
                     last_validated_height: None,

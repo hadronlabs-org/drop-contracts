@@ -612,6 +612,7 @@ fn test_update_config_validators_set_unauthorized() {
     let new_validator_set_config = drop_staking_base::state::validatorset::ConfigOptional {
         stats_contract: Some("validator_stats_contract".to_string()),
         provider_proposals_contract: Some("provider_proposals_contract1".to_string()),
+        val_ref_contract: Some("val_ref_contract1".to_string()),
     };
     let res = execute(
         deps.as_mut().into_empty(),
@@ -640,6 +641,7 @@ fn test_update_config_validators_set() {
     let new_validator_set_config = drop_staking_base::state::validatorset::ConfigOptional {
         stats_contract: Some("validator_stats_contract".to_string()),
         provider_proposals_contract: Some("provider_proposals_contract1".to_string()),
+        val_ref_contract: Some("val_ref_contract1".to_string()),
     };
     let res = execute(
         deps.as_mut().into_empty(),
@@ -690,10 +692,12 @@ fn test_proxy_validators_set_update_validators_unauthorized() {
                     drop_staking_base::msg::validatorset::ValidatorData {
                         valoper_address: "valoper_address1".to_string(),
                         weight: 10u64,
+                        on_top: Uint128::zero(),
                     },
                     drop_staking_base::msg::validatorset::ValidatorData {
                         valoper_address: "valoper_address2".to_string(),
                         weight: 10u64,
+                        on_top: Uint128::zero(),
                     },
                 ],
             },
@@ -725,10 +729,12 @@ fn test_proxy_validators_set_update_validators() {
                     drop_staking_base::msg::validatorset::ValidatorData {
                         valoper_address: "valoper_address1".to_string(),
                         weight: 10u64,
+                        on_top: Uint128::zero(),
                     },
                     drop_staking_base::msg::validatorset::ValidatorData {
                         valoper_address: "valoper_address2".to_string(),
                         weight: 10u64,
+                        on_top: Uint128::zero(),
                     },
                 ],
             },
@@ -747,10 +753,12 @@ fn test_proxy_validators_set_update_validators() {
                                 drop_staking_base::msg::validatorset::ValidatorData {
                                     valoper_address: "valoper_address1".to_string(),
                                     weight: 10u64,
+                                    on_top: Uint128::zero(),
                                 },
                                 drop_staking_base::msg::validatorset::ValidatorData {
                                     valoper_address: "valoper_address2".to_string(),
                                     weight: 10u64,
+                                    on_top: Uint128::zero(),
                                 },
                             ],
                         })

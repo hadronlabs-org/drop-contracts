@@ -1,20 +1,13 @@
-use cosmwasm_std::StdError;
-use cw_ownable::OwnershipError;
-use thiserror::Error;
-
-#[derive(Error, Debug, PartialEq)]
+#[derive(thiserror::Error, Debug, PartialEq)]
 pub enum ContractError {
     #[error("{0}")]
-    Std(#[from] StdError),
+    Std(#[from] cosmwasm_std::StdError),
 
     #[error("{0}")]
-    OverflowError(#[from] cosmwasm_std::OverflowError),
-
-    #[error("{0}")]
-    OwnershipError(#[from] OwnershipError),
+    OwnershipError(#[from] cw_ownable::OwnershipError),
 
     #[error("unauthorized")]
-    Unauthorized,
+    Unauthorized {},
 
     #[error("Semver parsing error: {0}")]
     SemVer(String),
