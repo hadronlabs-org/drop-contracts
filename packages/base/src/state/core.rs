@@ -212,3 +212,4 @@ pub const BONDED_AMOUNT: Item<Uint128> = Item::new("bonded_amount"); // to be us
 pub const LAST_LSM_REDEEM: Item<u64> = Item::new("last_lsm_redeem");
 pub const EXCHANGE_RATE: Item<(Decimal, u64)> = Item::new("exchange_rate");
 pub const LD_DENOM: Item<String> = Item::new("ld_denom");
+pub const BOND_HOOKS: Item<Vec<Addr>> = Item::new("bond_hooks");

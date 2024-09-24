@@ -68,6 +68,9 @@ class Client {
     queryFailedBatch = async () => {
         return this.client.queryContractSmart(this.contractAddress, { failed_batch: {} });
     };
+    queryBondHooks = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { bond_hooks: {} });
+    };
     queryPauseInfo = async () => {
         return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
     };
@@ -124,6 +127,12 @@ class Client {
             throw this.mustBeSigningClient();
         }
         return this.client.execute(sender, this.contractAddress, { process_emergency_batch: args }, fee || "auto", memo, funds);
+    };
+    setBondHooks = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { set_bond_hooks: args }, fee || "auto", memo, funds);
     };
     pause = async (sender, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
