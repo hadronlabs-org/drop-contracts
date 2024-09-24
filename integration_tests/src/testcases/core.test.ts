@@ -815,51 +815,6 @@ describe('Core', () => {
     await checkExchangeRate(context);
   });
 
-  it('bond failed as over limit', async () => {
-    const { coreContractClient, neutronUserAddress, neutronIBCDenom } = context;
-    await expect(
-      coreContractClient.bond(neutronUserAddress, {}, 1.6, undefined, [
-        {
-          amount: '500000',
-          denom: neutronIBCDenom,
-        },
-      ]),
-    ).rejects.toThrowError(/Bond limit exceeded/);
-    await checkExchangeRate(context);
-  });
-
-  it('update limit', async () => {
-    const { factoryContractClient, neutronUserAddress } = context;
-    const res = await factoryContractClient.adminExecute(
-      neutronUserAddress,
-      {
-        msgs: [
-          {
-            wasm: {
-              execute: {
-                contract_addr: context.coreContractClient.contractAddress,
-                msg: Buffer.from(
-                  JSON.stringify({
-                    update_config: {
-                      new_config: {
-                        bond_limit: '0',
-                      },
-                    },
-                  }),
-                ).toString('base64'),
-                funds: [],
-              },
-            },
-          },
-        ],
-      },
-      1.5,
-    );
-    expect(res.transactionHash).toHaveLength(64);
-    const config = await context.coreContractClient.queryConfig();
-    expect(config.bond_limit).toBe(null);
-  });
-
   it('bond w/o receiver', async () => {
     const {
       coreContractClient,
@@ -892,38 +847,6 @@ describe('Core', () => {
       amount: String(Math.floor(500_000 / context.exchangeRate)),
     });
     await checkExchangeRate(context);
-  });
-  it('verify bonded amount', async () => {
-    const { coreContractClient } = context;
-    const bonded = await coreContractClient.queryTotalBonded();
-    expect(bonded).toEqual('500000');
-  });
-  it('reset bonded amount', async () => {
-    const { coreContractClient, neutronUserAddress } = context;
-    const res = await context.factoryContractClient.adminExecute(
-      neutronUserAddress,
-      {
-        msgs: [
-          {
-            wasm: {
-              execute: {
-                contract_addr: context.coreContractClient.contractAddress,
-                msg: Buffer.from(
-                  JSON.stringify({
-                    reset_bonded_amount: {},
-                  }),
-                ).toString('base64'),
-                funds: [],
-              },
-            },
-          },
-        ],
-      },
-      1.5,
-    );
-    expect(res.transactionHash).toHaveLength(64);
-    const bonded = await coreContractClient.queryTotalBonded();
-    expect(bonded).toEqual('0');
   });
   it('bond with receiver', async () => {
     const {
@@ -1355,6 +1278,11 @@ describe('Core', () => {
           );
           return res && res.delegations.delegations.length > 0;
         }, 100_000);
+      });
+      it('verify bonded amount', async () => {
+        const { coreContractClient } = context;
+        const bonded = await coreContractClient.queryTotalBonded();
+        expect(bonded).toEqual('1000000');
       });
       it('tick goes to unbonding', async () => {
         const {

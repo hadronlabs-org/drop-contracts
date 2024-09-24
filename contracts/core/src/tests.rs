@@ -24,8 +24,8 @@ use drop_staking_base::{
     },
     state::core::{
         unbond_batches_map, Config, ConfigOptional, ContractState, UnbondBatch, UnbondBatchStatus,
-        UnbondBatchStatusTimestamps, BONDED_AMOUNT, CONFIG, FSM, LAST_ICA_CHANGE_HEIGHT,
-        LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LD_DENOM, LSM_SHARES_TO_REDEEM,
+        UnbondBatchStatusTimestamps, CONFIG, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL,
+        LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LD_DENOM, LSM_SHARES_TO_REDEEM,
         PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
     },
 };
@@ -66,7 +66,6 @@ fn get_default_config(
         lsm_redeem_threshold,
         lsm_min_bond_amount,
         lsm_redeem_maximum_interval,
-        bond_limit: None,
         emergency_address: None,
         min_stake_amount: Uint128::new(100),
         icq_update_delay: 5,
@@ -123,7 +122,6 @@ fn test_update_config() {
             lsm_redeem_max_interval: 20_000_000,
             lsm_redeem_threshold: 120u64,
             lsm_min_bond_amount: Uint128::new(12),
-            bond_limit: Some(Uint128::new(12)),
             emergency_address: Some("old_emergency_address".to_string()),
             min_stake_amount: Uint128::new(1200),
             owner: "admin".to_string(),
@@ -156,9 +154,9 @@ fn test_update_config() {
         lsm_redeem_threshold: Some(20u64),
         lsm_min_bond_amount: Some(Uint128::new(2)),
         lsm_redeem_maximum_interval: Some(20_000_000_000),
-        bond_limit: Some(Uint128::new(2)),
         emergency_address: Some("new_emergency_address".to_string()),
         min_stake_amount: Some(Uint128::new(200)),
+        icq_update_delay: Some(5),
     };
     let expected_config = Config {
         token_contract: Addr::unchecked("new_token_contract"),
@@ -179,7 +177,6 @@ fn test_update_config() {
         lsm_redeem_threshold: 20u64,
         lsm_min_bond_amount: Uint128::new(2),
         lsm_redeem_maximum_interval: 20_000_000_000,
-        bond_limit: Some(Uint128::new(2)),
         emergency_address: Some("new_emergency_address".to_string()),
         min_stake_amount: Uint128::new(200),
         icq_update_delay: 5,
@@ -269,31 +266,6 @@ fn test_update_withdrawn_amount() {
     )
     .unwrap_err();
     assert_eq!(unbonding_err, ContractError::BatchNotWithdrawn {});
-}
-
-#[test]
-fn test_execute_reset_bonded_amount() {
-    let mut deps = mock_dependencies(&[]);
-    let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::one())
-        .unwrap();
-    let res = execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("admin", &[]),
-        ExecuteMsg::ResetBondedAmount {},
-    );
-    assert_eq!(
-        res,
-        Ok(Response::new().add_event(
-            Event::new("crates.io:drop-staking__drop-core-execute-reset_bond_limit")
-                .add_attributes(vec![("action", "reset_bond_limit"),])
-        ))
-    );
-    let amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
-    assert_eq!(amount, Uint128::zero());
 }
 
 #[test]
@@ -395,9 +367,6 @@ fn test_execute_tick_idle_get_pending_lsm_shares_transfer() {
             .unwrap()
         });
     TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
     LAST_LSM_REDEEM.save(deps.as_mut().storage, &0).unwrap();
     PENDING_LSM_SHARES
         .save(
@@ -491,9 +460,6 @@ fn test_idle_tick_pending_lsm_redeem() {
             .unwrap()
         });
     TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
     LAST_LSM_REDEEM.save(deps.as_mut().storage, &0).unwrap();
     LSM_SHARES_TO_REDEEM
         .save(
@@ -752,9 +718,6 @@ fn test_tick_idle_unbonding_close() {
         .save(deps.as_mut().storage, &0)
         .unwrap();
     TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::from(1000u128))
-        .unwrap();
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &0).unwrap();
     unbond_batches_map()
         .save(
@@ -888,9 +851,6 @@ fn test_tick_idle_claim_wo_unbond() {
         .save(deps.as_mut().storage, &0)
         .unwrap();
     TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::from(1000u128))
-        .unwrap();
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &0).unwrap();
     unbond_batches_map()
         .save(
@@ -1049,9 +1009,6 @@ fn test_tick_idle_claim_with_unbond_transfer() {
         .save(deps.as_mut().storage, &0)
         .unwrap();
     TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::from(1000u128))
-        .unwrap();
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &0).unwrap();
     unbond_batches_map()
         .save(
@@ -1223,9 +1180,6 @@ fn test_tick_idle_staking_bond() {
         .save(deps.as_mut().storage, &0)
         .unwrap();
     TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::from(1000u128))
-        .unwrap();
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(100000);
     let res = execute(
@@ -1360,9 +1314,6 @@ fn test_tick_idle_unbonding() {
         .save(deps.as_mut().storage, &0)
         .unwrap();
     TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::from(1000u128))
-        .unwrap();
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &0).unwrap();
     unbond_batches_map()
         .save(
@@ -1535,9 +1486,6 @@ fn test_tick_idle_unbonding_failed() {
         .save(deps.as_mut().storage, &0)
         .unwrap();
     TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::from(1000u128))
-        .unwrap();
     FAILED_BATCH_ID.save(deps.as_mut().storage, &0).unwrap();
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &1).unwrap();
     unbond_batches_map()
@@ -3245,9 +3193,23 @@ fn test_bond_wo_receiver() {
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
+                    delegations: vec![DropDelegation {
+                        delegator: Addr::unchecked("delegator"),
+                        validator: "valoper1".to_string(),
+                        amount: Coin::new(1000, "remote_denom".to_string()),
+                        share_ratio: Decimal256::one(),
+                    }],
+                },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
+            .unwrap()
+        });
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -3259,7 +3221,7 @@ fn test_bond_wo_receiver() {
         .unwrap();
     let res = execute(
         deps.as_mut(),
-        env,
+        env.clone(),
         mock_info("some", &[Coin::new(1000, "base_denom")]),
         ExecuteMsg::Bond {
             receiver: None,
@@ -3267,7 +3229,15 @@ fn test_bond_wo_receiver() {
         },
     )
     .unwrap();
-    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
+    let bonded_amount = from_json::<Uint128>(
+        query(
+            deps.as_ref(),
+            env,
+            drop_staking_base::msg::core::QueryMsg::TotalBonded {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
     assert_eq!(bonded_amount, Uint128::from(1000u128));
     assert_eq!(
         res,
@@ -3348,9 +3318,23 @@ fn test_bond_with_receiver() {
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
+                    delegations: vec![DropDelegation {
+                        delegator: Addr::unchecked("delegator"),
+                        validator: "valoper1".to_string(),
+                        amount: Coin::new(1000, "remote_denom".to_string()),
+                        share_ratio: Decimal256::one(),
+                    }],
+                },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
+            .unwrap()
+        });
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -3362,7 +3346,7 @@ fn test_bond_with_receiver() {
         .unwrap();
     let res = execute(
         deps.as_mut(),
-        env,
+        env.clone(),
         mock_info("some", &[Coin::new(1000, "base_denom")]),
         ExecuteMsg::Bond {
             receiver: Some("receiver".to_string()),
@@ -3370,7 +3354,15 @@ fn test_bond_with_receiver() {
         },
     )
     .unwrap();
-    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
+    let bonded_amount = from_json::<Uint128>(
+        query(
+            deps.as_ref(),
+            env,
+            drop_staking_base::msg::core::QueryMsg::TotalBonded {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
     assert_eq!(bonded_amount, Uint128::from(1000u128));
     assert_eq!(
         res,
@@ -3453,9 +3445,6 @@ fn test_bond_lsm_share_wrong_channel() {
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
-        .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
         .unwrap();
     CONFIG
         .save(
@@ -3563,9 +3552,6 @@ fn test_bond_lsm_share_increase_exchange_rate() {
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -3650,9 +3636,6 @@ fn test_bond_lsm_share_wrong_validator() {
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -3735,15 +3718,30 @@ fn test_bond_lsm_share_ok() {
                 _ => unimplemented!(),
             }
         });
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
+                    delegations: vec![DropDelegation {
+                        delegator: Addr::unchecked("delegator"),
+                        validator: "valoper1".to_string(),
+                        amount: Coin::new(1000, "remote_denom".to_string()),
+                        share_ratio: Decimal256::one(),
+                    }],
+                },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
+            .unwrap()
+        });
+
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(1000);
     TOTAL_LSM_SHARES
         .save(deps.as_mut().storage, &0u128)
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
-        .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
         .unwrap();
     CONFIG
         .save(
@@ -3774,7 +3772,7 @@ fn test_bond_lsm_share_ok() {
         .unwrap();
     let res = execute(
         deps.as_mut(),
-        env,
+        env.clone(),
         mock_info("some", &[Coin::new(1000, "lsm_share")]),
         ExecuteMsg::Bond {
             receiver: None,
@@ -3782,7 +3780,15 @@ fn test_bond_lsm_share_ok() {
         },
     )
     .unwrap();
-    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
+    let bonded_amount = from_json::<Uint128>(
+        query(
+            deps.as_ref(),
+            env,
+            drop_staking_base::msg::core::QueryMsg::TotalBonded {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
     let total_lsm_shares = TOTAL_LSM_SHARES.load(deps.as_ref().storage).unwrap();
     assert_eq!(bonded_amount, Uint128::from(1000u128));
     assert_eq!(total_lsm_shares, 1000u128);
@@ -3843,7 +3849,7 @@ fn test_bond_lsm_share_ok_with_low_ratio() {
             })
             .unwrap()
         });
-    for _ in 0..2 {
+    for _ in 0..3 {
         deps.querier
             .add_wasm_query_response("puppeteer_contract", |_| {
                 to_json_binary(&DelegationsResponse {
@@ -3868,9 +3874,6 @@ fn test_bond_lsm_share_ok_with_low_ratio() {
         .save(deps.as_mut().storage, &0u128)
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
-        .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
         .unwrap();
     CONFIG
         .save(
@@ -3909,7 +3912,7 @@ fn test_bond_lsm_share_ok_with_low_ratio() {
         });
     let res = execute(
         deps.as_mut(),
-        env,
+        env.clone(),
         mock_info("some", &[Coin::new(1000, "lsm_share")]),
         ExecuteMsg::Bond {
             receiver: None,
@@ -3917,7 +3920,15 @@ fn test_bond_lsm_share_ok_with_low_ratio() {
         },
     )
     .unwrap();
-    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
+    let bonded_amount = from_json::<Uint128>(
+        query(
+            deps.as_ref(),
+            env,
+            drop_staking_base::msg::core::QueryMsg::TotalBonded {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
     let total_lsm_shares = TOTAL_LSM_SHARES.load(deps.as_ref().storage).unwrap();
     let pending_lsm_shares = PENDING_LSM_SHARES
         .load(deps.as_ref().storage, "lsm_share".to_string())
@@ -3930,7 +3941,7 @@ fn test_bond_lsm_share_ok_with_low_ratio() {
             Uint128::from(500u128)
         )
     );
-    assert_eq!(bonded_amount, Uint128::from(500u128));
+    assert_eq!(bonded_amount, Uint128::from(1000u128));
     assert_eq!(total_lsm_shares, 500u128);
     assert_eq!(
         res,
@@ -4034,6 +4045,23 @@ fn test_bond_lsm_share_ok_with_low_ratio_pending_already_there() {
             },
         )
         .unwrap();
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
+                    delegations: vec![DropDelegation {
+                        delegator: Addr::unchecked("delegator"),
+                        validator: "valoper1".to_string(),
+                        amount: Coin::new(500, "remote_denom".to_string()),
+                        share_ratio: Decimal256::one(),
+                    }],
+                },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
+            .unwrap()
+        });
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(1000);
     TOTAL_LSM_SHARES
@@ -4052,9 +4080,6 @@ fn test_bond_lsm_share_ok_with_low_ratio_pending_already_there() {
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -4066,7 +4091,7 @@ fn test_bond_lsm_share_ok_with_low_ratio_pending_already_there() {
         .unwrap();
     let res = execute(
         deps.as_mut(),
-        env,
+        env.clone(),
         mock_info("some", &[Coin::new(1000, "lsm_share")]),
         ExecuteMsg::Bond {
             receiver: None,
@@ -4074,7 +4099,15 @@ fn test_bond_lsm_share_ok_with_low_ratio_pending_already_there() {
         },
     )
     .unwrap();
-    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
+    let bonded_amount = from_json::<Uint128>(
+        query(
+            deps.as_ref(),
+            env,
+            drop_staking_base::msg::core::QueryMsg::TotalBonded {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
     let total_lsm_shares = TOTAL_LSM_SHARES.load(deps.as_ref().storage).unwrap();
     let pending_lsm_shares = PENDING_LSM_SHARES
         .load(deps.as_ref().storage, "lsm_share".to_string())
@@ -4118,9 +4151,18 @@ fn test_unbond() {
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::from(1000u128))
-        .unwrap();
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&DelegationsResponse {
+                delegations: Delegations {
+                    delegations: vec![],
+                },
+                remote_height: 10u64,
+                local_height: 10u64,
+                timestamp: Timestamp::from_seconds(90001),
+            })
+            .unwrap()
+        });
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &0u128).unwrap();
     unbond_batches_map()
         .save(
@@ -4150,7 +4192,7 @@ fn test_unbond() {
         .unwrap();
     let res = execute(
         deps.as_mut(),
-        env,
+        env.clone(),
         mock_info("some_sender", &[Coin::new(1000, "ld_denom")]),
         ExecuteMsg::Unbond {},
     )
@@ -4214,7 +4256,15 @@ fn test_unbond() {
             status_timestamps: get_default_unbond_batch_status_timestamps(),
         }
     );
-    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
+    let bonded_amount = from_json::<Uint128>(
+        query(
+            deps.as_ref(),
+            env,
+            drop_staking_base::msg::core::QueryMsg::TotalBonded {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
     assert_eq!(bonded_amount, Uint128::zero());
 }
 

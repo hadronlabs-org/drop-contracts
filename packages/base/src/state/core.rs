@@ -25,14 +25,39 @@ pub struct ConfigOptional {
     pub lsm_min_bond_amount: Option<Uint128>,
     pub lsm_redeem_threshold: Option<u64>, //amount of lsm denoms
     pub lsm_redeem_maximum_interval: Option<u64>,
-    pub bond_limit: Option<Uint128>,
     pub rewards_receiver: Option<String>,
     pub emergency_address: Option<String>,
     pub min_stake_amount: Option<Uint128>,
+    pub icq_update_delay: Option<u64>,
 }
 
 #[cw_serde]
 pub struct Config {
+    pub token_contract: Addr,
+    pub puppeteer_contract: Addr,
+    pub strategy_contract: Addr,
+    pub staker_contract: Addr,
+    pub withdrawal_voucher_contract: Addr,
+    pub withdrawal_manager_contract: Addr,
+    pub validators_set_contract: Addr,
+    pub base_denom: String,
+    pub remote_denom: String,
+    pub idle_min_interval: u64,        //seconds
+    pub unbonding_period: u64,         //seconds
+    pub unbonding_safe_period: u64,    //seconds
+    pub unbond_batch_switch_time: u64, //seconds
+    pub pump_ica_address: Option<String>,
+    pub transfer_channel_id: String,
+    pub lsm_min_bond_amount: Uint128,
+    pub lsm_redeem_threshold: u64,        //amount of lsm denoms
+    pub lsm_redeem_maximum_interval: u64, //seconds
+    pub emergency_address: Option<String>,
+    pub min_stake_amount: Uint128,
+    pub icq_update_delay: u64, // blocks
+}
+
+#[cw_serde]
+pub struct ConfigDeprecated {
     pub token_contract: Addr,
     pub puppeteer_contract: Addr,
     pub strategy_contract: Addr,
@@ -57,7 +82,8 @@ pub struct Config {
     pub icq_update_delay: u64, // blocks
 }
 
-pub const CONFIG: Item<Config> = Item::new("config");
+pub const CONFIG_DEPRECATED: Item<ConfigDeprecated> = Item::new("config");
+pub const CONFIG: Item<Config> = Item::new("config_v2");
 
 #[cw_serde]
 #[derive(Copy)]
@@ -208,7 +234,7 @@ pub const LAST_PUPPETEER_RESPONSE: Item<PuppeteerResponseHookMsg> =
     Item::new("last_puppeteer_response");
 pub const LAST_STAKER_RESPONSE: Item<StakerResponseHookMsg> = Item::new("last_staker_response");
 pub const FAILED_BATCH_ID: Item<u128> = Item::new("failed_batch_id");
-pub const BONDED_AMOUNT: Item<Uint128> = Item::new("bonded_amount"); // to be used in bond limit
+pub const BONDED_AMOUNT_DEPRECATED: Item<Uint128> = Item::new("bonded_amount"); // deprecated in next version
 pub const LAST_LSM_REDEEM: Item<u64> = Item::new("last_lsm_redeem");
 pub const EXCHANGE_RATE: Item<(Decimal, u64)> = Item::new("exchange_rate");
 pub const LD_DENOM: Item<String> = Item::new("ld_denom");

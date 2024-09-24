@@ -9,6 +9,7 @@ use drop_helpers::answer::response;
 use drop_helpers::pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse};
 use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
 use drop_puppeteer_base::state::RedeemShareItem;
+use drop_staking_base::state::core::BONDED_AMOUNT_DEPRECATED;
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
@@ -25,10 +26,10 @@ use drop_staking_base::{
     state::{
         core::{
             unbond_batches_map, Config, ConfigOptional, ContractState, UnbondBatch,
-            UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse, BONDED_AMOUNT,
-            CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL,
-            LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE, LD_DENOM,
-            LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+            UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse, CONFIG,
+            CONFIG_DEPRECATED, EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT,
+            LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE,
+            LD_DENOM, LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
         withdrawal_voucher::{Metadata, Trait},
@@ -79,7 +80,6 @@ pub fn instantiate(
     LAST_IDLE_CALL.save(deps.storage, &0)?;
     LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &0)?;
     TOTAL_LSM_SHARES.save(deps.storage, &0)?;
-    BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
     LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
@@ -96,7 +96,10 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
         )?,
         QueryMsg::PendingLSMShares {} => query_pending_lsm_shares(deps)?,
         QueryMsg::LSMSharesToRedeem {} => query_lsm_shares_to_redeem(deps)?,
-        QueryMsg::TotalBonded {} => to_json_binary(&BONDED_AMOUNT.load(deps.storage)?)?,
+        QueryMsg::TotalBonded {} => {
+            let config = CONFIG.load(deps.storage)?;
+            to_json_binary(&query_total_bonded(deps, &config)?)?
+        }
         QueryMsg::ExchangeRate {} => {
             let config = CONFIG.load(deps.storage)?;
             to_json_binary(&query_exchange_rate(deps, &config)?)?
@@ -117,6 +120,24 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
             response: FAILED_BATCH_ID.may_load(deps.storage)?,
         })?,
     })
+}
+
+fn query_total_bonded(deps: Deps<NeutronQuery>, config: &Config) -> ContractResult<Uint128> {
+    let delegations_response = deps
+        .querier
+        .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
+        &config.puppeteer_contract,
+        &drop_puppeteer_base::msg::QueryMsg::Extension {
+            msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+        },
+    )?;
+
+    Ok(delegations_response
+        .delegations
+        .delegations
+        .iter()
+        .map(|d| d.amount.amount)
+        .sum())
 }
 
 fn query_pending_lsm_shares(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
@@ -154,21 +175,6 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
             denom: LD_DENOM.load(deps.storage)?,
         }))?;
 
-    let delegations_response = deps
-        .querier
-        .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
-        &config.puppeteer_contract,
-        &drop_puppeteer_base::msg::QueryMsg::Extension {
-            msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
-        },
-    )?;
-
-    let delegations_amount: Uint128 = delegations_response
-        .delegations
-        .delegations
-        .iter()
-        .map(|d| d.amount.amount)
-        .sum();
     let mut batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
     let mut unprocessed_dasset_to_unbond = Uint128::zero();
     let batch = unbond_batches_map().load(deps.storage, batch_id)?;
@@ -193,7 +199,7 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
         &drop_staking_base::msg::staker::QueryMsg::AllBalance {},
     )?;
     let total_lsm_shares = Uint128::new(TOTAL_LSM_SHARES.load(deps.storage)?);
-
+    let delegations_amount = query_total_bonded(deps, config)?;
     let exchange_rate_numerator = delegations_amount + staker_balance + total_lsm_shares;
     let exchange_rate_denominator = ld_total_supply.amount.amount + unprocessed_dasset_to_unbond;
     if exchange_rate_numerator.is_zero() || exchange_rate_denominator.is_zero() {
@@ -274,7 +280,6 @@ pub fn execute(
                 [],
             ))
         }
-        ExecuteMsg::ResetBondedAmount {} => execute_reset_bonded_amount(deps, env, info),
         ExecuteMsg::ProcessEmergencyBatch {
             batch_id,
             unbonded_amount,
@@ -318,20 +323,6 @@ fn exec_unpause(
         "exec_unpause",
         CONTRACT_NAME,
         Vec::<Attribute>::new(),
-    ))
-}
-
-fn execute_reset_bonded_amount(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    info: MessageInfo,
-) -> ContractResult<Response<NeutronMsg>> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
-    Ok(response(
-        "execute-reset_bond_limit",
-        CONTRACT_NAME,
-        vec![attr("action", "reset_bond_limit")],
     ))
 }
 
@@ -1010,11 +1001,6 @@ fn execute_bond(
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let Coin { mut amount, denom } = cw_utils::one_coin(&info)?;
-    if let Some(bond_limit) = config.bond_limit {
-        if BONDED_AMOUNT.load(deps.storage)? + amount > bond_limit {
-            return Err(ContractError::BondLimitExceeded {});
-        }
-    }
     let denom_type = check_denom::check_denom(&deps.as_ref(), &denom, &config)?;
     let mut msgs = vec![];
     let mut attrs = vec![attr("action", "bond")];
@@ -1051,7 +1037,7 @@ fn execute_bond(
             amount: vec![Coin::new(amount.u128(), denom)],
         }));
     }
-    BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total + amount))?;
+
     let issue_amount = amount * (Decimal::one() / exchange_rate);
     attrs.push(attr("issue_amount", issue_amount.to_string()));
 
@@ -1176,16 +1162,6 @@ fn execute_update_config(
         ));
         config.lsm_redeem_threshold = lsm_redeem_threshold;
     }
-    if let Some(bond_limit) = new_config.bond_limit {
-        attrs.push(attr("bond_limit", bond_limit.to_string()));
-        config.bond_limit = {
-            if bond_limit.is_zero() {
-                None
-            } else {
-                Some(bond_limit)
-            }
-        };
-    }
     if let Some(emergency_address) = new_config.emergency_address {
         attrs.push(attr("emergency_address", &emergency_address));
         config.emergency_address = Some(emergency_address);
@@ -1193,6 +1169,10 @@ fn execute_update_config(
     if let Some(min_stake_amount) = new_config.min_stake_amount {
         attrs.push(attr("min_stake_amount", min_stake_amount));
         config.min_stake_amount = min_stake_amount;
+    }
+    if let Some(icq_update_delay) = new_config.icq_update_delay {
+        attrs.push(attr("icq_update_delay", icq_update_delay.to_string()));
+        config.icq_update_delay = icq_update_delay;
     }
 
     CONFIG.save(deps.storage, &config)?;
@@ -1209,7 +1189,6 @@ fn execute_unbond(
     let config = CONFIG.load(deps.storage)?;
     let ld_denom = LD_DENOM.load(deps.storage)?;
     let dasset_amount = cw_utils::must_pay(&info, &ld_denom)?;
-    BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total - dasset_amount))?;
     let mut unbond_batch = unbond_batches_map().load(deps.storage, unbond_batch_id)?;
     unbond_batch.total_unbond_items += 1;
     unbond_batch.total_dasset_amount_to_withdraw += dasset_amount;
@@ -1716,6 +1695,35 @@ pub fn migrate(
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     }
+
+    BONDED_AMOUNT_DEPRECATED.remove(deps.storage); // remove deprecated storage in the next release as well as storage data
+
+    let config_old = CONFIG_DEPRECATED.load(deps.storage).unwrap();
+
+    let new_config = Config {
+        token_contract: config_old.token_contract,
+        puppeteer_contract: config_old.puppeteer_contract,
+        strategy_contract: config_old.strategy_contract,
+        staker_contract: config_old.staker_contract,
+        withdrawal_voucher_contract: config_old.withdrawal_voucher_contract,
+        withdrawal_manager_contract: config_old.withdrawal_manager_contract,
+        pump_ica_address: config_old.pump_ica_address,
+        transfer_channel_id: config_old.transfer_channel_id,
+        remote_denom: config_old.remote_denom,
+        validators_set_contract: config_old.validators_set_contract,
+        base_denom: config_old.base_denom,
+        idle_min_interval: config_old.idle_min_interval,
+        unbonding_period: config_old.unbonding_period,
+        unbonding_safe_period: config_old.unbonding_safe_period,
+        unbond_batch_switch_time: config_old.unbond_batch_switch_time,
+        lsm_min_bond_amount: config_old.lsm_min_bond_amount,
+        lsm_redeem_maximum_interval: config_old.lsm_redeem_maximum_interval,
+        lsm_redeem_threshold: config_old.lsm_redeem_threshold,
+        emergency_address: config_old.emergency_address,
+        min_stake_amount: config_old.min_stake_amount,
+        icq_update_delay: config_old.icq_update_delay,
+    };
+    CONFIG.save(deps.storage, &new_config)?;
 
     Ok(Response::new())
 }

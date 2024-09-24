@@ -1,4 +1,7 @@
-use crate::contract::Puppeteer;
+use crate::{
+    contract::Puppeteer, proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward,
+};
+use cosmos_sdk_proto::traits::MessageExt;
 use cosmwasm_schema::schemars;
 use cosmwasm_std::{
     coin, coins, from_json,
@@ -1212,31 +1215,35 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
                     .unwrap(),
                     drop_helpers::interchain::prepare_any_msg(
                         cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec {
-                            grantee: ica_address.clone(),
+                            grantee: "ica_address".to_string(),
                             msgs: vec![
                                 cosmos_sdk_proto::Any {
-                                    value:
-                                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
-                                            delegator_address: ica_address.clone(),
-                                            validator_address: "validator1".to_string(),
-                                        }
-                                        .encode_to_vec(),
-                                    type_url: "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
+                                    type_url:
+                                        "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward"
+                                            .to_string(),
+                                    value: MsgWithdrawDelegatorReward {
+                                        delegator_address: ica_address.clone(),
+                                        validator_address: "validator1".to_string(),
+                                    }
+                                    .to_bytes()
+                                    .unwrap(),
                                 },
                                 cosmos_sdk_proto::Any {
-                                    value:
-                                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
-                                            delegator_address: ica_address.clone(),
-                                            validator_address: "validator2".to_string(),
-                                        }
-                                        .encode_to_vec(),
-                                    type_url: "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
-                                },
+                                    type_url:
+                                        "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward"
+                                            .to_string(),
+                                    value: MsgWithdrawDelegatorReward {
+                                        delegator_address: ica_address.clone(),
+                                        validator_address: "validator2".to_string(),
+                                    }
+                                    .to_bytes()
+                                    .unwrap(),
+                                }
                             ],
                         },
-                        "/cosmos.authz.v1beta1.MsgExec"
+                        "/cosmos.authz.v1beta1.MsgExec",
                     )
-                    .unwrap()
+                    .unwrap(),
                 ],
                 "".to_string(),
                 100u64,
@@ -3467,7 +3474,7 @@ fn test_transfer_ownership() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    crate::contract::execute(
+    let _ = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("owner", &[]),
@@ -3479,7 +3486,7 @@ fn test_transfer_ownership() {
         ),
     )
     .unwrap();
-    crate::contract::execute(
+    let _ = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("new_owner", &[]),

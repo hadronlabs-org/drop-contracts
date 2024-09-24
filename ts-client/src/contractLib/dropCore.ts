@@ -319,7 +319,6 @@ export interface DropCoreSchema {
 }
 export interface Config {
   base_denom: string;
-  bond_limit?: Uint128 | null;
   emergency_address?: string | null;
   icq_update_delay: number;
   idle_min_interval: number;
@@ -471,8 +470,8 @@ export interface UpdateConfigArgs {
 }
 export interface ConfigOptional {
   base_denom?: string | null;
-  bond_limit?: Uint128 | null;
   emergency_address?: string | null;
+  icq_update_delay?: number | null;
   idle_min_interval?: number | null;
   lsm_min_bond_amount?: Uint128 | null;
   lsm_redeem_maximum_interval?: number | null;
@@ -516,7 +515,6 @@ export interface ProcessEmergencyBatchArgs {
 }
 export interface InstantiateMsg {
   base_denom: string;
-  bond_limit?: Uint128 | null;
   emergency_address?: string | null;
   icq_update_delay: number;
   idle_min_interval: number;
@@ -658,10 +656,6 @@ export class Client {
   stakerHook = async(sender:string, args: StakerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { staker_hook: args }, fee || "auto", memo, funds);
-  }
-  resetBondedAmount = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { reset_bonded_amount: {} }, fee || "auto", memo, funds);
   }
   processEmergencyBatch = async(sender:string, args: ProcessEmergencyBatchArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
