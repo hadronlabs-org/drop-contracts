@@ -136,7 +136,7 @@ const networkConfigs = {
     validators: 2,
     commands: redefinedParams.commands,
     validators_balance: [
-      '1900000000',
+      '100000000',
       '100000000',
       '100000000',
       '100000000',
