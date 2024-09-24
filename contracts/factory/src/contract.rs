@@ -416,7 +416,7 @@ fn query_pause_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
     to_json_binary(&crate::state::PauseInfoResponse {
         core: deps
             .querier
-            .query_wasm_smart(state.core_contract, &CoreQueryMsg::PauseInfo {})?,
+            .query_wasm_smart(state.core_contract, &CoreQueryMsg::Pause {})?,
         withdrawal_manager: deps.querier.query_wasm_smart(
             state.withdrawal_manager_contract,
             &WithdrawalManagerQueryMsg::PauseInfo {},
@@ -460,7 +460,13 @@ fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Neutr
     let messages = vec![
         get_proxied_message(
             state.core_contract,
-            drop_staking_base::msg::core::ExecuteMsg::Pause {},
+            drop_staking_base::msg::core::ExecuteMsg::SetPause(
+                drop_staking_base::state::core::Pause {
+                    tick: true,
+                    bond: false,
+                    unbond: false,
+                },
+            ),
             vec![],
         )?,
         get_proxied_message(
@@ -484,7 +490,13 @@ fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Neu
     let messages = vec![
         get_proxied_message(
             state.core_contract,
-            drop_staking_base::msg::core::ExecuteMsg::Unpause {},
+            drop_staking_base::msg::core::ExecuteMsg::SetPause(
+                drop_staking_base::state::core::Pause {
+                    tick: false,
+                    bond: false,
+                    unbond: false,
+                },
+            ),
             vec![],
         )?,
         get_proxied_message(
@@ -564,22 +576,6 @@ fn execute_proxy_msg(
                     drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: validators.iter().map(|v| {v.valoper_address.to_string()}).collect() },
                     info.funds,
                 )?)
-            }
-        },
-        ProxyMsg::Core(msg) => match msg {
-            crate::msg::CoreMsg::Pause {} => {
-                messages.push(get_proxied_message(
-                    state.core_contract,
-                    drop_staking_base::msg::core::ExecuteMsg::Pause {},
-                    vec![],
-                )?);
-            }
-            crate::msg::CoreMsg::Unpause {} => {
-                messages.push(get_proxied_message(
-                    state.core_contract,
-                    drop_staking_base::msg::core::ExecuteMsg::Unpause {},
-                    vec![],
-                )?);
             }
         },
     }
