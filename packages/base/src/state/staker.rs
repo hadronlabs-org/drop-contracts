@@ -6,13 +6,15 @@ use cw_storage_plus::Item;
 pub struct Config {
     pub remote_denom: String,
     pub base_denom: String,
-    pub puppeteer_address: String,
+    pub puppeteer_contract: String,
+    pub core_contract: String,
     pub min_ibc_transfer: Uint128,
 }
 
 #[cw_serde]
 pub struct ConfigOptional {
-    pub puppeteer_address: Option<String>,
+    pub puppeteer_contract: Option<String>,
+    pub core_contract: Option<String>,
     pub min_ibc_transfer: Option<Uint128>,
 }
 

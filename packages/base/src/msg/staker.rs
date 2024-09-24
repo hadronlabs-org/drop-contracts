@@ -37,7 +37,8 @@ pub enum ExecuteMsg {
 pub struct InstantiateMsg {
     pub remote_denom: String,
     pub base_denom: String,
-    pub puppeteer_address: String,
+    pub puppeteer_contract: String,
+    pub core_contract: String,
     pub owner: Option<String>,
     pub min_ibc_transfer: Uint128,
 }

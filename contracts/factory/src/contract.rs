@@ -307,7 +307,7 @@ pub fn instantiate(
                 remote_denom: msg.remote_opts.denom.to_string(),
                 base_denom: msg.base_denom.clone(),
                 min_ibc_transfer: msg.staker_params.min_ibc_transfer,
-                puppeteer_address: puppeteer_contract.to_string(),
+                puppeteer_contract: puppeteer_contract.to_string(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),

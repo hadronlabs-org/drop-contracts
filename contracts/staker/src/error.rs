@@ -54,6 +54,12 @@ pub enum ContractError {
 
     #[error("Semver parsing error: {0}")]
     SemVer(String),
+
+    #[error("Unknown reply id: {id}")]
+    UnknownReplyId { id: u64 },
+
+    #[error("Puppeteer error: {message}")]
+    PuppeteerError { message: String },
 }
 
 impl From<semver::Error> for ContractError {

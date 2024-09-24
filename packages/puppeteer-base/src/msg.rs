@@ -159,5 +159,5 @@ pub enum Transaction {
 #[cw_serde]
 pub enum IBCTransferReason {
     LSMShare,
-    Stake,
+    Delegate,
 }
