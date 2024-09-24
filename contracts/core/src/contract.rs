@@ -13,8 +13,8 @@ use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
         core::{
-            ExecuteMsg, FailedBatchResponse, InstantiateMsg, LastPuppeteerResponse,
-            LastStakerResponse, MigrateMsg, QueryMsg,
+            ExecuteMsg, FailedBatchResponse, InstantiateMsg, LastPuppeteerResponse, MigrateMsg,
+            QueryMsg,
         },
         token::{
             ConfigResponse as TokenConfigResponse, ExecuteMsg as TokenExecuteMsg,
@@ -27,7 +27,7 @@ use drop_staking_base::{
             unbond_batches_map, Config, ConfigOptional, ContractState, UnbondBatch,
             UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse, BONDED_AMOUNT,
             CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL,
-            LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE, LD_DENOM, UNBOND_BATCH_ID,
+            LAST_PUPPETEER_RESPONSE, LD_DENOM, UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
         withdrawal_voucher::{Metadata, Trait},
@@ -101,9 +101,6 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
         QueryMsg::ContractState {} => to_json_binary(&FSM.get_current_state(deps.storage)?)?,
         QueryMsg::LastPuppeteerResponse {} => to_json_binary(&LastPuppeteerResponse {
             response: LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?,
-        })?,
-        QueryMsg::LastStakerResponse {} => to_json_binary(&LastStakerResponse {
-            response: LAST_STAKER_RESPONSE.may_load(deps.storage)?,
         })?,
         QueryMsg::PauseInfo {} => query_pause_info(deps)?,
         QueryMsg::TotalLSMShares {} => to_json_binary(&query_total_async_tokens(deps)?)?,
@@ -295,7 +292,6 @@ pub fn execute(
         } => execute_update_withdrawn_amount(deps, env, info, batch_id, withdrawn_amount),
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::PuppeteerHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
-        ExecuteMsg::StakerHook(msg) => execute_staker_hook(deps, env, info, *msg),
         ExecuteMsg::Pause {} => exec_pause(deps, info),
         ExecuteMsg::Unpause {} => exec_unpause(deps, info),
         ExecuteMsg::AddBondProvider {
@@ -467,26 +463,6 @@ fn execute_update_withdrawn_amount(
         "execute-update_withdrawn_amount",
         CONTRACT_NAME,
         vec![attr("action", "update_withdrawn_amount")],
-    ))
-}
-
-fn execute_staker_hook(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    info: MessageInfo,
-    msg: drop_staking_base::msg::staker::ResponseHookMsg,
-) -> ContractResult<Response<NeutronMsg>> {
-    let config = CONFIG.load(deps.storage)?;
-    ensure_eq!(
-        info.sender,
-        config.staker_contract,
-        ContractError::Unauthorized {}
-    );
-    LAST_STAKER_RESPONSE.save(deps.storage, &msg)?;
-    Ok(response(
-        "execute-staker_hook",
-        CONTRACT_NAME,
-        vec![attr("action", "staker_hook")],
     ))
 }
 
@@ -934,8 +910,8 @@ fn execute_tick_staking_bond(
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut attrs = vec![attr("action", "tick_staking_bond")];
-    let response_msg = get_received_staker_response(deps.as_ref())?;
-    if let drop_staking_base::msg::staker::ResponseHookMsg::Success(response) = response_msg {
+    let response_msg = get_received_puppeteer_response(deps.as_ref())?;
+    if let drop_puppeteer_base::msg::ResponseHookMsg::Success(response) = response_msg {
         let balances_response: drop_staking_base::msg::puppeteer::BalancesResponse =
             deps.querier.query_wasm_smart(
                 config.puppeteer_contract.to_string(),
@@ -950,7 +926,7 @@ fn execute_tick_staking_bond(
             });
         }
     }
-    LAST_STAKER_RESPONSE.remove(deps.storage);
+    LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut messages = vec![];
     attrs.push(attr("knot", "017"));
     if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
@@ -1349,8 +1325,9 @@ pub fn get_stake_bond_msg<T>(
         )?;
         return Ok(Some(CosmosMsg::<T>::Wasm(WasmMsg::Execute {
             contract_addr: config.staker_contract.to_string(),
-            msg: to_json_binary(&drop_staking_base::msg::staker::ExecuteMsg::Stake {
+            msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
                 items: to_delegate,
+                reply_to: config.staker_contract.to_string(),
             })?,
             funds: info.funds.clone(),
         })));
@@ -1437,14 +1414,6 @@ fn get_received_puppeteer_response(
     LAST_PUPPETEER_RESPONSE
         .load(deps.storage)
         .map_err(|_| ContractError::PuppeteerResponseIsNotReceived {})
-}
-
-fn get_received_staker_response(
-    deps: Deps<NeutronQuery>,
-) -> ContractResult<drop_staking_base::msg::staker::ResponseHookMsg> {
-    LAST_STAKER_RESPONSE
-        .load(deps.storage)
-        .map_err(|_| ContractError::StakerResponseIsNotReceived {})
 }
 
 fn is_unbonding_time_close(

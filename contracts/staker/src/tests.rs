@@ -25,7 +25,7 @@ fn get_default_config() -> Config {
         remote_denom: "remote_denom".to_string(),
         base_denom: "base_denom".to_string(),
         allowed_senders: vec![Addr::unchecked("core")],
-        puppeteer_ica: Some("puppeteer_ica".to_string()),
+        puppeteer_address: Some("puppeteer_ica".to_string()),
         min_ibc_transfer: Uint128::from(10000u128),
         min_staking_amount: Uint128::from(10000u128),
     }
@@ -64,7 +64,7 @@ fn test_instantiate() {
     );
     let config = CONFIG.load(deps.as_ref().storage).unwrap();
     let mut default_config = get_default_config();
-    default_config.puppeteer_ica = None; // puppeteer_ica is not set at the time of instantiation
+    default_config.puppeteer_address = None; // puppeteer_ica is not set at the time of instantiation
     assert_eq!(config, default_config);
     assert_eq!(
         NON_STAKED_BALANCE.load(deps.as_mut().storage).unwrap(),
@@ -106,7 +106,7 @@ fn test_update_config_unauthorized() {
             new_config: Box::new(ConfigOptional {
                 timeout: None,
                 allowed_senders: None,
-                puppeteer_ica: None,
+                puppeteer_address: None,
                 min_ibc_transfer: None,
                 min_staking_amount: None,
             }),
@@ -143,7 +143,7 @@ fn test_update_config() {
             new_config: Box::new(ConfigOptional {
                 timeout: Some(20u64),
                 allowed_senders: Some(vec!["new_core".to_string()]),
-                puppeteer_ica: Some("puppeteer_ica".to_string()),
+                puppeteer_address: Some("puppeteer_ica".to_string()),
                 min_ibc_transfer: Some(Uint128::from(110000u128)),
                 min_staking_amount: Some(Uint128::from(110000u128)),
             }),
@@ -170,7 +170,7 @@ fn test_update_config() {
             remote_denom: "remote_denom".to_string(),
             base_denom: "base_denom".to_string(),
             allowed_senders: vec![Addr::unchecked("new_core")],
-            puppeteer_ica: Some("puppeteer_ica".to_string()),
+            puppeteer_address: Some("puppeteer_ica".to_string()),
             min_ibc_transfer: Uint128::from(110000u128),
             min_staking_amount: Uint128::from(110000u128),
         }
@@ -676,7 +676,7 @@ fn test_stake_not_enough_funds_to_stake() {
 fn test_stake_puppeteer_ica_not_set() {
     let mut deps = mock_dependencies(&[]);
     let mut config = get_default_config();
-    config.puppeteer_ica = None;
+    config.puppeteer_address = None;
     config.min_staking_amount = Uint128::from(0u64);
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
@@ -777,7 +777,7 @@ fn test_stake() {
     )
     .unwrap();
     let ica_address = ICA.get_address(deps.as_mut().storage).unwrap();
-    let puppeteer_ica = config.puppeteer_ica.unwrap();
+    let puppeteer_ica = config.puppeteer_address.unwrap();
     let amount_to_stake = msg_items
         .iter()
         .fold(Uint128::zero(), |acc, (_, amount)| acc + *amount);

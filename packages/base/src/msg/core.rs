@@ -1,6 +1,5 @@
 use crate::{
     error::core::ContractResult,
-    msg::staker::ResponseHookMsg as StakerResponseHookMsg,
     state::core::{Config, ConfigOptional},
 };
 use cosmwasm_schema::{cw_serde, QueryResponses};
@@ -80,10 +79,6 @@ impl InstantiateMsg {
 pub struct LastPuppeteerResponse {
     pub response: Option<PuppeteerResponseHookMsg>,
 }
-#[cw_serde]
-pub struct LastStakerResponse {
-    pub response: Option<StakerResponseHookMsg>,
-}
 
 #[cw_serde]
 pub struct FailedBatchResponse {
@@ -113,8 +108,6 @@ pub enum QueryMsg {
     ContractState {},
     #[returns(LastPuppeteerResponse)]
     LastPuppeteerResponse {},
-    #[returns(LastStakerResponse)]
-    LastStakerResponse {},
     #[returns(Uint128)]
     TotalBonded {},
     #[returns(Vec<Addr>)]
@@ -152,7 +145,6 @@ pub enum ExecuteMsg {
     },
     Tick {},
     PuppeteerHook(Box<PuppeteerResponseHookMsg>),
-    StakerHook(Box<StakerResponseHookMsg>),
     ResetBondedAmount {},
     ProcessEmergencyBatch {
         batch_id: u128,

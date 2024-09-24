@@ -1,7 +1,7 @@
-use crate::state::staker::{ConfigOptional, Transaction};
+use crate::state::staker::ConfigOptional;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
-use neutron_sdk::sudo::msg::RequestPacket;
+use drop_puppeteer_base::msg::ResponseHookMsg as PuppeteerResponseHookMsg;
 
 #[cw_ownable::cw_ownable_query]
 #[cw_serde]
@@ -13,10 +13,6 @@ pub enum QueryMsg {
     NonStakedBalance {},
     #[returns(Uint128)]
     AllBalance {},
-    #[returns(drop_helpers::ica::IcaState)]
-    Ica {},
-    #[returns(crate::state::staker::TxState)]
-    TxState {},
 }
 
 #[cw_serde]
@@ -32,52 +28,19 @@ pub struct OpenAckVersion {
 #[cw_ownable::cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
-    RegisterICA {},
-    Stake { items: Vec<(String, Uint128)> },
-    IBCTransfer {},
+    PuppeteerTransfer {},
     UpdateConfig { new_config: Box<ConfigOptional> },
+    PuppeteerHook(Box<PuppeteerResponseHookMsg>),
 }
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub connection_id: String,
-    pub port_id: String,
-    pub timeout: u64,
     pub remote_denom: String,
     pub base_denom: String,
-    pub transfer_channel_id: String,
+    pub puppeteer_address: String,
     pub owner: Option<String>,
-    pub allowed_senders: Vec<String>,
     pub min_ibc_transfer: Uint128,
-    pub min_staking_amount: Uint128,
 }
 
 #[cw_serde]
 pub struct MigrateMsg {}
-
-#[cw_serde]
-pub enum ResponseHookMsg {
-    Success(ResponseHookSuccessMsg),
-    Error(ResponseHookErrorMsg),
-}
-
-#[cw_serde]
-pub struct ResponseHookSuccessMsg {
-    pub request_id: u64,
-    pub request: RequestPacket,
-    pub transaction: Transaction,
-    pub local_height: u64,
-    pub remote_height: u64,
-}
-#[cw_serde]
-pub struct ResponseHookErrorMsg {
-    pub request_id: u64,
-    pub transaction: Transaction,
-    pub request: RequestPacket,
-    pub details: String,
-}
-
-#[cw_serde]
-pub enum ReceiverExecuteMsg {
-    StakerHook(ResponseHookMsg),
-}

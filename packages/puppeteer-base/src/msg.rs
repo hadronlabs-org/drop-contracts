@@ -142,6 +142,9 @@ pub enum Transaction {
         recipient: String,
         reason: IBCTransferReason,
     },
+    Stake {
+        items: Vec<(String, Uint128)>,
+    },
     Transfer {
         interchain_account_id: String,
         items: Vec<(String, cosmwasm_std::Coin)>,

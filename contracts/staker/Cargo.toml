@@ -32,6 +32,7 @@ serde-json-wasm = { workspace = true }
 thiserror = { workspace = true }
 drop-helpers = { workspace = true }
 drop-staking-base = { workspace = true }
+drop-puppeteer-base = { workspace = true }
 cw-ownable = { workspace = true }
 cw2 = { workspace = true }
 semver = { workspace = true }

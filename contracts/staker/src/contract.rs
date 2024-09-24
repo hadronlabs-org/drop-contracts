@@ -1,33 +1,20 @@
 use crate::error::{ContractError, ContractResult};
-use cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec;
-use cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSend;
-use cosmos_sdk_proto::cosmos::staking::v1beta1::MsgDelegate;
-use cosmos_sdk_proto::traits::MessageExt;
 use cosmwasm_schema::serde::Serialize;
 use cosmwasm_std::{
-    attr, ensure, to_json_binary, CosmosMsg, Deps, Reply, StdError, SubMsg, Uint128, WasmMsg,
+    attr, ensure, ensure_eq, to_json_binary, CosmosMsg, Deps, Reply, StdError, SubMsg, Uint128,
+    WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
-use drop_helpers::{
-    answer::response, ibc_client_state::query_client_state, ibc_fee::query_ibc_fee,
-    interchain::prepare_any_msg, validation::validate_addresses,
-};
+use drop_helpers::{answer::response, ibc_client_state::query_client_state};
+use drop_puppeteer_base::msg::IBCTransferReason;
+use drop_staking_base::state::staker::PUPPETEER_TRANSFER_REPLY_ID;
 use drop_staking_base::{
-    msg::staker::{
-        ExecuteMsg, InstantiateMsg, MigrateMsg, OpenAckVersion, QueryMsg, ReceiverExecuteMsg,
-        ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg,
-    },
-    state::staker::{
-        Config, ConfigOptional, ReplyMsg, Transaction, TxState, TxStateStatus, CONFIG, ICA, ICA_ID,
-        NON_STAKED_BALANCE, TX_STATE,
-    },
+    msg::staker::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
+    state::staker::{Config, ConfigOptional, CONFIG, NON_STAKED_BALANCE},
 };
 use neutron_sdk::{
-    bindings::{
-        msg::{MsgIbcTransferResponse, MsgSubmitTxResponse, NeutronMsg},
-        query::NeutronQuery,
-    },
-    sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg},
+    bindings::{msg::NeutronMsg, query::NeutronQuery},
+    sudo::msg::{RequestPacket, SudoMsg},
     NeutronError, NeutronResult,
 };
 
@@ -54,25 +41,14 @@ pub fn instantiate(
         deps.api,
         Some(msg.owner.unwrap_or(info.sender.to_string()).as_str()),
     )?;
-    TX_STATE.save(deps.storage, &TxState::default())?;
-    let allowed_senders = validate_addresses(
-        deps.as_ref().into_empty(),
-        msg.allowed_senders.as_ref(),
-        None,
-    )?;
+    let puppeteer_address = deps.api.addr_validate(msg.puppeteer_address.as_ref())?;
     CONFIG.save(
         deps.storage,
         &Config {
-            port_id: msg.port_id,
-            transfer_channel_id: msg.transfer_channel_id,
-            connection_id: msg.connection_id,
-            timeout: msg.timeout,
             remote_denom: msg.remote_denom,
             base_denom: msg.base_denom,
-            allowed_senders,
-            puppeteer_ica: None,
+            puppeteer_address: puppeteer_address.into_string(),
             min_ibc_transfer: msg.min_ibc_transfer,
-            min_staking_amount: msg.min_staking_amount,
         },
     )?;
     NON_STAKED_BALANCE.save(deps.storage, &Uint128::zero())?;
@@ -83,20 +59,13 @@ pub fn instantiate(
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> NeutronResult<Binary> {
     match msg {
         QueryMsg::Config {} => query_config(deps),
-        QueryMsg::Ica {} => query_ica(deps),
         QueryMsg::NonStakedBalance {} => query_non_staked_balance(deps, env),
         QueryMsg::AllBalance {} => query_all_balance(deps, env),
-        QueryMsg::TxState {} => query_tx_state(deps, env),
         QueryMsg::Ownership {} => {
             let ownership = cw_ownable::get_ownership(deps.storage)?;
             to_json_binary(&ownership).map_err(NeutronError::Std)
         }
     }
-}
-
-fn query_tx_state(deps: Deps, _env: Env) -> NeutronResult<Binary> {
-    let tx_state = TX_STATE.load(deps.storage)?;
-    to_json_binary(&tx_state).map_err(NeutronError::Std)
 }
 
 fn query_non_staked_balance(deps: Deps, _env: Env) -> NeutronResult<Binary> {
@@ -119,11 +88,6 @@ fn query_config(deps: Deps) -> NeutronResult<Binary> {
     to_json_binary(&config).map_err(NeutronError::Std)
 }
 
-fn query_ica(deps: Deps) -> NeutronResult<Binary> {
-    let ica = ICA.load(deps.storage)?;
-    to_json_binary(&ica).map_err(NeutronError::Std)
-}
-
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
@@ -132,7 +96,6 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::RegisterICA {} => execute_register_ica(deps, info),
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, *new_config),
         ExecuteMsg::UpdateOwnership(action) => {
             cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
@@ -142,8 +105,8 @@ pub fn execute(
                 [],
             ))
         }
-        ExecuteMsg::IBCTransfer {} => execute_ibc_transfer(deps, env),
-        ExecuteMsg::Stake { items } => execute_stake(deps, info, items),
+        ExecuteMsg::PuppeteerTransfer {} => execute_puppeteer_transfer(deps, env),
+        ExecuteMsg::PuppeteerHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
     }
 }
 
@@ -158,162 +121,22 @@ fn execute_update_config(
         attr("action", "update_config"),
         attr("new_config", format!("{:?}", new_config)),
     ];
-    if let Some(timeout) = new_config.timeout {
-        config.timeout = timeout;
-    }
-    if let Some(allowed_senders) = new_config.allowed_senders {
-        let allowed_senders =
-            validate_addresses(deps.as_ref().into_empty(), allowed_senders.as_ref(), None)?;
-        config.allowed_senders = allowed_senders;
-    }
-    if let Some(puppeteer_ica) = new_config.puppeteer_ica {
-        config.puppeteer_ica = Some(puppeteer_ica);
+    if let Some(puppeteer_address) = new_config.puppeteer_address {
+        config.puppeteer_address = puppeteer_address;
     }
     if let Some(min_ibc_transfer) = new_config.min_ibc_transfer {
         config.min_ibc_transfer = min_ibc_transfer;
-    }
-    if let Some(min_staking_amount) = new_config.min_staking_amount {
-        config.min_staking_amount = min_staking_amount;
     }
     CONFIG.save(deps.storage, &config)?;
     Ok(response("update_config", CONTRACT_NAME, attrs))
 }
 
-fn execute_register_ica(
-    deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
-) -> ContractResult<Response<NeutronMsg>> {
-    let config = CONFIG.load(deps.storage)?;
-    let attrs = vec![
-        attr("action", "register_ica"),
-        attr("connection_id", &config.connection_id),
-        attr("ica_id", ICA_ID),
-    ];
-    let register_fee = info
-        .funds
-        .into_iter()
-        .find(|f| f.denom == LOCAL_DENOM)
-        .ok_or(ContractError::InvalidFunds {
-            reason: format!("missing fee in denom {}", LOCAL_DENOM),
-        })?;
-    let register_msg = ICA.register(deps.storage, config.connection_id, ICA_ID, register_fee)?;
-    Ok(response("register-ica", CONTRACT_NAME, attrs).add_message(register_msg))
-}
-
-fn execute_stake(
-    deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
-    items: Vec<(String, Uint128)>,
-) -> ContractResult<Response<NeutronMsg>> {
-    let config = CONFIG.load(deps.storage)?;
-    if !config.allowed_senders.contains(&info.sender) {
-        return Err(ContractError::Unauthorized {});
-    }
-    let tx_state = TX_STATE.load(deps.storage)?;
-    ensure!(
-        tx_state.status == TxStateStatus::Idle,
-        ContractError::InvalidState {
-            reason: "tx_state is not idle".to_string()
-        }
-    );
-    let non_staked_balance = NON_STAKED_BALANCE.load(deps.storage)?;
-    ensure!(
-        non_staked_balance > Uint128::zero(),
-        ContractError::InvalidFunds {
-            reason: "no funds to stake".to_string()
-        }
-    );
-    let amount_to_stake = items
-        .iter()
-        .fold(Uint128::zero(), |acc, (_, amount)| acc + *amount);
-    ensure!(
-        amount_to_stake >= config.min_staking_amount,
-        ContractError::InvalidFunds {
-            reason: "amount is less than min_staking_amount".to_string()
-        }
-    );
-    ensure!(
-        non_staked_balance >= amount_to_stake,
-        ContractError::InvalidFunds {
-            reason: "not enough funds to stake".to_string()
-        }
-    );
-    let attrs = vec![
-        attr("action", "stake"),
-        attr("connection_id", &config.connection_id),
-        attr("ica_id", ICA_ID),
-        attr("amount_to_stake", amount_to_stake.to_string()),
-    ];
-    let fee = query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?;
-    let ica = ICA.get_address(deps.storage)?;
-    let puppeteer_ica = config
-        .puppeteer_ica
-        .ok_or(ContractError::Std(StdError::generic_err(
-            "puppeteer_ica not set",
-        )))?;
-    let mut delegations = vec![];
-    for (validator, amount) in items {
-        delegations.push(cosmos_sdk_proto::Any {
-            type_url: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
-            value: MsgDelegate {
-                delegator_address: puppeteer_ica.to_string(),
-                validator_address: validator.to_string(),
-                amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-                    denom: config.remote_denom.to_string(),
-                    amount: amount.to_string(),
-                }),
-            }
-            .to_bytes()?,
-        });
-    }
-    let grant_msg = MsgExec {
-        grantee: ica.to_string(),
-        msgs: delegations,
-    };
-    let bank_send_msg = MsgSend {
-        from_address: ica.to_string(),
-        to_address: puppeteer_ica,
-        amount: vec![cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-            denom: config.remote_denom.to_string(),
-            amount: amount_to_stake.to_string(),
-        }],
-    };
-    let any_msgs: Vec<neutron_sdk::bindings::types::ProtobufAny> = vec![
-        prepare_any_msg(bank_send_msg, "/cosmos.bank.v1beta1.MsgSend")?,
-        prepare_any_msg(grant_msg, "/cosmos.authz.v1beta1.MsgExec")?,
-    ];
-    let cosmos_msg = NeutronMsg::submit_tx(
-        config.connection_id,
-        ICA_ID.to_string(),
-        any_msgs,
-        "".to_string(),
-        config.timeout,
-        fee,
-    );
-    let submsg: SubMsg<NeutronMsg> = msg_with_sudo_callback(
-        deps,
-        cosmos_msg,
-        Transaction::Stake {
-            amount: non_staked_balance,
-        },
-        ReplyMsg::SudoPayload.to_reply_id(),
-        Some(info.sender.to_string()),
-    )?;
-    Ok(response("stake", CONTRACT_NAME, attrs).add_submessage(submsg))
-}
-
-fn execute_ibc_transfer(
+fn execute_puppeteer_transfer(
     deps: DepsMut<NeutronQuery>,
     env: Env,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
-    let tx_state = TX_STATE.load(deps.storage)?;
-    ensure!(
-        tx_state.status == TxStateStatus::Idle,
-        ContractError::InvalidState {
-            reason: "tx_state is not idle".to_string()
-        }
-    );
+
     let pending_coin = deps
         .querier
         .query_balance(&env.contract.address, config.base_denom)?;
@@ -327,39 +150,104 @@ fn execute_ibc_transfer(
         StdResult::Ok(balance + pending_coin.amount)
     })?;
     let attrs = vec![
-        attr("action", "ibc_transfer"),
-        attr("connection_id", &config.connection_id),
-        attr("ica_id", ICA_ID),
+        attr("action", "puppeteer_transfer"),
         attr("pending_amount", pending_coin.amount),
     ];
-    let fee = query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?;
-    let ica = ICA.get_address(deps.storage)?;
-    let msg = NeutronMsg::IbcTransfer {
-        source_port: config.port_id.to_string(),
-        source_channel: config.transfer_channel_id,
-        token: pending_coin.clone(),
-        sender: env.contract.address.to_string(),
-        receiver: ica.to_string(),
-        timeout_height: RequestPacketTimeoutHeight {
-            revision_number: None,
-            revision_height: None,
-        },
-        timeout_timestamp: env.block.time.plus_seconds(config.timeout).nanos(),
-        memo: "".to_string(),
-        fee,
-    };
 
-    let submsg: SubMsg<NeutronMsg> = msg_with_sudo_callback(
-        deps,
-        msg,
-        Transaction::IBCTransfer {
-            amount: pending_coin.amount,
-        },
-        ReplyMsg::IbcTransfer.to_reply_id(),
-        None,
-    )?;
+    let puppeteer_transfer = SubMsg::reply_on_error(
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: config.puppeteer_address.to_string(),
+            msg: to_json_binary(
+                &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+                    reason: IBCTransferReason::Stake,
+                    reply_to: env.contract.address.to_string(),
+                },
+            )?,
+            funds: vec![pending_coin],
+        }),
+        PUPPETEER_TRANSFER_REPLY_ID,
+    );
 
-    Ok(response("ibc_transfer", CONTRACT_NAME, attrs).add_submessage(submsg))
+    Ok(response("puppeteer_transfer", CONTRACT_NAME, attrs).add_submessage(puppeteer_transfer))
+}
+
+fn execute_puppeteer_hook(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    info: MessageInfo,
+    msg: drop_puppeteer_base::msg::ResponseHookMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let config = CONFIG.load(deps.storage)?;
+    ensure_eq!(
+        info.sender,
+        config.puppeteer_address,
+        ContractError::Unauthorized {}
+    );
+    match msg.clone() {
+        drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) => {
+            match &success_msg.transaction {
+                drop_puppeteer_base::msg::Transaction::Stake { items, .. } => {
+                    let mut sum = 0u128;
+                    for item in items {
+                        let (_remote_denom, _shares_amount, real_amount) = LSM_SHARES_TO_REDEEM
+                            .load(deps.storage, item.local_denom.to_string())?;
+                        sum += real_amount.u128();
+                        LSM_SHARES_TO_REDEEM.remove(deps.storage, item.local_denom.to_string());
+                    }
+                    TOTAL_LSM_SHARES.update(deps.storage, |one| StdResult::Ok(one - sum))?;
+                    LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
+                }
+                _ => {}
+            }
+        }
+        drop_puppeteer_base::msg::ResponseHookMsg::Error(error_msg) => {
+            if let drop_puppeteer_base::msg::Transaction::IBCTransfer {
+                denom,
+                amount,
+                reason,
+                recipient: _,
+            } = &error_msg.transaction
+            {
+                if *reason == IBCTransferReason::LSMShare {
+                    let current_pending =
+                        PENDING_LSM_SHARES.may_load(deps.storage, denom.to_string())?;
+                    if let Some((remote_denom, shares_amount, real_amount)) = current_pending {
+                        let sent_amount = Uint128::from(*amount);
+                        LSM_SHARES_TO_REDEEM.update(deps.storage, denom.to_string(), |one| {
+                            let mut new =
+                                one.unwrap_or((remote_denom, Uint128::zero(), Uint128::zero()));
+                            new.1 += sent_amount;
+                            new.2 += real_amount;
+                            StdResult::Ok(new)
+                        })?;
+                        if shares_amount == sent_amount {
+                            PENDING_LSM_SHARES.remove(deps.storage, denom.to_string());
+                        } else {
+                            PENDING_LSM_SHARES.update(deps.storage, denom.to_string(), |one| {
+                                match one {
+                                    Some(one) => {
+                                        let mut new = one;
+                                        new.1 -= Uint128::from(*amount);
+                                        new.2 -= real_amount;
+                                        StdResult::Ok(new)
+                                    }
+                                    None => unreachable!("denom should be in the map"),
+                                }
+                            })?;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    LAST_PUPPETEER_RESPONSE.save(deps.storage, &msg)?;
+
+    Ok(response(
+        "execute-puppeteer_hook",
+        CONTRACT_NAME,
+        vec![attr("action", "puppeteer_hook")],
+    ))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
@@ -370,40 +258,7 @@ pub fn sudo(deps: DepsMut<NeutronQuery>, env: Env, msg: SudoMsg) -> ContractResu
         SudoMsg::Response { request, data } => sudo_response(deps, env, request, data),
         SudoMsg::Error { request, details } => sudo_error(deps, env, request, details),
         SudoMsg::Timeout { request } => sudo_timeout(deps, env, request),
-        SudoMsg::OpenAck {
-            port_id,
-            channel_id,
-            counterparty_channel_id,
-            counterparty_version,
-        } => sudo_open_ack(
-            deps,
-            env,
-            port_id,
-            channel_id,
-            counterparty_channel_id,
-            counterparty_version,
-        ),
         _ => unimplemented!(),
-    }
-}
-
-pub fn sudo_open_ack(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    port_id: String,
-    channel_id: String,
-    _counterparty_channel_id: String,
-    counterparty_version: String,
-) -> ContractResult<Response> {
-    let parsed_version: Result<OpenAckVersion, _> =
-        serde_json_wasm::from_str(counterparty_version.as_str());
-    if let Ok(parsed_version) = parsed_version {
-        ICA.set_address(deps.storage, parsed_version.address, port_id, channel_id)?;
-        Ok(Response::default())
-    } else {
-        Err(ContractError::Std(StdError::generic_err(
-            "can't parse version",
-        )))
     }
 }
 
@@ -601,64 +456,16 @@ pub fn migrate(
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
-    match ReplyMsg::from_reply_id(msg.id) {
-        ReplyMsg::SudoPayload => submit_tx_reply(deps, msg),
-        ReplyMsg::IbcTransfer => submit_ibc_transfer_reply(deps, msg),
+    match msg.id {
+        PUPPETEER_TRANSFER_REPLY_ID => puppeteer_transfer_reply(deps, msg),
+        id => Err(ContractError::UnknownReplyId { id }),
     }
 }
 
-fn submit_tx_reply(deps: DepsMut, msg: Reply) -> StdResult<Response> {
-    let resp: MsgSubmitTxResponse = serde_json_wasm::from_slice(
-        msg.result
-            .into_result()
-            .map_err(StdError::generic_err)?
-            .data
-            .ok_or_else(|| StdError::generic_err("no result"))?
-            .as_slice(),
-    )
-    .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?;
-    let seq_id = resp.sequence_id;
-    let channel_id = resp.channel;
-    let mut tx_state: TxState = TX_STATE.load(deps.storage)?;
-    tx_state.seq_id = Some(seq_id);
-    tx_state.status = TxStateStatus::WaitingForAck;
-    TX_STATE.save(deps.storage, &tx_state)?;
-    let atts = vec![
-        attr("channel_id", channel_id.to_string()),
-        attr("seq_id", seq_id.to_string()),
-    ];
-    Ok(response(
-        "reply-tx-payload-received",
-        "puppeteer-base",
-        atts,
-    ))
-}
+fn puppeteer_transfer_reply(_deps: Deps, msg: Reply) -> ContractResult<Response> {
+    if let SubMsgResult::Err(err) = msg.result {
+        return Err(ContractError::PuppeteerError { message: err });
+    }
 
-pub fn submit_ibc_transfer_reply(deps: DepsMut, msg: Reply) -> StdResult<Response> {
-    let resp: MsgIbcTransferResponse = serde_json_wasm::from_slice(
-        msg.result
-            .into_result()
-            .map_err(StdError::generic_err)?
-            .data
-            .ok_or_else(|| StdError::generic_err("no result"))?
-            .as_slice(),
-    )
-    .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?;
-    deps.api
-        .debug(format!("WASMDEBUG: prepare_sudo_payload received; resp: {resp:?}").as_str());
-    let seq_id = resp.sequence_id;
-    let channel_id = resp.channel;
-    let mut tx_state: TxState = TX_STATE.load(deps.storage)?;
-    tx_state.seq_id = Some(seq_id);
-    tx_state.status = TxStateStatus::WaitingForAck;
-    TX_STATE.save(deps.storage, &tx_state)?;
-    let atts = vec![
-        attr("channel_id", channel_id.to_string()),
-        attr("seq_id", seq_id.to_string()),
-    ];
-    Ok(response(
-        "reply-ibc-transfer-payload-received",
-        "puppeteer-base",
-        atts,
-    ))
+    Ok(Response::new())
 }

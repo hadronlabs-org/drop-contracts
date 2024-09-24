@@ -942,6 +942,7 @@ dependencies = [
  "cw-ownable",
  "cw2 1.1.2",
  "drop-helpers",
+ "drop-puppeteer-base",
  "drop-staking-base",
  "neutron-sdk",
  "prost",

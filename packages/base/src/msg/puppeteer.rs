@@ -29,6 +29,7 @@ pub struct InstantiateMsg {
     pub transfer_channel_id: String,
     pub sdk_version: String,
     pub timeout: u64,
+    pub native_bond_provider: String,
     pub delegations_queries_chunk_size: Option<u32>,
 }
 
@@ -49,6 +50,10 @@ pub enum ExecuteMsg {
     SetupProtocol {
         delegate_grantee: String,
         rewards_withdraw_address: String,
+    },
+    Delegate {
+        items: Vec<(String, Uint128)>,
+        reply_to: String,
     },
     Undelegate {
         items: Vec<(String, Uint128)>,

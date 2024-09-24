@@ -9,18 +9,15 @@ use crate::proto::{
         },
     },
 };
+use cosmos_sdk_proto::cosmos::distribution::v1beta1::MsgSetWithdrawAddress;
 use cosmos_sdk_proto::cosmos::{
-    authz::v1beta1::{GenericAuthorization, Grant, MsgGrant, MsgGrantResponse},
     bank::v1beta1::{MsgSend, MsgSendResponse},
     base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
-};
-use cosmos_sdk_proto::{
-    cosmos::{authz::v1beta1::MsgExec, distribution::v1beta1::MsgSetWithdrawAddress},
-    traits::MessageExt,
+    staking::v1beta1::MsgDelegate,
 };
 use cosmwasm_std::{
-    attr, ensure_eq, to_json_binary, Addr, Attribute, CosmosMsg, Deps, Order, Reply, StdError,
-    SubMsg, Timestamp, Uint128, WasmMsg,
+    attr, ensure, ensure_eq, to_json_binary, Addr, Attribute, CosmosMsg, Deps, Order, Reply,
+    StdError, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{
@@ -97,6 +94,7 @@ pub fn instantiate(
         transfer_channel_id: msg.transfer_channel_id,
         sdk_version: msg.sdk_version,
         timeout: msg.timeout,
+        native_bond_provider: deps.api.addr_validate(&msg.native_bond_provider)?,
         delegations_queries_chunk_size: msg
             .delegations_queries_chunk_size
             .unwrap_or(DEFAULT_DELEGATIONS_QUERIES_CHUNK_SIZE),
@@ -220,6 +218,7 @@ pub fn execute(
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
     match msg {
+        ExecuteMsg::Delegate { items, reply_to } => execute_delegate(deps, info, items, reply_to),
         ExecuteMsg::Undelegate {
             items,
             batch_id,
@@ -326,10 +325,82 @@ fn execute_update_config(
         attrs.push(attr("timeout", timeout.to_string()));
         config.timeout = timeout;
     }
+    if let Some(native_bond_provider) = new_config.native_bond_provider {
+        config.native_bond_provider = native_bond_provider.clone();
+        attrs.push(attr("native_bond_provider", native_bond_provider))
+    }
 
     puppeteer_base.update_config(deps.into_empty(), &config)?;
 
     Ok(response("config_update", CONTRACT_NAME, attrs))
+}
+
+fn execute_delegate(
+    mut deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    items: Vec<(String, Uint128)>,
+    reply_to: String,
+) -> ContractResult<Response<NeutronMsg>> {
+    let puppeteer_base = Puppeteer::default();
+    let config = puppeteer_base.config.load(deps.storage)?;
+    validate_sender(&config, &info.sender)?;
+    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
+
+    let non_staked_balance = deps.querier.query_wasm_smart::<Uint128>(
+        &config.native_bond_provider,
+        &drop_staking_base::msg::staker::QueryMsg::NonStakedBalance {},
+    )?;
+
+    ensure!(
+        non_staked_balance > Uint128::zero(),
+        ContractError::InvalidFunds {
+            reason: "no funds to stake".to_string()
+        }
+    );
+
+    let amount_to_stake = items.iter().map(|(_, amount)| *amount).sum();
+
+    ensure!(
+        non_staked_balance >= amount_to_stake,
+        ContractError::InvalidFunds {
+            reason: "not enough funds to stake".to_string()
+        }
+    );
+
+    let attrs = vec![
+        attr("action", "stake"),
+        attr("connection_id", &config.connection_id),
+        attr("ica_id", ICA_ID),
+        attr("amount_to_stake", amount_to_stake.to_string()),
+    ];
+    let ica_address = puppeteer_base.ica.get_address(deps.storage)?;
+
+    let mut any_delegation_msgs = vec![];
+    for (validator, amount) in items.clone() {
+        let delegation = MsgDelegate {
+            delegator_address: ica_address.to_string(),
+            validator_address: validator.to_string(),
+            amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                denom: config.remote_denom.to_string(),
+                amount: amount.to_string(),
+            }),
+        };
+        any_delegation_msgs.push(prepare_any_msg(
+            delegation,
+            "/cosmos.staking.v1beta1.MsgDelegate",
+        )?);
+    }
+
+    let submsg = compose_submsg(
+        deps.branch(),
+        config,
+        any_delegation_msgs,
+        Transaction::Stake { items },
+        reply_to,
+        ReplyMsg::SudoPayload.to_reply_id(),
+    )?;
+
+    Ok(response("stake", CONTRACT_NAME, attrs).add_submessage(submsg))
 }
 
 fn execute_ibc_transfer(
@@ -543,7 +614,7 @@ fn register_unbonding_delegations_query(
 
 fn execute_setup_protocol(
     mut deps: DepsMut<NeutronQuery>,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
     delegate_grantee: String,
     rewards_withdraw_address: String,
@@ -554,37 +625,12 @@ fn execute_setup_protocol(
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
     let ica = puppeteer_base.ica.get_address(deps.storage)?;
     let mut any_msgs = vec![];
-    let grant_msg = MsgGrant {
-        grantee: delegate_grantee.clone(),
-        granter: ica.to_string(),
-        grant: Some(Grant {
-            authorization: Some(cosmos_sdk_proto::Any {
-                type_url: "/cosmos.authz.v1beta1.GenericAuthorization".to_string(),
-                value: GenericAuthorization {
-                    msg: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
-                }
-                .encode_to_vec(),
-            }),
-            expiration: Some(prost_types::Timestamp {
-                seconds: env
-                    .block
-                    .time
-                    .plus_days(365 * 120 + 30)
-                    .seconds()
-                    .try_into()
-                    .map_err(|_| ContractError::Std(StdError::generic_err("Invalid timestamp")))?,
-                nanos: 0,
-            }),
-        }),
-    };
+
     let set_withdraw_address_msg = MsgSetWithdrawAddress {
         delegator_address: ica.to_string(),
         withdraw_address: rewards_withdraw_address.clone(),
     };
-    any_msgs.push(prepare_any_msg(
-        grant_msg,
-        "/cosmos.authz.v1beta1.MsgGrant",
-    )?);
+
     any_msgs.push(prepare_any_msg(
         set_withdraw_address_msg,
         "/cosmos.distribution.v1beta1.MsgSetWithdrawAddress",
@@ -681,24 +727,17 @@ fn execute_claim_rewards_and_optionaly_transfer(
         )?);
     }
 
-    let mut claim_msgs = vec![];
     for val in validators.clone() {
-        claim_msgs.push(cosmos_sdk_proto::Any {
-            type_url: "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
-            value: MsgWithdrawDelegatorReward {
-                delegator_address: ica.to_string(),
-                validator_address: val,
-            }
-            .to_bytes()?,
-        })
+        let withdraw_reward_msg = MsgWithdrawDelegatorReward {
+            delegator_address: ica.to_string(),
+            validator_address: val,
+        };
+
+        any_msgs.push(prepare_any_msg(
+            withdraw_reward_msg,
+            "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
+        )?);
     }
-
-    let grant_msg = MsgExec {
-        grantee: ica.to_string(),
-        msgs: claim_msgs,
-    };
-
-    any_msgs.push(prepare_any_msg(grant_msg, "/cosmos.authz.v1beta1.MsgExec")?);
 
     let submsg = compose_submsg(
         deps.branch(),
@@ -732,32 +771,25 @@ fn execute_undelegate(
     let delegator = puppeteer_base.ica.get_address(deps.storage)?;
     let mut undelegation_msgs = vec![];
     for (validator, amount) in items.iter() {
-        undelegation_msgs.push(cosmos_sdk_proto::Any {
-            type_url: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
-            value: cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
-                delegator_address: delegator.to_string(),
-                validator_address: validator.to_string(),
-                amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-                    denom: config.remote_denom.to_string(),
-                    amount: amount.to_string(),
-                }),
-            }
-            .to_bytes()?,
-        })
+        let undelegation_msg = cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
+            delegator_address: delegator.to_string(),
+            validator_address: validator.to_string(),
+            amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                denom: config.remote_denom.to_string(),
+                amount: amount.to_string(),
+            }),
+        };
+
+        undelegation_msgs.push(prepare_any_msg(
+            undelegation_msg,
+            "/cosmos.staking.v1beta1.MsgUndelegate",
+        )?);
     }
-
-    let grant_msg = MsgExec {
-        grantee: delegator,
-        msgs: undelegation_msgs,
-    };
-
-    let any_msgs: Vec<neutron_sdk::bindings::types::ProtobufAny> =
-        vec![prepare_any_msg(grant_msg, "/cosmos.authz.v1beta1.MsgExec")?];
 
     let submsg = compose_submsg(
         deps.branch(),
         config.clone(),
-        any_msgs,
+        undelegation_msgs,
         Transaction::Undelegate {
             interchain_account_id: ICA_ID.to_string(),
             denom: config.remote_denom,
@@ -1119,12 +1151,6 @@ pub fn get_answers_from_msg_data(
                     drop_puppeteer_base::proto::MsgBeginRedelegateResponse {
                         completion_time: out.completion_time.map(|t| t.into()),
                     },
-                )
-            }
-            "/cosmos.authz.v1beta1.MsgGrant" => {
-                let _out: MsgGrantResponse = decode_message_response(&item.data)?;
-                ResponseAnswer::GrantDelegateResponse(
-                    drop_puppeteer_base::proto::MsgGrantResponse {},
                 )
             }
             "/cosmos.staking.v1beta1.MsgRedeemTokensForShares" => {
