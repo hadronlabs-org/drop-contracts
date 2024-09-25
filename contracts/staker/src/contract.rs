@@ -255,7 +255,7 @@ fn execute_stake(
             "puppeteer_ica not set",
         )))?;
     let mut delegations = vec![];
-    let chain_type = CHAIN_TYPE.load(deps.storage).unwrap_or_default();
+    let chain_type = CHAIN_TYPE.may_load(deps.storage)?.unwrap_or_default();
     for (validator, amount) in items {
         delegations.push(get_delegate_msg(
             chain_type.clone(),
@@ -593,6 +593,10 @@ pub fn migrate(
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+        if storage_version < semver::Version::parse("1.1.0")? {
+            CHAIN_TYPE.save(deps.storage, &ChainType::default())?;
+        }
     }
 
     Ok(Response::new())
