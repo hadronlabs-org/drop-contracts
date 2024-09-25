@@ -81,7 +81,7 @@ pub fn instantiate(
     _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
-) -> NeutronResult<Response<NeutronMsg>> {
+) -> ContractResult<Response<NeutronMsg>> {
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let allowed_senders = validate_addresses(
         deps.as_ref().into_empty(),

@@ -71,7 +71,7 @@ pub fn instantiate(
     _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
-) -> NeutronResult<Response<NeutronMsg>> {
+) -> ContractResult<Response<NeutronMsg>> {
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let allowed_senders = validate_addresses(
         deps.as_ref().into_empty(),
@@ -83,6 +83,9 @@ pub fn instantiate(
         .addr_validate(&msg.owner.unwrap_or(info.sender.to_string()))?
         .to_string();
     validate_timeout(msg.timeout)?;
+    if !msg.remote_denom.starts_with("move/") {
+        return Err(ContractError::InvalidRemoteDenom);
+    }
     let config = &Config {
         connection_id: msg.connection_id,
         port_id: msg.port_id,
@@ -262,6 +265,9 @@ fn execute_update_config(
     let mut attrs: Vec<Attribute> = Vec::new();
 
     if let Some(remote_denom) = new_config.remote_denom {
+        if !remote_denom.starts_with("move/") {
+            return Err(ContractError::InvalidRemoteDenom);
+        }
         config.remote_denom = remote_denom.clone();
         attrs.push(attr("remote_denom", remote_denom))
     }

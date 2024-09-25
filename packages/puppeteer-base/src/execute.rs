@@ -27,7 +27,7 @@ where
         deps: DepsMut<X>,
         config: &T,
         owner: String,
-    ) -> NeutronResult<Response<Z>> {
+    ) -> ContractResult<Response<Z>> {
         cw_ownable::initialize_owner(deps.storage, deps.api, Some(&owner))?;
         self.config.save(deps.storage, config)?;
         self.recipient_transfers.save(deps.storage, &vec![])?;

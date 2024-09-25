@@ -697,6 +697,7 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus 1.2.0",
+ "hex",
  "neutron-sdk",
  "prost",
  "schemars",

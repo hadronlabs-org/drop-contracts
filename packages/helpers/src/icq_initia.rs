@@ -133,15 +133,14 @@ pub fn create_account_balances_prefix<AddrBytes: AsRef<[u8]>>(
 }
 
 fn get_denom_metadata(denom: String) -> [u8; 32] {
-    // create [u8, 32] where last is 1
-    let mut acc_key = [0u8; 32];
-    acc_key[31] = 1;
-    let to_hash = [&acc_key, denom.as_bytes(), &[0xFE]].concat();
-    // hash sha256 (acc_key + denom + 0xFE)
-    let mut hasher = Sha256::new();
-    hasher.update(&to_hash);
-    let result = hasher.finalize();
-    result.as_slice().try_into().unwrap() // must not fail as we know the size of sha256 hash
+    if !denom.starts_with("move/") {
+        panic!("Denom must start with 'move/'");
+    }
+    let denom = hex::decode(&denom[5..]).unwrap();
+    denom
+        .as_slice()
+        .try_into()
+        .unwrap_or_else(|_| panic!("Denom must be 32 bytes long: {:?} - {}", denom, denom.len()))
 }
 
 fn pad_with_zeros_to_32_bytes(data: &[u8]) -> [u8; 32] {

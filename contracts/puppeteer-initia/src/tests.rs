@@ -49,8 +49,8 @@ fn build_interchain_query_response() -> Binary {
         r#"[
         { 
             "storage_prefix": "move", 
-            "key": "Ic5jswvkK4MrI/1JN/zrinSchHJlDIF9G1QwYgftNUhlAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABDmZ1bmdpYmxlX2Fzc2V0DUZ1bmdpYmxlU3RvcmUA", 
-            "value": "jkczvavPfUr8PRTw3UbJv1L7D86eS5lsk54ZW4vIkdlAQg8AAAAAAAA=" 
+            "key": "IYZrSYl9ApbU96Ck7OejoFQCgGzQPz8r3zjxVIx4oWoEAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABDmZ1bmdpYmxlX2Fzc2V0DUZ1bmdpYmxlU3RvcmUA", 
+            "value": "fALRzVYchnqhLqb1RjrraTiupbFjB6FFU2gae9z1X3HoAwAAAAAAAAA=" 
         }, 
         { "storage_prefix": "mstaking", "key": "MSAoG+iyVNDbRvwp5/kzQaQRxfpHrIWdnjVbylPmOd4RlQJCiPT53CyU/s49W6PCRxoH2qoo", "value": "Cj9pbml0MTlxZDczdmo1NnJkNWRscGZ1bHVueHNkeXo4emw1M2F2c2t3ZXVkMm1lZmY3dnd3N3p4MnNjMjB1cDkSMmluaXR2YWxvcGVyMXFmcGczYThlbXNrZmZsa3c4NGQ2OHNqOHJncmE0MjNnMjkzbjB2GiEKBXVpbml0EhgyNTAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=" }, 
         { "storage_prefix": "mstaking", "key": "IQJCiPT53CyU/s49W6PCRxoH2qoo", "value": "CjJpbml0dmFsb3BlcjFxZnBnM2E4ZW1za2ZmbGt3ODRkNjhzajhyZ3JhNDIzZzI5M24wdhJDCh0vY29zbW9zLmNyeXB0by5lZDI1NTE5LlB1YktleRIiCiDKjQQoFRI6RerldUGN3U3X52vosJbBX1HS3umeKk8MGSADKhIKBXVpbml0EgkxMDAyNTAwMDAyJAoFdWluaXQSGzEwMDI1MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDoMCgp2YWxpbml0aWExSgBSSgo7ChIxMDAwMDAwMDAwMDAwMDAwMDASEjIwMDAwMDAwMDAwMDAwMDAwMBoRMTAwMDAwMDAwMDAwMDAwMDASCwj+4aq3BhDgweoYWhIKBXVpbml0EgkxMDAyNTAwMDBiCTEwMDI1MDAwMA==" },
@@ -82,7 +82,8 @@ fn test_instantiate() {
         connection_id: "connection_id".to_string(),
         port_id: "port_id".to_string(),
         update_period: 60u64,
-        remote_denom: "remote_denom".to_string(),
+        remote_denom: "move/14a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
+            .to_string(),
         allowed_senders: vec!["allowed_sender".to_string()],
         transfer_channel_id: "transfer_channel_id".to_string(),
         sdk_version: "0.47.10".to_string(),
@@ -108,7 +109,9 @@ fn test_update_config() {
     let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::UpdateConfig {
         new_config: ConfigOptional {
             update_period: Some(121u64),
-            remote_denom: Some("new_remote_denom".to_string()),
+            remote_denom: Some(
+                "move/24a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a".to_string(),
+            ),
             allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
             transfer_channel_id: Some("new_transfer_channel_id".to_string()),
             connection_id: Some("new_connection_id".to_string()),
@@ -127,7 +130,10 @@ fn test_update_config() {
         Response::new().add_event(
             Event::new("crates.io:drop-neutron-contracts__drop-puppeteer-initia-config_update")
                 .add_attributes(vec![
-                    ("remote_denom", "new_remote_denom"),
+                    (
+                        "remote_denom",
+                        "move/24a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
+                    ),
                     ("connection_id", "new_connection_id"),
                     ("port_id", "new_port_id"),
                     ("update_period", "121"),
@@ -146,7 +152,8 @@ fn test_update_config() {
             port_id: "new_port_id".to_string(),
             connection_id: "new_connection_id".to_string(),
             update_period: 121u64,
-            remote_denom: "new_remote_denom".to_string(),
+            remote_denom: "move/24a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
+                .to_string(),
             allowed_senders: vec![Addr::unchecked("new_allowed_sender")],
             transfer_channel_id: "new_transfer_channel_id".to_string(),
             sdk_version: "0.47.0".to_string(),
@@ -299,7 +306,8 @@ fn test_execute_undelegate() {
             delegator_address: "ica_address".to_string(),
             validator_address: "valoper1".to_string(),
             amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-                denom: "remote_denom".to_string(),
+                denom: "move/14a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
+                    .to_string(),
                 amount: "1000".to_string(),
             }),
         }
@@ -341,7 +349,8 @@ fn test_execute_undelegate() {
             transaction: Some(drop_puppeteer_base::msg::Transaction::Undelegate {
                 batch_id: 0u128,
                 interchain_account_id: "DROP".to_string(),
-                denom: "remote_denom".to_string(),
+                denom: "move/14a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
+                    .to_string(),
                 items: vec![("valoper1".to_string(), Uint128::from(1000u128))]
             })
         }
@@ -440,7 +449,7 @@ fn test_sudo_kv_query_result() {
         BalancesAndDelegationsState {
             data: BalancesAndDelegations {
                 balances: Balances {
-                    coins: vec![coin(1000000, "uinit")]
+                    coins: vec![coin(1000, "uinit")]
                 },
                 delegations: Delegations {
                     delegations: vec![
@@ -871,7 +880,8 @@ mod register_delegations_and_balance_query {
                 drop_helpers::icq_initia::new_delegations_and_balance_query_msg(
                     "connection_id".to_string(),
                     "cosmos1m9l358xunhhwds0568za49mzhvuxx9uxre5tud".to_string(),
-                    "remote_denom".to_string(),
+                    "move/14a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
+                        .to_string(),
                     vec![
                         "cosmos1jy7lsk5pk38zjfnn6nt6qlaphy9uejn4hu65xa".to_string(),
                         "cosmos14xcrdjwwxtf9zr7dvaa97wy056se6r5e8q68mw".to_string(),
@@ -933,7 +943,8 @@ mod register_delegations_and_balance_query {
                         drop_helpers::icq_initia::new_delegations_and_balance_query_msg(
                             "connection_id".to_string(),
                             "cosmos1m9l358xunhhwds0568za49mzhvuxx9uxre5tud".to_string(),
-                            "remote_denom".to_string(),
+                            "move/14a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
+                                .to_string(),
                             vec![
                                 "cosmos1jy7lsk5pk38zjfnn6nt6qlaphy9uejn4hu65xa".to_string(),
                                 "cosmos14xcrdjwwxtf9zr7dvaa97wy056se6r5e8q68mw".to_string(),
@@ -947,7 +958,8 @@ mod register_delegations_and_balance_query {
                         drop_helpers::icq_initia::new_delegations_and_balance_query_msg(
                             "connection_id".to_string(),
                             "cosmos1m9l358xunhhwds0568za49mzhvuxx9uxre5tud".to_string(),
-                            "remote_denom".to_string(),
+                            "move/14a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
+                                .to_string(),
                             vec!["cosmos15tuf2ewxle6jj6eqd4jm579vpahydzwdsvkrhn".to_string(),],
                             60,
                         )
@@ -979,7 +991,8 @@ fn get_base_config() -> Config {
         port_id: "port_id".to_string(),
         connection_id: "connection_id".to_string(),
         update_period: 60u64,
-        remote_denom: "remote_denom".to_string(),
+        remote_denom: "move/14a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
+            .to_string(),
         allowed_senders: vec![Addr::unchecked("allowed_sender")],
         transfer_channel_id: "transfer_channel_id".to_string(),
         sdk_version: "0.47.10".to_string(),

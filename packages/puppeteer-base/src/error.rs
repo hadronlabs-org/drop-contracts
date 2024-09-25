@@ -33,6 +33,9 @@ pub enum ContractError {
     #[error("Invalid funds: {reason}")]
     InvalidFunds { reason: String },
 
+    #[error("Invalid remote denom")]
+    InvalidRemoteDenom,
+
     #[error("{0}")]
     OwnershipError(#[from] OwnershipError),
 
