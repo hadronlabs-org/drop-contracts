@@ -76,7 +76,7 @@ store_code() {
 }
 
 deploy_wasm_code() {
-  for contract in factory core distribution puppeteer rewards_manager strategy token staker validators_set withdrawal_manager withdrawal_voucher pump splitter lsm_share_bond_provider native_bond_provider; do
+  for contract in factory core distribution puppeteer rewards_manager strategy token validators_set withdrawal_manager withdrawal_voucher pump splitter lsm_share_bond_provider native_bond_provider; do
       store_code "$contract"
       code_id="${contract}_code_id"
       printf '[OK] %-24s code ID: %s\n' "$contract" "${!code_id}"
@@ -115,7 +115,7 @@ pre_deploy_check_ibc_connection() {
 }
 
 pre_deploy_check_code_ids() {
-  for contract in factory core distribution puppeteer rewards_manager strategy token staker validators_set withdrawal_manager withdrawal_voucher pump splitter; do
+  for contract in factory core distribution puppeteer rewards_manager strategy token validators_set withdrawal_manager withdrawal_voucher pump splitter; do
     code_id="${contract}_code_id"
     set +u
     if [[ -z "${!code_id}" ]]; then
@@ -145,7 +145,6 @@ deploy_factory() {
       "distribution_code_id":'"$distribution_code_id"',
       "validators_set_code_id":'"$validators_set_code_id"',
       "puppeteer_code_id":'"$puppeteer_code_id"',
-      "staker_code_id":'"$staker_code_id"',
       "rewards_manager_code_id":'"$rewards_manager_code_id"',
       "splitter_code_id": '"$splitter_code_id"',
       "rewards_pump_code_id": '"$pump_code_id"',
@@ -186,7 +185,7 @@ deploy_factory() {
       "min_stake_amount":"'"$CORE_PARAMS_MIN_STAKE_AMOUNT"'",
       "icq_update_delay": '$CORE_PARAMS_ICQ_UPDATE_DELAY'
     },
-    "staker_params":{
+    "native_bond_params":{
       "min_stake_amount":"'"$STAKER_PARAMS_MIN_STAKE_AMOUNT"'",
       "min_ibc_transfer":"'"$STAKER_PARAMS_MIN_IBC_TRANSFER"'"
     }
@@ -199,8 +198,6 @@ deploy_factory() {
   echo "[OK] Factory address: $factory_address"
   core_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.core_contract')"
-  staker_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
-    | jq -r '.data.staker_contract')"
   splitter_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.splitter_contract')"
   rewards_pump_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
@@ -215,21 +212,12 @@ deploy_factory() {
     | jq -r '.data.lsm_share_bond_provider_contract')"
   native_bond_provider_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.native_bond_provider_contract')"
-  echo "[OK] Staker contract: $staker_address"
   echo "[OK] Puppeteer contract: $puppeteer_address"
   echo "[OK] Withdrawal manager contract: $withdrawal_manager_address"
 }
 
 get_ibc_register_fee() {
   neutrond query interchaintxs params "${nq[@]}" | jq -r '.params.register_fee[] | select(.denom=="untrn") | .amount'
-}
-
-register_staker_ica() {
-  register_ica_result="$(neutrond tx wasm execute "$staker_address" '{"register_i_c_a":{}}' \
-    --amount "$(get_ibc_register_fee)untrn" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx)"
-  staker_ica_port="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "port_id")")"
-  staker_ica_channel="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "channel_id")")"
-  echo "[OK] Staker ICA configuration: $staker_ica_port/$staker_ica_channel"
 }
 
 register_rewards_pump_ica() {

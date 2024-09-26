@@ -1,4 +1,4 @@
-use cosmwasm_std::StdError;
+use cosmwasm_std::{StdError, Uint128};
 use cw_ownable::OwnershipError;
 use neutron_sdk::NeutronError;
 use thiserror::Error;
@@ -28,6 +28,21 @@ pub enum ContractError {
 
     #[error("Message is not supported")]
     MessageIsNotSupported {},
+
+    #[error("Invalid Funds: {reason}")]
+    InvalidFunds { reason: String },
+
+    #[error("Puppeteer error: {message}")]
+    PuppeteerError { message: String },
+
+    #[error("Unknown reply id: {id}")]
+    UnknownReplyId { id: u64 },
+
+    #[error("Not enough coins to delegate. Min stake amount: {min_stake_amount}, non staked balance: {non_staked_balance}")]
+    NotEnoughToDelegate {
+        min_stake_amount: Uint128,
+        non_staked_balance: Uint128,
+    },
 }
 
 impl From<semver::Error> for ContractError {

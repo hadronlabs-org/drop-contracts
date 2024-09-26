@@ -17,7 +17,7 @@ pub struct InstantiateMsg {
     pub base_denom: String,
     pub local_denom: String,
     pub core_params: CoreParams,
-    pub staker_params: StakerParams,
+    pub native_bond_params: NativeBondParams,
     pub fee_params: Option<FeeParams>,
 }
 
@@ -37,12 +37,11 @@ pub struct CoreParams {
     pub lsm_redeem_threshold: u64,    //amount of lsm denoms
     pub lsm_redeem_max_interval: u64, //seconds
     pub bond_limit: Option<Uint128>,
-    pub min_stake_amount: Uint128,
     pub icq_update_delay: u64, // blocks
 }
 
 #[cw_serde]
-pub struct StakerParams {
+pub struct NativeBondParams {
     pub min_stake_amount: Uint128,
     pub min_ibc_transfer: Uint128,
 }

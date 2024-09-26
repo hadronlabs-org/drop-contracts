@@ -16,7 +16,6 @@ pub struct InstantiateMsg {
     pub token_contract: String,
     pub puppeteer_contract: String,
     pub strategy_contract: String,
-    pub staker_contract: String,
     pub withdrawal_voucher_contract: String,
     pub withdrawal_manager_contract: String,
     pub validators_set_contract: String,
@@ -34,7 +33,6 @@ pub struct InstantiateMsg {
     pub transfer_channel_id: String,
     pub owner: String,
     pub emergency_address: Option<String>,
-    pub min_stake_amount: Uint128,
     pub icq_update_delay: u64, // blocks
 }
 
@@ -44,7 +42,6 @@ impl InstantiateMsg {
             token_contract: deps.api.addr_validate(&self.token_contract)?,
             puppeteer_contract: deps.api.addr_validate(&self.puppeteer_contract)?,
             strategy_contract: deps.api.addr_validate(&self.strategy_contract)?,
-            staker_contract: deps.api.addr_validate(&self.staker_contract)?,
             withdrawal_voucher_contract: deps
                 .api
                 .addr_validate(&self.withdrawal_voucher_contract)?,
@@ -69,7 +66,6 @@ impl InstantiateMsg {
             },
             unbond_batch_switch_time: self.unbond_batch_switch_time,
             emergency_address: self.emergency_address,
-            min_stake_amount: self.min_stake_amount,
             icq_update_delay: self.icq_update_delay,
         })
     }

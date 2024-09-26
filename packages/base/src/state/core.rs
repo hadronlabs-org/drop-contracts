@@ -27,7 +27,6 @@ pub struct ConfigOptional {
     pub bond_limit: Option<Uint128>,
     pub rewards_receiver: Option<String>,
     pub emergency_address: Option<String>,
-    pub min_stake_amount: Option<Uint128>,
 }
 
 #[cw_serde]
@@ -35,7 +34,6 @@ pub struct Config {
     pub token_contract: Addr,
     pub puppeteer_contract: Addr,
     pub strategy_contract: Addr,
-    pub staker_contract: Addr,
     pub withdrawal_voucher_contract: Addr,
     pub withdrawal_manager_contract: Addr,
     pub validators_set_contract: Addr,
@@ -52,7 +50,6 @@ pub struct Config {
     pub lsm_redeem_maximum_interval: u64, //seconds
     pub bond_limit: Option<Uint128>,
     pub emergency_address: Option<String>,
-    pub min_stake_amount: Uint128,
     pub icq_update_delay: u64, // blocks
 }
 
@@ -137,7 +134,6 @@ pub enum ContractState {
     Peripheral,
     Claiming,
     Unbonding,
-    StakingBond,
 }
 
 const TRANSITIONS: &[Transition<ContractState>] = &[
@@ -150,6 +146,10 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
         to: ContractState::Idle,
     },
     Transition {
+        from: ContractState::Peripheral,
+        to: ContractState::Unbonding,
+    },
+    Transition {
         from: ContractState::Idle,
         to: ContractState::Claiming,
     },
@@ -160,18 +160,6 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
     Transition {
         from: ContractState::Idle,
         to: ContractState::Claiming,
-    },
-    Transition {
-        from: ContractState::Idle,
-        to: ContractState::StakingBond,
-    },
-    Transition {
-        from: ContractState::Claiming,
-        to: ContractState::StakingBond,
-    },
-    Transition {
-        from: ContractState::StakingBond,
-        to: ContractState::Unbonding,
     },
     Transition {
         from: ContractState::Claiming,
@@ -179,10 +167,6 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
     },
     Transition {
         from: ContractState::Unbonding,
-        to: ContractState::Idle,
-    },
-    Transition {
-        from: ContractState::StakingBond,
         to: ContractState::Idle,
     },
     Transition {

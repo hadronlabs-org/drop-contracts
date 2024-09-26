@@ -24,7 +24,6 @@ use drop_staking_base::{
             InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg,
         },
         splitter::InstantiateMsg as SplitterInstantiateMsg,
-        staker::InstantiateMsg as StakerInstantiateMsg,
         strategy::InstantiateMsg as StrategyInstantiateMsg,
         token::InstantiateMsg as TokenInstantiateMsg,
         validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
@@ -81,7 +80,6 @@ pub fn instantiate(
         get_code_checksum(deps.as_ref(), msg.code_ids.distribution_code_id)?;
     let puppeteer_contract_checksum =
         get_code_checksum(deps.as_ref(), msg.code_ids.puppeteer_code_id)?;
-    let staker_contract_checksum = get_code_checksum(deps.as_ref(), msg.code_ids.staker_code_id)?;
     let rewards_manager_contract_checksum =
         get_code_checksum(deps.as_ref(), msg.code_ids.rewards_manager_code_id)?;
     let splitter_contract_checksum =
@@ -103,9 +101,6 @@ pub fn instantiate(
     let puppeteer_address =
         instantiate2_address(&puppeteer_contract_checksum, &canonical_self_address, salt)?;
     attrs.push(attr("puppeteer_address", puppeteer_address.to_string()));
-    let staker_address =
-        instantiate2_address(&staker_contract_checksum, &canonical_self_address, salt)?;
-    attrs.push(attr("staker_address", staker_address.to_string()));
 
     let withdrawal_voucher_address = instantiate2_address(
         &withdrawal_voucher_contract_checksum,
@@ -207,7 +202,6 @@ pub fn instantiate(
         .addr_humanize(&distribution_calculator_address)?
         .to_string();
     let puppeteer_contract = deps.api.addr_humanize(&puppeteer_address)?.to_string();
-    let staker_contract = deps.api.addr_humanize(&staker_address)?.to_string();
     let rewards_manager_contract = deps
         .api
         .addr_humanize(&rewards_manager_address)?
@@ -227,7 +221,6 @@ pub fn instantiate(
         token_contract: token_contract.to_string(),
         core_contract: core_contract.to_string(),
         puppeteer_contract: puppeteer_contract.to_string(),
-        staker_contract: staker_contract.to_string(),
         withdrawal_voucher_contract: withdrawal_voucher_contract.to_string(),
         withdrawal_manager_contract: withdrawal_manager_contract.to_string(),
         strategy_contract: strategy_contract.to_string(),
@@ -293,21 +286,7 @@ pub fn instantiate(
                 sdk_version: msg.sdk_version.to_string(),
                 timeout: msg.remote_opts.timeout.local,
                 delegations_queries_chunk_size: None,
-                native_bond_provider: staker_contract.to_string(),
-            })?,
-            funds: vec![],
-            salt: Binary::from(salt),
-        }),
-        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
-            admin: Some(env.contract.address.to_string()),
-            code_id: msg.code_ids.staker_code_id,
-            label: get_contract_label("staker"),
-            msg: to_json_binary(&StakerInstantiateMsg {
-                owner: Some(env.contract.address.to_string()),
-                remote_denom: msg.remote_opts.denom.to_string(),
-                base_denom: msg.base_denom.clone(),
-                min_ibc_transfer: msg.staker_params.min_ibc_transfer,
-                puppeteer_contract: puppeteer_contract.to_string(),
+                native_bond_provider: native_bond_provider_contract.to_string(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),
@@ -333,7 +312,6 @@ pub fn instantiate(
             msg: to_json_binary(&CoreInstantiateMsg {
                 token_contract: token_contract.to_string(),
                 puppeteer_contract: puppeteer_contract.to_string(),
-                staker_contract: staker_contract.to_string(),
                 strategy_contract: strategy_contract.to_string(),
                 withdrawal_voucher_contract: withdrawal_voucher_contract.to_string(),
                 withdrawal_manager_contract: withdrawal_manager_contract.to_string(),
@@ -352,7 +330,6 @@ pub fn instantiate(
                 lsm_redeem_max_interval: msg.core_params.lsm_redeem_max_interval,
                 owner: env.contract.address.to_string(),
                 emergency_address: None,
-                min_stake_amount: msg.core_params.min_stake_amount,
                 icq_update_delay: msg.core_params.icq_update_delay,
             })?,
             funds: vec![],
@@ -399,7 +376,10 @@ pub fn instantiate(
             label: get_contract_label("splitter"),
             msg: to_json_binary(&SplitterInstantiateMsg {
                 config: SplitterConfig {
-                    receivers: get_splitter_receivers(msg.fee_params, staker_contract.to_string())?,
+                    receivers: get_splitter_receivers(
+                        msg.fee_params,
+                        native_bond_provider_contract.to_string(),
+                    )?,
                     denom: msg.base_denom.to_string(),
                 },
             })?,
@@ -449,7 +429,10 @@ pub fn instantiate(
             msg: to_json_binary(&NativeBondProviderInstantiateMsg {
                 owner: env.contract.address.to_string(),
                 base_denom: msg.base_denom.to_string(),
-                staker_contract: staker_contract.to_string(),
+                puppeteer_contract: puppeteer_contract.to_string(),
+                core_contract: core_contract.to_string(),
+                min_ibc_transfer: msg.native_bond_params.min_ibc_transfer,
+                min_stake_amount: msg.native_bond_params.min_stake_amount,
             })?,
             funds: vec![],
             salt: Binary::from(salt),
@@ -687,17 +670,17 @@ pub fn migrate(
 
 fn get_splitter_receivers(
     fee_params: Option<crate::msg::FeeParams>,
-    staker_address: String,
+    bond_provider_address: String,
 ) -> ContractResult<Vec<(String, cosmwasm_std::Uint128)>> {
     match fee_params {
         Some(fee_params) => {
             let fee_weight = PERCENT_PRECISION * fee_params.fee;
-            let staker_weight = PERCENT_PRECISION - fee_weight;
+            let bond_provider_weight = PERCENT_PRECISION - fee_weight;
             Ok(vec![
-                (staker_address, staker_weight),
+                (bond_provider_address, bond_provider_weight),
                 (fee_params.fee_address, fee_weight),
             ])
         }
-        None => Ok(vec![(staker_address, PERCENT_PRECISION)]),
+        None => Ok(vec![(bond_provider_address, PERCENT_PRECISION)]),
     }
 }

@@ -11,7 +11,6 @@ pub mod puppeteer;
 pub mod redemption_rate_adapter;
 pub mod rewards_manager;
 pub mod splitter;
-pub mod staker;
 pub mod strategy;
 pub mod token;
 pub mod validatorset;

@@ -30,5 +30,6 @@ cw-utils = { workspace = true }
 cw2 = { workspace = true }
 neutron-sdk = { workspace = true }
 drop-staking-base = { workspace = true }
+drop-puppeteer-base = { workspace = true }
 drop-helpers = { workspace = true }
 semver = { workspace = true }

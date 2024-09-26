@@ -1,12 +1,21 @@
 use cosmwasm_std::{
     attr,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, Event, Response, SubMsg, Uint128,
+    to_json_binary, Addr, Coin, Decimal, Event, Response, Uint128,
 };
 use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
 use drop_helpers::testing::mock_dependencies;
-use drop_staking_base::state::native_bond_provider::ConfigOptional;
+use drop_staking_base::state::native_bond_provider::{Config, ConfigOptional, CONFIG};
+
+fn get_default_config() -> Config {
+    Config {
+        puppeteer_contract: Addr::unchecked("puppeteer_contract"),
+        core_contract: Addr::unchecked("core_contract"),
+        base_denom: "base_denom".to_string(),
+        min_ibc_transfer: Uint128::from(100u128),
+    }
+}
 
 #[test]
 fn instantiate() {
@@ -18,22 +27,16 @@ fn instantiate() {
         drop_staking_base::msg::native_bond_provider::InstantiateMsg {
             owner: "owner".to_string(),
             base_denom: "base_denom".to_string(),
-            staker_contract: "staker_contract".to_string(),
+            puppeteer_contract: "puppeteer_contract".to_string(),
+            core_contract: "core_contract".to_string(),
+            min_ibc_transfer: Uint128::from(100u128),
         },
     )
     .unwrap();
 
-    let config = drop_staking_base::state::native_bond_provider::CONFIG
-        .load(deps.as_ref().storage)
-        .unwrap();
+    let config = CONFIG.load(deps.as_ref().storage).unwrap();
 
-    assert_eq!(
-        config,
-        drop_staking_base::state::native_bond_provider::Config {
-            base_denom: "base_denom".to_string(),
-            staker_contract: Addr::unchecked("staker_contract"),
-        }
-    );
+    assert_eq!(config, get_default_config());
 
     assert_eq!(response.messages.len(), 0);
     assert_eq!(
@@ -41,8 +44,10 @@ fn instantiate() {
         vec![
             Event::new("crates.io:drop-staking__drop-native-bond-provider-instantiate")
                 .add_attributes([
-                    attr("staker_contract", "staker_contract"),
-                    attr("base_denom", "base_denom")
+                    attr("puppeteer_contract", "puppeteer_contract"),
+                    attr("core_contract", "core_contract"),
+                    attr("min_ibc_transfer", Uint128::from(100u128)),
+                    attr("base_denom", "base_denom"),
                 ])
         ]
     );
@@ -53,13 +58,7 @@ fn instantiate() {
 fn query_config() {
     let mut deps = mock_dependencies(&[]);
     drop_staking_base::state::native_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::native_bond_provider::Config {
-                base_denom: "base_denom".to_string(),
-                staker_contract: Addr::unchecked("staker_contract"),
-            },
-        )
+        .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let response = crate::contract::query(
@@ -68,14 +67,7 @@ fn query_config() {
         drop_staking_base::msg::native_bond_provider::QueryMsg::Config {},
     )
     .unwrap();
-    assert_eq!(
-        response,
-        to_json_binary(&drop_staking_base::state::native_bond_provider::Config {
-            base_denom: "base_denom".to_string(),
-            staker_contract: Addr::unchecked("staker_contract"),
-        })
-        .unwrap()
-    );
+    assert_eq!(response, to_json_binary(&get_default_config()).unwrap());
 }
 
 #[test]
@@ -83,13 +75,7 @@ fn update_config_wrong_owner() {
     let mut deps = mock_dependencies(&[]);
 
     drop_staking_base::state::native_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::native_bond_provider::Config {
-                base_denom: "base_denom".to_string(),
-                staker_contract: Addr::unchecked("staker_contract"),
-            },
-        )
+        .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let error = crate::contract::execute(
@@ -99,7 +85,9 @@ fn update_config_wrong_owner() {
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 base_denom: Some("base_denom".to_string()),
-                staker_contract: Some(Addr::unchecked("staker_contract")),
+                puppeteer_contract: Some(Addr::unchecked("puppeteer_contract")),
+                core_contract: Some(Addr::unchecked("core_contract")),
+                min_ibc_transfer: Some(Uint128::from(100u128)),
             },
         },
     )
@@ -125,13 +113,7 @@ fn update_config_ok() {
     );
 
     drop_staking_base::state::native_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::native_bond_provider::Config {
-                base_denom: "base_denom".to_string(),
-                staker_contract: Addr::unchecked("staker_contract"),
-            },
-        )
+        .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let response = crate::contract::execute(
@@ -141,7 +123,9 @@ fn update_config_ok() {
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 base_denom: Some("base_denom_1".to_string()),
-                staker_contract: Some(Addr::unchecked("staker_contract_1")),
+                puppeteer_contract: Some(Addr::unchecked("puppeteer_contract_1")),
+                core_contract: Some(Addr::unchecked("core_contract_1")),
+                min_ibc_transfer: Some(Uint128::from(90u128)),
             },
         },
     )
@@ -152,8 +136,10 @@ fn update_config_ok() {
         vec![
             Event::new("crates.io:drop-staking__drop-native-bond-provider-update_config")
                 .add_attributes([
-                    attr("staker_contract", "staker_contract_1"),
-                    attr("base_denom", "base_denom_1")
+                    attr("puppeteer_contract", "puppeteer_contract_1"),
+                    attr("core_contract", "core_contract_1"),
+                    attr("base_denom", "base_denom_1"),
+                    attr("min_ibc_transfer", Uint128::from(90u128))
                 ])
         ]
     );
@@ -168,8 +154,10 @@ fn update_config_ok() {
     assert_eq!(
         config,
         to_json_binary(&drop_staking_base::state::native_bond_provider::Config {
+            puppeteer_contract: Addr::unchecked("puppeteer_contract_1"),
+            core_contract: Addr::unchecked("core_contract_1"),
             base_denom: "base_denom_1".to_string(),
-            staker_contract: Addr::unchecked("staker_contract_1"),
+            min_ibc_transfer: Uint128::from(90u128),
         })
         .unwrap()
     );
@@ -224,13 +212,7 @@ fn query_can_bond_ok() {
     let mut deps = mock_dependencies(&[]);
 
     drop_staking_base::state::native_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::native_bond_provider::Config {
-                base_denom: "base_denom".to_string(),
-                staker_contract: Addr::unchecked("staker_contract"),
-            },
-        )
+        .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let can_bond = crate::contract::query(
@@ -250,13 +232,7 @@ fn query_can_bond_false() {
     let mut deps = mock_dependencies(&[]);
 
     drop_staking_base::state::native_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::native_bond_provider::Config {
-                base_denom: "base_denom".to_string(),
-                staker_contract: Addr::unchecked("staker_contract"),
-            },
-        )
+        .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let can_bond = crate::contract::query(
@@ -276,13 +252,7 @@ fn query_token_amount() {
     let mut deps = mock_dependencies(&[]);
 
     drop_staking_base::state::native_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::native_bond_provider::Config {
-                base_denom: "base_denom".to_string(),
-                staker_contract: Addr::unchecked("staker_contract"),
-            },
-        )
+        .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let token_amount = crate::contract::query(
@@ -306,13 +276,7 @@ fn query_token_amount_half() {
     let mut deps = mock_dependencies(&[]);
 
     drop_staking_base::state::native_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::native_bond_provider::Config {
-                base_denom: "base_denom".to_string(),
-                staker_contract: Addr::unchecked("staker_contract"),
-            },
-        )
+        .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let token_amount = crate::contract::query(
@@ -336,13 +300,7 @@ fn query_token_amount_above_one() {
     let mut deps = mock_dependencies(&[]);
 
     drop_staking_base::state::native_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::native_bond_provider::Config {
-                base_denom: "base_denom".to_string(),
-                staker_contract: Addr::unchecked("staker_contract"),
-            },
-        )
+        .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let token_amount = crate::contract::query(
@@ -366,13 +324,7 @@ fn query_token_amount_wrong_denom() {
     let mut deps = mock_dependencies(&[]);
 
     drop_staking_base::state::native_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::native_bond_provider::Config {
-                base_denom: "base_denom".to_string(),
-                staker_contract: Addr::unchecked("staker_contract"),
-            },
-        )
+        .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let error = crate::contract::query(
@@ -460,13 +412,7 @@ fn execute_bond() {
     let mut deps = mock_dependencies(&[]);
 
     drop_staking_base::state::native_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::native_bond_provider::Config {
-                base_denom: "base_denom".to_string(),
-                staker_contract: Addr::unchecked("staker_contract"),
-            },
-        )
+        .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let response = crate::contract::execute(
@@ -476,19 +422,14 @@ fn execute_bond() {
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::Bond {},
     )
     .unwrap();
-    assert_eq!(response.messages.len(), 1);
+    assert_eq!(response.messages.len(), 0);
 
     assert_eq!(
         response,
-        Response::new()
-            .add_event(
-                Event::new("crates.io:drop-staking__drop-native-bond-provider-bond")
-                    .add_attributes(vec![("received_funds", "100base_denom"),])
-            )
-            .add_submessages(vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-                to_address: "staker_contract".to_string(),
-                amount: vec![Coin::new(100u128, "base_denom")],
-            }))])
+        Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-native-bond-provider-bond")
+                .add_attributes(vec![("received_funds", "100base_denom"),])
+        )
     );
 }
 
@@ -497,13 +438,7 @@ fn execute_bond_wrong_denom() {
     let mut deps = mock_dependencies(&[]);
 
     drop_staking_base::state::native_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::native_bond_provider::Config {
-                base_denom: "base_denom".to_string(),
-                staker_contract: Addr::unchecked("staker_contract"),
-            },
-        )
+        .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let error = crate::contract::execute(
@@ -525,13 +460,7 @@ fn execute_bond_no_funds() {
     let mut deps = mock_dependencies(&[]);
 
     drop_staking_base::state::native_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::native_bond_provider::Config {
-                base_denom: "base_denom".to_string(),
-                staker_contract: Addr::unchecked("staker_contract"),
-            },
-        )
+        .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let error = crate::contract::execute(
@@ -555,13 +484,7 @@ fn execute_bond_multiple_denoms() {
     let mut deps = mock_dependencies(&[]);
 
     drop_staking_base::state::native_bond_provider::CONFIG
-        .save(
-            deps.as_mut().storage,
-            &drop_staking_base::state::native_bond_provider::Config {
-                base_denom: "base_denom".to_string(),
-                staker_contract: Addr::unchecked("staker_contract"),
-            },
-        )
+        .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let error = crate::contract::execute(

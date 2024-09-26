@@ -196,10 +196,11 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
         unprocessed_dasset_to_unbond += failed_batch.total_dasset_amount_to_withdraw;
     }
     exchange_rate_denominator += unprocessed_dasset_to_unbond;
-    let staker_balance: Uint128 = deps.querier.query_wasm_smart(
-        &config.staker_contract,
-        &drop_staking_base::msg::staker::QueryMsg::AllBalance {},
-    )?;
+    let staker_balance: Uint128 = Uint128::zero();
+    // deps.querier.query_wasm_smart(
+    //     &config.staker_contract,
+    //     &drop_staking_base::msg::staker::QueryMsg::AllBalance {},
+    // )?;
     let total_async_shares = query_total_async_tokens(deps)?;
 
     // arithmetic operations order is important here as we don't want to overflow
@@ -533,7 +534,6 @@ fn execute_tick(
         ContractState::Peripheral => execute_tick_peripheral(deps.branch(), env, info, &config),
         //
         ContractState::Claiming => execute_tick_claiming(deps.branch(), env, info, &config),
-        ContractState::StakingBond => execute_tick_staking_bond(deps.branch(), env, info, &config),
         ContractState::Unbonding => execute_tick_unbonding(deps.branch(), env, info, &config),
     }
 }
@@ -737,26 +737,17 @@ fn execute_tick_idle(
         if validators_to_claim.is_empty() {
             attrs.push(attr("validators_to_claim", "empty"));
             attrs.push(attr("knot", "015"));
-            if let Some(stake_bond_msg) = get_stake_bond_msg(deps.as_ref(), &env, config, &info)? {
-                messages.push(stake_bond_msg);
-                attrs.push(attr("knot", "016"));
-                FSM.go_to(deps.storage, ContractState::StakingBond)?;
-                attrs.push(attr("knot", "017"));
-                attrs.push(attr("state", "staking_bond"));
+            if let Some(unbond_message) =
+                get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
+            {
+                messages.push(unbond_message);
+                attrs.push(attr("knot", "028"));
+                FSM.go_to(deps.storage, ContractState::Unbonding)?;
+                attrs.push(attr("knot", "029"));
+                attrs.push(attr("state", "unbonding"));
             } else {
-                attrs.push(attr("knot", "017"));
-                if let Some(unbond_message) =
-                    get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
-                {
-                    messages.push(unbond_message);
-                    attrs.push(attr("knot", "028"));
-                    FSM.go_to(deps.storage, ContractState::Unbonding)?;
-                    attrs.push(attr("knot", "029"));
-                    attrs.push(attr("state", "unbonding"));
-                } else {
-                    attrs.push(attr("state", "idle"));
-                    attrs.push(attr("knot", "000"));
-                }
+                attrs.push(attr("state", "idle"));
+                attrs.push(attr("knot", "000"));
             }
         } else {
             attrs.push(attr("validators_to_claim", validators_to_claim.join(",")));
@@ -783,10 +774,10 @@ fn execute_tick_idle(
 }
 
 fn execute_tick_peripheral(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    _info: MessageInfo,
-    _config: &Config,
+    mut deps: DepsMut<NeutronQuery>,
+    env: Env,
+    info: MessageInfo,
+    config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut attrs = vec![attr("action", "tick_peripheral")];
     let res = get_received_puppeteer_response(deps.as_ref())?;
@@ -806,11 +797,39 @@ fn execute_tick_peripheral(
             }
             _ => {}
         }
+
+        let balances_response: drop_staking_base::msg::puppeteer::BalancesResponse =
+            deps.querier.query_wasm_smart(
+                config.puppeteer_contract.to_string(),
+                &drop_puppeteer_base::msg::QueryMsg::Extension {
+                    msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
+                },
+            )?;
+        if msg.remote_height > balances_response.remote_height {
+            return Err(ContractError::PuppeteerBalanceOutdated {
+                ica_height: msg.remote_height,
+                control_height: balances_response.remote_height,
+            });
+        }
     }
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
-    FSM.go_to(deps.storage, ContractState::Idle)?;
-    attrs.push(attr("knot", "000"));
-    Ok(response("execute-tick_peripheral", CONTRACT_NAME, attrs))
+
+    let mut messages = vec![];
+    attrs.push(attr("knot", "017"));
+    if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
+    {
+        messages.push(unbond_message);
+        attrs.push(attr("knot", "028"));
+        FSM.go_to(deps.storage, ContractState::Unbonding)?;
+        attrs.push(attr("knot", "029"));
+        attrs.push(attr("state", "unbonding"));
+    } else {
+        FSM.go_to(deps.storage, ContractState::Idle)?;
+        attrs.push(attr("knot", "000"));
+        attrs.push(attr("state", "idle"));
+    }
+
+    Ok(response("execute-tick_peripheral", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 fn execute_tick_claiming(
@@ -880,14 +899,7 @@ fn execute_tick_claiming(
         }
     }
     attrs.push(attr("knot", "015"));
-    if let Some(stake_bond_msg) = get_stake_bond_msg(deps.as_ref(), &env, config, &info)? {
-        messages.push(stake_bond_msg);
-        attrs.push(attr("knot", "016"));
-        FSM.go_to(deps.storage, ContractState::StakingBond)?;
-        attrs.push(attr("knot", "017"));
-        attrs.push(attr("state", "staking_bond"));
-    } else if let Some(unbond_message) =
-        get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
+    if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
     {
         messages.push(unbond_message);
         attrs.push(attr("knot", "028"));
@@ -903,7 +915,7 @@ fn execute_tick_claiming(
     Ok(response("execute-tick_claiming", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
-fn execute_tick_staking_bond(
+fn _execute_tick_staking_bond(
     mut deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
@@ -1097,10 +1109,6 @@ fn execute_update_config(
         config.strategy_contract = deps.api.addr_validate(&strategy_contract)?;
         attrs.push(attr("strategy_contract", strategy_contract));
     }
-    if let Some(staker_contract) = new_config.staker_contract {
-        config.staker_contract = deps.api.addr_validate(&staker_contract)?;
-        attrs.push(attr("staker_contract", staker_contract));
-    }
     if let Some(withdrawal_voucher_contract) = new_config.withdrawal_voucher_contract {
         config.withdrawal_voucher_contract =
             deps.api.addr_validate(&withdrawal_voucher_contract)?;
@@ -1190,10 +1198,6 @@ fn execute_update_config(
     if let Some(emergency_address) = new_config.emergency_address {
         attrs.push(attr("emergency_address", &emergency_address));
         config.emergency_address = Some(emergency_address);
-    }
-    if let Some(min_stake_amount) = new_config.min_stake_amount {
-        attrs.push(attr("min_stake_amount", min_stake_amount));
-        config.min_stake_amount = min_stake_amount;
     }
 
     CONFIG.save(deps.storage, &config)?;
@@ -1301,38 +1305,6 @@ fn check_latest_icq_responses(
     );
 
     Ok(Response::new())
-}
-
-pub fn get_stake_bond_msg<T>(
-    deps: Deps<NeutronQuery>,
-    _env: &Env,
-    config: &Config,
-    info: &MessageInfo,
-) -> ContractResult<Option<CosmosMsg<T>>> {
-    let staker_pending_stake: Result<Uint128, _> = deps.querier.query_wasm_smart(
-        config.staker_contract.to_string(),
-        &drop_staking_base::msg::staker::QueryMsg::NonStakedBalance {},
-    );
-    if let Ok(staker_pending_stake) = staker_pending_stake {
-        if staker_pending_stake.is_zero() {
-            return Ok(None);
-        }
-        let to_delegate: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
-            &config.strategy_contract,
-            &drop_staking_base::msg::strategy::QueryMsg::CalcDeposit {
-                deposit: staker_pending_stake,
-            },
-        )?;
-        return Ok(Some(CosmosMsg::<T>::Wasm(WasmMsg::Execute {
-            contract_addr: config.staker_contract.to_string(),
-            msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
-                items: to_delegate,
-                reply_to: config.staker_contract.to_string(),
-            })?,
-            funds: info.funds.clone(),
-        })));
-    }
-    Ok(None)
 }
 
 fn get_unbonding_msg<T>(

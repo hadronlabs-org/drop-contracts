@@ -348,7 +348,7 @@ fn execute_delegate(
 
     let non_staked_balance = deps.querier.query_wasm_smart::<Uint128>(
         &config.native_bond_provider,
-        &drop_staking_base::msg::staker::QueryMsg::NonStakedBalance {},
+        &drop_staking_base::msg::native_bond_provider::QueryMsg::NonStakedBalance {},
     )?;
 
     ensure!(
