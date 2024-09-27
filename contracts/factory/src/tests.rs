@@ -43,6 +43,7 @@ fn get_default_factory_state() -> State {
         core_contract: "core_contract".to_string(),
         puppeteer_contract: "puppeteer_contract".to_string(),
         staker_contract: "staker_contract".to_string(),
+        withdrawal_token_contract: "withdrawal_token_contract".to_string(),
         withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
         withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
         strategy_contract: "strategy_contract".to_string(),
@@ -76,14 +77,15 @@ fn test_instantiate() {
             core_code_id: 2,
             puppeteer_code_id: 3,
             staker_code_id: 4,
-            withdrawal_voucher_code_id: 5,
-            withdrawal_manager_code_id: 6,
-            strategy_code_id: 7,
-            validators_set_code_id: 8,
-            distribution_code_id: 9,
-            rewards_manager_code_id: 10,
-            rewards_pump_code_id: 11,
-            splitter_code_id: 12,
+            withdrawal_token_code_id: 5,
+            withdrawal_voucher_code_id: 6,
+            withdrawal_manager_code_id: 7,
+            strategy_code_id: 8,
+            validators_set_code_id: 9,
+            distribution_code_id: 10,
+            rewards_manager_code_id: 11,
+            rewards_pump_code_id: 12,
+            splitter_code_id: 13,
         },
         remote_opts: RemoteOpts {
             denom: "denom".to_string(),
@@ -180,7 +182,7 @@ fn test_instantiate() {
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
                         admin: Some("factory_contract".to_string()),
-                        code_id: 8,
+                        code_id: 9,
                         label: "validators set".to_string(),
                         msg: to_json_binary(&ValidatorsSetInstantiateMsg {
                             owner: "factory_contract".to_string(),
@@ -195,7 +197,7 @@ fn test_instantiate() {
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
                         admin: Some("factory_contract".to_string()),
-                        code_id: 9,
+                        code_id: 10,
                         label: "distribution".to_string(),
                         msg: to_json_binary(&DistributionInstantiateMsg {}).unwrap(),
                         funds: vec![],
@@ -252,7 +254,7 @@ fn test_instantiate() {
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
                         admin: Some("factory_contract".to_string()),
-                        code_id: 7,
+                        code_id: 8,
                         label: "strategy".to_string(),
                         msg: to_json_binary(&StrategyInstantiateMsg {
                             owner: "factory_contract".to_string(),
@@ -276,6 +278,7 @@ fn test_instantiate() {
                             puppeteer_contract: "some_humanized_address".to_string(),
                             strategy_contract: "some_humanized_address".to_string(),
                             staker_contract: "some_humanized_address".to_string(),
+                            withdrawal_token_contract: "some_humanized_address".to_string(),
                             withdrawal_voucher_contract: "some_humanized_address".to_string(),
                             withdrawal_manager_contract: "some_humanized_address".to_string(),
                             validators_set_contract: "some_humanized_address".to_string(),
@@ -304,7 +307,7 @@ fn test_instantiate() {
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
                         admin: Some("factory_contract".to_string()),
-                        code_id: 5,
+                        code_id: 6,
                         label: "drop-staking-withdrawal-voucher".to_string(),
                         msg: to_json_binary(&WithdrawalVoucherInstantiateMsg {
                             name: "Drop Voucher".to_string(),
@@ -319,10 +322,11 @@ fn test_instantiate() {
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
                         admin: Some("factory_contract".to_string()),
-                        code_id: 6,
+                        code_id: 7,
                         label: "drop-staking-withdrawal-manager".to_string(),
                         msg: to_json_binary(&WithdrawalManagerInstantiateMsg {
                             core_contract: "some_humanized_address".to_string(),
+                            token_contract: "some_humanized_address".to_string(),
                             voucher_contract: "some_humanized_address".to_string(),
                             base_denom: "base_denom".to_string(),
                             owner: "factory_contract".to_string()
@@ -335,7 +339,7 @@ fn test_instantiate() {
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
                         admin: Some("factory_contract".to_string()),
-                        code_id: 10,
+                        code_id: 11,
                         label: "drop-staking-rewards-manager".to_string(),
                         msg: to_json_binary(&RewardsManagerInstantiateMsg {
                             owner: "factory_contract".to_string()
@@ -348,7 +352,7 @@ fn test_instantiate() {
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
                         admin: Some("factory_contract".to_string()),
-                        code_id: 12,
+                        code_id: 13,
                         label: "drop-staking-splitter".to_string(),
                         msg: to_json_binary(&SplitterInstantiateMsg {
                             config: SplitterConfig {
@@ -370,7 +374,7 @@ fn test_instantiate() {
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
                         admin: Some("factory_contract".to_string()),
-                        code_id: 11,
+                        code_id: 12,
                         label: "drop-staking-rewards-pump".to_string(),
                         msg: to_json_binary(&RewardsPumpInstantiateMsg {
                             dest_address: Some("some_humanized_address".to_string()),
@@ -407,14 +411,15 @@ fn test_instantiate() {
                                     core_code_id: 2,
                                     puppeteer_code_id: 3,
                                     staker_code_id: 4,
-                                    withdrawal_voucher_code_id: 5,
-                                    withdrawal_manager_code_id: 6,
-                                    strategy_code_id: 7,
-                                    validators_set_code_id: 8,
-                                    distribution_code_id: 9,
-                                    rewards_manager_code_id: 10,
-                                    rewards_pump_code_id: 11,
-                                    splitter_code_id: 12,
+                                    withdrawal_token_code_id: 5,
+                                    withdrawal_voucher_code_id: 6,
+                                    withdrawal_manager_code_id: 7,
+                                    strategy_code_id: 8,
+                                    validators_set_code_id: 9,
+                                    distribution_code_id: 10,
+                                    rewards_manager_code_id: 11,
+                                    rewards_pump_code_id: 12,
+                                    splitter_code_id: 13,
                                 }
                             )
                         ),
@@ -455,36 +460,40 @@ fn test_instantiate() {
                             "186C6D9A24AD6C14B6CDC4E8636FCC3564F17691116D96A533C0D3E5B8EB7099"
                         ),
                         cosmwasm_std::attr(
-                            "withdrawal_voucher_address",
+                            "withdrawal_token_address",
                             "2EDC9F3CA74FEE8C9C97C5804C5E44B684380772A0C7CFC7FEB14843D437AADD"
                         ),
                         cosmwasm_std::attr(
-                            "withdrawal_manager_address",
+                            "withdrawal_voucher_address",
                             "9080C5A07DA3FAE670586720247E99E9CAB3DF2C79EBD967BEB03747252B97A0"
                         ),
                         cosmwasm_std::attr(
-                            "strategy_address",
+                            "withdrawal_manager_address",
                             "A611AB41BFB88C7F467A747DFE64B3FE6141D563131D296421B5D4E038C84B9D"
                         ),
                         cosmwasm_std::attr(
-                            "validators_set_address",
+                            "strategy_address",
                             "7B4BE8580FC3E8C59FB57516384CB9E30D3707E560C11C4818D94FE2707A8A6D"
                         ),
                         cosmwasm_std::attr(
-                            "distribution_address",
+                            "validators_set_address",
                             "0368B2CE05A215FF095D4B598371205F6CDEAEE8A6332D233E0C6E7F099893AF"
                         ),
                         cosmwasm_std::attr(
-                            "rewards_manager_address",
+                            "distribution_address",
                             "F71DD2183C67E30D7E199C9AB928419B8693183A24C2528790760290895FF118"
                         ),
                         cosmwasm_std::attr(
+                            "rewards_manager_address",
+                            "6FC09E9FDF411D71139AB50762FB9862D4F519DC21EADB93E93195388E164F25"
+                        ),
+                        cosmwasm_std::attr(
                             "splitter_address",
-                            "99F8E05523E1A4B79E291E7934CC8E306F609D5B470D9D0872925EDCA019D3C1"
+                            "1D482178B63387218844AA22FC89A3D4465BD4CC07A8DC1232C62EFE4838F955"
                         ),
                         cosmwasm_std::attr(
                             "rewards_pump_address",
-                            "6FC09E9FDF411D71139AB50762FB9862D4F519DC21EADB93E93195388E164F25"
+                            "99F8E05523E1A4B79E291E7934CC8E306F609D5B470D9D0872925EDCA019D3C1"
                         ),
                     ])
             )
@@ -506,6 +515,7 @@ fn test_update_config_core_unauthorized() {
         puppeteer_contract: None,
         strategy_contract: None,
         staker_contract: None,
+        withdrawal_token_contract: None,
         withdrawal_voucher_contract: None,
         withdrawal_manager_contract: None,
         validators_set_contract: None,
@@ -554,6 +564,7 @@ fn test_update_config_core() {
         puppeteer_contract: Some("puppeteer_contract1".to_string()),
         strategy_contract: Some("strategy_contract1".to_string()),
         staker_contract: Some("staker_contract1".to_string()),
+        withdrawal_token_contract: Some("withdrawal_token_contract1".to_string()),
         withdrawal_voucher_contract: Some("withdrawal_voucher_contract1".to_string()),
         withdrawal_manager_contract: Some("withdrawal_manager_contract1".to_string()),
         validators_set_contract: Some("validators_set_contract1".to_string()),

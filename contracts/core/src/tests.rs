@@ -51,6 +51,7 @@ fn get_default_config(
         token_contract: Addr::unchecked("token_contract"),
         puppeteer_contract: Addr::unchecked(MOCK_PUPPETEER_CONTRACT_ADDR),
         strategy_contract: Addr::unchecked(MOCK_STRATEGY_CONTRACT_ADDR),
+        withdrawal_token_contract: Addr::unchecked("withdrawal_token_contract"),
         withdrawal_voucher_contract: Addr::unchecked("withdrawal_voucher_contract"),
         withdrawal_manager_contract: Addr::unchecked("withdrawal_manager_contract"),
         validators_set_contract: Addr::unchecked("validators_set_contract"),
@@ -109,6 +110,7 @@ fn test_update_config() {
             puppeteer_contract: "old_puppeteer_contract".to_string(),
             strategy_contract: "old_strategy_contract".to_string(),
             staker_contract: "old_staker_contract".to_string(),
+            withdrawal_token_contract: "old_withdrawal_token_contract".to_string(),
             withdrawal_voucher_contract: "old_withdrawal_voucher_contract".to_string(),
             withdrawal_manager_contract: "old_withdrawal_manager_contract".to_string(),
             validators_set_contract: "old_validators_set_contract".to_string(),
@@ -141,6 +143,7 @@ fn test_update_config() {
         puppeteer_contract: Some("new_puppeteer_contract".to_string()),
         strategy_contract: Some("new_strategy_contract".to_string()),
         staker_contract: Some("new_staker_contract".to_string()),
+        withdrawal_token_contract: Some("new_withdrawal_token_contract".to_string()),
         withdrawal_voucher_contract: Some("new_withdrawal_voucher_contract".to_string()),
         withdrawal_manager_contract: Some("new_withdrawal_manager_contract".to_string()),
         validators_set_contract: Some("new_validators_set_contract".to_string()),
@@ -165,6 +168,7 @@ fn test_update_config() {
         puppeteer_contract: Addr::unchecked("new_puppeteer_contract"),
         staker_contract: Addr::unchecked("new_staker_contract"),
         strategy_contract: Addr::unchecked("new_strategy_contract"),
+        withdrawal_token_contract: Addr::unchecked("new_withdrawal_token_contract"),
         withdrawal_voucher_contract: Addr::unchecked("new_withdrawal_voucher_contract"),
         withdrawal_manager_contract: Addr::unchecked("new_withdrawal_manager_contract"),
         validators_set_contract: Addr::unchecked("new_validators_set_contract"),
@@ -1355,6 +1359,16 @@ fn test_tick_idle_unbonding() {
                 .unwrap(),
                 funds: vec![Coin::new(1000, "untrn")],
             })))
+            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "withdrawal_token_contract".to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::withdrawal_token::ExecuteMsg::CreateDenom {
+                        batch_id: Uint128::one(),
+                    }
+                )
+                .unwrap(),
+                funds: vec![],
+            })))
     );
 }
 
@@ -1580,6 +1594,16 @@ fn test_tick_idle_unbonding_failed() {
                 })
                 .unwrap(),
                 funds: vec![Coin::new(1000, "untrn")],
+            })))
+            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "withdrawal_token_contract".to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::withdrawal_token::ExecuteMsg::CreateDenom {
+                        batch_id: Uint128::one(),
+                    }
+                )
+                .unwrap(),
+                funds: vec![],
             })))
     );
     let current_batch_id = UNBOND_BATCH_ID.load(deps.as_ref().storage).unwrap();
@@ -2066,6 +2090,16 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                 })
                 .unwrap(),
                 funds: vec![Coin::new(1000u128, "untrn")],
+            })))
+            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "withdrawal_token_contract".to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::withdrawal_token::ExecuteMsg::CreateDenom {
+                        batch_id: Uint128::one(),
+                    }
+                )
+                .unwrap(),
+                funds: vec![],
             })))
     );
     let new_batch_id = UNBOND_BATCH_ID.load(deps.as_mut().storage).unwrap();
@@ -2591,6 +2625,16 @@ fn test_tick_staking_to_unbonding() {
                 })
                 .unwrap(),
                 funds: vec![Coin::new(1000u128, "untrn")],
+            })))
+            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "withdrawal_token_contract".to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::withdrawal_token::ExecuteMsg::CreateDenom {
+                        batch_id: Uint128::one(),
+                    }
+                )
+                .unwrap(),
+                funds: vec![],
             })))
     );
 }
@@ -3592,35 +3636,16 @@ fn test_unbond() {
     )
     .unwrap();
     let unbond_batch = unbond_batches_map().load(deps.as_ref().storage, 0).unwrap();
-    let extension = Some(drop_staking_base::state::withdrawal_voucher::Metadata {
-        description: Some("Withdrawal voucher".into()),
-        name: "LDV voucher".to_string(),
-        batch_id: "0".to_string(),
-        amount: Uint128::from(1000u128),
-        attributes: Some(vec![
-            drop_staking_base::state::withdrawal_voucher::Trait {
-                display_type: None,
-                trait_type: "unbond_batch_id".to_string(),
-                value: "0".to_string(),
-            },
-            drop_staking_base::state::withdrawal_voucher::Trait {
-                display_type: None,
-                trait_type: "received_amount".to_string(),
-                value: "1000".to_string(),
-            },
-        ]),
-    });
     assert_eq!(
         res,
         Response::new()
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "withdrawal_voucher_contract".to_string(),
+                contract_addr: "withdrawal_token_contract".to_string(),
                 msg: to_json_binary(
-                    &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::Mint {
-                        token_id: "0_some_sender_1".to_string(),
-                        owner: "some_sender".to_string(),
-                        token_uri: None,
-                        extension,
+                    &drop_staking_base::msg::withdrawal_token::ExecuteMsg::Mint {
+                        receiver: "some_sender".to_string(),
+                        amount: Uint128::from(1000u128),
+                        batch_id: Uint128::zero(),
                     }
                 )
                 .unwrap(),
