@@ -50,9 +50,6 @@ class Client {
     queryLastPuppeteerResponse = async () => {
         return this.client.queryContractSmart(this.contractAddress, { last_puppeteer_response: {} });
     };
-    queryLastStakerResponse = async () => {
-        return this.client.queryContractSmart(this.contractAddress, { last_staker_response: {} });
-    };
     queryTotalBonded = async () => {
         return this.client.queryContractSmart(this.contractAddress, { total_bonded: {} });
     };
@@ -118,12 +115,6 @@ class Client {
             throw this.mustBeSigningClient();
         }
         return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
-    };
-    stakerHook = async (sender, args, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, { staker_hook: args }, fee || "auto", memo, funds);
     };
     resetBondedAmount = async (sender, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {

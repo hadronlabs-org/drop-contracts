@@ -25,7 +25,7 @@ export type ArrayOfAddr = Addr[];
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type ContractState = "idle" | "peripheral" | "claiming" | "unbonding" | "staking_bond";
+export type ContractState = "idle" | "peripheral" | "claiming" | "unbonding";
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -145,6 +145,11 @@ export type Transaction =
       };
     }
   | {
+      stake: {
+        items: [string, Uint128][];
+      };
+    }
+  | {
       transfer: {
         interchain_account_id: string;
         items: [string, Coin][];
@@ -157,7 +162,7 @@ export type Transaction =
         rewards_withdraw_address: string;
       };
     };
-export type IBCTransferReason = "l_s_m_share" | "stake";
+export type IBCTransferReason = "l_s_m_share" | "delegate";
 export type String = string;
 /**
  * Information about if the contract is currently paused.
@@ -245,24 +250,6 @@ export type PuppeteerHookArgs =
   | {
       error: ResponseHookErrorMsg;
     };
-export type StakerHookArgs =
-  | {
-      success: ResponseHookSuccessMsg2;
-    }
-  | {
-      error: ResponseHookErrorMsg2;
-    };
-export type Transaction2 =
-  | {
-      stake: {
-        amount: Uint128;
-      };
-    }
-  | {
-      i_b_c_transfer: {
-        amount: Uint128;
-      };
-    };
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -310,7 +297,6 @@ export interface DropCoreSchema {
     | Decimal
     | FailedBatchResponse
     | LastPuppeteerResponse
-    | LastStakerResponse
     | String
     | PauseInfoResponse
     | Uint1282
@@ -326,7 +312,6 @@ export interface DropCoreSchema {
     | UpdateConfigArgs
     | UpdateWithdrawnAmountArgs
     | PuppeteerHookArgs
-    | StakerHookArgs
     | ProcessEmergencyBatchArgs
     | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
@@ -341,11 +326,9 @@ export interface Config {
   lsm_min_bond_amount: Uint128;
   lsm_redeem_maximum_interval: number;
   lsm_redeem_threshold: number;
-  min_stake_amount: Uint128;
   pump_ica_address?: string | null;
   puppeteer_contract: Addr;
   remote_denom: string;
-  staker_contract: Addr;
   strategy_contract: Addr;
   token_contract: Addr;
   transfer_channel_id: string;
@@ -431,9 +414,6 @@ export interface ResponseHookErrorMsg {
   request_id: number;
   transaction: Transaction;
 }
-export interface LastStakerResponse {
-  response?: ResponseHookMsg | null;
-}
 export interface UnbondBatch {
   expected_native_asset_amount: Uint128;
   expected_release_time: number;
@@ -498,7 +478,6 @@ export interface ConfigOptional {
   lsm_min_bond_amount?: Uint128 | null;
   lsm_redeem_maximum_interval?: number | null;
   lsm_redeem_threshold?: number | null;
-  min_stake_amount?: Uint128 | null;
   pump_ica_address?: string | null;
   puppeteer_contract?: string | null;
   remote_denom?: string | null;
@@ -518,19 +497,6 @@ export interface UpdateWithdrawnAmountArgs {
   batch_id: number;
   withdrawn_amount: Uint128;
 }
-export interface ResponseHookSuccessMsg2 {
-  local_height: number;
-  remote_height: number;
-  request: RequestPacket;
-  request_id: number;
-  transaction: Transaction2;
-}
-export interface ResponseHookErrorMsg2 {
-  details: string;
-  request: RequestPacket;
-  request_id: number;
-  transaction: Transaction2;
-}
 export interface ProcessEmergencyBatchArgs {
   batch_id: number;
   unbonded_amount: Uint128;
@@ -544,12 +510,10 @@ export interface InstantiateMsg {
   lsm_min_bond_amount: Uint128;
   lsm_redeem_max_interval: number;
   lsm_redeem_threshold: number;
-  min_stake_amount: Uint128;
   owner: string;
   pump_ica_address?: string | null;
   puppeteer_contract: string;
   remote_denom: string;
-  staker_contract: string;
   strategy_contract: string;
   token_contract: string;
   transfer_channel_id: string;
@@ -631,9 +595,6 @@ export class Client {
   queryLastPuppeteerResponse = async(): Promise<LastPuppeteerResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { last_puppeteer_response: {} });
   }
-  queryLastStakerResponse = async(): Promise<LastStakerResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { last_staker_response: {} });
-  }
   queryTotalBonded = async(): Promise<Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { total_bonded: {} });
   }
@@ -683,10 +644,6 @@ export class Client {
   puppeteerHook = async(sender:string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
-  }
-  stakerHook = async(sender:string, args: StakerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { staker_hook: args }, fee || "auto", memo, funds);
   }
   resetBondedAmount = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

@@ -46,23 +46,20 @@ export const DropRewardsManager = _14;
 import * as _15 from './dropSplitter';
 export const DropSplitter = _15;
 
-import * as _16 from './dropStaker';
-export const DropStaker = _16;
+import * as _16 from './dropStrategy';
+export const DropStrategy = _16;
 
-import * as _17 from './dropStrategy';
-export const DropStrategy = _17;
+import * as _17 from './dropToken';
+export const DropToken = _17;
 
-import * as _18 from './dropToken';
-export const DropToken = _18;
+import * as _18 from './dropValidatorsSet';
+export const DropValidatorsSet = _18;
 
-import * as _19 from './dropValidatorsSet';
-export const DropValidatorsSet = _19;
+import * as _19 from './dropValidatorsStats';
+export const DropValidatorsStats = _19;
 
-import * as _20 from './dropValidatorsStats';
-export const DropValidatorsStats = _20;
+import * as _20 from './dropWithdrawalManager';
+export const DropWithdrawalManager = _20;
 
-import * as _21 from './dropWithdrawalManager';
-export const DropWithdrawalManager = _21;
-
-import * as _22 from './dropWithdrawalVoucher';
-export const DropWithdrawalVoucher = _22;
+import * as _21 from './dropWithdrawalVoucher';
+export const DropWithdrawalVoucher = _21;

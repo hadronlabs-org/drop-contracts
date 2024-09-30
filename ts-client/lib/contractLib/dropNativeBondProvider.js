@@ -29,6 +29,15 @@ class Client {
     queryConfig = async () => {
         return this.client.queryContractSmart(this.contractAddress, { config: {} });
     };
+    queryNonStakedBalance = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { non_staked_balance: {} });
+    };
+    queryAllBalance = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { all_balance: {} });
+    };
+    queryTxState = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { tx_state: {} });
+    };
     queryCanBond = async (args) => {
         return this.client.queryContractSmart(this.contractAddress, { can_bond: args });
     };
@@ -49,6 +58,18 @@ class Client {
             throw this.mustBeSigningClient();
         }
         return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+    };
+    puppeteerTransfer = async (sender, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { puppeteer_transfer: {} }, fee || "auto", memo, funds);
+    };
+    puppeteerHook = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
     };
     bond = async (sender, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {

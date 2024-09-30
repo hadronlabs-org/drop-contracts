@@ -106,6 +106,11 @@ export type Transaction =
       };
     }
   | {
+      stake: {
+        items: [string, Uint128][];
+      };
+    }
+  | {
       transfer: {
         interchain_account_id: string;
         items: [string, Coin][];
@@ -118,7 +123,7 @@ export type Transaction =
         rewards_withdraw_address: string;
       };
     };
-export type IBCTransferReason = "l_s_m_share" | "stake";
+export type IBCTransferReason = "l_s_m_share" | "delegate";
 export type ArrayOfResponseHookSuccessMsg = ResponseHookSuccessMsg[];
 export type ArrayOfResponseHookErrorMsg = ResponseHookErrorMsg[];
 export type PuppeteerHookArgs =

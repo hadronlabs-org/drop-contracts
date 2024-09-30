@@ -6,6 +6,9 @@ use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 use drop_macros::{bond_provider, bond_provider_query};
 use drop_puppeteer_base::msg::ResponseHookMsg as PuppeteerResponseHookMsg;
 
+#[allow(unused_imports)]
+use super::core::LastPuppeteerResponse;
+
 #[cw_serde]
 pub struct InstantiateMsg {
     pub owner: String,
@@ -22,6 +25,7 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig { new_config: ConfigOptional },
+    PuppeteerSend {},
     PuppeteerTransfer {},
     PuppeteerHook(Box<PuppeteerResponseHookMsg>),
 }
@@ -39,6 +43,8 @@ pub enum QueryMsg {
     AllBalance {},
     #[returns(crate::state::native_bond_provider::TxState)]
     TxState {},
+    #[returns(LastPuppeteerResponse)]
+    LastPuppeteerResponse {},
 }
 
 #[cw_serde]

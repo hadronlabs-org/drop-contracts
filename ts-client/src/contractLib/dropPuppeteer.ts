@@ -71,6 +71,11 @@ export type Transaction =
       };
     }
   | {
+      stake: {
+        items: [string, Uint128][];
+      };
+    }
+  | {
       transfer: {
         interchain_account_id: string;
         items: [string, Coin][];
@@ -97,7 +102,7 @@ export type Transaction =
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type IBCTransferReason = "l_s_m_share" | "stake";
+export type IBCTransferReason = "l_s_m_share" | "delegate";
 export type ArrayOfTransaction = Transaction[];
 export type TxStateStatus = "idle" | "in_progress" | "waiting_for_ack";
 export type QueryExtMsg =
@@ -116,6 +121,16 @@ export type QueryExtMsg =
   | {
       ownership: {};
     };
+/**
+ * A human readable address.
+ *
+ * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
+ *
+ * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
+ *
+ * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
+ */
+export type Addr = string;
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -174,6 +189,7 @@ export interface DropPuppeteerSchema {
     | RegisterDelegatorUnbondingDelegationsQueryArgs
     | RegisterNonNativeRewardsBalancesQueryArgs
     | SetupProtocolArgs
+    | DelegateArgs
     | UndelegateArgs
     | RedelegateArgs
     | TokenizeShareArgs
@@ -228,6 +244,10 @@ export interface SetupProtocolArgs {
   delegate_grantee: string;
   rewards_withdraw_address: string;
 }
+export interface DelegateArgs {
+  items: [string, Uint128][];
+  reply_to: string;
+}
 export interface UndelegateArgs {
   batch_id: number;
   items: [string, Uint128][];
@@ -267,6 +287,7 @@ export interface UpdateConfigArgs {
 export interface ConfigOptional {
   allowed_senders?: string[] | null;
   connection_id?: string | null;
+  native_bond_provider?: Addr | null;
   port_id?: string | null;
   remote_denom?: string | null;
   sdk_version?: string | null;
@@ -278,6 +299,7 @@ export interface InstantiateMsg {
   allowed_senders: string[];
   connection_id: string;
   delegations_queries_chunk_size?: number | null;
+  native_bond_provider: string;
   owner?: string | null;
   port_id: string;
   remote_denom: string;
@@ -374,6 +396,10 @@ export class Client {
   setupProtocol = async(sender:string, args: SetupProtocolArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { setup_protocol: args }, fee || "auto", memo, funds);
+  }
+  delegate = async(sender:string, args: DelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { delegate: args }, fee || "auto", memo, funds);
   }
   undelegate = async(sender:string, args: UndelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

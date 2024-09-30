@@ -712,7 +712,6 @@ export interface State {
     rewards_manager_contract: string;
     rewards_pump_contract: string;
     splitter_contract: string;
-    staker_contract: string;
     strategy_contract: string;
     token_contract: string;
     validators_set_contract: string;
@@ -727,7 +726,6 @@ export interface ConfigOptional {
     lsm_min_bond_amount?: Uint128 | null;
     lsm_redeem_maximum_interval?: number | null;
     lsm_redeem_threshold?: number | null;
-    min_stake_amount?: Uint128 | null;
     pump_ica_address?: string | null;
     puppeteer_contract?: string | null;
     remote_denom?: string | null;
@@ -1123,10 +1121,10 @@ export interface InstantiateMsg {
     core_params: CoreParams;
     fee_params?: FeeParams | null;
     local_denom: string;
+    native_bond_params: NativeBondParams;
     remote_opts: RemoteOpts;
     salt: string;
     sdk_version: string;
-    staker_params: StakerParams;
     subdenom: string;
     token_metadata: DenomMetadata;
 }
@@ -1153,7 +1151,6 @@ export interface CoreParams {
     lsm_min_bond_amount: Uint128;
     lsm_redeem_max_interval: number;
     lsm_redeem_threshold: number;
-    min_stake_amount: Uint128;
     unbond_batch_switch_time: number;
     unbonding_period: number;
     unbonding_safe_period: number;
@@ -1161,6 +1158,10 @@ export interface CoreParams {
 export interface FeeParams {
     fee: Decimal;
     fee_address: string;
+}
+export interface NativeBondParams {
+    min_ibc_transfer: Uint128;
+    min_stake_amount: Uint128;
 }
 export interface RemoteOpts {
     connection_id: string;
@@ -1174,10 +1175,6 @@ export interface RemoteOpts {
 export interface Timeout {
     local: number;
     remote: number;
-}
-export interface StakerParams {
-    min_ibc_transfer: Uint128;
-    min_stake_amount: Uint128;
 }
 export interface DenomMetadata {
     /**

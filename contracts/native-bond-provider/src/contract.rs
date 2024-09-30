@@ -1,19 +1,20 @@
 use cosmwasm_schema::serde::Serialize;
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, to_json_binary, Attribute, Coin, CosmosMsg, Decimal, Deps, Reply,
-    StdError, StdResult, SubMsg, SubMsgResult, Uint128, WasmMsg,
+    attr, ensure, ensure_eq, to_json_binary, Attribute, BankMsg, Coin, CosmosMsg, Decimal, Deps,
+    Reply, StdError, StdResult, SubMsg, SubMsgResult, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::{attr_coin, response};
 use drop_puppeteer_base::msg::{IBCTransferReason, ReceiverExecuteMsg};
 use drop_staking_base::error::native_bond_provider::{ContractError, ContractResult};
+use drop_staking_base::msg::core::LastPuppeteerResponse;
 use drop_staking_base::msg::native_bond_provider::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
 use drop_staking_base::state::native_bond_provider::{
-    Config, ConfigOptional, Transaction, TxState, TxStateStatus, CONFIG, NON_STAKED_BALANCE,
-    PUPPETEER_TRANSFER_REPLY_ID, TX_STATE,
+    Config, ConfigOptional, ReplyMsg, Transaction, TxState, TxStateStatus, CONFIG,
+    LAST_PUPPETEER_RESPONSE, NON_STAKED_BALANCE, NON_TRANSFERRED_BALANCE, TX_STATE,
 };
 use neutron_sdk::bindings::msg::{MsgSubmitTxResponse, NeutronMsg};
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -46,6 +47,7 @@ pub fn instantiate(
     CONFIG.save(deps.storage, config)?;
 
     NON_STAKED_BALANCE.save(deps.storage, &Uint128::zero())?;
+    NON_TRANSFERRED_BALANCE.save(deps.storage, &Uint128::zero())?;
     TX_STATE.save(deps.storage, &TxState::default())?;
 
     Ok(response(
@@ -88,6 +90,9 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::NonStakedBalance {} => query_non_staked_balance(deps, env),
         QueryMsg::AllBalance {} => query_all_balance(deps, env),
         QueryMsg::TxState {} => query_tx_state(deps, env),
+        QueryMsg::LastPuppeteerResponse {} => Ok(to_json_binary(&LastPuppeteerResponse {
+            response: LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?,
+        })?),
     }
 }
 
@@ -182,6 +187,7 @@ pub fn execute(
         ExecuteMsg::Bond {} => execute_bond(deps, info),
         ExecuteMsg::ProcessOnIdle {} => execute_process_on_idle(deps, env, info),
         ExecuteMsg::PuppeteerTransfer {} => execute_puppeteer_transfer(deps, env),
+        ExecuteMsg::PuppeteerSend {} => execute_puppeteer_send(deps, env),
         ExecuteMsg::PuppeteerHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
     }
 }
@@ -268,7 +274,7 @@ fn execute_process_on_idle(
 
     let attrs = vec![attr("action", "process_on_idle")];
 
-    let puppeteer_transfer_msg = CosmosMsg::Wasm(WasmMsg::Execute {
+    let puppeteer_delegation_msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_contract.to_string(),
         msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
             items: to_delegate,
@@ -279,11 +285,11 @@ fn execute_process_on_idle(
 
     let submsg: SubMsg<NeutronMsg> = msg_with_reply_callback(
         deps,
-        puppeteer_transfer_msg,
-        Transaction::IBCTransfer {
+        puppeteer_delegation_msg,
+        Transaction::Stake {
             amount: non_staked_balance,
         },
-        PUPPETEER_TRANSFER_REPLY_ID,
+        ReplyMsg::Bond.to_reply_id(),
         Some(env.contract.address.to_string()),
     )?;
 
@@ -326,6 +332,43 @@ fn execute_process_on_idle(
 //     Ok(None)
 // }
 
+fn execute_puppeteer_send(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+) -> ContractResult<Response<NeutronMsg>> {
+    let config = CONFIG.load(deps.storage)?;
+
+    let pending_coin = deps
+        .querier
+        .query_balance(&env.contract.address, config.base_denom)?;
+
+    NON_TRANSFERRED_BALANCE.update(deps.storage, |balance| {
+        StdResult::Ok(balance + pending_coin.amount)
+    })?;
+
+    let submsg = SubMsg::reply_on_error(
+        CosmosMsg::Bank(BankMsg::Send {
+            to_address: config.puppeteer_contract.to_string(),
+            amount: vec![pending_coin.clone()],
+        }),
+        ReplyMsg::BankSend.to_reply_id(),
+    );
+
+    Ok(response(
+        "bond",
+        CONTRACT_NAME,
+        [
+            attr("action", "puppeteer_send"),
+            attr_coin(
+                "funds_sent",
+                pending_coin.amount.to_string(),
+                pending_coin.denom,
+            ),
+        ],
+    )
+    .add_submessage(submsg))
+}
+
 fn execute_puppeteer_transfer(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -339,38 +382,52 @@ fn execute_puppeteer_transfer(
         }
     );
 
-    let pending_coin = deps
-        .querier
-        .query_balance(&env.contract.address, config.base_denom)?;
+    let pending_coin = Coin::new(
+        NON_TRANSFERRED_BALANCE.load(deps.storage)?.u128(),
+        config.base_denom,
+    );
+
     ensure!(
         pending_coin.amount >= config.min_ibc_transfer,
         ContractError::InvalidFunds {
             reason: "amount is less than min_ibc_transfer".to_string()
         }
     );
+
     NON_STAKED_BALANCE.update(deps.storage, |balance| {
         StdResult::Ok(balance + pending_coin.amount)
     })?;
+    NON_TRANSFERRED_BALANCE.update(deps.storage, |balance| {
+        StdResult::Ok(balance - pending_coin.amount)
+    })?;
+
     let attrs = vec![
         attr("action", "puppeteer_transfer"),
         attr("pending_amount", pending_coin.amount),
     ];
 
-    let puppeteer_transfer = SubMsg::reply_on_error(
-        CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.puppeteer_contract.to_string(),
-            msg: to_json_binary(
-                &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
-                    reason: IBCTransferReason::Delegate,
-                    reply_to: env.contract.address.to_string(),
-                },
-            )?,
-            funds: vec![pending_coin],
-        }),
-        PUPPETEER_TRANSFER_REPLY_ID,
-    );
+    let puppeteer_transfer_msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.puppeteer_contract.to_string(),
+        msg: to_json_binary(
+            &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
+                reason: IBCTransferReason::Delegate,
+                reply_to: env.contract.address.to_string(),
+            },
+        )?,
+        funds: vec![],
+    });
 
-    Ok(response("puppeteer_transfer", CONTRACT_NAME, attrs).add_submessage(puppeteer_transfer))
+    let submsg: SubMsg<NeutronMsg> = msg_with_reply_callback(
+        deps,
+        puppeteer_transfer_msg,
+        Transaction::IBCTransfer {
+            amount: pending_coin.amount,
+        },
+        ReplyMsg::IbcTransfer.to_reply_id(),
+        Some(env.contract.address.to_string()),
+    )?;
+
+    Ok(response("puppeteer_transfer", CONTRACT_NAME, attrs).add_submessage(submsg))
 }
 
 fn execute_puppeteer_hook(
@@ -385,26 +442,54 @@ fn execute_puppeteer_hook(
         config.puppeteer_contract,
         ContractError::Unauthorized {}
     );
-    if let drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) = msg.clone() {
-        match success_msg.transaction {
-            drop_puppeteer_base::msg::Transaction::Stake { items } => {
-                let amount_to_stake: Uint128 = items.iter().map(|(_, amount)| *amount).sum();
 
-                NON_STAKED_BALANCE.update(deps.storage, |balance| {
-                    StdResult::Ok(balance - amount_to_stake)
-                })?;
-            }
-            drop_puppeteer_base::msg::Transaction::IBCTransfer { .. } => {
-                let tx_state = TX_STATE.load(deps.storage)?;
-                tx_state
-                    .transaction
-                    .ok_or_else(|| StdError::generic_err("transaction not found"))?;
+    let tx_state = TX_STATE.load(deps.storage)?;
+    ensure!(
+        tx_state.status == TxStateStatus::WaitingForAck,
+        ContractError::InvalidState {
+            reason: "tx_state is not WaitingForAck".to_string()
+        }
+    );
 
-                TX_STATE.save(deps.storage, &TxState::default())?;
+    let transaction = tx_state
+        .transaction
+        .ok_or_else(|| StdError::generic_err("transaction not found"))?;
+
+    match msg.clone() {
+        drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) => {
+            match success_msg.transaction {
+                drop_puppeteer_base::msg::Transaction::Stake { items } => {
+                    if let Transaction::Stake { .. } = transaction {
+                        let amount_to_stake: Uint128 =
+                            items.iter().map(|(_, amount)| *amount).sum();
+
+                        NON_STAKED_BALANCE.update(deps.storage, |balance| {
+                            StdResult::Ok(balance - amount_to_stake)
+                        })?;
+
+                        TX_STATE.save(deps.storage, &TxState::default())?;
+                    }
+                }
+                drop_puppeteer_base::msg::Transaction::IBCTransfer { .. } => {
+                    if let Transaction::IBCTransfer { .. } = transaction {
+                        TX_STATE.save(deps.storage, &TxState::default())?;
+                    }
+                }
+                _ => {}
             }
-            _ => {}
+        }
+        drop_puppeteer_base::msg::ResponseHookMsg::Error(error_msg) => {
+            match error_msg.transaction {
+                drop_puppeteer_base::msg::Transaction::IBCTransfer { .. }
+                | drop_puppeteer_base::msg::Transaction::Stake { .. } => {
+                    TX_STATE.save(deps.storage, &TxState::default())?;
+                }
+                _ => {}
+            }
         }
     }
+
+    LAST_PUPPETEER_RESPONSE.save(deps.storage, &msg)?;
 
     let hook_message = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.core_contract.to_string(),
@@ -441,17 +526,17 @@ fn msg_with_reply_callback<C: Into<CosmosMsg<X>> + Serialize, X>(
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
-    match msg.id {
-        PUPPETEER_TRANSFER_REPLY_ID => puppeteer_transfer_reply(deps, msg),
-        id => Err(ContractError::UnknownReplyId { id }),
-    }
-}
-
-fn puppeteer_transfer_reply(deps: DepsMut, msg: Reply) -> ContractResult<Response> {
     if let SubMsgResult::Err(err) = msg.result {
         return Err(ContractError::PuppeteerError { message: err });
     }
 
+    match ReplyMsg::from_reply_id(msg.id) {
+        ReplyMsg::IbcTransfer | ReplyMsg::Bond => puppeteer_reply(deps, msg),
+        ReplyMsg::BankSend => Ok(Response::new()),
+    }
+}
+
+fn puppeteer_reply(deps: DepsMut, msg: Reply) -> ContractResult<Response> {
     let resp: MsgSubmitTxResponse = serde_json_wasm::from_slice(
         msg.result
             .into_result()

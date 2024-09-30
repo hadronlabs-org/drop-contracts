@@ -120,6 +120,10 @@ export type Transaction = {
         recipient: string;
     };
 } | {
+    stake: {
+        items: [string, Uint1281][];
+    };
+} | {
     transfer: {
         interchain_account_id: string;
         items: [string, Coin][];
@@ -131,7 +135,7 @@ export type Transaction = {
         rewards_withdraw_address: string;
     };
 };
-export type IBCTransferReason = "l_s_m_share" | "stake";
+export type IBCTransferReason = "l_s_m_share" | "delegate";
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
