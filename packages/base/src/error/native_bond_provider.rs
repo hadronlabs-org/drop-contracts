@@ -43,6 +43,9 @@ pub enum ContractError {
         min_stake_amount: Uint128,
         non_staked_balance: Uint128,
     },
+
+    #[error("Invalid State: {reason}")]
+    InvalidState { reason: String },
 }
 
 impl From<semver::Error> for ContractError {

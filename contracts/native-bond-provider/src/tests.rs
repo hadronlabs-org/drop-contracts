@@ -1,19 +1,24 @@
 use cosmwasm_std::{
     attr,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, Coin, Decimal, Event, Response, Uint128,
+    to_json_binary, Addr, Coin, CosmosMsg, Decimal, Event, Response, SubMsg, Uint128, WasmMsg,
 };
 use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
 use drop_helpers::testing::mock_dependencies;
-use drop_staking_base::state::native_bond_provider::{Config, ConfigOptional, CONFIG};
+use drop_staking_base::state::native_bond_provider::{
+    Config, ConfigOptional, TxState, CONFIG, NON_STAKED_BALANCE, PUPPETEER_TRANSFER_REPLY_ID,
+    TX_STATE,
+};
 
 fn get_default_config() -> Config {
     Config {
         puppeteer_contract: Addr::unchecked("puppeteer_contract"),
         core_contract: Addr::unchecked("core_contract"),
+        strategy_contract: Addr::unchecked("strategy_contract"),
         base_denom: "base_denom".to_string(),
         min_ibc_transfer: Uint128::from(100u128),
+        min_stake_amount: Uint128::from(100u128),
     }
 }
 
@@ -29,7 +34,9 @@ fn instantiate() {
             base_denom: "base_denom".to_string(),
             puppeteer_contract: "puppeteer_contract".to_string(),
             core_contract: "core_contract".to_string(),
+            strategy_contract: "strategy_contract".to_string(),
             min_ibc_transfer: Uint128::from(100u128),
+            min_stake_amount: Uint128::from(100u128),
         },
     )
     .unwrap();
@@ -46,7 +53,9 @@ fn instantiate() {
                 .add_attributes([
                     attr("puppeteer_contract", "puppeteer_contract"),
                     attr("core_contract", "core_contract"),
+                    attr("strategy_contract", "strategy_contract"),
                     attr("min_ibc_transfer", Uint128::from(100u128)),
+                    attr("min_stake_amount", Uint128::from(100u128)),
                     attr("base_denom", "base_denom"),
                 ])
         ]
@@ -87,7 +96,9 @@ fn update_config_wrong_owner() {
                 base_denom: Some("base_denom".to_string()),
                 puppeteer_contract: Some(Addr::unchecked("puppeteer_contract")),
                 core_contract: Some(Addr::unchecked("core_contract")),
+                strategy_contract: Some(Addr::unchecked("strategy_contract")),
                 min_ibc_transfer: Some(Uint128::from(100u128)),
+                min_stake_amount: Some(Uint128::from(100u128)),
             },
         },
     )
@@ -125,7 +136,9 @@ fn update_config_ok() {
                 base_denom: Some("base_denom_1".to_string()),
                 puppeteer_contract: Some(Addr::unchecked("puppeteer_contract_1")),
                 core_contract: Some(Addr::unchecked("core_contract_1")),
+                strategy_contract: Some(Addr::unchecked("strategy_contract_1")),
                 min_ibc_transfer: Some(Uint128::from(90u128)),
+                min_stake_amount: Some(Uint128::from(90u128)),
             },
         },
     )
@@ -138,8 +151,10 @@ fn update_config_ok() {
                 .add_attributes([
                     attr("puppeteer_contract", "puppeteer_contract_1"),
                     attr("core_contract", "core_contract_1"),
+                    attr("strategy_contract", "strategy_contract_1"),
                     attr("base_denom", "base_denom_1"),
-                    attr("min_ibc_transfer", Uint128::from(90u128))
+                    attr("min_ibc_transfer", Uint128::from(90u128)),
+                    attr("min_stake_amount", Uint128::from(90u128))
                 ])
         ]
     );
@@ -156,8 +171,10 @@ fn update_config_ok() {
         to_json_binary(&drop_staking_base::state::native_bond_provider::Config {
             puppeteer_contract: Addr::unchecked("puppeteer_contract_1"),
             core_contract: Addr::unchecked("core_contract_1"),
+            strategy_contract: Addr::unchecked("strategy_contract_1"),
             base_denom: "base_denom_1".to_string(),
             min_ibc_transfer: Uint128::from(90u128),
+            min_stake_amount: Uint128::from(90u128),
         })
         .unwrap()
     );
@@ -245,6 +262,107 @@ fn query_can_bond_false() {
     .unwrap();
 
     assert_eq!(can_bond, to_json_binary(&false).unwrap());
+}
+
+#[test]
+fn query_can_not_process_on_idle_not_enough_to_delegate() {
+    let mut deps = mock_dependencies(&[]);
+
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::zero())
+        .unwrap();
+
+    TX_STATE
+        .save(deps.as_mut().storage, &TxState::default())
+        .unwrap();
+
+    let error = crate::contract::query(
+        deps.as_ref(),
+        mock_env(),
+        drop_staking_base::msg::native_bond_provider::QueryMsg::CanProcessOnIdle {},
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        error,
+        drop_staking_base::error::native_bond_provider::ContractError::NotEnoughToDelegate {
+            min_stake_amount: Uint128::from(100u128),
+            non_staked_balance: Uint128::zero()
+        }
+    );
+}
+
+#[test]
+fn query_can_not_process_on_idle_not_in_idle_state() {
+    let mut deps = mock_dependencies(&[]);
+
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::zero())
+        .unwrap();
+
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::native_bond_provider::TxState {
+                status: drop_staking_base::state::native_bond_provider::TxStateStatus::InProgress,
+                seq_id: Some(0u64),
+                transaction: Some(
+                    drop_staking_base::state::native_bond_provider::Transaction::Stake {
+                        amount: Uint128::from(0u64),
+                    },
+                ),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+
+    let error = crate::contract::query(
+        deps.as_ref(),
+        mock_env(),
+        drop_staking_base::msg::native_bond_provider::QueryMsg::CanProcessOnIdle {},
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        error,
+        drop_staking_base::error::native_bond_provider::ContractError::InvalidState {
+            reason: "tx_state is not idle".to_string()
+        }
+    );
+}
+
+#[test]
+fn query_can_process_on_idle() {
+    let mut deps = mock_dependencies(&[]);
+
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(100u128))
+        .unwrap();
+
+    TX_STATE
+        .save(deps.as_mut().storage, &TxState::default())
+        .unwrap();
+
+    let res = crate::contract::query(
+        deps.as_ref(),
+        mock_env(),
+        drop_staking_base::msg::native_bond_provider::QueryMsg::CanProcessOnIdle {},
+    )
+    .unwrap();
+
+    assert_eq!(res, to_json_binary(&true).unwrap());
 }
 
 #[test]
@@ -390,8 +508,20 @@ fn update_ownership() {
 }
 
 #[test]
-fn process_on_idle_not_supported() {
+fn process_on_idle_not_enough_to_delegate() {
     let mut deps = mock_dependencies(&[]);
+
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::zero())
+        .unwrap();
+
+    TX_STATE
+        .save(deps.as_mut().storage, &TxState::default())
+        .unwrap();
 
     let error = crate::contract::execute(
         deps.as_mut(),
@@ -403,7 +533,109 @@ fn process_on_idle_not_supported() {
 
     assert_eq!(
         error,
-        drop_staking_base::error::native_bond_provider::ContractError::MessageIsNotSupported {}
+        drop_staking_base::error::native_bond_provider::ContractError::NotEnoughToDelegate {
+            min_stake_amount: Uint128::from(100u128),
+            non_staked_balance: Uint128::zero()
+        }
+    );
+}
+
+#[test]
+fn process_on_idle_not_in_idle_state() {
+    let mut deps = mock_dependencies(&[]);
+
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::zero())
+        .unwrap();
+
+    TX_STATE
+        .save(
+            deps.as_mut().storage,
+            &drop_staking_base::state::native_bond_provider::TxState {
+                status: drop_staking_base::state::native_bond_provider::TxStateStatus::InProgress,
+                seq_id: Some(0u64),
+                transaction: Some(
+                    drop_staking_base::state::native_bond_provider::Transaction::Stake {
+                        amount: Uint128::from(0u64),
+                    },
+                ),
+                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
+            },
+        )
+        .unwrap();
+
+    let error = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &[]),
+        drop_staking_base::msg::native_bond_provider::ExecuteMsg::ProcessOnIdle {},
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        error,
+        drop_staking_base::error::native_bond_provider::ContractError::InvalidState {
+            reason: "tx_state is not idle".to_string()
+        }
+    );
+}
+
+#[test]
+fn process_on_idle() {
+    let mut deps = mock_dependencies(&[]);
+
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(100u128))
+        .unwrap();
+
+    TX_STATE
+        .save(deps.as_mut().storage, &TxState::default())
+        .unwrap();
+
+    deps.querier
+        .add_wasm_query_response("strategy_contract", |_| {
+            to_json_binary(&vec![(
+                "valoper_address".to_string(),
+                Uint128::from(1000u128),
+            )])
+            .unwrap()
+        });
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &[]),
+        drop_staking_base::msg::native_bond_provider::ExecuteMsg::ProcessOnIdle {},
+    )
+    .unwrap();
+
+    assert_eq!(
+        res,
+        Response::new()
+            .add_attributes(vec![attr("action", "process_on_idle"),])
+            .add_event(Event::new(
+                "crates.io:drop-staking__drop-native-bond-provider-process_on_idle"
+            ))
+            .add_submessage(SubMsg::reply_always(
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "puppeteer_contract".to_string(),
+                    msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
+                        items: vec![("valoper_address".to_string(), Uint128::from(1000u128))],
+                        reply_to: "cosmos2contract".to_string()
+                    })
+                    .unwrap(),
+                    funds: vec![],
+                }),
+                PUPPETEER_TRANSFER_REPLY_ID
+            ))
     );
 }
 

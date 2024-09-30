@@ -431,6 +431,7 @@ pub fn instantiate(
                 base_denom: msg.base_denom.to_string(),
                 puppeteer_contract: puppeteer_contract.to_string(),
                 core_contract: core_contract.to_string(),
+                strategy_contract: strategy_contract.to_string(),
                 min_ibc_transfer: msg.native_bond_params.min_ibc_transfer,
                 min_stake_amount: msg.native_bond_params.min_stake_amount,
             })?,

@@ -1,6 +1,5 @@
 use cosmwasm_std::{
     ConversionOverflowError, Decimal256RangeExceeded, DivideByZeroError, OverflowError, StdError,
-    Uint128,
 };
 use cw_ownable::OwnershipError;
 use drop_helpers::pause::PauseError;

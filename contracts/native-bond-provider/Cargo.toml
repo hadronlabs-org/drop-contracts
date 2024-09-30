@@ -32,4 +32,5 @@ neutron-sdk = { workspace = true }
 drop-staking-base = { workspace = true }
 drop-puppeteer-base = { workspace = true }
 drop-helpers = { workspace = true }
+serde-json-wasm = { workspace = true }
 semver = { workspace = true }

@@ -14,6 +14,7 @@ pub struct InstantiateMsg {
     pub min_stake_amount: Uint128,
     pub puppeteer_contract: String,
     pub core_contract: String,
+    pub strategy_contract: String,
 }
 
 #[bond_provider]
@@ -36,6 +37,8 @@ pub enum QueryMsg {
     NonStakedBalance {},
     #[returns(Uint128)]
     AllBalance {},
+    #[returns(crate::state::native_bond_provider::TxState)]
+    TxState {},
 }
 
 #[cw_serde]
