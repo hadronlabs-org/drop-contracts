@@ -181,19 +181,6 @@ fn update_config_ok() {
 }
 
 #[test]
-fn query_can_process_idle() {
-    let deps = mock_dependencies(&[]);
-
-    let response = crate::contract::query(
-        deps.as_ref(),
-        mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::CanProcessOnIdle {},
-    )
-    .unwrap();
-    assert_eq!(response, to_json_binary(&false).unwrap());
-}
-
-#[test]
 fn query_ownership() {
     let mut deps = mock_dependencies(&[]);
 

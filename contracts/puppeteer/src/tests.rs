@@ -179,6 +179,7 @@ fn test_instantiate() {
         delegations_queries_chunk_size: Some(2u32),
         owner: Some("owner".to_string()),
         connection_id: "connection_id".to_string(),
+        native_bond_provider: "native_bond_provider".to_string(),
         port_id: "port_id".to_string(),
         update_period: 60u64,
         remote_denom: "remote_denom".to_string(),
@@ -215,6 +216,7 @@ fn test_execute_update_config_unauthorized() {
         new_config: ConfigOptional {
             update_period: Some(121u64),
             remote_denom: Some("new_remote_denom".to_string()),
+            native_bond_provider: Some(Addr::unchecked("native_bond_provider")),
             allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
             transfer_channel_id: Some("new_transfer_channel_id".to_string()),
             connection_id: Some("new_connection_id".to_string()),
@@ -260,6 +262,7 @@ fn test_execute_update_config() {
             new_config: ConfigOptional {
                 update_period: Some(121u64),
                 remote_denom: Some("new_remote_denom".to_string()),
+                native_bond_provider: Some(Addr::unchecked("native_bond_provider")),
                 allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
                 transfer_channel_id: Some("new_transfer_channel_id".to_string()),
                 connection_id: Some("new_connection_id".to_string()),
@@ -283,6 +286,7 @@ fn test_execute_update_config() {
                     ("transfer_channel_id", "new_transfer_channel_id"),
                     ("sdk_version", "0.47.0"),
                     ("timeout", "101"),
+                    ("native_bond_provider", "native_bond_provider"),
                 ])
         )
     );
@@ -294,6 +298,7 @@ fn test_execute_update_config() {
             delegations_queries_chunk_size: 2u32,
             port_id: "new_port_id".to_string(),
             connection_id: "new_connection_id".to_string(),
+            native_bond_provider: Addr::unchecked("native_bond_provider"),
             update_period: 121u64,
             remote_denom: "new_remote_denom".to_string(),
             allowed_senders: vec![Addr::unchecked("new_allowed_sender")],
@@ -351,37 +356,7 @@ fn test_execute_setup_protocol() {
         },
     )
     .unwrap();
-    let authz_msg = {
-        neutron_sdk::bindings::types::ProtobufAny {
-            type_url: "/cosmos.authz.v1beta1.MsgGrant".to_string(),
-            value: Binary::from(
-                cosmos_sdk_proto::cosmos::authz::v1beta1::MsgGrant {
-                    granter: "ica_address".to_string(),
-                    grantee: "delegate_grantee".to_string(),
-                    grant: Some(cosmos_sdk_proto::cosmos::authz::v1beta1::Grant {
-                        expiration: Some(prost_types::Timestamp {
-                            seconds: mock_env()
-                                .block
-                                .time
-                                .plus_days(365 * 120 + 30)
-                                .seconds()
-                                .try_into()
-                                .unwrap(),
-                            nanos: 0,
-                        }),
-                        authorization: Some(cosmos_sdk_proto::Any {
-                            type_url: "/cosmos.authz.v1beta1.GenericAuthorization".to_string(),
-                            value: cosmos_sdk_proto::cosmos::authz::v1beta1::GenericAuthorization {
-                                msg: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
-                            }
-                            .encode_to_vec(),
-                        }),
-                    }),
-                }
-                .encode_to_vec(),
-            ),
-        }
-    };
+
     let distribution_msg = {
         neutron_sdk::bindings::types::ProtobufAny {
             type_url: "/cosmos.distribution.v1beta1.MsgSetWithdrawAddress".to_string(),
@@ -400,7 +375,7 @@ fn test_execute_setup_protocol() {
             CosmosMsg::Custom(NeutronMsg::submit_tx(
                 "connection_id".to_string(),
                 "DROP".to_string(),
-                vec![authz_msg, distribution_msg],
+                vec![distribution_msg],
                 "".to_string(),
                 100u64,
                 get_standard_fees()
@@ -556,10 +531,7 @@ fn test_execute_undelegate() {
         .unwrap()
     });
     let puppeteer_base = base_init(&mut deps.as_mut());
-    let ica_address = puppeteer_base
-        .ica
-        .get_address(deps.as_mut().storage)
-        .unwrap();
+
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
@@ -571,34 +543,27 @@ fn test_execute_undelegate() {
         },
     )
     .unwrap();
-    let any_msg = neutron_sdk::bindings::types::ProtobufAny {
-        type_url: "/cosmos.authz.v1beta1.MsgExec".to_string(),
-        value: Binary::from(
-            cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec {
-                grantee: ica_address,
-                msgs: vec![cosmos_sdk_proto::Any {
-                    type_url: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
-                    value: cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
-                        delegator_address: "ica_address".to_string(),
-                        validator_address: "valoper1".to_string(),
-                        amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-                            denom: "remote_denom".to_string(),
-                            amount: "1000".to_string(),
-                        }),
-                    }
-                    .encode_to_vec(),
-                }],
-            }
-            .encode_to_vec(),
-        ),
-    };
+
+    let undelegate_msg = drop_helpers::interchain::prepare_any_msg(
+        cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
+            delegator_address: "ica_address".to_string(),
+            validator_address: "valoper1".to_string(),
+            amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                denom: "remote_denom".to_string(),
+                amount: "1000".to_string(),
+            }),
+        },
+        "/cosmos.staking.v1beta1.MsgUndelegate",
+    )
+    .unwrap();
+
     assert_eq!(
         res,
         Response::new().add_submessage(SubMsg::reply_on_success(
             CosmosMsg::Custom(NeutronMsg::submit_tx(
                 "connection_id".to_string(),
                 "DROP".to_string(),
-                vec![any_msg],
+                vec![undelegate_msg],
                 "".to_string(),
                 100u64,
                 get_standard_fees()
@@ -1211,30 +1176,19 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
                     )
                     .unwrap(),
                     drop_helpers::interchain::prepare_any_msg(
-                        cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec {
-                            grantee: ica_address.clone(),
-                            msgs: vec![
-                                cosmos_sdk_proto::Any {
-                                    value:
-                                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
-                                            delegator_address: ica_address.clone(),
-                                            validator_address: "validator1".to_string(),
-                                        }
-                                        .encode_to_vec(),
-                                    type_url: "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
-                                },
-                                cosmos_sdk_proto::Any {
-                                    value:
-                                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
-                                            delegator_address: ica_address.clone(),
-                                            validator_address: "validator2".to_string(),
-                                        }
-                                        .encode_to_vec(),
-                                    type_url: "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
-                                },
-                            ],
+                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
+                            delegator_address: ica_address.clone(),
+                            validator_address: "validator1".to_string(),
                         },
-                        "/cosmos.authz.v1beta1.MsgExec"
+                        "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
+                    )
+                    .unwrap(),
+                    drop_helpers::interchain::prepare_any_msg(
+                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
+                            delegator_address: ica_address.clone(),
+                            validator_address: "validator2".to_string(),
+                        },
+                        "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
                     )
                     .unwrap()
                 ],
@@ -2397,7 +2351,7 @@ fn test_sudo_response_ok() {
         denom: "remote_denom".to_string(),
         amount: 1000u128,
         recipient: "recipient".to_string(),
-        reason: drop_puppeteer_base::msg::IBCTransferReason::Stake,
+        reason: drop_puppeteer_base::msg::IBCTransferReason::Delegate,
     };
     let msg = SudoMsg::Response {
         request: request.clone(),
@@ -2483,7 +2437,7 @@ fn test_sudo_response_error() {
         denom: "remote_denom".to_string(),
         amount: 1000u128,
         recipient: "recipient".to_string(),
-        reason: drop_puppeteer_base::msg::IBCTransferReason::Stake,
+        reason: drop_puppeteer_base::msg::IBCTransferReason::Delegate,
     };
     let msg = SudoMsg::Error {
         request: request.clone(),
@@ -2590,7 +2544,7 @@ fn test_sudo_response_timeout() {
         denom: "remote_denom".to_string(),
         amount: 1000u128,
         recipient: "recipient".to_string(),
-        reason: drop_puppeteer_base::msg::IBCTransferReason::Stake,
+        reason: drop_puppeteer_base::msg::IBCTransferReason::Delegate,
     };
     let msg = SudoMsg::Timeout {
         request: request.clone(),
@@ -3179,10 +3133,6 @@ fn test_get_answers_from_msg_data() {
                             .encode_to_vec(),
                     },
                     cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
-                        msg_type: "/cosmos.authz.v1beta1.MsgGrant".to_string(),
-                        data: (cosmos_sdk_proto::cosmos::authz::v1beta1::MsgGrantResponse {}).encode_to_vec()
-                    },
-                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
                         msg_type: "/cosmos.staking.v1beta1.MsgRedeemTokensForShares".to_string(),
                         data: (crate::proto::liquidstaking::staking::v1beta1::MsgRedeemTokensforSharesResponse {
                             amount: None
@@ -3213,9 +3163,6 @@ fn test_get_answers_from_msg_data() {
                     drop_puppeteer_base::proto::MsgBeginRedelegateResponse {
                         completion_time: None
                     }
-                ),
-                drop_puppeteer_base::msg::ResponseAnswer::GrantDelegateResponse(
-                    drop_puppeteer_base::proto::MsgGrantResponse {},
                 ),
                 drop_puppeteer_base::msg::ResponseAnswer::RedeemTokensforSharesResponse(
                     drop_puppeteer_base::proto::MsgRedeemTokensforSharesResponse { amount: None }
@@ -3431,6 +3378,7 @@ fn get_base_config() -> Config {
         delegations_queries_chunk_size: 2u32,
         port_id: "port_id".to_string(),
         connection_id: "connection_id".to_string(),
+        native_bond_provider: Addr::unchecked("native_bond_provider"),
         update_period: 60u64,
         remote_denom: "remote_denom".to_string(),
         allowed_senders: vec![Addr::unchecked("allowed_sender")],
