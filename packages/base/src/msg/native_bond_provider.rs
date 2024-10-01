@@ -18,6 +18,7 @@ pub struct InstantiateMsg {
     pub puppeteer_contract: String,
     pub core_contract: String,
     pub strategy_contract: String,
+    pub timeout: u64, // timeout for interchain transactions in seconds
 }
 
 #[bond_provider]
@@ -25,7 +26,7 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig { new_config: ConfigOptional },
-    PuppeteerTransfer {},
+    IBCTransfer {},
     PuppeteerHook(Box<PuppeteerResponseHookMsg>),
 }
 

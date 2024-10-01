@@ -32,7 +32,6 @@ pub struct MigrateMsg {}
 
 #[cw_serde]
 #[derive(QueryResponses)]
-
 pub enum QueryMsg<E = Empty>
 where
     E: JsonSchema,

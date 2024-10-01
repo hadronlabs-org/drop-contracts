@@ -46,6 +46,9 @@ pub enum ContractError {
 
     #[error("Invalid State: {reason}")]
     InvalidState { reason: String },
+
+    #[error("Puppeteer ICA is not registered")]
+    IcaNotRegistered {},
 }
 
 impl From<semver::Error> for ContractError {
