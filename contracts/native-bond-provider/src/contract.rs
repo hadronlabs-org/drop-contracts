@@ -47,6 +47,8 @@ pub fn instantiate(
         base_denom: msg.base_denom.to_string(),
         min_ibc_transfer: msg.min_ibc_transfer,
         min_stake_amount: msg.min_stake_amount,
+        transfer_channel_id: msg.transfer_channel_id,
+        port_id: msg.port_id,
         timeout: msg.timeout,
     };
     CONFIG.save(deps.storage, config)?;
@@ -368,20 +370,15 @@ fn execute_ibc_transfer(
         &drop_puppeteer_base::msg::QueryMsg::<Empty>::Ica {},
     )?;
 
-    if let drop_helpers::ica::IcaState::Registered {
-        ica_address,
-        port_id,
-        channel_id,
-    } = puppeteer_ica
-    {
+    if let drop_helpers::ica::IcaState::Registered { ica_address, .. } = puppeteer_ica {
         let attrs = vec![
             attr("action", "puppeteer_transfer"),
             attr("pending_amount", pending_coin.amount),
         ];
 
         let msg = NeutronMsg::IbcTransfer {
-            source_port: port_id,
-            source_channel: channel_id,
+            source_port: config.port_id.clone(),
+            source_channel: config.transfer_channel_id.clone(),
             token: pending_coin.clone(),
             sender: env.contract.address.to_string(),
             receiver: ica_address.to_string(),
@@ -524,16 +521,6 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
 }
 
 fn puppeteer_reply(deps: DepsMut, msg: Reply) -> ContractResult<Response> {
-    let resp: MsgSubmitTxResponse = serde_json_wasm::from_slice(
-        msg.result
-            .into_result()
-            .map_err(StdError::generic_err)?
-            .data
-            .ok_or_else(|| StdError::generic_err("no result"))?
-            .as_slice(),
-    )
-    .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?;
-
     let mut tx_state: TxState = TX_STATE.load(deps.storage)?;
     tx_state.status = TxStateStatus::WaitingForAck;
     TX_STATE.save(deps.storage, &tx_state)?;

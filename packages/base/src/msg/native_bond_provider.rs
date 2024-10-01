@@ -18,6 +18,8 @@ pub struct InstantiateMsg {
     pub puppeteer_contract: String,
     pub core_contract: String,
     pub strategy_contract: String,
+    pub port_id: String,
+    pub transfer_channel_id: String,
     pub timeout: u64, // timeout for interchain transactions in seconds
 }
 

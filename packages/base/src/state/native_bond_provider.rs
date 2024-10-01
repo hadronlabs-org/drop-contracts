@@ -13,6 +13,8 @@ pub struct Config {
     pub strategy_contract: Addr,
     pub min_ibc_transfer: Uint128,
     pub min_stake_amount: Uint128,
+    pub port_id: String,
+    pub transfer_channel_id: String,
     pub timeout: u64, // timeout for interchain transactions in seconds
 }
 
