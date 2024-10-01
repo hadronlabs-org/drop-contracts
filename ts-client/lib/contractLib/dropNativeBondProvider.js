@@ -38,6 +38,9 @@ class Client {
     queryTxState = async () => {
         return this.client.queryContractSmart(this.contractAddress, { tx_state: {} });
     };
+    queryLastPuppeteerResponse = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { last_puppeteer_response: {} });
+    };
     queryCanBond = async (args) => {
         return this.client.queryContractSmart(this.contractAddress, { can_bond: args });
     };

@@ -41,7 +41,6 @@ pub struct TxState {
 pub const TX_STATE: Item<TxState> = Item::new("tx_state");
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const NON_STAKED_BALANCE: Item<Uint128> = Item::new("non_staked_balance");
-pub const NON_TRANSFERRED_BALANCE: Item<Uint128> = Item::new("non_transferred_balance");
 pub const LAST_PUPPETEER_RESPONSE: Item<PuppeteerResponseHookMsg> =
     Item::new("last_puppeteer_response");
 

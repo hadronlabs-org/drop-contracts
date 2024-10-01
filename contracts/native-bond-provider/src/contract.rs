@@ -1,7 +1,7 @@
 use cosmwasm_schema::serde::Serialize;
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, to_json_binary, Attribute, BankMsg, Coin, CosmosMsg, Decimal, Deps,
-    Reply, StdError, StdResult, SubMsg, SubMsgResult, Uint128, WasmMsg,
+    attr, ensure, ensure_eq, to_json_binary, Attribute, Coin, CosmosMsg, Decimal, Deps, Reply,
+    StdError, StdResult, SubMsg, SubMsgResult, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{get_ownership, update_ownership};
@@ -14,7 +14,7 @@ use drop_staking_base::msg::native_bond_provider::{
 };
 use drop_staking_base::state::native_bond_provider::{
     Config, ConfigOptional, ReplyMsg, Transaction, TxState, TxStateStatus, CONFIG,
-    LAST_PUPPETEER_RESPONSE, NON_STAKED_BALANCE, NON_TRANSFERRED_BALANCE, TX_STATE,
+    LAST_PUPPETEER_RESPONSE, NON_STAKED_BALANCE, TX_STATE,
 };
 use neutron_sdk::bindings::msg::{MsgSubmitTxResponse, NeutronMsg};
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -47,7 +47,6 @@ pub fn instantiate(
     CONFIG.save(deps.storage, config)?;
 
     NON_STAKED_BALANCE.save(deps.storage, &Uint128::zero())?;
-    NON_TRANSFERRED_BALANCE.save(deps.storage, &Uint128::zero())?;
     TX_STATE.save(deps.storage, &TxState::default())?;
 
     Ok(response(
@@ -187,7 +186,6 @@ pub fn execute(
         ExecuteMsg::Bond {} => execute_bond(deps, info),
         ExecuteMsg::ProcessOnIdle {} => execute_process_on_idle(deps, env, info),
         ExecuteMsg::PuppeteerTransfer {} => execute_puppeteer_transfer(deps, env),
-        ExecuteMsg::PuppeteerSend {} => execute_puppeteer_send(deps, env),
         ExecuteMsg::PuppeteerHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
     }
 }
@@ -332,43 +330,6 @@ fn execute_process_on_idle(
 //     Ok(None)
 // }
 
-fn execute_puppeteer_send(
-    deps: DepsMut<NeutronQuery>,
-    env: Env,
-) -> ContractResult<Response<NeutronMsg>> {
-    let config = CONFIG.load(deps.storage)?;
-
-    let pending_coin = deps
-        .querier
-        .query_balance(&env.contract.address, config.base_denom)?;
-
-    NON_TRANSFERRED_BALANCE.update(deps.storage, |balance| {
-        StdResult::Ok(balance + pending_coin.amount)
-    })?;
-
-    let submsg = SubMsg::reply_on_error(
-        CosmosMsg::Bank(BankMsg::Send {
-            to_address: config.puppeteer_contract.to_string(),
-            amount: vec![pending_coin.clone()],
-        }),
-        ReplyMsg::BankSend.to_reply_id(),
-    );
-
-    Ok(response(
-        "bond",
-        CONTRACT_NAME,
-        [
-            attr("action", "puppeteer_send"),
-            attr_coin(
-                "funds_sent",
-                pending_coin.amount.to_string(),
-                pending_coin.denom,
-            ),
-        ],
-    )
-    .add_submessage(submsg))
-}
-
 fn execute_puppeteer_transfer(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -382,10 +343,9 @@ fn execute_puppeteer_transfer(
         }
     );
 
-    let pending_coin = Coin::new(
-        NON_TRANSFERRED_BALANCE.load(deps.storage)?.u128(),
-        config.base_denom,
-    );
+    let pending_coin = deps
+        .querier
+        .query_balance(&env.contract.address, config.base_denom)?;
 
     ensure!(
         pending_coin.amount >= config.min_ibc_transfer,
@@ -396,9 +356,6 @@ fn execute_puppeteer_transfer(
 
     NON_STAKED_BALANCE.update(deps.storage, |balance| {
         StdResult::Ok(balance + pending_coin.amount)
-    })?;
-    NON_TRANSFERRED_BALANCE.update(deps.storage, |balance| {
-        StdResult::Ok(balance - pending_coin.amount)
     })?;
 
     let attrs = vec![
@@ -414,7 +371,7 @@ fn execute_puppeteer_transfer(
                 reply_to: env.contract.address.to_string(),
             },
         )?,
-        funds: vec![],
+        funds: vec![pending_coin.clone()],
     });
 
     let submsg: SubMsg<NeutronMsg> = msg_with_reply_callback(
@@ -480,8 +437,15 @@ fn execute_puppeteer_hook(
         }
         drop_puppeteer_base::msg::ResponseHookMsg::Error(error_msg) => {
             match error_msg.transaction {
-                drop_puppeteer_base::msg::Transaction::IBCTransfer { .. }
-                | drop_puppeteer_base::msg::Transaction::Stake { .. } => {
+                drop_puppeteer_base::msg::Transaction::IBCTransfer { amount, .. } => {
+                    if let Transaction::IBCTransfer { .. } = transaction {
+                        NON_STAKED_BALANCE.update(deps.storage, |balance| {
+                            StdResult::Ok(balance - Uint128::from(amount))
+                        })?;
+                        TX_STATE.save(deps.storage, &TxState::default())?;
+                    }
+                }
+                drop_puppeteer_base::msg::Transaction::Stake { .. } => {
                     TX_STATE.save(deps.storage, &TxState::default())?;
                 }
                 _ => {}

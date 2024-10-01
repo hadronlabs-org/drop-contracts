@@ -7,8 +7,7 @@ use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::state::native_bond_provider::{
-    Config, ConfigOptional, TxState, CONFIG, NON_STAKED_BALANCE, PUPPETEER_TRANSFER_REPLY_ID,
-    TX_STATE,
+    Config, ConfigOptional, ReplyMsg, TxState, CONFIG, NON_STAKED_BALANCE, TX_STATE,
 };
 
 fn get_default_config() -> Config {
@@ -621,7 +620,7 @@ fn process_on_idle() {
                     .unwrap(),
                     funds: vec![],
                 }),
-                PUPPETEER_TRANSFER_REPLY_ID
+                ReplyMsg::Bond.to_reply_id()
             ))
     );
 }

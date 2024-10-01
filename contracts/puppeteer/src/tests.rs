@@ -3,7 +3,7 @@ use cosmwasm_schema::schemars;
 use cosmwasm_std::{
     coin, coins, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, Binary, CosmosMsg, Decimal256, DepsMut, Event, Response, StdError,
+    to_json_binary, Addr, Binary, Coin, CosmosMsg, Decimal256, DepsMut, Event, Response, StdError,
     SubMsg, Timestamp, Uint128, Uint64,
 };
 use drop_helpers::{
@@ -2473,7 +2473,7 @@ fn test_sudo_response_error() {
                     ))
                 ))
                 .unwrap(),
-                funds: vec![]
+                funds: vec![Coin::new(1000u128, "remote_denom".to_string())]
             }))
             .add_event(Event::new("puppeteer-sudo-error").add_attributes(vec![
                 ("action", "sudo_error"),
@@ -2579,7 +2579,7 @@ fn test_sudo_response_timeout() {
                     ))
                 ))
                 .unwrap(),
-                funds: vec![]
+                funds: vec![Coin::new(1000u128, "remote_denom".to_string())]
             }))
             .add_event(
                 Event::new("puppeteer-sudo-timeout")

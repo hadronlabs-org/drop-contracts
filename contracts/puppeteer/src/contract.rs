@@ -16,8 +16,8 @@ use cosmos_sdk_proto::cosmos::{
     staking::v1beta1::MsgDelegate,
 };
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, to_json_binary, Addr, Attribute, CosmosMsg, Deps, Order, Reply,
-    StdError, SubMsg, Timestamp, Uint128, WasmMsg,
+    attr, ensure, ensure_eq, to_json_binary, Addr, Attribute, Coin as StdCoin, CosmosMsg, Deps,
+    Order, Reply, StdError, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{
@@ -1210,6 +1210,12 @@ fn sudo_error(
     let transaction = tx_state
         .transaction
         .ok_or_else(|| StdError::generic_err("transaction not found"))?;
+
+    let mut fund_to_return = vec![];
+    if let Transaction::IBCTransfer { amount, denom, .. } = transaction.clone() {
+        fund_to_return.push(StdCoin::new(amount, denom));
+    }
+
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: tx_state
             .reply_to
@@ -1222,7 +1228,7 @@ fn sudo_error(
                 details,
             },
         )))?,
-        funds: vec![],
+        funds: fund_to_return,
     });
     puppeteer_base.tx_state.save(
         deps.storage,
@@ -1257,6 +1263,10 @@ fn sudo_timeout(
     let transaction = tx_state
         .transaction
         .ok_or_else(|| StdError::generic_err("transaction not found"))?;
+    let mut fund_to_return = vec![];
+    if let Transaction::IBCTransfer { amount, denom, .. } = transaction.clone() {
+        fund_to_return.push(StdCoin::new(amount, denom));
+    }
     puppeteer_base.validate_tx_waiting_state(deps.as_ref())?;
     puppeteer_base.ica.set_timeout(deps.storage)?;
     puppeteer_base.tx_state.save(
@@ -1284,7 +1294,7 @@ fn sudo_timeout(
                 details: "Timeout".to_string(),
             },
         )))?,
-        funds: vec![],
+        funds: fund_to_return,
     });
     Ok(response("sudo-timeout", "puppeteer", attrs).add_message(msg))
 }
