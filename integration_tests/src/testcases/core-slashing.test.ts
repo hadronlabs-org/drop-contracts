@@ -99,6 +99,7 @@ describe('Core Slashing', () => {
     codeIds: {
       core?: number;
       token?: number;
+      withdrawalToken?: number;
       withdrawalVoucher?: number;
       withdrawalManager?: number;
       strategy?: number;
@@ -291,6 +292,17 @@ describe('Core Slashing', () => {
     }
     {
       const res = await client.upload(
+          account.address,
+          fs.readFileSync(
+              join(__dirname, '../../../artifacts/drop_withdrawal_token.wasm'),
+          ),
+          1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.withdrawalToken = res.codeId;
+    }
+    {
+      const res = await client.upload(
         account.address,
         fs.readFileSync(
           join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
@@ -428,6 +440,7 @@ describe('Core Slashing', () => {
         code_ids: {
           core_code_id: context.codeIds.core,
           token_code_id: context.codeIds.token,
+          withdrawal_token_code_id: context.codeIds.withdrawalToken,
           withdrawal_voucher_code_id: context.codeIds.withdrawalVoucher,
           withdrawal_manager_code_id: context.codeIds.withdrawalManager,
           strategy_code_id: context.codeIds.strategy,

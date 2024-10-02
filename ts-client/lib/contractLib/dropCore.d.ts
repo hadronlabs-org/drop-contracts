@@ -249,6 +249,7 @@ export interface Config {
     unbonding_safe_period: number;
     validators_set_contract: Addr;
     withdrawal_manager_contract: Addr;
+    withdrawal_token_contract: Addr;
     withdrawal_voucher_contract: Addr;
 }
 export interface FailedBatchResponse {
@@ -409,6 +410,7 @@ export interface ConfigOptional {
     unbonding_safe_period?: number | null;
     validators_set_contract?: string | null;
     withdrawal_manager_contract?: string | null;
+    withdrawal_token_contract?: string | null;
     withdrawal_voucher_contract?: string | null;
 }
 export interface UpdateWithdrawnAmountArgs {
@@ -448,6 +450,7 @@ export interface InstantiateMsg {
     unbonding_safe_period: number;
     validators_set_contract: string;
     withdrawal_manager_contract: string;
+    withdrawal_token_contract: string;
     withdrawal_voucher_contract: string;
 }
 export declare class Client {

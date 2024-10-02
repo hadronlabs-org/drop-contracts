@@ -1,12 +1,12 @@
-use crate::error::{ContractError, ContractResult};
 use cosmwasm_std::{
-    attr, ensure_eq, ensure_ne, entry_point, to_json_binary, Binary, Deps, DepsMut, Env,
+    attr, ensure_eq, ensure_ne, entry_point, to_json_binary, Addr, Binary, Deps, DepsMut, Env,
     MessageInfo, Reply, Response, SubMsg, Uint128,
 };
 use drop_helpers::answer::{attr_coin, response};
 use drop_staking_base::{
+    error::withdrawal_token::{ContractError, ContractResult},
     msg::withdrawal_token::{ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
-    state::withdrawal_token::{CORE_ADDRESS, DENOM_PREFIX},
+    state::withdrawal_token::{CORE_ADDRESS, DENOM_PREFIX, WITHDRAWAL_MANAGER_ADDRESS},
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -31,12 +31,18 @@ pub fn instantiate(
     let core = deps.api.addr_validate(&msg.core_address)?;
     CORE_ADDRESS.save(deps.storage, &core)?;
 
+    let withdrawal_manager = deps.api.addr_validate(&msg.withdrawal_manager_address)?;
+    WITHDRAWAL_MANAGER_ADDRESS.save(deps.storage, &withdrawal_manager)?;
+
     DENOM_PREFIX.save(deps.storage, &msg.denom_prefix)?;
 
     Ok(response(
         "instantiate",
         CONTRACT_NAME,
-        [attr("core_address", core)],
+        [
+            attr("core_address", core),
+            attr("withdrawal_manager_address", withdrawal_manager),
+        ],
     ))
 }
 
@@ -125,8 +131,8 @@ fn burn(
     env: Env,
     batch_id: Uint128,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let core = CORE_ADDRESS.load(deps.storage)?;
-    ensure_eq!(info.sender, core, ContractError::Unauthorized);
+    let withdrawal_manager = WITHDRAWAL_MANAGER_ADDRESS.load(deps.storage)?;
+    ensure_eq!(info.sender, withdrawal_manager, ContractError::Unauthorized);
 
     let denom_prefix = DENOM_PREFIX.load(deps.storage)?;
     let subdenom = build_subdenom_name(denom_prefix, batch_id);
@@ -146,12 +152,20 @@ fn burn(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     match msg {
-        QueryMsg::Ownership {} => Ok(to_json_binary(&cw_ownable::get_ownership(deps.storage)?)?),
+        QueryMsg::Ownership {} => Ok(to_json_binary(
+            &cw_ownable::get_ownership(deps.storage)?
+                .owner
+                .unwrap_or(Addr::unchecked(""))
+                .to_string(),
+        )?),
         QueryMsg::Config {} => {
             let core_address = CORE_ADDRESS.load(deps.storage)?.into_string();
+            let withdrawal_manager_address =
+                WITHDRAWAL_MANAGER_ADDRESS.load(deps.storage)?.into_string();
             let denom_prefix = DENOM_PREFIX.load(deps.storage)?;
             Ok(to_json_binary(&ConfigResponse {
                 core_address,
+                withdrawal_manager_address,
                 denom_prefix,
             })?)
         }

@@ -784,6 +784,7 @@ export interface State {
   token_contract: string;
   validators_set_contract: string;
   withdrawal_manager_contract: string;
+  withdrawal_token_contract: string;
   withdrawal_voucher_contract: string;
 }
 export interface ConfigOptional {
@@ -804,6 +805,7 @@ export interface ConfigOptional {
   unbonding_safe_period?: number | null;
   validators_set_contract?: string | null;
   withdrawal_manager_contract?: string | null;
+  withdrawal_token_contract?: string | null;
   withdrawal_voucher_contract?: string | null;
 }
 export interface ConfigOptional2 {
@@ -1209,6 +1211,7 @@ export interface CodeIds {
   token_code_id: number;
   validators_set_code_id: number;
   withdrawal_manager_code_id: number;
+  withdrawal_token_code_id: number;
   withdrawal_voucher_code_id: number;
 }
 export interface CoreParams {
