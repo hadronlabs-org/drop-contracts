@@ -250,7 +250,7 @@ fn execute_receive_withdrawal_denoms(
 
     let withdrawn_coin = cw_utils::one_coin(&info)?;
     let Coin { amount, denom } = withdrawn_coin.clone();
-    let batch_id = get_batch_id_by_withdrawal_denom(denom)?;
+    let batch_id = get_batch_id_by_withdrawal_denom(denom, &config)?;
 
     let unbond_batch: UnbondBatch = deps.querier.query_wasm_smart(
         &config.core_contract,
@@ -301,10 +301,13 @@ fn execute_receive_withdrawal_denoms(
         }),
     ];
 
-    Ok(response("execute-receive_nft", CONTRACT_NAME, attrs).add_messages(messages))
+    Ok(response("execute-receive_withdrawal_denoms", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
-fn get_batch_id_by_withdrawal_denom(withdrawal_denom: String) -> Result<u128, ContractError> {
+fn get_batch_id_by_withdrawal_denom(
+    withdrawal_denom: String,
+    config: &Config,
+) -> Result<u128, ContractError> {
     let tokenfactory_denom_parts: Vec<&str> = withdrawal_denom.split('/').collect();
 
     if tokenfactory_denom_parts.len() != 3 {
@@ -312,13 +315,21 @@ fn get_batch_id_by_withdrawal_denom(withdrawal_denom: String) -> Result<u128, Co
     }
 
     let prefix = tokenfactory_denom_parts[0];
+    let creator_address = tokenfactory_denom_parts[1];
     let subdenom = tokenfactory_denom_parts[2];
 
     if !prefix.eq_ignore_ascii_case("factory") {
         return Err(ContractError::InvalidDenom {});
     }
 
+    if !creator_address.eq_ignore_ascii_case(config.withdrawal_token_contract.as_ref()) {
+        return Err(ContractError::InvalidDenom {});
+    }
+
     let subdenom_parts: Vec<&str> = subdenom.split(':').collect();
+    if subdenom_parts.get(2).is_none() {
+        return Err(ContractError::InvalidDenom {});
+    }
     let batch_id = subdenom_parts[2];
 
     match batch_id.parse::<u128>() {

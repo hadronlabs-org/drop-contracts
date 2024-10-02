@@ -1,10 +1,10 @@
-use crate::error::{ContractError, ContractResult};
 use cosmwasm_std::{
-    attr, ensure_eq, ensure_ne, entry_point, to_json_binary, Binary, Deps, DepsMut, Env,
+    attr, ensure_eq, ensure_ne, entry_point, to_json_binary, Addr, Binary, Deps, DepsMut, Env,
     MessageInfo, Reply, Response, SubMsg, Uint128,
 };
 use drop_helpers::answer::{attr_coin, response};
 use drop_staking_base::{
+    error::withdrawal_token::{ContractError, ContractResult},
     msg::withdrawal_token::{ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     state::withdrawal_token::{CORE_ADDRESS, DENOM_PREFIX},
 };
@@ -146,7 +146,12 @@ fn burn(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     match msg {
-        QueryMsg::Ownership {} => Ok(to_json_binary(&cw_ownable::get_ownership(deps.storage)?)?),
+        QueryMsg::Ownership {} => Ok(to_json_binary(
+            &cw_ownable::get_ownership(deps.storage)?
+                .owner
+                .unwrap_or(Addr::unchecked(""))
+                .to_string(),
+        )?),
         QueryMsg::Config {} => {
             let core_address = CORE_ADDRESS.load(deps.storage)?.into_string();
             let denom_prefix = DENOM_PREFIX.load(deps.storage)?;
