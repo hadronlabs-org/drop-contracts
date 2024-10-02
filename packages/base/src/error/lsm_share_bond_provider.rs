@@ -43,6 +43,15 @@ pub enum ContractError {
 
     #[error("{0}")]
     ConversionOverflowError(#[from] ConversionOverflowError),
+
+    #[error("Puppeteer ICA is not registered")]
+    IcaNotRegistered {},
+
+    #[error("Invalid State: {reason}")]
+    InvalidState { reason: String },
+
+    #[error("Puppeteer error: {message}")]
+    PuppeteerError { message: String },
 }
 
 impl From<semver::Error> for ContractError {

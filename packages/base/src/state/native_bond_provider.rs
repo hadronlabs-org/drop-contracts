@@ -48,13 +48,11 @@ pub const LAST_PUPPETEER_RESPONSE: Item<PuppeteerResponseHookMsg> =
 pub use reply_msg::ReplyMsg;
 pub mod reply_msg {
     const OFFSET: u64 = u16::BITS as u64;
-    pub const BANK_SEND: u64 = 1 << OFFSET;
-    pub const IBC_TRANSFER: u64 = 2 << OFFSET;
-    pub const BOND: u64 = 3 << OFFSET;
+    pub const IBC_TRANSFER: u64 = 1 << OFFSET;
+    pub const BOND: u64 = 2 << OFFSET;
 
     #[cosmwasm_schema::cw_serde]
     pub enum ReplyMsg {
-        BankSend,
         IbcTransfer,
         Bond,
     }
@@ -62,7 +60,6 @@ pub mod reply_msg {
     impl ReplyMsg {
         pub fn to_reply_id(&self) -> u64 {
             match self {
-                ReplyMsg::BankSend => BANK_SEND,
                 ReplyMsg::IbcTransfer => IBC_TRANSFER,
                 ReplyMsg::Bond => BOND,
             }
@@ -70,7 +67,6 @@ pub mod reply_msg {
 
         pub fn from_reply_id(reply_id: u64) -> Self {
             match reply_id {
-                BANK_SEND => Self::BankSend,
                 IBC_TRANSFER => Self::IbcTransfer,
                 BOND => Self::Bond,
                 _ => unreachable!(),
@@ -84,14 +80,12 @@ pub mod reply_msg {
 
         #[test]
         fn enum_variant_from_reply_id() {
-            assert_eq!(ReplyMsg::from_reply_id(BANK_SEND), ReplyMsg::BankSend);
             assert_eq!(ReplyMsg::from_reply_id(IBC_TRANSFER), ReplyMsg::IbcTransfer);
             assert_eq!(ReplyMsg::from_reply_id(BOND), ReplyMsg::Bond);
         }
 
         #[test]
         fn enum_variant_to_reply_id() {
-            assert_eq!(ReplyMsg::BankSend.to_reply_id(), BANK_SEND);
             assert_eq!(ReplyMsg::IbcTransfer.to_reply_id(), IBC_TRANSFER);
             assert_eq!(ReplyMsg::Bond.to_reply_id(), BOND);
         }

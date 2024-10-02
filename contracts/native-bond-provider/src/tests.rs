@@ -18,6 +18,9 @@ fn get_default_config() -> Config {
         base_denom: "base_denom".to_string(),
         min_ibc_transfer: Uint128::from(100u128),
         min_stake_amount: Uint128::from(100u128),
+        port_id: "port_id".to_string(),
+        transfer_channel_id: "transfer_channel_id".to_string(),
+        timeout: 100u64,
     }
 }
 
@@ -36,6 +39,9 @@ fn instantiate() {
             strategy_contract: "strategy_contract".to_string(),
             min_ibc_transfer: Uint128::from(100u128),
             min_stake_amount: Uint128::from(100u128),
+            port_id: "port_id".to_string(),
+            transfer_channel_id: "transfer_channel_id".to_string(),
+            timeout: 100u64,
         },
     )
     .unwrap();
@@ -56,6 +62,9 @@ fn instantiate() {
                     attr("min_ibc_transfer", Uint128::from(100u128)),
                     attr("min_stake_amount", Uint128::from(100u128)),
                     attr("base_denom", "base_denom"),
+                    attr("port_id", "port_id"),
+                    attr("transfer_channel_id", "transfer_channel_id"),
+                    attr("timeout", "100")
                 ])
         ]
     );
@@ -98,6 +107,9 @@ fn update_config_wrong_owner() {
                 strategy_contract: Some(Addr::unchecked("strategy_contract")),
                 min_ibc_transfer: Some(Uint128::from(100u128)),
                 min_stake_amount: Some(Uint128::from(100u128)),
+                port_id: Some("port_id".to_string()),
+                transfer_channel_id: Some("transfer_channel_id".to_string()),
+                timeout: Some(100u64),
             },
         },
     )
@@ -138,6 +150,9 @@ fn update_config_ok() {
                 strategy_contract: Some(Addr::unchecked("strategy_contract_1")),
                 min_ibc_transfer: Some(Uint128::from(90u128)),
                 min_stake_amount: Some(Uint128::from(90u128)),
+                port_id: Some("port_id_1".to_string()),
+                transfer_channel_id: Some("transfer_channel_id_1".to_string()),
+                timeout: Some(90u64),
             },
         },
     )
@@ -153,7 +168,10 @@ fn update_config_ok() {
                     attr("strategy_contract", "strategy_contract_1"),
                     attr("base_denom", "base_denom_1"),
                     attr("min_ibc_transfer", Uint128::from(90u128)),
-                    attr("min_stake_amount", Uint128::from(90u128))
+                    attr("min_stake_amount", Uint128::from(90u128)),
+                    attr("port_id", "port_id_1"),
+                    attr("transfer_channel_id", "transfer_channel_id_1"),
+                    attr("timeout", "90")
                 ])
         ]
     );
@@ -174,6 +192,9 @@ fn update_config_ok() {
             base_denom: "base_denom_1".to_string(),
             min_ibc_transfer: Uint128::from(90u128),
             min_stake_amount: Uint128::from(90u128),
+            port_id: "port_id_1".to_string(),
+            transfer_channel_id: "transfer_channel_id_1".to_string(),
+            timeout: 90u64
         })
         .unwrap()
     );
@@ -299,13 +320,11 @@ fn query_can_not_process_on_idle_not_in_idle_state() {
             deps.as_mut().storage,
             &drop_staking_base::state::native_bond_provider::TxState {
                 status: drop_staking_base::state::native_bond_provider::TxStateStatus::InProgress,
-                seq_id: Some(0u64),
                 transaction: Some(
                     drop_staking_base::state::native_bond_provider::Transaction::Stake {
                         amount: Uint128::from(0u64),
                     },
                 ),
-                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
             },
         )
         .unwrap();
@@ -543,13 +562,11 @@ fn process_on_idle_not_in_idle_state() {
             deps.as_mut().storage,
             &drop_staking_base::state::native_bond_provider::TxState {
                 status: drop_staking_base::state::native_bond_provider::TxStateStatus::InProgress,
-                seq_id: Some(0u64),
                 transaction: Some(
                     drop_staking_base::state::native_bond_provider::Transaction::Stake {
                         amount: Uint128::from(0u64),
                     },
                 ),
-                reply_to: Some("neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()),
             },
         )
         .unwrap();

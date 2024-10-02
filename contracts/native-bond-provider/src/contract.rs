@@ -17,7 +17,7 @@ use drop_staking_base::state::native_bond_provider::{
     Config, ConfigOptional, ReplyMsg, Transaction, TxState, TxStateStatus, CONFIG,
     LAST_PUPPETEER_RESPONSE, NON_STAKED_BALANCE, TX_STATE,
 };
-use neutron_sdk::bindings::msg::{MsgSubmitTxResponse, NeutronMsg};
+use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg};
 
@@ -47,8 +47,8 @@ pub fn instantiate(
         base_denom: msg.base_denom.to_string(),
         min_ibc_transfer: msg.min_ibc_transfer,
         min_stake_amount: msg.min_stake_amount,
-        transfer_channel_id: msg.transfer_channel_id,
-        port_id: msg.port_id,
+        transfer_channel_id: msg.transfer_channel_id.clone(),
+        port_id: msg.port_id.clone(),
         timeout: msg.timeout,
     };
     CONFIG.save(deps.storage, config)?;
@@ -66,6 +66,9 @@ pub fn instantiate(
             attr("min_ibc_transfer", msg.min_ibc_transfer),
             attr("min_stake_amount", msg.min_stake_amount),
             attr("base_denom", msg.base_denom),
+            attr("port_id", msg.port_id),
+            attr("transfer_channel_id", msg.transfer_channel_id),
+            attr("timeout", msg.timeout.to_string()),
         ],
     ))
 }
@@ -237,6 +240,16 @@ fn execute_update_config(
         attrs.push(attr("min_stake_amount", min_stake_amount));
     }
 
+    if let Some(port_id) = new_config.port_id {
+        state.port_id = port_id.clone();
+        attrs.push(attr("port_id", port_id));
+    }
+
+    if let Some(transfer_channel_id) = new_config.transfer_channel_id {
+        state.transfer_channel_id = transfer_channel_id.clone();
+        attrs.push(attr("transfer_channel_id", transfer_channel_id));
+    }
+
     if let Some(timeout) = new_config.timeout {
         state.timeout = timeout;
         attrs.push(attr("timeout", timeout.to_string()));
@@ -400,9 +413,7 @@ fn execute_ibc_transfer(
             ReplyMsg::IbcTransfer.to_reply_id(),
         )?;
 
-        return Ok(
-            response("puppeteer_transfer", CONTRACT_NAME, attrs).add_submessages(vec![submsg])
-        );
+        return Ok(response("puppeteer_transfer", CONTRACT_NAME, attrs).add_submessage(submsg));
     }
 
     Err(ContractError::IcaNotRegistered {})
@@ -450,28 +461,22 @@ fn execute_puppeteer_hook(
 
     match msg.clone() {
         drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) => {
-            match success_msg.transaction {
-                drop_puppeteer_base::msg::Transaction::Stake { items } => {
-                    if let Transaction::Stake { .. } = transaction {
-                        let amount_to_stake: Uint128 =
-                            items.iter().map(|(_, amount)| *amount).sum();
+            if let drop_puppeteer_base::msg::Transaction::Stake { items } = success_msg.transaction
+            {
+                if let Transaction::Stake { .. } = transaction {
+                    let amount_to_stake: Uint128 = items.iter().map(|(_, amount)| *amount).sum();
 
-                        NON_STAKED_BALANCE.update(deps.storage, |balance| {
-                            StdResult::Ok(balance - amount_to_stake)
-                        })?;
+                    NON_STAKED_BALANCE.update(deps.storage, |balance| {
+                        StdResult::Ok(balance - amount_to_stake)
+                    })?;
 
-                        TX_STATE.save(deps.storage, &TxState::default())?;
-                    }
+                    TX_STATE.save(deps.storage, &TxState::default())?;
                 }
-                _ => {}
             }
         }
         drop_puppeteer_base::msg::ResponseHookMsg::Error(error_msg) => {
-            match error_msg.transaction {
-                drop_puppeteer_base::msg::Transaction::Stake { .. } => {
-                    TX_STATE.save(deps.storage, &TxState::default())?;
-                }
-                _ => {}
+            if let drop_puppeteer_base::msg::Transaction::Stake { .. } = error_msg.transaction {
+                TX_STATE.save(deps.storage, &TxState::default())?;
             }
         }
     }
@@ -515,12 +520,11 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
     }
 
     match ReplyMsg::from_reply_id(msg.id) {
-        ReplyMsg::IbcTransfer | ReplyMsg::Bond => puppeteer_reply(deps, msg),
-        ReplyMsg::BankSend => Ok(Response::new()),
+        ReplyMsg::IbcTransfer | ReplyMsg::Bond => puppeteer_reply(deps),
     }
 }
 
-fn puppeteer_reply(deps: DepsMut, msg: Reply) -> ContractResult<Response> {
+fn puppeteer_reply(deps: DepsMut) -> ContractResult<Response> {
     let mut tx_state: TxState = TX_STATE.load(deps.storage)?;
     tx_state.status = TxStateStatus::WaitingForAck;
     TX_STATE.save(deps.storage, &tx_state)?;

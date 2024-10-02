@@ -15,8 +15,10 @@ pub struct InstantiateMsg {
     pub puppeteer_contract: String,
     pub core_contract: String,
     pub validators_set_contract: String,
+    pub port_id: String,
     pub transfer_channel_id: String,
-    pub lsm_redeem_threshold: u64,        //amount of lsm denoms
+    pub timeout: u64,              // timeout for interchain transactions in seconds
+    pub lsm_redeem_threshold: u64, //amount of lsm denoms
     pub lsm_redeem_maximum_interval: u64, //seconds
 }
 
