@@ -118,7 +118,6 @@ export type Transaction =
     }
   | {
       setup_protocol: {
-        delegate_grantee: string;
         interchain_account_id: string;
         rewards_withdraw_address: string;
       };

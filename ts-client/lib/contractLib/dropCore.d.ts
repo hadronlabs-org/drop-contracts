@@ -135,7 +135,6 @@ export type Transaction = {
     };
 } | {
     setup_protocol: {
-        delegate_grantee: string;
         interchain_account_id: string;
         rewards_withdraw_address: string;
     };
@@ -260,9 +259,6 @@ export interface Config {
     emergency_address?: string | null;
     icq_update_delay: number;
     idle_min_interval: number;
-    lsm_min_bond_amount: Uint128;
-    lsm_redeem_maximum_interval: number;
-    lsm_redeem_threshold: number;
     pump_ica_address?: string | null;
     puppeteer_contract: Addr;
     remote_denom: string;
@@ -416,9 +412,6 @@ export interface ConfigOptional {
     bond_limit?: Uint128 | null;
     emergency_address?: string | null;
     idle_min_interval?: number | null;
-    lsm_min_bond_amount?: Uint128 | null;
-    lsm_redeem_maximum_interval?: number | null;
-    lsm_redeem_threshold?: number | null;
     pump_ica_address?: string | null;
     puppeteer_contract?: string | null;
     remote_denom?: string | null;
@@ -448,9 +441,6 @@ export interface InstantiateMsg {
     emergency_address?: string | null;
     icq_update_delay: number;
     idle_min_interval: number;
-    lsm_min_bond_amount: Uint128;
-    lsm_redeem_max_interval: number;
-    lsm_redeem_threshold: number;
     owner: string;
     pump_ica_address?: string | null;
     puppeteer_contract: string;

@@ -797,9 +797,6 @@ export interface ConfigOptional {
   bond_limit?: Uint128 | null;
   emergency_address?: string | null;
   idle_min_interval?: number | null;
-  lsm_min_bond_amount?: Uint128 | null;
-  lsm_redeem_maximum_interval?: number | null;
-  lsm_redeem_threshold?: number | null;
   pump_ica_address?: string | null;
   puppeteer_contract?: string | null;
   remote_denom?: string | null;
@@ -1195,6 +1192,7 @@ export interface InstantiateMsg {
   core_params: CoreParams;
   fee_params?: FeeParams | null;
   local_denom: string;
+  lsm_share_bond_params: LsmShareBondParams;
   native_bond_params: NativeBondParams;
   remote_opts: RemoteOpts;
   salt: string;
@@ -1211,7 +1209,6 @@ export interface CodeIds {
   rewards_manager_code_id: number;
   rewards_pump_code_id: number;
   splitter_code_id: number;
-  staker_code_id: number;
   strategy_code_id: number;
   token_code_id: number;
   validators_set_code_id: number;
@@ -1222,9 +1219,6 @@ export interface CoreParams {
   bond_limit?: Uint128 | null;
   icq_update_delay: number;
   idle_min_interval: number;
-  lsm_min_bond_amount: Uint128;
-  lsm_redeem_max_interval: number;
-  lsm_redeem_threshold: number;
   unbond_batch_switch_time: number;
   unbonding_period: number;
   unbonding_safe_period: number;
@@ -1232,6 +1226,11 @@ export interface CoreParams {
 export interface FeeParams {
   fee: Decimal;
   fee_address: string;
+}
+export interface LsmShareBondParams {
+  lsm_min_bond_amount: Uint128;
+  lsm_redeem_max_interval: number;
+  lsm_redeem_threshold: number;
 }
 export interface NativeBondParams {
   min_ibc_transfer: Uint128;

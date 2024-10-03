@@ -143,7 +143,6 @@ export type Transaction = {
     };
 } | {
     setup_protocol: {
-        delegate_grantee: string;
         interchain_account_id: string;
         rewards_withdraw_address: string;
     };
@@ -236,8 +235,11 @@ export interface Config {
     core_contract: Addr;
     min_ibc_transfer: Uint1282;
     min_stake_amount: Uint1282;
+    port_id: string;
     puppeteer_contract: Addr;
     strategy_contract: Addr;
+    timeout: number;
+    transfer_channel_id: string;
 }
 export interface LastPuppeteerResponse {
     response?: ResponseHookMsg | null;
@@ -333,8 +335,6 @@ export interface OwnershipForString {
     pending_owner?: string | null;
 }
 export interface TxState {
-    reply_to?: string | null;
-    seq_id?: number | null;
     status: TxStateStatus;
     transaction?: Transaction | null;
 }
@@ -353,8 +353,11 @@ export interface ConfigOptional {
     core_contract?: Addr | null;
     min_ibc_transfer?: Uint1282 | null;
     min_stake_amount?: Uint1282 | null;
+    port_id?: string | null;
     puppeteer_contract?: Addr | null;
     strategy_contract?: Addr | null;
+    timeout?: number | null;
+    transfer_channel_id?: string | null;
 }
 export interface InstantiateMsg {
     base_denom: string;
@@ -362,8 +365,11 @@ export interface InstantiateMsg {
     min_ibc_transfer: Uint1282;
     min_stake_amount: Uint1282;
     owner: string;
+    port_id: string;
     puppeteer_contract: string;
     strategy_contract: string;
+    timeout: number;
+    transfer_channel_id: string;
 }
 export declare class Client {
     private readonly client;
@@ -383,7 +389,6 @@ export declare class Client {
     queryAsyncTokensAmount: () => Promise<Uint128>;
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    puppeteerTransfer: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     puppeteerHook: (sender: string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     bond: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     processOnIdle: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

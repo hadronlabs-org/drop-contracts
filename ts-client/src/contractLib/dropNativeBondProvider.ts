@@ -165,7 +165,6 @@ export type Transaction =
     }
   | {
       setup_protocol: {
-        delegate_grantee: string;
         interchain_account_id: string;
         rewards_withdraw_address: string;
       };
@@ -277,8 +276,11 @@ export interface Config {
   core_contract: Addr;
   min_ibc_transfer: Uint1282;
   min_stake_amount: Uint1282;
+  port_id: string;
   puppeteer_contract: Addr;
   strategy_contract: Addr;
+  timeout: number;
+  transfer_channel_id: string;
 }
 export interface LastPuppeteerResponse {
   response?: ResponseHookMsg | null;
@@ -370,8 +372,6 @@ export interface OwnershipForString {
   pending_owner?: string | null;
 }
 export interface TxState {
-  reply_to?: string | null;
-  seq_id?: number | null;
   status: TxStateStatus;
   transaction?: Transaction | null;
 }
@@ -390,8 +390,11 @@ export interface ConfigOptional {
   core_contract?: Addr | null;
   min_ibc_transfer?: Uint1282 | null;
   min_stake_amount?: Uint1282 | null;
+  port_id?: string | null;
   puppeteer_contract?: Addr | null;
   strategy_contract?: Addr | null;
+  timeout?: number | null;
+  transfer_channel_id?: string | null;
 }
 export interface InstantiateMsg {
   base_denom: string;
@@ -399,8 +402,11 @@ export interface InstantiateMsg {
   min_ibc_transfer: Uint1282;
   min_stake_amount: Uint1282;
   owner: string;
+  port_id: string;
   puppeteer_contract: string;
   strategy_contract: string;
+  timeout: number;
+  transfer_channel_id: string;
 }
 
 
@@ -482,10 +488,6 @@ export class Client {
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
-  }
-  puppeteerTransfer = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { puppeteer_transfer: {} }, fee || "auto", memo, funds);
   }
   puppeteerHook = async(sender:string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

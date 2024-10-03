@@ -152,7 +152,6 @@ export type Transaction =
     }
   | {
       setup_protocol: {
-        delegate_grantee: string;
         interchain_account_id: string;
         rewards_withdraw_address: string;
       };
@@ -202,6 +201,7 @@ export type ArrayOfTupleOfStringAndTupleOfStringAndUint1281 = [string, [string, 
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal = string;
+export type TxStateStatus = "idle" | "in_progress" | "waiting_for_ack";
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
@@ -238,7 +238,8 @@ export interface DropLsmShareBondProviderSchema {
     | LastPuppeteerResponse
     | OwnershipForString
     | ArrayOfTupleOfStringAndTupleOfStringAndUint1281
-    | Decimal;
+    | Decimal
+    | TxState;
   query: CanBondArgs | TokensAmountArgs;
   execute: UpdateConfigArgs | PuppeteerHookArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
@@ -246,9 +247,12 @@ export interface DropLsmShareBondProviderSchema {
 }
 export interface Config {
   core_contract: Addr;
+  lsm_min_bond_amount: Uint1281;
   lsm_redeem_maximum_interval: number;
   lsm_redeem_threshold: number;
+  port_id: string;
   puppeteer_contract: Addr;
+  timeout: number;
   transfer_channel_id: string;
   validators_set_contract: Addr;
 }
@@ -341,6 +345,10 @@ export interface OwnershipForString {
    */
   pending_owner?: string | null;
 }
+export interface TxState {
+  status: TxStateStatus;
+  transaction?: Transaction | null;
+}
 export interface CanBondArgs {
   denom: string;
 }
@@ -353,18 +361,24 @@ export interface UpdateConfigArgs {
 }
 export interface ConfigOptional {
   core_contract?: Addr | null;
+  lsm_min_bond_amount?: Uint1281 | null;
   lsm_redeem_maximum_interval?: number | null;
   lsm_redeem_threshold?: number | null;
+  port_id?: string | null;
   puppeteer_contract?: Addr | null;
+  timeout?: number | null;
   transfer_channel_id?: string | null;
   validators_set_contract?: Addr | null;
 }
 export interface InstantiateMsg {
   core_contract: string;
+  lsm_min_bond_amount: Uint1281;
   lsm_redeem_maximum_interval: number;
   lsm_redeem_threshold: number;
   owner: string;
+  port_id: string;
   puppeteer_contract: string;
+  timeout: number;
   transfer_channel_id: string;
   validators_set_contract: string;
 }
@@ -426,6 +440,9 @@ export class Client {
   }
   queryLastPuppeteerResponse = async(): Promise<LastPuppeteerResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { last_puppeteer_response: {} });
+  }
+  queryTxState = async(): Promise<TxState> => {
+    return this.client.queryContractSmart(this.contractAddress, { tx_state: {} });
   }
   queryCanBond = async(args: CanBondArgs): Promise<Boolean> => {
     return this.client.queryContractSmart(this.contractAddress, { can_bond: args });

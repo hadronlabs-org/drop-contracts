@@ -83,7 +83,6 @@ export type Transaction =
     }
   | {
       setup_protocol: {
-        delegate_grantee: string;
         interchain_account_id: string;
         rewards_withdraw_address: string;
       };
@@ -241,7 +240,6 @@ export interface RegisterNonNativeRewardsBalancesQueryArgs {
   denoms: string[];
 }
 export interface SetupProtocolArgs {
-  delegate_grantee: string;
   rewards_withdraw_address: string;
 }
 export interface DelegateArgs {
