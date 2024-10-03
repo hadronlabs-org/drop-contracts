@@ -182,3 +182,4 @@ pub const LAST_LSM_REDEEM: Item<u64> = Item::new("last_lsm_redeem");
 pub const EXCHANGE_RATE: Item<(Decimal, u64)> = Item::new("exchange_rate");
 pub const LD_DENOM: Item<String> = Item::new("ld_denom");
 pub const BOND_PROVIDERS: Map<Addr, Empty> = Map::new("bond_providers");
+pub const BOND_PROVIDERS_IDX: Item<usize> = Item::new("bond_providers_idx");

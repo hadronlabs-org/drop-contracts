@@ -324,7 +324,6 @@ fn test_execute_setup_protocol_sender_is_not_allowed() {
         mock_env(),
         mock_info("not_allowed_sender", &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::SetupProtocol {
-            delegate_grantee: "delegate_grantee".to_string(),
             rewards_withdraw_address: "rewards_withdraw_address".to_string(),
         },
     );
@@ -351,7 +350,6 @@ fn test_execute_setup_protocol() {
         mock_env(),
         mock_info("allowed_sender", &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::SetupProtocol {
-            delegate_grantee: "delegate_grantee".to_string(),
             rewards_withdraw_address: "rewards_withdraw_address".to_string(),
         },
     )
@@ -392,7 +390,6 @@ fn test_execute_setup_protocol() {
             reply_to: Some("".to_string()),
             transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
                 interchain_account_id: "ica_address".to_string(),
-                delegate_grantee: "delegate_grantee".to_string(),
                 rewards_withdraw_address: "rewards_withdraw_address".to_string(),
             })
         }
@@ -419,7 +416,6 @@ fn test_execute_setup_protocol_not_idle() {
                 reply_to: Some("".to_string()),
                 transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
                     interchain_account_id: "ica_address".to_string(),
-                    delegate_grantee: "delegate_grantee".to_string(),
                     rewards_withdraw_address: "rewards_withdraw_address".to_string(),
                 }),
             },
@@ -430,7 +426,6 @@ fn test_execute_setup_protocol_not_idle() {
         mock_env(),
         mock_info("allowed_sender", &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::SetupProtocol {
-            delegate_grantee: "delegate_grantee".to_string(),
             rewards_withdraw_address: "rewards_withdraw_address".to_string(),
         },
     )
@@ -494,7 +489,6 @@ fn test_execute_undelegate_sender_not_idle() {
                 reply_to: Some("".to_string()),
                 transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
                     interchain_account_id: "ica_address".to_string(),
-                    delegate_grantee: "delegate_grantee".to_string(),
                     rewards_withdraw_address: "rewards_withdraw_address".to_string(),
                 }),
             },
@@ -638,7 +632,6 @@ fn test_execute_redelegate_sender_not_idle() {
                 reply_to: Some("".to_string()),
                 transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
                     interchain_account_id: "ica_address".to_string(),
-                    delegate_grantee: "delegate_grantee".to_string(),
                     rewards_withdraw_address: "rewards_withdraw_address".to_string(),
                 }),
             },
@@ -785,7 +778,6 @@ fn test_execute_tokenize_share_sender_not_idle() {
                 reply_to: Some("".to_string()),
                 transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
                     interchain_account_id: "ica_address".to_string(),
-                    delegate_grantee: "delegate_grantee".to_string(),
                     rewards_withdraw_address: "rewards_withdraw_address".to_string(),
                 }),
             },
@@ -934,7 +926,6 @@ fn test_execute_redeeem_shares_sender_not_idle() {
                 reply_to: Some("".to_string()),
                 transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
                     interchain_account_id: "ica_address".to_string(),
-                    delegate_grantee: "delegate_grantee".to_string(),
                     rewards_withdraw_address: "rewards_withdraw_address".to_string(),
                 }),
             },
@@ -1088,7 +1079,6 @@ fn test_execute_claim_rewards_and_optionaly_transfer_not_idle() {
                 reply_to: Some("".to_string()),
                 transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
                     interchain_account_id: "ica_address".to_string(),
-                    delegate_grantee: "delegate_grantee".to_string(),
                     rewards_withdraw_address: "rewards_withdraw_address".to_string(),
                 }),
             },
@@ -1900,7 +1890,6 @@ fn test_execute_ibc_transfer_not_idle() {
                 reply_to: Some("".to_string()),
                 transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
                     interchain_account_id: "ica_address".to_string(),
-                    delegate_grantee: "delegate_grantee".to_string(),
                     rewards_withdraw_address: "rewards_withdraw_address".to_string(),
                 }),
             },
@@ -2047,7 +2036,6 @@ fn test_execute_transfer_not_idle() {
                 reply_to: Some("".to_string()),
                 transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
                     interchain_account_id: "ica_address".to_string(),
-                    delegate_grantee: "delegate_grantee".to_string(),
                     rewards_withdraw_address: "rewards_withdraw_address".to_string(),
                 }),
             },

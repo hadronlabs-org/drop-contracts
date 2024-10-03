@@ -44,6 +44,8 @@ pub enum QueryMsg {
     LSMSharesToRedeem {},
     #[returns(LastPuppeteerResponse)]
     LastPuppeteerResponse {},
+    #[returns(crate::state::lsm_share_bond_provider::TxState)]
+    TxState {},
 }
 
 #[cw_serde]

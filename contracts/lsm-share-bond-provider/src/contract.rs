@@ -97,10 +97,16 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
             response: LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?,
         })
         .map_err(From::from),
+        QueryMsg::TxState {} => query_tx_state(deps, env),
         QueryMsg::AsyncTokensAmount {} => {
             to_json_binary(&TOTAL_LSM_SHARES.load(deps.storage)?).map_err(From::from)
         }
     }
+}
+
+fn query_tx_state(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Binary> {
+    let tx_state = TX_STATE.load(deps.storage)?;
+    Ok(to_json_binary(&tx_state)?)
 }
 
 fn query_pending_lsm_shares(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {

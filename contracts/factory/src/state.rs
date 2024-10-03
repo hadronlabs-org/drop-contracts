@@ -6,7 +6,6 @@ pub struct CodeIds {
     pub token_code_id: u64,
     pub core_code_id: u64,
     pub puppeteer_code_id: u64,
-    pub staker_code_id: u64,
     pub withdrawal_voucher_code_id: u64,
     pub withdrawal_manager_code_id: u64,
     pub strategy_code_id: u64,

@@ -8,7 +8,7 @@ use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
 use drop_helpers::pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse};
 use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
-use drop_staking_base::state::core::{BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID};
+use drop_staking_base::state::core::{BOND_PROVIDERS, BOND_PROVIDERS_IDX, BOND_PROVIDER_REPLY_ID};
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
@@ -77,6 +77,7 @@ pub fn instantiate(
     LAST_IDLE_CALL.save(deps.storage, &0)?;
     LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &0)?;
     BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
+    BOND_PROVIDERS_IDX.save(deps.storage, &0)?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
@@ -553,28 +554,42 @@ fn execute_tick_idle(
     attrs.push(attr("knot", "003"));
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
         let bond_providers = query_bond_providers(deps.as_ref())?;
-        for provider in bond_providers {
-            let can_process_on_idle: bool = deps.querier.query_wasm_smart(
-                provider.to_string(),
-                &drop_staking_base::msg::bond_provider::QueryMsg::CanProcessOnIdle {},
-            )?;
-            if can_process_on_idle {
-                let sub_msg = SubMsg::reply_on_error(
-                    CosmosMsg::Wasm(WasmMsg::Execute {
-                        contract_addr: provider.to_string(),
-                        msg: to_json_binary(
-                            &drop_staking_base::msg::bond_provider::ExecuteMsg::ProcessOnIdle {},
-                        )?,
-                        funds: vec![],
-                    }),
-                    BOND_PROVIDER_REPLY_ID,
-                );
-
-                sub_msgs.push(sub_msg);
-
-                FSM.go_to(deps.storage, ContractState::Peripheral)?;
-            }
+        let mut bond_providers_idx = BOND_PROVIDERS_IDX.load(deps.storage)?;
+        if bond_providers.len() == 0 {
+            return Ok(response(
+                "execute-tick_idle",
+                CONTRACT_NAME,
+                vec![attr("bond_providers", "empty")],
+            ));
         }
+
+        if bond_providers_idx >= bond_providers.len() {
+            bond_providers_idx = 0;
+        }
+        let provider = bond_providers[bond_providers_idx].clone();
+
+        let can_process_on_idle: bool = deps.querier.query_wasm_smart(
+            provider.to_string(),
+            &drop_staking_base::msg::bond_provider::QueryMsg::CanProcessOnIdle {},
+        )?;
+        if can_process_on_idle {
+            let sub_msg = SubMsg::reply_on_error(
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: provider.to_string(),
+                    msg: to_json_binary(
+                        &drop_staking_base::msg::bond_provider::ExecuteMsg::ProcessOnIdle {},
+                    )?,
+                    funds: vec![],
+                }),
+                BOND_PROVIDER_REPLY_ID,
+            );
+
+            sub_msgs.push(sub_msg);
+
+            FSM.go_to(deps.storage, ContractState::Peripheral)?;
+        }
+
+        BOND_PROVIDERS_IDX.save(deps.storage, &(bond_providers_idx + 1))?;
     } else {
         LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
         attrs.push(attr("knot", "004"));
@@ -786,11 +801,6 @@ fn execute_tick_peripheral(
         match msg.transaction {
             drop_puppeteer_base::msg::Transaction::RedeemShares { .. } => {
                 attrs.push(attr("knot", "038"))
-            }
-            drop_puppeteer_base::msg::Transaction::IBCTransfer { reason, .. } => {
-                if reason == IBCTransferReason::LSMShare {
-                    attrs.push(attr("knot", "043"));
-                }
             }
             drop_puppeteer_base::msg::Transaction::Transfer { .. } => {
                 attrs.push(attr("knot", "035"));

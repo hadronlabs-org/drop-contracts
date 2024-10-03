@@ -265,9 +265,8 @@ pub fn execute(
             Ok(response("update_ownership", CONTRACT_NAME, attrs))
         }
         ExecuteMsg::SetupProtocol {
-            delegate_grantee,
             rewards_withdraw_address,
-        } => execute_setup_protocol(deps, env, info, delegate_grantee, rewards_withdraw_address),
+        } => execute_setup_protocol(deps, env, info, rewards_withdraw_address),
         _ => puppeteer_base.execute(deps, env, info, msg.to_base_enum()),
     }
 }
@@ -616,7 +615,6 @@ fn execute_setup_protocol(
     mut deps: DepsMut<NeutronQuery>,
     _env: Env,
     info: MessageInfo,
-    delegate_grantee: String,
     rewards_withdraw_address: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
@@ -641,7 +639,6 @@ fn execute_setup_protocol(
         any_msgs,
         Transaction::SetupProtocol {
             interchain_account_id: ica.to_string(),
-            delegate_grantee,
             rewards_withdraw_address,
         },
         "".to_string(),

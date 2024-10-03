@@ -150,7 +150,6 @@ pub enum Transaction {
     },
     SetupProtocol {
         interchain_account_id: String,
-        delegate_grantee: String,
         rewards_withdraw_address: String,
     },
 }

@@ -18,6 +18,7 @@ pub struct InstantiateMsg {
     pub local_denom: String,
     pub core_params: CoreParams,
     pub native_bond_params: NativeBondParams,
+    pub lsm_share_bond_params: LsmShareBondParams,
     pub fee_params: Option<FeeParams>,
 }
 
@@ -33,9 +34,6 @@ pub struct CoreParams {
     pub unbonding_period: u64,
     pub unbonding_safe_period: u64,
     pub unbond_batch_switch_time: u64,
-    pub lsm_min_bond_amount: Uint128,
-    pub lsm_redeem_threshold: u64,    //amount of lsm denoms
-    pub lsm_redeem_max_interval: u64, //seconds
     pub bond_limit: Option<Uint128>,
     pub icq_update_delay: u64, // blocks
 }
@@ -44,6 +42,13 @@ pub struct CoreParams {
 pub struct NativeBondParams {
     pub min_stake_amount: Uint128,
     pub min_ibc_transfer: Uint128,
+}
+
+#[cw_serde]
+pub struct LsmShareBondParams {
+    pub lsm_min_bond_amount: Uint128,
+    pub lsm_redeem_threshold: u64,    //amount of lsm denoms
+    pub lsm_redeem_max_interval: u64, //seconds
 }
 
 #[cw_serde]

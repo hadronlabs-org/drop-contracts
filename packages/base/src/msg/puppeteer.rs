@@ -48,7 +48,6 @@ pub enum ExecuteMsg {
         denoms: Vec<String>,
     },
     SetupProtocol {
-        delegate_grantee: String,
         rewards_withdraw_address: String,
     },
     Delegate {
