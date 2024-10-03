@@ -1,4 +1,6 @@
-use cosmwasm_std::{ConversionOverflowError, Decimal256RangeExceeded, OverflowError, StdError};
+use cosmwasm_std::{
+    ConversionOverflowError, Decimal256RangeExceeded, OverflowError, StdError, Uint128,
+};
 use cw_ownable::OwnershipError;
 use neutron_sdk::NeutronError;
 use thiserror::Error;
@@ -52,6 +54,12 @@ pub enum ContractError {
 
     #[error("Puppeteer error: {message}")]
     PuppeteerError { message: String },
+
+    #[error("Bond amount is less than minimum LSM bond amount: {min_stake_amount}. Provided: {bond_amount}")]
+    LSMBondAmountIsBelowMinimum {
+        min_stake_amount: Uint128,
+        bond_amount: Uint128,
+    },
 }
 
 impl From<semver::Error> for ContractError {

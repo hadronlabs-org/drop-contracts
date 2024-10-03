@@ -12,8 +12,9 @@ pub struct Config {
     pub validators_set_contract: Addr,
     pub port_id: String,
     pub transfer_channel_id: String,
-    pub timeout: u64,              // timeout for interchain transactions in seconds
-    pub lsm_redeem_threshold: u64, //amount of lsm denoms
+    pub timeout: u64, // timeout for interchain transactions in seconds
+    pub lsm_min_bond_amount: Uint128,
+    pub lsm_redeem_threshold: u64,        //amount of lsm denoms
     pub lsm_redeem_maximum_interval: u64, //seconds
 }
 

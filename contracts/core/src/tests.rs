@@ -39,11 +39,8 @@ pub const MOCK_STRATEGY_CONTRACT_ADDR: &str = "strategy_contract";
 
 fn get_default_config(
     idle_min_interval: u64,
-    lsm_redeem_threshold: u64,
-    lsm_redeem_maximum_interval: u64,
     unbonding_safe_period: u64,
     unbond_batch_switch_time: u64,
-    lsm_min_bond_amount: Uint128,
 ) -> Config {
     Config {
         token_contract: Addr::unchecked("token_contract"),
@@ -60,9 +57,6 @@ fn get_default_config(
         unbond_batch_switch_time,
         pump_ica_address: Some("pump_address".to_string()),
         transfer_channel_id: "transfer_channel".to_string(),
-        lsm_redeem_threshold,
-        lsm_min_bond_amount,
-        lsm_redeem_maximum_interval,
         bond_limit: None,
         emergency_address: None,
         icq_update_delay: 5,
@@ -115,9 +109,6 @@ fn test_update_config() {
             unbond_batch_switch_time: 2000,
             pump_ica_address: Some("old_pump_address".to_string()),
             transfer_channel_id: "old_transfer_channel".to_string(),
-            lsm_redeem_max_interval: 20_000_000,
-            lsm_redeem_threshold: 120u64,
-            lsm_min_bond_amount: Uint128::new(12),
             bond_limit: Some(Uint128::new(12)),
             emergency_address: Some("old_emergency_address".to_string()),
             owner: "admin".to_string(),
@@ -147,9 +138,6 @@ fn test_update_config() {
         pump_ica_address: Some("new_pump_address".to_string()),
         transfer_channel_id: Some("new_transfer_channel".to_string()),
         rewards_receiver: Some("new_rewards_receiver".to_string()),
-        lsm_redeem_threshold: Some(20u64),
-        lsm_min_bond_amount: Some(Uint128::new(2)),
-        lsm_redeem_maximum_interval: Some(20_000_000_000),
         bond_limit: Some(Uint128::new(2)),
         emergency_address: Some("new_emergency_address".to_string()),
     };
@@ -168,9 +156,6 @@ fn test_update_config() {
         unbond_batch_switch_time: 12000,
         pump_ica_address: Some("new_pump_address".to_string()),
         transfer_channel_id: "new_transfer_channel".to_string(),
-        lsm_redeem_threshold: 20u64,
-        lsm_min_bond_amount: Uint128::new(2),
-        lsm_redeem_maximum_interval: 20_000_000_000,
         bond_limit: Some(Uint128::new(2)),
         emergency_address: Some("new_emergency_address".to_string()),
         icq_update_delay: 5,
@@ -194,10 +179,7 @@ fn test_update_withdrawn_amount() {
     let mut deps = mock_dependencies(&[]);
 
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 10, 10_000_000_000, 10, 6000, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 10, 6000))
         .unwrap();
 
     let withdrawn_batch = &UnbondBatch {
@@ -395,10 +377,7 @@ fn test_execute_tick_idle_process_bondig_provider() {
         .unwrap();
 
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 10, 10_000_000_000, 10, 6000, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 10, 6000))
         .unwrap();
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
@@ -509,10 +488,7 @@ fn test_tick_idle_unbonding_close() {
             .unwrap()
         });
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 6000, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 100, 6000))
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
@@ -647,8 +623,7 @@ fn test_tick_idle_claim_wo_unbond() {
             })
             .unwrap()
         });
-    let mut config = get_default_config(1000, 3, 100, 100, 6000, Uint128::one());
-    config.lsm_redeem_maximum_interval = 100;
+    let config = get_default_config(1000, 100, 6000);
     CONFIG.save(deps.as_mut().storage, &config).unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
@@ -806,10 +781,7 @@ fn test_tick_idle_claim_with_unbond_transfer() {
             .unwrap()
         });
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 6000, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 100, 6000))
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
@@ -981,10 +953,7 @@ fn test_tick_idle_unbonding() {
         });
 
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 6000, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 100, 6000))
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
@@ -1180,10 +1149,7 @@ fn test_tick_idle_unbonding_failed() {
         });
 
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 6000, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 100, 6000))
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
@@ -1317,10 +1283,7 @@ fn test_tick_idle_unbonding_failed() {
 fn test_tick_no_puppeteer_response() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -1417,10 +1380,7 @@ fn test_tick_claiming_error_wo_transfer() {
             }
         });
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -1526,10 +1486,7 @@ fn test_tick_claiming_error_with_transfer() {
             }
         });
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -1684,10 +1641,7 @@ fn test_tick_claiming_wo_transfer_unbonding() {
             }
         });
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -1856,10 +1810,7 @@ fn test_tick_claiming_wo_idle() {
             }
         });
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 60000, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 100, 60000))
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -1952,10 +1903,7 @@ fn test_tick_claiming_wo_idle() {
 fn test_execute_tick_guard_balance_outdated() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -1992,10 +1940,7 @@ fn test_execute_tick_guard_balance_outdated() {
 fn test_execute_tick_guard_delegations_outdated() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -2044,10 +1989,7 @@ fn test_execute_tick_guard_delegations_outdated() {
 fn test_execute_tick_staking_no_puppeteer_response() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Unbonding)
         .unwrap();
@@ -2090,10 +2032,7 @@ fn test_execute_tick_staking_no_puppeteer_response() {
 fn test_execute_tick_unbonding_no_puppeteer_response() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
 
     LAST_ICA_CHANGE_HEIGHT
@@ -2163,10 +2102,7 @@ fn test_bond_wo_receiver() {
         .save(deps.as_mut().storage, &Uint128::zero())
         .unwrap();
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
@@ -2245,10 +2181,7 @@ fn test_bond_with_receiver() {
         )
         .unwrap();
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
@@ -2406,10 +2339,7 @@ fn test_bond_lsm_share_increase_exchange_rate() {
         .save(deps.as_mut().storage, &Uint128::zero())
         .unwrap();
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 600, Uint128::new(1)),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
@@ -2482,10 +2412,7 @@ fn test_unbond() {
         )
         .unwrap();
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &get_default_config(1000, 3, 100, 100, 600, Uint128::one()),
-        )
+        .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
@@ -2768,7 +2695,7 @@ mod check_denom {
         let denom_type = crate::contract::check_denom::check_denom(
             &deps.as_ref(),
             "base_denom",
-            &get_default_config(0, 0, 0, 0, 0, 0u128.into()),
+            &get_default_config(0, 0, 0),
         )
         .unwrap();
         assert_eq!(denom_type, DenomType::Base);
@@ -2792,7 +2719,7 @@ mod check_denom {
         let err = crate::contract::check_denom::check_denom(
             &deps.as_ref(),
             "ibc/12345678",
-            &get_default_config(0, 0, 0, 0, 0, 0u128.into()),
+            &get_default_config(0, 0, 0),
         )
         .unwrap_err();
         assert_eq!(err, ContractError::InvalidDenom {});
@@ -2816,7 +2743,7 @@ mod check_denom {
         let err = crate::contract::check_denom::check_denom(
             &deps.as_ref(),
             "ibc/12345678",
-            &get_default_config(0, 0, 0, 0, 0, 0u128.into()),
+            &get_default_config(0, 0, 0),
         )
         .unwrap_err();
         assert_eq!(err, ContractError::InvalidDenom {});
@@ -2840,7 +2767,7 @@ mod check_denom {
         let err = crate::contract::check_denom::check_denom(
             &deps.as_ref(),
             "ibc/12345678",
-            &get_default_config(0, 0, 0, 0, 0, 0u128.into()),
+            &get_default_config(0, 0, 0),
         )
         .unwrap_err();
         assert_eq!(err, ContractError::InvalidDenom {});
@@ -2864,7 +2791,7 @@ mod check_denom {
         let err = crate::contract::check_denom::check_denom(
             &deps.as_ref(),
             "ibc/12345678",
-            &get_default_config(0, 0, 0, 0, 0, 0u128.into()),
+            &get_default_config(0, 0, 0),
         )
         .unwrap_err();
         assert_eq!(err, ContractError::InvalidDenom {});
@@ -2907,7 +2834,7 @@ mod check_denom {
         let err = crate::contract::check_denom::check_denom(
             &deps.as_ref(),
             "ibc/12345678",
-            &get_default_config(0, 0, 0, 0, 0, 0u128.into()),
+            &get_default_config(0, 0, 0),
         )
         .unwrap_err();
         assert_eq!(err, ContractError::InvalidDenom {});
@@ -2932,7 +2859,7 @@ mod check_denom {
         let err = crate::contract::check_denom::check_denom(
             &deps.as_ref(),
             "ibc/12345678",
-            &get_default_config(0, 0, 0, 0, 0, 0u128.into()),
+            &get_default_config(0, 0, 0),
         )
         .unwrap_err();
         assert_eq!(err, ContractError::InvalidDenom {});
@@ -2985,7 +2912,7 @@ mod check_denom {
         let denom_type = crate::contract::check_denom::check_denom(
             &deps.as_ref(),
             "ibc/12345678",
-            &get_default_config(0, 0, 0, 0, 0, 0u128.into()),
+            &get_default_config(0, 0, 0),
         )
         .unwrap();
         assert_eq!(

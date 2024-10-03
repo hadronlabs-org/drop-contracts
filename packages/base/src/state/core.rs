@@ -21,9 +21,6 @@ pub struct ConfigOptional {
     pub unbond_batch_switch_time: Option<u64>,
     pub pump_ica_address: Option<String>,
     pub transfer_channel_id: Option<String>,
-    pub lsm_min_bond_amount: Option<Uint128>,
-    pub lsm_redeem_threshold: Option<u64>, //amount of lsm denoms
-    pub lsm_redeem_maximum_interval: Option<u64>,
     pub bond_limit: Option<Uint128>,
     pub rewards_receiver: Option<String>,
     pub emergency_address: Option<String>,
@@ -45,9 +42,6 @@ pub struct Config {
     pub unbond_batch_switch_time: u64, //seconds
     pub pump_ica_address: Option<String>,
     pub transfer_channel_id: String,
-    pub lsm_min_bond_amount: Uint128,
-    pub lsm_redeem_threshold: u64,        //amount of lsm denoms
-    pub lsm_redeem_maximum_interval: u64, //seconds
     pub bond_limit: Option<Uint128>,
     pub emergency_address: Option<String>,
     pub icq_update_delay: u64, // blocks

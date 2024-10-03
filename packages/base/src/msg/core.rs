@@ -21,9 +21,6 @@ pub struct InstantiateMsg {
     pub validators_set_contract: String,
     pub base_denom: String,
     pub remote_denom: String,
-    pub lsm_min_bond_amount: Uint128,
-    pub lsm_redeem_threshold: u64,     //amount of lsm denoms
-    pub lsm_redeem_max_interval: u64,  //seconds
     pub idle_min_interval: u64,        //seconds
     pub unbonding_period: u64,         //seconds
     pub unbonding_safe_period: u64,    //seconds
@@ -55,9 +52,6 @@ impl InstantiateMsg {
             unbonding_period: self.unbonding_period,
             pump_ica_address: self.pump_ica_address,
             transfer_channel_id: self.transfer_channel_id,
-            lsm_redeem_threshold: self.lsm_redeem_threshold,
-            lsm_redeem_maximum_interval: self.lsm_redeem_max_interval,
-            lsm_min_bond_amount: self.lsm_min_bond_amount,
             validators_set_contract: deps.api.addr_validate(&self.validators_set_contract)?,
             bond_limit: match self.bond_limit {
                 None => None,

@@ -29,9 +29,6 @@ pub enum ContractError {
     #[error("Message is not supported")]
     MessageIsNotSupported {},
 
-    #[error("Invalid Funds: {reason}")]
-    InvalidFunds { reason: String },
-
     #[error("Puppeteer error: {message}")]
     PuppeteerError { message: String },
 

@@ -51,6 +51,7 @@ pub fn instantiate(
         port_id: msg.port_id.to_string(),
         transfer_channel_id: msg.transfer_channel_id.to_string(),
         timeout: msg.timeout,
+        lsm_min_bond_amount: msg.lsm_min_bond_amount,
         lsm_redeem_threshold: msg.lsm_redeem_threshold,
         lsm_redeem_maximum_interval: msg.lsm_redeem_maximum_interval,
     };
@@ -69,6 +70,7 @@ pub fn instantiate(
             attr("port_id", msg.port_id),
             attr("transfer_channel_id", msg.transfer_channel_id),
             attr("timeout", msg.timeout.to_string()),
+            attr("lsm_min_bond_amount", msg.lsm_min_bond_amount.to_string()),
             attr("lsm_redeem_threshold", msg.lsm_redeem_threshold.to_string()),
             attr(
                 "lsm_redeem_maximum_interval",
@@ -268,6 +270,11 @@ fn execute_update_config(
         attrs.push(attr("timeout", timeout.to_string()))
     }
 
+    if let Some(lsm_min_bond_amount) = new_config.lsm_min_bond_amount {
+        state.lsm_min_bond_amount = lsm_min_bond_amount;
+        attrs.push(attr("lsm_min_bond_amount", lsm_min_bond_amount.to_string()))
+    }
+
     if let Some(lsm_redeem_threshold) = new_config.lsm_redeem_threshold {
         state.lsm_redeem_threshold = lsm_redeem_threshold;
         attrs.push(attr(
@@ -304,6 +311,13 @@ fn execute_bond(
         &amount,
         check_denom.validator,
     )?;
+
+    if real_amount < config.lsm_min_bond_amount {
+        return Err(ContractError::LSMBondAmountIsBelowMinimum {
+            min_stake_amount: config.lsm_min_bond_amount,
+            bond_amount: real_amount,
+        });
+    }
 
     TOTAL_LSM_SHARES.update(deps.storage, |total| {
         StdResult::Ok(total + real_amount.u128())

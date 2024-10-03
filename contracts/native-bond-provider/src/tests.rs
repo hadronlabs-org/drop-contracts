@@ -64,7 +64,7 @@ fn instantiate() {
                     attr("base_denom", "base_denom"),
                     attr("port_id", "port_id"),
                     attr("transfer_channel_id", "transfer_channel_id"),
-                    attr("timeout", "100")
+                    attr("timeout", "100"),
                 ])
         ]
     );
@@ -171,7 +171,7 @@ fn update_config_ok() {
                     attr("min_stake_amount", Uint128::from(90u128)),
                     attr("port_id", "port_id_1"),
                     attr("transfer_channel_id", "transfer_channel_id_1"),
-                    attr("timeout", "90")
+                    attr("timeout", "90"),
                 ])
         ]
     );
@@ -194,7 +194,7 @@ fn update_config_ok() {
             min_stake_amount: Uint128::from(90u128),
             port_id: "port_id_1".to_string(),
             transfer_channel_id: "transfer_channel_id_1".to_string(),
-            timeout: 90u64
+            timeout: 90u64,
         })
         .unwrap()
     );
@@ -269,38 +269,6 @@ fn query_can_bond_false() {
     .unwrap();
 
     assert_eq!(can_bond, to_json_binary(&false).unwrap());
-}
-
-#[test]
-fn query_can_not_process_on_idle_not_enough_to_delegate() {
-    let mut deps = mock_dependencies(&[]);
-
-    CONFIG
-        .save(deps.as_mut().storage, &get_default_config())
-        .unwrap();
-
-    NON_STAKED_BALANCE
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
-
-    TX_STATE
-        .save(deps.as_mut().storage, &TxState::default())
-        .unwrap();
-
-    let error = crate::contract::query(
-        deps.as_ref(),
-        mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::CanProcessOnIdle {},
-    )
-    .unwrap_err();
-
-    assert_eq!(
-        error,
-        drop_staking_base::error::native_bond_provider::ContractError::NotEnoughToDelegate {
-            min_stake_amount: Uint128::from(100u128),
-            non_staked_balance: Uint128::zero()
-        }
-    );
 }
 
 #[test]
@@ -509,39 +477,6 @@ fn update_ownership() {
             pending_expiry: None
         })
         .unwrap()
-    );
-}
-
-#[test]
-fn process_on_idle_not_enough_to_delegate() {
-    let mut deps = mock_dependencies(&[]);
-
-    CONFIG
-        .save(deps.as_mut().storage, &get_default_config())
-        .unwrap();
-
-    NON_STAKED_BALANCE
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
-
-    TX_STATE
-        .save(deps.as_mut().storage, &TxState::default())
-        .unwrap();
-
-    let error = crate::contract::execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("core", &[]),
-        drop_staking_base::msg::native_bond_provider::ExecuteMsg::ProcessOnIdle {},
-    )
-    .unwrap_err();
-
-    assert_eq!(
-        error,
-        drop_staking_base::error::native_bond_provider::ContractError::NotEnoughToDelegate {
-            min_stake_amount: Uint128::from(100u128),
-            non_staked_balance: Uint128::zero()
-        }
     );
 }
 

@@ -28,7 +28,6 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig { new_config: ConfigOptional },
-    IBCTransfer {},
     PuppeteerHook(Box<PuppeteerResponseHookMsg>),
 }
 

@@ -32,6 +32,7 @@ fn get_default_config(lsm_redeem_threshold: u64, lsm_redeem_maximum_interval: u6
         port_id: "port_id".to_string(),
         transfer_channel_id: "transfer_channel_id".to_string(),
         timeout: 100u64,
+        lsm_min_bond_amount: 100u128.into(),
         lsm_redeem_threshold,
         lsm_redeem_maximum_interval,
     }
@@ -143,6 +144,7 @@ fn test_instantiate() {
             port_id: "port_id".to_string(),
             transfer_channel_id: "transfer_channel_id".to_string(),
             timeout: 100u64,
+            lsm_min_bond_amount: Uint128::from(100u64),
             lsm_redeem_threshold: 100u64,
             lsm_redeem_maximum_interval: 200u64,
         },
@@ -167,6 +169,7 @@ fn test_instantiate() {
                     ("port_id", "port_id"),
                     ("transfer_channel_id", "transfer_channel_id"),
                     ("timeout", "100"),
+                    ("lsm_min_bond_amount", "100"),
                     ("lsm_redeem_threshold", "100"),
                     ("lsm_redeem_maximum_interval", "200")
                 ])
@@ -195,6 +198,7 @@ fn test_update_config_wrong_owner() {
                 port_id: Some("port_id_1".to_string()),
                 transfer_channel_id: Some("transfer_channel_id_1".to_string()),
                 timeout: Some(200u64),
+                lsm_min_bond_amount: Some(Uint128::from(300u64)),
                 lsm_redeem_threshold: Some(300u64),
                 lsm_redeem_maximum_interval: Some(400u64),
             },
@@ -237,6 +241,7 @@ fn test_update_config_ok() {
                 port_id: Some("port_id_1".to_string()),
                 transfer_channel_id: Some("transfer_channel_id_1".to_string()),
                 timeout: Some(200u64),
+                lsm_min_bond_amount: Some(Uint128::from(300u64)),
                 lsm_redeem_threshold: Some(300u64),
                 lsm_redeem_maximum_interval: Some(400u64),
             },
@@ -256,6 +261,7 @@ fn test_update_config_ok() {
                     ("port_id", "port_id_1"),
                     ("transfer_channel_id", "transfer_channel_id_1"),
                     ("timeout", "200"),
+                    ("lsm_min_bond_amount", "300"),
                     ("lsm_redeem_threshold", "300"),
                     ("lsm_redeem_maximum_interval", "400")
                 ])
@@ -279,6 +285,7 @@ fn test_update_config_ok() {
             port_id: "port_id_1".to_string(),
             transfer_channel_id: "transfer_channel_id_1".to_string(),
             timeout: 200u64,
+            lsm_min_bond_amount: 300u128.into(),
             lsm_redeem_threshold: 300u64,
             lsm_redeem_maximum_interval: 400u64,
         })
@@ -512,6 +519,7 @@ fn test_execute_bond_multiple_denoms() {
                 port_id: "port_id".to_string(),
                 transfer_channel_id: "transfer_channel_id".to_string(),
                 timeout: 100u64,
+                lsm_min_bond_amount: 100u128.into(),
                 lsm_redeem_threshold: 100u64,
                 lsm_redeem_maximum_interval: 200u64,
             },
@@ -577,6 +585,7 @@ mod query {
                     port_id: "port_id".to_string(),
                     transfer_channel_id: "transfer_channel_id".to_string(),
                     timeout: 100u64,
+                    lsm_min_bond_amount: 100u128.into(),
                     lsm_redeem_threshold: 100u64,
                     lsm_redeem_maximum_interval: 200u64,
                 },
@@ -719,6 +728,7 @@ mod query {
                     port_id: "port_id".to_string(),
                     transfer_channel_id: "transfer_channel_id".to_string(),
                     timeout: 100u64,
+                    lsm_min_bond_amount: 100u128.into(),
                     lsm_redeem_threshold: 100u64,
                     lsm_redeem_maximum_interval: 200u64,
                 },
@@ -752,6 +762,7 @@ mod query {
                     port_id: "port_id".to_string(),
                     transfer_channel_id: "transfer_channel_id".to_string(),
                     timeout: 100u64,
+                    lsm_min_bond_amount: 100u128.into(),
                     lsm_redeem_threshold: 100u64,
                     lsm_redeem_maximum_interval: 200u64,
                 },

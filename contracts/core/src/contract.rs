@@ -1167,24 +1167,7 @@ fn execute_update_config(
         ));
         config.unbond_batch_switch_time = unbond_batch_switch_time;
     }
-    if let Some(lsm_min_bond_amount) = new_config.lsm_min_bond_amount {
-        attrs.push(attr("lsm_min_bond_amount", lsm_min_bond_amount.to_string()));
-        config.lsm_min_bond_amount = lsm_min_bond_amount;
-    }
-    if let Some(lsm_redeem_maximum_interval) = new_config.lsm_redeem_maximum_interval {
-        attrs.push(attr(
-            "lsm_redeem_maximum_interval",
-            lsm_redeem_maximum_interval.to_string(),
-        ));
-        config.lsm_redeem_maximum_interval = lsm_redeem_maximum_interval;
-    }
-    if let Some(lsm_redeem_threshold) = new_config.lsm_redeem_threshold {
-        attrs.push(attr(
-            "lsm_redeem_threshold",
-            lsm_redeem_threshold.to_string(),
-        ));
-        config.lsm_redeem_threshold = lsm_redeem_threshold;
-    }
+
     if let Some(bond_limit) = new_config.bond_limit {
         attrs.push(attr("bond_limit", bond_limit.to_string()));
         config.bond_limit = {

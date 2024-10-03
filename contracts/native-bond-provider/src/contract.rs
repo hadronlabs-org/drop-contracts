@@ -80,16 +80,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::Config {} => query_config(deps, env),
         QueryMsg::CanBond { denom } => query_can_bond(deps, denom),
         QueryMsg::CanProcessOnIdle {} => {
-            let config = CONFIG.load(deps.storage)?;
-
-            let non_staked_balance = NON_STAKED_BALANCE.load(deps.storage)?;
-
-            Ok(to_json_binary(&query_can_process_on_idle(
-                deps,
-                &env,
-                &config,
-                non_staked_balance,
-            )?)?)
+            Ok(to_json_binary(&query_can_process_on_idle(deps, &env)?)?)
         }
         QueryMsg::TokensAmount {
             coin,
@@ -136,12 +127,7 @@ fn query_can_bond(deps: Deps<NeutronQuery>, denom: String) -> ContractResult<Bin
     Ok(to_json_binary(&can_bond(config.base_denom, denom))?)
 }
 
-fn query_can_process_on_idle(
-    deps: Deps<NeutronQuery>,
-    _env: &Env,
-    config: &Config,
-    non_staked_balance: Uint128,
-) -> ContractResult<bool> {
+fn query_can_process_on_idle(deps: Deps<NeutronQuery>, _env: &Env) -> ContractResult<bool> {
     let tx_state = TX_STATE.load(deps.storage)?;
     ensure!(
         tx_state.status == TxStateStatus::Idle,
@@ -149,13 +135,6 @@ fn query_can_process_on_idle(
             reason: "tx_state is not idle".to_string()
         }
     );
-
-    if non_staked_balance < config.min_stake_amount {
-        return Err(ContractError::NotEnoughToDelegate {
-            min_stake_amount: config.min_stake_amount,
-            non_staked_balance,
-        });
-    }
 
     Ok(true)
 }
@@ -195,7 +174,6 @@ pub fn execute(
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
         ExecuteMsg::Bond {} => execute_bond(deps, info),
         ExecuteMsg::ProcessOnIdle {} => execute_process_on_idle(deps, env, info),
-        ExecuteMsg::IBCTransfer {} => execute_ibc_transfer(deps, env),
         ExecuteMsg::PuppeteerHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
     }
 }
@@ -279,14 +257,40 @@ fn execute_bond(
 }
 
 fn execute_process_on_idle(
-    deps: DepsMut<NeutronQuery>,
+    mut deps: DepsMut<NeutronQuery>,
     env: Env,
     _info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
+    query_can_process_on_idle(deps.as_ref(), &env)?;
+
     let config = CONFIG.load(deps.storage)?;
 
+    let attrs = vec![attr("action", "process_on_idle")];
+    let mut submessages: Vec<SubMsg<NeutronMsg>> = vec![];
+
+    if let Some(lsm_msg) = get_ibc_transfer_msg(deps.branch(), &env, &config)? {
+        submessages.push(lsm_msg);
+    } else if let Some(lsm_msg) = get_delegation_msg(deps, &env, &config)? {
+        submessages.push(lsm_msg);
+    }
+
+    Ok(
+        response("process_on_idle", CONTRACT_NAME, Vec::<Attribute>::new())
+            .add_submessages(submessages)
+            .add_attributes(attrs),
+    )
+}
+
+fn get_delegation_msg(
+    deps: DepsMut<NeutronQuery>,
+    env: &Env,
+    config: &Config,
+) -> ContractResult<Option<SubMsg<NeutronMsg>>> {
     let non_staked_balance = NON_STAKED_BALANCE.load(deps.storage)?;
-    query_can_process_on_idle(deps.as_ref(), &env, &config, non_staked_balance)?;
+
+    if non_staked_balance < config.min_stake_amount {
+        return Ok(None);
+    }
 
     let to_delegate: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
         &config.strategy_contract,
@@ -294,9 +298,6 @@ fn execute_process_on_idle(
             deposit: non_staked_balance,
         },
     )?;
-
-    let attrs = vec![attr("action", "process_on_idle")];
-
     let puppeteer_delegation_msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.puppeteer_contract.to_string(),
         msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
@@ -305,7 +306,6 @@ fn execute_process_on_idle(
         })?,
         funds: vec![],
     });
-
     let submsg: SubMsg<NeutronMsg> = msg_with_reply_callback(
         deps,
         puppeteer_delegation_msg,
@@ -315,68 +315,21 @@ fn execute_process_on_idle(
         ReplyMsg::Bond.to_reply_id(),
     )?;
 
-    Ok(
-        response("process_on_idle", CONTRACT_NAME, Vec::<Attribute>::new())
-            .add_submessage(submsg)
-            .add_attributes(attrs),
-    )
+    Ok(Some(submsg))
 }
 
-// pub fn get_stake_bond_msg<T>(
-//     deps: Deps<NeutronQuery>,
-//     _env: &Env,
-//     config: &Config,
-//     info: &MessageInfo,
-// ) -> ContractResult<Option<CosmosMsg<T>>> {
-//     let staker_pending_stake: Result<Uint128, _> = deps.querier.query_wasm_smart(
-//         config.staker_contract.to_string(),
-//         &drop_staking_base::msg::staker::QueryMsg::NonStakedBalance {},
-//     );
-//     if let Ok(staker_pending_stake) = staker_pending_stake {
-//         if staker_pending_stake.is_zero() {
-//             return Ok(None);
-//         }
-//         let to_delegate: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
-//             &config.strategy_contract,
-//             &drop_staking_base::msg::strategy::QueryMsg::CalcDeposit {
-//                 deposit: staker_pending_stake,
-//             },
-//         )?;
-//         return Ok(Some(CosmosMsg::<T>::Wasm(WasmMsg::Execute {
-//             contract_addr: config.staker_contract.to_string(),
-//             msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
-//                 items: to_delegate,
-//                 reply_to: config.staker_contract.to_string(),
-//             })?,
-//             funds: info.funds.clone(),
-//         })));
-//     }
-//     Ok(None)
-// }
-
-fn execute_ibc_transfer(
+fn get_ibc_transfer_msg(
     deps: DepsMut<NeutronQuery>,
-    env: Env,
-) -> ContractResult<Response<NeutronMsg>> {
-    let config = CONFIG.load(deps.storage)?;
-    let tx_state = TX_STATE.load(deps.storage)?;
-    ensure!(
-        tx_state.status == TxStateStatus::Idle,
-        ContractError::InvalidState {
-            reason: "tx_state is not idle".to_string()
-        }
-    );
-
+    env: &Env,
+    config: &Config,
+) -> ContractResult<Option<SubMsg<NeutronMsg>>> {
     let pending_coin = deps
         .querier
-        .query_balance(&env.contract.address, config.base_denom)?;
+        .query_balance(&env.contract.address, config.base_denom.to_string())?;
 
-    ensure!(
-        pending_coin.amount >= config.min_ibc_transfer,
-        ContractError::InvalidFunds {
-            reason: "amount is less than min_ibc_transfer".to_string()
-        }
-    );
+    if pending_coin.amount < config.min_ibc_transfer {
+        return Ok(None);
+    }
 
     let puppeteer_ica: drop_helpers::ica::IcaState = deps.querier.query_wasm_smart(
         &config.puppeteer_contract,
@@ -384,11 +337,6 @@ fn execute_ibc_transfer(
     )?;
 
     if let drop_helpers::ica::IcaState::Registered { ica_address, .. } = puppeteer_ica {
-        let attrs = vec![
-            attr("action", "puppeteer_transfer"),
-            attr("pending_amount", pending_coin.amount),
-        ];
-
         let msg = NeutronMsg::IbcTransfer {
             source_port: config.port_id.clone(),
             source_channel: config.transfer_channel_id.clone(),
@@ -413,25 +361,10 @@ fn execute_ibc_transfer(
             ReplyMsg::IbcTransfer.to_reply_id(),
         )?;
 
-        return Ok(response("puppeteer_transfer", CONTRACT_NAME, attrs).add_submessage(submsg));
+        return Ok(Some(submsg));
     }
 
     Err(ContractError::IcaNotRegistered {})
-
-    // NON_STAKED_BALANCE.update(deps.storage, |balance| {
-    //     StdResult::Ok(balance + pending_coin.amount)
-    // })?;
-
-    // let puppeteer_transfer_msg = CosmosMsg::Wasm(WasmMsg::Execute {
-    //     contract_addr: config.puppeteer_contract.to_string(),
-    //     msg: to_json_binary(
-    //         &drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
-    //             reason: IBCTransferReason::Delegate,
-    //             reply_to: env.contract.address.to_string(),
-    //         },
-    //     )?,
-    //     funds: vec![pending_coin.clone()],
-    // });
 }
 
 fn execute_puppeteer_hook(
