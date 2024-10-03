@@ -74,14 +74,14 @@ export async function calcExchangeRate(context: any): Promise<number> {
   exchangeRateDenominator = exchangeRateDenominator.plus(
     unprocessedDassetToUnbond,
   );
-  const stakerBalance: Decimal = new Decimal(
-    await context.stakerContractClient.queryAllBalance(),
+  const nativeBondProviderBalance: Decimal = new Decimal(
+    await context.nativeBondProviderContractClient.queryAllBalance(),
   );
   const totalLSMShares: Decimal = new Decimal(
     await context.coreContractClient.queryTotalLSMShares(),
   );
   const exchangeRateNumerator: Decimal = delegationsAmount
-    .plus(stakerBalance)
+    .plus(nativeBondProviderBalance)
     .plus(totalLSMShares);
   if (exchangeRateNumerator.isZero()) {
     return 1;

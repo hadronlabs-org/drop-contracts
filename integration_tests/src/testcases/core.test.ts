@@ -92,7 +92,6 @@ describe('Core', () => {
     >;
     account?: AccountData;
     icaAddress?: string;
-    stakerIcaAddress?: string;
     rewardsPumpIcaAddress?: string;
     client?: SigningCosmWasmClient;
     gaiaClient?: SigningStargateClient;
@@ -113,7 +112,6 @@ describe('Core', () => {
       withdrawalManager?: number;
       redemptionRateAdapter?: number;
       strategy?: number;
-      staker?: number;
       puppeteer?: number;
       validatorsSet?: number;
       distribution?: number;
@@ -400,15 +398,6 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_staker.wasm')),
-        1.5,
-      );
-      expect(res.codeId).toBeGreaterThan(0);
-      context.codeIds.staker = res.codeId;
-    }
-    {
-      const res = await client.upload(
-        account.address,
         fs.readFileSync(
           join(
             __dirname,
@@ -465,7 +454,6 @@ describe('Core', () => {
           withdrawal_voucher_code_id: context.codeIds.withdrawalVoucher,
           withdrawal_manager_code_id: context.codeIds.withdrawalManager,
           strategy_code_id: context.codeIds.strategy,
-          staker_code_id: context.codeIds.staker,
           distribution_code_id: context.codeIds.distribution,
           validators_set_code_id: context.codeIds.validatorsSet,
           puppeteer_code_id: context.codeIds.puppeteer,
@@ -504,15 +492,17 @@ describe('Core', () => {
           unbond_batch_switch_time: 60,
           unbonding_safe_period: 10,
           unbonding_period: 360,
-          lsm_redeem_threshold: 2,
-          lsm_min_bond_amount: '1000',
-          lsm_redeem_max_interval: 60_000,
           bond_limit: '100000',
           icq_update_delay: 5,
         },
         native_bond_params: {
           min_stake_amount: '10000',
           min_ibc_transfer: '10000',
+        },
+        lsm_share_bond_params: {
+          lsm_redeem_threshold: 2,
+          lsm_min_bond_amount: '1000',
+          lsm_redeem_max_interval: 60_000,
         },
       },
       'drop-staking-factory',
@@ -738,7 +728,6 @@ describe('Core', () => {
                 msg: Buffer.from(
                   JSON.stringify({
                     setup_protocol: {
-                      delegate_grantee: context.stakerIcaAddress,
                       rewards_withdraw_address: context.rewardsPumpIcaAddress,
                     },
                   }),
@@ -1308,29 +1297,6 @@ describe('Core', () => {
       });
     });
     describe('first cycle', () => {
-      it('staker ibc transfer', async () => {
-        const { neutronUserAddress } = context;
-        const res = await context.stakerContractClient.iBCTransfer(
-          neutronUserAddress,
-          1.5,
-          undefined,
-          [{ amount: '20000', denom: 'untrn' }],
-        );
-        expect(res.transactionHash).toHaveLength(64);
-        await waitFor(async () => {
-          const res = await context.stakerContractClient.queryTxState();
-          return res.status === 'idle';
-        }, 80_000);
-        const balances = await context.gaiaClient.getAllBalances(
-          context.stakerIcaAddress,
-        );
-        expect(balances).toEqual([
-          {
-            amount: '1000000',
-            denom: context.park.config.networks.gaia.denom,
-          },
-        ]);
-      });
       it('tick', async () => {
         const {
           gaiaClient,
@@ -1357,57 +1323,65 @@ describe('Core', () => {
           ],
         );
         expect(res.transactionHash).toHaveLength(64);
+        console.log(res);
+        console.log(res.events);
+        const idleTickAttributes = res.events.find(
+          (e) =>
+            e.type ===
+            'wasm-crates.io:drop-staking__drop-core-execute-tick_idle',
+        ).attributes;
+        console.log(idleTickAttributes);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('staking_bond');
-        const stakerState = await context.stakerContractClient.queryTxState();
-        expect(stakerState).toEqual({
-          reply_to: context.coreContractClient.contractAddress,
-          status: 'waiting_for_ack',
-          seq_id: 1,
-          transaction: {
-            stake: {
-              amount: '1000000',
-            },
-          },
-        });
+        // const stakerState = await context.stakerContractClient.queryTxState();
+        // expect(stakerState).toEqual({
+        //   reply_to: context.coreContractClient.contractAddress,
+        //   status: 'waiting_for_ack',
+        //   seq_id: 1,
+        //   transaction: {
+        //     stake: {
+        //       amount: '1000000',
+        //     },
+        //   },
+        // });
         await checkExchangeRate(context);
       });
-      it('second tick is failed bc no response from puppeteer yet', async () => {
-        const { neutronUserAddress } = context;
+      // it('second tick is failed bc no response from puppeteer yet', async () => {
+      //   const { neutronUserAddress } = context;
 
-        await expect(
-          context.coreContractClient.tick(
-            neutronUserAddress,
-            1.5,
-            undefined,
-            [],
-          ),
-        ).rejects.toThrowError(/Staker response is not received/);
-      });
+      //   await expect(
+      //     context.coreContractClient.tick(
+      //       neutronUserAddress,
+      //       1.5,
+      //       undefined,
+      //       [],
+      //     ),
+      //   ).rejects.toThrowError(/Staker response is not received/);
+      // });
       it('state of fsm is staking_bond', async () => {
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('staking_bond');
       });
-      it('wait for staker to get into idle state', async () => {
-        let response;
-        await waitFor(async () => {
-          try {
-            response = await context.stakerContractClient.queryTxState();
-          } catch (e) {
-            //
-          }
-          return response.status === 'idle';
-        }, 100_000);
-      });
-      it('get staker ICA zeroed balance', async () => {
-        const { gaiaClient } = context;
-        const res = await gaiaClient.getBalance(
-          context.stakerIcaAddress,
-          context.park.config.networks.gaia.denom,
-        );
-        const balance = parseInt(res.amount);
-        expect(balance).toEqual(0);
-      });
+      // it('wait for staker to get into idle state', async () => {
+      //   let response;
+      //   await waitFor(async () => {
+      //     try {
+      //       response = await context.stakerContractClient.queryTxState();
+      //     } catch (e) {
+      //       //
+      //     }
+      //     return response.status === 'idle';
+      //   }, 100_000);
+      // });
+      // it('get staker ICA zeroed balance', async () => {
+      //   const { gaiaClient } = context;
+      //   const res = await gaiaClient.getBalance(
+      //     context.stakerIcaAddress,
+      //     context.park.config.networks.gaia.denom,
+      //   );
+      //   const balance = parseInt(res.amount);
+      //   expect(balance).toEqual(0);
+      // });
       it('wait delegations', async () => {
         await waitFor(async () => {
           const res: any = await context.puppeteerContractClient.queryExtension(
@@ -2593,14 +2567,14 @@ describe('Core', () => {
 
         await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 1);
 
-        res = await context.stakerContractClient.iBCTransfer(
-          neutronUserAddress,
-          1.5,
-          undefined,
-          [{ amount: '20000', denom: 'untrn' }],
-        );
+        // res = await context.stakerContractClient.iBCTransfer(
+        //   neutronUserAddress,
+        //   1.5,
+        //   undefined,
+        //   [{ amount: '20000', denom: 'untrn' }],
+        // );
 
-        expect(res.transactionHash).toHaveLength(64);
+        // expect(res.transactionHash).toHaveLength(64);
 
         await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 1);
 
@@ -2670,37 +2644,37 @@ describe('Core', () => {
           undefined,
         );
         expect(res.transactionHash).toHaveLength(64);
-        const stakerBalance = (
-          await context.neutronClient.CosmosBankV1Beta1.query.queryBalance(
-            context.stakerContractClient.contractAddress,
-            { denom: context.neutronIBCDenom },
-          )
-        ).data.balance.amount;
-        expect(parseInt(stakerBalance, 10)).toEqual(10000);
+        // const stakerBalance = (
+        //   await context.neutronClient.CosmosBankV1Beta1.query.queryBalance(
+        //     context.stakerContractClient.contractAddress,
+        //     { denom: context.neutronIBCDenom },
+        //   )
+        // ).data.balance.amount;
+        // expect(parseInt(stakerBalance, 10)).toEqual(10000);
       });
-      it('staker ibc transfer', async () => {
-        const { neutronUserAddress } = context;
-        const res = await context.stakerContractClient.iBCTransfer(
-          neutronUserAddress,
-          1.5,
-          undefined,
-          [{ amount: '20000', denom: 'untrn' }],
-        );
-        expect(res.transactionHash).toHaveLength(64);
-        await waitFor(async () => {
-          const res = await context.stakerContractClient.queryTxState();
-          return res.status === 'idle';
-        }, 80_000);
-        const balances = await context.gaiaClient.getAllBalances(
-          context.stakerIcaAddress,
-        );
-        expect(balances).toEqual([
-          {
-            amount: '1010000',
-            denom: context.park.config.networks.gaia.denom,
-          },
-        ]);
-      });
+      // it('staker ibc transfer', async () => {
+      //   const { neutronUserAddress } = context;
+      //   const res = await context.stakerContractClient.iBCTransfer(
+      //     neutronUserAddress,
+      //     1.5,
+      //     undefined,
+      //     [{ amount: '20000', denom: 'untrn' }],
+      //   );
+      //   expect(res.transactionHash).toHaveLength(64);
+      //   await waitFor(async () => {
+      //     const res = await context.stakerContractClient.queryTxState();
+      //     return res.status === 'idle';
+      //   }, 80_000);
+      //   const balances = await context.gaiaClient.getAllBalances(
+      //     context.stakerIcaAddress,
+      //   );
+      //   expect(balances).toEqual([
+      //     {
+      //       amount: '1010000',
+      //       denom: context.park.config.networks.gaia.denom,
+      //     },
+      //   ]);
+      // });
     });
   });
 

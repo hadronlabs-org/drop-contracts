@@ -178,16 +178,17 @@ deploy_factory() {
       "unbond_batch_switch_time":'"$UNBOND_BATCH_SWITCH_TIME"',
       "unbonding_safe_period":'"$UNBONDING_SAFE_PERIOD"',
       "unbonding_period":'"$UNBONDING_PERIOD"',
-      "lsm_redeem_threshold":'$CORE_PARAMS_LSM_REDEEM_THRESHOLD',
-      "lsm_min_bond_amount":"'"$CORE_PARAMS_LSM_MIN_BOND_AMOUNT"'",
-      "lsm_redeem_max_interval":'$CORE_PARAMS_LSM_REDEEM_MAX_INTERVAL',
       "bond_limit":"'"$CORE_PARAMS_BOND_LIMIT"'",
-      "min_stake_amount":"'"$CORE_PARAMS_MIN_STAKE_AMOUNT"'",
       "icq_update_delay": '$CORE_PARAMS_ICQ_UPDATE_DELAY'
     },
     "native_bond_params":{
       "min_stake_amount":"'"$STAKER_PARAMS_MIN_STAKE_AMOUNT"'",
       "min_ibc_transfer":"'"$STAKER_PARAMS_MIN_IBC_TRANSFER"'"
+    },
+    "lsm_share_bond_params":{
+      "lsm_redeem_threshold":'$CORE_PARAMS_LSM_REDEEM_THRESHOLD',
+      "lsm_min_bond_amount":"'"$CORE_PARAMS_LSM_MIN_BOND_AMOUNT"'",
+      "lsm_redeem_max_interval":'$CORE_PARAMS_LSM_REDEEM_MAX_INTERVAL'
     }
   }'
   factory_address="$(neutrond tx wasm instantiate "$factory_code_id" "$msg" \
