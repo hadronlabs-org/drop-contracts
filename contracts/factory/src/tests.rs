@@ -32,6 +32,7 @@ use drop_staking_base::{
             ExecuteMsg as WithdrawalManagerExecuteMsg,
             InstantiateMsg as WithdrawalManagerInstantiateMsg,
         },
+        withdrawal_token::InstantiateMsg as WithdrawalTokenInstantiateMsg,
         withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
     },
     state::{pump::PumpTimeout, splitter::Config as SplitterConfig},
@@ -262,6 +263,22 @@ fn test_instantiate() {
                             validator_set_address: "some_humanized_address".to_string(),
                             distribution_address: "some_humanized_address".to_string(),
                             denom: "denom".to_string()
+                        })
+                        .unwrap(),
+                        funds: vec![],
+                        salt: cosmwasm_std::Binary::from("salt".as_bytes())
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Instantiate2 {
+                        admin: Some("factory_contract".to_string()),
+                        code_id: 5,
+                        label: "drop-staking-withdrawal-token".to_string(),
+                        msg: to_json_binary(&WithdrawalTokenInstantiateMsg {
+                            core_address: "some_humanized_address".to_string(),
+                            withdrawal_manager_address: "some_humanized_address".to_string(),
+                            denom_prefix: "subdenom".to_string(),
+                            owner: "factory_contract".to_string(),
                         })
                         .unwrap(),
                         funds: vec![],

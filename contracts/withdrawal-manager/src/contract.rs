@@ -98,7 +98,9 @@ pub fn execute(
                 }
             }
         }
-        ExecuteMsg::ReceiveWithdrawalDenoms {} => execute_receive_withdrawal_denoms(deps, info),
+        ExecuteMsg::ReceiveWithdrawalDenoms { receiver } => {
+            execute_receive_withdrawal_denoms(deps, info, receiver)
+        }
         ExecuteMsg::Pause {} => exec_pause(deps, info),
         ExecuteMsg::Unpause {} => exec_unpause(deps, info),
     }
@@ -242,6 +244,7 @@ fn execute_receive_nft_withdraw(
 fn execute_receive_withdrawal_denoms(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
+    receiver: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     pause_guard(deps.storage)?;
 
@@ -267,7 +270,7 @@ fn execute_receive_withdrawal_denoms(
     let user_share = Decimal::from_ratio(amount, unbond_batch.total_dasset_amount_to_withdraw);
 
     let payout_amount = user_share * unbond_batch.unbonded_amount.unwrap_or(Uint128::zero());
-    let to_address = info.sender.into_string();
+    let to_address = receiver.unwrap_or(info.sender.to_string());
     attrs.push(attr("batch_id", batch_id.to_string()));
     attrs.push(attr("payout_amount", payout_amount.to_string()));
     attrs.push(attr("to_address", &to_address));

@@ -10,7 +10,9 @@ use drop_staking_base::error::withdrawal_token::ContractError;
 use drop_staking_base::msg::withdrawal_token::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
-use drop_staking_base::state::withdrawal_token::{CORE_ADDRESS, DENOM_PREFIX};
+use drop_staking_base::state::withdrawal_token::{
+    CORE_ADDRESS, DENOM_PREFIX, WITHDRAWAL_MANAGER_ADDRESS,
+};
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
 use neutron_sdk::query::token_factory::FullDenomResponse;
@@ -20,6 +22,7 @@ fn test_instantiate() {
     let mut deps = mock_dependencies(&[]);
     let msg = InstantiateMsg {
         core_address: "core_contract".to_string(),
+        withdrawal_manager_address: "withdrawal_manager_contract".to_string(),
         denom_prefix: "denom".to_string(),
         owner: "owner".to_string(),
     };
@@ -29,8 +32,10 @@ fn test_instantiate() {
     assert_eq!(
         res,
         Response::new().add_event(
-            Event::new("drop-withdrawal-token-instantiate")
-                .add_attributes(vec![("core_address", "core_contract"),])
+            Event::new("drop-withdrawal-token-instantiate").add_attributes(vec![
+                ("core_address", "core_contract"),
+                ("withdrawal_manager_address", "withdrawal_manager_contract")
+            ])
         )
     );
     assert_eq!(
@@ -60,6 +65,12 @@ fn test_query_config() {
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
         .unwrap();
+    WITHDRAWAL_MANAGER_ADDRESS
+        .save(
+            deps.as_mut().storage,
+            &Addr::unchecked("withdrawal_manager_contract"),
+        )
+        .unwrap();
     DENOM_PREFIX
         .save(deps.as_mut().storage, &String::from("denom_prefix"))
         .unwrap();
@@ -69,6 +80,7 @@ fn test_query_config() {
         response,
         to_json_binary(&ConfigResponse {
             core_address: "core_contract".to_string(),
+            withdrawal_manager_address: "withdrawal_manager_contract".to_string(),
             denom_prefix: "denom_prefix".to_string()
         })
         .unwrap()
@@ -80,6 +92,12 @@ fn test_create_denom() {
     let mut deps = mock_dependencies(&[]);
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
+        .unwrap();
+    WITHDRAWAL_MANAGER_ADDRESS
+        .save(
+            deps.as_mut().storage,
+            &Addr::unchecked("withdrawal_manager_contract"),
+        )
         .unwrap();
     DENOM_PREFIX
         .save(deps.as_mut().storage, &String::from("denom_prefix"))
@@ -159,6 +177,12 @@ fn test_mint_zero() {
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
         .unwrap();
+    WITHDRAWAL_MANAGER_ADDRESS
+        .save(
+            deps.as_mut().storage,
+            &Addr::unchecked("withdrawal_manager_contract"),
+        )
+        .unwrap();
     DENOM_PREFIX
         .save(deps.as_mut().storage, &String::from("denom_prefix"))
         .unwrap();
@@ -183,6 +207,12 @@ fn test_mint() {
 
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
+        .unwrap();
+    WITHDRAWAL_MANAGER_ADDRESS
+        .save(
+            deps.as_mut().storage,
+            &Addr::unchecked("withdrawal_manager_contract"),
+        )
         .unwrap();
     DENOM_PREFIX
         .save(deps.as_mut().storage, &String::from("denom_prefix"))
@@ -259,6 +289,12 @@ fn mint_stranger() {
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
         .unwrap();
+    WITHDRAWAL_MANAGER_ADDRESS
+        .save(
+            deps.as_mut().storage,
+            &Addr::unchecked("withdrawal_manager_contract"),
+        )
+        .unwrap();
     DENOM_PREFIX
         .save(deps.as_mut().storage, &String::from("denom_prefix"))
         .unwrap();
@@ -285,6 +321,12 @@ fn burn_zero() {
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
         .unwrap();
+    WITHDRAWAL_MANAGER_ADDRESS
+        .save(
+            deps.as_mut().storage,
+            &Addr::unchecked("withdrawal_manager_contract"),
+        )
+        .unwrap();
     DENOM_PREFIX
         .save(deps.as_mut().storage, &String::from("denom_prefix"))
         .unwrap();
@@ -312,7 +354,7 @@ fn burn_zero() {
     let error = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core_contract", &[]),
+        mock_info("withdrawal_manager_contract", &[]),
         ExecuteMsg::Burn {
             batch_id: Uint128::zero(),
         },
@@ -331,6 +373,12 @@ fn burn_multiple_coins() {
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
         .unwrap();
+    WITHDRAWAL_MANAGER_ADDRESS
+        .save(
+            deps.as_mut().storage,
+            &Addr::unchecked("withdrawal_manager_contract"),
+        )
+        .unwrap();
     DENOM_PREFIX
         .save(deps.as_mut().storage, &String::from("denom_prefix"))
         .unwrap();
@@ -358,7 +406,10 @@ fn burn_multiple_coins() {
     let error = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core_contract", &[coin(20, "coin1"), coin(10, "denom")]),
+        mock_info(
+            "withdrawal_manager_contract",
+            &[coin(20, "coin1"), coin(10, "denom")],
+        ),
         ExecuteMsg::Burn {
             batch_id: Uint128::zero(),
         },
@@ -377,6 +428,12 @@ fn burn_invalid_coin() {
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
         .unwrap();
+    WITHDRAWAL_MANAGER_ADDRESS
+        .save(
+            deps.as_mut().storage,
+            &Addr::unchecked("withdrawal_manager_contract"),
+        )
+        .unwrap();
     DENOM_PREFIX
         .save(deps.as_mut().storage, &String::from("denom_prefix"))
         .unwrap();
@@ -404,7 +461,7 @@ fn burn_invalid_coin() {
     let error = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core_contract", &[coin(20, "not_that_coin")]),
+        mock_info("withdrawal_manager_contract", &[coin(20, "not_that_coin")]),
         ExecuteMsg::Burn {
             batch_id: Uint128::zero(),
         },
@@ -428,6 +485,12 @@ fn burn_stranger() {
 
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
+        .unwrap();
+    WITHDRAWAL_MANAGER_ADDRESS
+        .save(
+            deps.as_mut().storage,
+            &Addr::unchecked("withdrawal_manager_contract"),
+        )
         .unwrap();
     DENOM_PREFIX
         .save(deps.as_mut().storage, &String::from("denom_prefix"))
@@ -483,6 +546,12 @@ fn burn() {
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
         .unwrap();
+    WITHDRAWAL_MANAGER_ADDRESS
+        .save(
+            deps.as_mut().storage,
+            &Addr::unchecked("withdrawal_manager_contract"),
+        )
+        .unwrap();
     DENOM_PREFIX
         .save(deps.as_mut().storage, &String::from("denom_prefix"))
         .unwrap();
@@ -511,7 +580,7 @@ fn burn() {
         deps.as_mut(),
         mock_env(),
         mock_info(
-            "core_contract",
+            "withdrawal_manager_contract",
             &[coin(
                 144,
                 format!(

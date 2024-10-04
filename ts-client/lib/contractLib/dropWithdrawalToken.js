@@ -32,44 +32,29 @@ class Client {
     queryOwnership = async () => {
         return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
     };
-    queryPauseInfo = async () => {
-        return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
-    };
-    updateConfig = async (sender, args, fee, memo, funds) => {
+    createDenom = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, { create_denom: args }, fee || "auto", memo, funds);
     };
-    receiveNft = async (sender, args, fee, memo, funds) => {
+    mint = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { receive_nft: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, { mint: args }, fee || "auto", memo, funds);
     };
-    receiveWithdrawalDenoms = async (sender, args, fee, memo, funds) => {
+    burn = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { receive_withdrawal_denoms: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, { burn: args }, fee || "auto", memo, funds);
     };
     updateOwnership = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
         return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
-    };
-    pause = async (sender, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, { pause: {} }, fee || "auto", memo, funds);
-    };
-    unpause = async (sender, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, { unpause: {} }, fee || "auto", memo, funds);
     };
 }
 exports.Client = Client;

@@ -8,6 +8,7 @@ import {
   DropStrategy,
   DropStaker,
   DropWithdrawalManager,
+  DropWithdrawalToken,
   DropWithdrawalVoucher,
   DropSplitter,
   DropToken,
@@ -45,6 +46,7 @@ const DropPumpClass = DropPump.Client;
 const DropPuppeteerClass = DropPuppeteer.Client;
 const DropStrategyClass = DropStrategy.Client;
 const DropStakerClass = DropStaker.Client;
+const DropWithdrawalTokenClass = DropWithdrawalToken.Client;
 const DropWithdrawalVoucherClass = DropWithdrawalVoucher.Client;
 const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
 const DropAutoWithdrawerClass = DropAutoWithdrawer.Client;
@@ -68,6 +70,9 @@ describe('Auto withdrawer', () => {
     rewardsPumpContractClient?: InstanceType<typeof DropRewardsPumpClass>;
     puppeteerContractClient?: InstanceType<typeof DropPuppeteerClass>;
     tokenContractClient?: InstanceType<typeof DropTokenClass>;
+    withdrawalTokenContractClient?: InstanceType<
+        typeof DropWithdrawalTokenClass
+    >;
     withdrawalVoucherContractClient?: InstanceType<
       typeof DropWithdrawalVoucherClass
     >;
@@ -94,6 +99,7 @@ describe('Auto withdrawer', () => {
     codeIds: {
       core?: number;
       token?: number;
+      withdrawalToken?: number;
       withdrawalVoucher?: number;
       withdrawalManager?: number;
       strategy?: number;
@@ -283,6 +289,17 @@ describe('Auto withdrawer', () => {
     }
     {
       const res = await client.upload(
+          account.address,
+          fs.readFileSync(
+              join(__dirname, '../../../artifacts/drop_withdrawal_token.wasm'),
+          ),
+          1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.withdrawalToken = res.codeId;
+    }
+    {
+      const res = await client.upload(
         account.address,
         fs.readFileSync(
           join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
@@ -402,6 +419,7 @@ describe('Auto withdrawer', () => {
         code_ids: {
           core_code_id: context.codeIds.core,
           token_code_id: context.codeIds.token,
+          withdrawal_token_code_id: context.codeIds.withdrawalToken,
           withdrawal_voucher_code_id: context.codeIds.withdrawalVoucher,
           withdrawal_manager_code_id: context.codeIds.withdrawalManager,
           strategy_code_id: context.codeIds.strategy,

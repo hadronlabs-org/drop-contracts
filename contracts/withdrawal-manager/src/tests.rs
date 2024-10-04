@@ -66,7 +66,7 @@ fn test_receive_withdrawal_denoms_happy_path() {
                 "factory/withdrawal_token_contract/dATOM:unbond:0",
             )],
         ),
-        ExecuteMsg::ReceiveWithdrawalDenoms {},
+        ExecuteMsg::ReceiveWithdrawalDenoms { receiver: None },
     )
     .unwrap();
 
@@ -124,7 +124,7 @@ fn test_receive_withdrawal_denoms_has_few_parts() {
         deps.as_mut(),
         mock_env().clone(),
         mock_info("any sender", &[Coin::new(1000, "factory/dATOM:unbond:0")]),
-        ExecuteMsg::ReceiveWithdrawalDenoms {},
+        ExecuteMsg::ReceiveWithdrawalDenoms { receiver: None },
     );
     assert!(res.is_err());
     assert_eq!(res, Err(ContractError::InvalidDenom {}));
@@ -143,7 +143,7 @@ fn test_receive_withdrawal_denoms_has_incorrect_prefix() {
         deps.as_mut(),
         mock_env().clone(),
         mock_info("any sender", &[Coin::new(1000, denom)]),
-        ExecuteMsg::ReceiveWithdrawalDenoms {},
+        ExecuteMsg::ReceiveWithdrawalDenoms { receiver: None },
     );
     assert!(res.is_err());
     assert_eq!(res, Err(ContractError::InvalidDenom {}));
@@ -162,7 +162,7 @@ fn test_receive_withdrawal_denoms_has_incorrect_owner() {
         deps.as_mut(),
         mock_env().clone(),
         mock_info("any sender", &[Coin::new(1000, denom)]),
-        ExecuteMsg::ReceiveWithdrawalDenoms {},
+        ExecuteMsg::ReceiveWithdrawalDenoms { receiver: None },
     );
     assert!(res.is_err());
     assert_eq!(res, Err(ContractError::InvalidDenom {}));
@@ -181,7 +181,7 @@ fn test_receive_withdrawal_denoms_has_incorrect_subdenom() {
         deps.as_mut(),
         mock_env().clone(),
         mock_info("any sender", &[Coin::new(1000, denom)]),
-        ExecuteMsg::ReceiveWithdrawalDenoms {},
+        ExecuteMsg::ReceiveWithdrawalDenoms { receiver: None },
     );
     assert!(res.is_err());
     assert_eq!(res, Err(ContractError::InvalidDenom {}));
@@ -200,7 +200,7 @@ fn test_receive_withdrawal_denoms_has_incorrect_subdenom_batch_id() {
         deps.as_mut(),
         mock_env().clone(),
         mock_info("any sender", &[Coin::new(1000, denom)]),
-        ExecuteMsg::ReceiveWithdrawalDenoms {},
+        ExecuteMsg::ReceiveWithdrawalDenoms { receiver: None },
     );
     assert!(res.is_err());
     assert_eq!(res, Err(ContractError::InvalidDenom {}));
@@ -239,7 +239,7 @@ fn test_receive_withdrawal_denoms_batch_not_withdrawn() {
                 "factory/withdrawal_token_contract/dATOM:unbond:0",
             )],
         ),
-        ExecuteMsg::ReceiveWithdrawalDenoms {},
+        ExecuteMsg::ReceiveWithdrawalDenoms { receiver: None },
     );
     assert!(res.is_err());
     assert_eq!(res, Err(ContractError::BatchIsNotWithdrawn {}));

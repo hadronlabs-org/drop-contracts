@@ -33,7 +33,9 @@ pub enum ExecuteMsg {
         base_denom: Option<String>,
     },
     ReceiveNft(Cw721ReceiveMsg),
-    ReceiveWithdrawalDenoms {},
+    ReceiveWithdrawalDenoms {
+        receiver: Option<String>,
+    },
 }
 
 #[cw_serde]

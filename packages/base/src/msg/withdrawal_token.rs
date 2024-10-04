@@ -13,6 +13,7 @@ pub enum QueryMsg {
 #[cw_serde]
 pub struct ConfigResponse {
     pub core_address: String,
+    pub withdrawal_manager_address: String,
     pub denom_prefix: String,
 }
 
@@ -34,6 +35,7 @@ pub enum ExecuteMsg {
 #[cw_serde]
 pub struct InstantiateMsg {
     pub core_address: String,
+    pub withdrawal_manager_address: String,
     pub denom_prefix: String,
     pub owner: String,
 }
