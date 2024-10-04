@@ -831,6 +831,7 @@ describe('Core', () => {
     );
     expect(res.transactionHash).toHaveLength(64);
   });
+
   it('query list of bond providers', async () => {
     const { coreContractClient } = context;
     const bondProviders = await coreContractClient.queryBondProviders();
@@ -840,6 +841,47 @@ describe('Core', () => {
     expect(bondProviders.flat()).toContain(
       context.lsmShareBondProviderContractClient.contractAddress,
     );
+
+    expect(bondProviders.flat()).toContain(
+      context.nativeBondProviderContractClient.contractAddress,
+    );
+  });
+
+  it('remove lsm share bond provider from the core', async () => {
+    const res = await context.factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.coreContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    remove_bond_provider: {
+                      bond_provider_address:
+                        context.lsmShareBondProviderContractClient
+                          .contractAddress,
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      1.5,
+      undefined,
+      [],
+    );
+    expect(res.transactionHash).toHaveLength(64);
+  });
+  it('query list of bond providers after removal one of them', async () => {
+    const { coreContractClient } = context;
+    const bondProviders = await coreContractClient.queryBondProviders();
+
+    expect(bondProviders.length).toEqual(1);
 
     expect(bondProviders.flat()).toContain(
       context.nativeBondProviderContractClient.contractAddress,
@@ -1297,6 +1339,36 @@ describe('Core', () => {
       });
     });
     describe('first cycle', () => {
+      it('first tick did nothing and stays in idle', async () => {
+        const {
+          gaiaClient,
+          neutronUserAddress,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
       it('tick', async () => {
         const {
           gaiaClient,

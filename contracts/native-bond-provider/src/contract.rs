@@ -261,18 +261,32 @@ fn execute_process_on_idle(
     env: Env,
     _info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
+    deps.api
+        .debug("WASMDEBUG: native-bond  execute_process_on_idle: 1");
     query_can_process_on_idle(deps.as_ref(), &env)?;
 
+    deps.api
+        .debug("WASMDEBUG: native-bond  execute_process_on_idle: 2");
     let config = CONFIG.load(deps.storage)?;
 
     let attrs = vec![attr("action", "process_on_idle")];
     let mut submessages: Vec<SubMsg<NeutronMsg>> = vec![];
 
+    deps.api
+        .debug("WASMDEBUG: native-bond  execute_process_on_idle: 3");
+
     if let Some(lsm_msg) = get_ibc_transfer_msg(deps.branch(), &env, &config)? {
+        deps.api
+            .debug("WASMDEBUG: native-bond  execute_process_on_idle: 4");
         submessages.push(lsm_msg);
-    } else if let Some(lsm_msg) = get_delegation_msg(deps, &env, &config)? {
+    } else if let Some(lsm_msg) = get_delegation_msg(deps.branch(), &env, &config)? {
+        deps.api
+            .debug("WASMDEBUG: native-bond  execute_process_on_idle: 5");
         submessages.push(lsm_msg);
     }
+
+    deps.api
+        .debug("WASMDEBUG: native-bond  execute_process_on_idle: 6");
 
     Ok(
         response("process_on_idle", CONTRACT_NAME, Vec::<Attribute>::new())
@@ -448,9 +462,15 @@ fn msg_with_reply_callback<C: Into<CosmosMsg<X>> + Serialize, X>(
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
+    deps.api.debug("WASMDEBUG: native-bond  reply: 1");
+    deps.api.debug(&format!(
+        "WASMDEBUG: native-bond  reply: msg: {msg:?}",
+        msg = msg
+    ));
     if let SubMsgResult::Err(err) = msg.result {
         return Err(ContractError::PuppeteerError { message: err });
     }
+    deps.api.debug("WASMDEBUG: native-bond  reply: 2");
 
     match ReplyMsg::from_reply_id(msg.id) {
         ReplyMsg::IbcTransfer | ReplyMsg::Bond => puppeteer_reply(deps),
@@ -458,13 +478,23 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
 }
 
 fn puppeteer_reply(deps: DepsMut) -> ContractResult<Response> {
+    deps.api.debug("WASMDEBUG: native-bond  puppeteer_reply: 1");
     let mut tx_state: TxState = TX_STATE.load(deps.storage)?;
+    deps.api.debug(&format!(
+        "WASMDEBUG: native-bond  puppeteer_reply: tx_state: {tx_state:?}",
+        tx_state = tx_state
+    ));
+
     tx_state.status = TxStateStatus::WaitingForAck;
     TX_STATE.save(deps.storage, &tx_state)?;
+
+    deps.api.debug("WASMDEBUG: native-bond  puppeteer_reply: 2");
 
     if let Some(Transaction::IBCTransfer { amount }) = tx_state.transaction {
         NON_STAKED_BALANCE.update(deps.storage, |balance| StdResult::Ok(balance + amount))?;
     }
+
+    deps.api.debug("WASMDEBUG: native-bond  puppeteer_reply: 3");
 
     Ok(Response::new())
 }

@@ -549,6 +549,8 @@ fn test_execute_bond_multiple_denoms() {
 }
 
 mod query {
+    use drop_staking_base::state::lsm_share_bond_provider::{TxState, TX_STATE};
+
     use super::*;
 
     #[test]
@@ -632,6 +634,9 @@ mod query {
                 &(env.block.time.seconds() - lsm_redeem_maximum_interval * 2),
             )
             .unwrap();
+        TX_STATE
+            .save(deps_mut.storage, &TxState::default())
+            .unwrap();
 
         drop_staking_base::state::lsm_share_bond_provider::LSM_SHARES_TO_REDEEM
             .save(
@@ -663,6 +668,9 @@ mod query {
 
         LAST_LSM_REDEEM
             .save(deps_mut.storage, &(env.block.time.seconds()))
+            .unwrap();
+        TX_STATE
+            .save(deps_mut.storage, &TxState::default())
             .unwrap();
 
         drop_staking_base::state::lsm_share_bond_provider::LSM_SHARES_TO_REDEEM
@@ -873,6 +881,9 @@ mod query {
             .unwrap();
 
         LAST_LSM_REDEEM.save(deps_mut.storage, &0).unwrap();
+        TX_STATE
+            .save(deps_mut.storage, &TxState::default())
+            .unwrap();
 
         let response = crate::contract::query(
             deps.as_ref(),
@@ -890,6 +901,9 @@ mod query {
 
         drop_staking_base::state::lsm_share_bond_provider::CONFIG
             .save(deps_mut.storage, &get_default_config(100u64, 200u64))
+            .unwrap();
+        TX_STATE
+            .save(deps_mut.storage, &TxState::default())
             .unwrap();
 
         drop_staking_base::state::lsm_share_bond_provider::PENDING_LSM_SHARES
@@ -919,6 +933,9 @@ mod query {
             .unwrap();
 
         LAST_LSM_REDEEM.save(deps_mut.storage, &0).unwrap();
+        TX_STATE
+            .save(deps_mut.storage, &TxState::default())
+            .unwrap();
 
         drop_staking_base::state::lsm_share_bond_provider::LSM_SHARES_TO_REDEEM
             .save(

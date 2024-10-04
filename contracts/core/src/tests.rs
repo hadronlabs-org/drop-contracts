@@ -22,9 +22,9 @@ use drop_staking_base::{
     },
     state::core::{
         unbond_batches_map, Config, ConfigOptional, ContractState, UnbondBatch, UnbondBatchStatus,
-        UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG,
-        FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM,
-        TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+        UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_PROVIDERS, BOND_PROVIDERS_IDX,
+        BOND_PROVIDER_REPLY_ID, CONFIG, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL,
+        LAST_PUPPETEER_RESPONSE, LD_DENOM, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
     },
 };
 use drop_staking_base::{msg::core::QueryMsg, state::core::FAILED_BATCH_ID};
@@ -388,6 +388,7 @@ fn test_execute_tick_idle_process_bondig_provider() {
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
     LAST_IDLE_CALL.save(deps.as_mut().storage, &0).unwrap();
+    BOND_PROVIDERS_IDX.save(deps.as_mut().storage, &0).unwrap();
 
     BONDED_AMOUNT
         .save(deps.as_mut().storage, &Uint128::zero())

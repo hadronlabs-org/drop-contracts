@@ -59,6 +59,7 @@ pub fn instantiate(
 
     TOTAL_LSM_SHARES.save(deps.storage, &0)?;
     LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
+    TX_STATE.save(deps.storage, &TxState::default())?;
 
     Ok(response(
         "instantiate",
@@ -136,6 +137,14 @@ fn query_can_bond(deps: Deps<NeutronQuery>, denom: String) -> ContractResult<Bin
 }
 
 fn query_can_process_on_idle(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
+    let tx_state = TX_STATE.load(deps.storage)?;
+    ensure!(
+        tx_state.status == TxStateStatus::Idle,
+        ContractError::InvalidState {
+            reason: "tx_state is not idle".to_string()
+        }
+    );
+
     let config = CONFIG.load(deps.storage)?;
 
     let pending_lsm_shares_count = PENDING_LSM_SHARES
@@ -210,24 +219,35 @@ fn execute_process_on_idle(
     mut deps: DepsMut<NeutronQuery>,
     env: Env,
 ) -> ContractResult<Response<NeutronMsg>> {
+    deps.api
+        .debug("WASMDEBUG: lsm-share execute_process_on_idle: 1");
     let config = CONFIG.load(deps.storage)?;
 
     let mut attrs = vec![attr("action", "process_on_idle")];
     let mut submessages: Vec<SubMsg<NeutronMsg>> = vec![];
+    deps.api
+        .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 2");
 
     attrs.push(attr("knot", "036"));
     if let Some(lsm_msg) = get_pending_redeem_msg(deps.branch(), &config, &env)? {
+        deps.api
+            .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 3");
         submessages.push(lsm_msg);
         attrs.push(attr("knot", "037"));
         attrs.push(attr("knot", "038"));
     } else {
         attrs.push(attr("knot", "041"));
-        if let Some(lsm_msg) = get_pending_lsm_share_msg(deps, &config, &env)? {
+        if let Some(lsm_msg) = get_pending_lsm_share_msg(deps.branch(), &config, &env)? {
+            deps.api
+                .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 4");
             submessages.push(lsm_msg);
             attrs.push(attr("knot", "042"));
             attrs.push(attr("knot", "043"));
         }
     }
+
+    deps.api
+        .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 6");
 
     Ok(
         response("update_config", CONTRACT_NAME, Vec::<Attribute>::new())

@@ -554,32 +554,49 @@ fn execute_tick_idle(
     attrs.push(attr("knot", "003"));
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
         let bond_providers = query_bond_providers(deps.as_ref())?;
+        deps.api
+            .debug(&format!("WASMDEBUG: bond_providers: {:?}", bond_providers));
         let mut bond_providers_idx = BOND_PROVIDERS_IDX.load(deps.storage)?;
-        if bond_providers.len() == 0 {
+        deps.api.debug(&format!(
+            "WASMDEBUG: bond_providers_idx: {:?}",
+            bond_providers_idx
+        ));
+        deps.api.debug("WASMDEBUG: core execute_tick_idle: 1");
+        let total_providers = bond_providers.len();
+        if total_providers == 0 {
             return Ok(response(
                 "execute-tick_idle",
                 CONTRACT_NAME,
                 vec![attr("bond_providers", "empty")],
             ));
         }
+        deps.api.debug("WASMDEBUG: core execute_tick_idle: 2");
 
-        if bond_providers_idx >= bond_providers.len() {
+        if bond_providers_idx >= total_providers {
             bond_providers_idx = 0;
         }
         let provider = bond_providers[bond_providers_idx].clone();
+        deps.api
+            .debug(&format!("WASMDEBUG: provider: {:?}", provider));
+        deps.api.debug("WASMDEBUG: core execute_tick_idle: 3");
 
-        let can_process_on_idle: bool = deps.querier.query_wasm_smart(
+        let can_process_on_idle = deps.querier.query_wasm_smart::<bool>(
             provider.to_string(),
             &drop_staking_base::msg::bond_provider::QueryMsg::CanProcessOnIdle {},
-        )?;
-        if can_process_on_idle {
+        );
+        deps.api.debug(&format!(
+            "WASMDEBUG: can_process_on_idle: {:?}",
+            can_process_on_idle
+        ));
+        if can_process_on_idle.is_ok_and(|f| f) {
+            deps.api.debug("WASMDEBUG: core execute_tick_idle: 4");
             let sub_msg = SubMsg::reply_on_error(
                 CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: provider.to_string(),
                     msg: to_json_binary(
                         &drop_staking_base::msg::bond_provider::ExecuteMsg::ProcessOnIdle {},
                     )?,
-                    funds: vec![],
+                    funds: info.funds.clone(),
                 }),
                 BOND_PROVIDER_REPLY_ID,
             );
@@ -588,6 +605,8 @@ fn execute_tick_idle(
 
             FSM.go_to(deps.storage, ContractState::Peripheral)?;
         }
+
+        deps.api.debug("WASMDEBUG: core execute_tick_idle: 5");
 
         BOND_PROVIDERS_IDX.save(deps.storage, &(bond_providers_idx + 1))?;
     } else {
@@ -1459,9 +1478,10 @@ fn new_unbond(now: u64) -> UnbondBatch {
     }
 }
 
-pub fn reply(deps: Deps, _env: Env, msg: Reply) -> ContractResult<Response> {
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
     match msg.id {
-        BOND_PROVIDER_REPLY_ID => bond_provider_reply(deps, msg),
+        BOND_PROVIDER_REPLY_ID => bond_provider_reply(deps.as_ref(), msg),
         id => Err(ContractError::UnknownReplyId { id }),
     }
 }
