@@ -107,7 +107,6 @@ export type Transaction = {
     };
 } | {
     redeem_shares: {
-        interchain_account_id: string;
         items: RedeemShareItem[];
     };
 } | {
@@ -121,12 +120,13 @@ export type Transaction = {
     i_b_c_transfer: {
         amount: number;
         denom: string;
+        real_amount: number;
         reason: IBCTransferReason;
         recipient: string;
     };
 } | {
     stake: {
-        items: [string, Uint128][];
+        amount: Uint128;
     };
 } | {
     transfer: {
@@ -210,7 +210,7 @@ export type UnbondBatchStatus = "new" | "unbond_requested" | "unbond_failed" | "
  * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
  */
 export type Uint64 = string;
-export type PuppeteerHookArgs = {
+export type PeripheralHookArgs = {
     success: ResponseHookSuccessMsg;
 } | {
     error: ResponseHookErrorMsg;
@@ -249,7 +249,7 @@ export type Timestamp2 = Uint64;
 export interface DropCoreSchema {
     responses: ArrayOfAddr | Config | ContractState | Uint1281 | Decimal | FailedBatchResponse | LastPuppeteerResponse | String | PauseInfoResponse | Uint1282 | Uint1283 | Uint1284 | UnbondBatch | UnbondBatchesResponse;
     query: UnbondBatchArgs | UnbondBatchesArgs;
-    execute: BondArgs | AddBondProviderArgs | RemoveBondProviderArgs | UpdateConfigArgs | UpdateWithdrawnAmountArgs | PuppeteerHookArgs | ProcessEmergencyBatchArgs | UpdateOwnershipArgs;
+    execute: BondArgs | AddBondProviderArgs | RemoveBondProviderArgs | UpdateConfigArgs | UpdateWithdrawnAmountArgs | PeripheralHookArgs | ProcessEmergencyBatchArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -483,7 +483,7 @@ export declare class Client {
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateWithdrawnAmount: (sender: string, args: UpdateWithdrawnAmountArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     tick: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    puppeteerHook: (sender: string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    peripheralHook: (sender: string, args: PeripheralHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     resetBondedAmount: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     processEmergencyBatch: (sender: string, args: ProcessEmergencyBatchArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     pause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

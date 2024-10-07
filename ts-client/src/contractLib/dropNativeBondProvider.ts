@@ -132,7 +132,6 @@ export type Transaction =
     }
   | {
       redeem_shares: {
-        interchain_account_id: string;
         items: RedeemShareItem[];
       };
     }
@@ -148,13 +147,14 @@ export type Transaction =
       i_b_c_transfer: {
         amount: number;
         denom: string;
+        real_amount: number;
         reason: IBCTransferReason;
         recipient: string;
       };
     }
   | {
       stake: {
-        items: [string, Uint1282][];
+        amount: Uint1282;
       };
     }
   | {

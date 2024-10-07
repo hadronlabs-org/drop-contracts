@@ -110,12 +110,6 @@ class Client {
         }
         return this.client.execute(sender, this.contractAddress, { redeem_shares: args }, fee || "auto", memo, funds);
     };
-    iBCTransfer = async (sender, args, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, { i_b_c_transfer: args }, fee || "auto", memo, funds);
-    };
     transfer = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();

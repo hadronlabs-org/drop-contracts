@@ -43,7 +43,6 @@ export type Transaction = {
     };
 } | {
     redeem_shares: {
-        interchain_account_id: string;
         items: RedeemShareItem[];
     };
 } | {
@@ -57,12 +56,13 @@ export type Transaction = {
     i_b_c_transfer: {
         amount: number;
         denom: string;
+        real_amount: number;
         reason: IBCTransferReason;
         recipient: string;
     };
 } | {
     stake: {
-        items: [string, Uint128][];
+        amount: Uint128;
     };
 } | {
     transfer: {
@@ -159,7 +159,7 @@ export type Uint64 = string;
 export interface DropPuppeteerSchema {
     responses: ConfigResponse | Binary | IcaState | ArrayOfTupleOfUint64AndString | ArrayOfTransaction | TxState;
     query: ExtensionArgs;
-    execute: RegisterBalanceAndDelegatorDelegationsQueryArgs | RegisterDelegatorUnbondingDelegationsQueryArgs | RegisterNonNativeRewardsBalancesQueryArgs | SetupProtocolArgs | DelegateArgs | UndelegateArgs | RedelegateArgs | TokenizeShareArgs | RedeemSharesArgs | IBCTransferArgs | TransferArgs | ClaimRewardsAndOptionalyTransferArgs | UpdateConfigArgs | UpdateOwnershipArgs;
+    execute: RegisterBalanceAndDelegatorDelegationsQueryArgs | RegisterDelegatorUnbondingDelegationsQueryArgs | RegisterNonNativeRewardsBalancesQueryArgs | SetupProtocolArgs | DelegateArgs | UndelegateArgs | RedelegateArgs | TokenizeShareArgs | RedeemSharesArgs | TransferArgs | ClaimRewardsAndOptionalyTransferArgs | UpdateConfigArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -228,10 +228,6 @@ export interface RedeemSharesArgs {
     items: RedeemShareItem[];
     reply_to: string;
 }
-export interface IBCTransferArgs {
-    reason: IBCTransferReason;
-    reply_to: string;
-}
 export interface TransferArgs {
     items: [string, Coin][];
     reply_to: string;
@@ -292,7 +288,6 @@ export declare class Client {
     redelegate: (sender: string, args: RedelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     tokenizeShare: (sender: string, args: TokenizeShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     redeemShares: (sender: string, args: RedeemSharesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    iBCTransfer: (sender: string, args: IBCTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     transfer: (sender: string, args: TransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     claimRewardsAndOptionalyTransfer: (sender: string, args: ClaimRewardsAndOptionalyTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

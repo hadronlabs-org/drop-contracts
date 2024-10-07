@@ -50,7 +50,6 @@ export type Transaction =
     }
   | {
       redeem_shares: {
-        interchain_account_id: string;
         items: RedeemShareItem[];
       };
     }
@@ -66,13 +65,14 @@ export type Transaction =
       i_b_c_transfer: {
         amount: number;
         denom: string;
+        real_amount: number;
         reason: IBCTransferReason;
         recipient: string;
       };
     }
   | {
       stake: {
-        items: [string, Uint128][];
+        amount: Uint128;
       };
     }
   | {
@@ -193,7 +193,6 @@ export interface DropPuppeteerSchema {
     | RedelegateArgs
     | TokenizeShareArgs
     | RedeemSharesArgs
-    | IBCTransferArgs
     | TransferArgs
     | ClaimRewardsAndOptionalyTransferArgs
     | UpdateConfigArgs
@@ -264,10 +263,6 @@ export interface TokenizeShareArgs {
 }
 export interface RedeemSharesArgs {
   items: RedeemShareItem[];
-  reply_to: string;
-}
-export interface IBCTransferArgs {
-  reason: IBCTransferReason;
   reply_to: string;
 }
 export interface TransferArgs {
@@ -414,10 +409,6 @@ export class Client {
   redeemShares = async(sender:string, args: RedeemSharesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { redeem_shares: args }, fee || "auto", memo, funds);
-  }
-  iBCTransfer = async(sender:string, args: IBCTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { i_b_c_transfer: args }, fee || "auto", memo, funds);
   }
   transfer = async(sender:string, args: TransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

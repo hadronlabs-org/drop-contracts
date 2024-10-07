@@ -124,7 +124,6 @@ export type Transaction =
     }
   | {
       redeem_shares: {
-        interchain_account_id: string;
         items: RedeemShareItem[];
       };
     }
@@ -140,13 +139,14 @@ export type Transaction =
       i_b_c_transfer: {
         amount: number;
         denom: string;
+        real_amount: number;
         reason: IBCTransferReason;
         recipient: string;
       };
     }
   | {
       stake: {
-        items: [string, Uint128][];
+        amount: Uint128;
       };
     }
   | {
@@ -242,7 +242,7 @@ export type UnbondBatchStatus =
  * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
  */
 export type Uint64 = string;
-export type PuppeteerHookArgs =
+export type PeripheralHookArgs =
   | {
       success: ResponseHookSuccessMsg;
     }
@@ -310,7 +310,7 @@ export interface DropCoreSchema {
     | RemoveBondProviderArgs
     | UpdateConfigArgs
     | UpdateWithdrawnAmountArgs
-    | PuppeteerHookArgs
+    | PeripheralHookArgs
     | ProcessEmergencyBatchArgs
     | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
@@ -631,9 +631,9 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { tick: {} }, fee || "auto", memo, funds);
   }
-  puppeteerHook = async(sender:string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  peripheralHook = async(sender:string, args: PeripheralHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { peripheral_hook: args }, fee || "auto", memo, funds);
   }
   resetBondedAmount = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
