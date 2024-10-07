@@ -7,7 +7,8 @@ use prost::Message;
 use crate::state::puppeteer::ConfigOptional;
 use cosmos_sdk_proto::cosmos::base::v1beta1::Coin as CosmosCoin;
 use drop_puppeteer_base::{
-    msg::{ExecuteMsg as BaseExecuteMsg, IBCTransferReason, TransferReadyBatchesMsg},
+    msg::{ExecuteMsg as BaseExecuteMsg, TransferReadyBatchesMsg},
+    peripheral_hook::IBCTransferReason,
     r#trait::PuppeteerReconstruct,
     state::{Delegations, RedeemShareItem},
 };

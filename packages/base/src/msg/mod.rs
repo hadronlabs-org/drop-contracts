@@ -15,6 +15,7 @@ pub mod reward_handler;
 pub mod rewards_manager;
 pub mod splitter;
 pub mod strategy;
+
 #[cfg(test)]
 mod tests;
 pub mod token;

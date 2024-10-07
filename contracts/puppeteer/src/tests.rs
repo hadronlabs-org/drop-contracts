@@ -13,7 +13,7 @@ use drop_helpers::{
     testing::mock_dependencies,
 };
 use drop_puppeteer_base::{
-    msg::IBCTransferReason,
+    peripheral_hook::IBCTransferReason,
     state::{
         BalancesAndDelegations, BalancesAndDelegationsState, Delegations, DropDelegation,
         PuppeteerBase, ReplyMsg,
@@ -388,10 +388,12 @@ fn test_execute_setup_protocol() {
             seq_id: None,
             status: drop_puppeteer_base::state::TxStateStatus::InProgress,
             reply_to: Some("".to_string()),
-            transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                interchain_account_id: "ica_address".to_string(),
-                rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-            })
+            transaction: Some(
+                drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                    interchain_account_id: "ica_address".to_string(),
+                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                }
+            )
         }
     );
 }
@@ -414,10 +416,12 @@ fn test_execute_setup_protocol_not_idle() {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
                 reply_to: Some("".to_string()),
-                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                    interchain_account_id: "ica_address".to_string(),
-                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-                }),
+                transaction: Some(
+                    drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                        interchain_account_id: "ica_address".to_string(),
+                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                    },
+                ),
             },
         )
         .unwrap();
@@ -487,10 +491,12 @@ fn test_execute_undelegate_sender_not_idle() {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
                 reply_to: Some("".to_string()),
-                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                    interchain_account_id: "ica_address".to_string(),
-                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-                }),
+                transaction: Some(
+                    drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                        interchain_account_id: "ica_address".to_string(),
+                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                    },
+                ),
             },
         )
         .unwrap();
@@ -572,12 +578,14 @@ fn test_execute_undelegate() {
             seq_id: None,
             status: drop_puppeteer_base::state::TxStateStatus::InProgress,
             reply_to: Some("some_reply_to".to_string()),
-            transaction: Some(drop_puppeteer_base::msg::Transaction::Undelegate {
-                batch_id: 0u128,
-                interchain_account_id: "DROP".to_string(),
-                denom: "remote_denom".to_string(),
-                items: vec![("valoper1".to_string(), Uint128::from(1000u128))]
-            })
+            transaction: Some(
+                drop_puppeteer_base::peripheral_hook::Transaction::Undelegate {
+                    batch_id: 0u128,
+                    interchain_account_id: "DROP".to_string(),
+                    denom: "remote_denom".to_string(),
+                    items: vec![("valoper1".to_string(), Uint128::from(1000u128))]
+                }
+            )
         }
     );
 }
@@ -630,10 +638,12 @@ fn test_execute_redelegate_sender_not_idle() {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
                 reply_to: Some("".to_string()),
-                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                    interchain_account_id: "ica_address".to_string(),
-                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-                }),
+                transaction: Some(
+                    drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                        interchain_account_id: "ica_address".to_string(),
+                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                    },
+                ),
             },
         )
         .unwrap();
@@ -776,10 +786,12 @@ fn test_execute_tokenize_share_sender_not_idle() {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
                 reply_to: Some("".to_string()),
-                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                    interchain_account_id: "ica_address".to_string(),
-                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-                }),
+                transaction: Some(
+                    drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                        interchain_account_id: "ica_address".to_string(),
+                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                    },
+                ),
             },
         )
         .unwrap();
@@ -924,10 +936,12 @@ fn test_execute_redeeem_shares_sender_not_idle() {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
                 reply_to: Some("".to_string()),
-                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                    interchain_account_id: "ica_address".to_string(),
-                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-                }),
+                transaction: Some(
+                    drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                        interchain_account_id: "ica_address".to_string(),
+                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                    },
+                ),
             },
         )
         .unwrap();
@@ -1013,14 +1027,15 @@ fn test_execute_redeem_share() {
             seq_id: None,
             status: drop_puppeteer_base::state::TxStateStatus::InProgress,
             reply_to: Some("some_reply_to".to_string()),
-            transaction: Some(drop_puppeteer_base::msg::Transaction::RedeemShares {
-                interchain_account_id: "DROP".to_string(),
-                items: vec![drop_puppeteer_base::state::RedeemShareItem {
-                    amount: Uint128::from(1000u128),
-                    remote_denom: "remote_denom".to_string(),
-                    local_denom: "local_denom".to_string()
-                }]
-            })
+            transaction: Some(
+                drop_puppeteer_base::peripheral_hook::Transaction::RedeemShares {
+                    items: vec![drop_puppeteer_base::state::RedeemShareItem {
+                        amount: Uint128::from(1000u128),
+                        remote_denom: "remote_denom".to_string(),
+                        local_denom: "local_denom".to_string()
+                    }]
+                }
+            )
         }
     );
 }
@@ -1077,10 +1092,12 @@ fn test_execute_claim_rewards_and_optionaly_transfer_not_idle() {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
                 reply_to: Some("".to_string()),
-                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                    interchain_account_id: "ica_address".to_string(),
-                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-                }),
+                transaction: Some(
+                    drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                        interchain_account_id: "ica_address".to_string(),
+                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                    },
+                ),
             },
         )
         .unwrap();
@@ -1888,10 +1905,12 @@ fn test_execute_ibc_transfer_not_idle() {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
                 reply_to: Some("".to_string()),
-                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                    interchain_account_id: "ica_address".to_string(),
-                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-                }),
+                transaction: Some(
+                    drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                        interchain_account_id: "ica_address".to_string(),
+                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                    },
+                ),
             },
         )
         .unwrap();
@@ -2034,10 +2053,12 @@ fn test_execute_transfer_not_idle() {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
                 reply_to: Some("".to_string()),
-                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                    interchain_account_id: "ica_address".to_string(),
-                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-                }),
+                transaction: Some(
+                    drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                        interchain_account_id: "ica_address".to_string(),
+                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                    },
+                ),
             },
         )
         .unwrap();
@@ -2335,11 +2356,12 @@ fn test_sudo_response_ok() {
         timeout_height: None,
         timeout_timestamp: None,
     };
-    let transaction = drop_puppeteer_base::msg::Transaction::IBCTransfer {
+    let transaction = drop_puppeteer_base::peripheral_hook::Transaction::IBCTransfer {
         denom: "remote_denom".to_string(),
         amount: 1000u128,
+        real_amount: 1000u128,
         recipient: "recipient".to_string(),
-        reason: drop_puppeteer_base::msg::IBCTransferReason::Delegate,
+        reason: drop_puppeteer_base::peripheral_hook::IBCTransferReason::Delegate,
     };
     let msg = SudoMsg::Response {
         request: request.clone(),
@@ -2364,15 +2386,15 @@ fn test_sudo_response_ok() {
         Response::new()
             .add_message(CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
                 contract_addr: "reply_to_contract".to_string(),
-                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PuppeteerHook(
-                    Box::new(drop_puppeteer_base::msg::ResponseHookMsg::Success(
-                        drop_puppeteer_base::msg::ResponseHookSuccessMsg {
+                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PeripheralHook(
+                    Box::new(drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(
+                        drop_puppeteer_base::peripheral_hook::ResponseHookSuccessMsg {
                             request_id: 1,
                             local_height: 12345,
                             remote_height: 54321,
                             request,
                             transaction,
-                            answers: vec![drop_puppeteer_base::msg::ResponseAnswer::IBCTransfer(
+                            answers: vec![drop_puppeteer_base::peripheral_hook::ResponseAnswer::IBCTransfer(
                                 drop_puppeteer_base::proto::MsgIBCTransfer {}
                             )]
                         }
@@ -2421,11 +2443,12 @@ fn test_sudo_response_error() {
         timeout_height: None,
         timeout_timestamp: None,
     };
-    let transaction = drop_puppeteer_base::msg::Transaction::IBCTransfer {
+    let transaction = drop_puppeteer_base::peripheral_hook::Transaction::IBCTransfer {
         denom: "remote_denom".to_string(),
         amount: 1000u128,
+        real_amount: 1000u128,
         recipient: "recipient".to_string(),
-        reason: drop_puppeteer_base::msg::IBCTransferReason::Delegate,
+        reason: drop_puppeteer_base::peripheral_hook::IBCTransferReason::Delegate,
     };
     let msg = SudoMsg::Error {
         request: request.clone(),
@@ -2450,15 +2473,17 @@ fn test_sudo_response_error() {
         Response::new()
             .add_message(CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
                 contract_addr: "reply_to_contract".to_string(),
-                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PuppeteerHook(
-                    Box::new(drop_puppeteer_base::msg::ResponseHookMsg::Error(
-                        drop_puppeteer_base::msg::ResponseHookErrorMsg {
-                            request_id: 1,
-                            request,
-                            transaction,
-                            details: "some shit happened".to_string()
-                        }
-                    ))
+                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PeripheralHook(
+                    Box::new(
+                        drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(
+                            drop_puppeteer_base::peripheral_hook::ResponseHookErrorMsg {
+                                request_id: 1,
+                                request,
+                                transaction,
+                                details: "some shit happened".to_string()
+                            }
+                        )
+                    )
                 ))
                 .unwrap(),
                 funds: vec![Coin::new(1000u128, "remote_denom".to_string())]
@@ -2528,11 +2553,12 @@ fn test_sudo_response_timeout() {
         timeout_height: None,
         timeout_timestamp: None,
     };
-    let transaction = drop_puppeteer_base::msg::Transaction::IBCTransfer {
+    let transaction = drop_puppeteer_base::peripheral_hook::Transaction::IBCTransfer {
         denom: "remote_denom".to_string(),
         amount: 1000u128,
+        real_amount: 1000u128,
         recipient: "recipient".to_string(),
-        reason: drop_puppeteer_base::msg::IBCTransferReason::Delegate,
+        reason: drop_puppeteer_base::peripheral_hook::IBCTransferReason::Delegate,
     };
     let msg = SudoMsg::Timeout {
         request: request.clone(),
@@ -2556,15 +2582,17 @@ fn test_sudo_response_timeout() {
         Response::new()
             .add_message(CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
                 contract_addr: "reply_to_contract".to_string(),
-                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PuppeteerHook(
-                    Box::new(drop_puppeteer_base::msg::ResponseHookMsg::Error(
-                        drop_puppeteer_base::msg::ResponseHookErrorMsg {
-                            request_id: 1,
-                            request,
-                            transaction,
-                            details: "Timeout".to_string()
-                        }
-                    ))
+                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PeripheralHook(
+                    Box::new(
+                        drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(
+                            drop_puppeteer_base::peripheral_hook::ResponseHookErrorMsg {
+                                request_id: 1,
+                                request,
+                                transaction,
+                                details: "Timeout".to_string()
+                            }
+                        )
+                    )
                 ))
                 .unwrap(),
                 funds: vec![Coin::new(1000u128, "remote_denom".to_string())]
@@ -3084,7 +3112,7 @@ fn test_get_answers_from_msg_data() {
         .unwrap();
         assert_eq!(
             res,
-            vec![drop_puppeteer_base::msg::ResponseAnswer::UnknownResponse {}]
+            vec![drop_puppeteer_base::peripheral_hook::ResponseAnswer::UnknownResponse {}]
         );
     }
     {
@@ -3136,26 +3164,26 @@ fn test_get_answers_from_msg_data() {
         assert_eq!(
             res,
             vec![
-                drop_puppeteer_base::msg::ResponseAnswer::DelegateResponse(
+                drop_puppeteer_base::peripheral_hook::ResponseAnswer::DelegateResponse(
                     drop_puppeteer_base::proto::MsgDelegateResponse {}
                 ),
-                drop_puppeteer_base::msg::ResponseAnswer::UndelegateResponse(
+                drop_puppeteer_base::peripheral_hook::ResponseAnswer::UndelegateResponse(
                     drop_puppeteer_base::proto::MsgUndelegateResponse {
                         completion_time: None,
                     }
                 ),
-                drop_puppeteer_base::msg::ResponseAnswer::TokenizeSharesResponse(
+                drop_puppeteer_base::peripheral_hook::ResponseAnswer::TokenizeSharesResponse(
                     drop_puppeteer_base::proto::MsgTokenizeSharesResponse { amount: None }
                 ),
-                drop_puppeteer_base::msg::ResponseAnswer::BeginRedelegateResponse(
+                drop_puppeteer_base::peripheral_hook::ResponseAnswer::BeginRedelegateResponse(
                     drop_puppeteer_base::proto::MsgBeginRedelegateResponse {
                         completion_time: None
                     }
                 ),
-                drop_puppeteer_base::msg::ResponseAnswer::RedeemTokensforSharesResponse(
+                drop_puppeteer_base::peripheral_hook::ResponseAnswer::RedeemTokensforSharesResponse(
                     drop_puppeteer_base::proto::MsgRedeemTokensforSharesResponse { amount: None }
                 ),
-                drop_puppeteer_base::msg::ResponseAnswer::TransferResponse(
+                drop_puppeteer_base::peripheral_hook::ResponseAnswer::TransferResponse(
                     drop_puppeteer_base::proto::MsgSendResponse {}
                 )
             ]

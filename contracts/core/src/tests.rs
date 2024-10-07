@@ -413,6 +413,7 @@ fn test_execute_tick_idle_process_bondig_provider() {
                         ("knot", "000"),
                         ("knot", "002"),
                         ("knot", "003"),
+                        ("used_bond_provider", "lsm_provider_address"),
                     ]
                 )
             )
@@ -1390,13 +1391,13 @@ fn test_tick_claiming_error_wo_transfer() {
     LAST_PUPPETEER_RESPONSE
         .save(
             deps.as_mut().storage,
-            &drop_puppeteer_base::msg::ResponseHookMsg::Error(
-                drop_puppeteer_base::msg::ResponseHookErrorMsg {
+            &drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(
+                drop_puppeteer_base::peripheral_hook::ResponseHookErrorMsg {
                     details: "Some error".to_string(),
                     request_id: 0u64,
                     request: null_request_packet(),
                     transaction:
-                        drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
+                        drop_puppeteer_base::peripheral_hook::Transaction::ClaimRewardsAndOptionalyTransfer {
                             interchain_account_id: "ica".to_string(),
                             validators: vec!["valoper_address".to_string()],
                             denom: "remote_denom".to_string(),
@@ -1522,13 +1523,13 @@ fn test_tick_claiming_error_with_transfer() {
     LAST_PUPPETEER_RESPONSE
         .save(
             deps.as_mut().storage,
-            &drop_puppeteer_base::msg::ResponseHookMsg::Error(
-                drop_puppeteer_base::msg::ResponseHookErrorMsg {
+            &drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(
+                drop_puppeteer_base::peripheral_hook::ResponseHookErrorMsg {
                     details: "Some error".to_string(),
                     request_id: 0u64,
                     request: null_request_packet(),
                     transaction:
-                        drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
+                        drop_puppeteer_base::peripheral_hook::Transaction::ClaimRewardsAndOptionalyTransfer {
                             interchain_account_id: "ica".to_string(),
                             validators: vec!["valoper_address".to_string()],
                             denom: "remote_denom".to_string(),
@@ -1651,14 +1652,14 @@ fn test_tick_claiming_wo_transfer_unbonding() {
     LAST_PUPPETEER_RESPONSE
         .save(
             deps.as_mut().storage,
-            &drop_puppeteer_base::msg::ResponseHookMsg::Success(
-                drop_puppeteer_base::msg::ResponseHookSuccessMsg {
+            &drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(
+                drop_puppeteer_base::peripheral_hook::ResponseHookSuccessMsg {
                     request_id: 0u64,
                     request: null_request_packet(),
                     local_height: 9u64,
                     remote_height: 9u64,
                     transaction:
-                        drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
+                        drop_puppeteer_base::peripheral_hook::Transaction::ClaimRewardsAndOptionalyTransfer {
                             interchain_account_id: "ica".to_string(),
                             validators: vec!["valoper_address".to_string()],
                             denom: "remote_denom".to_string(),
@@ -1820,14 +1821,14 @@ fn test_tick_claiming_wo_idle() {
     LAST_PUPPETEER_RESPONSE
         .save(
             deps.as_mut().storage,
-            &drop_puppeteer_base::msg::ResponseHookMsg::Success(
-                drop_puppeteer_base::msg::ResponseHookSuccessMsg {
+            &drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(
+                drop_puppeteer_base::peripheral_hook::ResponseHookSuccessMsg {
                     request_id: 0u64,
                     request: null_request_packet(),
                     local_height: 9u64,
                     remote_height: 9u64,
                     transaction:
-                        drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
+                        drop_puppeteer_base::peripheral_hook::Transaction::ClaimRewardsAndOptionalyTransfer {
                             interchain_account_id: "ica".to_string(),
                             validators: vec!["valoper_address".to_string()],
                             denom: "remote_denom".to_string(),

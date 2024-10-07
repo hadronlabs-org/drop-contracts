@@ -1,7 +1,7 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Coin, Uint128};
+use cosmwasm_std::{Addr, Uint128};
 use cw_storage_plus::{Item, Map};
-use drop_puppeteer_base::state::RedeemShareItem;
+use drop_puppeteer_base::peripheral_hook::Transaction;
 use optfield::optfield;
 
 #[optfield(pub ConfigOptional, attrs)]
@@ -25,12 +25,6 @@ pub enum TxStateStatus {
     Idle,
     InProgress,
     WaitingForAck,
-}
-
-#[cw_serde]
-pub enum Transaction {
-    Redeem { items: Vec<RedeemShareItem> },
-    IBCTransfer { token: Coin, real_amount: Uint128 },
 }
 
 #[cw_serde]

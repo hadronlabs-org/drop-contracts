@@ -7,8 +7,13 @@ use cosmwasm_std::{
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::{attr_coin, response};
+use drop_helpers::ibc_client_state::query_client_state;
 use drop_helpers::ibc_fee::query_ibc_fee;
-use drop_puppeteer_base::msg::ReceiverExecuteMsg;
+use drop_puppeteer_base::peripheral_hook::{
+    IBCTransferReason, ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg, ResponseHookMsg,
+    ResponseHookSuccessMsg, Transaction,
+};
+use drop_puppeteer_base::proto::MsgIBCTransfer;
 use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::error::lsm_share_bond_provider::{ContractError, ContractResult};
 use drop_staking_base::msg::core::LastPuppeteerResponse;
@@ -17,7 +22,7 @@ use drop_staking_base::msg::lsm_share_bond_provider::{
 };
 use drop_staking_base::state::core::LAST_PUPPETEER_RESPONSE;
 use drop_staking_base::state::lsm_share_bond_provider::{
-    Config, ConfigOptional, ReplyMsg, Transaction, TxState, TxStateStatus, CONFIG, LAST_LSM_REDEEM,
+    Config, ConfigOptional, ReplyMsg, TxState, TxStateStatus, CONFIG, LAST_LSM_REDEEM,
     LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES, TX_STATE,
 };
 use neutron_sdk::bindings::msg::NeutronMsg;
@@ -377,7 +382,7 @@ fn execute_puppeteer_hook(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
-    msg: drop_puppeteer_base::msg::ResponseHookMsg,
+    msg: drop_puppeteer_base::peripheral_hook::ResponseHookMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     ensure_eq!(
@@ -385,8 +390,9 @@ fn execute_puppeteer_hook(
         config.puppeteer_contract,
         ContractError::Unauthorized {}
     );
-    if let drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) = msg.clone() {
-        if let drop_puppeteer_base::msg::Transaction::RedeemShares { items, .. } =
+    if let drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(success_msg) = msg.clone()
+    {
+        if let drop_puppeteer_base::peripheral_hook::Transaction::RedeemShares { items, .. } =
             &success_msg.transaction
         {
             let mut sum = 0u128;
@@ -405,7 +411,7 @@ fn execute_puppeteer_hook(
 
     let hook_message = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.core_contract.to_string(),
-        msg: to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(msg))?,
+        msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(msg))?,
         funds: vec![],
     });
 
@@ -464,7 +470,7 @@ pub fn get_pending_redeem_msg(
     let submsg = msg_with_reply_callback(
         deps,
         msg,
-        Transaction::Redeem { items },
+        Transaction::RedeemShares { items },
         ReplyMsg::Redeem.to_reply_id(),
     )?;
 
@@ -486,7 +492,7 @@ fn get_pending_lsm_share_msg(
             )?;
 
             if let drop_helpers::ica::IcaState::Registered { ica_address, .. } = puppeteer_ica {
-                let pending_token = Coin::new(share_amount.u128(), local_denom);
+                let pending_token = Coin::new(share_amount.u128(), local_denom.clone());
 
                 let msg = NeutronMsg::IbcTransfer {
                     source_port: config.port_id.clone(),
@@ -507,8 +513,11 @@ fn get_pending_lsm_share_msg(
                     deps,
                     msg,
                     Transaction::IBCTransfer {
-                        token: pending_token,
-                        real_amount,
+                        real_amount: real_amount.u128(),
+                        denom: local_denom,
+                        amount: share_amount.u128(),
+                        recipient: ica_address.to_string(),
+                        reason: IBCTransferReason::LSMShare,
                     },
                     ReplyMsg::IbcTransfer.to_reply_id(),
                 )?;
@@ -601,21 +610,23 @@ pub fn sudo(
     ));
     match msg {
         SudoMsg::Response { request, data } => sudo_response(deps, env, request, data),
+        SudoMsg::Error { request, details } => sudo_error(deps, env, request, details),
+        SudoMsg::Timeout { request } => sudo_error(deps, env, request, "Timeout".to_string()),
         _ => Err(ContractError::MessageIsNotSupported {}),
     }
 }
 
-fn sudo_response(
+fn sudo_error(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     request: RequestPacket,
-    _data: Binary,
+    details: String,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api.debug("WASMDEBUG: sudo response");
-    let attrs = vec![
-        attr("action", "sudo_response"),
-        attr("request_id", request.sequence.unwrap_or(0).to_string()),
-    ];
+    deps.api.debug(&format!(
+        "WASMDEBUG: sudo_error: request: {request:?}",
+        request = request
+    ));
+
     let tx_state = TX_STATE.load(deps.storage)?;
     ensure!(
         tx_state.status == TxStateStatus::WaitingForAck,
@@ -624,36 +635,122 @@ fn sudo_response(
         }
     );
 
+    let seq_id = request
+        .sequence
+        .ok_or_else(|| StdError::generic_err("sequence not found"))?;
+
+    let attrs = vec![
+        attr("action", "sudo_error"),
+        attr("request_id", seq_id.to_string()),
+    ];
+
     let transaction = tx_state
         .transaction
         .ok_or_else(|| StdError::generic_err("transaction not found"))?;
 
-    if let Transaction::IBCTransfer { token, real_amount } = transaction.clone() {
-        let current_pending = PENDING_LSM_SHARES.may_load(deps.storage, token.denom.to_string())?;
+    TX_STATE.save(deps.storage, &TxState::default())?;
+
+    deps.api.debug(&format!(
+        "WASMDEBUG: sudo_timeout: request: {request:?}",
+        request = request
+    ));
+
+    let config = CONFIG.load(deps.storage)?;
+
+    let hook_message = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.core_contract.to_string(),
+        msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(ResponseHookMsg::Error(
+            ResponseHookErrorMsg {
+                request_id: seq_id,
+                request,
+                transaction,
+                details,
+            },
+        )))?,
+        funds: vec![],
+    });
+
+    Ok(response("sudo-timeout", "puppeteer", attrs).add_message(hook_message))
+}
+
+fn sudo_response(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    request: RequestPacket,
+    _data: Binary,
+) -> ContractResult<Response<NeutronMsg>> {
+    deps.api.debug("WASMDEBUG: sudo response");
+
+    let tx_state = TX_STATE.load(deps.storage)?;
+    ensure!(
+        tx_state.status == TxStateStatus::WaitingForAck,
+        ContractError::InvalidState {
+            reason: "tx_state is not WaitingForAck".to_string()
+        }
+    );
+
+    let seq_id = request
+        .sequence
+        .ok_or_else(|| StdError::generic_err("sequence not found"))?;
+
+    let transaction = tx_state
+        .transaction
+        .ok_or_else(|| StdError::generic_err("transaction not found"))?;
+
+    let channel_id = request
+        .clone()
+        .source_channel
+        .ok_or_else(|| StdError::generic_err("source_channel not found"))?;
+    let port_id = request
+        .clone()
+        .source_port
+        .ok_or_else(|| StdError::generic_err("source_port not found"))?;
+
+    let client_state = query_client_state(&deps.as_ref(), channel_id, port_id)?;
+
+    let remote_height = client_state
+        .identified_client_state
+        .ok_or_else(|| StdError::generic_err("IBC client state identified_client_state not found"))?
+        .client_state
+        .latest_height
+        .ok_or_else(|| StdError::generic_err("IBC client state latest_height not found"))?
+        .revision_height;
+
+    let attrs = vec![
+        attr("action", "sudo_response"),
+        attr("request_id", request.sequence.unwrap_or(0).to_string()),
+    ];
+
+    if let Transaction::IBCTransfer {
+        amount,
+        denom,
+        real_amount,
+        ..
+    } = transaction.clone()
+    {
+        let current_pending = PENDING_LSM_SHARES.may_load(deps.storage, denom.to_string())?;
         if let Some((remote_denom, shares_amount, _real_amount)) = current_pending {
-            let sent_amount = token.amount;
-            LSM_SHARES_TO_REDEEM.update(deps.storage, token.denom.to_string(), |one| {
+            let sent_amount = Uint128::from(amount);
+            let sent_real_amount = Uint128::from(real_amount);
+
+            LSM_SHARES_TO_REDEEM.update(deps.storage, denom.to_string(), |one| {
                 let mut new = one.unwrap_or((remote_denom, Uint128::zero(), Uint128::zero()));
                 new.1 += sent_amount;
-                new.2 += real_amount;
+                new.2 += sent_real_amount;
                 StdResult::Ok(new)
             })?;
             if shares_amount == sent_amount {
-                PENDING_LSM_SHARES.remove(deps.storage, token.denom.to_string());
+                PENDING_LSM_SHARES.remove(deps.storage, denom.to_string());
             } else {
-                PENDING_LSM_SHARES.update(
-                    deps.storage,
-                    token.denom.to_string(),
-                    |one| match one {
-                        Some(one) => {
-                            let mut new = one;
-                            new.1 -= sent_amount;
-                            new.2 -= real_amount;
-                            StdResult::Ok(new)
-                        }
-                        None => unreachable!("denom should be in the map"),
-                    },
-                )?;
+                PENDING_LSM_SHARES.update(deps.storage, denom.to_string(), |one| match one {
+                    Some(one) => {
+                        let mut new = one;
+                        new.1 -= sent_amount;
+                        new.2 -= sent_real_amount;
+                        StdResult::Ok(new)
+                    }
+                    None => unreachable!("denom should be in the map"),
+                })?;
             }
         }
     }
@@ -664,7 +761,37 @@ fn sudo_response(
     ));
     TX_STATE.save(deps.storage, &TxState::default())?;
 
-    Ok(response("sudo-response", "puppeteer", attrs))
+    let config = CONFIG.load(deps.storage)?;
+
+    deps.api.debug(&format!(
+        "WASMDEBUG: json: {request:?}",
+        request = to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
+            ResponseHookMsg::Success(ResponseHookSuccessMsg {
+                request_id: seq_id,
+                request: request.clone(),
+                transaction: transaction.clone(),
+                answers: vec![ResponseAnswer::IBCTransfer(MsgIBCTransfer {})],
+                local_height: env.block.height,
+                remote_height: remote_height.u64(),
+            },)
+        ))?
+    ));
+    let hook_message = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.core_contract.to_string(),
+        msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
+            ResponseHookMsg::Success(ResponseHookSuccessMsg {
+                request_id: seq_id,
+                request: request.clone(),
+                transaction: transaction.clone(),
+                answers: vec![ResponseAnswer::IBCTransfer(MsgIBCTransfer {})],
+                local_height: env.block.height,
+                remote_height: remote_height.u64(),
+            }),
+        ))?,
+        funds: vec![],
+    });
+
+    Ok(response("sudo-response", "puppeteer", attrs).add_message(hook_message))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]

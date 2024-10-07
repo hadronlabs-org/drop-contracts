@@ -9,7 +9,7 @@ use cw_ownable::cw_ownable_execute;
 #[allow(unused_imports)]
 use drop_helpers::pause::PauseInfoResponse;
 use drop_macros::{pausable, pausable_query};
-use drop_puppeteer_base::msg::ResponseHookMsg as PuppeteerResponseHookMsg;
+use drop_puppeteer_base::peripheral_hook::ResponseHookMsg as PuppeteerResponseHookMsg;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -134,7 +134,7 @@ pub enum ExecuteMsg {
         withdrawn_amount: Uint128,
     },
     Tick {},
-    PuppeteerHook(Box<PuppeteerResponseHookMsg>),
+    PeripheralHook(Box<PuppeteerResponseHookMsg>),
     ResetBondedAmount {},
     ProcessEmergencyBatch {
         batch_id: u128,

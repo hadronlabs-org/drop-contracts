@@ -1,6 +1,7 @@
 pub mod error;
 pub mod execute;
 pub mod msg;
+pub mod peripheral_hook;
 pub mod proto;
 pub mod query;
 pub mod reply;

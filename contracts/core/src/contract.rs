@@ -7,7 +7,8 @@ use cosmwasm_std::{
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
 use drop_helpers::pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse};
-use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
+use drop_puppeteer_base::msg::TransferReadyBatchesMsg;
+use drop_puppeteer_base::peripheral_hook::IBCTransferReason;
 use drop_staking_base::state::core::{BOND_PROVIDERS, BOND_PROVIDERS_IDX, BOND_PROVIDER_REPLY_ID};
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
@@ -293,7 +294,7 @@ pub fn execute(
             withdrawn_amount,
         } => execute_update_withdrawn_amount(deps, env, info, batch_id, withdrawn_amount),
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
-        ExecuteMsg::PuppeteerHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
+        ExecuteMsg::PeripheralHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
         ExecuteMsg::Pause {} => exec_pause(deps, info),
         ExecuteMsg::Unpause {} => exec_unpause(deps, info),
         ExecuteMsg::AddBondProvider {
@@ -472,8 +473,9 @@ fn execute_puppeteer_hook(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     info: MessageInfo,
-    msg: drop_puppeteer_base::msg::ResponseHookMsg,
+    msg: drop_puppeteer_base::peripheral_hook::ResponseHookMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
+    deps.api.debug("WASMDEBUG: core execute_puppeteer_hook: 1");
     let config = CONFIG.load(deps.storage)?;
 
     let allowed_senders: Vec<_> = vec![config.puppeteer_contract]
@@ -481,24 +483,28 @@ fn execute_puppeteer_hook(
         .chain(query_bond_providers(deps.as_ref())?)
         .collect();
 
+    deps.api.debug("WASMDEBUG: core execute_puppeteer_hook: 2");
+
     ensure!(
         allowed_senders.contains(&info.sender),
         ContractError::Unauthorized {}
     );
 
+    deps.api.debug("WASMDEBUG: core execute_puppeteer_hook: 3");
+
     match msg.clone() {
-        drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) => {
+        drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(success_msg) => {
             LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &success_msg.remote_height)?;
         }
-        drop_puppeteer_base::msg::ResponseHookMsg::Error(err_msg) => {
+        drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(err_msg) => {
             match err_msg.transaction {
-                drop_puppeteer_base::msg::Transaction::Transfer { .. } // this one is for transfering non-native rewards
-                | drop_puppeteer_base::msg::Transaction::RedeemShares { .. }
-                | drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer { .. } => { // this goes to idle and then ruled in tick_idle
+                drop_puppeteer_base::peripheral_hook::Transaction::Transfer { .. } // this one is for transfering non-native rewards
+                | drop_puppeteer_base::peripheral_hook::Transaction::RedeemShares { .. }
+                | drop_puppeteer_base::peripheral_hook::Transaction::ClaimRewardsAndOptionalyTransfer { .. } => { // this goes to idle and then ruled in tick_idle
                 // IBC transfer for LSM shares and pending stake
                 FSM.go_to(deps.storage, ContractState::Idle)?
             }
-            drop_puppeteer_base::msg::Transaction::IBCTransfer { reason, .. } => {
+            drop_puppeteer_base::peripheral_hook::Transaction::IBCTransfer { reason, .. } => {
                 if reason == IBCTransferReason::LSMShare {
                     FSM.go_to(deps.storage, ContractState::Idle)?;
                 }
@@ -508,7 +514,11 @@ fn execute_puppeteer_hook(
         }
     }
 
+    deps.api.debug("WASMDEBUG: core execute_puppeteer_hook: 4");
+
     LAST_PUPPETEER_RESPONSE.save(deps.storage, &msg)?;
+
+    deps.api.debug("WASMDEBUG: core execute_puppeteer_hook: 5");
 
     Ok(response(
         "execute-puppeteer_hook",
@@ -524,10 +534,14 @@ fn execute_tick(
 ) -> ContractResult<Response<NeutronMsg>> {
     pause_guard(deps.storage)?;
 
+    deps.api.debug("WASMDEBUG: core execute_tick: 1");
+
     let current_state = FSM.get_current_state(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
+    deps.api.debug("WASMDEBUG: core execute_tick: 2");
 
     check_latest_icq_responses(deps.as_ref(), config.puppeteer_contract.to_string())?;
+    deps.api.debug("WASMDEBUG: core execute_tick: 3");
 
     match current_state {
         ContractState::Idle => execute_tick_idle(deps.branch(), env, info, &config),
@@ -589,6 +603,7 @@ fn execute_tick_idle(
             can_process_on_idle
         ));
         if can_process_on_idle.is_ok_and(|f| f) {
+            attrs.push(attr("used_bond_provider", provider.to_string()));
             deps.api.debug("WASMDEBUG: core execute_tick_idle: 4");
             let sub_msg = SubMsg::reply_on_error(
                 CosmosMsg::Wasm(WasmMsg::Execute {
@@ -814,19 +829,22 @@ fn execute_tick_peripheral(
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut attrs = vec![attr("action", "tick_peripheral")];
+    deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 1");
     let res = get_received_puppeteer_response(deps.as_ref())?;
+    deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 2");
 
-    if let drop_puppeteer_base::msg::ResponseHookMsg::Success(msg) = res {
+    if let drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(msg) = res {
         match msg.transaction {
-            drop_puppeteer_base::msg::Transaction::RedeemShares { .. } => {
+            drop_puppeteer_base::peripheral_hook::Transaction::RedeemShares { .. } => {
                 attrs.push(attr("knot", "038"))
             }
-            drop_puppeteer_base::msg::Transaction::Transfer { .. } => {
+            drop_puppeteer_base::peripheral_hook::Transaction::Transfer { .. } => {
                 attrs.push(attr("knot", "035"));
             }
             _ => {}
         }
 
+        deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 3");
         let balances_response: drop_staking_base::msg::puppeteer::BalancesResponse =
             deps.querier.query_wasm_smart(
                 config.puppeteer_contract.to_string(),
@@ -834,12 +852,14 @@ fn execute_tick_peripheral(
                     msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
                 },
             )?;
+        deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 4");
         if msg.remote_height > balances_response.remote_height {
             return Err(ContractError::PuppeteerBalanceOutdated {
                 ica_height: msg.remote_height,
                 control_height: balances_response.remote_height,
             });
         }
+        deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 5");
     }
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
 
@@ -847,16 +867,20 @@ fn execute_tick_peripheral(
     attrs.push(attr("knot", "017"));
     if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
     {
+        deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 6");
         messages.push(unbond_message);
         attrs.push(attr("knot", "028"));
         FSM.go_to(deps.storage, ContractState::Unbonding)?;
         attrs.push(attr("knot", "029"));
         attrs.push(attr("state", "unbonding"));
     } else {
+        deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 7");
         FSM.go_to(deps.storage, ContractState::Idle)?;
         attrs.push(attr("knot", "000"));
         attrs.push(attr("state", "idle"));
     }
+
+    deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 8");
 
     Ok(response("execute-tick_peripheral", CONTRACT_NAME, attrs).add_messages(messages))
 }
@@ -873,10 +897,10 @@ fn execute_tick_claiming(
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
     let mut messages = vec![];
     match response_msg {
-        drop_puppeteer_base::msg::ResponseHookMsg::Success(success_msg) => {
+        drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(success_msg) => {
             attrs.push(attr("knot", "047"));
             match success_msg.transaction {
-                drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
+                drop_puppeteer_base::peripheral_hook::Transaction::ClaimRewardsAndOptionalyTransfer {
                     transfer,
                     ..
                 } => {
@@ -903,10 +927,10 @@ fn execute_tick_claiming(
                 _ => return Err(ContractError::InvalidTransaction {}),
             }
         }
-        drop_puppeteer_base::msg::ResponseHookMsg::Error(err) => {
+        drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(err) => {
             attrs.push(attr("error_on_claiming", format!("{:?}", err)));
             match err.transaction {
-                drop_puppeteer_base::msg::Transaction::ClaimRewardsAndOptionalyTransfer {
+                drop_puppeteer_base::peripheral_hook::Transaction::ClaimRewardsAndOptionalyTransfer {
                     transfer,
                     ..
                 } => {
@@ -952,7 +976,7 @@ fn _execute_tick_staking_bond(
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut attrs = vec![attr("action", "tick_staking_bond")];
     let response_msg = get_received_puppeteer_response(deps.as_ref())?;
-    if let drop_puppeteer_base::msg::ResponseHookMsg::Success(response) = response_msg {
+    if let drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(response) = response_msg {
         let balances_response: drop_staking_base::msg::puppeteer::BalancesResponse =
             deps.querier.query_wasm_smart(
                 config.puppeteer_contract.to_string(),
@@ -995,9 +1019,11 @@ fn execute_tick_unbonding(
     let mut attrs = vec![attr("action", "tick_unbonding"), attr("knot", "029")];
     let res = get_received_puppeteer_response(deps.as_ref())?;
     match res {
-        drop_puppeteer_base::msg::ResponseHookMsg::Success(response) => {
+        drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(response) => {
             match response.transaction {
-                drop_puppeteer_base::msg::Transaction::Undelegate { batch_id, .. } => {
+                drop_puppeteer_base::peripheral_hook::Transaction::Undelegate {
+                    batch_id, ..
+                } => {
                     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
                     attrs.push(attr("batch_id", batch_id.to_string()));
                     let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
@@ -1013,8 +1039,10 @@ fn execute_tick_unbonding(
                 _ => return Err(ContractError::InvalidTransaction {}),
             }
         }
-        drop_puppeteer_base::msg::ResponseHookMsg::Error(response) => match response.transaction {
-            drop_puppeteer_base::msg::Transaction::Undelegate { batch_id, .. } => {
+        drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(response) => match response
+            .transaction
+        {
+            drop_puppeteer_base::peripheral_hook::Transaction::Undelegate { batch_id, .. } => {
                 LAST_PUPPETEER_RESPONSE.remove(deps.storage);
                 attrs.push(attr("batch_id", batch_id.to_string()));
                 let mut unbond = unbond_batches_map().load(deps.storage, batch_id)?;
@@ -1394,7 +1422,7 @@ fn get_unbonding_msg<T>(
 
 fn get_received_puppeteer_response(
     deps: Deps<NeutronQuery>,
-) -> ContractResult<drop_puppeteer_base::msg::ResponseHookMsg> {
+) -> ContractResult<drop_puppeteer_base::peripheral_hook::ResponseHookMsg> {
     LAST_PUPPETEER_RESPONSE
         .load(deps.storage)
         .map_err(|_| ContractError::PuppeteerResponseIsNotReceived {})

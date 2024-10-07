@@ -33,9 +33,10 @@ use drop_helpers::{
 };
 use drop_puppeteer_base::{
     error::{ContractError, ContractResult},
-    msg::{
-        IBCTransferReason, QueryMsg, ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg,
-        ResponseHookMsg, ResponseHookSuccessMsg, Transaction, TransferReadyBatchesMsg,
+    msg::{QueryMsg, TransferReadyBatchesMsg},
+    peripheral_hook::{
+        IBCTransferReason, ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg,
+        ResponseHookMsg, ResponseHookSuccessMsg, Transaction,
     },
     proto::MsgIBCTransfer,
     state::{
@@ -394,7 +395,9 @@ fn execute_delegate(
         deps.branch(),
         config,
         any_delegation_msgs,
-        Transaction::Stake { items },
+        Transaction::Stake {
+            amount: amount_to_stake,
+        },
         reply_to,
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
@@ -450,6 +453,7 @@ fn execute_ibc_transfer(
         Transaction::IBCTransfer {
             denom: coin.denom.to_string(),
             amount: coin.amount.into(),
+            real_amount: coin.amount.into(),
             reason,
             recipient: ica_address,
         },
@@ -918,10 +922,7 @@ fn execute_redeem_shares(
         deps.branch(),
         config,
         any_msgs,
-        Transaction::RedeemShares {
-            interchain_account_id: ICA_ID.to_string(),
-            items,
-        },
+        Transaction::RedeemShares { items },
         reply_to,
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
@@ -1027,14 +1028,16 @@ fn sudo_response(
     data: Binary,
 ) -> NeutronResult<Response<NeutronMsg>> {
     deps.api.debug("WASMDEBUG: sudo response");
-    let attrs = vec![
-        attr("action", "sudo_response"),
-        attr("request_id", request.sequence.unwrap_or(0).to_string()),
-    ];
-    let puppeteer_base = Puppeteer::default();
     let seq_id = request
         .sequence
         .ok_or_else(|| StdError::generic_err("sequence not found"))?;
+
+    let attrs = vec![
+        attr("action", "sudo_response"),
+        attr("request_id", seq_id.to_string()),
+    ];
+    let puppeteer_base = Puppeteer::default();
+
     let channel_id = request
         .clone()
         .source_channel
@@ -1083,7 +1086,7 @@ fn sudo_response(
 
     deps.api.debug(&format!(
         "WASMDEBUG: json: {request:?}",
-        request = to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
+        request = to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
                 request_id: seq_id,
                 request: request.clone(),
@@ -1098,7 +1101,7 @@ fn sudo_response(
     if !reply_to.is_empty() {
         msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: reply_to.clone(),
-            msg: to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(
+            msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
                 ResponseHookMsg::Success(ResponseHookSuccessMsg {
                     request_id: seq_id,
                     request: request.clone(),
@@ -1217,7 +1220,7 @@ fn sudo_error(
         contract_addr: tx_state
             .reply_to
             .ok_or_else(|| StdError::generic_err("reply_to not found"))?,
-        msg: to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(ResponseHookMsg::Error(
+        msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(ResponseHookMsg::Error(
             ResponseHookErrorMsg {
                 request_id: seq_id,
                 request,
@@ -1283,7 +1286,7 @@ fn sudo_timeout(
         contract_addr: tx_state
             .reply_to
             .ok_or_else(|| StdError::generic_err("reply_to not found"))?,
-        msg: to_json_binary(&ReceiverExecuteMsg::PuppeteerHook(ResponseHookMsg::Error(
+        msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(ResponseHookMsg::Error(
             ResponseHookErrorMsg {
                 request_id: seq_id,
                 request,

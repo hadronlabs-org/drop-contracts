@@ -1404,7 +1404,7 @@ describe('Core', () => {
         ).attributes;
         console.log(idleTickAttributes);
         const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('staking_bond');
+        expect(state).toEqual('peripheral');
         // const stakerState = await context.stakerContractClient.queryTxState();
         // expect(stakerState).toEqual({
         //   reply_to: context.coreContractClient.contractAddress,
@@ -1430,10 +1430,10 @@ describe('Core', () => {
       //     ),
       //   ).rejects.toThrowError(/Staker response is not received/);
       // });
-      it('state of fsm is staking_bond', async () => {
-        const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('staking_bond');
-      });
+      // it('state of fsm is staking_bond', async () => {
+      //   const state = await context.coreContractClient.queryContractState();
+      //   expect(state).toEqual('staking_bond');
+      // });
       // it('wait for staker to get into idle state', async () => {
       //   let response;
       //   await waitFor(async () => {
@@ -1454,6 +1454,51 @@ describe('Core', () => {
       //   const balance = parseInt(res.amount);
       //   expect(balance).toEqual(0);
       // });
+      it('wait for the response from puppeteer', async () => {
+        let response: ResponseHookMsg;
+        await waitFor(async () => {
+          try {
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
+          } catch (e) {
+            //
+          }
+          return !!response;
+        }, 100_000);
+        expect(response).toBeTruthy();
+        expect<ResponseHookMsg>(response).toHaveProperty('success');
+      });
+      it('next tick should go to idle', async () => {
+        const {
+          gaiaClient,
+          neutronUserAddress,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
       it('wait delegations', async () => {
         await waitFor(async () => {
           const res: any = await context.puppeteerContractClient.queryExtension(

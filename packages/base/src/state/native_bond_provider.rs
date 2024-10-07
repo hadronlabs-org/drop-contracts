@@ -1,7 +1,9 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128};
 use cw_storage_plus::Item;
-use drop_puppeteer_base::msg::ResponseHookMsg as PuppeteerResponseHookMsg;
+use drop_puppeteer_base::peripheral_hook::{
+    ResponseHookMsg as PuppeteerResponseHookMsg, Transaction,
+};
 use optfield::optfield;
 
 #[optfield(pub ConfigOptional, attrs)]
@@ -28,11 +30,6 @@ pub enum TxStateStatus {
 }
 
 #[cw_serde]
-pub enum Transaction {
-    Stake { amount: Uint128 },
-    IBCTransfer { amount: Uint128 },
-}
-#[cw_serde]
 #[derive(Default)]
 pub struct TxState {
     pub status: TxStateStatus,
@@ -50,11 +47,13 @@ pub mod reply_msg {
     const OFFSET: u64 = u16::BITS as u64;
     pub const IBC_TRANSFER: u64 = 1 << OFFSET;
     pub const BOND: u64 = 2 << OFFSET;
+    pub const PUPPETEER_HOOK_FORWARD: u64 = 3 << OFFSET;
 
     #[cosmwasm_schema::cw_serde]
     pub enum ReplyMsg {
         IbcTransfer,
         Bond,
+        PuppeteerHookForward,
     }
 
     impl ReplyMsg {
@@ -62,6 +61,7 @@ pub mod reply_msg {
             match self {
                 ReplyMsg::IbcTransfer => IBC_TRANSFER,
                 ReplyMsg::Bond => BOND,
+                ReplyMsg::PuppeteerHookForward => PUPPETEER_HOOK_FORWARD,
             }
         }
 
@@ -69,6 +69,7 @@ pub mod reply_msg {
             match reply_id {
                 IBC_TRANSFER => Self::IbcTransfer,
                 BOND => Self::Bond,
+                PUPPETEER_HOOK_FORWARD => Self::PuppeteerHookForward,
                 _ => unreachable!(),
             }
         }
@@ -82,12 +83,20 @@ pub mod reply_msg {
         fn enum_variant_from_reply_id() {
             assert_eq!(ReplyMsg::from_reply_id(IBC_TRANSFER), ReplyMsg::IbcTransfer);
             assert_eq!(ReplyMsg::from_reply_id(BOND), ReplyMsg::Bond);
+            assert_eq!(
+                ReplyMsg::from_reply_id(PUPPETEER_HOOK_FORWARD),
+                ReplyMsg::PuppeteerHookForward
+            );
         }
 
         #[test]
         fn enum_variant_to_reply_id() {
             assert_eq!(ReplyMsg::IbcTransfer.to_reply_id(), IBC_TRANSFER);
             assert_eq!(ReplyMsg::Bond.to_reply_id(), BOND);
+            assert_eq!(
+                ReplyMsg::PuppeteerHookForward.to_reply_id(),
+                PUPPETEER_HOOK_FORWARD
+            );
         }
 
         #[test]

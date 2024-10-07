@@ -274,6 +274,7 @@ pub fn instantiate(
             msg: to_json_binary(&PuppeteerInstantiateMsg {
                 allowed_senders: vec![
                     lsm_share_bond_provider_contract.to_string(),
+                    native_bond_provider_contract.to_string(),
                     core_contract.to_string(),
                     env.contract.address.to_string(),
                 ],

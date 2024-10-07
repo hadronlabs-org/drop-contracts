@@ -288,11 +288,9 @@ fn query_can_not_process_on_idle_not_in_idle_state() {
             deps.as_mut().storage,
             &drop_staking_base::state::native_bond_provider::TxState {
                 status: drop_staking_base::state::native_bond_provider::TxStateStatus::InProgress,
-                transaction: Some(
-                    drop_staking_base::state::native_bond_provider::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    },
-                ),
+                transaction: Some(drop_puppeteer_base::peripheral_hook::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
             },
         )
         .unwrap();
@@ -497,11 +495,9 @@ fn process_on_idle_not_in_idle_state() {
             deps.as_mut().storage,
             &drop_staking_base::state::native_bond_provider::TxState {
                 status: drop_staking_base::state::native_bond_provider::TxStateStatus::InProgress,
-                transaction: Some(
-                    drop_staking_base::state::native_bond_provider::Transaction::Stake {
-                        amount: Uint128::from(0u64),
-                    },
-                ),
+                transaction: Some(drop_puppeteer_base::peripheral_hook::Transaction::Stake {
+                    amount: Uint128::from(0u64),
+                }),
             },
         )
         .unwrap();
