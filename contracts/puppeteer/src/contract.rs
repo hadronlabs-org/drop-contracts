@@ -255,9 +255,6 @@ pub fn execute(
         ExecuteMsg::RegisterNonNativeRewardsBalancesQuery { denoms } => {
             register_non_native_rewards_balances_query(deps, info, denoms)
         }
-        ExecuteMsg::IBCTransfer { reply_to, reason } => {
-            execute_ibc_transfer(deps, env, info, reason, reply_to)
-        }
         ExecuteMsg::Transfer { items, reply_to } => execute_transfer(deps, info, items, reply_to),
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
         ExecuteMsg::UpdateOwnership(action) => {
@@ -405,7 +402,7 @@ fn execute_delegate(
     Ok(response("stake", CONTRACT_NAME, attrs).add_submessage(submsg))
 }
 
-fn execute_ibc_transfer(
+fn _execute_ibc_transfer(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,

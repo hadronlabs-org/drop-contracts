@@ -8,7 +8,6 @@ use crate::state::puppeteer::ConfigOptional;
 use cosmos_sdk_proto::cosmos::base::v1beta1::Coin as CosmosCoin;
 use drop_puppeteer_base::{
     msg::{ExecuteMsg as BaseExecuteMsg, TransferReadyBatchesMsg},
-    peripheral_hook::IBCTransferReason,
     r#trait::PuppeteerReconstruct,
     state::{Delegations, RedeemShareItem},
 };
@@ -73,10 +72,6 @@ pub enum ExecuteMsg {
     },
     RedeemShares {
         items: Vec<RedeemShareItem>,
-        reply_to: String,
-    },
-    IBCTransfer {
-        reason: IBCTransferReason,
         reply_to: String,
     },
     Transfer {
