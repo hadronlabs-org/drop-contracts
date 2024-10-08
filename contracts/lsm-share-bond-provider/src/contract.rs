@@ -23,7 +23,7 @@ use drop_staking_base::msg::lsm_share_bond_provider::{
 use drop_staking_base::state::core::LAST_PUPPETEER_RESPONSE;
 use drop_staking_base::state::lsm_share_bond_provider::{
     Config, ConfigOptional, ReplyMsg, TxState, TxStateStatus, CONFIG, LAST_LSM_REDEEM,
-    LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES, TX_STATE,
+    LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES_REAL_AMOUNT, TX_STATE,
 };
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -62,7 +62,7 @@ pub fn instantiate(
     };
     CONFIG.save(deps.storage, config)?;
 
-    TOTAL_LSM_SHARES.save(deps.storage, &0)?;
+    TOTAL_LSM_SHARES_REAL_AMOUNT.save(deps.storage, &0)?;
     LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
     TX_STATE.save(deps.storage, &TxState::default())?;
 
@@ -105,7 +105,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         .map_err(From::from),
         QueryMsg::TxState {} => query_tx_state(deps, env),
         QueryMsg::AsyncTokensAmount {} => {
-            to_json_binary(&TOTAL_LSM_SHARES.load(deps.storage)?).map_err(From::from)
+            to_json_binary(&TOTAL_LSM_SHARES_REAL_AMOUNT.load(deps.storage)?).map_err(From::from)
         }
     }
 }
@@ -350,7 +350,7 @@ fn execute_bond(
         });
     }
 
-    TOTAL_LSM_SHARES.update(deps.storage, |total| {
+    TOTAL_LSM_SHARES_REAL_AMOUNT.update(deps.storage, |total| {
         StdResult::Ok(total + real_amount.u128())
     })?;
     PENDING_LSM_SHARES.update(deps.storage, denom.to_string(), |one| {
@@ -402,7 +402,7 @@ fn execute_puppeteer_hook(
                 sum += real_amount.u128();
                 LSM_SHARES_TO_REDEEM.remove(deps.storage, item.local_denom.to_string());
             }
-            TOTAL_LSM_SHARES.update(deps.storage, |one| StdResult::Ok(one - sum))?;
+            TOTAL_LSM_SHARES_REAL_AMOUNT.update(deps.storage, |one| StdResult::Ok(one - sum))?;
             LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
         }
     }

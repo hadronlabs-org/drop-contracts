@@ -91,9 +91,8 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
             coin,
             exchange_rate,
         } => query_token_amount(deps, coin, exchange_rate),
-        QueryMsg::AsyncTokensAmount {} => Ok(to_json_binary(&Uint128::zero())?),
+        QueryMsg::AsyncTokensAmount {} => query_async_tokens_amount(deps, env),
         QueryMsg::NonStakedBalance {} => query_non_staked_balance(deps, env),
-        QueryMsg::AllBalance {} => query_all_balance(deps, env),
         QueryMsg::TxState {} => query_tx_state(deps, env),
         QueryMsg::LastPuppeteerResponse {} => Ok(to_json_binary(&LastPuppeteerResponse {
             response: LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?,
@@ -116,7 +115,7 @@ fn query_non_staked_balance(deps: Deps<NeutronQuery>, _env: Env) -> ContractResu
     Ok(to_json_binary(&(balance))?)
 }
 
-fn query_all_balance(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
+fn query_async_tokens_amount(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
     let balance = NON_STAKED_BALANCE.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
     let local_balance = deps

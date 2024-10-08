@@ -15,7 +15,7 @@ use drop_staking_base::{
     error::lsm_share_bond_provider::ContractError,
     msg::puppeteer::DelegationsResponse,
     state::lsm_share_bond_provider::{
-        Config, ConfigOptional, CONFIG, LAST_LSM_REDEEM, TOTAL_LSM_SHARES,
+        Config, ConfigOptional, CONFIG, LAST_LSM_REDEEM, TOTAL_LSM_SHARES_REAL_AMOUNT,
     },
 };
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -379,7 +379,9 @@ fn test_execute_bond() {
         .save(deps_mut.storage, &get_default_config(100u64, 200u64))
         .unwrap();
 
-    TOTAL_LSM_SHARES.save(deps_mut.storage, &0).unwrap();
+    TOTAL_LSM_SHARES_REAL_AMOUNT
+        .save(deps_mut.storage, &0)
+        .unwrap();
 
     let pending_lsm_shares = crate::contract::query(
         deps.as_ref(),
@@ -421,7 +423,9 @@ fn test_execute_bond() {
     )
     .unwrap();
 
-    let total_lsm_shares = TOTAL_LSM_SHARES.load(deps.as_ref().storage).unwrap();
+    let total_lsm_shares = TOTAL_LSM_SHARES_REAL_AMOUNT
+        .load(deps.as_ref().storage)
+        .unwrap();
     assert_eq!(total_lsm_shares, 100u128);
 
     assert_eq!(
@@ -857,7 +861,7 @@ mod query {
 
         let deps_mut = deps.as_mut();
 
-        drop_staking_base::state::lsm_share_bond_provider::TOTAL_LSM_SHARES
+        drop_staking_base::state::lsm_share_bond_provider::TOTAL_LSM_SHARES_REAL_AMOUNT
             .save(deps_mut.storage, &100u128)
             .unwrap();
 

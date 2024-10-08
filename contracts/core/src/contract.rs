@@ -198,15 +198,11 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
         unprocessed_dasset_to_unbond += failed_batch.total_dasset_amount_to_withdraw;
     }
     exchange_rate_denominator += unprocessed_dasset_to_unbond;
-    let staker_balance: Uint128 = Uint128::zero();
-    // deps.querier.query_wasm_smart(
-    //     &config.staker_contract,
-    //     &drop_staking_base::msg::staker::QueryMsg::AllBalance {},
-    // )?;
-    let total_async_shares = query_total_async_tokens(deps)?;
+
+    let total_async_tokens_amount = query_total_async_tokens(deps)?;
 
     // arithmetic operations order is important here as we don't want to overflow
-    let exchange_rate_numerator = delegations_amount + staker_balance + total_async_shares;
+    let exchange_rate_numerator = delegations_amount + total_async_tokens_amount;
     if exchange_rate_numerator.is_zero() {
         return Ok(Decimal::one());
     }

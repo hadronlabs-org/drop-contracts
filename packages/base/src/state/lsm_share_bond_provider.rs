@@ -36,7 +36,7 @@ pub struct TxState {
 
 pub const TX_STATE: Item<TxState> = Item::new("tx_state");
 pub const CONFIG: Item<Config> = Item::new("config");
-pub const TOTAL_LSM_SHARES: Item<u128> = Item::new("total_lsm_shares_v0");
+pub const TOTAL_LSM_SHARES_REAL_AMOUNT: Item<u128> = Item::new("total_lsm_shares_real_amount_v0");
 /// (local_denom, (remote_denom, shares_amount, real_amount))
 pub const PENDING_LSM_SHARES: Map<String, (String, Uint128, Uint128)> =
     Map::new("pending_lsm_shares_v0");

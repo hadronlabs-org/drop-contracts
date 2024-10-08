@@ -40,8 +40,6 @@ pub enum QueryMsg {
     Config {},
     #[returns(Uint128)]
     NonStakedBalance {},
-    #[returns(Uint128)]
-    AllBalance {},
     #[returns(crate::state::native_bond_provider::TxState)]
     TxState {},
     #[returns(LastPuppeteerResponse)]
