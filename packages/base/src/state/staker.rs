@@ -55,6 +55,15 @@ pub const ICA_ID: &str = "drop_STAKER";
 pub const NON_STAKED_BALANCE: Item<Uint128> = Item::new("current_balance");
 pub const TX_STATE: Item<TxState> = Item::new("tx_state");
 
+#[cw_serde]
+#[derive(Default)]
+pub enum ChainType {
+    #[default]
+    BasicCosmos,
+    Initia,
+}
+pub const CHAIN_TYPE: Item<ChainType> = Item::new("chain_type");
+
 pub use reply_msg::ReplyMsg;
 mod reply_msg {
     const OFFSET: u64 = u16::BITS as u64;

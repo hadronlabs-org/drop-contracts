@@ -9,7 +9,6 @@ use cosmwasm_std::{
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
 use drop_puppeteer_base::error::ContractError as PuppeteerContractError;
 use drop_puppeteer_base::msg::QueryMsg as PuppeteerQueryMsg;
-use drop_puppeteer_base::state::{Delegations, DropDelegation};
 use drop_staking_base::error::distribution::ContractError as DistributionContractError;
 use drop_staking_base::error::validatorset::ContractError as ValidatorSetContractError;
 use drop_staking_base::msg::strategy::QueryMsg;
@@ -17,6 +16,7 @@ use drop_staking_base::msg::validatorset::QueryMsg as ValidatorSetQueryMsg;
 use drop_staking_base::msg::{
     distribution::QueryMsg as DistributionQueryMsg, strategy::InstantiateMsg,
 };
+use drop_staking_base::state::puppeteer::{Delegations, DropDelegation};
 
 const CORE_CONTRACT_ADDR: &str = "core_contract";
 const PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";

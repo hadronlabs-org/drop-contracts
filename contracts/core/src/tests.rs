@@ -9,11 +9,11 @@ use cosmwasm_std::{
     Response, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
-use drop_puppeteer_base::{
-    msg::TransferReadyBatchesMsg,
-    state::{Delegations, DropDelegation, RedeemShareItem},
+use drop_puppeteer_base::{msg::TransferReadyBatchesMsg, state::RedeemShareItem};
+use drop_staking_base::state::{
+    core::{FAILED_BATCH_ID, LAST_STAKER_RESPONSE},
+    puppeteer::{Delegations, DropDelegation},
 };
-use drop_staking_base::state::core::{FAILED_BATCH_ID, LAST_STAKER_RESPONSE};
 use drop_staking_base::{
     error::core::ContractError,
     msg::{

@@ -89,11 +89,11 @@ main() {
 
   factory_admin_execute $factory_address "$msg"
   echo "[OK] Add Puppeteer ICA address to Staker contract config"
-
+  REWARDS_ADDRESS=${REWARDS_ADDRESS:-$rewards_pump_ica_address}
   update_msg='{
    "setup_protocol": {
       "delegate_grantee": "'"$staker_ica_address"'",
-      "rewards_withdraw_address": "'"$rewards_pump_ica_address"'"
+      "rewards_withdraw_address": "'"$REWARDS_ADDRESS"'"
     }
   }'
 
@@ -123,7 +123,7 @@ main() {
     }
   }'
 
-  factory_proxy_execute $factory_address "$msg" 1000000untrn
+  factory_proxy_execute $factory_address "$msg" 3000000untrn
   echo "[OK] Add initial validators to factory"
 
   deploy_pump

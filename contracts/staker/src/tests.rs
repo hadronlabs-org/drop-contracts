@@ -43,6 +43,7 @@ fn test_instantiate() {
         min_ibc_transfer: Uint128::from(10000u128),
         min_staking_amount: Uint128::from(10000u128),
         owner: Some("owner".to_string()),
+        chain_type: None,
     };
     let res = instantiate(deps.as_mut(), mock_env(), mock_info("admin", &[]), msg).unwrap();
     assert_eq!(
@@ -52,7 +53,7 @@ fn test_instantiate() {
         ).add_attributes(vec![
             ("contract_name", "crates.io:drop-neutron-contracts__drop-staker"),
             ("contract_version", "1.0.0"),
-            ("msg", "InstantiateMsg { connection_id: \"connection\", port_id: \"port_id\", timeout: 10, remote_denom: \"remote_denom\", base_denom: \"base_denom\", transfer_channel_id: \"transfer_channel_id\", owner: Some(\"owner\"), allowed_senders: [\"core\"], min_ibc_transfer: Uint128(10000), min_staking_amount: Uint128(10000) }"),
+            ("msg", "InstantiateMsg { connection_id: \"connection\", port_id: \"port_id\", timeout: 10, remote_denom: \"remote_denom\", base_denom: \"base_denom\", transfer_channel_id: \"transfer_channel_id\", owner: Some(\"owner\"), allowed_senders: [\"core\"], min_ibc_transfer: Uint128(10000), min_staking_amount: Uint128(10000), chain_type: None }"),
             ("sender", "admin")
         ]))
     );
@@ -81,6 +82,7 @@ fn test_update_config() {
         min_ibc_transfer: Uint128::from(10000u128),
         min_staking_amount: Uint128::from(10000u128),
         owner: Some("owner".to_string()),
+        chain_type: None,
     };
     let _res = instantiate(deps.as_mut(), mock_env(), mock_info("admin", &[]), msg).unwrap();
     let deps_mut = deps.as_mut();

@@ -748,6 +748,7 @@ export type Expiration =
   | {
       never: {};
     };
+export type ChainType = "basic_cosmos" | "initia";
 
 export interface DropFactorySchema {
   responses: PauseInfoResponse | State;
@@ -1229,6 +1230,7 @@ export interface Timeout {
   remote: number;
 }
 export interface StakerParams {
+  chain_type?: ChainType | null;
   min_ibc_transfer: Uint128;
   min_stake_amount: Uint128;
 }

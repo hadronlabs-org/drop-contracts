@@ -1,10 +1,11 @@
 use cosmwasm_std::{to_json_binary, Addr, Binary, Coin, Decimal256, Uint128};
 use drop_puppeteer_base::r#trait::PuppeteerReconstruct;
-use drop_puppeteer_base::state::{BalancesAndDelegations, DropDelegation};
 use neutron_sdk::interchain_queries::v047::helpers::create_account_denom_balance_key;
 use neutron_sdk::NeutronResult;
 use neutron_sdk::{bindings::types::StorageValue, interchain_queries::helpers::decode_and_convert};
 use prost::Message;
+
+use crate::state::puppeteer::{BalancesAndDelegations, DropDelegation};
 
 use super::puppeteer::MultiBalances;
 
@@ -44,7 +45,7 @@ fn test_reconstruct_multi_balances() {
             value: buf_coin2.into(),
         },
     ];
-    let result = MultiBalances::reconstruct(&storage_values, "0.0.1").unwrap();
+    let result = MultiBalances::reconstruct(&storage_values, "0.0.1", None).unwrap();
     let expected_coins = vec![
         cosmwasm_std::Coin {
             denom: "uatom".to_string(),
@@ -84,7 +85,7 @@ fn test_reconstruct_balance_and_delegations_no_delegations() {
         },
     ];
     let result: NeutronResult<BalancesAndDelegations> =
-        BalancesAndDelegations::reconstruct(&storage_values, "0.0.1");
+        BalancesAndDelegations::reconstruct(&storage_values, "0.0.1", None);
     match result {
         Ok(balances_and_delegations) => {
             let expected_coins = vec![cosmwasm_std::Coin {
@@ -166,7 +167,7 @@ fn test_reconstruct_balance_and_delegations_with_delegations() {
     });
 
     let result: NeutronResult<BalancesAndDelegations> =
-        PuppeteerReconstruct::reconstruct(&storage_values, "0.0.1");
+        PuppeteerReconstruct::reconstruct(&storage_values, "0.0.1", None);
     match result {
         Ok(balances_and_delegations) => {
             let expected_coins = vec![cosmwasm_std::Coin {
