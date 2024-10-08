@@ -488,7 +488,7 @@ describe('Core', () => {
         },
         base_denom: context.neutronIBCDenom,
         core_params: {
-          idle_min_interval: 40,
+          idle_min_interval: 120,
           unbond_batch_switch_time: 60,
           unbonding_safe_period: 10,
           unbonding_period: 360,
@@ -1499,6 +1499,54 @@ describe('Core', () => {
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
       });
+      it('next tick should call delegation method on the bond provider', async () => {
+        const {
+          gaiaClient,
+          neutronUserAddress,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+
+        console.log(res.events);
+        console.log('----------------------------');
+        const idleTickAttributes = res.events.find(
+          (e) =>
+            e.type ===
+            'wasm-crates.io:drop-staking__drop-core-execute-tick_idle',
+        ).attributes;
+        console.log(idleTickAttributes);
+
+        console.log('----------------------------');
+
+        const idleBondAttributes = res.events.find(
+          (e) =>
+            e.type ===
+            'wasm-crates.io:drop-staking__drop-native-bond-provider-process_on_idle',
+        ).attributes;
+        console.log(idleBondAttributes);
+
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('peripheral');
+      });
       it('wait delegations', async () => {
         await waitFor(async () => {
           const res: any = await context.puppeteerContractClient.queryExtension(
@@ -1814,6 +1862,68 @@ describe('Core', () => {
       let lsmDenoms: string[] = [];
       let oldBalanceDenoms: string[] = [];
       describe('prepare', () => {
+        it('remove native bond provider from the core', async () => {
+          const res = await context.factoryContractClient.adminExecute(
+            context.neutronUserAddress,
+            {
+              msgs: [
+                {
+                  wasm: {
+                    execute: {
+                      contract_addr: context.coreContractClient.contractAddress,
+                      msg: Buffer.from(
+                        JSON.stringify({
+                          remove_bond_provider: {
+                            bond_provider_address:
+                              context.nativeBondProviderContractClient
+                                .contractAddress,
+                          },
+                        }),
+                      ).toString('base64'),
+                      funds: [],
+                    },
+                  },
+                },
+              ],
+            },
+            1.5,
+            undefined,
+            [],
+          );
+          expect(res.transactionHash).toHaveLength(64);
+        });
+
+        it('register lsm share bond provider in the core', async () => {
+          const res = await context.factoryContractClient.adminExecute(
+            context.neutronUserAddress,
+            {
+              msgs: [
+                {
+                  wasm: {
+                    execute: {
+                      contract_addr: context.coreContractClient.contractAddress,
+                      msg: Buffer.from(
+                        JSON.stringify({
+                          add_bond_provider: {
+                            bond_provider_address:
+                              context.lsmShareBondProviderContractClient
+                                .contractAddress,
+                          },
+                        }),
+                      ).toString('base64'),
+                      funds: [],
+                    },
+                  },
+                },
+              ],
+            },
+            1.5,
+            undefined,
+            [],
+          );
+          expect(res.transactionHash).toHaveLength(64);
+        });
+
         describe('create LSM shares and send them to neutron', () => {
           it('get balances', async () => {
             const oldBalances =
@@ -2006,7 +2116,12 @@ describe('Core', () => {
             neutronUserAddress,
             1.5,
             undefined,
-            [],
+            [
+              {
+                amount: '1000000',
+                denom: 'untrn',
+              },
+            ],
           );
           expect(res.transactionHash).toHaveLength(64);
           const state = await context.coreContractClient.queryContractState();

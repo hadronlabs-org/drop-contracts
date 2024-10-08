@@ -28,7 +28,7 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig { new_config: ConfigOptional },
-    PuppeteerHook(Box<PuppeteerResponseHookMsg>),
+    PeripheralHook(Box<PuppeteerResponseHookMsg>),
 }
 
 #[bond_provider_query]
