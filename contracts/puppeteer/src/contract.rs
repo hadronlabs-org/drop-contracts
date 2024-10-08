@@ -16,8 +16,8 @@ use cosmos_sdk_proto::cosmos::{
     staking::v1beta1::MsgDelegate,
 };
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, to_json_binary, Addr, Attribute, Coin as StdCoin, CosmosMsg, Deps,
-    Order, Reply, StdError, SubMsg, Timestamp, Uint128, WasmMsg,
+    attr, ensure, to_json_binary, Addr, Attribute, Coin as StdCoin, CosmosMsg, Deps, Order, Reply,
+    StdError, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{
@@ -35,8 +35,8 @@ use drop_puppeteer_base::{
     error::{ContractError, ContractResult},
     msg::{QueryMsg, TransferReadyBatchesMsg},
     peripheral_hook::{
-        IBCTransferReason, ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg,
-        ResponseHookMsg, ResponseHookSuccessMsg, Transaction,
+        ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg, ResponseHookMsg,
+        ResponseHookSuccessMsg, Transaction,
     },
     proto::MsgIBCTransfer,
     state::{
@@ -56,7 +56,7 @@ use neutron_sdk::{
         new_register_delegator_unbonding_delegations_query_msg, types::Balances,
     },
     interchain_txs::helpers::decode_message_response,
-    sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg},
+    sudo::msg::{RequestPacket, SudoMsg},
     NeutronResult,
 };
 use prost::Message;
@@ -400,64 +400,6 @@ fn execute_delegate(
     )?;
 
     Ok(response("stake", CONTRACT_NAME, attrs).add_submessage(submsg))
-}
-
-fn _execute_ibc_transfer(
-    deps: DepsMut<NeutronQuery>,
-    env: Env,
-    info: MessageInfo,
-    reason: IBCTransferReason,
-    reply_to: String,
-) -> ContractResult<Response<NeutronMsg>> {
-    let puppeteer_base = Puppeteer::default();
-    let config = puppeteer_base.config.load(deps.storage)?;
-    validate_sender(&config, &info.sender)?;
-    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
-    // exclude fees, no need to send local denom tokens to remote zone
-    let message_funds: Vec<_> = info
-        .funds
-        .into_iter()
-        .filter(|f| f.denom != LOCAL_DENOM)
-        .collect();
-    ensure_eq!(
-        message_funds.len(),
-        1,
-        ContractError::InvalidFunds {
-            reason: "Only one coin is allowed".to_string()
-        }
-    );
-    let coin = message_funds.first().ok_or(ContractError::InvalidFunds {
-        reason: "No funds".to_string(),
-    })?;
-    let ica_address = puppeteer_base.ica.get_address(deps.storage)?;
-    let msg = NeutronMsg::IbcTransfer {
-        source_port: config.port_id,
-        source_channel: config.transfer_channel_id,
-        token: (*coin).clone(),
-        sender: env.contract.address.to_string(),
-        receiver: ica_address.to_string(),
-        timeout_height: RequestPacketTimeoutHeight {
-            revision_number: None,
-            revision_height: None,
-        },
-        timeout_timestamp: env.block.time.plus_seconds(config.timeout).nanos(),
-        memo: "".to_string(),
-        fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
-    };
-    let submsg = puppeteer_base.msg_with_sudo_callback(
-        deps,
-        msg,
-        Transaction::IBCTransfer {
-            denom: coin.denom.to_string(),
-            amount: coin.amount.into(),
-            real_amount: coin.amount.into(),
-            reason,
-            recipient: ica_address,
-        },
-        reply_to,
-        ReplyMsg::IbcTransfer.to_reply_id(),
-    )?;
-    Ok(Response::default().add_submessages(vec![submsg]))
 }
 
 fn register_non_native_rewards_balances_query(

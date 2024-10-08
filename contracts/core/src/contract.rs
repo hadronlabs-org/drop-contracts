@@ -968,48 +968,6 @@ fn execute_tick_claiming(
     Ok(response("execute-tick_claiming", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
-fn _execute_tick_staking_bond(
-    mut deps: DepsMut<NeutronQuery>,
-    env: Env,
-    info: MessageInfo,
-    config: &Config,
-) -> ContractResult<Response<NeutronMsg>> {
-    let mut attrs = vec![attr("action", "tick_staking_bond")];
-    let response_msg = get_received_puppeteer_response(deps.as_ref())?;
-    if let drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(response) = response_msg {
-        let balances_response: drop_staking_base::msg::puppeteer::BalancesResponse =
-            deps.querier.query_wasm_smart(
-                config.puppeteer_contract.to_string(),
-                &drop_puppeteer_base::msg::QueryMsg::Extension {
-                    msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
-                },
-            )?;
-        if response.remote_height > balances_response.remote_height {
-            return Err(ContractError::PuppeteerBalanceOutdated {
-                ica_height: response.remote_height,
-                control_height: balances_response.remote_height,
-            });
-        }
-    }
-    LAST_PUPPETEER_RESPONSE.remove(deps.storage);
-    let mut messages = vec![];
-    attrs.push(attr("knot", "017"));
-    if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
-    {
-        messages.push(unbond_message);
-        attrs.push(attr("knot", "028"));
-        FSM.go_to(deps.storage, ContractState::Unbonding)?;
-        attrs.push(attr("knot", "029"));
-        attrs.push(attr("state", "unbonding"));
-    } else {
-        FSM.go_to(deps.storage, ContractState::Idle)?;
-        attrs.push(attr("knot", "000"));
-        attrs.push(attr("state", "idle"));
-    }
-
-    Ok(response("execute-tick_staking_bond", CONTRACT_NAME, attrs).add_messages(messages))
-}
-
 fn execute_tick_unbonding(
     deps: DepsMut<NeutronQuery>,
     env: Env,

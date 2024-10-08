@@ -62,11 +62,11 @@ class Client {
         }
         return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
     };
-    puppeteerHook = async (sender, args, fee, memo, funds) => {
+    peripheralHook = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, { peripheral_hook: args }, fee || "auto", memo, funds);
     };
     bond = async (sender, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {

@@ -183,7 +183,7 @@ export type TxStateStatus = "idle" | "in_progress" | "waiting_for_ack";
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal1 = string;
-export type PuppeteerHookArgs = {
+export type PeripheralHookArgs = {
     success: ResponseHookSuccessMsg;
 } | {
     error: ResponseHookErrorMsg;
@@ -200,7 +200,7 @@ export type UpdateOwnershipArgs = {
 export interface DropLsmShareBondProviderSchema {
     responses: Uint128 | Boolean | Boolean1 | Config | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | OwnershipForString | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Decimal | TxState;
     query: CanBondArgs | TokensAmountArgs;
-    execute: UpdateConfigArgs | PuppeteerHookArgs | UpdateOwnershipArgs;
+    execute: UpdateConfigArgs | PeripheralHookArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -363,7 +363,7 @@ export declare class Client {
     queryAsyncTokensAmount: () => Promise<Uint128>;
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    puppeteerHook: (sender: string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    peripheralHook: (sender: string, args: PeripheralHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     bond: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     processOnIdle: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

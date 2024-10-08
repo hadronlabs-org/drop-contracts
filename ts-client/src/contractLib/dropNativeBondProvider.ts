@@ -234,7 +234,7 @@ export type TxStateStatus = "idle" | "in_progress" | "waiting_for_ack";
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
 export type Decimal1 = string;
-export type PuppeteerHookArgs =
+export type PeripheralHookArgs =
   | {
       success: ResponseHookSuccessMsg;
     }
@@ -267,7 +267,7 @@ export interface DropNativeBondProviderSchema {
     | Decimal
     | TxState;
   query: CanBondArgs | TokensAmountArgs;
-  execute: UpdateConfigArgs | PuppeteerHookArgs | UpdateOwnershipArgs;
+  execute: UpdateConfigArgs | PeripheralHookArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
@@ -489,9 +489,9 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
   }
-  puppeteerHook = async(sender:string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  peripheralHook = async(sender:string, args: PeripheralHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { peripheral_hook: args }, fee || "auto", memo, funds);
   }
   bond = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
