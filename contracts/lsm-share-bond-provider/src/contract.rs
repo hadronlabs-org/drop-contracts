@@ -228,27 +228,18 @@ fn execute_process_on_idle(
         .debug("WASMDEBUG: lsm-share execute_process_on_idle: 1");
     let config = CONFIG.load(deps.storage)?;
 
-    let mut attrs = vec![attr("action", "process_on_idle")];
     let mut submessages: Vec<SubMsg<NeutronMsg>> = vec![];
     deps.api
         .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 2");
 
-    attrs.push(attr("knot", "036"));
     if let Some(lsm_msg) = get_pending_redeem_msg(deps.branch(), &config, &env)? {
         deps.api
             .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 3");
         submessages.push(lsm_msg);
-        attrs.push(attr("knot", "037"));
-        attrs.push(attr("knot", "038"));
-    } else {
-        attrs.push(attr("knot", "041"));
-        if let Some(lsm_msg) = get_pending_lsm_share_msg(deps.branch(), &config, &env)? {
-            deps.api
-                .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 4");
-            submessages.push(lsm_msg);
-            attrs.push(attr("knot", "042"));
-            attrs.push(attr("knot", "043"));
-        }
+    } else if let Some(lsm_msg) = get_pending_lsm_share_msg(deps.branch(), &config, &env)? {
+        deps.api
+            .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 4");
+        submessages.push(lsm_msg);
     }
 
     deps.api
@@ -257,7 +248,7 @@ fn execute_process_on_idle(
     Ok(
         response("update_config", CONTRACT_NAME, Vec::<Attribute>::new())
             .add_submessages(submessages)
-            .add_attributes(attrs),
+            .add_attributes(vec![attr("action", "process_on_idle")]),
     )
 }
 

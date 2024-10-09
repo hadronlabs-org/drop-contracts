@@ -1584,6 +1584,18 @@ describe('Core', () => {
         expect(state).toEqual('idle');
         await checkExchangeRate(context);
       });
+      it('decrease idle interval', async () => {
+        const { factoryContractClient, neutronUserAddress } = context;
+        const res = await factoryContractClient.updateConfig(
+          neutronUserAddress,
+          {
+            core: {
+              idle_min_interval: 30,
+            },
+          },
+        );
+        expect(res.transactionHash).toHaveLength(64);
+      });
       it('tick goes to claiming', async () => {
         const {
           neutronUserAddress,
@@ -1619,6 +1631,31 @@ describe('Core', () => {
             [],
           ),
         ).rejects.toThrowError(/Puppeteer response is not received/);
+      });
+      it('tick goes to unbonding', async () => {
+        const {
+          neutronUserAddress,
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          2,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('unbonding');
+        await checkExchangeRate(context);
       });
       it('query one unbonding batch', async () => {
         const batch = await context.coreContractClient.queryUnbondBatch({
@@ -2746,6 +2783,70 @@ describe('Core', () => {
     });
 
     describe('fifth cycle (unbond before delegation)', () => {
+      describe('prepare', () => {
+        it('remove lsm share bond provider from the core', async () => {
+          const res = await context.factoryContractClient.adminExecute(
+            context.neutronUserAddress,
+            {
+              msgs: [
+                {
+                  wasm: {
+                    execute: {
+                      contract_addr: context.coreContractClient.contractAddress,
+                      msg: Buffer.from(
+                        JSON.stringify({
+                          remove_bond_provider: {
+                            bond_provider_address:
+                              context.lsmShareBondProviderContractClient
+                                .contractAddress,
+                          },
+                        }),
+                      ).toString('base64'),
+                      funds: [],
+                    },
+                  },
+                },
+              ],
+            },
+            1.5,
+            undefined,
+            [],
+          );
+          expect(res.transactionHash).toHaveLength(64);
+        });
+
+        it('register native bond provider in the core', async () => {
+          const res = await context.factoryContractClient.adminExecute(
+            context.neutronUserAddress,
+            {
+              msgs: [
+                {
+                  wasm: {
+                    execute: {
+                      contract_addr: context.coreContractClient.contractAddress,
+                      msg: Buffer.from(
+                        JSON.stringify({
+                          add_bond_provider: {
+                            bond_provider_address:
+                              context.nativeBondProviderContractClient
+                                .contractAddress,
+                          },
+                        }),
+                      ).toString('base64'),
+                      funds: [],
+                    },
+                  },
+                },
+              ],
+            },
+            1.5,
+            undefined,
+            [],
+          );
+          expect(res.transactionHash).toHaveLength(64);
+        });
+      });
+
       it('tick to claiming', async () => {
         const {
           coreContractClient,
@@ -2795,6 +2896,18 @@ describe('Core', () => {
         expect(state).toEqual('idle');
         await checkExchangeRate(context);
       });
+      it('increase idle interval', async () => {
+        const { factoryContractClient, neutronUserAddress } = context;
+        const res = await factoryContractClient.updateConfig(
+          neutronUserAddress,
+          {
+            core: {
+              idle_min_interval: 120,
+            },
+          },
+        );
+        expect(res.transactionHash).toHaveLength(64);
+      });
       it('bond and unbond ibc coins', async () => {
         const {
           coreContractClient,
@@ -2817,7 +2930,25 @@ describe('Core', () => {
 
         expect(res.transactionHash).toHaveLength(64);
 
+        console.log(res);
+        console.log(res.events);
+        const bondAttributes = res.events.find(
+          (e) =>
+            e.type === 'wasm-crates.io:drop-staking__drop-core-execute-bond',
+        ).attributes;
+        console.log(bondAttributes);
+
         await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 1);
+
+        await coreContractClient.tick(neutronUserAddress, 1.5, undefined, [
+          {
+            amount: '1000000',
+            denom: 'untrn',
+          },
+        ]);
+
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('peripheral');
 
         // res = await context.stakerContractClient.iBCTransfer(
         //   neutronUserAddress,
@@ -2890,19 +3021,35 @@ describe('Core', () => {
         expect(res.transactionHash).toHaveLength(64);
       });
       it('split it', async () => {
+        console.log('=======================================');
+        const nativeBondProviderBalanceBefore = (
+          await context.neutronClient.CosmosBankV1Beta1.query.queryBalance(
+            context.nativeBondProviderContractClient.contractAddress,
+            { denom: context.neutronIBCDenom },
+          )
+        ).data.balance.amount;
+        console.log(
+          'nativeBondProviderBalanceBefore',
+          nativeBondProviderBalanceBefore,
+        );
         const res = await context.splitterContractClient.distribute(
           context.neutronUserAddress,
           1.5,
           undefined,
         );
         expect(res.transactionHash).toHaveLength(64);
-        // const stakerBalance = (
-        //   await context.neutronClient.CosmosBankV1Beta1.query.queryBalance(
-        //     context.stakerContractClient.contractAddress,
-        //     { denom: context.neutronIBCDenom },
-        //   )
-        // ).data.balance.amount;
-        // expect(parseInt(stakerBalance, 10)).toEqual(10000);
+        const nativeBondProviderBalanceAfter = (
+          await context.neutronClient.CosmosBankV1Beta1.query.queryBalance(
+            context.nativeBondProviderContractClient.contractAddress,
+            { denom: context.neutronIBCDenom },
+          )
+        ).data.balance.amount;
+        console.log(
+          'nativeBondProviderBalanceAfter',
+          nativeBondProviderBalanceAfter,
+        );
+        expect(parseInt(nativeBondProviderBalanceAfter, 10)).toEqual(10000);
+        console.log('=======================================');
       });
       // it('staker ibc transfer', async () => {
       //   const { neutronUserAddress } = context;

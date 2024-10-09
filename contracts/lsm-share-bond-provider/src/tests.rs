@@ -360,11 +360,7 @@ fn test_process_on_idle_supported() {
             .add_event(Event::new(
                 "crates.io:drop-staking__drop-lsm-share-bond-provider-update_config"
             ))
-            .add_attributes(vec![
-                attr("action", "process_on_idle"),
-                attr("knot", "036"),
-                attr("knot", "041")
-            ])
+            .add_attributes(vec![attr("action", "process_on_idle"),])
     );
 }
 

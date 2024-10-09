@@ -1015,16 +1015,20 @@ fn execute_bond(
     r#ref: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
+    deps.api.debug(message!("WASMDEBUG: core execute_bond: 1"));
     let Coin { amount, denom } = cw_utils::one_coin(&info)?;
+    deps.api.debug(message!("WASMDEBUG: core execute_bond: 1"));
     if let Some(bond_limit) = config.bond_limit {
         if BONDED_AMOUNT.load(deps.storage)? + amount > bond_limit {
             return Err(ContractError::BondLimitExceeded {});
         }
     }
+    deps.api.debug(message!("WASMDEBUG: core execute_bond: 1"));
     let mut msgs = vec![];
     let mut sub_msgs = vec![];
     let mut attrs = vec![attr("action", "bond")];
     let exchange_rate = query_exchange_rate(deps.as_ref(), &config)?;
+    deps.api.debug(message!("WASMDEBUG: core execute_bond: 1"));
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
 
     let bond_providers = query_bond_providers(deps.as_ref())?;
