@@ -15,7 +15,7 @@ use drop_staking_base::{
     error::lsm_share_bond_provider::ContractError,
     msg::puppeteer::DelegationsResponse,
     state::lsm_share_bond_provider::{
-        Config, ConfigOptional, CONFIG, LAST_LSM_REDEEM, TOTAL_LSM_SHARES,
+        Config, ConfigOptional, CONFIG, LAST_LSM_REDEEM, TOTAL_LSM_SHARES_REAL_AMOUNT,
     },
 };
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -29,7 +29,10 @@ fn get_default_config(lsm_redeem_threshold: u64, lsm_redeem_maximum_interval: u6
         puppeteer_contract: Addr::unchecked("puppeteer_contract"),
         core_contract: Addr::unchecked("core_contract"),
         validators_set_contract: Addr::unchecked("validators_set_contract"),
+        port_id: "port_id".to_string(),
         transfer_channel_id: "transfer_channel_id".to_string(),
+        timeout: 100u64,
+        lsm_min_bond_amount: 100u128.into(),
         lsm_redeem_threshold,
         lsm_redeem_maximum_interval,
     }
@@ -138,7 +141,10 @@ fn test_instantiate() {
             puppeteer_contract: "puppeteer_contract".to_string(),
             core_contract: "core_contract".to_string(),
             validators_set_contract: "validators_set_contract".to_string(),
+            port_id: "port_id".to_string(),
             transfer_channel_id: "transfer_channel_id".to_string(),
+            timeout: 100u64,
+            lsm_min_bond_amount: Uint128::from(100u64),
             lsm_redeem_threshold: 100u64,
             lsm_redeem_maximum_interval: 200u64,
         },
@@ -160,7 +166,10 @@ fn test_instantiate() {
                     ("puppeteer_contract", "puppeteer_contract"),
                     ("core_contract", "core_contract"),
                     ("validators_set_contract", "validators_set_contract"),
+                    ("port_id", "port_id"),
                     ("transfer_channel_id", "transfer_channel_id"),
+                    ("timeout", "100"),
+                    ("lsm_min_bond_amount", "100"),
                     ("lsm_redeem_threshold", "100"),
                     ("lsm_redeem_maximum_interval", "200")
                 ])
@@ -186,7 +195,10 @@ fn test_update_config_wrong_owner() {
                 puppeteer_contract: Some(Addr::unchecked("puppeteer_contract_1")),
                 core_contract: Some(Addr::unchecked("core_contract_1")),
                 validators_set_contract: Some(Addr::unchecked("validators_set_contract_1")),
+                port_id: Some("port_id_1".to_string()),
                 transfer_channel_id: Some("transfer_channel_id_1".to_string()),
+                timeout: Some(200u64),
+                lsm_min_bond_amount: Some(Uint128::from(300u64)),
                 lsm_redeem_threshold: Some(300u64),
                 lsm_redeem_maximum_interval: Some(400u64),
             },
@@ -226,7 +238,10 @@ fn test_update_config_ok() {
                 puppeteer_contract: Some(Addr::unchecked("puppeteer_contract_1")),
                 core_contract: Some(Addr::unchecked("core_contract_1")),
                 validators_set_contract: Some(Addr::unchecked("validators_set_contract_1")),
+                port_id: Some("port_id_1".to_string()),
                 transfer_channel_id: Some("transfer_channel_id_1".to_string()),
+                timeout: Some(200u64),
+                lsm_min_bond_amount: Some(Uint128::from(300u64)),
                 lsm_redeem_threshold: Some(300u64),
                 lsm_redeem_maximum_interval: Some(400u64),
             },
@@ -243,7 +258,10 @@ fn test_update_config_ok() {
                     ("puppeteer_contract", "puppeteer_contract_1"),
                     ("core_contract", "core_contract_1"),
                     ("validators_set_contract", "validators_set_contract_1"),
+                    ("port_id", "port_id_1"),
                     ("transfer_channel_id", "transfer_channel_id_1"),
+                    ("timeout", "200"),
+                    ("lsm_min_bond_amount", "300"),
                     ("lsm_redeem_threshold", "300"),
                     ("lsm_redeem_maximum_interval", "400")
                 ])
@@ -264,7 +282,10 @@ fn test_update_config_ok() {
             puppeteer_contract: Addr::unchecked("puppeteer_contract_1"),
             core_contract: Addr::unchecked("core_contract_1"),
             validators_set_contract: Addr::unchecked("validators_set_contract_1"),
+            port_id: "port_id_1".to_string(),
             transfer_channel_id: "transfer_channel_id_1".to_string(),
+            timeout: 200u64,
+            lsm_min_bond_amount: 300u128.into(),
             lsm_redeem_threshold: 300u64,
             lsm_redeem_maximum_interval: 400u64,
         })
@@ -339,11 +360,7 @@ fn test_process_on_idle_supported() {
             .add_event(Event::new(
                 "crates.io:drop-staking__drop-lsm-share-bond-provider-update_config"
             ))
-            .add_attributes(vec![
-                attr("action", "process_on_idle"),
-                attr("knot", "036"),
-                attr("knot", "041")
-            ])
+            .add_attributes(vec![attr("action", "process_on_idle"),])
     );
 }
 
@@ -358,7 +375,9 @@ fn test_execute_bond() {
         .save(deps_mut.storage, &get_default_config(100u64, 200u64))
         .unwrap();
 
-    TOTAL_LSM_SHARES.save(deps_mut.storage, &0).unwrap();
+    TOTAL_LSM_SHARES_REAL_AMOUNT
+        .save(deps_mut.storage, &0)
+        .unwrap();
 
     let pending_lsm_shares = crate::contract::query(
         deps.as_ref(),
@@ -400,7 +419,9 @@ fn test_execute_bond() {
     )
     .unwrap();
 
-    let total_lsm_shares = TOTAL_LSM_SHARES.load(deps.as_ref().storage).unwrap();
+    let total_lsm_shares = TOTAL_LSM_SHARES_REAL_AMOUNT
+        .load(deps.as_ref().storage)
+        .unwrap();
     assert_eq!(total_lsm_shares, 100u128);
 
     assert_eq!(
@@ -495,7 +516,10 @@ fn test_execute_bond_multiple_denoms() {
                 puppeteer_contract: Addr::unchecked("puppeteer_contract"),
                 core_contract: Addr::unchecked("core_contract"),
                 validators_set_contract: Addr::unchecked("validators_set_contract"),
+                port_id: "port_id".to_string(),
                 transfer_channel_id: "transfer_channel_id".to_string(),
+                timeout: 100u64,
+                lsm_min_bond_amount: 100u128.into(),
                 lsm_redeem_threshold: 100u64,
                 lsm_redeem_maximum_interval: 200u64,
             },
@@ -525,6 +549,8 @@ fn test_execute_bond_multiple_denoms() {
 }
 
 mod query {
+    use drop_staking_base::state::lsm_share_bond_provider::{TxState, TX_STATE};
+
     use super::*;
 
     #[test]
@@ -558,7 +584,10 @@ mod query {
                     puppeteer_contract: Addr::unchecked("puppeteer_contract"),
                     core_contract: Addr::unchecked("core_contract"),
                     validators_set_contract: Addr::unchecked("validators_set_contract"),
+                    port_id: "port_id".to_string(),
                     transfer_channel_id: "transfer_channel_id".to_string(),
+                    timeout: 100u64,
+                    lsm_min_bond_amount: 100u128.into(),
                     lsm_redeem_threshold: 100u64,
                     lsm_redeem_maximum_interval: 200u64,
                 },
@@ -605,6 +634,9 @@ mod query {
                 &(env.block.time.seconds() - lsm_redeem_maximum_interval * 2),
             )
             .unwrap();
+        TX_STATE
+            .save(deps_mut.storage, &TxState::default())
+            .unwrap();
 
         drop_staking_base::state::lsm_share_bond_provider::LSM_SHARES_TO_REDEEM
             .save(
@@ -636,6 +668,9 @@ mod query {
 
         LAST_LSM_REDEEM
             .save(deps_mut.storage, &(env.block.time.seconds()))
+            .unwrap();
+        TX_STATE
+            .save(deps_mut.storage, &TxState::default())
             .unwrap();
 
         drop_staking_base::state::lsm_share_bond_provider::LSM_SHARES_TO_REDEEM
@@ -698,7 +733,10 @@ mod query {
                     puppeteer_contract: Addr::unchecked("puppeteer_contract"),
                     core_contract: Addr::unchecked("core_contract"),
                     validators_set_contract: Addr::unchecked("validators_set_contract"),
+                    port_id: "port_id".to_string(),
                     transfer_channel_id: "transfer_channel_id".to_string(),
+                    timeout: 100u64,
+                    lsm_min_bond_amount: 100u128.into(),
                     lsm_redeem_threshold: 100u64,
                     lsm_redeem_maximum_interval: 200u64,
                 },
@@ -729,7 +767,10 @@ mod query {
                     puppeteer_contract: Addr::unchecked("puppeteer_contract"),
                     core_contract: Addr::unchecked("core_contract"),
                     validators_set_contract: Addr::unchecked("validators_set_contract"),
+                    port_id: "port_id".to_string(),
                     transfer_channel_id: "transfer_channel_id".to_string(),
+                    timeout: 100u64,
+                    lsm_min_bond_amount: 100u128.into(),
                     lsm_redeem_threshold: 100u64,
                     lsm_redeem_maximum_interval: 200u64,
                 },
@@ -816,7 +857,7 @@ mod query {
 
         let deps_mut = deps.as_mut();
 
-        drop_staking_base::state::lsm_share_bond_provider::TOTAL_LSM_SHARES
+        drop_staking_base::state::lsm_share_bond_provider::TOTAL_LSM_SHARES_REAL_AMOUNT
             .save(deps_mut.storage, &100u128)
             .unwrap();
 
@@ -840,6 +881,9 @@ mod query {
             .unwrap();
 
         LAST_LSM_REDEEM.save(deps_mut.storage, &0).unwrap();
+        TX_STATE
+            .save(deps_mut.storage, &TxState::default())
+            .unwrap();
 
         let response = crate::contract::query(
             deps.as_ref(),
@@ -857,6 +901,9 @@ mod query {
 
         drop_staking_base::state::lsm_share_bond_provider::CONFIG
             .save(deps_mut.storage, &get_default_config(100u64, 200u64))
+            .unwrap();
+        TX_STATE
+            .save(deps_mut.storage, &TxState::default())
             .unwrap();
 
         drop_staking_base::state::lsm_share_bond_provider::PENDING_LSM_SHARES
@@ -886,6 +933,9 @@ mod query {
             .unwrap();
 
         LAST_LSM_REDEEM.save(deps_mut.storage, &0).unwrap();
+        TX_STATE
+            .save(deps_mut.storage, &TxState::default())
+            .unwrap();
 
         drop_staking_base::state::lsm_share_bond_provider::LSM_SHARES_TO_REDEEM
             .save(
@@ -1222,9 +1272,9 @@ mod check_denom {
 }
 
 mod pending_redeem_shares {
-    use cosmwasm_std::{CosmosMsg, WasmMsg};
+    use cosmwasm_std::{CosmosMsg, SubMsg, WasmMsg};
     use drop_puppeteer_base::state::RedeemShareItem;
-    use drop_staking_base::state::lsm_share_bond_provider::LSM_SHARES_TO_REDEEM;
+    use drop_staking_base::state::lsm_share_bond_provider::{ReplyMsg, LSM_SHARES_TO_REDEEM};
     use neutron_sdk::bindings::msg::NeutronMsg;
 
     use crate::contract::get_pending_redeem_msg;
@@ -1241,8 +1291,8 @@ mod pending_redeem_shares {
 
         LAST_LSM_REDEEM.save(deps.as_mut().storage, &0).unwrap();
 
-        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
-            get_pending_redeem_msg(deps.as_ref(), config, &mock_env(), vec![]).unwrap();
+        let redeem_res: Option<SubMsg<NeutronMsg>> =
+            get_pending_redeem_msg(deps.as_mut(), config, &mock_env()).unwrap();
 
         assert_eq!(redeem_res, None);
     }
@@ -1271,8 +1321,8 @@ mod pending_redeem_shares {
             .save(deps.as_mut().storage, &env.block.time.seconds())
             .unwrap();
 
-        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
-            get_pending_redeem_msg(deps.as_ref(), config, env, vec![]).unwrap();
+        let redeem_res: Option<SubMsg<NeutronMsg>> =
+            get_pending_redeem_msg(deps.as_mut(), config, env).unwrap();
 
         assert_eq!(redeem_res, None);
     }
@@ -1306,26 +1356,29 @@ mod pending_redeem_shares {
             )
             .unwrap();
 
-        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
-            get_pending_redeem_msg(deps.as_ref(), config, env, vec![]).unwrap();
+        let redeem_res: Option<SubMsg<NeutronMsg>> =
+            get_pending_redeem_msg(deps.as_mut(), config, env).unwrap();
 
         assert_eq!(
             redeem_res,
-            Some(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: MOCK_PUPPETEER_CONTRACT_ADDR.to_string(),
-                msg: to_json_binary(
-                    &drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
-                        items: vec![RedeemShareItem {
-                            amount: Uint128::from(100u128),
-                            local_denom: "local_denom_1".to_string(),
-                            remote_denom: "remote_denom_share1".to_string(),
-                        }],
-                        reply_to: env.contract.address.to_string(),
-                    },
-                )
-                .unwrap(),
-                funds: vec![],
-            }))
+            Some(SubMsg::reply_always(
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: MOCK_PUPPETEER_CONTRACT_ADDR.to_string(),
+                    msg: to_json_binary(
+                        &drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+                            items: vec![RedeemShareItem {
+                                amount: Uint128::from(100u128),
+                                local_denom: "local_denom_1".to_string(),
+                                remote_denom: "remote_denom_share1".to_string(),
+                            }],
+                            reply_to: env.contract.address.to_string(),
+                        },
+                    )
+                    .unwrap(),
+                    funds: vec![],
+                }),
+                ReplyMsg::Redeem.to_reply_id()
+            ))
         );
     }
 
@@ -1375,33 +1428,36 @@ mod pending_redeem_shares {
 
         LAST_LSM_REDEEM.save(deps.as_mut().storage, &0).unwrap();
 
-        let redeem_res: Option<CosmosMsg<NeutronMsg>> =
-            get_pending_redeem_msg(deps.as_ref(), config, env, vec![]).unwrap();
+        let redeem_res: Option<SubMsg<NeutronMsg>> =
+            get_pending_redeem_msg(deps.as_mut(), config, env).unwrap();
 
         assert_eq!(
             redeem_res,
-            Some(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: MOCK_PUPPETEER_CONTRACT_ADDR.to_string(),
-                msg: to_json_binary(
-                    &drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
-                        items: vec![
-                            RedeemShareItem {
-                                amount: Uint128::from(50u128),
-                                local_denom: "local_denom_1".to_string(),
-                                remote_denom: "remote_denom_share1".to_string(),
-                            },
-                            RedeemShareItem {
-                                amount: Uint128::from(100u128),
-                                local_denom: "local_denom_2".to_string(),
-                                remote_denom: "remote_denom_share2".to_string(),
-                            }
-                        ],
-                        reply_to: env.contract.address.to_string(),
-                    },
-                )
-                .unwrap(),
-                funds: vec![],
-            }))
+            Some(SubMsg::reply_always(
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: MOCK_PUPPETEER_CONTRACT_ADDR.to_string(),
+                    msg: to_json_binary(
+                        &drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+                            items: vec![
+                                RedeemShareItem {
+                                    amount: Uint128::from(50u128),
+                                    local_denom: "local_denom_1".to_string(),
+                                    remote_denom: "remote_denom_share1".to_string(),
+                                },
+                                RedeemShareItem {
+                                    amount: Uint128::from(100u128),
+                                    local_denom: "local_denom_2".to_string(),
+                                    remote_denom: "remote_denom_share2".to_string(),
+                                }
+                            ],
+                            reply_to: env.contract.address.to_string(),
+                        },
+                    )
+                    .unwrap(),
+                    funds: vec![],
+                }),
+                ReplyMsg::Redeem.to_reply_id()
+            ))
         );
     }
 }

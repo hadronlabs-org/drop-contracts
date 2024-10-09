@@ -1,6 +1,5 @@
 use cosmwasm_std::{
     ConversionOverflowError, Decimal256RangeExceeded, DivideByZeroError, OverflowError, StdError,
-    Uint128,
 };
 use cw_ownable::OwnershipError;
 use drop_helpers::pause::PauseError;
@@ -74,12 +73,6 @@ pub enum ContractError {
 
     #[error("ICA balance is zero")]
     ICABalanceZero {},
-
-    #[error("Bond amount is less than minimum LSM bond amount: {min_stake_amount}. Provided: {bond_amount}")]
-    LSMBondAmountIsBelowMinimum {
-        min_stake_amount: Uint128,
-        bond_amount: Uint128,
-    },
 
     #[error("Puppeteer response is not received")]
     PuppeteerResponseIsNotReceived {},

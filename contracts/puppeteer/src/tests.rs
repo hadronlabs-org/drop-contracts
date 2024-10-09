@@ -3,7 +3,7 @@ use cosmwasm_schema::schemars;
 use cosmwasm_std::{
     coin, coins, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, Binary, CosmosMsg, Decimal256, DepsMut, Event, Response, StdError,
+    to_json_binary, Addr, Binary, Coin, CosmosMsg, Decimal256, DepsMut, Event, Response, StdError,
     SubMsg, Timestamp, Uint128, Uint64,
 };
 use drop_helpers::{
@@ -12,12 +12,9 @@ use drop_helpers::{
     },
     testing::mock_dependencies,
 };
-use drop_puppeteer_base::{
-    msg::IBCTransferReason,
-    state::{
-        BalancesAndDelegations, BalancesAndDelegationsState, Delegations, DropDelegation,
-        PuppeteerBase, ReplyMsg,
-    },
+use drop_puppeteer_base::state::{
+    BalancesAndDelegations, BalancesAndDelegationsState, Delegations, DropDelegation,
+    PuppeteerBase, ReplyMsg,
 };
 use drop_staking_base::{
     msg::puppeteer::InstantiateMsg,
@@ -31,7 +28,7 @@ use neutron_sdk::{
     },
     interchain_queries::v045::types::Balances,
     query::min_ibc_fee::MinIbcFeeResponse,
-    sudo::msg::{RequestPacketTimeoutHeight, SudoMsg},
+    sudo::msg::SudoMsg,
     NeutronError,
 };
 use prost::Message;
@@ -179,6 +176,7 @@ fn test_instantiate() {
         delegations_queries_chunk_size: Some(2u32),
         owner: Some("owner".to_string()),
         connection_id: "connection_id".to_string(),
+        native_bond_provider: "native_bond_provider".to_string(),
         port_id: "port_id".to_string(),
         update_period: 60u64,
         remote_denom: "remote_denom".to_string(),
@@ -215,6 +213,7 @@ fn test_execute_update_config_unauthorized() {
         new_config: ConfigOptional {
             update_period: Some(121u64),
             remote_denom: Some("new_remote_denom".to_string()),
+            native_bond_provider: Some(Addr::unchecked("native_bond_provider")),
             allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
             transfer_channel_id: Some("new_transfer_channel_id".to_string()),
             connection_id: Some("new_connection_id".to_string()),
@@ -260,6 +259,7 @@ fn test_execute_update_config() {
             new_config: ConfigOptional {
                 update_period: Some(121u64),
                 remote_denom: Some("new_remote_denom".to_string()),
+                native_bond_provider: Some(Addr::unchecked("native_bond_provider")),
                 allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
                 transfer_channel_id: Some("new_transfer_channel_id".to_string()),
                 connection_id: Some("new_connection_id".to_string()),
@@ -283,6 +283,7 @@ fn test_execute_update_config() {
                     ("transfer_channel_id", "new_transfer_channel_id"),
                     ("sdk_version", "0.47.0"),
                     ("timeout", "101"),
+                    ("native_bond_provider", "native_bond_provider"),
                 ])
         )
     );
@@ -294,6 +295,7 @@ fn test_execute_update_config() {
             delegations_queries_chunk_size: 2u32,
             port_id: "new_port_id".to_string(),
             connection_id: "new_connection_id".to_string(),
+            native_bond_provider: Addr::unchecked("native_bond_provider"),
             update_period: 121u64,
             remote_denom: "new_remote_denom".to_string(),
             allowed_senders: vec![Addr::unchecked("new_allowed_sender")],
@@ -319,7 +321,6 @@ fn test_execute_setup_protocol_sender_is_not_allowed() {
         mock_env(),
         mock_info("not_allowed_sender", &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::SetupProtocol {
-            delegate_grantee: "delegate_grantee".to_string(),
             rewards_withdraw_address: "rewards_withdraw_address".to_string(),
         },
     );
@@ -346,42 +347,11 @@ fn test_execute_setup_protocol() {
         mock_env(),
         mock_info("allowed_sender", &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::SetupProtocol {
-            delegate_grantee: "delegate_grantee".to_string(),
             rewards_withdraw_address: "rewards_withdraw_address".to_string(),
         },
     )
     .unwrap();
-    let authz_msg = {
-        neutron_sdk::bindings::types::ProtobufAny {
-            type_url: "/cosmos.authz.v1beta1.MsgGrant".to_string(),
-            value: Binary::from(
-                cosmos_sdk_proto::cosmos::authz::v1beta1::MsgGrant {
-                    granter: "ica_address".to_string(),
-                    grantee: "delegate_grantee".to_string(),
-                    grant: Some(cosmos_sdk_proto::cosmos::authz::v1beta1::Grant {
-                        expiration: Some(prost_types::Timestamp {
-                            seconds: mock_env()
-                                .block
-                                .time
-                                .plus_days(365 * 120 + 30)
-                                .seconds()
-                                .try_into()
-                                .unwrap(),
-                            nanos: 0,
-                        }),
-                        authorization: Some(cosmos_sdk_proto::Any {
-                            type_url: "/cosmos.authz.v1beta1.GenericAuthorization".to_string(),
-                            value: cosmos_sdk_proto::cosmos::authz::v1beta1::GenericAuthorization {
-                                msg: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
-                            }
-                            .encode_to_vec(),
-                        }),
-                    }),
-                }
-                .encode_to_vec(),
-            ),
-        }
-    };
+
     let distribution_msg = {
         neutron_sdk::bindings::types::ProtobufAny {
             type_url: "/cosmos.distribution.v1beta1.MsgSetWithdrawAddress".to_string(),
@@ -400,7 +370,7 @@ fn test_execute_setup_protocol() {
             CosmosMsg::Custom(NeutronMsg::submit_tx(
                 "connection_id".to_string(),
                 "DROP".to_string(),
-                vec![authz_msg, distribution_msg],
+                vec![distribution_msg],
                 "".to_string(),
                 100u64,
                 get_standard_fees()
@@ -415,11 +385,12 @@ fn test_execute_setup_protocol() {
             seq_id: None,
             status: drop_puppeteer_base::state::TxStateStatus::InProgress,
             reply_to: Some("".to_string()),
-            transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                interchain_account_id: "ica_address".to_string(),
-                delegate_grantee: "delegate_grantee".to_string(),
-                rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-            })
+            transaction: Some(
+                drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                    interchain_account_id: "ica_address".to_string(),
+                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                }
+            )
         }
     );
 }
@@ -442,11 +413,12 @@ fn test_execute_setup_protocol_not_idle() {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
                 reply_to: Some("".to_string()),
-                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                    interchain_account_id: "ica_address".to_string(),
-                    delegate_grantee: "delegate_grantee".to_string(),
-                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-                }),
+                transaction: Some(
+                    drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                        interchain_account_id: "ica_address".to_string(),
+                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                    },
+                ),
             },
         )
         .unwrap();
@@ -455,7 +427,6 @@ fn test_execute_setup_protocol_not_idle() {
         mock_env(),
         mock_info("allowed_sender", &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::SetupProtocol {
-            delegate_grantee: "delegate_grantee".to_string(),
             rewards_withdraw_address: "rewards_withdraw_address".to_string(),
         },
     )
@@ -517,11 +488,12 @@ fn test_execute_undelegate_sender_not_idle() {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
                 reply_to: Some("".to_string()),
-                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                    interchain_account_id: "ica_address".to_string(),
-                    delegate_grantee: "delegate_grantee".to_string(),
-                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-                }),
+                transaction: Some(
+                    drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                        interchain_account_id: "ica_address".to_string(),
+                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                    },
+                ),
             },
         )
         .unwrap();
@@ -556,10 +528,7 @@ fn test_execute_undelegate() {
         .unwrap()
     });
     let puppeteer_base = base_init(&mut deps.as_mut());
-    let ica_address = puppeteer_base
-        .ica
-        .get_address(deps.as_mut().storage)
-        .unwrap();
+
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
@@ -571,34 +540,27 @@ fn test_execute_undelegate() {
         },
     )
     .unwrap();
-    let any_msg = neutron_sdk::bindings::types::ProtobufAny {
-        type_url: "/cosmos.authz.v1beta1.MsgExec".to_string(),
-        value: Binary::from(
-            cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec {
-                grantee: ica_address,
-                msgs: vec![cosmos_sdk_proto::Any {
-                    type_url: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
-                    value: cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
-                        delegator_address: "ica_address".to_string(),
-                        validator_address: "valoper1".to_string(),
-                        amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-                            denom: "remote_denom".to_string(),
-                            amount: "1000".to_string(),
-                        }),
-                    }
-                    .encode_to_vec(),
-                }],
-            }
-            .encode_to_vec(),
-        ),
-    };
+
+    let undelegate_msg = drop_helpers::interchain::prepare_any_msg(
+        cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
+            delegator_address: "ica_address".to_string(),
+            validator_address: "valoper1".to_string(),
+            amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
+                denom: "remote_denom".to_string(),
+                amount: "1000".to_string(),
+            }),
+        },
+        "/cosmos.staking.v1beta1.MsgUndelegate",
+    )
+    .unwrap();
+
     assert_eq!(
         res,
         Response::new().add_submessage(SubMsg::reply_on_success(
             CosmosMsg::Custom(NeutronMsg::submit_tx(
                 "connection_id".to_string(),
                 "DROP".to_string(),
-                vec![any_msg],
+                vec![undelegate_msg],
                 "".to_string(),
                 100u64,
                 get_standard_fees()
@@ -613,12 +575,14 @@ fn test_execute_undelegate() {
             seq_id: None,
             status: drop_puppeteer_base::state::TxStateStatus::InProgress,
             reply_to: Some("some_reply_to".to_string()),
-            transaction: Some(drop_puppeteer_base::msg::Transaction::Undelegate {
-                batch_id: 0u128,
-                interchain_account_id: "DROP".to_string(),
-                denom: "remote_denom".to_string(),
-                items: vec![("valoper1".to_string(), Uint128::from(1000u128))]
-            })
+            transaction: Some(
+                drop_puppeteer_base::peripheral_hook::Transaction::Undelegate {
+                    batch_id: 0u128,
+                    interchain_account_id: "DROP".to_string(),
+                    denom: "remote_denom".to_string(),
+                    items: vec![("valoper1".to_string(), Uint128::from(1000u128))]
+                }
+            )
         }
     );
 }
@@ -671,11 +635,12 @@ fn test_execute_redelegate_sender_not_idle() {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
                 reply_to: Some("".to_string()),
-                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                    interchain_account_id: "ica_address".to_string(),
-                    delegate_grantee: "delegate_grantee".to_string(),
-                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-                }),
+                transaction: Some(
+                    drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                        interchain_account_id: "ica_address".to_string(),
+                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                    },
+                ),
             },
         )
         .unwrap();
@@ -818,11 +783,12 @@ fn test_execute_tokenize_share_sender_not_idle() {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
                 reply_to: Some("".to_string()),
-                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                    interchain_account_id: "ica_address".to_string(),
-                    delegate_grantee: "delegate_grantee".to_string(),
-                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-                }),
+                transaction: Some(
+                    drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                        interchain_account_id: "ica_address".to_string(),
+                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                    },
+                ),
             },
         )
         .unwrap();
@@ -967,11 +933,12 @@ fn test_execute_redeeem_shares_sender_not_idle() {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
                 reply_to: Some("".to_string()),
-                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                    interchain_account_id: "ica_address".to_string(),
-                    delegate_grantee: "delegate_grantee".to_string(),
-                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-                }),
+                transaction: Some(
+                    drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                        interchain_account_id: "ica_address".to_string(),
+                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                    },
+                ),
             },
         )
         .unwrap();
@@ -1057,14 +1024,15 @@ fn test_execute_redeem_share() {
             seq_id: None,
             status: drop_puppeteer_base::state::TxStateStatus::InProgress,
             reply_to: Some("some_reply_to".to_string()),
-            transaction: Some(drop_puppeteer_base::msg::Transaction::RedeemShares {
-                interchain_account_id: "DROP".to_string(),
-                items: vec![drop_puppeteer_base::state::RedeemShareItem {
-                    amount: Uint128::from(1000u128),
-                    remote_denom: "remote_denom".to_string(),
-                    local_denom: "local_denom".to_string()
-                }]
-            })
+            transaction: Some(
+                drop_puppeteer_base::peripheral_hook::Transaction::RedeemShares {
+                    items: vec![drop_puppeteer_base::state::RedeemShareItem {
+                        amount: Uint128::from(1000u128),
+                        remote_denom: "remote_denom".to_string(),
+                        local_denom: "local_denom".to_string()
+                    }]
+                }
+            )
         }
     );
 }
@@ -1121,11 +1089,12 @@ fn test_execute_claim_rewards_and_optionaly_transfer_not_idle() {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
                 reply_to: Some("".to_string()),
-                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                    interchain_account_id: "ica_address".to_string(),
-                    delegate_grantee: "delegate_grantee".to_string(),
-                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-                }),
+                transaction: Some(
+                    drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                        interchain_account_id: "ica_address".to_string(),
+                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                    },
+                ),
             },
         )
         .unwrap();
@@ -1211,30 +1180,19 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
                     )
                     .unwrap(),
                     drop_helpers::interchain::prepare_any_msg(
-                        cosmos_sdk_proto::cosmos::authz::v1beta1::MsgExec {
-                            grantee: ica_address.clone(),
-                            msgs: vec![
-                                cosmos_sdk_proto::Any {
-                                    value:
-                                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
-                                            delegator_address: ica_address.clone(),
-                                            validator_address: "validator1".to_string(),
-                                        }
-                                        .encode_to_vec(),
-                                    type_url: "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
-                                },
-                                cosmos_sdk_proto::Any {
-                                    value:
-                                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
-                                            delegator_address: ica_address.clone(),
-                                            validator_address: "validator2".to_string(),
-                                        }
-                                        .encode_to_vec(),
-                                    type_url: "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
-                                },
-                            ],
+                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
+                            delegator_address: ica_address.clone(),
+                            validator_address: "validator1".to_string(),
                         },
-                        "/cosmos.authz.v1beta1.MsgExec"
+                        "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
+                    )
+                    .unwrap(),
+                    drop_helpers::interchain::prepare_any_msg(
+                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
+                            delegator_address: ica_address.clone(),
+                            validator_address: "validator2".to_string(),
+                        },
+                        "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
                     )
                     .unwrap()
                 ],
@@ -1849,209 +1807,6 @@ fn test_execute_register_non_native_rewards_balances_query_has_several_non_nativ
 }
 
 #[test]
-fn test_execute_ibc_transfer_sender_is_not_allowed() {
-    let mut deps = mock_dependencies(&[]);
-    deps.querier.add_custom_query_response(|_| {
-        to_json_binary(&MinIbcFeeResponse {
-            min_fee: get_standard_fees(),
-        })
-        .unwrap()
-    });
-    base_init(&mut deps.as_mut());
-    let res = crate::contract::execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("not_allowed_sender", &[]),
-        drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
-            reason: IBCTransferReason::LSMShare,
-            reply_to: "owner".to_string(),
-        },
-    )
-    .unwrap_err();
-    assert_eq!(
-        res,
-        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
-            "Sender is not allowed"
-        ))
-    );
-}
-
-#[test]
-fn test_execute_ibc_transfer_many_coins() {
-    let mut deps = mock_dependencies(&[]);
-    base_init(&mut deps.as_mut());
-    let res = crate::contract::execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info(
-            "allowed_sender",
-            &[
-                cosmwasm_std::Coin {
-                    denom: "token1".to_string(),
-                    amount: Uint128::from(123u64),
-                },
-                cosmwasm_std::Coin {
-                    denom: "token2".to_string(),
-                    amount: Uint128::from(123u64),
-                },
-            ],
-        ),
-        drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
-            reason: IBCTransferReason::LSMShare,
-            reply_to: "owner".to_string(),
-        },
-    )
-    .unwrap_err();
-    assert_eq!(
-        res,
-        drop_puppeteer_base::error::ContractError::InvalidFunds {
-            reason: "Only one coin is allowed".to_string()
-        }
-    )
-}
-
-#[test]
-fn test_execute_ibc_transfer_no_coins() {
-    let mut deps = mock_dependencies(&[]);
-    base_init(&mut deps.as_mut());
-    let res = crate::contract::execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("allowed_sender", &[]),
-        drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
-            reason: IBCTransferReason::LSMShare,
-            reply_to: "owner".to_string(),
-        },
-    )
-    .unwrap_err();
-    assert_eq!(
-        res,
-        drop_puppeteer_base::error::ContractError::InvalidFunds {
-            reason: "Only one coin is allowed".to_string()
-        }
-    )
-}
-
-#[test]
-fn test_execute_ibc_transfer_not_idle() {
-    let mut deps = mock_dependencies(&[]);
-    let pupeteer_base = base_init(&mut deps.as_mut());
-    pupeteer_base
-        .tx_state
-        .save(
-            deps.as_mut().storage,
-            &drop_puppeteer_base::state::TxState {
-                seq_id: None,
-                status: drop_puppeteer_base::state::TxStateStatus::InProgress,
-                reply_to: Some("".to_string()),
-                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                    interchain_account_id: "ica_address".to_string(),
-                    delegate_grantee: "delegate_grantee".to_string(),
-                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-                }),
-            },
-        )
-        .unwrap();
-    let res = crate::contract::execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("allowed_sender", &[]),
-        drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
-            reason: IBCTransferReason::LSMShare,
-            reply_to: "owner".to_string(),
-        },
-    )
-    .unwrap_err();
-    assert_eq!(
-        res,
-        drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
-            cosmwasm_std::StdError::generic_err(
-                "Transaction txState is not equal to expected: Idle".to_string()
-            )
-        ))
-    );
-}
-
-#[test]
-fn test_execute_ibc_transfer_one_coin() {
-    let mut deps = mock_dependencies(&[]);
-    deps.querier.add_custom_query_response(|_| {
-        to_json_binary(&MinIbcFeeResponse {
-            min_fee: get_standard_fees(),
-        })
-        .unwrap()
-    });
-    let puppeteer_base = base_init(&mut deps.as_mut());
-    let puppeteer_config = puppeteer_base.config.load(deps.as_mut().storage).unwrap();
-    puppeteer_base
-        .ica
-        .set_address(
-            deps.as_mut().storage,
-            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
-            "transfer".to_string(),
-            "channel-0".to_string(),
-        )
-        .unwrap();
-
-    let env = mock_env();
-    let res = crate::contract::execute(
-        deps.as_mut(),
-        env.clone(),
-        mock_info(
-            "allowed_sender",
-            &[cosmwasm_std::Coin {
-                denom: "uatom".to_string(),
-                amount: Uint128::from(123u64),
-            }],
-        ),
-        drop_staking_base::msg::puppeteer::ExecuteMsg::IBCTransfer {
-            reason: IBCTransferReason::LSMShare,
-            reply_to: "owner".to_string(),
-        },
-    )
-    .unwrap();
-    assert_eq!(
-        res,
-        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
-            id: 131072u64,
-            msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::IbcTransfer {
-                source_port: "port_id".to_string(),
-                source_channel: "transfer_channel_id".to_string(),
-                token: cosmwasm_std::Coin {
-                    denom: "uatom".to_string(),
-                    amount: Uint128::from(123u64),
-                },
-                sender: "cosmos2contract".to_string(),
-                receiver: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
-                timeout_height: RequestPacketTimeoutHeight {
-                    revision_height: None,
-                    revision_number: None
-                },
-                timeout_timestamp: env
-                    .block
-                    .time
-                    .plus_seconds(puppeteer_config.timeout)
-                    .nanos(),
-                memo: "".to_string(),
-                fee: IbcFee {
-                    recv_fee: vec![],
-                    ack_fee: vec![cosmwasm_std::Coin {
-                        denom: "untrn".to_string(),
-                        amount: Uint128::from(100u64),
-                    }],
-                    timeout_fee: vec![cosmwasm_std::Coin {
-                        denom: "untrn".to_string(),
-                        amount: Uint128::from(200u64),
-                    }]
-                }
-            }),
-            gas_limit: None,
-            reply_on: cosmwasm_std::ReplyOn::Success,
-        })
-    )
-}
-
-#[test]
 fn test_execute_transfer_sender_is_not_allowed() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.add_custom_query_response(|_| {
@@ -2091,11 +1846,12 @@ fn test_execute_transfer_not_idle() {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
                 reply_to: Some("".to_string()),
-                transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                    interchain_account_id: "ica_address".to_string(),
-                    delegate_grantee: "delegate_grantee".to_string(),
-                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-                }),
+                transaction: Some(
+                    drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                        interchain_account_id: "ica_address".to_string(),
+                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                    },
+                ),
             },
         )
         .unwrap();
@@ -2393,11 +2149,12 @@ fn test_sudo_response_ok() {
         timeout_height: None,
         timeout_timestamp: None,
     };
-    let transaction = drop_puppeteer_base::msg::Transaction::IBCTransfer {
+    let transaction = drop_puppeteer_base::peripheral_hook::Transaction::IBCTransfer {
         denom: "remote_denom".to_string(),
         amount: 1000u128,
+        real_amount: 1000u128,
         recipient: "recipient".to_string(),
-        reason: drop_puppeteer_base::msg::IBCTransferReason::Stake,
+        reason: drop_puppeteer_base::peripheral_hook::IBCTransferReason::Delegate,
     };
     let msg = SudoMsg::Response {
         request: request.clone(),
@@ -2422,15 +2179,15 @@ fn test_sudo_response_ok() {
         Response::new()
             .add_message(CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
                 contract_addr: "reply_to_contract".to_string(),
-                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PuppeteerHook(
-                    Box::new(drop_puppeteer_base::msg::ResponseHookMsg::Success(
-                        drop_puppeteer_base::msg::ResponseHookSuccessMsg {
+                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PeripheralHook(
+                    Box::new(drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(
+                        drop_puppeteer_base::peripheral_hook::ResponseHookSuccessMsg {
                             request_id: 1,
                             local_height: 12345,
                             remote_height: 54321,
                             request,
                             transaction,
-                            answers: vec![drop_puppeteer_base::msg::ResponseAnswer::IBCTransfer(
+                            answers: vec![drop_puppeteer_base::peripheral_hook::ResponseAnswer::IBCTransfer(
                                 drop_puppeteer_base::proto::MsgIBCTransfer {}
                             )]
                         }
@@ -2479,11 +2236,12 @@ fn test_sudo_response_error() {
         timeout_height: None,
         timeout_timestamp: None,
     };
-    let transaction = drop_puppeteer_base::msg::Transaction::IBCTransfer {
+    let transaction = drop_puppeteer_base::peripheral_hook::Transaction::IBCTransfer {
         denom: "remote_denom".to_string(),
         amount: 1000u128,
+        real_amount: 1000u128,
         recipient: "recipient".to_string(),
-        reason: drop_puppeteer_base::msg::IBCTransferReason::Stake,
+        reason: drop_puppeteer_base::peripheral_hook::IBCTransferReason::Delegate,
     };
     let msg = SudoMsg::Error {
         request: request.clone(),
@@ -2508,18 +2266,20 @@ fn test_sudo_response_error() {
         Response::new()
             .add_message(CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
                 contract_addr: "reply_to_contract".to_string(),
-                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PuppeteerHook(
-                    Box::new(drop_puppeteer_base::msg::ResponseHookMsg::Error(
-                        drop_puppeteer_base::msg::ResponseHookErrorMsg {
-                            request_id: 1,
-                            request,
-                            transaction,
-                            details: "some shit happened".to_string()
-                        }
-                    ))
+                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PeripheralHook(
+                    Box::new(
+                        drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(
+                            drop_puppeteer_base::peripheral_hook::ResponseHookErrorMsg {
+                                request_id: 1,
+                                request,
+                                transaction,
+                                details: "some shit happened".to_string()
+                            }
+                        )
+                    )
                 ))
                 .unwrap(),
-                funds: vec![]
+                funds: vec![Coin::new(1000u128, "remote_denom".to_string())]
             }))
             .add_event(Event::new("puppeteer-sudo-error").add_attributes(vec![
                 ("action", "sudo_error"),
@@ -2586,11 +2346,12 @@ fn test_sudo_response_timeout() {
         timeout_height: None,
         timeout_timestamp: None,
     };
-    let transaction = drop_puppeteer_base::msg::Transaction::IBCTransfer {
+    let transaction = drop_puppeteer_base::peripheral_hook::Transaction::IBCTransfer {
         denom: "remote_denom".to_string(),
         amount: 1000u128,
+        real_amount: 1000u128,
         recipient: "recipient".to_string(),
-        reason: drop_puppeteer_base::msg::IBCTransferReason::Stake,
+        reason: drop_puppeteer_base::peripheral_hook::IBCTransferReason::Delegate,
     };
     let msg = SudoMsg::Timeout {
         request: request.clone(),
@@ -2614,18 +2375,20 @@ fn test_sudo_response_timeout() {
         Response::new()
             .add_message(CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
                 contract_addr: "reply_to_contract".to_string(),
-                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PuppeteerHook(
-                    Box::new(drop_puppeteer_base::msg::ResponseHookMsg::Error(
-                        drop_puppeteer_base::msg::ResponseHookErrorMsg {
-                            request_id: 1,
-                            request,
-                            transaction,
-                            details: "Timeout".to_string()
-                        }
-                    ))
+                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PeripheralHook(
+                    Box::new(
+                        drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(
+                            drop_puppeteer_base::peripheral_hook::ResponseHookErrorMsg {
+                                request_id: 1,
+                                request,
+                                transaction,
+                                details: "Timeout".to_string()
+                            }
+                        )
+                    )
                 ))
                 .unwrap(),
-                funds: vec![]
+                funds: vec![Coin::new(1000u128, "remote_denom".to_string())]
             }))
             .add_event(
                 Event::new("puppeteer-sudo-timeout")
@@ -3142,7 +2905,7 @@ fn test_get_answers_from_msg_data() {
         .unwrap();
         assert_eq!(
             res,
-            vec![drop_puppeteer_base::msg::ResponseAnswer::UnknownResponse {}]
+            vec![drop_puppeteer_base::peripheral_hook::ResponseAnswer::UnknownResponse {}]
         );
     }
     {
@@ -3179,10 +2942,6 @@ fn test_get_answers_from_msg_data() {
                             .encode_to_vec(),
                     },
                     cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
-                        msg_type: "/cosmos.authz.v1beta1.MsgGrant".to_string(),
-                        data: (cosmos_sdk_proto::cosmos::authz::v1beta1::MsgGrantResponse {}).encode_to_vec()
-                    },
-                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
                         msg_type: "/cosmos.staking.v1beta1.MsgRedeemTokensForShares".to_string(),
                         data: (crate::proto::liquidstaking::staking::v1beta1::MsgRedeemTokensforSharesResponse {
                             amount: None
@@ -3198,29 +2957,26 @@ fn test_get_answers_from_msg_data() {
         assert_eq!(
             res,
             vec![
-                drop_puppeteer_base::msg::ResponseAnswer::DelegateResponse(
+                drop_puppeteer_base::peripheral_hook::ResponseAnswer::DelegateResponse(
                     drop_puppeteer_base::proto::MsgDelegateResponse {}
                 ),
-                drop_puppeteer_base::msg::ResponseAnswer::UndelegateResponse(
+                drop_puppeteer_base::peripheral_hook::ResponseAnswer::UndelegateResponse(
                     drop_puppeteer_base::proto::MsgUndelegateResponse {
                         completion_time: None,
                     }
                 ),
-                drop_puppeteer_base::msg::ResponseAnswer::TokenizeSharesResponse(
+                drop_puppeteer_base::peripheral_hook::ResponseAnswer::TokenizeSharesResponse(
                     drop_puppeteer_base::proto::MsgTokenizeSharesResponse { amount: None }
                 ),
-                drop_puppeteer_base::msg::ResponseAnswer::BeginRedelegateResponse(
+                drop_puppeteer_base::peripheral_hook::ResponseAnswer::BeginRedelegateResponse(
                     drop_puppeteer_base::proto::MsgBeginRedelegateResponse {
                         completion_time: None
                     }
                 ),
-                drop_puppeteer_base::msg::ResponseAnswer::GrantDelegateResponse(
-                    drop_puppeteer_base::proto::MsgGrantResponse {},
-                ),
-                drop_puppeteer_base::msg::ResponseAnswer::RedeemTokensforSharesResponse(
+                drop_puppeteer_base::peripheral_hook::ResponseAnswer::RedeemTokensforSharesResponse(
                     drop_puppeteer_base::proto::MsgRedeemTokensforSharesResponse { amount: None }
                 ),
-                drop_puppeteer_base::msg::ResponseAnswer::TransferResponse(
+                drop_puppeteer_base::peripheral_hook::ResponseAnswer::TransferResponse(
                     drop_puppeteer_base::proto::MsgSendResponse {}
                 )
             ]
@@ -3431,6 +3187,7 @@ fn get_base_config() -> Config {
         delegations_queries_chunk_size: 2u32,
         port_id: "port_id".to_string(),
         connection_id: "connection_id".to_string(),
+        native_bond_provider: Addr::unchecked("native_bond_provider"),
         update_period: 60u64,
         remote_denom: "remote_denom".to_string(),
         allowed_senders: vec![Addr::unchecked("allowed_sender")],

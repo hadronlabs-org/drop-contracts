@@ -5,7 +5,7 @@ use cosmwasm_std::{
 };
 use drop_helpers::answer::response;
 use drop_puppeteer_base::{
-    msg::{ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg},
+    peripheral_hook::{ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg},
     state::RedeemShareItem,
 };
 use drop_staking_base::{

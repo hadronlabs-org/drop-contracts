@@ -759,9 +759,11 @@ dependencies = [
  "cw-utils 1.0.3",
  "cw2 1.1.2",
  "drop-helpers",
+ "drop-puppeteer-base",
  "drop-staking-base",
  "neutron-sdk",
  "semver",
+ "serde-json-wasm 1.0.1",
 ]
 
 [[package]]
@@ -929,24 +931,6 @@ dependencies = [
  "drop-helpers",
  "drop-staking-base",
  "semver",
- "thiserror",
-]
-
-[[package]]
-name = "drop-staker"
-version = "1.0.0"
-dependencies = [
- "cosmos-sdk-proto",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-ownable",
- "cw2 1.1.2",
- "drop-helpers",
- "drop-staking-base",
- "neutron-sdk",
- "prost",
- "semver",
- "serde-json-wasm 1.0.1",
  "thiserror",
 ]
 

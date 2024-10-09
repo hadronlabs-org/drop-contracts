@@ -4,7 +4,7 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Coin, Decimal, Uint128};
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 use drop_macros::{bond_provider, bond_provider_query};
-use drop_puppeteer_base::msg::ResponseHookMsg as PuppeteerResponseHookMsg;
+use drop_puppeteer_base::peripheral_hook::ResponseHookMsg as PuppeteerResponseHookMsg;
 
 #[allow(unused_imports)]
 use super::core::LastPuppeteerResponse;
@@ -15,7 +15,10 @@ pub struct InstantiateMsg {
     pub puppeteer_contract: String,
     pub core_contract: String,
     pub validators_set_contract: String,
+    pub port_id: String,
     pub transfer_channel_id: String,
+    pub timeout: u64, // timeout for interchain transactions in seconds
+    pub lsm_min_bond_amount: Uint128,
     pub lsm_redeem_threshold: u64,        //amount of lsm denoms
     pub lsm_redeem_maximum_interval: u64, //seconds
 }
@@ -25,7 +28,7 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig { new_config: ConfigOptional },
-    PuppeteerHook(Box<PuppeteerResponseHookMsg>),
+    PeripheralHook(Box<PuppeteerResponseHookMsg>),
 }
 
 #[bond_provider_query]
@@ -41,6 +44,8 @@ pub enum QueryMsg {
     LSMSharesToRedeem {},
     #[returns(LastPuppeteerResponse)]
     LastPuppeteerResponse {},
+    #[returns(crate::state::lsm_share_bond_provider::TxState)]
+    TxState {},
 }
 
 #[cw_serde]
