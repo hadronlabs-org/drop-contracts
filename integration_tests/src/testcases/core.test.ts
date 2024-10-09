@@ -1584,7 +1584,7 @@ describe('Core', () => {
         expect(state).toEqual('idle');
         await checkExchangeRate(context);
       });
-      it('tick goes to unbonding', async () => {
+      it('tick goes to claiming', async () => {
         const {
           neutronUserAddress,
           gaiaClient,
@@ -1600,13 +1600,13 @@ describe('Core', () => {
 
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
-          1.5,
+          2,
           undefined,
           [],
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('unbonding');
+        expect(state).toEqual('claiming');
         await checkExchangeRate(context);
       });
       it('tick is failed bc no response from puppeteer yet', async () => {
