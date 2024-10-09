@@ -14,20 +14,6 @@ import { StdFee } from "@cosmjs/amino";
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-/**
- * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u128` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
- *
- * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
- *
- * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
- */
-export type Uint1281 = string;
 export type Boolean = boolean;
 export type Boolean1 = boolean;
 /**
@@ -53,7 +39,7 @@ export type Addr = string;
  *
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
-export type Uint1282 = string;
+export type Uint1281 = string;
 export type ResponseHookMsg =
   | {
       success: ResponseHookSuccessMsg;
@@ -104,7 +90,7 @@ export type Transaction =
         batch_id: number;
         denom: string;
         interchain_account_id: string;
-        items: [string, Uint1282][];
+        items: [string, Uint1281][];
       };
     }
   | {
@@ -154,7 +140,7 @@ export type Transaction =
     }
   | {
       stake: {
-        amount: Uint1282;
+        amount: Uint1281;
       };
     }
   | {
@@ -183,7 +169,7 @@ export type IBCTransferReason = "l_s_m_share" | "delegate";
  *
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
-export type Uint1283 = string;
+export type Uint1282 = string;
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -257,12 +243,11 @@ export type UpdateOwnershipArgs =
 export interface DropNativeBondProviderSchema {
   responses:
     | Uint128
-    | Uint1281
     | Boolean
     | Boolean1
     | Config
     | LastPuppeteerResponse
-    | Uint1283
+    | Uint1282
     | OwnershipForString
     | Decimal
     | TxState;
@@ -274,8 +259,8 @@ export interface DropNativeBondProviderSchema {
 export interface Config {
   base_denom: string;
   core_contract: Addr;
-  min_ibc_transfer: Uint1282;
-  min_stake_amount: Uint1282;
+  min_ibc_transfer: Uint1281;
+  min_stake_amount: Uint1281;
   port_id: string;
   puppeteer_contract: Addr;
   strategy_contract: Addr;
@@ -309,7 +294,7 @@ export interface MsgTokenizeSharesResponse {
   amount?: Coin | null;
 }
 export interface Coin {
-  amount: Uint1282;
+  amount: Uint1281;
   denom: string;
   [k: string]: unknown;
 }
@@ -338,12 +323,12 @@ export interface RequestPacketTimeoutHeight {
   [k: string]: unknown;
 }
 export interface RedeemShareItem {
-  amount: Uint1282;
+  amount: Uint1281;
   local_denom: string;
   remote_denom: string;
 }
 export interface TransferReadyBatchesMsg {
-  amount: Uint1282;
+  amount: Uint1281;
   batch_ids: number[];
   emergency: boolean;
   recipient: string;
@@ -388,8 +373,8 @@ export interface UpdateConfigArgs {
 export interface ConfigOptional {
   base_denom?: string | null;
   core_contract?: Addr | null;
-  min_ibc_transfer?: Uint1282 | null;
-  min_stake_amount?: Uint1282 | null;
+  min_ibc_transfer?: Uint1281 | null;
+  min_stake_amount?: Uint1281 | null;
   port_id?: string | null;
   puppeteer_contract?: Addr | null;
   strategy_contract?: Addr | null;
@@ -399,8 +384,8 @@ export interface ConfigOptional {
 export interface InstantiateMsg {
   base_denom: string;
   core_contract: string;
-  min_ibc_transfer: Uint1282;
-  min_stake_amount: Uint1282;
+  min_ibc_transfer: Uint1281;
+  min_stake_amount: Uint1281;
   owner: string;
   port_id: string;
   puppeteer_contract: string;
@@ -460,9 +445,6 @@ export class Client {
   }
   queryNonStakedBalance = async(): Promise<Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { non_staked_balance: {} });
-  }
-  queryAllBalance = async(): Promise<Uint128> => {
-    return this.client.queryContractSmart(this.contractAddress, { all_balance: {} });
   }
   queryTxState = async(): Promise<TxState> => {
     return this.client.queryContractSmart(this.contractAddress, { tx_state: {} });

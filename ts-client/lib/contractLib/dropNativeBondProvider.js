@@ -32,9 +32,6 @@ class Client {
     queryNonStakedBalance = async () => {
         return this.client.queryContractSmart(this.contractAddress, { non_staked_balance: {} });
     };
-    queryAllBalance = async () => {
-        return this.client.queryContractSmart(this.contractAddress, { all_balance: {} });
-    };
     queryTxState = async () => {
         return this.client.queryContractSmart(this.contractAddress, { tx_state: {} });
     };

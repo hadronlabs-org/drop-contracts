@@ -1559,6 +1559,31 @@ describe('Core', () => {
           return res && res.delegations.delegations.length > 0;
         }, 100_000);
       });
+      it('tick goes to idle', async () => {
+        const {
+          neutronUserAddress,
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+        await checkExchangeRate(context);
+      });
       it('tick goes to unbonding', async () => {
         const {
           neutronUserAddress,
@@ -1577,12 +1602,7 @@ describe('Core', () => {
           neutronUserAddress,
           1.5,
           undefined,
-          [
-            {
-              amount: '1000000',
-              denom: 'untrn',
-            },
-          ],
+          [],
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();

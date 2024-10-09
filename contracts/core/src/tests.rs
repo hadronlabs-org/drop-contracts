@@ -413,6 +413,7 @@ fn test_execute_tick_idle_process_bondig_provider() {
                         ("knot", "000"),
                         ("knot", "002"),
                         ("knot", "003"),
+                        ("knot", "036"),
                         ("used_bond_provider", "lsm_provider_address"),
                     ]
                 )

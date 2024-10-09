@@ -599,6 +599,7 @@ fn execute_tick_idle(
             can_process_on_idle
         ));
         if can_process_on_idle.is_ok_and(|f| f) {
+            attrs.push(attr("knot", "036")); // provider can process on idle
             attrs.push(attr("used_bond_provider", provider.to_string()));
             deps.api.debug("WASMDEBUG: core execute_tick_idle: 4");
             let sub_msg = SubMsg::reply_on_error(
@@ -819,9 +820,9 @@ fn execute_tick_idle(
 }
 
 fn execute_tick_peripheral(
-    mut deps: DepsMut<NeutronQuery>,
-    env: Env,
-    info: MessageInfo,
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _info: MessageInfo,
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut attrs = vec![attr("action", "tick_peripheral")];
@@ -832,10 +833,13 @@ fn execute_tick_peripheral(
     if let drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(msg) = res {
         match msg.transaction {
             drop_puppeteer_base::peripheral_hook::Transaction::RedeemShares { .. } => {
-                attrs.push(attr("knot", "038"))
+                attrs.push(attr("knot", "037"))
             }
-            drop_puppeteer_base::peripheral_hook::Transaction::Transfer { .. } => {
-                attrs.push(attr("knot", "035"));
+            drop_puppeteer_base::peripheral_hook::Transaction::IBCTransfer { .. } => {
+                attrs.push(attr("knot", "038"));
+            }
+            drop_puppeteer_base::peripheral_hook::Transaction::Stake { .. } => {
+                attrs.push(attr("knot", "039"));
             }
             _ => {}
         }
@@ -859,26 +863,14 @@ fn execute_tick_peripheral(
     }
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
 
-    let mut messages = vec![];
-    attrs.push(attr("knot", "017"));
-    if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
-    {
-        deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 6");
-        messages.push(unbond_message);
-        attrs.push(attr("knot", "028"));
-        FSM.go_to(deps.storage, ContractState::Unbonding)?;
-        attrs.push(attr("knot", "029"));
-        attrs.push(attr("state", "unbonding"));
-    } else {
-        deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 7");
-        FSM.go_to(deps.storage, ContractState::Idle)?;
-        attrs.push(attr("knot", "000"));
-        attrs.push(attr("state", "idle"));
-    }
+    deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 6");
+    FSM.go_to(deps.storage, ContractState::Idle)?;
+    attrs.push(attr("knot", "000"));
+    attrs.push(attr("state", "idle"));
 
-    deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 8");
+    deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 7");
 
-    Ok(response("execute-tick_peripheral", CONTRACT_NAME, attrs).add_messages(messages))
+    Ok(response("execute-tick_peripheral", CONTRACT_NAME, attrs))
 }
 
 fn execute_tick_claiming(
