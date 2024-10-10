@@ -12,11 +12,23 @@ pub enum ContractError {
     #[error("no deposit was provided")]
     DepositExpected {},
 
+    #[error("no withdrawal asset was provided")]
+    WithdrawalAssetExpected {},
+
+    #[error("withdrawn amount is too big")]
+    WithdrawnAmountTooBig {},
+
+    #[error("amount to withdraw is zero")]
+    NothingToWithdraw {},
+
     #[error("Semver parsing error: {0}")]
     SemVer(String),
 
     #[error("Bondings query limit exceeded")]
     QueryBondingsLimitExceeded {},
+
+    #[error("Core replies with invalid data")]
+    InvalidCoreReply {},
 }
 
 impl From<semver::Error> for ContractError {
