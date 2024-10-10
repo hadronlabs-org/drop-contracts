@@ -2,12 +2,15 @@ use crate::{
     contract,
     error::ContractError,
     msg::{BondMsg, ExecuteMsg, InstantiateMsg},
-    store::{CORE_ADDRESS, LD_TOKEN, WITHDRAWAL_MANAGER_ADDRESS, WITHDRAWAL_VOUCHER_ADDRESS},
+    store::{
+        CORE_ADDRESS, LD_TOKEN, WITHDRAWAL_DENOM_PREFIX, WITHDRAWAL_MANAGER_ADDRESS,
+        WITHDRAWAL_TOKEN_ADDRESS,
+    },
 };
 use cosmwasm_std::{
     attr, coin,
     testing::{mock_env, mock_info, MockApi, MockQuerier, MockStorage},
-    Event, OwnedDeps, Querier,
+    Addr, Event, OwnedDeps, Querier, Uint128,
 };
 use neutron_sdk::bindings::query::NeutronQuery;
 use std::marker::PhantomData;
@@ -30,9 +33,10 @@ fn instantiate() {
         mock_info("admin", &[]),
         InstantiateMsg {
             core_address: "core".to_string(),
-            withdrawal_voucher_address: "withdrawal_voucher".to_string(),
+            withdrawal_token_address: "withdrawal_token".to_string(),
             withdrawal_manager_address: "withdrawal_manager".to_string(),
             ld_token: "ld_token".to_string(),
+            withdrawal_denom_prefix: "drop".to_string(),
         },
     )
     .unwrap();
@@ -41,14 +45,16 @@ fn instantiate() {
     assert_eq!(core, "core");
     let ld_token = LD_TOKEN.load(deps.as_ref().storage).unwrap();
     assert_eq!(ld_token, "ld_token");
-    let withdrawal_voucher = WITHDRAWAL_VOUCHER_ADDRESS
+    let withdrawal_token = WITHDRAWAL_TOKEN_ADDRESS
         .load(deps.as_ref().storage)
         .unwrap();
-    assert_eq!(withdrawal_voucher, "withdrawal_voucher");
+    assert_eq!(withdrawal_token, "withdrawal_token");
     let withdrawal_manager = WITHDRAWAL_MANAGER_ADDRESS
         .load(deps.as_ref().storage)
         .unwrap();
     assert_eq!(withdrawal_manager, "withdrawal_manager");
+    let withdrawal_denom_prefix = WITHDRAWAL_DENOM_PREFIX.load(deps.as_ref().storage).unwrap();
+    assert_eq!(withdrawal_denom_prefix, "drop");
 
     assert_eq!(response.messages.len(), 0);
     assert_eq!(
@@ -56,9 +62,10 @@ fn instantiate() {
         vec![
             Event::new("drop-auto-withdrawer-instantiate").add_attributes([
                 attr("core_address", "core"),
-                attr("withdrawal_voucher", "withdrawal_voucher"),
+                attr("withdrawal_token", "withdrawal_token"),
                 attr("withdrawal_manager", "withdrawal_manager"),
-                attr("ld_token", "ld_token")
+                attr("ld_token", "ld_token"),
+                attr("withdrawal_denom_prefix", "drop")
             ])
         ]
     );
@@ -80,6 +87,33 @@ fn bond_missing_ld_assets() {
     .unwrap_err();
 
     assert_eq!(err, ContractError::LdTokenExpected {});
+}
+
+#[test]
+fn bond_missing_withdrawal_denoms() {
+    let mut deps = mock_dependencies::<MockQuerier>();
+
+    WITHDRAWAL_DENOM_PREFIX
+        .save(deps.as_mut().storage, &"drop".into())
+        .unwrap();
+    WITHDRAWAL_TOKEN_ADDRESS
+        .save(
+            deps.as_mut().storage,
+            &Addr::unchecked("withdrawal_token_contract"),
+        )
+        .unwrap();
+
+    let err = contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("sender", &[]),
+        ExecuteMsg::Bond(BondMsg::WithWithdrawalDenoms {
+            batch_id: Uint128::zero(),
+        }),
+    )
+    .unwrap_err();
+
+    assert_eq!(err, ContractError::WithdrawalAssetExpected {});
 }
 
 mod bond_missing_deposit {
@@ -105,12 +139,26 @@ mod bond_missing_deposit {
     #[test]
     fn with_nft() {
         let mut deps = mock_dependencies::<MockQuerier>();
+
+        WITHDRAWAL_DENOM_PREFIX
+            .save(deps.as_mut().storage, &"drop".into())
+            .unwrap();
+        WITHDRAWAL_TOKEN_ADDRESS
+            .save(
+                deps.as_mut().storage,
+                &Addr::unchecked("withdrawal_token_contract"),
+            )
+            .unwrap();
+
         let err = contract::execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("sender", &[]),
-            ExecuteMsg::Bond(BondMsg::WithNFT {
-                token_id: "token_id".into(),
+            mock_info(
+                "sender",
+                &[coin(10, "factory/withdrawal_token_contract/drop:unbond:0")],
+            ),
+            ExecuteMsg::Bond(BondMsg::WithWithdrawalDenoms {
+                batch_id: Uint128::zero(),
             }),
         )
         .unwrap_err();

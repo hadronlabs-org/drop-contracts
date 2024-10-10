@@ -30,6 +30,7 @@ use drop_staking_base::{
             InstantiateMsg as WithdrawalManagerInstantiateMsg,
             QueryMsg as WithdrawalManagerQueryMsg,
         },
+        withdrawal_token::InstantiateMsg as WithdrawalTokenInstantiateMsg,
         withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
     },
     state::pump::PumpTimeout,
@@ -67,6 +68,8 @@ pub fn instantiate(
     let canonical_self_address = deps.api.addr_canonicalize(env.contract.address.as_str())?;
     let token_contract_checksum = get_code_checksum(deps.as_ref(), msg.code_ids.token_code_id)?;
     let core_contract_checksum = get_code_checksum(deps.as_ref(), msg.code_ids.core_code_id)?;
+    let withdrawal_token_contract_checksum =
+        get_code_checksum(deps.as_ref(), msg.code_ids.withdrawal_token_code_id)?;
     let withdrawal_voucher_contract_checksum =
         get_code_checksum(deps.as_ref(), msg.code_ids.withdrawal_voucher_code_id)?;
     let withdrawal_manager_contract_checksum =
@@ -100,6 +103,16 @@ pub fn instantiate(
     let staker_address =
         instantiate2_address(&staker_contract_checksum, &canonical_self_address, salt)?;
     attrs.push(attr("staker_address", staker_address.to_string()));
+
+    let withdrawal_token_address = instantiate2_address(
+        &withdrawal_token_contract_checksum,
+        &canonical_self_address,
+        salt,
+    )?;
+    attrs.push(attr(
+        "withdrawal_token_address",
+        withdrawal_token_address.to_string(),
+    ));
 
     let withdrawal_voucher_address = instantiate2_address(
         &withdrawal_voucher_contract_checksum,
@@ -170,6 +183,10 @@ pub fn instantiate(
     ));
     let core_contract = deps.api.addr_humanize(&core_address)?.to_string();
     let token_contract = deps.api.addr_humanize(&token_address)?.to_string();
+    let withdrawal_token_contract = deps
+        .api
+        .addr_humanize(&withdrawal_token_address)?
+        .to_string();
     let withdrawal_voucher_contract = deps
         .api
         .addr_humanize(&withdrawal_voucher_address)?
@@ -197,6 +214,7 @@ pub fn instantiate(
         core_contract: core_contract.to_string(),
         puppeteer_contract: puppeteer_contract.to_string(),
         staker_contract: staker_contract.to_string(),
+        withdrawal_token_contract: withdrawal_token_contract.to_string(),
         withdrawal_voucher_contract: withdrawal_voucher_contract.to_string(),
         withdrawal_manager_contract: withdrawal_manager_contract.to_string(),
         strategy_contract: strategy_contract.to_string(),
@@ -215,7 +233,7 @@ pub fn instantiate(
             label: get_contract_label("token"),
             msg: to_json_binary(&TokenInstantiateMsg {
                 core_address: core_contract.to_string(),
-                subdenom: msg.subdenom,
+                subdenom: msg.subdenom.clone(),
                 token_metadata: msg.token_metadata,
                 owner: env.contract.address.to_string(),
             })?,
@@ -295,6 +313,19 @@ pub fn instantiate(
         }),
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
+            code_id: msg.code_ids.withdrawal_token_code_id,
+            label: get_contract_label("withdrawal-token"),
+            msg: to_json_binary(&WithdrawalTokenInstantiateMsg {
+                core_address: core_contract.to_string(),
+                withdrawal_manager_address: withdrawal_manager_contract.to_string(),
+                denom_prefix: msg.subdenom.clone(),
+                owner: env.contract.address.to_string(),
+            })?,
+            funds: vec![],
+            salt: Binary::from(salt),
+        }),
+        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
+            admin: Some(env.contract.address.to_string()),
             code_id: msg.code_ids.core_code_id,
             label: get_contract_label("core"),
             msg: to_json_binary(&CoreInstantiateMsg {
@@ -302,6 +333,7 @@ pub fn instantiate(
                 puppeteer_contract: puppeteer_contract.to_string(),
                 staker_contract: staker_contract.to_string(),
                 strategy_contract: strategy_contract.to_string(),
+                withdrawal_token_contract: withdrawal_token_contract.to_string(),
                 withdrawal_voucher_contract: withdrawal_voucher_contract.to_string(),
                 withdrawal_manager_contract: withdrawal_manager_contract.to_string(),
                 base_denom: msg.base_denom.clone(),
@@ -343,6 +375,7 @@ pub fn instantiate(
             label: get_contract_label("withdrawal-manager"),
             msg: to_json_binary(&WithdrawalManagerInstantiateMsg {
                 core_contract: core_contract.to_string(),
+                token_contract: withdrawal_token_contract.to_string(),
                 voucher_contract: withdrawal_voucher_contract.to_string(),
                 owner: env.contract.address.to_string(),
                 base_denom: msg.base_denom.to_string(),

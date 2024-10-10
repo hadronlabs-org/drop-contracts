@@ -33,3 +33,5 @@ drop-staking-base = { workspace = true }
 drop-helpers = { workspace = true }
 thiserror = { workspace = true }
 semver = { workspace = true }
+cw-utils = { workspace = true }
+log = "0.4.22"

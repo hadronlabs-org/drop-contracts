@@ -12,8 +12,14 @@ pub enum ContractError {
     #[error("{0}")]
     NeutronError(#[from] NeutronError),
 
+    #[error("{0}")]
+    PaymentError(#[from] cw_utils::PaymentError),
+
     #[error("Invalid NFT: {reason}")]
     InvalidNFT { reason: String },
+
+    #[error("Invalid denom")]
+    InvalidDenom {},
 
     #[error("{0}")]
     OverflowError(#[from] OverflowError),
