@@ -77,7 +77,11 @@ pub fn execute(
             }
         },
         ExecuteMsg::Unbond { batch_id } => execute_unbond(deps, info, batch_id),
-        ExecuteMsg::Withdraw { batch_id, amount } => execute_withdraw(deps, info, batch_id, amount),
+        ExecuteMsg::Withdraw {
+            batch_id,
+            receiver,
+            amount,
+        } => execute_withdraw(deps, info, batch_id, receiver, amount),
     }
 }
 
@@ -148,7 +152,7 @@ fn execute_bond_with_withdrawal_denoms(
             &bonding_id,
             &BondingRecord {
                 bonder: info.sender,
-                deposit: merge_depoists(existing_bonding.deposit, deposit),
+                deposit: merge_deposits(existing_bonding.deposit, deposit),
                 withdrawal_amount: existing_bonding.withdrawal_amount + withdrawal_asset.amount,
             },
         )?;
@@ -207,9 +211,12 @@ fn execute_withdraw(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
     batch_id: Uint128,
+    receiver: Option<Addr>,
     amount: Uint128,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let bonding_id = get_bonding_id(info.sender.to_string(), batch_id);
+    let bonder = receiver.unwrap_or(info.sender.clone());
+
+    let bonding_id = get_bonding_id(bonder.to_string(), batch_id);
     let bonding = bondings_map().load(deps.storage, &bonding_id)?;
 
     ensure_ne!(amount, Uint128::zero(), ContractError::NothingToWithdraw {});
@@ -226,7 +233,7 @@ fn execute_withdraw(
             deps.storage,
             &bonding_id,
             &BondingRecord {
-                bonder: info.sender.clone(),
+                bonder: bonder.clone(),
                 withdrawal_amount: bonding.withdrawal_amount - amount,
                 deposit: subtract_deposits(bonding.deposit.clone(), divided_deposit.clone()),
             },
@@ -249,7 +256,7 @@ fn execute_withdraw(
         contract_addr: withdrawal_manager.into_string(),
         msg: to_json_binary(
             &drop_staking_base::msg::withdrawal_manager::ExecuteMsg::ReceiveWithdrawalDenoms {
-                receiver: Some(bonding.bonder.into_string()),
+                receiver: Some(bonder.into_string()),
             },
         )?,
         funds: vec![Coin::new(amount.u128(), withdrawal_denom)],
@@ -280,7 +287,7 @@ pub fn reply(
             let events = reply.result.unwrap().events;
             reply_core_unbond(deps, sender, deposit, events)
         }
-        _ => unreachable!(),
+        id => Err(ContractError::InvalidCoreReplyId { id }),
     }
 }
 
@@ -295,7 +302,7 @@ fn get_value_from_events(events: Vec<Event>, key: String) -> String {
         .value
 }
 
-fn merge_depoists(mut vec1: Vec<Coin>, vec2: Vec<Coin>) -> Vec<Coin> {
+fn merge_deposits(mut vec1: Vec<Coin>, vec2: Vec<Coin>) -> Vec<Coin> {
     let mut coin_map: HashMap<String, Uint128> = HashMap::new();
 
     let mut add_to_map = |coin: Coin| {
@@ -394,8 +401,8 @@ fn reply_core_unbond(
 
     let amount = match Uint128::from_str(&str_amount) {
         Ok(value) => Ok(value),
-        Err(_) => Err(ContractError::InvalidCoreReply {}),
-    };
+        Err(_) => Err(ContractError::InvalidCoreReplyAttributes {}),
+    }?;
 
     let bonding_id = sender.to_string() + "_" + batch_id.to_string().as_str();
 
@@ -406,8 +413,8 @@ fn reply_core_unbond(
             &bonding_id,
             &BondingRecord {
                 bonder: sender,
-                deposit: merge_depoists(existing_bonding.deposit, deposit),
-                withdrawal_amount: existing_bonding.withdrawal_amount + amount.unwrap(),
+                deposit: merge_deposits(existing_bonding.deposit, deposit),
+                withdrawal_amount: existing_bonding.withdrawal_amount + amount,
             },
         )?;
     } else {
@@ -417,7 +424,7 @@ fn reply_core_unbond(
             &BondingRecord {
                 bonder: sender,
                 deposit,
-                withdrawal_amount: amount.unwrap(),
+                withdrawal_amount: amount,
             },
         )?;
     }

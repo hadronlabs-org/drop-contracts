@@ -267,15 +267,17 @@ fn test_mint() {
         response.events,
         vec![
             Event::new("drop-withdrawal-token-execute-mint").add_attributes([
+                attr("amount", "228"),
                 attr(
-                    "amount",
+                    "denom",
                     format!(
-                        "228factory/{}/denom_prefix:{}:0",
+                        "factory/{}/denom_prefix:{}:0",
                         MOCK_CONTRACT_ADDR, UNBOND_MARK
                     )
                     .to_string()
                 ),
-                attr("receiver", "receiver")
+                attr("receiver", "receiver"),
+                attr("batch_id", "0"),
             ])
         ]
     );
