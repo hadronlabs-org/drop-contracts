@@ -102,7 +102,6 @@ describe('Core Slashing', () => {
       withdrawalVoucher?: number;
       withdrawalManager?: number;
       strategy?: number;
-      staker?: number;
       puppeteer?: number;
       validatorsSet?: number;
       distribution?: number;
@@ -363,15 +362,6 @@ describe('Core Slashing', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.rewardsManager = res.codeId;
-    }
-    {
-      const res = await client.upload(
-        account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_staker.wasm')),
-        1.5,
-      );
-      expect(res.codeId).toBeGreaterThan(0);
-      context.codeIds.staker = res.codeId;
     }
     {
       const res = await client.upload(
