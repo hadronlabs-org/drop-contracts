@@ -51,7 +51,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
+pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     match msg {
         QueryMsg::Ownership {} => Ok(to_json_binary(&cw_ownable::get_ownership(deps.storage)?)?),
         QueryMsg::Config {} => Ok(to_json_binary(&CONFIG.load(deps.storage)?)?),
@@ -60,13 +60,13 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     }
 }
 
-pub fn query_one(deps: Deps, id: u64) -> ContractResult<Binary> {
+pub fn query_one(deps: Deps<NeutronQuery>, id: u64) -> ContractResult<Binary> {
     let bond = BONDS.load(deps.storage, id)?;
     to_json_binary(&bond).map_err(ContractError::Std)
 }
 
 pub fn query_all(
-    deps: Deps,
+    deps: Deps<NeutronQuery>,
     start_after: Option<u64>,
     limit: Option<u32>,
 ) -> ContractResult<Binary> {
