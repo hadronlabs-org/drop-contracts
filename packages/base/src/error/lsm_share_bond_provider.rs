@@ -60,6 +60,9 @@ pub enum ContractError {
         min_stake_amount: Uint128,
         bond_amount: Uint128,
     },
+
+    #[error("LSM shares is not ready")]
+    LSMSharesIsNotReady {},
 }
 
 impl From<semver::Error> for ContractError {

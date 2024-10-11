@@ -92,7 +92,9 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::Ownership {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
         QueryMsg::Config {} => query_config(deps, env),
         QueryMsg::CanBond { denom } => query_can_bond(deps, denom),
-        QueryMsg::CanProcessOnIdle {} => query_can_process_on_idle(deps, env),
+        QueryMsg::CanProcessOnIdle {} => {
+            Ok(to_json_binary(&query_can_process_on_idle(deps, &env)?)?)
+        }
         QueryMsg::TokensAmount {
             coin,
             exchange_rate,
@@ -141,7 +143,7 @@ fn query_can_bond(deps: Deps<NeutronQuery>, denom: String) -> ContractResult<Bin
     Ok(to_json_binary(&check_denom_result.is_ok())?)
 }
 
-fn query_can_process_on_idle(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
+fn query_can_process_on_idle(deps: Deps<NeutronQuery>, env: &Env) -> ContractResult<bool> {
     let tx_state = TX_STATE.load(deps.storage)?;
     ensure!(
         tx_state.status == TxStateStatus::Idle,
@@ -157,7 +159,7 @@ fn query_can_process_on_idle(deps: Deps<NeutronQuery>, env: Env) -> ContractResu
         .count();
 
     if pending_lsm_shares_count > 0 {
-        return Ok(to_json_binary(&true)?);
+        return Ok(true);
     }
 
     let lsm_shares_to_redeem_count = LSM_SHARES_TO_REDEEM
@@ -168,16 +170,16 @@ fn query_can_process_on_idle(deps: Deps<NeutronQuery>, env: Env) -> ContractResu
     let lsm_redeem_threshold = config.lsm_redeem_threshold as usize;
 
     if pending_lsm_shares_count == 0 && lsm_shares_to_redeem_count == 0 {
-        return Ok(to_json_binary(&false)?);
+        return Ok(false);
     }
 
     if lsm_shares_to_redeem_count >= lsm_redeem_threshold
         || (last_lsm_redeem + config.lsm_redeem_maximum_interval < env.block.time.seconds())
     {
-        return Ok(to_json_binary(&true)?);
+        return Ok(true);
     }
 
-    Ok(to_json_binary(&false)?)
+    Ok(false)
 }
 
 fn query_token_amount(
@@ -215,7 +217,7 @@ pub fn execute(
         }
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
         ExecuteMsg::Bond {} => execute_bond(deps, info),
-        ExecuteMsg::ProcessOnIdle {} => execute_process_on_idle(deps, env),
+        ExecuteMsg::ProcessOnIdle {} => execute_process_on_idle(deps, env, info),
         ExecuteMsg::PeripheralHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
     }
 }
@@ -223,22 +225,35 @@ pub fn execute(
 fn execute_process_on_idle(
     mut deps: DepsMut<NeutronQuery>,
     env: Env,
+    info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
     deps.api
         .debug("WASMDEBUG: lsm-share execute_process_on_idle: 1");
     let config = CONFIG.load(deps.storage)?;
+    ensure_eq!(
+        info.sender,
+        config.core_contract,
+        ContractError::Unauthorized {}
+    );
+    deps.api
+        .debug("WASMDEBUG: lsm-share execute_process_on_idle: 2");
+
+    let process_on_idle = query_can_process_on_idle(deps.as_ref(), &env)?;
+    if !process_on_idle {
+        return Err(ContractError::LSMSharesIsNotReady {});
+    }
 
     let mut submessages: Vec<SubMsg<NeutronMsg>> = vec![];
     deps.api
-        .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 2");
+        .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 3");
 
     if let Some(lsm_msg) = get_pending_redeem_msg(deps.branch(), &config, &env)? {
         deps.api
-            .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 3");
+            .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 4");
         submessages.push(lsm_msg);
     } else if let Some(lsm_msg) = get_pending_lsm_share_msg(deps.branch(), &config, &env)? {
         deps.api
-            .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 4");
+            .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 5");
         submessages.push(lsm_msg);
     }
 
@@ -246,7 +261,7 @@ fn execute_process_on_idle(
         .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 6");
 
     Ok(
-        response("update_config", CONTRACT_NAME, Vec::<Attribute>::new())
+        response("process_on_idle", CONTRACT_NAME, Vec::<Attribute>::new())
             .add_submessages(submessages)
             .add_attributes(vec![attr("action", "process_on_idle")]),
     )

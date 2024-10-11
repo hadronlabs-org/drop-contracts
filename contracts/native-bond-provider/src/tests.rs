@@ -505,7 +505,7 @@ fn process_on_idle_not_in_idle_state() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        mock_info("core_contract", &[]),
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::ProcessOnIdle {},
     )
     .unwrap_err();
@@ -515,6 +515,28 @@ fn process_on_idle_not_in_idle_state() {
         drop_staking_base::error::native_bond_provider::ContractError::InvalidState {
             reason: "tx_state is not idle".to_string()
         }
+    );
+}
+
+#[test]
+fn process_on_idle_not_core_contract() {
+    let mut deps = mock_dependencies(&[]);
+
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+
+    let error = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_core_contract", &[]),
+        drop_staking_base::msg::native_bond_provider::ExecuteMsg::ProcessOnIdle {},
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        error,
+        drop_staking_base::error::native_bond_provider::ContractError::Unauthorized {}
     );
 }
 
@@ -546,7 +568,7 @@ fn process_on_idle() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        mock_info("core_contract", &[]),
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::ProcessOnIdle {},
     )
     .unwrap();

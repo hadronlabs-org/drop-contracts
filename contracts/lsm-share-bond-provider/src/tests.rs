@@ -2,23 +2,34 @@ use std::borrow::BorrowMut;
 
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    attr, from_json,
+    attr, coins, from_json,
     testing::{mock_env, mock_info, MockApi},
     to_json_binary, Addr, Coin, Decimal, Decimal256, Event, MemoryStorage, OwnedDeps, Response,
-    Timestamp, Uint128,
+    SubMsg, Timestamp, Uint128,
 };
 use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
-use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
+use drop_helpers::{
+    ica::IcaState,
+    testing::{mock_dependencies, WasmMockQuerier},
+};
 use drop_puppeteer_base::state::{Delegations, DropDelegation};
 use drop_staking_base::{
     error::lsm_share_bond_provider::ContractError,
     msg::puppeteer::DelegationsResponse,
     state::lsm_share_bond_provider::{
-        Config, ConfigOptional, CONFIG, LAST_LSM_REDEEM, TOTAL_LSM_SHARES_REAL_AMOUNT,
+        Config, ConfigOptional, ReplyMsg, TxState, CONFIG, LAST_LSM_REDEEM, PENDING_LSM_SHARES,
+        TOTAL_LSM_SHARES_REAL_AMOUNT, TX_STATE,
     },
 };
-use neutron_sdk::bindings::query::NeutronQuery;
+use neutron_sdk::{
+    bindings::{
+        msg::{IbcFee, NeutronMsg},
+        query::NeutronQuery,
+    },
+    query::min_ibc_fee::MinIbcFeeResponse,
+    sudo::msg::RequestPacketTimeoutHeight,
+};
 
 use crate::contract::check_denom::{DenomTrace, QueryDenomTraceResponse};
 
@@ -337,8 +348,81 @@ fn test_update_ownership() {
 }
 
 #[test]
+fn process_on_idle_not_core_contract() {
+    let mut deps = mock_dependencies(&[]);
+
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config(100u64, 200u64))
+        .unwrap();
+
+    let error = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_core_contract", &[]),
+        drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::ProcessOnIdle {},
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        error,
+        drop_staking_base::error::lsm_share_bond_provider::ContractError::Unauthorized {}
+    );
+}
+
+#[test]
+fn test_process_on_idle_lsm_share_not_ready() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+
+    CONFIG
+        .save(deps_mut.storage, &get_default_config(100u64, 200u64))
+        .unwrap();
+
+    LAST_LSM_REDEEM.save(deps_mut.storage, &0).unwrap();
+
+    TX_STATE
+        .save(deps_mut.storage, &TxState::default())
+        .unwrap();
+
+    let error = crate::contract::execute(
+        deps_mut,
+        mock_env(),
+        mock_info("core_contract", &[]),
+        drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::ProcessOnIdle {},
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        error,
+        drop_staking_base::error::lsm_share_bond_provider::ContractError::LSMSharesIsNotReady {}
+    );
+}
+
+#[test]
 fn test_process_on_idle_supported() {
     let mut deps = mock_dependencies(&[]);
+
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: coins(100, "local_denom"),
+                timeout_fee: coins(200, "local_denom"),
+            },
+        })
+        .unwrap()
+    });
+
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&IcaState::Registered {
+                ica_address: "ica_address".to_string(),
+                port_id: "port_id".to_string(),
+                channel_id: "channel_id".to_string(),
+            })
+            .unwrap()
+        });
+
     let deps_mut = deps.as_mut();
 
     CONFIG
@@ -346,10 +430,24 @@ fn test_process_on_idle_supported() {
         .unwrap();
     LAST_LSM_REDEEM.save(deps_mut.storage, &0).unwrap();
 
+    TX_STATE
+        .save(deps_mut.storage, &TxState::default())
+        .unwrap();
+
+    PENDING_LSM_SHARES
+        .save(
+            deps_mut.storage,
+            "lsm_denom_1".to_string(),
+            &("lsm_denom_1".to_string(), Uint128::one(), Uint128::one()),
+        )
+        .unwrap();
+
+    let mocked_env = mock_env();
+
     let response = crate::contract::execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("core", &[]),
+        deps_mut,
+        mocked_env.clone(),
+        mock_info("core_contract", &[]),
         drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::ProcessOnIdle {},
     )
     .unwrap();
@@ -358,9 +456,30 @@ fn test_process_on_idle_supported() {
         response,
         Response::new()
             .add_event(Event::new(
-                "crates.io:drop-staking__drop-lsm-share-bond-provider-update_config"
+                "crates.io:drop-staking__drop-lsm-share-bond-provider-process_on_idle"
             ))
             .add_attributes(vec![attr("action", "process_on_idle"),])
+            .add_submessage(SubMsg::reply_always(
+                NeutronMsg::IbcTransfer {
+                    source_port: "port_id".to_string(),
+                    source_channel: "transfer_channel_id".to_string(),
+                    token: Coin::new(1u128, "lsm_denom_1"),
+                    sender: "cosmos2contract".to_string(),
+                    receiver: "ica_address".to_string(),
+                    timeout_height: RequestPacketTimeoutHeight {
+                        revision_number: None,
+                        revision_height: None,
+                    },
+                    timeout_timestamp: mocked_env.block.time.plus_seconds(100u64).nanos(),
+                    memo: "".to_string(),
+                    fee: IbcFee {
+                        recv_fee: vec![],
+                        ack_fee: vec![],
+                        timeout_fee: vec![]
+                    },
+                },
+                ReplyMsg::IbcTransfer.to_reply_id()
+            ))
     );
 }
 

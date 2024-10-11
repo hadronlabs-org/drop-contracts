@@ -1375,6 +1375,8 @@ describe('Core', () => {
           neutronUserAddress,
           coreContractClient,
           puppeteerContractClient,
+          neutronIBCDenom,
+          icaAddress,
         } = context;
 
         await waitForPuppeteerICQ(
@@ -1405,55 +1407,34 @@ describe('Core', () => {
         console.log(idleTickAttributes);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('peripheral');
-        // const stakerState = await context.stakerContractClient.queryTxState();
-        // expect(stakerState).toEqual({
-        //   reply_to: context.coreContractClient.contractAddress,
-        //   status: 'waiting_for_ack',
-        //   seq_id: 1,
-        //   transaction: {
-        //     stake: {
-        //       amount: '1000000',
-        //     },
-        //   },
-        // });
+        const nativeBondState =
+          await context.nativeBondProviderContractClient.queryTxState();
+        expect(nativeBondState).toEqual({
+          status: 'waiting_for_ack',
+          transaction: {
+            i_b_c_transfer: {
+              amount: '1000000',
+              denom: neutronIBCDenom,
+              real_amount: '1000000',
+              reason: 'delegate',
+              recipient: icaAddress,
+            },
+          },
+        });
         await checkExchangeRate(context);
       });
-      // it('second tick is failed bc no response from puppeteer yet', async () => {
-      //   const { neutronUserAddress } = context;
-
-      //   await expect(
-      //     context.coreContractClient.tick(
-      //       neutronUserAddress,
-      //       1.5,
-      //       undefined,
-      //       [],
-      //     ),
-      //   ).rejects.toThrowError(/Staker response is not received/);
-      // });
-      // it('state of fsm is staking_bond', async () => {
-      //   const state = await context.coreContractClient.queryContractState();
-      //   expect(state).toEqual('staking_bond');
-      // });
-      // it('wait for staker to get into idle state', async () => {
-      //   let response;
-      //   await waitFor(async () => {
-      //     try {
-      //       response = await context.stakerContractClient.queryTxState();
-      //     } catch (e) {
-      //       //
-      //     }
-      //     return response.status === 'idle';
-      //   }, 100_000);
-      // });
-      // it('get staker ICA zeroed balance', async () => {
-      //   const { gaiaClient } = context;
-      //   const res = await gaiaClient.getBalance(
-      //     context.stakerIcaAddress,
-      //     context.park.config.networks.gaia.denom,
-      //   );
-      //   const balance = parseInt(res.amount);
-      //   expect(balance).toEqual(0);
-      // });
+      it('wait for native bond provider to get into idle state', async () => {
+        let response;
+        await waitFor(async () => {
+          try {
+            response =
+              await context.nativeBondProviderContractClient.queryTxState();
+          } catch (e) {
+            //
+          }
+          return response.status === 'idle';
+        }, 100_000);
+      });
       it('wait for the response from puppeteer', async () => {
         let response: ResponseHookMsg;
         await waitFor(async () => {
@@ -2950,15 +2931,6 @@ describe('Core', () => {
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('peripheral');
 
-        // res = await context.stakerContractClient.iBCTransfer(
-        //   neutronUserAddress,
-        //   1.5,
-        //   undefined,
-        //   [{ amount: '20000', denom: 'untrn' }],
-        // );
-
-        // expect(res.transactionHash).toHaveLength(64);
-
         await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 1);
 
         res = await coreContractClient.unbond(
@@ -3051,29 +3023,22 @@ describe('Core', () => {
         expect(parseInt(nativeBondProviderBalanceAfter, 10)).toEqual(10000);
         console.log('=======================================');
       });
-      // it('staker ibc transfer', async () => {
-      //   const { neutronUserAddress } = context;
-      //   const res = await context.stakerContractClient.iBCTransfer(
-      //     neutronUserAddress,
-      //     1.5,
-      //     undefined,
-      //     [{ amount: '20000', denom: 'untrn' }],
-      //   );
-      //   expect(res.transactionHash).toHaveLength(64);
-      //   await waitFor(async () => {
-      //     const res = await context.stakerContractClient.queryTxState();
-      //     return res.status === 'idle';
-      //   }, 80_000);
-      //   const balances = await context.gaiaClient.getAllBalances(
-      //     context.stakerIcaAddress,
-      //   );
-      //   expect(balances).toEqual([
-      //     {
-      //       amount: '1010000',
-      //       denom: context.park.config.networks.gaia.denom,
-      //     },
-      //   ]);
-      // });
+      it('puppteer account state after bond provider ibc transfer', async () => {
+        await waitFor(async () => {
+          const res =
+            await context.nativeBondProviderContractClient.queryTxState();
+          return res.status === 'idle';
+        }, 80_000);
+        const balances = await context.gaiaClient.getAllBalances(
+          context.icaAddress,
+        );
+        expect(balances).toEqual([
+          {
+            amount: '1000000',
+            denom: context.park.config.networks.gaia.denom,
+          },
+        ]);
+      });
     });
   });
 

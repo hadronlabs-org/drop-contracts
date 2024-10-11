@@ -263,34 +263,41 @@ fn execute_bond(
 fn execute_process_on_idle(
     mut deps: DepsMut<NeutronQuery>,
     env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
     deps.api
         .debug("WASMDEBUG: native-bond  execute_process_on_idle: 1");
+    let config = CONFIG.load(deps.storage)?;
+    ensure_eq!(
+        info.sender,
+        config.core_contract,
+        ContractError::Unauthorized {}
+    );
+    deps.api
+        .debug("WASMDEBUG: native-bond  execute_process_on_idle: 2");
     query_can_process_on_idle(deps.as_ref(), &env)?;
 
     deps.api
-        .debug("WASMDEBUG: native-bond  execute_process_on_idle: 2");
-    let config = CONFIG.load(deps.storage)?;
+        .debug("WASMDEBUG: native-bond  execute_process_on_idle: 3");
 
     let attrs = vec![attr("action", "process_on_idle")];
     let mut submessages: Vec<SubMsg<NeutronMsg>> = vec![];
 
     deps.api
-        .debug("WASMDEBUG: native-bond  execute_process_on_idle: 3");
+        .debug("WASMDEBUG: native-bond  execute_process_on_idle: 4");
 
     if let Some(lsm_msg) = get_delegation_msg(deps.branch(), &env, &config)? {
         deps.api
-            .debug("WASMDEBUG: native-bond  execute_process_on_idle: 4");
+            .debug("WASMDEBUG: native-bond  execute_process_on_idle: 5");
         submessages.push(lsm_msg);
     } else if let Some(lsm_msg) = get_ibc_transfer_msg(deps.branch(), &env, &config)? {
         deps.api
-            .debug("WASMDEBUG: native-bond  execute_process_on_idle: 5");
+            .debug("WASMDEBUG: native-bond  execute_process_on_idle: 6");
         submessages.push(lsm_msg);
     }
 
     deps.api
-        .debug("WASMDEBUG: native-bond  execute_process_on_idle: 6");
+        .debug("WASMDEBUG: native-bond  execute_process_on_idle: 7");
 
     Ok(
         response("process_on_idle", CONTRACT_NAME, Vec::<Attribute>::new())
