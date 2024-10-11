@@ -63,7 +63,7 @@ export type UpdateOwnershipArgs = {
 export interface DropMirrorSchema {
     responses: ArrayOfBondItem | Config | BondItem1 | OwnershipForString;
     query: OneArgs | AllArgs;
-    execute: BondArgs | CompleteArgs | ChangeReturnTypeArgs | UpdateBondArgs | UpdateOwnershipArgs;
+    execute: BondArgs | UpdateConfigArgs | CompleteArgs | ChangeReturnTypeArgs | UpdateBondArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -126,6 +126,16 @@ export interface BondArgs {
     receiver: string;
     ref?: string | null;
 }
+export interface UpdateConfigArgs {
+    new_config: ConfigOptional;
+}
+export interface ConfigOptional {
+    core_contract?: string | null;
+    ibc_timeout?: number | null;
+    prefix?: string | null;
+    source_channel?: string | null;
+    source_port?: string | null;
+}
 export interface CompleteArgs {
     items: number[];
 }
@@ -159,6 +169,7 @@ export declare class Client {
     queryAll: (args: AllArgs) => Promise<ArrayOfBondItem>;
     queryOwnership: () => Promise<OwnershipForString>;
     bond: (sender: string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     complete: (sender: string, args: CompleteArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     changeReturnType: (sender: string, args: ChangeReturnTypeArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateBond: (sender: string, args: UpdateBondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

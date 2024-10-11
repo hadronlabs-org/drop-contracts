@@ -709,7 +709,7 @@ describe('Mirror', () => {
       expect(res.transactionHash).toHaveLength(64);
     });
     it('verify state', async () => {
-      await sleep(10_000);
+      await sleep(15_000);
       const res = await context.mirrorContractClient.queryOne({ id: 2 });
       expect(res.state).toEqual('bonded');
     });
@@ -763,7 +763,73 @@ describe('Mirror', () => {
         );
       expect(res.data.balance.amount).toEqual('10000');
     });
+    it('verify bond is gone from the mirror contract', async () => {
+      await sleep(10_000);
+      await expect(
+        context.mirrorContractClient.queryOne({ id: 2 }),
+      ).to.rejects.toThrow(/not found/);
+    });
   });
-
-  // it('query bond result', async () => {});
+  describe('bond with timeout', () => {
+    it('update timeout', async () => {
+      const res = await context.mirrorContractClient.updateConfig(
+        context.neutronUserAddress,
+        {
+          new_config: {
+            ibc_timeout: 1,
+          },
+        },
+        1.6,
+      );
+      expect(res.transactionHash).toHaveLength(64);
+    });
+    it('bond', async () => {
+      const res = await context.mirrorContractClient.bond(
+        context.neutronUserAddress,
+        {
+          receiver: context.gaiaUserAddress,
+          backup: context.neutronSecondUserAddress,
+        },
+        1.6,
+        '',
+        [
+          {
+            denom: context.neutronIBCDenom,
+            amount: '10000',
+          },
+        ],
+      );
+      expect(res.transactionHash).toHaveLength(64);
+    });
+    it('stop hermes and remote zone', async () => {
+      await sleep(30_000);
+      await context.park.pauseRelayer('hermes', 1);
+      await context.park.pauseNetwork('gaia');
+    });
+    it('complete', async () => {
+      const res = await context.mirrorContractClient.complete(
+        context.neutronUserAddress,
+        { items: [3] },
+        1.6,
+        '',
+        [
+          {
+            denom: 'untrn',
+            amount: '100000',
+          },
+        ],
+      );
+      expect(res.transactionHash).toHaveLength(64);
+    });
+    it('wait for timeout', async () => {
+      await context.park.restartRelayer('hermes', 1);
+      await sleep(30_000);
+      await context.park.restartRelayer('hermes', 1);
+      await sleep(30_000);
+    });
+    it('verify bond state', async () => {
+      const res = await context.mirrorContractClient.queryOne({ id: 3 });
+      expect(res.state).toEqual('bonded');
+    });
+  });
 });

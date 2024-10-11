@@ -70,7 +70,7 @@ export type UpdateOwnershipArgs =
 export interface DropMirrorSchema {
   responses: ArrayOfBondItem | Config | BondItem1 | OwnershipForString;
   query: OneArgs | AllArgs;
-  execute: BondArgs | CompleteArgs | ChangeReturnTypeArgs | UpdateBondArgs | UpdateOwnershipArgs;
+  execute: BondArgs | UpdateConfigArgs | CompleteArgs | ChangeReturnTypeArgs | UpdateBondArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
@@ -132,6 +132,16 @@ export interface BondArgs {
   backup?: string | null;
   receiver: string;
   ref?: string | null;
+}
+export interface UpdateConfigArgs {
+  new_config: ConfigOptional;
+}
+export interface ConfigOptional {
+  core_contract?: string | null;
+  ibc_timeout?: number | null;
+  prefix?: string | null;
+  source_channel?: string | null;
+  source_port?: string | null;
 }
 export interface CompleteArgs {
   items: number[];
@@ -216,6 +226,10 @@ export class Client {
   bond = async(sender:string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { bond: args }, fee || "auto", memo, funds);
+  }
+  updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
   }
   complete = async(sender:string, args: CompleteArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

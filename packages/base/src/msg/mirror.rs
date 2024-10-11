@@ -19,6 +19,9 @@ pub enum ExecuteMsg {
         r#ref: Option<String>,
         backup: Option<String>,
     },
+    UpdateConfig {
+        new_config: crate::state::mirror::ConfigOptional,
+    },
     Complete {
         items: Vec<u64>,
     },

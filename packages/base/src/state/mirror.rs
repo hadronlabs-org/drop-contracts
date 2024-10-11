@@ -57,6 +57,14 @@ pub struct Config {
     pub ibc_timeout: u64,
     pub prefix: String,
 }
+#[cw_serde]
+pub struct ConfigOptional {
+    pub core_contract: Option<String>,
+    pub source_port: Option<String>,
+    pub source_channel: Option<String>,
+    pub ibc_timeout: Option<u64>,
+    pub prefix: Option<String>,
+}
 
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const BONDS: Map<u64, BondItem> = Map::new("bonds");

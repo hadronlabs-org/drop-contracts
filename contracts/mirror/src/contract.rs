@@ -7,7 +7,7 @@ use drop_helpers::answer::response;
 use drop_helpers::ibc_fee::query_ibc_fee;
 use drop_staking_base::msg::mirror::{ExecuteMsg, FungibleTokenPacketData};
 use drop_staking_base::state::mirror::{
-    BondItem, BondState, Config, ReturnType, BONDS, CONFIG, COUNTER,
+    BondItem, BondState, Config, ConfigOptional, ReturnType, BONDS, CONFIG, COUNTER,
 };
 use drop_staking_base::{
     error::mirror::{ContractError, ContractResult},
@@ -111,7 +111,41 @@ pub fn execute(
             backup,
             return_type,
         } => execute_update_bond(deps, env, info, id, receiver, backup, return_type),
+        ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
     }
+}
+
+pub fn execute_update_config(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    new_config: ConfigOptional,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+    let mut config = CONFIG.load(deps.storage)?;
+    let mut attrs = vec![attr("action", "update_config")];
+    if let Some(core_contract) = new_config.core_contract {
+        deps.api.addr_validate(&core_contract)?;
+        attrs.push(attr("core_contract", &core_contract));
+        config.core_contract = core_contract;
+    }
+    if let Some(source_port) = new_config.source_port {
+        attrs.push(attr("source_port", &source_port));
+        config.source_port = source_port;
+    }
+    if let Some(source_channel) = new_config.source_channel {
+        attrs.push(attr("source_channel", &source_channel));
+        config.source_channel = source_channel;
+    }
+    if let Some(ibc_timeout) = new_config.ibc_timeout {
+        attrs.push(attr("ibc_timeout", ibc_timeout.to_string()));
+        config.ibc_timeout = ibc_timeout;
+    }
+    if let Some(prefix) = new_config.prefix {
+        attrs.push(attr("prefix", &prefix));
+        config.prefix = prefix;
+    }
+    CONFIG.save(deps.storage, &config)?;
+    Ok(response("update_config", CONTRACT_NAME, attrs))
 }
 
 pub fn execute_change_return_type(
