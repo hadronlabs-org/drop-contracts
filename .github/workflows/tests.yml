@@ -32,7 +32,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: nightly-2023-12-21
           profile: minimal
           override: true
       - name: Install cargo-tarpaulin
@@ -55,7 +55,7 @@ jobs:
           path: ./cobertura.xml
           threshold: 45
           fail: true
-          publish: true
+          publish: false
           diff: false
           coverage-summary-title: Code Coverage Summary
   rustfmt:

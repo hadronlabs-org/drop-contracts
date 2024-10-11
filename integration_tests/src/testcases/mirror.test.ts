@@ -801,10 +801,10 @@ describe('Mirror', () => {
       );
       expect(res.transactionHash).toHaveLength(64);
     });
-    it('stop hermes and remote zone', async () => {
-      await sleep(30_000);
-      await context.park.pauseRelayer('hermes', 1);
+    it('stop gaia', async () => {
       await context.park.pauseNetwork('gaia');
+      await context.park.pauseRelayer('hermes', 1);
+      await sleep(10_000);
     });
     it('complete', async () => {
       const res = await context.mirrorContractClient.complete(
@@ -821,13 +821,10 @@ describe('Mirror', () => {
       );
       expect(res.transactionHash).toHaveLength(64);
     });
-    it('wait for timeout', async () => {
-      await context.park.restartRelayer('hermes', 1);
-      await sleep(30_000);
-      await context.park.restartRelayer('hermes', 1);
-      await sleep(30_000);
-    });
+
     it('verify bond state', async () => {
+      await context.park.restartRelayer('hermes', 1);
+      await sleep(10_000);
       const res = await context.mirrorContractClient.queryOne({ id: 3 });
       expect(res.state).toEqual('bonded');
     });
