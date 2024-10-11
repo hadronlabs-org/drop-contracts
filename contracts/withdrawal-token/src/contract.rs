@@ -118,8 +118,10 @@ fn mint(
         "execute-mint",
         CONTRACT_NAME,
         [
-            attr_coin("amount", amount, full_denom.denom),
+            attr("amount", amount),
+            attr("denom", full_denom.denom),
             attr("receiver", receiver),
+            attr("batch_id", batch_id.to_string()),
         ],
     )
     .add_message(mint_msg))

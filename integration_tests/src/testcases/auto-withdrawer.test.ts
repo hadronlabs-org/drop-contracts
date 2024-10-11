@@ -500,6 +500,13 @@ describe('Auto withdrawer', () => {
         res.core_contract,
       );
     expect(coreContractInfo.data.contract_info.label).toBe('drop-staking-core');
+    const withdrawalTokenContractInfo =
+        await neutronClient.CosmwasmWasmV1.query.queryContractInfo(
+            res.withdrawal_voucher_contract,
+        );
+    expect(withdrawalTokenContractInfo.data.contract_info.label).toBe(
+        'drop-staking-withdrawal-token',
+    );
     const withdrawalVoucherContractInfo =
       await neutronClient.CosmwasmWasmV1.query.queryContractInfo(
         res.withdrawal_voucher_contract,
@@ -523,6 +530,10 @@ describe('Auto withdrawer', () => {
     );
     context.coreContractClient = instrumentCoreClass(
       new DropCore.Client(context.client, res.core_contract),
+    );
+    context.withdrawalTokenContractClient = new DropWithdrawalToken.Client(
+        context.client,
+        res.withdrawal_token_contract,
     );
     context.withdrawalVoucherContractClient = new DropWithdrawalVoucher.Client(
       context.client,
@@ -823,11 +834,14 @@ describe('Auto withdrawer', () => {
       res.codeId,
       {
         core_address: context.coreContractClient.contractAddress,
+        withdrawal_token_address:
+          context.withdrawalTokenContractClient.contractAddress,
         withdrawal_voucher_address:
           context.withdrawalVoucherContractClient.contractAddress,
         withdrawal_manager_address:
           context.withdrawalManagerContractClient.contractAddress,
         ld_token: ldDenom,
+        withdrawal_denom_prefix: 'drop',
       },
       'drop-auto-withdrawer',
       'auto',

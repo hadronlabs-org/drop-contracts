@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Coin, Uint128, Uint64};
+use cosmwasm_std::{Addr, Coin, Uint128, Uint64};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -13,8 +13,14 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     Bond(BondMsg),
-    Unbond { batch_id: Uint128 },
-    Withdraw { batch_id: Uint128, amount: Uint128 },
+    Unbond {
+        batch_id: Uint128,
+    },
+    Withdraw {
+        batch_id: Uint128,
+        receiver: Option<Addr>,
+        amount: Uint128,
+    },
 }
 
 #[cw_serde]
