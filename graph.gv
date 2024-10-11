@@ -125,7 +125,6 @@ digraph G {
     K048 -> K009;
     
     K009 -> K010;
-    K010 -> K015 [taillabel = "no";];
     
     K015 -> K000 [taillabel = "no";];
     
