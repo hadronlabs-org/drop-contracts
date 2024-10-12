@@ -22,12 +22,11 @@ use drop_staking_base::{
     },
     state::core::{
         unbond_batches_map, Config, ConfigOptional, ContractState, UnbondBatch, UnbondBatchStatus,
-        UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_PROVIDERS, BOND_PROVIDERS_IDX,
-        BOND_PROVIDER_REPLY_ID, CONFIG, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL,
-        LAST_PUPPETEER_RESPONSE, LD_DENOM, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+        UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_HOOKS, BOND_PROVIDERS, BOND_PROVIDERS_IDX,
+        BOND_PROVIDER_REPLY_ID, CONFIG, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT,
+        LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
     },
 };
-use drop_staking_base::{msg::core::QueryMsg, state::core::FAILED_BATCH_ID};
 use neutron_sdk::{
     bindings::query::NeutronQuery, interchain_queries::v045::types::Balances,
     sudo::msg::RequestPacket,
@@ -177,7 +176,7 @@ fn test_update_config() {
 #[test]
 fn test_query_config() {
     let mut deps = mock_dependencies(&[]);
-    let config = get_default_config(0, 0, 0, 0, 0, Uint128::new(0));
+    let config = get_default_config(1000, 10, 6000);
     CONFIG.save(deps.as_mut().storage, &config).unwrap();
     assert_eq!(
         from_json::<Config>(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap())

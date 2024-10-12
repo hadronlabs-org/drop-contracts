@@ -1062,7 +1062,7 @@ fn execute_bond(
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let bonded_coin = cw_utils::one_coin(&info)?;
-    let Coin { mut amount, denom } = bonded_coin.clone();
+    let Coin { amount, denom } = bonded_coin.clone();
     if let Some(bond_limit) = config.bond_limit {
         if BONDED_AMOUNT.load(deps.storage)? + amount > bond_limit {
             return Err(ContractError::BondLimitExceeded {});
