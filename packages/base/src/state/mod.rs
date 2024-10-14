@@ -7,6 +7,7 @@ pub mod provider_proposals;
 pub mod pump;
 pub mod puppeteer;
 pub mod puppeteer_initia;
+pub mod redemption_rate_adapter;
 pub mod rewards_manager;
 pub mod splitter;
 pub mod staker;

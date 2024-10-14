@@ -72,7 +72,7 @@ assert_success() {
 store_code() {
   local res
   res="$(neutrond tx wasm store "$ARTIFACTS_DIR/drop_$1.wasm" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx)"
-  declare -g "$1_code_id=$(echo "$res" | jq -r "$(select_attr "store_code" "code_id")")"
+  eval "$1_code_id=$(echo "$res" | jq -r "$(select_attr "store_code" "code_id")")"
 }
 
 deploy_wasm_code() {
@@ -343,6 +343,16 @@ factory_proxy_execute() {
   echo "$msg" | jq '.'
 
   neutrond tx wasm execute "$factory_address" "$msg" --amount "$amount" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx | assert_success
+}
+
+migrate_contract() {
+  local contract_address="$1"
+  local code_id="$2"
+  local msg="$3"
+
+  echo "$msg" | jq '.'
+
+  neutrond tx wasm migrate "$contract_address" "$code_id" "$msg" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx | assert_success
 }
 
 get_counterparty_channel_id() {

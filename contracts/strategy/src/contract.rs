@@ -161,6 +161,7 @@ fn prepare_delegation_data(
         let delegation = drop_staking_base::msg::distribution::Delegation {
             valoper_address: validator.valoper_address.clone(),
             stake: validator_denom_delegation,
+            on_top: Uint128::zero(),
             weight: validator.weight,
         };
 
@@ -170,7 +171,8 @@ fn prepare_delegation_data(
     }
 
     Ok(drop_staking_base::msg::distribution::Delegations {
-        total: total_delegations,
+        total_stake: total_delegations,
+        total_on_top: Uint128::zero(),
         total_weight,
         delegations,
     })

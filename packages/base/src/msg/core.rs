@@ -4,7 +4,7 @@ use crate::{
     state::core::{Config, ConfigOptional},
 };
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Deps, Uint128, Uint64};
+use cosmwasm_std::{Addr, Deps, Uint128, Uint64};
 use cw_ownable::cw_ownable_execute;
 #[allow(unused_imports)]
 use drop_helpers::pause::PauseInfoResponse;
@@ -124,6 +124,8 @@ pub enum QueryMsg {
     TotalLSMShares {},
     #[returns(FailedBatchResponse)]
     FailedBatch {},
+    #[returns(Vec<String>)]
+    BondHooks {},
 }
 
 #[pausable]
@@ -151,7 +153,26 @@ pub enum ExecuteMsg {
         batch_id: u128,
         unbonded_amount: Uint128,
     },
+    SetBondHooks {
+        hooks: Vec<String>,
+    },
 }
 
 #[cw_serde]
 pub struct MigrateMsg {}
+
+#[cw_serde]
+pub struct BondHook {
+    pub sender: Addr,
+    pub denom: String,
+    pub amount: Uint128,
+    pub dasset_minted: Uint128,
+    pub r#ref: Option<String>,
+}
+
+// Contracts receiving bond hooks are expected to have
+// `BondCallback(BondHook)` in their `ExecuteMsg`
+#[cw_serde]
+pub enum BondCallback {
+    BondCallback(BondHook),
+}

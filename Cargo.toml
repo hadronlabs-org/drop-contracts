@@ -23,6 +23,7 @@ members = [
     "contracts/price-provider",
     "contracts/validators-stats",
     "contracts/validators-set",
+    "contracts/redemption-rate-adapter",
     "packages/base",
     "packages/helpers",
     "packages/macros",

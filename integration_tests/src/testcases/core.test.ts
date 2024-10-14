@@ -11,6 +11,7 @@ import {
   DropStaker,
   DropSplitter,
   DropToken,
+  DropRedemptionRateAdapter,
 } from 'drop-ts-client';
 import {
   QueryClient,
@@ -54,6 +55,7 @@ const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
 const DropRewardsManagerClass = DropRewardsManager.Client;
 const DropRewardsPumpClass = DropPump.Client;
 const DropSplitterClass = DropSplitter.Client;
+const DropRedemptionAdapterClass = DropRedemptionRateAdapter.Client;
 
 const UNBONDING_TIME = 360;
 
@@ -80,6 +82,7 @@ describe('Core', () => {
     >;
     rewardsManagerContractClient?: InstanceType<typeof DropRewardsManagerClass>;
     rewardsPumpContractClient?: InstanceType<typeof DropRewardsPumpClass>;
+    redemptionAdapterClient?: InstanceType<typeof DropRedemptionAdapterClass>;
     account?: AccountData;
     icaAddress?: string;
     stakerIcaAddress?: string;
@@ -101,6 +104,7 @@ describe('Core', () => {
       token?: number;
       withdrawalVoucher?: number;
       withdrawalManager?: number;
+      redemptionRateAdapter?: number;
       strategy?: number;
       staker?: number;
       puppeteer?: number;
@@ -393,6 +397,20 @@ describe('Core', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.staker = res.codeId;
     }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(
+            __dirname,
+            '../../../artifacts/drop_redemption_rate_adapter.wasm',
+          ),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.redemptionRateAdapter = res.codeId;
+    }
 
     const res = await client.upload(
       account.address,
@@ -558,6 +576,27 @@ describe('Core', () => {
       res.splitter_contract,
     );
   });
+
+  it('deploy redemption rate adapter', async () => {
+    const res = await DropRedemptionRateAdapter.Client.instantiate(
+      context.client,
+      context.account.address,
+      context.codeIds.redemptionRateAdapter,
+      {
+        core_contract: context.coreContractClient.contractAddress,
+        denom: `factory/${context.tokenContractClient.contractAddress}/udatom`,
+        owner: context.factoryContractClient.contractAddress,
+      },
+      'drop-redemption-rate-adapter',
+      1.5,
+    );
+    expect(res.contractAddress).toHaveLength(66);
+    context.redemptionAdapterClient = new DropRedemptionRateAdapter.Client(
+      context.client,
+      res.contractAddress,
+    );
+  });
+
   it('query pause state', async () => {
     const { factoryContractClient: contractClient } = context;
     const pauseInfo = await contractClient.queryPauseInfo();
@@ -921,6 +960,16 @@ describe('Core', () => {
     });
     context.ldDenom = ldBalance?.denom;
     await checkExchangeRate(context);
+  });
+
+  it('query redepmtion rate', async () => {
+    const exchangeRate = await context.coreContractClient.queryExchangeRate();
+    const rate = await context.redemptionAdapterClient.queryRedemptionRate({
+      denom: `factory/${context.tokenContractClient.contractAddress}/udatom`,
+    });
+    expect(rate.redemption_rate).toEqual('1');
+    expect(Date.now() / 1000 - rate.update_time).toBeLessThan(5);
+    expect(rate.redemption_rate).toEqual(exchangeRate);
   });
 
   it('delegate tokens on gaia side', async () => {
@@ -1460,6 +1509,16 @@ describe('Core', () => {
           }
           return !!response;
         }, 100_000);
+      });
+      it('query redemption rate', async () => {
+        const exchangeRate =
+          await context.coreContractClient.queryExchangeRate();
+        const rate = await context.redemptionAdapterClient.queryRedemptionRate({
+          denom: `factory/${context.tokenContractClient.contractAddress}/udatom`,
+        });
+        expect(rate.redemption_rate).toEqual('1');
+        // expect(Date.now() / 1000 - rate.update_time).toBeGreaterThan(15);
+        expect(exchangeRate).toEqual(rate.redemption_rate);
       });
       it('next tick goes to idle', async () => {
         const {

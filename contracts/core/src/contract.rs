@@ -9,6 +9,7 @@ use drop_helpers::answer::response;
 use drop_helpers::pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse};
 use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
 use drop_puppeteer_base::state::RedeemShareItem;
+use drop_staking_base::msg::core::{BondCallback, BondHook};
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
@@ -26,9 +27,9 @@ use drop_staking_base::{
         core::{
             unbond_batches_map, Config, ConfigOptional, ContractState, UnbondBatch,
             UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse, BONDED_AMOUNT,
-            CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL,
-            LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE, LD_DENOM,
-            LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+            BOND_HOOKS, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT,
+            LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE,
+            LD_DENOM, LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
         withdrawal_voucher::{Metadata, Trait},
@@ -81,6 +82,7 @@ pub fn instantiate(
     TOTAL_LSM_SHARES.save(deps.storage, &0)?;
     BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
     LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
+    BOND_HOOKS.save(deps.storage, &vec![])?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
@@ -116,6 +118,13 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
         QueryMsg::FailedBatch {} => to_json_binary(&FailedBatchResponse {
             response: FAILED_BATCH_ID.may_load(deps.storage)?,
         })?,
+        QueryMsg::BondHooks {} => to_json_binary(
+            &BOND_HOOKS
+                .load(deps.storage)?
+                .into_iter()
+                .map(|addr| addr.into_string())
+                .collect::<Vec<String>>(),
+        )?,
     })
 }
 
@@ -291,7 +300,33 @@ pub fn execute(
         ExecuteMsg::StakerHook(msg) => execute_staker_hook(deps, env, info, *msg),
         ExecuteMsg::Pause {} => exec_pause(deps, info),
         ExecuteMsg::Unpause {} => exec_unpause(deps, info),
+        ExecuteMsg::SetBondHooks { hooks } => execute_set_bond_hooks(deps, info, hooks),
     }
+}
+
+fn execute_set_bond_hooks(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    hooks: Vec<String>,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    let hooks_validated = hooks
+        .iter()
+        .map(|addr| deps.api.addr_validate(addr))
+        .collect::<StdResult<Vec<Addr>>>()?;
+    BOND_HOOKS.save(deps.storage, &hooks_validated)?;
+
+    let attributes = hooks
+        .into_iter()
+        .map(|addr| attr("contract", addr))
+        .collect::<Vec<Attribute>>();
+
+    Ok(response(
+        "execute-set-bond-hooks",
+        CONTRACT_NAME,
+        attributes,
+    ))
 }
 
 fn exec_pause(
@@ -1014,7 +1049,8 @@ fn execute_bond(
     r#ref: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
-    let Coin { mut amount, denom } = cw_utils::one_coin(&info)?;
+    let bonded_coin = cw_utils::one_coin(&info)?;
+    let Coin { mut amount, denom } = bonded_coin.clone();
     if let Some(bond_limit) = config.bond_limit {
         if BONDED_AMOUNT.load(deps.storage)? + amount > bond_limit {
             return Err(ContractError::BondLimitExceeded {});
@@ -1042,7 +1078,7 @@ fn execute_bond(
         TOTAL_LSM_SHARES.update(deps.storage, |total| {
             StdResult::Ok(total + real_amount.u128())
         })?;
-        PENDING_LSM_SHARES.update(deps.storage, denom, |one| {
+        PENDING_LSM_SHARES.update(deps.storage, denom.clone(), |one| {
             let mut new = one.unwrap_or((remote_denom, Uint128::zero(), Uint128::zero()));
             new.1 += share_amount;
             new.2 += real_amount;
@@ -1053,7 +1089,7 @@ fn execute_bond(
         // if it's not LSM share, we send this amount to the staker
         msgs.push(CosmosMsg::Bank(BankMsg::Send {
             to_address: config.staker_contract.to_string(),
-            amount: vec![Coin::new(amount.u128(), denom)],
+            amount: vec![Coin::new(amount.u128(), &denom)],
         }));
     }
     BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total + amount))?;
@@ -1065,7 +1101,7 @@ fn execute_bond(
         Ok(a)
     })?;
     attrs.push(attr("receiver", receiver.clone()));
-    if let Some(r#ref) = r#ref {
+    if let Some(r#ref) = &r#ref {
         if !r#ref.is_empty() {
             attrs.push(attr("ref", r#ref));
         }
@@ -1078,6 +1114,24 @@ fn execute_bond(
         })?,
         funds: vec![],
     }));
+    let bond_hooks = BOND_HOOKS.load(deps.storage)?;
+    if !bond_hooks.is_empty() {
+        let hook_msg = BondHook {
+            amount: bonded_coin.amount,
+            denom: bonded_coin.denom,
+            sender: info.sender,
+            dasset_minted: issue_amount,
+            r#ref,
+        };
+        for hook in bond_hooks {
+            let msg = WasmMsg::Execute {
+                contract_addr: hook.into_string(),
+                msg: to_json_binary(&BondCallback::BondCallback(hook_msg.clone()))?,
+                funds: vec![],
+            };
+            msgs.push(msg.into());
+        }
+    }
     Ok(response("execute-bond", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
@@ -1717,6 +1771,8 @@ pub fn migrate(
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+        BOND_HOOKS.save(deps.storage, &vec![])?;
     }
 
     Ok(Response::new())

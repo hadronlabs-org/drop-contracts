@@ -1,6 +1,7 @@
-import { Uint64 } from '@cosmjs/math';
+import { Decimal } from '@cosmjs/math';
 
 export type PumpConfig = {
   contractAddress: string;
-  minBalance: Uint64;
+  minBalance: Decimal;
+  icaFeeBuffer: Decimal;
 };
