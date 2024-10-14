@@ -28,23 +28,23 @@ export const DropPriceProvider = _8;
 import * as _9 from './dropProposalVotesPoc';
 export const DropProposalVotesPoc = _9;
 
-import * as _10 from './dropProviderProposalsPoc';
-export const DropProviderProposalsPoc = _10;
+import * as _10 from './dropPuppeteerInitia';
+export const DropPuppeteerInitia = _10;
 
-import * as _11 from './dropPump';
-export const DropPump = _11;
+import * as _11 from './dropPuppeteer';
+export const DropPuppeteer = _11;
 
-import * as _12 from './dropPuppeteer';
-export const DropPuppeteer = _12;
+import * as _12 from './dropRedemptionRateAdapter';
+export const DropRedemptionRateAdapter = _12;
 
-import * as _13 from './dropRedemptionRateAdapter';
-export const DropRedemptionRateAdapter = _13;
+import * as _13 from './dropRewardsManager';
+export const DropRewardsManager = _13;
 
-import * as _14 from './dropRewardsManager';
-export const DropRewardsManager = _14;
+import * as _14 from './dropSplitter';
+export const DropSplitter = _14;
 
-import * as _15 from './dropSplitter';
-export const DropSplitter = _15;
+import * as _15 from './dropStaker';
+export const DropStaker = _15;
 
 import * as _16 from './dropStrategy';
 export const DropStrategy = _16;

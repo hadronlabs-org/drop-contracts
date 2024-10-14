@@ -102,6 +102,32 @@ main() {
   factory_admin_execute $factory_address "$msg"
   echo "[OK] Add LSM share bond provider to the Core contract"
 
+
+  REWARDS_ADDRESS=${REWARDS_ADDRESS:-$rewards_pump_ica_address}
+  update_msg='{
+   "setup_protocol": {
+      "rewards_withdraw_address": "'"$REWARDS_ADDRESS"'"
+    }
+  }'
+
+  msg='{
+    "wasm":{
+      "execute":{
+        "contract_addr":"'"$puppeteer_address"'",
+        "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64 | tr -d "\n")"'",
+        "funds": [
+          {
+            "amount": "200000",
+            "denom": "untrn"
+          }
+        ]
+      }
+    }
+  }'
+
+  factory_admin_execute $factory_address "$msg"
+  echo "[OK] Add Rewards withdraw address to Puppeteer ICA"
+
   msg='{
     "validator_set": {
       "update_validators": {
@@ -110,7 +136,7 @@ main() {
     }
   }'
 
-  factory_proxy_execute $factory_address "$msg" 1000000untrn
+  factory_proxy_execute $factory_address "$msg" 3000000untrn
   echo "[OK] Add initial validators to factory"
 
   deploy_pump

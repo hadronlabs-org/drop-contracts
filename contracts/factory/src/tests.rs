@@ -132,6 +132,7 @@ fn test_instantiate() {
         staker_params: StakerParams {
             min_stake_amount: Uint128::from(0u64),
             min_ibc_transfer: Uint128::from(0u64),
+            chain_type: None,
         },
         fee_params: Some(FeeParams {
             fee: cosmwasm_std::Decimal::new(Uint128::from(0u64)),
@@ -249,7 +250,8 @@ fn test_instantiate() {
                             owner: Some("factory_contract".to_string()),
                             allowed_senders: vec!["some_humanized_address".to_string()],
                             min_ibc_transfer: Uint128::from(0u64),
-                            min_staking_amount: Uint128::from(0u64)
+                            min_staking_amount: Uint128::from(0u64),
+                            chain_type: None
                         })
                         .unwrap(),
                         funds: vec![],

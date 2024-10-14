@@ -42,6 +42,15 @@ pub const NON_STAKED_BALANCE: Item<Uint128> = Item::new("non_staked_balance");
 pub const LAST_PUPPETEER_RESPONSE: Item<PuppeteerResponseHookMsg> =
     Item::new("last_puppeteer_response");
 
+#[cw_serde]
+#[derive(Default)]
+pub enum ChainType {
+    #[default]
+    BasicCosmos,
+    Initia,
+}
+pub const CHAIN_TYPE: Item<ChainType> = Item::new("chain_type");
+
 pub use reply_msg::ReplyMsg;
 pub mod reply_msg {
     const OFFSET: u64 = u16::BITS as u64;

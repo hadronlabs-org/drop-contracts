@@ -294,6 +294,26 @@ pub fn instantiate(
         }),
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
+            code_id: msg.code_ids.staker_code_id,
+            label: get_contract_label("staker"),
+            msg: to_json_binary(&StakerInstantiateMsg {
+                allowed_senders: vec![core_contract.to_string()],
+                owner: Some(env.contract.address.to_string()),
+                remote_denom: msg.remote_opts.denom.to_string(),
+                connection_id: msg.remote_opts.connection_id.to_string(),
+                port_id: msg.remote_opts.port_id.to_string(),
+                transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
+                timeout: msg.remote_opts.timeout.local,
+                base_denom: msg.base_denom.clone(),
+                min_ibc_transfer: msg.staker_params.min_ibc_transfer,
+                min_staking_amount: msg.staker_params.min_stake_amount,
+                chain_type: msg.staker_params.chain_type,
+            })?,
+            funds: vec![],
+            salt: Binary::from(salt),
+        }),
+        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
+            admin: Some(env.contract.address.to_string()),
             code_id: msg.code_ids.strategy_code_id,
             label: "strategy".to_string(),
             msg: to_json_binary(&StrategyInstantiateMsg {

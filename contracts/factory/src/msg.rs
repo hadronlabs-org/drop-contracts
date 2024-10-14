@@ -3,7 +3,7 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{CosmosMsg, Decimal, Uint128};
 use cw_ownable::cw_ownable_execute;
 use drop_macros::pausable;
-use drop_staking_base::msg::token::DenomMetadata;
+use drop_staking_base::{msg::token::DenomMetadata, state::staker::ChainType};
 use neutron_sdk::bindings::msg::NeutronMsg;
 
 #[cw_serde]
@@ -42,6 +42,7 @@ pub struct CoreParams {
 pub struct NativeBondParams {
     pub min_stake_amount: Uint128,
     pub min_ibc_transfer: Uint128,
+    pub chain_type: Option<ChainType>,
 }
 
 #[cw_serde]

@@ -12,13 +12,18 @@ use drop_helpers::{
     },
     testing::mock_dependencies,
 };
+
+use drop_puppeteer_base::msg::IBCTransferReason;
 use drop_puppeteer_base::state::{
     BalancesAndDelegations, BalancesAndDelegationsState, Delegations, DropDelegation,
     PuppeteerBase, ReplyMsg,
 };
+use drop_staking_base::state::puppeteer::NON_NATIVE_REWARD_BALANCES;
 use drop_staking_base::{
     msg::puppeteer::InstantiateMsg,
-    state::puppeteer::{Config, ConfigOptional, KVQueryType, NON_NATIVE_REWARD_BALANCES},
+    state::puppeteer::{
+        BalancesAndDelegations, Config, ConfigOptional, Delegations, DropDelegation, KVQueryType,
+    },
 };
 use neutron_sdk::{
     bindings::{
@@ -35,6 +40,13 @@ use prost::Message;
 use schemars::_serde_json::to_string;
 
 use std::vec;
+
+type PuppeteerBaseType = PuppeteerBase<
+    'static,
+    drop_staking_base::state::puppeteer::Config,
+    KVQueryType,
+    BalancesAndDelegations,
+>;
 
 fn build_interchain_query_response() -> Binary {
     let res: Vec<StorageValue> = from_json(
@@ -697,14 +709,14 @@ fn test_execute_redelegate() {
                 "connection_id".to_string(),
                 "DROP".to_string(),
                 vec![drop_helpers::interchain::prepare_any_msg(
-                    crate::proto::liquidstaking::staking::v1beta1::MsgBeginRedelegate {
+                    drop_proto::proto::liquidstaking::staking::v1beta1::MsgBeginRedelegate {
                         delegator_address: puppeteer_base
                             .ica
                             .get_address(deps.as_mut().storage)
                             .unwrap(),
                         validator_src_address: "validator_from".to_string(),
                         validator_dst_address: "validator_to".to_string(),
-                        amount: Some(crate::proto::cosmos::base::v1beta1::Coin {
+                        amount: Some(drop_proto::proto::cosmos::base::v1beta1::Coin {
                             denom: puppeteer_base
                                 .config
                                 .load(deps.as_mut().storage)
@@ -847,10 +859,10 @@ fn test_execute_tokenize_share() {
                 "connection_id".to_string(),
                 "DROP".to_string(),
                 vec![drop_helpers::interchain::prepare_any_msg(
-                    crate::proto::liquidstaking::staking::v1beta1::MsgTokenizeShares {
+                    drop_proto::proto::liquidstaking::staking::v1beta1::MsgTokenizeShares {
                         delegator_address: delegator.clone(),
                         validator_address: "validator".to_string(),
-                        amount: Some(crate::proto::cosmos::base::v1beta1::Coin {
+                        amount: Some(drop_proto::proto::cosmos::base::v1beta1::Coin {
                             denom: puppeteer_base
                                 .config
                                 .load(deps.as_mut().storage)
@@ -993,8 +1005,8 @@ fn test_execute_redeem_share() {
     let any_msg = neutron_sdk::bindings::types::ProtobufAny {
         type_url: "/cosmos.staking.v1beta1.MsgRedeemTokensForShares".to_string(),
         value: Binary::from(
-            crate::proto::liquidstaking::staking::v1beta1::MsgRedeemTokensforShares {
-                amount: Some(crate::proto::cosmos::base::v1beta1::Coin {
+            drop_proto::proto::liquidstaking::staking::v1beta1::MsgRedeemTokensforShares {
+                amount: Some(drop_proto::proto::cosmos::base::v1beta1::Coin {
                     denom: "remote_denom".to_string(),
                     amount: "1000".to_string(),
                 }),
@@ -2916,12 +2928,12 @@ fn test_get_answers_from_msg_data() {
                 data: vec![
                     cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
                         msg_type: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
-                        data: (crate::proto::liquidstaking::staking::v1beta1::MsgDelegateResponse {})
+                        data: (drop_proto::proto::liquidstaking::staking::v1beta1::MsgDelegateResponse {})
                             .encode_to_vec(),
                     },
                     cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
                         msg_type: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
-                        data: (crate::proto::liquidstaking::staking::v1beta1::MsgUndelegateResponse {
+                        data: (drop_proto::proto::liquidstaking::staking::v1beta1::MsgUndelegateResponse {
                             completion_time: None,
                         })
                         .encode_to_vec(),
@@ -2929,21 +2941,21 @@ fn test_get_answers_from_msg_data() {
                     cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
                         msg_type: "/cosmos.staking.v1beta1.MsgTokenizeShares".to_string(),
                         data:
-                            (crate::proto::liquidstaking::staking::v1beta1::MsgTokenizeSharesResponse {
+                            (drop_proto::proto::liquidstaking::staking::v1beta1::MsgTokenizeSharesResponse {
                                 amount: None,
                             })
                             .encode_to_vec(),
                     },
                     cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
                         msg_type: "/cosmos.staking.v1beta1.MsgBeginRedelegate".to_string(),
-                        data: (crate::proto::liquidstaking::staking::v1beta1::MsgBeginRedelegateResponse {
+                        data: (drop_proto::proto::liquidstaking::staking::v1beta1::MsgBeginRedelegateResponse {
                             completion_time: None
                         })
                             .encode_to_vec(),
                     },
                     cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
                         msg_type: "/cosmos.staking.v1beta1.MsgRedeemTokensForShares".to_string(),
-                        data: (crate::proto::liquidstaking::staking::v1beta1::MsgRedeemTokensforSharesResponse {
+                        data: (drop_proto::proto::liquidstaking::staking::v1beta1::MsgRedeemTokensforSharesResponse {
                             amount: None
                         }).encode_to_vec()
                     },
@@ -2995,7 +3007,7 @@ mod register_delegations_and_balance_query {
         owner: Option<&str>,
     ) -> (
         OwnedDeps<MemoryStorage, MockApi, WasmMockQuerier, NeutronQuery>,
-        PuppeteerBase<'static, drop_staking_base::state::puppeteer::Config, KVQueryType>,
+        PuppeteerBaseType,
     ) {
         let mut deps = mock_dependencies(&[]);
         let puppeteer_base = base_init(&mut deps.as_mut());
@@ -3197,7 +3209,7 @@ fn get_base_config() -> Config {
     }
 }
 
-fn base_init(deps_mut: &mut DepsMut<NeutronQuery>) -> PuppeteerBase<'static, Config, KVQueryType> {
+fn base_init(deps_mut: &mut DepsMut<NeutronQuery>) -> PuppeteerBaseType {
     let puppeteer_base = Puppeteer::default();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     puppeteer_base
