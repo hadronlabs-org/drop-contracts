@@ -9,9 +9,10 @@ use cosmwasm_std::{
     Response, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
-use drop_puppeteer_base::{
-    msg::TransferReadyBatchesMsg,
-    state::{Delegations, DropDelegation, RedeemShareItem},
+use drop_puppeteer_base::{msg::TransferReadyBatchesMsg, state::RedeemShareItem};
+use drop_staking_base::state::{
+    core::{FAILED_BATCH_ID, LAST_STAKER_RESPONSE},
+    puppeteer::{Delegations, DropDelegation},
 };
 use drop_staking_base::{
     error::core::ContractError,
@@ -23,10 +24,9 @@ use drop_staking_base::{
     },
     state::core::{
         unbond_batches_map, Config, ConfigOptional, ContractState, UnbondBatch, UnbondBatchStatus,
-        UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_HOOKS, CONFIG, FAILED_BATCH_ID, FSM,
-        LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE,
-        LAST_STAKER_RESPONSE, LD_DENOM, LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES,
-        UNBOND_BATCH_ID,
+        UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_HOOKS, CONFIG, FSM,
+        LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LD_DENOM,
+        LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
     },
 };
 use neutron_sdk::{

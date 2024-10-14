@@ -748,6 +748,7 @@ export type UpdateOwnershipArgs =
     }
   | "accept_ownership"
   | "renounce_ownership";
+export type ChainType = "basic_cosmos" | "initia";
 
 export interface DropFactorySchema {
   responses: OwnershipForString | PauseInfoResponse | State;
@@ -1246,6 +1247,7 @@ export interface Timeout {
   remote: number;
 }
 export interface StakerParams {
+  chain_type?: ChainType | null;
   min_ibc_transfer: Uint128;
   min_stake_amount: Uint128;
 }

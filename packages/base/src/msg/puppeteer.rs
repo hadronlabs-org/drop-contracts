@@ -4,12 +4,12 @@ use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 use drop_helpers::version::version_to_u32;
 use prost::Message;
 
-use crate::state::puppeteer::ConfigOptional;
+use crate::state::puppeteer::{ConfigOptional, Delegations};
 use cosmos_sdk_proto::cosmos::base::v1beta1::Coin as CosmosCoin;
 use drop_puppeteer_base::{
     msg::{ExecuteMsg as BaseExecuteMsg, IBCTransferReason, TransferReadyBatchesMsg},
     r#trait::PuppeteerReconstruct,
-    state::{Delegations, RedeemShareItem},
+    state::RedeemShareItem,
 };
 use neutron_sdk::{
     bindings::types::StorageValue,
@@ -141,7 +141,11 @@ pub struct MultiBalances {
 
 impl PuppeteerReconstruct for MultiBalances {
     //TODO: fix in sdk and remove this
-    fn reconstruct(storage_values: &[StorageValue], version: &str) -> NeutronResult<MultiBalances> {
+    fn reconstruct(
+        storage_values: &[StorageValue],
+        version: &str,
+        _: Option<&str>,
+    ) -> NeutronResult<MultiBalances> {
         let mut coins: Vec<cosmwasm_std::Coin> = Vec::with_capacity(storage_values.len());
         for kv in storage_values {
             if kv.value.len() > 0 {
