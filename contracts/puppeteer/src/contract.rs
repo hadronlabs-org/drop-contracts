@@ -1,15 +1,3 @@
-use crate::proto::{
-    cosmos::base::v1beta1::Coin as ProtoCoin,
-    liquidstaking::{
-        distribution::v1beta1::MsgWithdrawDelegatorReward,
-        staking::v1beta1::{
-            MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgDelegateResponse,
-            MsgRedeemTokensforShares, MsgRedeemTokensforSharesResponse, MsgTokenizeShares,
-            MsgTokenizeSharesResponse, MsgUndelegateResponse,
-        },
-    },
-};
-
 use cosmos_sdk_proto::cosmos::{
     bank::v1beta1::{MsgSend, MsgSendResponse},
     base::{abci::v1beta1::TxMsgData, v1beta1::Coin},

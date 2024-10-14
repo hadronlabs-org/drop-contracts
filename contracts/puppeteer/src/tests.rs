@@ -13,11 +13,7 @@ use drop_helpers::{
     testing::mock_dependencies,
 };
 
-use drop_puppeteer_base::msg::IBCTransferReason;
-use drop_puppeteer_base::state::{
-    BalancesAndDelegations, BalancesAndDelegationsState, Delegations, DropDelegation,
-    PuppeteerBase, ReplyMsg,
-};
+use drop_puppeteer_base::state::{BalancesAndDelegationsState, PuppeteerBase, ReplyMsg};
 use drop_staking_base::state::puppeteer::NON_NATIVE_REWARD_BALANCES;
 use drop_staking_base::{
     msg::puppeteer::InstantiateMsg,
@@ -1192,7 +1188,7 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
                     )
                     .unwrap(),
                     drop_helpers::interchain::prepare_any_msg(
-                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
+                        drop_proto::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
                             delegator_address: ica_address.clone(),
                             validator_address: "validator1".to_string(),
                         },
@@ -1200,7 +1196,7 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
                     )
                     .unwrap(),
                     drop_helpers::interchain::prepare_any_msg(
-                        crate::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
+                        drop_proto::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
                             delegator_address: ica_address.clone(),
                             validator_address: "validator2".to_string(),
                         },

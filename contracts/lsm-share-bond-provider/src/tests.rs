@@ -13,13 +13,15 @@ use drop_helpers::{
     ica::IcaState,
     testing::{mock_dependencies, WasmMockQuerier},
 };
-use drop_puppeteer_base::state::{Delegations, DropDelegation};
 use drop_staking_base::{
     error::lsm_share_bond_provider::ContractError,
     msg::puppeteer::DelegationsResponse,
-    state::lsm_share_bond_provider::{
-        Config, ConfigOptional, ReplyMsg, TxState, CONFIG, LAST_LSM_REDEEM, PENDING_LSM_SHARES,
-        TOTAL_LSM_SHARES_REAL_AMOUNT, TX_STATE,
+    state::{
+        lsm_share_bond_provider::{
+            Config, ConfigOptional, ReplyMsg, TxState, CONFIG, LAST_LSM_REDEEM, PENDING_LSM_SHARES,
+            TOTAL_LSM_SHARES_REAL_AMOUNT, TX_STATE,
+        },
+        puppeteer::{Delegations, DropDelegation},
     },
 };
 use neutron_sdk::{

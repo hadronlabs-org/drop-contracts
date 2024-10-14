@@ -80,6 +80,7 @@ fn test_instantiate() {
         delegations_queries_chunk_size: Some(2u32),
         owner: Some("owner".to_string()),
         connection_id: "connection_id".to_string(),
+        native_bond_provider: "native_bond_provider".to_string(),
         port_id: "port_id".to_string(),
         update_period: 60u64,
         remote_denom: "move/14a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
@@ -112,6 +113,7 @@ fn test_update_config() {
             remote_denom: Some(
                 "move/24a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a".to_string(),
             ),
+            native_bond_provider: Some(Addr::unchecked("native_bond_provider")),
             allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
             transfer_channel_id: Some("new_transfer_channel_id".to_string()),
             connection_id: Some("new_connection_id".to_string()),
@@ -151,6 +153,7 @@ fn test_update_config() {
             delegations_queries_chunk_size: 2u32,
             port_id: "new_port_id".to_string(),
             connection_id: "new_connection_id".to_string(),
+            native_bond_provider: Addr::unchecked("native_bond_provider"),
             update_period: 121u64,
             remote_denom: "move/24a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
                 .to_string(),
@@ -173,7 +176,6 @@ fn test_execute_setup_protocol() {
     });
     let pupeteer_base = base_init(&mut deps.as_mut());
     let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::SetupProtocol {
-        delegate_grantee: "delegate_grantee".to_string(),
         rewards_withdraw_address: "rewards_withdraw_address".to_string(),
     };
     let res = crate::contract::execute(
@@ -191,47 +193,16 @@ fn test_execute_setup_protocol() {
     let env = mock_env();
     let res = crate::contract::execute(deps.as_mut(), env, mock_info("allowed_sender", &[]), msg)
         .unwrap();
-    let authz_msg = {
-        let msg = cosmos_sdk_proto::cosmos::authz::v1beta1::MsgGrant {
-            granter: "ica_address".to_string(),
-            grantee: "delegate_grantee".to_string(),
-            grant: Some(cosmos_sdk_proto::cosmos::authz::v1beta1::Grant {
-                expiration: Some(prost_types::Timestamp {
-                    seconds: mock_env()
-                        .block
-                        .time
-                        .plus_days(365 * 120 + 30)
-                        .seconds()
-                        .try_into()
-                        .unwrap(),
-                    nanos: 0,
-                }),
-                authorization: Some(cosmos_sdk_proto::Any {
-                    type_url: "/cosmos.authz.v1beta1.GenericAuthorization".to_string(),
-                    value: cosmos_sdk_proto::cosmos::authz::v1beta1::GenericAuthorization {
-                        msg: "/initia.mstaking.v1.MsgDelegate".to_string(),
-                    }
-                    .encode_to_vec(),
-                }),
-            }),
-        };
-        let mut buf = Vec::with_capacity(msg.encoded_len());
-        msg.encode(&mut buf).unwrap();
-        neutron_sdk::bindings::types::ProtobufAny {
-            type_url: "/cosmos.authz.v1beta1.MsgGrant".to_string(),
-            value: Binary::from(buf),
-        }
-    };
     let distribution_msg = {
-        let msg = cosmos_sdk_proto::cosmos::distribution::v1beta1::MsgSetWithdrawAddress {
-            delegator_address: "ica_address".to_string(),
-            withdraw_address: "rewards_withdraw_address".to_string(),
-        };
-        let mut buf = Vec::with_capacity(msg.encoded_len());
-        msg.encode(&mut buf).unwrap();
         neutron_sdk::bindings::types::ProtobufAny {
             type_url: "/cosmos.distribution.v1beta1.MsgSetWithdrawAddress".to_string(),
-            value: Binary::from(buf),
+            value: Binary::from(
+                cosmos_sdk_proto::cosmos::distribution::v1beta1::MsgSetWithdrawAddress {
+                    delegator_address: "ica_address".to_string(),
+                    withdraw_address: "rewards_withdraw_address".to_string(),
+                }
+                .encode_to_vec(),
+            ),
         }
     };
     assert_eq!(
@@ -240,7 +211,7 @@ fn test_execute_setup_protocol() {
             CosmosMsg::Custom(NeutronMsg::submit_tx(
                 "connection_id".to_string(),
                 "DROP".to_string(),
-                vec![authz_msg, distribution_msg],
+                vec![distribution_msg],
                 "".to_string(),
                 100u64,
                 get_standard_fees()
@@ -255,11 +226,12 @@ fn test_execute_setup_protocol() {
             seq_id: None,
             status: drop_puppeteer_base::state::TxStateStatus::InProgress,
             reply_to: Some("".to_string()),
-            transaction: Some(drop_puppeteer_base::msg::Transaction::SetupProtocol {
-                interchain_account_id: "ica_address".to_string(),
-                delegate_grantee: "delegate_grantee".to_string(),
-                rewards_withdraw_address: "rewards_withdraw_address".to_string(),
-            })
+            transaction: Some(
+                drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                    interchain_account_id: "ica_address".to_string(),
+                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                }
+            )
         }
     );
 }
@@ -346,13 +318,15 @@ fn test_execute_undelegate() {
             seq_id: None,
             status: drop_puppeteer_base::state::TxStateStatus::InProgress,
             reply_to: Some("some_reply_to".to_string()),
-            transaction: Some(drop_puppeteer_base::msg::Transaction::Undelegate {
-                batch_id: 0u128,
-                interchain_account_id: "DROP".to_string(),
-                denom: "move/14a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
-                    .to_string(),
-                items: vec![("valoper1".to_string(), Uint128::from(1000u128))]
-            })
+            transaction: Some(
+                drop_puppeteer_base::peripheral_hook::Transaction::Undelegate {
+                    batch_id: 0u128,
+                    interchain_account_id: "DROP".to_string(),
+                    denom: "move/14a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
+                        .to_string(),
+                    items: vec![("valoper1".to_string(), Uint128::from(1000u128))]
+                }
+            )
         }
     );
 }
@@ -534,11 +508,12 @@ fn test_sudo_response_ok() {
         timeout_height: None,
         timeout_timestamp: None,
     };
-    let transaction = drop_puppeteer_base::msg::Transaction::IBCTransfer {
+    let transaction = drop_puppeteer_base::peripheral_hook::Transaction::IBCTransfer {
         denom: "remote_denom".to_string(),
         amount: 1000u128,
+        real_amount: 1000u128,
         recipient: "recipient".to_string(),
-        reason: drop_puppeteer_base::msg::IBCTransferReason::Stake,
+        reason: drop_puppeteer_base::peripheral_hook::IBCTransferReason::Delegate,
     };
     let msg = SudoMsg::Response {
         request: request.clone(),
@@ -563,19 +538,23 @@ fn test_sudo_response_ok() {
         Response::new()
             .add_message(CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
                 contract_addr: "reply_to_contract".to_string(),
-                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PuppeteerHook(
-                    Box::new(drop_puppeteer_base::msg::ResponseHookMsg::Success(
-                        drop_puppeteer_base::msg::ResponseHookSuccessMsg {
-                            request_id: 1,
-                            local_height: 12345,
-                            remote_height: 54321,
-                            request,
-                            transaction,
-                            answers: vec![drop_puppeteer_base::msg::ResponseAnswer::IBCTransfer(
-                                drop_puppeteer_base::proto::MsgIBCTransfer {}
-                            )]
-                        }
-                    ))
+                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PeripheralHook(
+                    Box::new(
+                        drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(
+                            drop_puppeteer_base::peripheral_hook::ResponseHookSuccessMsg {
+                                request_id: 1,
+                                local_height: 12345,
+                                remote_height: 54321,
+                                request,
+                                transaction,
+                                answers: vec![
+                                    drop_puppeteer_base::peripheral_hook::ResponseAnswer::IBCTransfer(
+                                        drop_puppeteer_base::proto::MsgIBCTransfer {}
+                                    )
+                                ]
+                            }
+                        )
+                    )
                 ))
                 .unwrap(),
                 funds: vec![]
@@ -620,11 +599,12 @@ fn test_sudo_response_error() {
         timeout_height: None,
         timeout_timestamp: None,
     };
-    let transaction = drop_puppeteer_base::msg::Transaction::IBCTransfer {
+    let transaction = drop_puppeteer_base::peripheral_hook::Transaction::IBCTransfer {
         denom: "remote_denom".to_string(),
         amount: 1000u128,
+        real_amount: 1000u128,
         recipient: "recipient".to_string(),
-        reason: drop_puppeteer_base::msg::IBCTransferReason::Stake,
+        reason: drop_puppeteer_base::peripheral_hook::IBCTransferReason::Delegate,
     };
     let msg = SudoMsg::Error {
         request: request.clone(),
@@ -649,15 +629,17 @@ fn test_sudo_response_error() {
         Response::new()
             .add_message(CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
                 contract_addr: "reply_to_contract".to_string(),
-                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PuppeteerHook(
-                    Box::new(drop_puppeteer_base::msg::ResponseHookMsg::Error(
-                        drop_puppeteer_base::msg::ResponseHookErrorMsg {
-                            request_id: 1,
-                            request,
-                            transaction,
-                            details: "some shit happened".to_string()
-                        }
-                    ))
+                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PeripheralHook(
+                    Box::new(
+                        drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(
+                            drop_puppeteer_base::peripheral_hook::ResponseHookErrorMsg {
+                                request_id: 1,
+                                request,
+                                transaction,
+                                details: "some shit happened".to_string()
+                            }
+                        )
+                    )
                 ))
                 .unwrap(),
                 funds: vec![]
@@ -727,11 +709,12 @@ fn test_sudo_response_timeout() {
         timeout_height: None,
         timeout_timestamp: None,
     };
-    let transaction = drop_puppeteer_base::msg::Transaction::IBCTransfer {
+    let transaction = drop_puppeteer_base::peripheral_hook::Transaction::IBCTransfer {
         denom: "remote_denom".to_string(),
         amount: 1000u128,
+        real_amount: 1000u128,
         recipient: "recipient".to_string(),
-        reason: drop_puppeteer_base::msg::IBCTransferReason::Stake,
+        reason: drop_puppeteer_base::peripheral_hook::IBCTransferReason::Delegate,
     };
     let msg = SudoMsg::Timeout {
         request: request.clone(),
@@ -755,15 +738,17 @@ fn test_sudo_response_timeout() {
         Response::new()
             .add_message(CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
                 contract_addr: "reply_to_contract".to_string(),
-                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PuppeteerHook(
-                    Box::new(drop_puppeteer_base::msg::ResponseHookMsg::Error(
-                        drop_puppeteer_base::msg::ResponseHookErrorMsg {
-                            request_id: 1,
-                            request,
-                            transaction,
-                            details: "Timeout".to_string()
-                        }
-                    ))
+                msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PeripheralHook(
+                    Box::new(
+                        drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(
+                            drop_puppeteer_base::peripheral_hook::ResponseHookErrorMsg {
+                                request_id: 1,
+                                request,
+                                transaction,
+                                details: "Timeout".to_string()
+                            }
+                        )
+                    )
                 ))
                 .unwrap(),
                 funds: vec![]
@@ -990,6 +975,7 @@ fn get_base_config() -> Config {
         delegations_queries_chunk_size: 2u32,
         port_id: "port_id".to_string(),
         connection_id: "connection_id".to_string(),
+        native_bond_provider: Addr::unchecked("native_bond_provider"),
         update_period: 60u64,
         remote_denom: "move/14a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
             .to_string(),
