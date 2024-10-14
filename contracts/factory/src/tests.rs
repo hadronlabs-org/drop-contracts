@@ -34,7 +34,7 @@ use drop_staking_base::{
         },
         withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
     },
-    state::{pump::PumpTimeout, splitter::Config as SplitterConfig, staker::ChainType},
+    state::{pump::PumpTimeout, splitter::Config as SplitterConfig},
 };
 
 fn get_default_factory_state() -> State {
