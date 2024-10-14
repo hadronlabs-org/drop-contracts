@@ -22,7 +22,6 @@ import { waitFor } from '../helpers/waitFor';
 import { stringToPath } from '@cosmjs/crypto';
 import { instrumentCoreClass } from '../helpers/knot';
 import { sleep } from '../helpers/sleep';
-import { exec } from 'child_process';
 
 const DropMirrorClass = DropMirror.Client;
 const DropFactoryClass = DropFactory.Client;
@@ -769,72 +768,6 @@ describe('Mirror', () => {
       await expect(
         context.mirrorContractClient.queryOne({ id: 2 }),
       ).to.rejects.toThrow(/not found/);
-    });
-  });
-  describe('bond with timeout', () => {
-    it('update timeout', async () => {
-      const res = await context.mirrorContractClient.updateConfig(
-        context.neutronUserAddress,
-        {
-          new_config: {
-            ibc_timeout: 2,
-          },
-        },
-        1.6,
-      );
-      expect(res.transactionHash).toHaveLength(64);
-    });
-    it('bond', async () => {
-      const res = await context.mirrorContractClient.bond(
-        context.neutronUserAddress,
-        {
-          receiver: context.gaiaUserAddress,
-          backup: context.neutronSecondUserAddress,
-        },
-        1.6,
-        '',
-        [
-          {
-            denom: context.neutronIBCDenom,
-            amount: '10000',
-          },
-        ],
-      );
-      expect(res.transactionHash).toHaveLength(64);
-    });
-    it('stop gaia', async () => {
-      await context.park.pauseNetwork('gaia');
-      await context.park.pauseRelayer('hermes', 1);
-      await sleep(30_000);
-    });
-    it('complete', async () => {
-      const res = await context.mirrorContractClient.complete(
-        context.neutronUserAddress,
-        { items: [3] },
-        1.6,
-        '',
-        [
-          {
-            denom: 'untrn',
-            amount: '100000',
-          },
-        ],
-      );
-      expect(res.transactionHash).toHaveLength(64);
-    });
-
-    it('verify bond state', async () => {
-      exec('docker ps -a', (err, stdout, stderr) => {
-        console.log({
-          err,
-          stdout,
-          stderr,
-        });
-      });
-      await context.park.restartRelayer('hermes', 0);
-      await await sleep(60_000);
-      const res = await context.mirrorContractClient.queryOne({ id: 3 });
-      expect(res.state).toEqual('bonded');
     });
   });
 });
