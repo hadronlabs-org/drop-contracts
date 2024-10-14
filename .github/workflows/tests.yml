@@ -32,7 +32,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: nightly-2023-12-21
           profile: minimal
           override: true
       - name: Install cargo-tarpaulin
@@ -46,7 +46,8 @@ jobs:
           "contracts/rewards-manager/*" --exclude-files
           "contracts/puppeteer-authz/*" --exclude-files
           "contracts/validators-stats/*" --exclude-files
-          "contracts/provider-proposals-poc/*" --exclude-files "*schema*" --out
+          "contracts/provider-proposals-poc/*" --exclude-files
+          "contracts/redemption-rate-adapter/*" --exclude-files "*schema*" --out
           Xml --output-dir ./
       - name: Produce the coverage report
         uses: insightsengineering/coverage-action@v2
