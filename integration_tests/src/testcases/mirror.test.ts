@@ -22,6 +22,7 @@ import { waitFor } from '../helpers/waitFor';
 import { stringToPath } from '@cosmjs/crypto';
 import { instrumentCoreClass } from '../helpers/knot';
 import { sleep } from '../helpers/sleep';
+import { exec } from 'child_process';
 
 const DropMirrorClass = DropMirror.Client;
 const DropFactoryClass = DropFactory.Client;
@@ -776,7 +777,7 @@ describe('Mirror', () => {
         context.neutronUserAddress,
         {
           new_config: {
-            ibc_timeout: 1,
+            ibc_timeout: 2,
           },
         },
         1.6,
@@ -804,7 +805,7 @@ describe('Mirror', () => {
     it('stop gaia', async () => {
       await context.park.pauseNetwork('gaia');
       await context.park.pauseRelayer('hermes', 1);
-      await sleep(10_000);
+      await sleep(30_000);
     });
     it('complete', async () => {
       const res = await context.mirrorContractClient.complete(
@@ -823,8 +824,15 @@ describe('Mirror', () => {
     });
 
     it('verify bond state', async () => {
-      await context.park.restartRelayer('hermes', 1);
-      await sleep(10_000);
+      exec('docker ps -a', (err, stdout, stderr) => {
+        console.log({
+          err,
+          stdout,
+          stderr,
+        });
+      });
+      await context.park.restartRelayer('hermes', 0);
+      await await sleep(60_000);
       const res = await context.mirrorContractClient.queryOne({ id: 3 });
       expect(res.state).toEqual('bonded');
     });
