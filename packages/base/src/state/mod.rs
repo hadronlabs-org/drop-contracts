@@ -1,6 +1,7 @@
 pub mod astroport_exchange_handler;
 pub mod core;
 pub mod hook_tester;
+pub mod mirror;
 pub mod price_provider;
 pub mod proposal_votes;
 pub mod provider_proposals;

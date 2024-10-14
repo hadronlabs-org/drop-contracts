@@ -19,6 +19,7 @@ members = [
     "contracts/strategy",
     "contracts/token",
     "contracts/splitter",
+    "contracts/mirror",
     "contracts/price-provider",
     "contracts/validators-stats",
     "contracts/validators-set",
