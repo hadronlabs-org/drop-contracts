@@ -79,7 +79,7 @@ mod test {
     fn get_empty_providers_list() {
         let bond_providers: BondProviders = BondProviders::new("bond_providers");
         let providers = bond_providers
-            .get_all_providers(&mut MockStorage::default())
+            .get_all_providers(&MockStorage::default())
             .unwrap();
         assert_eq!(providers.len(), 0);
     }

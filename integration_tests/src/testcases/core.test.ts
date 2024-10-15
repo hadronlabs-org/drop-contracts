@@ -1397,14 +1397,6 @@ describe('Core', () => {
           ],
         );
         expect(res.transactionHash).toHaveLength(64);
-        console.log(res);
-        console.log(res.events);
-        const idleTickAttributes = res.events.find(
-          (e) =>
-            e.type ===
-            'wasm-crates.io:drop-staking__drop-core-execute-tick_idle',
-        ).attributes;
-        console.log(idleTickAttributes);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('peripheral');
         const nativeBondState =
@@ -1506,24 +1498,6 @@ describe('Core', () => {
           ],
         );
         expect(res.transactionHash).toHaveLength(64);
-
-        console.log(res.events);
-        console.log('----------------------------');
-        const idleTickAttributes = res.events.find(
-          (e) =>
-            e.type ===
-            'wasm-crates.io:drop-staking__drop-core-execute-tick_idle',
-        ).attributes;
-        console.log(idleTickAttributes);
-
-        console.log('----------------------------');
-
-        const idleBondAttributes = res.events.find(
-          (e) =>
-            e.type ===
-            'wasm-crates.io:drop-staking__drop-native-bond-provider-process_on_idle',
-        ).attributes;
-        console.log(idleBondAttributes);
 
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('peripheral');
@@ -2911,14 +2885,6 @@ describe('Core', () => {
 
         expect(res.transactionHash).toHaveLength(64);
 
-        console.log(res);
-        console.log(res.events);
-        const bondAttributes = res.events.find(
-          (e) =>
-            e.type === 'wasm-crates.io:drop-staking__drop-core-execute-bond',
-        ).attributes;
-        console.log(bondAttributes);
-
         await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 1);
 
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, [
@@ -3004,6 +2970,7 @@ describe('Core', () => {
           'nativeBondProviderBalanceBefore',
           nativeBondProviderBalanceBefore,
         );
+        expect(parseInt(nativeBondProviderBalanceBefore, 10)).toEqual(0);
         const res = await context.splitterContractClient.distribute(
           context.neutronUserAddress,
           1.5,

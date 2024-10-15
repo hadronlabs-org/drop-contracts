@@ -1152,6 +1152,14 @@ describe('Auto withdrawer', () => {
 
         console.log('---------------------------------');
         console.log(delegations.delegations.delegations);
+        expect(delegations.delegations.delegations).toHaveLength(2);
+
+        expect(
+          parseInt(delegations.delegations.delegations[0].amount.amount, 10),
+        ).toEqual(500000);
+        expect(
+          parseInt(delegations.delegations.delegations[1].amount.amount, 10),
+        ).toEqual(500000);
         await checkExchangeRate(context);
       });
       it('tick 4 (idle)', async () => {

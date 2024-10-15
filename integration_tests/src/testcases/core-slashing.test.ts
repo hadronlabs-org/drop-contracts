@@ -938,6 +938,15 @@ describe('Core Slashing', () => {
 
       console.log('---------------------------------');
       console.log(delegations.delegations.delegations);
+      expect(delegations.delegations.delegations).toHaveLength(2);
+
+      expect(
+        parseInt(delegations.delegations.delegations[0].amount.amount, 10),
+      ).toEqual(500);
+      expect(
+        parseInt(delegations.delegations.delegations[1].amount.amount, 10),
+      ).toEqual(500);
+
       await checkExchangeRate(context);
     });
     it('tick 4 (idle)', async () => {
@@ -1096,6 +1105,15 @@ describe('Core Slashing', () => {
 
       console.log('---------------------------------');
       console.log(delegations.delegations.delegations);
+      expect(delegations.delegations.delegations).toHaveLength(2);
+
+      expect(
+        parseInt(delegations.delegations.delegations[0].amount.amount, 10),
+      ).toEqual(250);
+      expect(
+        parseInt(delegations.delegations.delegations[1].amount.amount, 10),
+      ).toEqual(250);
+
       await checkExchangeRate(context);
 
       await coreContractClient.bond(neutronUserAddress, {}, 1.6, undefined, [
@@ -1188,17 +1206,7 @@ describe('Core Slashing', () => {
       );
       const state = await context.coreContractClient.queryContractState();
       expect(state).toEqual('idle');
-      // let response;
-      // await waitFor(async () => {
-      //   try {
-      //     response = (
-      //       await context.coreContractClient.queryLastStakerResponse()
-      //     ).response;
-      //   } catch (e) {
-      //     //
-      //   }
-      //   return !!response;
-      // }, 100_000);
+
       const { remote_height: currentHeight } =
         (await context.puppeteerContractClient.queryExtension({
           msg: {
@@ -1328,6 +1336,15 @@ describe('Core Slashing', () => {
 
       console.log('---------------------------------');
       console.log(delegations.delegations.delegations);
+      expect(delegations.delegations.delegations).toHaveLength(2);
+
+      expect(
+        parseInt(delegations.delegations.delegations[0].amount.amount, 10),
+      ).toEqual(250);
+      expect(
+        parseInt(delegations.delegations.delegations[1].amount.amount, 10),
+      ).toEqual(250);
+
       await checkExchangeRate(context);
     });
     it('tick 4 (idle)', async () => {
