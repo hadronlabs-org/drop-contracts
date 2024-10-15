@@ -1,4 +1,5 @@
 pub mod astroport_exchange_handler;
+pub mod bond_providers;
 pub mod core;
 pub mod hook_tester;
 pub mod lsm_share_bond_provider;

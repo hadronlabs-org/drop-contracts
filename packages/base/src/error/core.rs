@@ -133,6 +133,9 @@ pub enum ContractError {
     #[error("Bond provider already exists")]
     BondProviderAlreadyExists {},
 
+    #[error("Empty list of providers")]
+    BondProvidersListAreEmpty {},
+
     #[error("Bond provider error: {message}")]
     BondProviderError { message: String },
 

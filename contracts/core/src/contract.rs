@@ -1,8 +1,8 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankQuery, Binary, Coin,
-    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Empty, Env, MessageInfo, Order, QueryRequest,
-    Reply, Response, StdError, StdResult, SubMsg, SubMsgResult, Uint128, Uint64, WasmMsg,
+    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest, Reply,
+    Response, StdError, StdResult, SubMsg, SubMsgResult, Uint128, Uint64, WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
@@ -10,9 +10,7 @@ use drop_helpers::pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoR
 use drop_puppeteer_base::msg::TransferReadyBatchesMsg;
 use drop_puppeteer_base::peripheral_hook::IBCTransferReason;
 use drop_staking_base::msg::core::{BondCallback, BondHook};
-use drop_staking_base::state::core::{
-    BOND_HOOKS, BOND_PROVIDERS, BOND_PROVIDERS_IDX, BOND_PROVIDER_REPLY_ID,
-};
+use drop_staking_base::state::core::{BOND_HOOKS, BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID};
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
@@ -82,7 +80,8 @@ pub fn instantiate(
     LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &0)?;
     BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
     BOND_HOOKS.save(deps.storage, &vec![])?;
-    BOND_PROVIDERS_IDX.save(deps.storage, &0)?;
+    BOND_PROVIDERS.init(deps.storage)?;
+    // BOND_PROVIDERS_IDX.save(deps.storage, &0)?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
@@ -135,7 +134,7 @@ fn query_pause_info(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
 
 fn query_total_async_tokens(deps: Deps<NeutronQuery>) -> ContractResult<Uint128> {
     let mut total_async_shares = Uint128::zero();
-    let bond_providers = query_bond_providers(deps)?;
+    let bond_providers = BOND_PROVIDERS.get_all_providers(deps.storage)?;
     for provider in bond_providers {
         let async_tokens_amount: Uint128 = deps.querier.query_wasm_smart(
             provider.to_string(),
@@ -149,12 +148,7 @@ fn query_total_async_tokens(deps: Deps<NeutronQuery>) -> ContractResult<Uint128>
 }
 
 fn query_bond_providers(deps: Deps<NeutronQuery>) -> ContractResult<Vec<Addr>> {
-    Ok(BOND_PROVIDERS
-        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .collect::<StdResult<Vec<(Addr, Empty)>>>()?
-        .into_iter()
-        .map(|(addr, _)| addr)
-        .collect())
+    Ok(BOND_PROVIDERS.get_all_providers(deps.storage)?)
 }
 
 fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractResult<Decimal> {
@@ -348,12 +342,7 @@ fn execute_add_bond_provider(
 
     let bond_provider_address = deps.api.addr_validate(&bond_provider_address)?;
 
-    if BOND_PROVIDERS.has(deps.storage, bond_provider_address.clone()) {
-        return Err(ContractError::BondProviderAlreadyExists {});
-    }
-
-    let empty = Empty {};
-    BOND_PROVIDERS.save(deps.storage, bond_provider_address.clone(), &empty)?;
+    BOND_PROVIDERS.add(deps.storage, bond_provider_address.clone())?;
 
     Ok(response(
         "execute-add_bond_provider",
@@ -374,7 +363,7 @@ fn execute_remove_bond_provider(
 
     let bond_provider_address = deps.api.addr_validate(&bond_provider_address)?;
 
-    BOND_PROVIDERS.remove(deps.storage, bond_provider_address.clone());
+    BOND_PROVIDERS.remove(deps.storage, bond_provider_address.clone())?;
 
     Ok(response(
         "execute-remove_bond_provider",
@@ -513,7 +502,7 @@ fn execute_puppeteer_hook(
 
     let allowed_senders: Vec<_> = vec![config.puppeteer_contract]
         .into_iter()
-        .chain(query_bond_providers(deps.as_ref())?)
+        .chain(BOND_PROVIDERS.get_all_providers(deps.as_ref().storage)?)
         .collect();
 
     deps.api.debug("WASMDEBUG: core execute_puppeteer_hook: 2");
@@ -601,29 +590,9 @@ fn execute_tick_idle(
     attrs.push(attr("knot", "003"));
     deps.api.debug("WASMDEBUG: core execute_tick_idle: 1");
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
-        let bond_providers = query_bond_providers(deps.as_ref())?;
-        deps.api
-            .debug(&format!("WASMDEBUG: bond_providers: {:?}", bond_providers));
-        let mut bond_providers_idx = BOND_PROVIDERS_IDX.load(deps.storage)?;
-        deps.api.debug(&format!(
-            "WASMDEBUG: bond_providers_idx: {:?}",
-            bond_providers_idx
-        ));
         deps.api.debug("WASMDEBUG: core execute_tick_idle: 2");
-        let total_providers = bond_providers.len();
-        if total_providers == 0 {
-            return Ok(response(
-                "execute-tick_idle",
-                CONTRACT_NAME,
-                vec![attr("bond_providers", "empty")],
-            ));
-        }
+        let provider = BOND_PROVIDERS.next(deps.storage)?;
         deps.api.debug("WASMDEBUG: core execute_tick_idle: 3");
-
-        if bond_providers_idx >= total_providers {
-            bond_providers_idx = 0;
-        }
-        let provider = bond_providers[bond_providers_idx].clone();
         deps.api
             .debug(&format!("WASMDEBUG: provider: {:?}", provider));
         deps.api.debug("WASMDEBUG: core execute_tick_idle: 4");
@@ -657,8 +626,6 @@ fn execute_tick_idle(
         }
 
         deps.api.debug("WASMDEBUG: core execute_tick_idle: 6");
-
-        BOND_PROVIDERS_IDX.save(deps.storage, &(bond_providers_idx + 1))?;
     } else {
         deps.api.debug("WASMDEBUG: core execute_tick_idle: 7");
         LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
@@ -1074,7 +1041,7 @@ fn execute_bond(
     let exchange_rate = query_exchange_rate(deps.as_ref(), &config)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
 
-    let bond_providers = query_bond_providers(deps.as_ref())?;
+    let bond_providers = BOND_PROVIDERS.get_all_providers(deps.as_ref().storage)?;
     for provider in bond_providers {
         let can_bond: bool = deps.querier.query_wasm_smart(
             provider.to_string(),
