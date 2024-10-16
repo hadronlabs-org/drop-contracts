@@ -233,7 +233,7 @@ fn reply_after_new_bond_with_ld_assets() {
         Reply {
             id: CORE_UNBOND_REPLY_ID,
             result: SubMsgResult::Ok(SubMsgResponse {
-                events: vec![Event::new("wasm")
+                events: vec![Event::new("wasm-drop-withdrawal-token-execute-mint")
                     .add_attribute("denom", "factory/withdrawal_token_contract/drop:unbond:0")
                     .add_attribute("receiver", "receiver")
                     .add_attribute("batch_id", "0")
@@ -298,7 +298,7 @@ fn reply_after_existing_bond_with_ld_assets() {
         Reply {
             id: CORE_UNBOND_REPLY_ID,
             result: SubMsgResult::Ok(SubMsgResponse {
-                events: vec![Event::new("wasm")
+                events: vec![Event::new("wasm-drop-withdrawal-token-execute-mint")
                     .add_attribute("denom", "factory/withdrawal_token_contract/drop:unbond:0")
                     .add_attribute("receiver", "receiver")
                     .add_attribute("batch_id", "0")
@@ -324,7 +324,7 @@ fn reply_after_existing_bond_with_ld_assets() {
         Reply {
             id: CORE_UNBOND_REPLY_ID,
             result: SubMsgResult::Ok(SubMsgResponse {
-                events: vec![Event::new("wasm")
+                events: vec![Event::new("wasm-drop-withdrawal-token-execute-mint")
                     .add_attribute("denom", "factory/withdrawal_token_contract/drop:unbond:0")
                     .add_attribute("receiver", "receiver")
                     .add_attribute("batch_id", "0")
@@ -404,7 +404,7 @@ fn reply_invalid_attribute() {
         Reply {
             id: CORE_UNBOND_REPLY_ID,
             result: SubMsgResult::Ok(SubMsgResponse {
-                events: vec![Event::new("wasm")
+                events: vec![Event::new("wasm-drop-withdrawal-token-execute-mint")
                     .add_attribute("denom", "factory/withdrawal_token_contract/drop:unbond:0")
                     .add_attribute("receiver", "receiver")
                     .add_attribute("batch_id", "0")
