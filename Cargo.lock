@@ -1103,7 +1103,6 @@ dependencies = [
  "cw721 0.18.0",
  "drop-helpers",
  "drop-staking-base",
- "log",
  "neutron-sdk",
  "semver",
  "thiserror",
