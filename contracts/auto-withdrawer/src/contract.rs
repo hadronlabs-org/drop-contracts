@@ -285,6 +285,7 @@ pub fn reply(
             CORE_UNBOND.remove(deps.storage);
             // it is safe to use unwrap() here since this reply is only called on success
             let events = reply.result.unwrap().events;
+            deps.api.debug(&format!("WASMDEBUG: {:?}", events));
             reply_core_unbond(deps, sender, deposit, events)
         }
         id => Err(ContractError::InvalidCoreReplyId { id }),
@@ -294,10 +295,9 @@ pub fn reply(
 fn get_value_from_events(events: Vec<Event>, key: String) -> String {
     events
         .into_iter()
-        .filter(|event| event.ty == "wasm")
+        .filter(|event| event.ty == "wasm-drop-withdrawal-token-execute-mint")
         .flat_map(|event| event.attributes)
         .find(|attribute| attribute.key == key)
-        // it is safe to use unwrap here because cw-721 always generates valid events on success
         .unwrap()
         .value
 }

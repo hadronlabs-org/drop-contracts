@@ -77,7 +77,7 @@ describe('Core', () => {
     splitterContractClient?: InstanceType<typeof DropSplitterClass>;
     tokenContractClient?: InstanceType<typeof DropTokenClass>;
     withdrawalTokenContractClient?: InstanceType<
-        typeof DropWithdrawalTokenClass
+      typeof DropWithdrawalTokenClass
     >;
     withdrawalVoucherContractClient?: InstanceType<
       typeof DropWithdrawalVoucherClass
@@ -299,11 +299,11 @@ describe('Core', () => {
     }
     {
       const res = await client.upload(
-          account.address,
-          fs.readFileSync(
-              join(__dirname, '../../../artifacts/drop_withdrawal_token.wasm'),
-          ),
-          1.5,
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_withdrawal_token.wasm'),
+        ),
+        1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.withdrawalToken = res.codeId;
@@ -535,10 +535,10 @@ describe('Core', () => {
     expect(coreContractInfo.data.contract_info.label).toBe('drop-staking-core');
     const withdrawalTokenContractInfo =
       await neutronClient.CosmwasmWasmV1.query.queryContractInfo(
-          res.withdrawal_token_contract,
+        res.withdrawal_token_contract,
       );
     expect(withdrawalTokenContractInfo.data.contract_info.label).toBe(
-        'drop-staking-withdrawal-token',
+      'drop-staking-withdrawal-token',
     );
     const withdrawalVoucherContractInfo =
       await neutronClient.CosmwasmWasmV1.query.queryContractInfo(
@@ -565,8 +565,8 @@ describe('Core', () => {
       new DropCore.Client(context.client, res.core_contract),
     );
     context.withdrawalTokenContractClient = new DropWithdrawalToken.Client(
-        context.client,
-        res.withdrawal_token_contract,
+      context.client,
+      res.withdrawal_token_contract,
     );
     context.withdrawalVoucherContractClient = new DropWithdrawalVoucher.Client(
       context.client,
@@ -2118,13 +2118,19 @@ describe('Core', () => {
 
     describe('forth cycle', () => {
       it('validates withdrawal tokens balance', async () => {
-        const { neutronClient, neutronUserAddress, withdrawalTokenContractClient } = context;
+        const {
+          neutronClient,
+          neutronUserAddress,
+          withdrawalTokenContractClient,
+        } = context;
         const balances =
-            await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
-                neutronUserAddress,
-            );
-        const withdrawalTokenBalance = balances.data.balances.find((b) =>
-            b.denom === `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`
+          await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+            neutronUserAddress,
+          );
+        const withdrawalTokenBalance = balances.data.balances.find(
+          (b) =>
+            b.denom ===
+            `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`,
         );
         expect(withdrawalTokenBalance.amount).eq('500000');
       });
@@ -2157,21 +2163,41 @@ describe('Core', () => {
         await contractClient.pause(account.address);
 
         await expect(
-            withdrawalManagerContractClient.receiveWithdrawalDenoms(neutronUserAddress, {}, 'auto', null, [{
-              denom: `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`,
-              amount: '100000',
-            }])
+          withdrawalManagerContractClient.receiveWithdrawalDenoms(
+            neutronUserAddress,
+            {},
+            'auto',
+            null,
+            [
+              {
+                denom: `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`,
+                amount: '100000',
+              },
+            ],
+          ),
         ).rejects.toThrowError(/Contract execution is paused/);
 
         await contractClient.unpause(account.address);
       });
       it('try to withdraw before withdrawn', async () => {
-        const { withdrawalManagerContractClient, withdrawalTokenContractClient, neutronUserAddress } = context;
+        const {
+          withdrawalManagerContractClient,
+          withdrawalTokenContractClient,
+          neutronUserAddress,
+        } = context;
         await expect(
-            withdrawalManagerContractClient.receiveWithdrawalDenoms(neutronUserAddress, {}, 'auto', null, [{
-              denom: `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`,
-              amount: '100000',
-            }])
+          withdrawalManagerContractClient.receiveWithdrawalDenoms(
+            neutronUserAddress,
+            {},
+            'auto',
+            null,
+            [
+              {
+                denom: `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`,
+                amount: '100000',
+              },
+            ],
+          ),
         ).rejects.toThrowError(/is not withdrawn yet/);
       });
       it('update idle interval', async () => {
@@ -2317,10 +2343,18 @@ describe('Core', () => {
           neutronUserAddress,
         } = context;
         await expect(
-            withdrawalManagerContractClient.receiveWithdrawalDenoms(neutronUserAddress, {}, 'auto', null, [{
-              denom: `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`,
-              amount: '100000',
-            }])
+          withdrawalManagerContractClient.receiveWithdrawalDenoms(
+            neutronUserAddress,
+            {},
+            'auto',
+            null,
+            [
+              {
+                denom: `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`,
+                amount: '100000',
+              },
+            ],
+          ),
         ).rejects.toThrowError(/spendable balance [\w/]+ is smaller than/);
       });
       it('fund withdrawal manager', async () => {
@@ -2347,7 +2381,6 @@ describe('Core', () => {
         const {
           withdrawalTokenContractClient,
           withdrawalManagerContractClient,
-          withdrawalVoucherContractClient: voucherContractClient,
           neutronUserAddress,
           neutronClient,
           neutronIBCDenom,
@@ -2360,10 +2393,19 @@ describe('Core', () => {
             )
           ).data.balance.amount,
         );
-        const res = await withdrawalManagerContractClient.receiveWithdrawalDenoms(neutronUserAddress, {}, 'auto', null, [{
-          denom: `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`,
-          amount: '200000',
-        }]);
+        const res =
+          await withdrawalManagerContractClient.receiveWithdrawalDenoms(
+            neutronUserAddress,
+            {},
+            'auto',
+            null,
+            [
+              {
+                denom: `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`,
+                amount: '200000',
+              },
+            ],
+          );
         expect(res.transactionHash).toHaveLength(64);
         const balance =
           await neutronClient.CosmosBankV1Beta1.query.queryBalance(
@@ -2393,12 +2435,19 @@ describe('Core', () => {
           ).data.balance.amount,
         );
         expect(balanceBefore).toEqual(0);
-        const res = await withdrawalManagerContractClient.receiveWithdrawalDenoms(neutronUserAddress,
+        const res =
+          await withdrawalManagerContractClient.receiveWithdrawalDenoms(
+            neutronUserAddress,
             { receiver: neutronSecondUserAddress },
             'auto',
             null,
-            [{ denom: `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`, amount: '300000'}]
-        );
+            [
+              {
+                denom: `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`,
+                amount: '300000',
+              },
+            ],
+          );
         expect(res.transactionHash).toHaveLength(64);
         const balance =
           await neutronClient.CosmosBankV1Beta1.query.queryBalance(

@@ -287,11 +287,11 @@ describe('Core Slashing', () => {
     }
     {
       const res = await client.upload(
-          account.address,
-          fs.readFileSync(
-              join(__dirname, '../../../artifacts/drop_withdrawal_token.wasm'),
-          ),
-          1.5,
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_withdrawal_token.wasm'),
+        ),
+        1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.withdrawalToken = res.codeId;
