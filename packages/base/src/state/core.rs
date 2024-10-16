@@ -1,8 +1,10 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Decimal, Empty, Uint128};
+use cosmwasm_std::{Addr, Decimal, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use drop_helpers::fsm::{Fsm, Transition};
 use drop_puppeteer_base::peripheral_hook::ResponseHookMsg as PuppeteerResponseHookMsg;
+
+use super::bond_providers::BondProviders;
 
 #[cw_serde]
 pub struct ConfigOptional {
@@ -170,5 +172,5 @@ pub const LAST_LSM_REDEEM: Item<u64> = Item::new("last_lsm_redeem");
 pub const EXCHANGE_RATE: Item<(Decimal, u64)> = Item::new("exchange_rate");
 pub const LD_DENOM: Item<String> = Item::new("ld_denom");
 pub const BOND_HOOKS: Item<Vec<Addr>> = Item::new("bond_hooks");
-pub const BOND_PROVIDERS: Map<Addr, Empty> = Map::new("bond_providers");
-pub const BOND_PROVIDERS_IDX: Item<usize> = Item::new("bond_providers_idx");
+
+pub const BOND_PROVIDERS: BondProviders = BondProviders::new("bond_providers");

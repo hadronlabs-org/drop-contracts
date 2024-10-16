@@ -5,8 +5,8 @@ use crate::contract::{
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockStorage},
-    to_json_binary, Addr, Coin, CosmosMsg, Decimal, Decimal256, Empty, Event, OwnedDeps, Response,
-    SubMsg, Timestamp, Uint128, WasmMsg,
+    to_json_binary, Addr, Coin, CosmosMsg, Decimal, Decimal256, Event, OwnedDeps, Response, SubMsg,
+    Timestamp, Uint128, WasmMsg,
 };
 use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
 
@@ -24,9 +24,9 @@ use drop_staking_base::{
     },
     state::core::{
         unbond_batches_map, Config, ConfigOptional, ContractState, UnbondBatch, UnbondBatchStatus,
-        UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_HOOKS, BOND_PROVIDERS, BOND_PROVIDERS_IDX,
-        BOND_PROVIDER_REPLY_ID, CONFIG, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL,
-        LAST_PUPPETEER_RESPONSE, LD_DENOM, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+        UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_HOOKS, BOND_PROVIDERS,
+        BOND_PROVIDER_REPLY_ID, CONFIG, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT,
+        LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
     },
 };
 use neutron_sdk::{
@@ -366,6 +366,8 @@ fn test_add_remove_bond_provider() {
 #[test]
 fn test_execute_tick_idle_process_bondig_provider() {
     let mut deps = mock_dependencies(&[]);
+    BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
+
     deps.querier
         .add_wasm_query_response("lsm_provider_address", |_| to_json_binary(&true).unwrap());
 
@@ -392,12 +394,10 @@ fn test_execute_tick_idle_process_bondig_provider() {
             .unwrap()
         });
 
-    let empty = Empty {};
     BOND_PROVIDERS
-        .save(
+        .add(
             deps.as_mut().storage,
             Addr::unchecked("lsm_provider_address"),
-            &empty,
         )
         .unwrap();
 
@@ -413,7 +413,6 @@ fn test_execute_tick_idle_process_bondig_provider() {
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
     LAST_IDLE_CALL.save(deps.as_mut().storage, &0).unwrap();
-    BOND_PROVIDERS_IDX.save(deps.as_mut().storage, &0).unwrap();
 
     BONDED_AMOUNT
         .save(deps.as_mut().storage, &Uint128::zero())
@@ -1563,6 +1562,7 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
 #[test]
 fn test_bond_wo_receiver() {
     let mut deps = mock_dependencies(&[]);
+    BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
     deps.querier
         .add_wasm_query_response("native_provider_address", |_| {
@@ -1573,12 +1573,10 @@ fn test_bond_wo_receiver() {
             to_json_binary(&Uint128::from(1000u128)).unwrap()
         });
 
-    let empty = Empty {};
     BOND_PROVIDERS
-        .save(
+        .add(
             deps.as_mut().storage,
             Addr::unchecked("native_provider_address"),
-            &empty,
         )
         .unwrap();
 
@@ -1645,6 +1643,8 @@ fn test_bond_wo_receiver() {
 #[test]
 fn test_bond_with_receiver() {
     let mut deps = mock_dependencies(&[]);
+    BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
+
     deps.querier
         .add_wasm_query_response("native_provider_address", |_| {
             to_json_binary(&true).unwrap()
@@ -1661,12 +1661,10 @@ fn test_bond_with_receiver() {
     BONDED_AMOUNT
         .save(deps.as_mut().storage, &Uint128::zero())
         .unwrap();
-    let empty = Empty {};
     BOND_PROVIDERS
-        .save(
+        .add(
             deps.as_mut().storage,
             Addr::unchecked("native_provider_address"),
-            &empty,
         )
         .unwrap();
     CONFIG
@@ -1765,6 +1763,8 @@ fn test_bond_lsm_share_increase_exchange_rate() {
         denom: "ld_denom".to_string(),
         amount: Uint128::new(1001),
     }]);
+    BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
+
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&DelegationsResponse {
@@ -1812,12 +1812,10 @@ fn test_bond_lsm_share_increase_exchange_rate() {
             to_json_binary(&Uint128::from(100500u128)).unwrap()
         });
 
-    let empty = Empty {};
     BOND_PROVIDERS
-        .save(
+        .add(
             deps.as_mut().storage,
             Addr::unchecked("native_provider_address"),
-            &empty,
         )
         .unwrap();
 
@@ -2566,6 +2564,7 @@ mod bond_hooks {
     #[test]
     fn execute_bond_with_active_bond_hook_no_ref() {
         let mut deps = mock_dependencies(&[]);
+        BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
         deps.querier
             .add_wasm_query_response("native_provider_address", |_| {
@@ -2582,12 +2581,10 @@ mod bond_hooks {
         BONDED_AMOUNT
             .save(deps.as_mut().storage, &Uint128::zero())
             .unwrap();
-        let empty = Empty {};
         BOND_PROVIDERS
-            .save(
+            .add(
                 deps.as_mut().storage,
                 Addr::unchecked("native_provider_address"),
-                &empty,
             )
             .unwrap();
         CONFIG
@@ -2638,6 +2635,7 @@ mod bond_hooks {
     #[test]
     fn execute_bond_with_active_bond_hook() {
         let mut deps = mock_dependencies(&[]);
+        BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
         deps.querier
             .add_wasm_query_response("native_provider_address", |_| {
@@ -2654,12 +2652,11 @@ mod bond_hooks {
         BONDED_AMOUNT
             .save(deps.as_mut().storage, &Uint128::zero())
             .unwrap();
-        let empty = Empty {};
+
         BOND_PROVIDERS
-            .save(
+            .add(
                 deps.as_mut().storage,
                 Addr::unchecked("native_provider_address"),
-                &empty,
             )
             .unwrap();
         CONFIG
@@ -2710,6 +2707,8 @@ mod bond_hooks {
     #[test]
     fn execute_bond_with_active_bond_hooks() {
         let mut deps = mock_dependencies(&[]);
+        BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
+
         deps.querier
             .add_wasm_query_response("native_provider_address", |_| {
                 to_json_binary(&true).unwrap()
@@ -2727,12 +2726,11 @@ mod bond_hooks {
         BONDED_AMOUNT
             .save(deps.as_mut().storage, &Uint128::zero())
             .unwrap();
-        let empty = Empty {};
+
         BOND_PROVIDERS
-            .save(
+            .add(
                 deps.as_mut().storage,
                 Addr::unchecked("native_provider_address"),
-                &empty,
             )
             .unwrap();
         CONFIG

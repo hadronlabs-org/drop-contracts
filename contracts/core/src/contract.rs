@@ -1,8 +1,8 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankQuery, Binary, Coin,
-    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Empty, Env, MessageInfo, Order, QueryRequest,
-    Reply, Response, StdError, StdResult, SubMsg, SubMsgResult, Uint128, Uint64, WasmMsg,
+    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest, Reply,
+    Response, StdError, StdResult, SubMsg, SubMsgResult, Uint128, Uint64, WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
@@ -10,9 +10,7 @@ use drop_helpers::pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoR
 use drop_puppeteer_base::msg::TransferReadyBatchesMsg;
 use drop_puppeteer_base::peripheral_hook::IBCTransferReason;
 use drop_staking_base::msg::core::{BondCallback, BondHook};
-use drop_staking_base::state::core::{
-    BOND_HOOKS, BOND_PROVIDERS, BOND_PROVIDERS_IDX, BOND_PROVIDER_REPLY_ID,
-};
+use drop_staking_base::state::core::{BOND_HOOKS, BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID};
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
@@ -82,7 +80,8 @@ pub fn instantiate(
     LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &0)?;
     BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
     BOND_HOOKS.save(deps.storage, &vec![])?;
-    BOND_PROVIDERS_IDX.save(deps.storage, &0)?;
+    BOND_PROVIDERS.init(deps.storage)?;
+    // BOND_PROVIDERS_IDX.save(deps.storage, &0)?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
@@ -135,7 +134,7 @@ fn query_pause_info(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
 
 fn query_total_async_tokens(deps: Deps<NeutronQuery>) -> ContractResult<Uint128> {
     let mut total_async_shares = Uint128::zero();
-    let bond_providers = query_bond_providers(deps)?;
+    let bond_providers = BOND_PROVIDERS.get_all_providers(deps.storage)?;
     for provider in bond_providers {
         let async_tokens_amount: Uint128 = deps.querier.query_wasm_smart(
             provider.to_string(),
@@ -149,12 +148,7 @@ fn query_total_async_tokens(deps: Deps<NeutronQuery>) -> ContractResult<Uint128>
 }
 
 fn query_bond_providers(deps: Deps<NeutronQuery>) -> ContractResult<Vec<Addr>> {
-    Ok(BOND_PROVIDERS
-        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .collect::<StdResult<Vec<(Addr, Empty)>>>()?
-        .into_iter()
-        .map(|(addr, _)| addr)
-        .collect())
+    Ok(BOND_PROVIDERS.get_all_providers(deps.storage)?)
 }
 
 fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractResult<Decimal> {
@@ -348,12 +342,7 @@ fn execute_add_bond_provider(
 
     let bond_provider_address = deps.api.addr_validate(&bond_provider_address)?;
 
-    if BOND_PROVIDERS.has(deps.storage, bond_provider_address.clone()) {
-        return Err(ContractError::BondProviderAlreadyExists {});
-    }
-
-    let empty = Empty {};
-    BOND_PROVIDERS.save(deps.storage, bond_provider_address.clone(), &empty)?;
+    BOND_PROVIDERS.add(deps.storage, bond_provider_address.clone())?;
 
     Ok(response(
         "execute-add_bond_provider",
@@ -374,7 +363,7 @@ fn execute_remove_bond_provider(
 
     let bond_provider_address = deps.api.addr_validate(&bond_provider_address)?;
 
-    BOND_PROVIDERS.remove(deps.storage, bond_provider_address.clone());
+    BOND_PROVIDERS.remove(deps.storage, bond_provider_address.clone())?;
 
     Ok(response(
         "execute-remove_bond_provider",
@@ -508,22 +497,17 @@ fn execute_puppeteer_hook(
     info: MessageInfo,
     msg: drop_puppeteer_base::peripheral_hook::ResponseHookMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api.debug("WASMDEBUG: core execute_puppeteer_hook: 1");
     let config = CONFIG.load(deps.storage)?;
 
     let allowed_senders: Vec<_> = vec![config.puppeteer_contract]
         .into_iter()
-        .chain(query_bond_providers(deps.as_ref())?)
+        .chain(BOND_PROVIDERS.get_all_providers(deps.as_ref().storage)?)
         .collect();
-
-    deps.api.debug("WASMDEBUG: core execute_puppeteer_hook: 2");
 
     ensure!(
         allowed_senders.contains(&info.sender),
         ContractError::Unauthorized {}
     );
-
-    deps.api.debug("WASMDEBUG: core execute_puppeteer_hook: 3");
 
     match msg.clone() {
         drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(success_msg) => {
@@ -547,11 +531,7 @@ fn execute_puppeteer_hook(
         }
     }
 
-    deps.api.debug("WASMDEBUG: core execute_puppeteer_hook: 4");
-
     LAST_PUPPETEER_RESPONSE.save(deps.storage, &msg)?;
-
-    deps.api.debug("WASMDEBUG: core execute_puppeteer_hook: 5");
 
     Ok(response(
         "execute-puppeteer_hook",
@@ -567,14 +547,10 @@ fn execute_tick(
 ) -> ContractResult<Response<NeutronMsg>> {
     pause_guard(deps.storage)?;
 
-    deps.api.debug("WASMDEBUG: core execute_tick: 1");
-
     let current_state = FSM.get_current_state(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
-    deps.api.debug("WASMDEBUG: core execute_tick: 2");
 
     check_latest_icq_responses(deps.as_ref(), config.puppeteer_contract.to_string())?;
-    deps.api.debug("WASMDEBUG: core execute_tick: 3");
 
     match current_state {
         ContractState::Idle => execute_tick_idle(deps.branch(), env, info, &config),
@@ -599,47 +575,17 @@ fn execute_tick_idle(
     cache_exchange_rate(deps.branch(), env.clone(), config)?;
     attrs.push(attr("knot", "002"));
     attrs.push(attr("knot", "003"));
-    deps.api.debug("WASMDEBUG: core execute_tick_idle: 1");
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
-        let bond_providers = query_bond_providers(deps.as_ref())?;
-        deps.api
-            .debug(&format!("WASMDEBUG: bond_providers: {:?}", bond_providers));
-        let mut bond_providers_idx = BOND_PROVIDERS_IDX.load(deps.storage)?;
-        deps.api.debug(&format!(
-            "WASMDEBUG: bond_providers_idx: {:?}",
-            bond_providers_idx
-        ));
-        deps.api.debug("WASMDEBUG: core execute_tick_idle: 2");
-        let total_providers = bond_providers.len();
-        if total_providers == 0 {
-            return Ok(response(
-                "execute-tick_idle",
-                CONTRACT_NAME,
-                vec![attr("bond_providers", "empty")],
-            ));
-        }
-        deps.api.debug("WASMDEBUG: core execute_tick_idle: 3");
-
-        if bond_providers_idx >= total_providers {
-            bond_providers_idx = 0;
-        }
-        let provider = bond_providers[bond_providers_idx].clone();
-        deps.api
-            .debug(&format!("WASMDEBUG: provider: {:?}", provider));
-        deps.api.debug("WASMDEBUG: core execute_tick_idle: 4");
+        let provider = BOND_PROVIDERS.next(deps.storage)?;
 
         let can_process_on_idle = deps.querier.query_wasm_smart::<bool>(
             provider.to_string(),
             &drop_staking_base::msg::bond_provider::QueryMsg::CanProcessOnIdle {},
         );
-        deps.api.debug(&format!(
-            "WASMDEBUG: can_process_on_idle: {:?}",
-            can_process_on_idle
-        ));
+
         if can_process_on_idle.is_ok_and(|f| f) {
             attrs.push(attr("knot", "036")); // provider can process on idle
             attrs.push(attr("used_bond_provider", provider.to_string()));
-            deps.api.debug("WASMDEBUG: core execute_tick_idle: 5");
             let sub_msg = SubMsg::reply_on_error(
                 CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: provider.to_string(),
@@ -655,12 +601,7 @@ fn execute_tick_idle(
 
             FSM.go_to(deps.storage, ContractState::Peripheral)?;
         }
-
-        deps.api.debug("WASMDEBUG: core execute_tick_idle: 6");
-
-        BOND_PROVIDERS_IDX.save(deps.storage, &(bond_providers_idx + 1))?;
     } else {
-        deps.api.debug("WASMDEBUG: core execute_tick_idle: 7");
         LAST_IDLE_CALL.save(deps.storage, &env.block.time.seconds())?;
         attrs.push(attr("knot", "004"));
         let unbonding_batches = unbond_batches_map()
@@ -702,7 +643,6 @@ fn execute_tick_idle(
             vec![]
         };
 
-        deps.api.debug("WASMDEBUG: core execute_tick_idle: 8");
         attrs.push(attr("knot", "007"));
         let transfer: Option<TransferReadyBatchesMsg> = match unbonded_batches.len() {
             0 => None, // we have nothing to do
@@ -784,7 +724,6 @@ fn execute_tick_idle(
             }
         };
 
-        deps.api.debug("WASMDEBUG: core execute_tick_idle: 9");
         let validators: Vec<ValidatorInfo> = deps.querier.query_wasm_smart(
             config.validators_set_contract.to_string(),
             &drop_staking_base::msg::validatorset::QueryMsg::Validators {},
@@ -799,8 +738,6 @@ fn execute_tick_idle(
             },
         )?;
 
-        deps.api.debug("WASMDEBUG: core execute_tick_idle: 10");
-
         attrs.push(attr("knot", "009"));
         ensure!(
             (env.block.height - delegations_response.local_height) <= config.icq_update_delay,
@@ -809,8 +746,6 @@ fn execute_tick_idle(
                 control_height: delegations_response.local_height
             }
         );
-
-        deps.api.debug("WASMDEBUG: core execute_tick_idle: 11");
 
         let validators_map = validators
             .iter()
@@ -823,8 +758,6 @@ fn execute_tick_idle(
             .filter(|d| validators_map.get(&d.validator).map_or(false, |_| true))
             .map(|d| d.validator.clone())
             .collect::<Vec<_>>();
-
-        deps.api.debug("WASMDEBUG: core execute_tick_idle: 12");
 
         attrs.push(attr("knot", "010"));
         if !validators_to_claim.is_empty() {
@@ -844,11 +777,9 @@ fn execute_tick_idle(
             FSM.go_to(deps.storage, ContractState::Claiming)?;
             attrs.push(attr("knot", "012"));
             attrs.push(attr("state", "claiming"));
-            deps.api.debug("WASMDEBUG: core execute_tick_idle: 13");
         }
     }
 
-    deps.api.debug("WASMDEBUG: core execute_tick_idle: 14");
     Ok(response("execute-tick_idle", CONTRACT_NAME, attrs)
         .add_messages(messages)
         .add_submessages(sub_msgs))
@@ -861,9 +792,7 @@ fn execute_tick_peripheral(
     config: &Config,
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut attrs = vec![attr("action", "tick_peripheral")];
-    deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 1");
     let res = get_received_puppeteer_response(deps.as_ref())?;
-    deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 2");
 
     if let drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(msg) = res {
         match msg.transaction {
@@ -879,7 +808,6 @@ fn execute_tick_peripheral(
             _ => {}
         }
 
-        deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 3");
         let balances_response: drop_staking_base::msg::puppeteer::BalancesResponse =
             deps.querier.query_wasm_smart(
                 config.puppeteer_contract.to_string(),
@@ -887,23 +815,18 @@ fn execute_tick_peripheral(
                     msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
                 },
             )?;
-        deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 4");
         if msg.remote_height > balances_response.remote_height {
             return Err(ContractError::PuppeteerBalanceOutdated {
                 ica_height: msg.remote_height,
                 control_height: balances_response.remote_height,
             });
         }
-        deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 5");
     }
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
 
-    deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 6");
     FSM.go_to(deps.storage, ContractState::Idle)?;
     attrs.push(attr("knot", "000"));
     attrs.push(attr("state", "idle"));
-
-    deps.api.debug("WASMDEBUG: core execute_tick_peripheral: 7");
 
     Ok(response("execute-tick_peripheral", CONTRACT_NAME, attrs))
 }
@@ -916,11 +839,8 @@ fn execute_tick_claiming(
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut attrs = vec![attr("action", "tick_claiming")];
     attrs.push(attr("knot", "012"));
-    deps.api.debug("WASMDEBUG: core execute_tick_claiming: 1");
     let response_msg = get_received_puppeteer_response(deps.as_ref())?;
-    deps.api.debug("WASMDEBUG: core execute_tick_claiming: 2");
     LAST_PUPPETEER_RESPONSE.remove(deps.storage);
-    deps.api.debug("WASMDEBUG: core execute_tick_claiming: 3");
     let mut messages = vec![];
     match response_msg {
         drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(success_msg) => {
@@ -930,10 +850,8 @@ fn execute_tick_claiming(
                     transfer,
                     ..
                 } => {
-                    deps.api.debug("WASMDEBUG: core execute_tick_claiming: 4");
                     attrs.push(attr("knot", "013"));
                     if let Some(transfer) = transfer {
-                        deps.api.debug("WASMDEBUG: core execute_tick_claiming: 5");
                         for id in transfer.batch_ids {
                             let mut batch = unbond_batches_map().load(deps.storage, id)?;
                             attrs.push(attr("batch_id", id.to_string()));
@@ -957,13 +875,11 @@ fn execute_tick_claiming(
         }
         drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(err) => {
             attrs.push(attr("error_on_claiming", format!("{:?}", err)));
-            deps.api.debug("WASMDEBUG: core execute_tick_claiming: 6");
             match err.transaction {
                 drop_puppeteer_base::peripheral_hook::Transaction::ClaimRewardsAndOptionalyTransfer {
                     transfer,
                     ..
                 } => {
-                    deps.api.debug("WASMDEBUG: core execute_tick_claiming: 7");
                     FSM.go_to(deps.storage, ContractState::Idle)?;
                     attrs.push(attr("knot", "050"));
                     attrs.push(attr("knot", "000"));
@@ -981,23 +897,19 @@ fn execute_tick_claiming(
             }
         }
     }
-    deps.api.debug("WASMDEBUG: core execute_tick_claiming: 8");
     attrs.push(attr("knot", "015"));
     if let Some(unbond_message) = get_unbonding_msg(deps.branch(), &env, config, &info, &mut attrs)?
     {
-        deps.api.debug("WASMDEBUG: core execute_tick_claiming: 9");
         messages.push(unbond_message);
         attrs.push(attr("knot", "028"));
         FSM.go_to(deps.storage, ContractState::Unbonding)?;
         attrs.push(attr("knot", "029"));
         attrs.push(attr("state", "unbonding"));
     } else {
-        deps.api.debug("WASMDEBUG: core execute_tick_claiming: 10");
         FSM.go_to(deps.storage, ContractState::Idle)?;
         attrs.push(attr("knot", "000"));
         attrs.push(attr("state", "idle"));
     }
-    deps.api.debug("WASMDEBUG: core execute_tick_claiming: 11");
 
     Ok(response("execute-tick_claiming", CONTRACT_NAME, attrs).add_messages(messages))
 }
@@ -1074,7 +986,7 @@ fn execute_bond(
     let exchange_rate = query_exchange_rate(deps.as_ref(), &config)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
 
-    let bond_providers = query_bond_providers(deps.as_ref())?;
+    let bond_providers = BOND_PROVIDERS.get_all_providers(deps.as_ref().storage)?;
     for provider in bond_providers {
         let can_bond: bool = deps.querier.query_wasm_smart(
             provider.to_string(),
