@@ -2959,18 +2959,14 @@ describe('Core', () => {
         expect(res.transactionHash).toHaveLength(64);
       });
       it('split it', async () => {
-        console.log('=======================================');
         const nativeBondProviderBalanceBefore = (
           await context.neutronClient.CosmosBankV1Beta1.query.queryBalance(
             context.nativeBondProviderContractClient.contractAddress,
             { denom: context.neutronIBCDenom },
           )
         ).data.balance.amount;
-        console.log(
-          'nativeBondProviderBalanceBefore',
-          nativeBondProviderBalanceBefore,
-        );
         expect(parseInt(nativeBondProviderBalanceBefore, 10)).toEqual(0);
+
         const res = await context.splitterContractClient.distribute(
           context.neutronUserAddress,
           1.5,
@@ -2983,12 +2979,8 @@ describe('Core', () => {
             { denom: context.neutronIBCDenom },
           )
         ).data.balance.amount;
-        console.log(
-          'nativeBondProviderBalanceAfter',
-          nativeBondProviderBalanceAfter,
-        );
+
         expect(parseInt(nativeBondProviderBalanceAfter, 10)).toEqual(10000);
-        console.log('=======================================');
       });
       it('puppteer account state after bond provider ibc transfer', async () => {
         await waitFor(async () => {

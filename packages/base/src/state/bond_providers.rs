@@ -4,7 +4,7 @@ use cw_storage_plus::{Item, Map};
 
 pub struct BondProviders<'a> {
     pub providers: Map<'a, Addr, Empty>,
-    pub next_provider_ptr: Item<'a, usize>,
+    pub next_provider_ptr: Item<'a, u64>,
 }
 
 impl<'a> BondProviders<'a> {
@@ -51,7 +51,7 @@ impl<'a> BondProviders<'a> {
         let mut next_provider_ptr = self.next_provider_ptr.load(storage)?;
         let providers = self.get_all_providers(storage)?;
 
-        let total_providers = providers.len();
+        let total_providers = providers.len() as u64;
         if total_providers == 0 {
             return Err(ContractError::BondProvidersListAreEmpty {});
         }
@@ -63,7 +63,7 @@ impl<'a> BondProviders<'a> {
         self.next_provider_ptr
             .save(storage, &(next_provider_ptr + 1))?;
 
-        Ok(providers[next_provider_ptr].clone())
+        Ok(providers[next_provider_ptr as usize].clone())
     }
 }
 

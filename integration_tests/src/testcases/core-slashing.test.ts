@@ -936,8 +936,6 @@ describe('Core Slashing', () => {
         },
       )) as any;
 
-      console.log('---------------------------------');
-      console.log(delegations.delegations.delegations);
       expect(delegations.delegations.delegations).toHaveLength(2);
 
       expect(
@@ -1103,8 +1101,6 @@ describe('Core Slashing', () => {
         },
       )) as any;
 
-      console.log('---------------------------------');
-      console.log(delegations.delegations.delegations);
       expect(delegations.delegations.delegations).toHaveLength(2);
 
       expect(
@@ -1334,8 +1330,6 @@ describe('Core Slashing', () => {
         },
       )) as any;
 
-      console.log('---------------------------------');
-      console.log(delegations.delegations.delegations);
       expect(delegations.delegations.delegations).toHaveLength(2);
 
       expect(

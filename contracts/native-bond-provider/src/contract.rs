@@ -265,39 +265,23 @@ fn execute_process_on_idle(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api
-        .debug("WASMDEBUG: native-bond  execute_process_on_idle: 1");
     let config = CONFIG.load(deps.storage)?;
     ensure_eq!(
         info.sender,
         config.core_contract,
         ContractError::Unauthorized {}
     );
-    deps.api
-        .debug("WASMDEBUG: native-bond  execute_process_on_idle: 2");
-    query_can_process_on_idle(deps.as_ref(), &env)?;
 
-    deps.api
-        .debug("WASMDEBUG: native-bond  execute_process_on_idle: 3");
+    query_can_process_on_idle(deps.as_ref(), &env)?;
 
     let attrs = vec![attr("action", "process_on_idle")];
     let mut submessages: Vec<SubMsg<NeutronMsg>> = vec![];
 
-    deps.api
-        .debug("WASMDEBUG: native-bond  execute_process_on_idle: 4");
-
     if let Some(lsm_msg) = get_delegation_msg(deps.branch(), &env, &config)? {
-        deps.api
-            .debug("WASMDEBUG: native-bond  execute_process_on_idle: 5");
         submessages.push(lsm_msg);
     } else if let Some(lsm_msg) = get_ibc_transfer_msg(deps.branch(), &env, &config)? {
-        deps.api
-            .debug("WASMDEBUG: native-bond  execute_process_on_idle: 6");
         submessages.push(lsm_msg);
     }
-
-    deps.api
-        .debug("WASMDEBUG: native-bond  execute_process_on_idle: 7");
 
     Ok(
         response("process_on_idle", CONTRACT_NAME, Vec::<Attribute>::new())
@@ -402,16 +386,12 @@ fn execute_puppeteer_hook(
     info: MessageInfo,
     msg: drop_puppeteer_base::peripheral_hook::ResponseHookMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api
-        .debug("WASMDEBUG: native-bond  execute_puppeteer_hook: 1");
     let config = CONFIG.load(deps.storage)?;
     ensure_eq!(
         info.sender,
         config.puppeteer_contract,
         ContractError::Unauthorized {}
     );
-    deps.api
-        .debug("WASMDEBUG: native-bond  execute_puppeteer_hook: 2");
 
     let tx_state = TX_STATE.load(deps.storage)?;
     ensure!(
@@ -420,15 +400,10 @@ fn execute_puppeteer_hook(
             reason: "tx_state is not WaitingForAck".to_string()
         }
     );
-    deps.api
-        .debug("WASMDEBUG: native-bond  execute_puppeteer_hook: 3");
 
     let transaction = tx_state
         .transaction
         .ok_or_else(|| StdError::generic_err("transaction not found"))?;
-
-    deps.api
-        .debug("WASMDEBUG: native-bond  execute_puppeteer_hook: 4");
 
     match msg.clone() {
         drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(success_msg) => {
@@ -452,13 +427,7 @@ fn execute_puppeteer_hook(
         }
     }
 
-    deps.api
-        .debug("WASMDEBUG: native-bond  execute_puppeteer_hook: 5");
-
     LAST_PUPPETEER_RESPONSE.save(deps.storage, &msg)?;
-
-    deps.api
-        .debug("WASMDEBUG: native-bond  execute_puppeteer_hook: 6");
 
     let hook_message = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.core_contract.to_string(),
@@ -467,9 +436,6 @@ fn execute_puppeteer_hook(
     });
 
     let submessage = SubMsg::reply_on_error(hook_message, ReplyMsg::IbcTransfer.to_reply_id());
-
-    deps.api
-        .debug("WASMDEBUG: native-bond  execute_puppeteer_hook: 7");
 
     Ok(response(
         "execute-puppeteer_hook",
@@ -497,15 +463,9 @@ fn msg_with_reply_callback<C: Into<CosmosMsg<X>> + Serialize, X>(
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
-    deps.api.debug("WASMDEBUG: native-bond  reply: 1");
-    deps.api.debug(&format!(
-        "WASMDEBUG: native-bond  reply: msg: {msg:?}",
-        msg = msg
-    ));
     if let SubMsgResult::Err(err) = msg.result {
         return Err(ContractError::PuppeteerError { message: err });
     }
-    deps.api.debug("WASMDEBUG: native-bond  reply: 2");
 
     match ReplyMsg::from_reply_id(msg.id) {
         ReplyMsg::IbcTransfer | ReplyMsg::Bond => transaction_reply(deps),
@@ -514,28 +474,16 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
 }
 
 fn transaction_reply(deps: DepsMut) -> ContractResult<Response> {
-    deps.api
-        .debug("WASMDEBUG: native-bond  transaction_reply: 1");
     let mut tx_state: TxState = TX_STATE.load(deps.storage)?;
-    deps.api.debug(&format!(
-        "WASMDEBUG: native-bond  transaction_reply: tx_state: {tx_state:?}",
-        tx_state = tx_state
-    ));
 
     tx_state.status = TxStateStatus::WaitingForAck;
     TX_STATE.save(deps.storage, &tx_state)?;
-
-    deps.api
-        .debug("WASMDEBUG: native-bond  transaction_reply: 2");
 
     if let Some(Transaction::IBCTransfer { amount, .. }) = tx_state.transaction {
         NON_STAKED_BALANCE.update(deps.storage, |balance| {
             StdResult::Ok(balance + Uint128::from(amount))
         })?;
     }
-
-    deps.api
-        .debug("WASMDEBUG: native-bond  transaction_reply: 3");
 
     Ok(Response::new())
 }
@@ -564,11 +512,6 @@ fn sudo_error(
     request: RequestPacket,
     details: String,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api.debug(&format!(
-        "WASMDEBUG: sudo_error: request: {request:?}",
-        request = request
-    ));
-
     let tx_state = TX_STATE.load(deps.storage)?;
     ensure!(
         tx_state.status == TxStateStatus::WaitingForAck,
@@ -598,11 +541,6 @@ fn sudo_error(
 
     TX_STATE.save(deps.storage, &TxState::default())?;
 
-    deps.api.debug(&format!(
-        "WASMDEBUG: sudo_timeout: request: {request:?}",
-        request = request
-    ));
-
     let config = CONFIG.load(deps.storage)?;
 
     let hook_message = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -627,8 +565,6 @@ fn sudo_response(
     request: RequestPacket,
     _data: Binary,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api.debug("WASMDEBUG: sudo response");
-
     let tx_state = TX_STATE.load(deps.storage)?;
 
     ensure!(
@@ -670,10 +606,6 @@ fn sudo_response(
         attr("request_id", seq_id.to_string()),
     ];
 
-    deps.api.debug(&format!(
-        "WASMDEBUG: transaction: {transaction:?}",
-        transaction = transaction
-    ));
     TX_STATE.save(deps.storage, &TxState::default())?;
 
     let config = CONFIG.load(deps.storage)?;

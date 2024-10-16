@@ -1150,8 +1150,6 @@ describe('Auto withdrawer', () => {
             },
           })) as any;
 
-        console.log('---------------------------------');
-        console.log(delegations.delegations.delegations);
         expect(delegations.delegations.delegations).toHaveLength(2);
 
         expect(

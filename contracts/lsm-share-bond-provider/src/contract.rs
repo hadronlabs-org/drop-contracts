@@ -227,16 +227,12 @@ fn execute_process_on_idle(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api
-        .debug("WASMDEBUG: lsm-share execute_process_on_idle: 1");
     let config = CONFIG.load(deps.storage)?;
     ensure_eq!(
         info.sender,
         config.core_contract,
         ContractError::Unauthorized {}
     );
-    deps.api
-        .debug("WASMDEBUG: lsm-share execute_process_on_idle: 2");
 
     let process_on_idle = query_can_process_on_idle(deps.as_ref(), &env)?;
     if !process_on_idle {
@@ -244,21 +240,12 @@ fn execute_process_on_idle(
     }
 
     let mut submessages: Vec<SubMsg<NeutronMsg>> = vec![];
-    deps.api
-        .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 3");
 
     if let Some(lsm_msg) = get_pending_redeem_msg(deps.branch(), &config, &env)? {
-        deps.api
-            .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 4");
         submessages.push(lsm_msg);
     } else if let Some(lsm_msg) = get_pending_lsm_share_msg(deps.branch(), &config, &env)? {
-        deps.api
-            .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 5");
         submessages.push(lsm_msg);
     }
-
-    deps.api
-        .debug("WASMDEBUG: lsm-share  execute_process_on_idle: 6");
 
     Ok(
         response("process_on_idle", CONTRACT_NAME, Vec::<Attribute>::new())
@@ -628,11 +615,6 @@ fn sudo_error(
     request: RequestPacket,
     details: String,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api.debug(&format!(
-        "WASMDEBUG: sudo_error: request: {request:?}",
-        request = request
-    ));
-
     let tx_state = TX_STATE.load(deps.storage)?;
     ensure!(
         tx_state.status == TxStateStatus::WaitingForAck,
@@ -655,11 +637,6 @@ fn sudo_error(
         .ok_or_else(|| StdError::generic_err("transaction not found"))?;
 
     TX_STATE.save(deps.storage, &TxState::default())?;
-
-    deps.api.debug(&format!(
-        "WASMDEBUG: sudo_timeout: request: {request:?}",
-        request = request
-    ));
 
     let config = CONFIG.load(deps.storage)?;
 
@@ -685,8 +662,6 @@ fn sudo_response(
     request: RequestPacket,
     _data: Binary,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api.debug("WASMDEBUG: sudo response");
-
     let tx_state = TX_STATE.load(deps.storage)?;
     ensure!(
         tx_state.status == TxStateStatus::WaitingForAck,
@@ -761,10 +736,6 @@ fn sudo_response(
         }
     }
 
-    deps.api.debug(&format!(
-        "WASMDEBUG: transaction: {transaction:?}",
-        transaction = transaction
-    ));
     TX_STATE.save(deps.storage, &TxState::default())?;
 
     let config = CONFIG.load(deps.storage)?;
