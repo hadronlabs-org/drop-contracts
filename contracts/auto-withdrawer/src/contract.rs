@@ -19,14 +19,12 @@ use cosmwasm_std::{
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
-use std::collections::HashMap;
-use std::str::FromStr;
+use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 pub const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 pub const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const CORE_UNBOND_REPLY_ID: u64 = 1;
 pub const PAGINATION_DEFAULT_LIMIT: Uint64 = Uint64::new(100u64);
-pub const UNBOND_MARK: &str = "unbond";
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
@@ -125,48 +123,36 @@ fn execute_bond_with_withdrawal_denoms(
 ) -> ContractResult<Response<NeutronMsg>> {
     let withdrawal_denom_prefix = WITHDRAWAL_DENOM_PREFIX.load(deps.storage)?;
     let withdrawal_token_address = WITHDRAWAL_TOKEN_ADDRESS.load(deps.storage)?;
-    let withdrawal_denom = get_full_withdrawal_denom(
-        withdrawal_denom_prefix,
-        withdrawal_token_address.to_string(),
-        batch_id,
-    );
+    let withdrawal_denom =
+        get_full_withdrawal_denom(withdrawal_denom_prefix, withdrawal_token_address, batch_id);
 
-    let withdrawal_asset = info.funds.swap_remove(
+    let mut withdrawal_asset = info.funds.swap_remove(
         info.funds
             .iter()
             .position(|coin| coin.denom == withdrawal_denom)
             .ok_or(ContractError::WithdrawalAssetExpected {})?,
     );
-    let deposit = info.funds;
+    let mut deposit = info.funds;
     ensure!(!deposit.is_empty(), ContractError::DepositExpected {});
 
     // XXX: this code allows user to pass ld_token as a deposit. This sounds strange, but it might actually make
     //      sense to do so. Should we introduce a check that forbids it?
 
-    let bonding_id = get_bonding_id(info.sender.to_string(), batch_id);
-
+    let bonding_id = get_bonding_id(&info.sender, batch_id);
     let existing_bonding = bondings_map().may_load(deps.storage, &bonding_id)?;
     if let Some(existing_bonding) = existing_bonding {
-        bondings_map().save(
-            deps.storage,
-            &bonding_id,
-            &BondingRecord {
-                bonder: info.sender,
-                deposit: merge_deposits(existing_bonding.deposit, deposit),
-                withdrawal_amount: existing_bonding.withdrawal_amount + withdrawal_asset.amount,
-            },
-        )?;
-    } else {
-        bondings_map().save(
-            deps.storage,
-            &bonding_id,
-            &BondingRecord {
-                bonder: info.sender,
-                withdrawal_amount: withdrawal_asset.amount,
-                deposit,
-            },
-        )?;
+        deposit = merge_deposits(existing_bonding.deposit, deposit);
+        withdrawal_asset.amount += existing_bonding.withdrawal_amount;
     }
+    bondings_map().save(
+        deps.storage,
+        &bonding_id,
+        &BondingRecord {
+            bonder: info.sender,
+            withdrawal_amount: withdrawal_asset.amount,
+            deposit,
+        },
+    )?;
 
     // TODO: attributes
     Ok(Response::new())
@@ -177,29 +163,26 @@ fn execute_unbond(
     info: MessageInfo,
     batch_id: Uint128,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let bonding_id = get_bonding_id(info.sender.to_string(), batch_id);
+    let bonding_id = get_bonding_id(&info.sender, batch_id);
     let bonding = bondings_map().load(deps.storage, &bonding_id)?;
     ensure_eq!(info.sender, bonding.bonder, ContractError::Unauthorized {});
     bondings_map().remove(deps.storage, &bonding_id)?;
 
     let withdrawal_denom_prefix = WITHDRAWAL_DENOM_PREFIX.load(deps.storage)?;
     let withdrawal_token_address = WITHDRAWAL_TOKEN_ADDRESS.load(deps.storage)?;
-    let withdrawal_denom = get_full_withdrawal_denom(
-        withdrawal_denom_prefix,
-        withdrawal_token_address.to_string(),
-        batch_id,
-    );
+    let withdrawal_denom =
+        get_full_withdrawal_denom(withdrawal_denom_prefix, withdrawal_token_address, batch_id);
 
+    // TODO: this could have been a single bank message
     let withdrawal_asset_msg: BankMsg = BankMsg::Send {
-        to_address: info.sender.clone().into_string(),
+        to_address: info.sender.to_string(),
         amount: vec![Coin::new(
             bonding.withdrawal_amount.u128(),
             withdrawal_denom,
         )],
     };
-
     let deposit_msg: BankMsg = BankMsg::Send {
-        to_address: info.sender.clone().into_string(),
+        to_address: info.sender.into_string(),
         amount: bonding.deposit,
     };
 
@@ -212,11 +195,12 @@ fn execute_withdraw(
     info: MessageInfo,
     batch_id: Uint128,
     receiver: Option<Addr>,
+    // XXX: why do we even specify this amount, shouldn't bonding.withdrawal_amount be used instead?
     amount: Uint128,
 ) -> ContractResult<Response<NeutronMsg>> {
     let bonder = receiver.unwrap_or(info.sender.clone());
 
-    let bonding_id = get_bonding_id(bonder.to_string(), batch_id);
+    let bonding_id = get_bonding_id(&bonder, batch_id);
     let bonding = bondings_map().load(deps.storage, &bonding_id)?;
 
     ensure_ne!(amount, Uint128::zero(), ContractError::NothingToWithdraw {});
@@ -244,11 +228,8 @@ fn execute_withdraw(
 
     let withdrawal_denom_prefix = WITHDRAWAL_DENOM_PREFIX.load(deps.storage)?;
     let withdrawal_token_address = WITHDRAWAL_TOKEN_ADDRESS.load(deps.storage)?;
-    let withdrawal_denom = get_full_withdrawal_denom(
-        withdrawal_denom_prefix,
-        withdrawal_token_address.to_string(),
-        batch_id,
-    );
+    let withdrawal_denom =
+        get_full_withdrawal_denom(withdrawal_denom_prefix, withdrawal_token_address, batch_id);
 
     let withdrawal_manager = WITHDRAWAL_MANAGER_ADDRESS.load(deps.storage)?;
 
@@ -288,45 +269,38 @@ pub fn reply(
             deps.api.debug(&format!("WASMDEBUG: {:?}", events));
             reply_core_unbond(deps, sender, deposit, events)
         }
+        // XXX: this code branch was indeed unreachable, do not add useless errors
         id => Err(ContractError::InvalidCoreReplyId { id }),
     }
 }
 
-fn get_value_from_events(events: Vec<Event>, key: String) -> String {
+fn get_core_event_value(events: &[Event], key: &str) -> String {
     events
-        .into_iter()
+        .iter()
         .filter(|event| event.ty == "wasm-drop-withdrawal-token-execute-mint")
-        .flat_map(|event| event.attributes)
+        .flat_map(|event| event.attributes.iter())
         .find(|attribute| attribute.key == key)
         .unwrap()
         .value
+        .clone()
 }
 
-fn merge_deposits(mut vec1: Vec<Coin>, vec2: Vec<Coin>) -> Vec<Coin> {
+fn merge_deposits(vec1: Vec<Coin>, vec2: Vec<Coin>) -> Vec<Coin> {
     let mut coin_map: HashMap<String, Uint128> = HashMap::new();
-
-    let mut add_to_map = |coin: Coin| {
+    for coin in vec1.into_iter().chain(vec2.into_iter()) {
         coin_map
-            .entry(coin.denom.clone())
+            .entry(coin.denom)
             .and_modify(|e| *e += coin.amount)
             .or_insert(coin.amount);
-    };
-
-    for coin in vec1.drain(..) {
-        add_to_map(coin);
     }
 
-    for coin in vec2 {
-        add_to_map(coin);
-    }
-
+    // TODO: transform map into std::collections::BinaryHeap and call into_sorted_vec().
+    //       this trick will avoid one extra O(N) copy.
     let mut merged_coins: Vec<Coin> = coin_map
         .into_iter()
         .map(|(denom, amount)| Coin { denom, amount })
         .collect();
-
     merged_coins.sort_by(|a, b| a.denom.cmp(&b.denom));
-
     merged_coins
 }
 
@@ -369,65 +343,51 @@ fn subtract_deposits(vec1: Vec<Coin>, vec2: Vec<Coin>) -> Vec<Coin> {
     result_coins
 }
 
-fn get_bonding_id(sender: String, batch_id: Uint128) -> String {
-    let bonding_id = sender + "_" + batch_id.to_string().as_str();
-    bonding_id
+fn get_bonding_id(sender: impl Display, batch_id: impl Display) -> String {
+    format!("{sender}_{batch_id}")
 }
 
 fn get_full_withdrawal_denom(
-    withdrawal_denom_prefix: String,
-    withdrawal_token_address: String,
+    withdrawal_denom_prefix: impl Display,
+    withdrawal_token_address: impl Display,
     batch_id: Uint128,
 ) -> String {
-    let withdrawal_denom = "factory/".to_string()
-        + withdrawal_token_address.to_string().as_str()
-        + "/"
-        + withdrawal_denom_prefix.to_string().as_str()
-        + ":"
-        + UNBOND_MARK
-        + ":"
-        + batch_id.to_string().as_str();
-    withdrawal_denom
+    format!("factory/{withdrawal_token_address}/{withdrawal_denom_prefix}:unbond:{batch_id}")
 }
 
 fn reply_core_unbond(
     deps: DepsMut<NeutronQuery>,
     sender: Addr,
-    deposit: Vec<Coin>,
+    mut deposit: Vec<Coin>,
     events: Vec<Event>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let batch_id = get_value_from_events(events.clone(), "batch_id".to_string());
-    let str_amount = get_value_from_events(events.clone(), "amount".to_string());
+    // it is safe to use unwrap here because core always generates valid events on success
+    let batch_id = get_core_event_value(&events, "batch_id");
+    let str_amount = get_core_event_value(&events, "amount");
 
-    let amount = match Uint128::from_str(&str_amount) {
+    let mut amount = match Uint128::from_str(&str_amount) {
         Ok(value) => Ok(value),
+        // XXX: core will always generate a correct string, so no need to check for an error here.
+        //      if we cannot trust serialization in our own modules, what can we trust? :)
         Err(_) => Err(ContractError::InvalidCoreReplyAttributes {}),
     }?;
 
-    let bonding_id = sender.to_string() + "_" + batch_id.to_string().as_str();
+    let bonding_id = get_bonding_id(&sender, batch_id);
 
     let existing_bonding = bondings_map().may_load(deps.storage, &bonding_id)?;
     if let Some(existing_bonding) = existing_bonding {
-        bondings_map().save(
-            deps.storage,
-            &bonding_id,
-            &BondingRecord {
-                bonder: sender,
-                deposit: merge_deposits(existing_bonding.deposit, deposit),
-                withdrawal_amount: existing_bonding.withdrawal_amount + amount,
-            },
-        )?;
-    } else {
-        bondings_map().save(
-            deps.storage,
-            &bonding_id,
-            &BondingRecord {
-                bonder: sender,
-                deposit,
-                withdrawal_amount: amount,
-            },
-        )?;
+        deposit = merge_deposits(existing_bonding.deposit, deposit);
+        amount += existing_bonding.withdrawal_amount;
     }
+    bondings_map().save(
+        deps.storage,
+        &bonding_id,
+        &BondingRecord {
+            bonder: sender,
+            deposit,
+            withdrawal_amount: amount,
+        },
+    )?;
 
     Ok(Response::new())
 }
