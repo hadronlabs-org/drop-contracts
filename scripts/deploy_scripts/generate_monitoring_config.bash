@@ -19,6 +19,7 @@ main() {
   puppeteer_contract="$(neutrond query wasm contract-state smart "$FACTORY_ADDRESS" '{"state":{}}' "${nq[@]}" | jq -r '.data.puppeteer_contract')" && echo -n '.'
   staker_contract="$(neutrond query wasm contract-state smart "$FACTORY_ADDRESS" '{"state":{}}' "${nq[@]}" | jq -r '.data.staker_contract')" && echo -n '.'
   token_contract="$(neutrond query wasm contract-state smart "$FACTORY_ADDRESS" '{"state":{}}' "${nq[@]}" | jq -r '.data.token_contract')" && echo -n '.'
+  withdrawal_token_contract="$(neutrond query wasm contract-state smart "$FACTORY_ADDRESS" '{"state":{}}' "${nq[@]}" | jq -r '.data.withdrawal_token_contract')" && echo -n '.'
   admin="$(neutrond query wasm contract "$FACTORY_ADDRESS" "${nq[@]}" | jq -r '.contract_info.admin')" && echo -n '.'
   base_ibc_denom="$(neutrond query wasm contract-state smart "$core_contract" '{"config":{}}' "${nq[@]}" | jq -r '.data.base_denom')" && echo -n '.'
   base_denom="$(neutrond query ibc-transfer denom-trace "$base_ibc_denom" "${nq[@]}" | jq -r '.denom_trace.base_denom')" && echo -n '.'
@@ -108,30 +109,31 @@ EOF
   echo
   echo
   # shellcheck disable=SC2059
-  printf "${config}\n"    \
-    "$NEUTRON_RPC"        \
-    "$FACTORY_ADDRESS"    \
-    "$core_contract"      \
-    "$puppeteer_contract" \
-    "$staker_contract"    \
-    "$token_contract"     \
-    "$admin"              \
-    "$base_ibc_denom"     \
-    "$admin"              \
-    "$base_denom"         \
-    "$core_contract"      \
-    "$base_ibc_denom"     \
-    "$puppeteer_contract" \
-    "$base_ibc_denom"     \
-    "$puppeteer_ica"      \
-    "$base_denom"         \
-    "$staker_contract"    \
-    "$base_ibc_denom"     \
-    "$staker_ica"         \
-    "$base_denom"         \
-    "$pump_ica"           \
-    "$base_denom"         \
-    "$puppeteer_ica"      \
+  printf "${config}\n"              \
+    "$NEUTRON_RPC"                  \
+    "$FACTORY_ADDRESS"              \
+    "$core_contract"                \
+    "$puppeteer_contract"           \
+    "$staker_contract"              \
+    "$token_contract"               \
+    "$withdrawal_token_contract"    \
+    "$admin"                        \
+    "$base_ibc_denom"               \
+    "$admin"                        \
+    "$base_denom"                   \
+    "$core_contract"                \
+    "$base_ibc_denom"               \
+    "$puppeteer_contract"           \
+    "$base_ibc_denom"               \
+    "$puppeteer_ica"                \
+    "$base_denom"                   \
+    "$staker_contract"              \
+    "$base_ibc_denom"               \
+    "$staker_ica"                   \
+    "$base_denom"                   \
+    "$pump_ica"                     \
+    "$base_denom"                   \
+    "$puppeteer_ica"                \
     "$watched_validators"
 }
 

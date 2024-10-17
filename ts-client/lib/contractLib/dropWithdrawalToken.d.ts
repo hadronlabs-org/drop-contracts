@@ -2,16 +2,6 @@ import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
 /**
- * A human readable address.
- *
- * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
- *
- * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
- *
- * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
- */
-export type Addr = string;
-/**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
 export type Expiration = {
@@ -46,13 +36,19 @@ export type Timestamp = Uint64;
  */
 export type Uint64 = string;
 /**
- * Information about if the contract is currently paused.
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
-export type PauseInfoResponse = {
-    paused: {};
-} | {
-    unpaused: {};
-};
+export type Uint128 = string;
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -62,17 +58,16 @@ export type UpdateOwnershipArgs = {
         new_owner: string;
     };
 } | "accept_ownership" | "renounce_ownership";
-export interface DropWithdrawalManagerSchema {
-    responses: Config | OwnershipForString | PauseInfoResponse;
-    execute: UpdateConfigArgs | ReceiveNftArgs | ReceiveWithdrawalDenomsArgs | UpdateOwnershipArgs;
+export interface DropWithdrawalTokenSchema {
+    responses: ConfigResponse | OwnershipForString;
+    execute: CreateDenomArgs | MintArgs | BurnArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
-export interface Config {
-    base_denom: string;
-    core_contract: Addr;
-    withdrawal_token_contract: Addr;
-    withdrawal_voucher_contract: Addr;
+export interface ConfigResponse {
+    core_address: string;
+    denom_prefix: string;
+    withdrawal_manager_address: string;
 }
 /**
  * The contract's ownership info
@@ -91,32 +86,22 @@ export interface OwnershipForString {
      */
     pending_owner?: string | null;
 }
-export interface UpdateConfigArgs {
-    base_denom?: string | null;
-    core_contract?: string | null;
-    voucher_contract?: string | null;
+export interface CreateDenomArgs {
+    batch_id: Uint128;
 }
-/**
- * Cw721ReceiveMsg should be de/serialized under `Receive()` variant in a ExecuteMsg
- */
-export interface ReceiveNftArgs {
-    description?: "Cw721ReceiveMsg should be de/serialized under `Receive()` variant in a ExecuteMsg";
-    type?: "object";
-    required?: ["msg", "sender", "token_id"];
-    properties?: {
-        [k: string]: unknown;
-    };
-    additionalProperties?: never;
+export interface MintArgs {
+    amount: Uint128;
+    batch_id: Uint128;
+    receiver: string;
 }
-export interface ReceiveWithdrawalDenomsArgs {
-    receiver?: string | null;
+export interface BurnArgs {
+    batch_id: Uint128;
 }
 export interface InstantiateMsg {
-    base_denom: string;
-    core_contract: string;
+    core_address: string;
+    denom_prefix: string;
     owner: string;
-    token_contract: string;
-    voucher_contract: string;
+    withdrawal_manager_address: string;
 }
 export declare class Client {
     private readonly client;
@@ -125,13 +110,10 @@ export declare class Client {
     mustBeSigningClient(): Error;
     static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
     static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
-    queryConfig: () => Promise<Config>;
+    queryConfig: () => Promise<ConfigResponse>;
     queryOwnership: () => Promise<OwnershipForString>;
-    queryPauseInfo: () => Promise<PauseInfoResponse>;
-    updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    receiveNft: (sender: string, args: ReceiveNftArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    receiveWithdrawalDenoms: (sender: string, args: ReceiveWithdrawalDenomsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    createDenom: (sender: string, args: CreateDenomArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    mint: (sender: string, args: MintArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    burn: (sender: string, args: BurnArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    pause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    unpause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
 }

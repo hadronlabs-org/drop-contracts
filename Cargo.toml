@@ -8,6 +8,7 @@ members = [
     "contracts/factory",
     "contracts/hook-tester",
     "contracts/withdrawal-voucher",
+    "contracts/withdrawal-token",
     "contracts/withdrawal-manager",
     "contracts/proposal-votes-poc",
     "contracts/provider-proposals-poc",

@@ -44,6 +44,7 @@ pub fn instantiate(
         deps.storage,
         &Config {
             core_contract: deps.api.addr_validate(&msg.core_contract)?,
+            withdrawal_token_contract: deps.api.addr_validate(&msg.token_contract)?,
             withdrawal_voucher_contract: deps.api.addr_validate(&msg.voucher_contract)?,
             base_denom: msg.base_denom,
         },
@@ -96,6 +97,9 @@ pub fn execute(
                     execute_receive_nft_withdraw(deps, info, sender, token_id, receiver)
                 }
             }
+        }
+        ExecuteMsg::ReceiveWithdrawalDenoms { receiver } => {
+            execute_receive_withdrawal_denoms(deps, info, receiver)
         }
         ExecuteMsg::Pause {} => exec_pause(deps, info),
         ExecuteMsg::Unpause {} => exec_unpause(deps, info),
@@ -235,6 +239,106 @@ fn execute_receive_nft_withdraw(
     }));
 
     Ok(response("execute-receive_nft", CONTRACT_NAME, attrs).add_messages(messages))
+}
+
+fn execute_receive_withdrawal_denoms(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    receiver: Option<String>,
+) -> ContractResult<Response<NeutronMsg>> {
+    pause_guard(deps.storage)?;
+
+    let mut attrs = vec![attr("action", "receive_withdrawal_denoms")];
+    let config = CONFIG.load(deps.storage)?;
+
+    let withdrawn_coin = cw_utils::one_coin(&info)?;
+    let Coin { amount, denom } = withdrawn_coin.clone();
+    let batch_id = get_batch_id_by_withdrawal_denom(denom, &config)?;
+
+    let unbond_batch: UnbondBatch = deps.querier.query_wasm_smart(
+        &config.core_contract,
+        &drop_staking_base::msg::core::QueryMsg::UnbondBatch {
+            batch_id: batch_id.into(),
+        },
+    )?;
+    ensure_eq!(
+        unbond_batch.status,
+        UnbondBatchStatus::Withdrawn,
+        ContractError::BatchIsNotWithdrawn {}
+    );
+
+    let user_share = Decimal::from_ratio(amount, unbond_batch.total_dasset_amount_to_withdraw);
+
+    let payout_amount = user_share * unbond_batch.unbonded_amount.unwrap_or(Uint128::zero());
+    let to_address = receiver.unwrap_or(info.sender.to_string());
+    attrs.push(attr("batch_id", batch_id.to_string()));
+    attrs.push(attr("payout_amount", payout_amount.to_string()));
+    attrs.push(attr("to_address", &to_address));
+
+    let messages = vec![
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: config.withdrawal_token_contract.to_string(),
+            msg: to_json_binary(
+                &drop_staking_base::msg::withdrawal_token::ExecuteMsg::Burn {
+                    batch_id: Uint128::from(batch_id),
+                },
+            )?,
+            funds: info.funds,
+        }),
+        CosmosMsg::Bank(BankMsg::Send {
+            to_address,
+            amount: vec![Coin {
+                denom: config.base_denom,
+                amount: payout_amount,
+            }],
+        }),
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: config.core_contract.to_string(),
+            msg: to_json_binary(
+                &drop_staking_base::msg::core::ExecuteMsg::UpdateWithdrawnAmount {
+                    batch_id,
+                    withdrawn_amount: payout_amount,
+                },
+            )?,
+            funds: vec![],
+        }),
+    ];
+
+    Ok(response("execute-receive_withdrawal_denoms", CONTRACT_NAME, attrs).add_messages(messages))
+}
+
+fn get_batch_id_by_withdrawal_denom(
+    withdrawal_denom: String,
+    config: &Config,
+) -> Result<u128, ContractError> {
+    let tokenfactory_denom_parts: Vec<&str> = withdrawal_denom.split('/').collect();
+
+    if tokenfactory_denom_parts.len() != 3 {
+        return Err(ContractError::InvalidDenom {});
+    }
+
+    let prefix = tokenfactory_denom_parts[0];
+    let creator_address = tokenfactory_denom_parts[1];
+    let subdenom = tokenfactory_denom_parts[2];
+
+    if !prefix.eq_ignore_ascii_case("factory") {
+        return Err(ContractError::InvalidDenom {});
+    }
+
+    if !creator_address.eq_ignore_ascii_case(config.withdrawal_token_contract.as_ref()) {
+        return Err(ContractError::InvalidDenom {});
+    }
+
+    let subdenom_parts: Vec<&str> = subdenom.split(':').collect();
+    if subdenom_parts.get(2).is_none() {
+        return Err(ContractError::InvalidDenom {});
+    }
+    let batch_id = subdenom_parts[2];
+
+    match batch_id.parse::<u128>() {
+        Ok(value) => Ok(value),
+        Err(_) => Err(ContractError::InvalidDenom {}),
+    }
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
