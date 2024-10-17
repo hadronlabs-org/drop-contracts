@@ -75,6 +75,17 @@ store_code() {
   eval "$1_code_id=$(echo "$res" | jq -r "$(select_attr "store_code" "code_id")")"
 }
 
+top_up_address() {
+  local address="$1"
+  deploy_wallet="$(neutrond keys show "$DEPLOY_WALLET" \
+    --home "$NEUTRON_HOME"                             \
+    --keyring-backend "$KEYRING_BACKEND"               \
+    --output json | jq -r '.address')"
+
+  res="$(neutrond tx bank send ${deploy_wallet} ${address} 1000000untrn "${ntx[@]}" | wait_ntx)"
+  echo "[OK] Topped up $address"
+}
+
 deploy_wasm_code() {
   for contract in factory core distribution puppeteer rewards_manager strategy token validators_set withdrawal_manager withdrawal_voucher pump splitter lsm_share_bond_provider native_bond_provider; do
       store_code "$contract"
@@ -115,7 +126,7 @@ pre_deploy_check_ibc_connection() {
 }
 
 pre_deploy_check_code_ids() {
-  for contract in factory core distribution puppeteer rewards_manager strategy token validators_set withdrawal_manager withdrawal_voucher pump splitter; do
+  for contract in factory core distribution puppeteer rewards_manager strategy token validators_set withdrawal_manager withdrawal_voucher pump splitter lsm_share_bond_provider native_bond_provider; do
     code_id="${contract}_code_id"
     set +u
     if [[ -z "${!code_id}" ]]; then
@@ -148,7 +159,7 @@ deploy_factory() {
       "rewards_manager_code_id":'"$rewards_manager_code_id"',
       "splitter_code_id": '"$splitter_code_id"',
       "rewards_pump_code_id": '"$pump_code_id"',
-      "lsm_share_bond_provider_code_id": '"$lsm_share_bond_provider_code_id"'
+      "lsm_share_bond_provider_code_id": '"$lsm_share_bond_provider_code_id"',
       "native_bond_provider_code_id": '"$native_bond_provider_code_id"'
     },
     "remote_opts":{
