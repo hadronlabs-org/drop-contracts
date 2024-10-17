@@ -76,7 +76,7 @@ store_code() {
 }
 
 deploy_wasm_code() {
-  for contract in factory core distribution puppeteer rewards_manager strategy token staker validators_set withdrawal_manager withdrawal_voucher pump splitter; do
+  for contract in factory core distribution puppeteer rewards_manager strategy token staker validators_set withdrawal_token withdrawal_manager withdrawal_voucher pump splitter; do
       store_code "$contract"
       code_id="${contract}_code_id"
       printf '[OK] %-24s code ID: %s\n' "$contract" "${!code_id}"
@@ -115,7 +115,7 @@ pre_deploy_check_ibc_connection() {
 }
 
 pre_deploy_check_code_ids() {
-  for contract in factory core distribution puppeteer rewards_manager strategy token staker validators_set withdrawal_manager withdrawal_voucher pump splitter; do
+  for contract in factory core distribution puppeteer rewards_manager strategy token staker validators_set withdrawal_token withdrawal_manager withdrawal_voucher pump splitter; do
     code_id="${contract}_code_id"
     set +u
     if [[ -z "${!code_id}" ]]; then
@@ -140,6 +140,7 @@ deploy_factory() {
       "core_code_id":'"$core_code_id"',
       "token_code_id":'"$token_code_id"',
       "withdrawal_voucher_code_id":'"$withdrawal_voucher_code_id"',
+      "withdrawal_token_code_id":'"$withdrawal_token_code_id"',
       "withdrawal_manager_code_id":'"$withdrawal_manager_code_id"',
       "strategy_code_id":'"$strategy_code_id"',
       "distribution_code_id":'"$distribution_code_id"',
@@ -205,10 +206,13 @@ deploy_factory() {
     | jq -r '.data.rewards_pump_contract')"
   puppeteer_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.puppeteer_contract')"
+  withdrawal_token_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
+    | jq -r '.data.withdrawal_token_contract')"
   withdrawal_manager_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.withdrawal_manager_contract')"
   echo "[OK] Staker contract: $staker_address"
   echo "[OK] Puppeteer contract: $puppeteer_address"
+  echo "[OK] Withdrawal token contract: $withdrawal_token_address"
   echo "[OK] Withdrawal manager contract: $withdrawal_manager_address"
 }
 
