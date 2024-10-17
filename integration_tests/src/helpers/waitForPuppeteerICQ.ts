@@ -1,16 +1,19 @@
 import { waitFor } from './waitFor';
-import { DropCore, DropPuppeteer } from 'drop-ts-client';
+import { DropCore, DropPuppeteer, DropPuppeteerInitia } from 'drop-ts-client';
 import { ResponseHookSuccessMsg } from 'drop-ts-client/lib/contractLib/dropCore';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { SigningStargateClient } from '@cosmjs/stargate';
 
 const DropCoreClass = DropCore.Client;
 const DropPuppeteerClass = DropPuppeteer.Client;
+const DropPuppeteerInitiaClass = DropPuppeteerInitia.Client;
 
 export const waitForPuppeteerICQ = async (
   client: SigningStargateClient | SigningCosmWasmClient,
   coreContractClient?: InstanceType<typeof DropCoreClass>,
-  puppeteerContractClient?: InstanceType<typeof DropPuppeteerClass>,
+  puppeteerContractClient?:
+    | InstanceType<typeof DropPuppeteerClass>
+    | InstanceType<typeof DropPuppeteerInitiaClass>,
 ): Promise<void> => {
   const puppeteerResponse = (
     await coreContractClient.queryLastPuppeteerResponse()

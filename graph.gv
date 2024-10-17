@@ -15,22 +15,20 @@ digraph G {
     subgraph {
         rank = same;
         K003 [label = "K003\ncheck last idle call\nidle_min_interval reached";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
-        K036 [label = "K036\nis there pending LSM shares\nto redeem";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
-        K041 [label = "K041\nis there pending LSM shares\nto transfer";shape = polygon;sides = 4;skew = .4;fixedsize = true;width = 3;height = 1;];
+        K036 [label = "K036\nbond provider can process\non idle tick";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
     }
     
     subgraph {
         rank = same;
         K004 [label = "K004\nUpdate last idle call";shape = box;fixedsize = true;width = 3;height = 1;];
-        K037 [label = "K037\nredeem pending LSM shares msg";shape = house;fixedsize = true;width = 3;height = 1;];
-        K042 [label = "K042\ntransfer pending LSM shares msg";shape = house;fixedsize = true;width = 3;height = 1;];
+        K037 [label = "K037\nLSMRedeem";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
+        K038 [label = "K038\nIBC Transfer";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
+        K039 [label = "K039\nStake";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
     }
     
     subgraph {
         rank = same;
         K005 [label = "K005\nIs Unbonding Time Far?";shape = polygon;sides = 4;skew = .4;fixedsize = true;width = 3;height = 1;];
-        K038 [label = "K038\nLSMRedeem";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
-        K043 [label = "K043\nLSMTransfer";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
     }
     
     subgraph {
@@ -52,14 +50,13 @@ digraph G {
     subgraph {
         rank = same;
         K010 [label = "K010\nAny validators to claim";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
-        K015 [label = "K015\nAnything to stake";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
+        K015 [label = "K015\nAnything to unbond";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
         K024 [label = "K024\nIs there a failed batch?";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
     }
     
     subgraph {
         rank = same;
         K011 [label = "K011\ncompose Claim msg";shape = house;fixedsize = true;width = 3;height = 1;];
-        K016 [label = "K016\ncompose Stake msg";shape = house;fixedsize = true;width = 3;height = 1;];
         K025 [label = "K025\nTake failed batch as one to unbond";shape = box;fixedsize = true;width = 3;height = 1;];
         K026 [label = "K026\nTake the last batch as one to unbond";shape = box;fixedsize = true;width = 3;height = 1;];
         K050 [label = "K050\nChanging of batch status\nback to Unbonding";shape = box;];
@@ -68,7 +65,6 @@ digraph G {
     subgraph {
         rank = same;
         K012 [label = "K012\nClaiming";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
-        K017 [label = "K017\nStakingBond";shape = circle;fixedsize = true;width = 1.5;height = 1.5;];
         K027 [label = "K027\nUnbonding conditions are met";shape = diamond;fixedsize = true;width = 4;height = 1.5;];
     }
     
@@ -106,11 +102,16 @@ digraph G {
     K002 -> K003;
     K003 -> K036 [taillabel = "no";];
     
-    K036 -> K037 [taillabel = "yes";];
-    K037 -> K038;
-    K036 -> K041 [taillabel = "no";];
-    K041 -> K042;
-    K042 -> K043;
+    K036 -> K000 [taillabel = "no";];
+    
+    K036 -> K037 [taillabel = "or";];
+    K037 -> K000;
+    
+    K036 -> K038 [taillabel = "or";];
+    K038 -> K000;
+    
+    K036 -> K039 [taillabel = "or";];
+    K039 -> K000;
     
     K003 -> K004 [taillabel = "yes";];
     K004 -> K005;
@@ -124,12 +125,10 @@ digraph G {
     K048 -> K009;
     
     K009 -> K010;
-    K010 -> K015 [taillabel = "no";];
     
-    K015 -> K016 [taillabel = "yes";];
-    K016 -> K017;
+    K015 -> K000 [taillabel = "no";];
     
-    K015 -> K024 [taillabel = "no";];
+    K015 -> K024 [taillabel = "yes";];
     
     K024 -> K025 [taillabel = "yes";];
     K028 -> K029;
@@ -137,9 +136,6 @@ digraph G {
     K024 -> K026 [taillabel = "no";];
     K010 -> K011 [taillabel = "yes";];
     K011 -> K012;
-    
-    K038 -> K000;
-    K043 -> K000;
     
     K013 -> K014 [taillabel = "yes";];
     K013 -> K015 [taillabel = "no";];
@@ -149,8 +145,6 @@ digraph G {
     K050 -> K000;
     K047 -> K013;
     K014 -> K015;
-    
-    K017 -> K024;
     
     K029 -> K030 [taillabel = "ACK";];
     K029 -> K031 [taillabel = "ERR";];
