@@ -53,6 +53,7 @@ main() {
   pre_deploy_check_balance
   pre_deploy_check_ibc_connection 
   deploy_factory
+  top_up_address $puppeteer_address
   
   register_rewards_pump_ica
   print_hermes_command $rewards_pump_ica_port $rewards_pump_ica_channel
@@ -80,7 +81,7 @@ main() {
     }
   }'
 
-  factory_admin_execute $factory_address "$msg"
+  factory_admin_execute $factory_address "$msg" 250000untrn
   echo "[OK] Add Native bond provider to the Core contract"
 
   update_msg='{
@@ -99,7 +100,7 @@ main() {
     }
   }'
 
-  factory_admin_execute $factory_address "$msg"
+  factory_admin_execute $factory_address "$msg" 250000untrn
   echo "[OK] Add LSM share bond provider to the Core contract"
 
 
@@ -125,7 +126,7 @@ main() {
     }
   }'
 
-  factory_admin_execute $factory_address "$msg"
+  factory_admin_execute $factory_address "$msg" 250000untrn
   echo "[OK] Add Rewards withdraw address to Puppeteer ICA"
 
   msg='{
