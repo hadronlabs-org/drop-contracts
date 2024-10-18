@@ -9,4 +9,5 @@ pub mod redemption_rate_adapter;
 pub mod rewards_manager;
 pub mod splitter;
 pub mod validatorset;
+pub mod withdrawal_exchange;
 pub mod withdrawal_token;

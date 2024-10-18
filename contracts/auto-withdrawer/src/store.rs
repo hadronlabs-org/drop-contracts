@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Coin};
+use cosmwasm_std::{Addr, Coin, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, MultiIndex};
 
 pub const CORE_ADDRESS: Item<Addr> = Item::new("core");
@@ -12,7 +12,6 @@ pub const WITHDRAWAL_DENOM_PREFIX: Item<String> = Item::new("withdrawal_denom_pr
 pub use bondings::{map as bondings_map, BondingRecord};
 mod bondings {
     use super::*;
-    use cosmwasm_std::Uint128;
 
     #[cw_serde]
     pub struct BondingRecord {
