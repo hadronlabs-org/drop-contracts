@@ -8,6 +8,7 @@ use drop_macros::{pausable, pausable_query};
 #[cw_serde]
 pub struct InstantiateMsg {
     pub core_contract: String,
+    pub token_contract: String,
     pub voucher_contract: String,
     pub base_denom: String,
     pub owner: String,
@@ -32,6 +33,9 @@ pub enum ExecuteMsg {
         base_denom: Option<String>,
     },
     ReceiveNft(Cw721ReceiveMsg),
+    ReceiveWithdrawalDenoms {
+        receiver: Option<String>,
+    },
 }
 
 #[cw_serde]

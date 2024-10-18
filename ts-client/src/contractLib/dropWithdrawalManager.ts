@@ -73,13 +73,14 @@ export type UpdateOwnershipArgs =
 
 export interface DropWithdrawalManagerSchema {
   responses: Config | OwnershipForString | PauseInfoResponse;
-  execute: UpdateConfigArgs | ReceiveNftArgs | UpdateOwnershipArgs;
+  execute: UpdateConfigArgs | ReceiveNftArgs | ReceiveWithdrawalDenomsArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
 export interface Config {
   base_denom: string;
   core_contract: Addr;
+  withdrawal_token_contract: Addr;
   withdrawal_voucher_contract: Addr;
 }
 /**
@@ -116,10 +117,14 @@ export interface ReceiveNftArgs {
   };
   additionalProperties?: never;
 }
+export interface ReceiveWithdrawalDenomsArgs {
+  receiver?: string | null;
+}
 export interface InstantiateMsg {
   base_denom: string;
   core_contract: string;
   owner: string;
+  token_contract: string;
   voucher_contract: string;
 }
 
@@ -185,6 +190,10 @@ export class Client {
   receiveNft = async(sender:string, args: ReceiveNftArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { receive_nft: args }, fee || "auto", memo, funds);
+  }
+  receiveWithdrawalDenoms = async(sender:string, args: ReceiveWithdrawalDenomsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { receive_withdrawal_denoms: args }, fee || "auto", memo, funds);
   }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

@@ -14,5 +14,7 @@ pub mod strategy;
 pub mod token;
 pub mod validatorset;
 pub mod validatorsstats;
+pub mod withdrawal_exchange;
 pub mod withdrawal_manager;
+pub mod withdrawal_token;
 pub mod withdrawal_voucher;
