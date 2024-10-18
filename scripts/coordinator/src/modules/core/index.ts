@@ -6,12 +6,12 @@ import pino from 'pino';
 import JSONBig from 'json-bigint';
 
 import { runQueryRelayer, waitBlocks } from '../../utils';
-import { fromAscii, toAscii } from '@cosmjs/encoding';
+// import { fromAscii, toAscii } from '@cosmjs/encoding';
 
 const PuppeteerContractClient = DropPuppeteer.Client;
 const CoreContractClient = DropCore.Client;
 
-const IDLE_ADDITIONAL_INTERVAL = 120; // Seconds. Coordinator idle timeout calculation is a little frontrunning before actual idle timeout
+// const IDLE_ADDITIONAL_INTERVAL = 120; // Seconds. Coordinator idle timeout calculation is a little frontrunning before actual idle timeout
 
 export class CoreModule extends ManagerModule {
   private puppeteerContractClient?: InstanceType<
@@ -58,71 +58,67 @@ export class CoreModule extends ManagerModule {
     const coreContractState =
       await this.coreContractClient.queryContractState();
 
-    const lastTickRaw =
-      await this.context.neutronSigningClient.queryContractRaw(
-        this.config.coreContractAddress,
-        toAscii('last_tick'),
-      );
-    const lastTick = Number.parseInt(fromAscii(lastTickRaw), 10);
+    // const lastTickRaw =
+    //   await this.context.neutronSigningClient.queryContractRaw(
+    //     this.config.coreContractAddress,
+    //     toAscii('last_tick'),
+    //   );
+    // const lastTick = Number.parseInt(fromAscii(lastTickRaw), 10);
 
-    const config = await this.coreContractClient.queryConfig();
+    // const config = await this.coreContractClient.queryConfig();
 
-    if (
-      this.lastRun / 1000 <
-        lastTick + config.idle_min_interval + IDLE_ADDITIONAL_INTERVAL &&
-      coreContractState === 'idle'
-    ) {
-      const lastRedeemRaw =
-        await this.context.neutronSigningClient.queryContractRaw(
-          this.config.coreContractAddress,
-          toAscii('last_lsm_redeem'),
-        );
-      const lastRedeem = Number.parseInt(fromAscii(lastRedeemRaw), 10);
+    // if (
+    //   this.lastRun / 1000 <
+    //     lastTick + config.idle_min_interval + IDLE_ADDITIONAL_INTERVAL &&
+    //   coreContractState === 'idle'
+    // ) {
+    //   const lastRedeemRaw =
+    //     await this.context.neutronSigningClient.queryContractRaw(
+    //       this.config.coreContractAddress,
+    //       toAscii('last_lsm_redeem'),
+    //     );
+    //   const lastRedeem = Number.parseInt(fromAscii(lastRedeemRaw), 10);
 
-      const pendingLsmSharesAmount = (
-        await this.coreContractClient.queryPendingLSMShares()
-      ).length;
+    //   const pendingLsmSharesAmount = (
+    //     await this.coreContractClient.queryPendingLSMShares()
+    //   ).length;
 
-      const lsmSharesToRedeemAmount = (
-        await this.coreContractClient.queryLSMSharesToRedeem()
-      ).length;
+    //   const lsmSharesToRedeemAmount = (
+    //     await this.coreContractClient.queryLSMSharesToRedeem()
+    //   ).length;
 
-      if (pendingLsmSharesAmount === 0 && lsmSharesToRedeemAmount === 0) {
-        this.log.info(
-          'Skipping idle tick because idle min interval is not reached',
-        );
-        return;
-      }
+    //   if (pendingLsmSharesAmount === 0 && lsmSharesToRedeemAmount === 0) {
+    //     this.log.info(
+    //       'Skipping idle tick because idle min interval is not reached',
+    //     );
+    //     return;
+    //   }
 
-      if (
-        pendingLsmSharesAmount === 0 &&
-        lsmSharesToRedeemAmount < config.lsm_redeem_threshold &&
-        lastRedeem + config.lsm_redeem_maximum_interval > this.lastRun / 1000
-      ) {
-        this.log.info('Skipping tick because pending LSM shares is not ready');
-        return;
-      }
-    }
+    //   if (
+    //     pendingLsmSharesAmount === 0 &&
+    //     lsmSharesToRedeemAmount < config.lsm_redeem_threshold &&
+    //     lastRedeem + config.lsm_redeem_maximum_interval > this.lastRun / 1000
+    //   ) {
+    //     this.log.info('Skipping tick because pending LSM shares is not ready');
+    //     return;
+    //   }
+    // }
 
     const lastPuppeteerResponse =
       await this.coreContractClient.queryLastPuppeteerResponse();
 
     const puppeteerResponseReceived = !!lastPuppeteerResponse.response;
 
-    const lastStakerResponse =
-      await this.coreContractClient.queryLastStakerResponse();
+    // const lastStakerResponse =
+    //   await this.coreContractClient.queryLastStakerResponse();
 
-    const stakerResponseReceived = !!lastStakerResponse.response;
+    // const stakerResponseReceived = !!lastStakerResponse.response;
 
     this.log.debug(
-      `Core contract state: ${coreContractState}, puppeteer response received: ${puppeteerResponseReceived}, staker response received: ${stakerResponseReceived}`,
+      `Core contract state: ${coreContractState}, puppeteer response received: ${puppeteerResponseReceived}`,
     );
 
-    if (
-      puppeteerResponseReceived ||
-      coreContractState === 'idle' ||
-      (stakerResponseReceived && coreContractState === 'staking_bond')
-    ) {
+    if (puppeteerResponseReceived || coreContractState === 'idle') {
       const queryIds = await this.puppeteerContractClient.queryKVQueryIds();
 
       this.log.info(`Puppeteer query ids: ${JSON.stringify(queryIds)}`);
