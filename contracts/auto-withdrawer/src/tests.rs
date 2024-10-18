@@ -703,18 +703,13 @@ fn unbond_happy_path() {
 
     assert_eq!(
         response,
-        Response::new()
-            .add_submessage(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-                to_address: "sender".to_string(),
-                amount: vec![Coin::new(
-                    100,
-                    "factory/withdrawal_token_contract/drop:unbond:0"
-                )]
-            })))
-            .add_submessage(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-                to_address: "sender".to_string(),
-                amount: vec![Coin::new(10, "untrn")],
-            })))
+        Response::new().add_submessage(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+            to_address: "sender".to_string(),
+            amount: vec![
+                Coin::new(100, "factory/withdrawal_token_contract/drop:unbond:0"),
+                Coin::new(10, "untrn")
+            ]
+        })))
     );
 }
 

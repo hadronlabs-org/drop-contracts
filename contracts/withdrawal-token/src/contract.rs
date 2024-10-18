@@ -12,6 +12,7 @@ use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     query::token_factory::query_full_denom,
 };
+use std::fmt::Display;
 
 pub const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 pub const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -203,6 +204,6 @@ pub fn reply(
     }
 }
 
-fn build_subdenom_name(denom_prefix: String, batch_id: Uint128) -> String {
-    denom_prefix + ":" + UNBOND_MARK + ":" + &batch_id.to_string()
+fn build_subdenom_name(denom_prefix: impl Display, batch_id: impl Display) -> String {
+    format!("{denom_prefix}:{UNBOND_MARK}:{batch_id}")
 }
