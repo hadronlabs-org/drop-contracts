@@ -85,7 +85,10 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::Config {} => query_config(deps, env),
         QueryMsg::CanBond { denom } => query_can_bond(deps, denom),
         QueryMsg::CanProcessOnIdle {} => {
-            Ok(to_json_binary(&query_can_process_on_idle(deps, &env)?)?)
+            let config = CONFIG.load(deps.storage)?;
+            Ok(to_json_binary(&query_can_process_on_idle(
+                deps, &env, &config,
+            )?)?)
         }
         QueryMsg::TokensAmount {
             coin,
@@ -131,12 +134,32 @@ fn query_can_bond(deps: Deps<NeutronQuery>, denom: String) -> ContractResult<Bin
     Ok(to_json_binary(&can_bond(config.base_denom, denom))?)
 }
 
-fn query_can_process_on_idle(deps: Deps<NeutronQuery>, _env: &Env) -> ContractResult<bool> {
+fn query_can_process_on_idle(
+    deps: Deps<NeutronQuery>,
+    env: &Env,
+    config: &Config,
+) -> ContractResult<bool> {
     let tx_state = TX_STATE.load(deps.storage)?;
     ensure!(
         tx_state.status == TxStateStatus::Idle,
         ContractError::InvalidState {
             reason: "tx_state is not idle".to_string()
+        }
+    );
+
+    let non_staked_balance = NON_STAKED_BALANCE.load(deps.storage)?;
+    let pending_coin = deps
+        .querier
+        .query_balance(&env.contract.address, config.base_denom.to_string())?;
+
+    ensure!(
+        pending_coin.amount >= config.min_ibc_transfer
+            || non_staked_balance >= config.min_stake_amount,
+        ContractError::NotEnoughToProcessIdle {
+            min_stake_amount: config.min_stake_amount,
+            non_staked_balance,
+            min_ibc_transfer: config.min_ibc_transfer,
+            pending_coins: pending_coin.amount,
         }
     );
 
@@ -272,7 +295,7 @@ fn execute_process_on_idle(
         ContractError::Unauthorized {}
     );
 
-    query_can_process_on_idle(deps.as_ref(), &env)?;
+    query_can_process_on_idle(deps.as_ref(), &env, &config)?;
 
     let attrs = vec![attr("action", "process_on_idle")];
     let mut submessages: Vec<SubMsg<NeutronMsg>> = vec![];

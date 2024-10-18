@@ -1,13 +1,19 @@
 use cosmwasm_std::{
-    attr,
+    attr, coins, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, Coin, CosmosMsg, Decimal, Event, Response, SubMsg, Uint128, WasmMsg,
+    to_json_binary, Addr, BalanceResponse, Coin, CosmosMsg, Decimal, Event, Response, SubMsg,
+    Uint128, WasmMsg,
 };
 use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
-use drop_helpers::testing::mock_dependencies;
+use drop_helpers::{ica::IcaState, testing::mock_dependencies};
 use drop_staking_base::state::native_bond_provider::{
     Config, ConfigOptional, ReplyMsg, TxState, CONFIG, NON_STAKED_BALANCE, TX_STATE,
+};
+use neutron_sdk::{
+    bindings::msg::{IbcFee, NeutronMsg},
+    query::min_ibc_fee::MinIbcFeeResponse,
+    sudo::msg::RequestPacketTimeoutHeight,
 };
 
 fn get_default_config() -> Config {
@@ -311,7 +317,48 @@ fn query_can_not_process_on_idle_not_in_idle_state() {
 }
 
 #[test]
-fn query_can_process_on_idle() {
+fn query_can_process_on_idle_false_if_no_funds_to_process() {
+    let mut deps = mock_dependencies(&[]);
+
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::zero())
+        .unwrap();
+
+    TX_STATE
+        .save(deps.as_mut().storage, &TxState::default())
+        .unwrap();
+
+    deps.querier.add_bank_query_response(
+        "cosmos2contract".to_string(),
+        BalanceResponse {
+            amount: Coin::new(0u128, "base_denom".to_string()),
+        },
+    );
+
+    let error = crate::contract::query(
+        deps.as_ref(),
+        mock_env(),
+        drop_staking_base::msg::native_bond_provider::QueryMsg::CanProcessOnIdle {},
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        error,
+        drop_staking_base::error::native_bond_provider::ContractError::NotEnoughToProcessIdle {
+            min_stake_amount: Uint128::from(100u128),
+            non_staked_balance: Uint128::from(0u128),
+            min_ibc_transfer: Uint128::from(100u128),
+            pending_coins: Uint128::zero()
+        }
+    );
+}
+
+#[test]
+fn query_can_process_on_idle_enough_non_staked_balance() {
     let mut deps = mock_dependencies(&[]);
 
     CONFIG
@@ -333,7 +380,51 @@ fn query_can_process_on_idle() {
     )
     .unwrap();
 
-    assert_eq!(res, to_json_binary(&true).unwrap());
+    deps.querier.add_bank_query_response(
+        "cosmos2contract".to_string(),
+        BalanceResponse {
+            amount: Coin::new(0u128, "base_denom".to_string()),
+        },
+    );
+
+    let res: bool = from_json(res).unwrap();
+
+    assert!(res);
+}
+
+#[test]
+fn query_can_process_on_idle_enough_contract_balance() {
+    let mut deps = mock_dependencies(&[]);
+
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::from(100u128))
+        .unwrap();
+
+    TX_STATE
+        .save(deps.as_mut().storage, &TxState::default())
+        .unwrap();
+
+    let res = crate::contract::query(
+        deps.as_ref(),
+        mock_env(),
+        drop_staking_base::msg::native_bond_provider::QueryMsg::CanProcessOnIdle {},
+    )
+    .unwrap();
+
+    deps.querier.add_bank_query_response(
+        "cosmos2contract".to_string(),
+        BalanceResponse {
+            amount: Coin::new(100u128, "base_denom".to_string()),
+        },
+    );
+
+    let res: bool = from_json(res).unwrap();
+
+    assert!(res);
 }
 
 #[test]
@@ -541,7 +632,7 @@ fn process_on_idle_not_core_contract() {
 }
 
 #[test]
-fn process_on_idle() {
+fn process_on_idle_delegation() {
     let mut deps = mock_dependencies(&[]);
 
     CONFIG
@@ -592,6 +683,133 @@ fn process_on_idle() {
                 }),
                 ReplyMsg::Bond.to_reply_id()
             ))
+    );
+}
+
+#[test]
+fn process_on_idle_ibc_transfer() {
+    let mut deps = mock_dependencies(&[]);
+
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::zero())
+        .unwrap();
+
+    TX_STATE
+        .save(deps.as_mut().storage, &TxState::default())
+        .unwrap();
+
+    deps.querier.add_bank_query_response(
+        "cosmos2contract".to_string(),
+        BalanceResponse {
+            amount: Coin::new(100u128, "base_denom".to_string()),
+        },
+    );
+
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: coins(100, "local_denom"),
+                timeout_fee: coins(200, "local_denom"),
+            },
+        })
+        .unwrap()
+    });
+
+    deps.querier
+        .add_wasm_query_response("puppeteer_contract", |_| {
+            to_json_binary(&IcaState::Registered {
+                ica_address: "ica_address".to_string(),
+                port_id: "port_id".to_string(),
+                channel_id: "channel_id".to_string(),
+            })
+            .unwrap()
+        });
+
+    let mocked_env = mock_env();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mocked_env.clone(),
+        mock_info("core_contract", &[]),
+        drop_staking_base::msg::native_bond_provider::ExecuteMsg::ProcessOnIdle {},
+    )
+    .unwrap();
+
+    assert_eq!(
+        res,
+        Response::new()
+            .add_attributes(vec![attr("action", "process_on_idle"),])
+            .add_event(Event::new(
+                "crates.io:drop-staking__drop-native-bond-provider-process_on_idle"
+            ))
+            .add_submessage(SubMsg::reply_always(
+                NeutronMsg::IbcTransfer {
+                    source_port: "port_id".to_string(),
+                    source_channel: "transfer_channel_id".to_string(),
+                    token: Coin::new(100u128, "base_denom"),
+                    sender: "cosmos2contract".to_string(),
+                    receiver: "ica_address".to_string(),
+                    timeout_height: RequestPacketTimeoutHeight {
+                        revision_number: None,
+                        revision_height: None,
+                    },
+                    timeout_timestamp: mocked_env.block.time.plus_seconds(100u64).nanos(),
+                    memo: "".to_string(),
+                    fee: IbcFee {
+                        recv_fee: vec![],
+                        ack_fee: vec![],
+                        timeout_fee: vec![]
+                    },
+                },
+                ReplyMsg::IbcTransfer.to_reply_id()
+            ))
+    );
+}
+
+#[test]
+fn process_on_idle_not_allowed_if_no_funds() {
+    let mut deps = mock_dependencies(&[]);
+
+    CONFIG
+        .save(deps.as_mut().storage, &get_default_config())
+        .unwrap();
+
+    NON_STAKED_BALANCE
+        .save(deps.as_mut().storage, &Uint128::zero())
+        .unwrap();
+
+    TX_STATE
+        .save(deps.as_mut().storage, &TxState::default())
+        .unwrap();
+
+    deps.querier.add_bank_query_response(
+        "cosmos2contract".to_string(),
+        BalanceResponse {
+            amount: Coin::new(0u128, "base_denom".to_string()),
+        },
+    );
+
+    let error = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core_contract", &[]),
+        drop_staking_base::msg::native_bond_provider::ExecuteMsg::ProcessOnIdle {},
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        error,
+        drop_staking_base::error::native_bond_provider::ContractError::NotEnoughToProcessIdle {
+            min_stake_amount: Uint128::from(100u128),
+            non_staked_balance: Uint128::zero(),
+            min_ibc_transfer: Uint128::from(100u128),
+            pending_coins: Uint128::zero()
+        }
     );
 }
 
