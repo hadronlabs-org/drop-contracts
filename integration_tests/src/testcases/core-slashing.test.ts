@@ -420,7 +420,7 @@ describe('Core Slashing', () => {
       account.address,
       res.codeId,
       {
-        sdk_version: process.env.SDK_VERSION || '0.46.0',
+        sdk_version: process.env.SDK_VERSION || '0.47.10',
         local_denom: 'untrn',
         code_ids: {
           core_code_id: context.codeIds.core,
@@ -927,7 +927,7 @@ describe('Core Slashing', () => {
           //
         }
         return res && res.delegations.delegations.length !== 0;
-      }, 100_000);
+      }, 200_000);
       const delegations = (await context.puppeteerContractClient.queryExtension(
         {
           msg: {
@@ -1321,7 +1321,7 @@ describe('Core Slashing', () => {
           //
         }
         return res && res.delegations.delegations.length !== 0;
-      }, 100_000);
+      }, 300_000);
       const delegations = (await context.puppeteerContractClient.queryExtension(
         {
           msg: {

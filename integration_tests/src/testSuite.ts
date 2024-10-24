@@ -1,6 +1,10 @@
 import cosmopark, { CosmoparkConfig } from '@neutron-org/cosmopark';
 import { DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
-import { StargateClient } from '@cosmjs/stargate';
+import {
+  QueryClient,
+  setupIbcExtension,
+  StargateClient,
+} from '@cosmjs/stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { waitFor } from './helpers/waitFor';
 import { sleep } from './helpers/sleep';
@@ -10,6 +14,7 @@ import {
   CosmoparkRelayer,
 } from '@neutron-org/cosmopark/lib/types';
 import { Suite } from 'vitest';
+import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 const packageJSON = require(`${__dirname}/../package.json`);
 const VERSION = (process.env.CI ? '_' : ':') + packageJSON.version;
 const ORG = process.env.CI ? 'neutronorg/lionco-contracts:' : '';
@@ -31,7 +36,13 @@ const TIMEOUT = 10_000;
 const redefinedParams =
   process.env.REMOTE_CHAIN_OPTS && fs.existsSync(process.env.REMOTE_CHAIN_OPTS)
     ? JSON.parse(fs.readFileSync(process.env.REMOTE_CHAIN_OPTS).toString())
-    : {};
+    : {
+        commands: {
+          addGenesisAccount: 'genesis add-genesis-account',
+          gentx: 'genesis gentx',
+          collectGenTx: 'genesis collect-gentxs',
+        },
+      };
 
 const networkConfigs = {
   lsm: {
@@ -286,6 +297,7 @@ const awaitNeutronChannels = (rest: string, rpc: string): Promise<void> =>
       const res = await client.IbcCoreChannelV1.query.queryChannels(undefined, {
         timeout: 1000,
       });
+      console.log(res.data.channels);
       if (
         res.data.channels.length > 0 &&
         res.data.channels[0].counterparty.channel_id !== ''
@@ -297,7 +309,26 @@ const awaitNeutronChannels = (rest: string, rpc: string): Promise<void> =>
       await sleep(10000);
       return false;
     }
-  }, 100_000);
+  }, 500_000);
+
+const awaitTargetChannels = (rpc: string): Promise<void> =>
+  waitFor(async () => {
+    try {
+      const tmClient = await Tendermint34Client.connect(rpc);
+      const client = QueryClient.withExtensions(tmClient, setupIbcExtension);
+      const res = await client.ibc.channel.allChannels();
+      console.log('=========== START ===================');
+      console.log(res.channels[0]);
+      console.log('============= END ===================');
+      if (res.channels.length > 0 && res.channels[0].state === 3) {
+        return true;
+      }
+      await sleep(10000);
+    } catch (e) {
+      await sleep(10000);
+      return false;
+    }
+  }, 500_000);
 
 export const generateWallets = (): Promise<Record<Keys, string>> =>
   keys.reduce(
@@ -439,6 +470,8 @@ export const setupPark = async (
       console.log(`Failed to await neutron channels: ${e}`);
       throw e;
     });
+
+    await awaitTargetChannels(`http://127.0.0.1:${instance.ports['gaia'].rpc}`);
   }
   return instance;
 };
