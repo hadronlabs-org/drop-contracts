@@ -297,7 +297,6 @@ const awaitNeutronChannels = (rest: string, rpc: string): Promise<void> =>
       const res = await client.IbcCoreChannelV1.query.queryChannels(undefined, {
         timeout: 1000,
       });
-      console.log(res.data.channels);
       if (
         res.data.channels.length > 0 &&
         res.data.channels[0].counterparty.channel_id !== ''
@@ -311,15 +310,12 @@ const awaitNeutronChannels = (rest: string, rpc: string): Promise<void> =>
     }
   }, 500_000);
 
-const awaitTargetChannels = (rpc: string): Promise<void> =>
+export const awaitTargetChannels = (rpc: string): Promise<void> =>
   waitFor(async () => {
     try {
       const tmClient = await Tendermint34Client.connect(rpc);
       const client = QueryClient.withExtensions(tmClient, setupIbcExtension);
       const res = await client.ibc.channel.allChannels();
-      console.log('=========== START ===================');
-      console.log(res.channels[0]);
-      console.log('============= END ===================');
       if (res.channels.length > 0 && res.channels[0].state === 3) {
         return true;
       }
@@ -470,8 +466,6 @@ export const setupPark = async (
       console.log(`Failed to await neutron channels: ${e}`);
       throw e;
     });
-
-    await awaitTargetChannels(`http://127.0.0.1:${instance.ports['gaia'].rpc}`);
   }
   return instance;
 };

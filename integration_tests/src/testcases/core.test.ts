@@ -29,7 +29,7 @@ import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
-import { awaitBlocks, setupPark } from '../testSuite';
+import { awaitBlocks, awaitTargetChannels, setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
@@ -145,6 +145,9 @@ describe('Core', () => {
           },
         },
       },
+    );
+    await awaitTargetChannels(
+      `http://127.0.0.1:${context.park.ports.gaia.rpc}`,
     );
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
