@@ -1121,11 +1121,11 @@ describe('Auto withdrawer', () => {
       it('wait for balances to come', async () => {
         let res;
         const { remote_height: currentHeight } =
-          await context.puppeteerContractClient.queryExtension({
+          (await context.puppeteerContractClient.queryExtension({
             msg: {
               balances: {},
             },
-          });
+          })) as any;
         await waitFor(async () => {
           try {
             res = await context.puppeteerContractClient.queryExtension({

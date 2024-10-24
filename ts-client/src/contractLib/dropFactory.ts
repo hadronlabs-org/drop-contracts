@@ -68,25 +68,14 @@ export type UpdateConfigArgs =
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type ProxyArgs =
-  | {
-      validator_set: ValidatorSetMsg;
-    }
-  | {
-      core: CoreMsg;
-    };
+export type ProxyArgs = {
+  validator_set: ValidatorSetMsg;
+};
 export type ValidatorSetMsg = {
   update_validators: {
     validators: ValidatorData[];
   };
 };
-export type CoreMsg =
-  | {
-      pause: {};
-    }
-  | {
-      unpause: {};
-    };
 export type CosmosMsgFor_NeutronMsg =
   | {
       bank: BankMsg;
@@ -773,9 +762,14 @@ export interface OwnershipForString {
   pending_owner?: string | null;
 }
 export interface PauseInfoResponse {
-  core: PauseInfoResponse1;
+  core: Pause;
   rewards_manager: PauseInfoResponse1;
   withdrawal_manager: PauseInfoResponse1;
+}
+export interface Pause {
+  bond: boolean;
+  tick: boolean;
+  unbond: boolean;
 }
 export interface State {
   core_contract: string;

@@ -56,13 +56,6 @@ pub enum UpdateConfigMsg {
 #[cw_serde]
 pub enum ProxyMsg {
     ValidatorSet(ValidatorSetMsg),
-    Core(CoreMsg),
-}
-
-#[cw_serde]
-pub enum CoreMsg {
-    Pause {},
-    Unpause {},
 }
 
 #[cw_serde]
