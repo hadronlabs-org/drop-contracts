@@ -9,7 +9,6 @@ use cosmwasm_std::{
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
 use drop_puppeteer_base::error::ContractError as PuppeteerContractError;
 use drop_puppeteer_base::msg::QueryMsg as PuppeteerQueryMsg;
-use drop_puppeteer_base::state::{Delegations, DropDelegation};
 use drop_staking_base::error::distribution::ContractError as DistributionContractError;
 use drop_staking_base::error::validatorset::ContractError as ValidatorSetContractError;
 use drop_staking_base::msg::strategy::QueryMsg;
@@ -17,6 +16,7 @@ use drop_staking_base::msg::validatorset::QueryMsg as ValidatorSetQueryMsg;
 use drop_staking_base::msg::{
     distribution::QueryMsg as DistributionQueryMsg, strategy::InstantiateMsg,
 };
+use drop_staking_base::state::puppeteer::{Delegations, DropDelegation};
 use drop_staking_base::state::strategy::{
     DENOM, DISTRIBUTION_ADDRESS, PUPPETEER_ADDRESS, VALIDATOR_SET_ADDRESS,
 };
@@ -146,7 +146,6 @@ fn validator_set_query(_deps: Deps, _env: Env, msg: ValidatorSetQueryMsg) -> Std
                 let validator = drop_staking_base::state::validatorset::ValidatorInfo {
                     valoper_address: format!("valoper{}", i),
                     weight: 100,
-                    on_top: Uint128::zero(),
                     last_processed_remote_height: None,
                     last_processed_local_height: None,
                     last_validated_height: None,

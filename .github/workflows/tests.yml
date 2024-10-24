@@ -37,7 +37,7 @@ jobs:
           override: true
       - name: Install cargo-tarpaulin
         run: cargo install cargo-tarpaulin --version 0.29.1
-      - run: cargo tarpaulin --exclude-files "packages/*" --exclude-files "*/proto/*"
+      - run: cargo tarpaulin --verbose --exclude-files "packages/*" --exclude-files "*/proto/*"
           --exclude-files "contracts/price-provider/*" --exclude-files
           "contracts/auto-withdrawer/*" --exclude-files
           "contracts/hook-tester/*" --exclude-files
@@ -46,7 +46,8 @@ jobs:
           "contracts/rewards-manager/*" --exclude-files
           "contracts/puppeteer-authz/*" --exclude-files
           "contracts/validators-stats/*" --exclude-files
-          "contracts/provider-proposals-poc/*" --exclude-files "*schema*" --out
+          "contracts/provider-proposals-poc/*" --exclude-files
+          "contracts/redemption-rate-adapter/*" --exclude-files "*schema*" --out
           Xml --output-dir ./
       - name: Produce the coverage report
         uses: insightsengineering/coverage-action@v2
@@ -152,96 +153,6 @@ jobs:
         with:
           path: artifacts
           key: ${{ runner.os }}-${{ github.sha }}
-  test-poc-provider-proposals:
-    name: test:poc-provider-proposals Integration Tests
-    needs:
-      - images-prepare
-      - artifacts-prepare
-    runs-on: self-hosted
-    steps:
-      - name: Upgrade docker compose to use v2
-        run: sudo curl -L
-          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
-          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
-          /usr/local/bin/docker-compose
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-      - name: Setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.12.2
-      - name: Install Yarn
-        run: npm install -g yarn
-      - name: Log in to Private Registry
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_TOKEN }}
-      - name: Clean volumes
-        run: docker volume prune -f
-      - name: Download images
-        run: |
-          cd integration_tests
-          yarn build-images
-      - name: Download artifacts
-        uses: actions/cache@v4
-        with:
-          path: artifacts
-          key: ${{ runner.os }}-${{ github.sha }}
-      - name: Run test test:poc-provider-proposals
-        run: cd integration_tests && yarn && yarn test:poc-provider-proposals
-      - name: Cleanup resources
-        if: always()
-        run: |
-          docker stop -t0 $(docker ps -a -q) || true
-          docker container prune -f || true
-          docker volume rm $(docker volume ls -q) || true
-  test-poc-proposal-votes:
-    name: test:poc-proposal-votes Integration Tests
-    needs:
-      - images-prepare
-      - artifacts-prepare
-    runs-on: self-hosted
-    steps:
-      - name: Upgrade docker compose to use v2
-        run: sudo curl -L
-          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
-          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
-          /usr/local/bin/docker-compose
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-      - name: Setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.12.2
-      - name: Install Yarn
-        run: npm install -g yarn
-      - name: Log in to Private Registry
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_TOKEN }}
-      - name: Clean volumes
-        run: docker volume prune -f
-      - name: Download images
-        run: |
-          cd integration_tests
-          yarn build-images
-      - name: Download artifacts
-        uses: actions/cache@v4
-        with:
-          path: artifacts
-          key: ${{ runner.os }}-${{ github.sha }}
-      - name: Run test test:poc-proposal-votes
-        run: cd integration_tests && yarn && yarn test:poc-proposal-votes
-      - name: Cleanup resources
-        if: always()
-        run: |
-          docker stop -t0 $(docker ps -a -q) || true
-          docker container prune -f || true
-          docker volume rm $(docker volume ls -q) || true
   test-core:
     name: test:core Integration Tests
     needs:
@@ -551,6 +462,51 @@ jobs:
           key: ${{ runner.os }}-${{ github.sha }}
       - name: Run test test:distribution
         run: cd integration_tests && yarn && yarn test:distribution
+      - name: Cleanup resources
+        if: always()
+        run: |
+          docker stop -t0 $(docker ps -a -q) || true
+          docker container prune -f || true
+          docker volume rm $(docker volume ls -q) || true
+  test-initia:
+    name: test:initia Integration Tests
+    needs:
+      - images-prepare
+      - artifacts-prepare
+    runs-on: self-hosted
+    steps:
+      - name: Upgrade docker compose to use v2
+        run: sudo curl -L
+          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
+          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
+          /usr/local/bin/docker-compose
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.12.2
+      - name: Install Yarn
+        run: npm install -g yarn
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Clean volumes
+        run: docker volume prune -f
+      - name: Download images
+        run: |
+          cd integration_tests
+          yarn build-images
+      - name: Download artifacts
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ runner.os }}-${{ github.sha }}
+      - name: Run test test:initia
+        run: cd integration_tests && yarn && yarn test:initia
       - name: Cleanup resources
         if: always()
         run: |

@@ -6,7 +6,6 @@ pub struct CodeIds {
     pub token_code_id: u64,
     pub core_code_id: u64,
     pub puppeteer_code_id: u64,
-    pub staker_code_id: u64,
     pub withdrawal_voucher_code_id: u64,
     pub withdrawal_manager_code_id: u64,
     pub strategy_code_id: u64,
@@ -15,6 +14,8 @@ pub struct CodeIds {
     pub rewards_manager_code_id: u64,
     pub splitter_code_id: u64,
     pub rewards_pump_code_id: u64,
+    pub lsm_share_bond_provider_code_id: u64,
+    pub native_bond_provider_code_id: u64,
 }
 
 #[cw_serde]
@@ -39,7 +40,6 @@ pub struct State {
     pub token_contract: String,
     pub core_contract: String,
     pub puppeteer_contract: String,
-    pub staker_contract: String,
     pub withdrawal_voucher_contract: String,
     pub withdrawal_manager_contract: String,
     pub strategy_contract: String,
@@ -48,6 +48,8 @@ pub struct State {
     pub rewards_manager_contract: String,
     pub rewards_pump_contract: String,
     pub splitter_contract: String,
+    pub lsm_share_bond_provider_contract: String,
+    pub native_bond_provider_contract: String,
 }
 
 #[cw_serde]
