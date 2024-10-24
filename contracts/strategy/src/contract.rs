@@ -144,6 +144,7 @@ fn prepare_delegation_data(
     let mut delegations: Vec<drop_staking_base::msg::distribution::Delegation> = Vec::new();
     let mut total_delegations: Uint128 = Uint128::zero();
     let mut total_weight: u64 = 0;
+    let mut total_on_top = Uint128::zero();
     let delegation_validator_map: HashMap<_, _> = account_delegations
         .delegations
         .delegations
@@ -161,19 +162,20 @@ fn prepare_delegation_data(
         let delegation = drop_staking_base::msg::distribution::Delegation {
             valoper_address: validator.valoper_address.clone(),
             stake: validator_denom_delegation,
-            on_top: Uint128::zero(),
             weight: validator.weight,
+            on_top: validator.on_top,
         };
 
         total_delegations += validator_denom_delegation;
         total_weight += validator.weight;
+        total_on_top += validator.on_top;
         delegations.push(delegation);
     }
 
     Ok(drop_staking_base::msg::distribution::Delegations {
         total_stake: total_delegations,
-        total_on_top: Uint128::zero(),
         total_weight,
+        total_on_top,
         delegations,
     })
 }

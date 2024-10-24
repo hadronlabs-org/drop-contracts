@@ -693,10 +693,12 @@ describe('Core Slashing', () => {
               {
                 valoper_address: validatorAddress,
                 weight: 1,
+                on_top: '0',
               },
               {
                 valoper_address: secondValidatorAddress,
                 weight: 1,
+                on_top: '0',
               },
             ],
           },

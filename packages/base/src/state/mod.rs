@@ -12,6 +12,7 @@ pub mod splitter;
 pub mod staker;
 pub mod strategy;
 pub mod token;
+pub mod val_ref;
 pub mod validatorset;
 pub mod validatorsstats;
 pub mod withdrawal_manager;

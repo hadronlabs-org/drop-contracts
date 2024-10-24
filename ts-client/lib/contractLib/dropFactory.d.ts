@@ -742,8 +742,10 @@ export interface ConfigOptional {
 export interface ConfigOptional2 {
     provider_proposals_contract?: string | null;
     stats_contract?: string | null;
+    val_ref_contract?: string | null;
 }
 export interface ValidatorData {
+    on_top: Uint128;
     valoper_address: string;
     weight: number;
 }
