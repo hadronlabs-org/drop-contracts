@@ -14,7 +14,7 @@ import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
-import { setupPark } from '../testSuite';
+import { awaitTargetChannels, setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
@@ -56,8 +56,23 @@ describe('Pump-Multi', () => {
       t,
       ['neutron', 'gaia', 'lsm'],
       {},
-      { hermes: true },
+      {
+        hermes: {
+          config: {
+            'chains.0.gas_multiplier': 1.8,
+            'chains.0.trusting_period': '112h0m0s',
+            'chains.1.gas_multiplier': 1.8,
+            'chains.1.trusting_period': '168h0m0s',
+            'chains.2.gas_multiplier': 1.8,
+            'chains.2.trusting_period': '168h0m0s',
+          },
+        },
+      },
     );
+    await awaitTargetChannels(
+      `http://127.0.0.1:${context.park.ports.gaia.rpc}`,
+    );
+    await awaitTargetChannels(`http://127.0.0.1:${context.park.ports.lsm.rpc}`);
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
       {
@@ -141,6 +156,9 @@ describe('Pump-Multi', () => {
         res.codeId,
         {
           connection_id: 'connection-0',
+          dest_address: neutronSecondUserAddress,
+          dest_channel: 'channel-0',
+          dest_port: 'transfer',
           local_denom: 'untrn',
           refundee: neutronSecondUserAddress,
           timeout: {
@@ -168,6 +186,9 @@ describe('Pump-Multi', () => {
         res.codeId,
         {
           connection_id: 'connection-1',
+          dest_address: neutronSecondUserAddress,
+          dest_channel: 'channel-1',
+          dest_port: 'transfer',
           local_denom: 'untrn',
           refundee: neutronSecondUserAddress,
           timeout: {
@@ -215,7 +236,7 @@ describe('Pump-Multi', () => {
           ica = res.registered.ica_address;
           return true;
       }
-    }, 260_000);
+    }, 600_000);
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();
     context.icaAddressGaia = ica;
@@ -247,7 +268,7 @@ describe('Pump-Multi', () => {
           ica = res.registered.ica_address;
           return true;
       }
-    }, 50_000);
+    }, 600_000);
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();
     context.icaAddressLsm = ica;

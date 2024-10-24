@@ -223,9 +223,9 @@ const relayersConfig = {
     balance: '1000000000',
     binary: 'hermes',
     config: {
-      'chains.0.gas_multiplier': 1.2,
+      'chains.0.gas_multiplier': 1.8,
       'chains.0.trusting_period': '112h0m0s',
-      'chains.1.gas_multiplier': 1.2,
+      'chains.1.gas_multiplier': 1.8,
       'chains.1.trusting_period': '168h0m0s',
     },
     image: `${ORG}hermes-test${VERSION}`,

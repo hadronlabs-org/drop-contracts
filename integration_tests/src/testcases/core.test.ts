@@ -1174,27 +1174,17 @@ describe('Core', () => {
   });
   it('bond tokenized share from unregistered validator', async () => {
     const { coreContractClient, neutronUserAddress } = context;
-    const res = await coreContractClient.bond(
-      neutronUserAddress,
-      {},
-      1.6,
-      undefined,
-      [
+
+    await expect(
+      coreContractClient.bond(neutronUserAddress, {}, 1.6, undefined, [
         {
           amount: '20000',
           denom: context.tokenizedDenomOnNeutron,
         },
-      ],
+      ]),
+    ).rejects.toThrowError(
+      /Bond provider error: No sufficient bond provider found/,
     );
-
-    const contractAttributes = res.events.find(
-      (e) => e.type === 'wasm-crates.io:drop-staking__drop-core-execute-bond',
-    ).attributes;
-
-    const attributesList = contractAttributes.map((e) => e.key);
-    expect(attributesList).not.toContain('used_bond_provider');
-
-    await checkExchangeRate(context);
   });
   it('add validators into validators set', async () => {
     const {
