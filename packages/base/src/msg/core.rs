@@ -1,6 +1,5 @@
 use crate::{
     error::core::ContractResult,
-    msg::staker::ResponseHookMsg as StakerResponseHookMsg,
     state::core::{Config, ConfigOptional, Pause},
 };
 use cosmwasm_schema::{cw_serde, QueryResponses};
@@ -8,7 +7,7 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 #[allow(unused_imports)]
 use cosmwasm_std::{Addr, Deps, Uint128, Uint64};
 use cw_ownable::cw_ownable_execute;
-use drop_puppeteer_base::msg::ResponseHookMsg as PuppeteerResponseHookMsg;
+use drop_puppeteer_base::peripheral_hook::ResponseHookMsg as PuppeteerResponseHookMsg;
 
 #[cw_serde]
 pub struct InstantiateMsg {

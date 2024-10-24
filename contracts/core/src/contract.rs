@@ -6,17 +6,13 @@ use cosmwasm_std::{
 };
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
-use drop_helpers::pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse};
-use drop_puppeteer_base::msg::TransferReadyBatchesMsg;
-use drop_puppeteer_base::peripheral_hook::IBCTransferReason;
-use drop_staking_base::msg::core::{BondCallback, BondHook};
-use drop_staking_base::state::core::{BOND_HOOKS, BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID};
+use drop_puppeteer_base::{msg::TransferReadyBatchesMsg, peripheral_hook::IBCTransferReason};
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
     msg::{
         core::{
-            ExecuteMsg, FailedBatchResponse, InstantiateMsg, LastPuppeteerResponse, MigrateMsg,
-            QueryMsg,
+            BondCallback, BondHook, ExecuteMsg, FailedBatchResponse, InstantiateMsg,
+            LastPuppeteerResponse, MigrateMsg, QueryMsg,
         },
         token::{
             ConfigResponse as TokenConfigResponse, ExecuteMsg as TokenExecuteMsg,
@@ -28,8 +24,9 @@ use drop_staking_base::{
         core::{
             unbond_batches_map, Config, ConfigOptional, ContractState, Pause, UnbondBatch,
             UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse, BONDED_AMOUNT,
-            CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL,
-            LAST_PUPPETEER_RESPONSE, LD_DENOM, UNBOND_BATCH_ID,
+            BOND_HOOKS, BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG, EXCHANGE_RATE,
+            FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE,
+            LD_DENOM, PAUSE, UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
         withdrawal_voucher::{Metadata, Trait},
@@ -122,14 +119,6 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
         )?,
         QueryMsg::BondProviders {} => to_json_binary(&query_bond_providers(deps)?)?,
     })
-}
-
-fn query_pause_info(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    if is_paused(deps.storage)? {
-        to_json_binary(&PauseInfoResponse::Paused {}).map_err(From::from)
-    } else {
-        to_json_binary(&PauseInfoResponse::Unpaused {}).map_err(From::from)
-    }
 }
 
 fn query_total_async_tokens(deps: Deps<NeutronQuery>) -> ContractResult<Uint128> {
@@ -295,7 +284,6 @@ pub fn execute(
             batch_id,
             withdrawn_amount,
         } => execute_update_withdrawn_amount(deps, env, info, batch_id, withdrawn_amount),
-        ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::PeripheralHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
         ExecuteMsg::SetPause(pause) => execute_set_pause(deps, info, pause),
         ExecuteMsg::SetBondHooks { hooks } => execute_set_bond_hooks(deps, info, hooks),

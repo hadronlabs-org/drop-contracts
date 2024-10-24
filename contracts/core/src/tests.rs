@@ -8,16 +8,10 @@ use cosmwasm_std::{
     to_json_binary, Addr, Coin, CosmosMsg, Decimal, Decimal256, Event, OwnedDeps, Response, SubMsg,
     Timestamp, Uint128, WasmMsg,
 };
-use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
 use drop_helpers::{
     pause::PauseError,
     testing::{mock_dependencies, WasmMockQuerier},
 };
-use drop_puppeteer_base::{
-    msg::TransferReadyBatchesMsg,
-    state::{Delegations, DropDelegation, RedeemShareItem},
-};
-
 use drop_puppeteer_base::msg::TransferReadyBatchesMsg;
 use drop_staking_base::{
     error::core::ContractError,
@@ -28,10 +22,10 @@ use drop_staking_base::{
     },
     state::{
         core::{
-            unbond_batches_map, Config, ConfigOptional, ContractState, UnbondBatch,
+            unbond_batches_map, Config, ConfigOptional, ContractState, Pause, UnbondBatch,
             UnbondBatchStatus, UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_HOOKS,
             BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG, FAILED_BATCH_ID, FSM,
-            LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM,
+            LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM, PAUSE,
             TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
         },
         puppeteer::{Delegations, DropDelegation},

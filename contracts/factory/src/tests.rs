@@ -1,8 +1,8 @@
 use crate::{
     contract::{execute, instantiate, query},
     msg::{
-        CoreMsg, CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, LsmShareBondParams,
-        NativeBondParams, ProxyMsg, QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
+        CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, LsmShareBondParams, NativeBondParams,
+        QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
     },
     state::{CodeIds, RemoteOpts, State, Timeout, STATE},
 };
