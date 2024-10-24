@@ -1,13 +1,17 @@
-use crate::state::{BaseConfig, PuppeteerBase, TxState, TxStateStatus};
+use crate::{
+    r#trait::PuppeteerReconstruct,
+    state::{BaseConfig, PuppeteerBase, TxState, TxStateStatus},
+};
 use cosmwasm_std::{attr, DepsMut, Reply, Response, StdError, StdResult};
 use drop_helpers::{answer::response, query_id::get_query_id};
 use neutron_sdk::bindings::msg::{MsgIbcTransferResponse, MsgSubmitTxResponse};
 use serde::{de::DeserializeOwned, Serialize};
 
-impl<'a, T, U> PuppeteerBase<'a, T, U>
+impl<'a, T, U, Z> PuppeteerBase<'a, T, U, Z>
 where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
     U: Serialize + DeserializeOwned + Clone,
+    Z: PuppeteerReconstruct + std::fmt::Debug + Serialize + Clone,
 {
     pub fn register_kv_query_reply(
         &self,

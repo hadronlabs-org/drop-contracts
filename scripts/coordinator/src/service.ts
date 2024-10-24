@@ -17,7 +17,6 @@ import pino from 'pino';
 import { FactoryContractHandler } from './factoryContract';
 import { ValidatorsStatsModule } from './modules/validators-stats';
 import { CoreModule } from './modules/core';
-import { StakerModule } from './modules/staker';
 import { SplitterModule } from './modules/splitter';
 
 export type Uint128 = string;
@@ -170,20 +169,6 @@ class Service {
           process.env.REWARDS_PUMP_MIN_BALANCE,
           this.context,
           logger.child({ context: 'RewardsPumpModule' }),
-        ),
-      );
-    }
-
-    if (
-      StakerModule.verifyConfig(
-        this.log,
-        this.context.factoryContractHandler.skip,
-      )
-    ) {
-      this.modulesList.push(
-        new StakerModule(
-          this.context,
-          logger.child({ context: 'StakerModule' }),
         ),
       );
     }
