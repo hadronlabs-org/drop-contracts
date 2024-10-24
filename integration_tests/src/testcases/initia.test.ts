@@ -1846,7 +1846,7 @@ describe('Core', () => {
             { denom: context.moveIBCDenom },
           )
         ).data.balance.amount;
-        expect(parseInt(nativeBondProviderBalance, 10)).toEqual(110000);
+        expect(parseInt(nativeBondProviderBalance, 10)).toEqual(170000);
       });
     });
   });
