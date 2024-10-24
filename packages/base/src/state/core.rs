@@ -201,6 +201,14 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
     },
 ];
 
+#[cw_serde]
+#[derive(Default)]
+pub struct Pause {
+    pub bond: bool,
+    pub unbond: bool,
+    pub tick: bool,
+}
+
 pub const FSM: Fsm<ContractState> = Fsm::new("machine_state", TRANSITIONS);
 pub const LAST_IDLE_CALL: Item<u64> = Item::new("last_tick");
 pub const LAST_ICA_CHANGE_HEIGHT: Item<u64> = Item::new("last_ica_change_height");
@@ -212,4 +220,5 @@ pub const BONDED_AMOUNT: Item<Uint128> = Item::new("bonded_amount"); // to be us
 pub const LAST_LSM_REDEEM: Item<u64> = Item::new("last_lsm_redeem");
 pub const EXCHANGE_RATE: Item<(Decimal, u64)> = Item::new("exchange_rate");
 pub const LD_DENOM: Item<String> = Item::new("ld_denom");
+pub const PAUSE: Item<Pause> = Item::new("pause");
 pub const BOND_HOOKS: Item<Vec<Addr>> = Item::new("bond_hooks");

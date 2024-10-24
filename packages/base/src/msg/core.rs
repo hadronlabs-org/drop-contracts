@@ -1,14 +1,11 @@
 use crate::{
     error::core::ContractResult,
     msg::staker::ResponseHookMsg as StakerResponseHookMsg,
-    state::core::{Config, ConfigOptional},
+    state::core::{Config, ConfigOptional, Pause},
 };
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Deps, Uint128, Uint64};
 use cw_ownable::cw_ownable_execute;
-#[allow(unused_imports)]
-use drop_helpers::pause::PauseInfoResponse;
-use drop_macros::{pausable, pausable_query};
 use drop_puppeteer_base::msg::ResponseHookMsg as PuppeteerResponseHookMsg;
 
 #[cw_serde]
@@ -89,7 +86,6 @@ pub struct FailedBatchResponse {
     pub response: Option<u128>,
 }
 
-#[pausable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
@@ -124,11 +120,12 @@ pub enum QueryMsg {
     TotalLSMShares {},
     #[returns(FailedBatchResponse)]
     FailedBatch {},
+    #[returns(Pause)]
+    Pause {},
     #[returns(Vec<String>)]
     BondHooks {},
 }
 
-#[pausable]
 #[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
@@ -137,6 +134,7 @@ pub enum ExecuteMsg {
         r#ref: Option<String>,
     },
     Unbond {},
+    Tick {},
     //permissioned
     UpdateConfig {
         new_config: Box<ConfigOptional>,
@@ -145,7 +143,6 @@ pub enum ExecuteMsg {
         batch_id: u128,
         withdrawn_amount: Uint128,
     },
-    Tick {},
     PuppeteerHook(Box<PuppeteerResponseHookMsg>),
     StakerHook(Box<StakerResponseHookMsg>),
     ResetBondedAmount {},
@@ -153,6 +150,7 @@ pub enum ExecuteMsg {
         batch_id: u128,
         unbonded_amount: Uint128,
     },
+    SetPause(Pause),
     SetBondHooks {
         hooks: Vec<String>,
     },

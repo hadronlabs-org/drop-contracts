@@ -602,7 +602,7 @@ describe('Core', () => {
     const pauseInfo = await contractClient.queryPauseInfo();
     expect(pauseInfo).toEqual({
       withdrawal_manager: { unpaused: {} },
-      core: { unpaused: {} },
+      core: { bond: false, unbond: false, tick: false },
       rewards_manager: { unpaused: {} },
     });
   });
@@ -617,9 +617,52 @@ describe('Core', () => {
 
     expect(pauseInfo).toEqual({
       withdrawal_manager: { paused: {} },
-      core: { paused: {} },
+      core: { bond: false, unbond: false, tick: true },
       rewards_manager: { paused: {} },
     });
+  });
+
+  it('also pause bonds and unbonds', async () => {
+    await context.factoryContractClient.adminExecute(context.account.address, {
+      msgs: [
+        {
+          wasm: {
+            execute: {
+              contract_addr: context.coreContractClient.contractAddress,
+              msg: Buffer.from(
+                JSON.stringify({
+                  set_pause: {
+                    bond: true,
+                    unbond: true,
+                    tick: true,
+                  },
+                }),
+              ).toString('base64'),
+              funds: [],
+            },
+          },
+        },
+      ],
+    });
+
+    const pauseInfo = await context.factoryContractClient.queryPauseInfo();
+    expect(pauseInfo).toEqual({
+      withdrawal_manager: { paused: {} },
+      core: { bond: true, unbond: true, tick: true },
+      rewards_manager: { paused: {} },
+    });
+  });
+
+  it('bond is paused', async () => {
+    await expect(
+      context.coreContractClient.bond(context.account.address, {}),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
+  it('unbond is paused', async () => {
+    await expect(
+      context.coreContractClient.unbond(context.account.address),
+    ).rejects.toThrowError(/Contract execution is paused/);
   });
 
   it('unpause protocol', async () => {
@@ -632,7 +675,7 @@ describe('Core', () => {
 
     expect(pauseInfo).toEqual({
       withdrawal_manager: { unpaused: {} },
-      core: { unpaused: {} },
+      core: { bond: false, unbond: false, tick: false },
       rewards_manager: { unpaused: {} },
     });
   });
@@ -2051,18 +2094,18 @@ describe('Core', () => {
         });
         it('wait for delegations to come', async () => {
           const { remote_height: currentHeight } =
-            await context.puppeteerContractClient.queryExtension({
+            (await context.puppeteerContractClient.queryExtension({
               msg: {
                 delegations: {},
               },
-            });
+            })) as any;
           await waitFor(async () => {
             const { remote_height: nowHeight } =
-              await context.puppeteerContractClient.queryExtension({
+              (await context.puppeteerContractClient.queryExtension({
                 msg: {
                   delegations: {},
                 },
-              });
+              })) as any;
             return nowHeight !== currentHeight;
           });
         });

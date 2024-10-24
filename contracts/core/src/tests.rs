@@ -8,7 +8,10 @@ use cosmwasm_std::{
     to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, Decimal256, Event, OwnedDeps, ReplyOn,
     Response, SubMsg, Timestamp, Uint128, WasmMsg,
 };
-use drop_helpers::testing::{mock_dependencies, WasmMockQuerier};
+use drop_helpers::{
+    pause::PauseError,
+    testing::{mock_dependencies, WasmMockQuerier},
+};
 use drop_puppeteer_base::{
     msg::TransferReadyBatchesMsg,
     state::{Delegations, DropDelegation, RedeemShareItem},
@@ -22,11 +25,11 @@ use drop_staking_base::{
         strategy::QueryMsg as StrategyQueryMsg,
     },
     state::core::{
-        unbond_batches_map, Config, ConfigOptional, ContractState, UnbondBatch, UnbondBatchStatus,
-        UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_HOOKS, CONFIG, FAILED_BATCH_ID, FSM,
-        LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE,
-        LAST_STAKER_RESPONSE, LD_DENOM, LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES,
-        UNBOND_BATCH_ID,
+        unbond_batches_map, Config, ConfigOptional, ContractState, Pause, UnbondBatch,
+        UnbondBatchStatus, UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_HOOKS, CONFIG,
+        FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_LSM_REDEEM,
+        LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE, LD_DENOM, LSM_SHARES_TO_REDEEM, PAUSE,
+        PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
     },
 };
 use neutron_sdk::{
@@ -376,6 +379,9 @@ fn test_execute_tick_idle_get_pending_lsm_shares_transfer() {
             ),
         )
         .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
+        .unwrap();
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(100);
     let res = execute(
@@ -471,6 +477,9 @@ fn test_idle_tick_pending_lsm_redeem() {
                 Uint128::from(100u128),
             ),
         )
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(99);
@@ -685,6 +694,9 @@ fn test_tick_idle_unbonding_close() {
             },
         )
         .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
+        .unwrap();
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(10000);
     let res = execute(
@@ -812,6 +824,9 @@ fn test_tick_idle_claim_wo_unbond() {
                 status_timestamps: get_default_unbond_batch_status_timestamps(),
             },
         )
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(10000);
@@ -975,6 +990,9 @@ fn test_tick_idle_claim_with_unbond_transfer() {
             },
         )
         .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
+        .unwrap();
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(100000);
     let res = execute(
@@ -1118,6 +1136,9 @@ fn test_tick_idle_staking_bond() {
     TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
     BONDED_AMOUNT
         .save(deps.as_mut().storage, &Uint128::from(1000u128))
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(100000);
@@ -1308,6 +1329,9 @@ fn test_tick_idle_unbonding() {
                 },
             },
         )
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(100000);
@@ -1537,6 +1561,9 @@ fn test_tick_idle_unbonding_failed() {
             },
         )
         .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
+        .unwrap();
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(100000);
     let res = execute(
@@ -1614,6 +1641,9 @@ fn test_tick_no_puppeteer_response() {
         .unwrap();
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
@@ -1733,6 +1763,9 @@ fn test_tick_claiming_error_wo_transfer() {
         .unwrap();
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     let res = execute(
         deps.as_mut(),
@@ -1873,6 +1906,9 @@ fn test_tick_claiming_error_with_transfer() {
         .unwrap();
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     let res = execute(
         deps.as_mut(),
@@ -2030,6 +2066,9 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                 },
             },
         )
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(100000);
@@ -2203,6 +2242,9 @@ fn test_tick_claiming_wo_idle() {
             },
         )
         .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
+        .unwrap();
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(1000);
 
@@ -2247,6 +2289,9 @@ fn test_execute_tick_transfering_no_puppeteer_response() {
         .unwrap();
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
@@ -2294,6 +2339,9 @@ fn test_execute_tick_guard_balance_outdated() {
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &11)
         .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
+        .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&BalancesResponse {
@@ -2333,6 +2381,9 @@ fn test_execute_tick_guard_delegations_outdated() {
         .unwrap();
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &11)
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
@@ -2385,6 +2436,9 @@ fn test_execute_tick_staking_no_puppeteer_response() {
         .unwrap();
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
@@ -2559,6 +2613,9 @@ fn test_tick_staking_to_unbonding() {
             },
         )
         .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
+        .unwrap();
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(2000);
     let res = execute(
@@ -2643,6 +2700,9 @@ fn test_tick_staking_to_idle() {
                 },
             ),
         )
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
@@ -2770,6 +2830,9 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
         .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
+        .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&BalancesResponse {
@@ -2822,6 +2885,9 @@ fn test_bond_wo_receiver() {
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     BOND_HOOKS.save(deps.as_mut().storage, &vec![]).unwrap();
     let res = execute(
@@ -2880,6 +2946,9 @@ fn test_bond_with_receiver() {
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     BOND_HOOKS.save(deps.as_mut().storage, &vec![]).unwrap();
     let res = execute(
@@ -2984,6 +3053,9 @@ fn test_bond_lsm_share_wrong_channel() {
             deps.as_mut().storage,
             &get_default_config(1000, 3, 100, 100, 600, Uint128::new(100)),
         )
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     let res = execute(
         deps.as_mut(),
@@ -3100,6 +3172,9 @@ fn test_bond_lsm_share_increase_exchange_rate() {
         .unwrap();
     BOND_HOOKS.save(deps.as_mut().storage, &vec![]).unwrap();
     UNBOND_BATCH_ID.save(&mut deps.storage, &0).unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
+        .unwrap();
     unbond_batches_map()
         .save(
             &mut deps.storage,
@@ -3182,6 +3257,9 @@ fn test_bond_lsm_share_wrong_validator() {
             deps.as_mut().storage,
             &get_default_config(1000, 3, 100, 100, 600, Uint128::new(100)),
         )
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     let res = execute(
         deps.as_mut(),
@@ -3268,6 +3346,9 @@ fn test_bond_lsm_share_ok() {
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     BOND_HOOKS.save(deps.as_mut().storage, &vec![]).unwrap();
     let res = execute(
@@ -3377,6 +3458,9 @@ fn test_bond_lsm_share_ok_with_low_ratio() {
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     BOND_HOOKS.save(deps.as_mut().storage, &vec![]).unwrap();
     let res = execute(
@@ -3509,6 +3593,9 @@ fn test_bond_lsm_share_ok_with_low_ratio_pending_already_there() {
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
         .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
+        .unwrap();
     BOND_HOOKS.save(deps.as_mut().storage, &vec![]).unwrap();
     let res = execute(
         deps.as_mut(),
@@ -3593,6 +3680,9 @@ fn test_unbond() {
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
+        .unwrap();
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
     let res = execute(
         deps.as_mut(),
@@ -4463,6 +4553,9 @@ mod bond_hooks {
         BOND_HOOKS
             .save(deps.as_mut().storage, &vec![Addr::unchecked("val_ref")])
             .unwrap();
+        PAUSE
+            .save(deps.as_mut().storage, &Pause::default())
+            .unwrap();
 
         let response = execute(
             deps.as_mut(),
@@ -4519,6 +4612,9 @@ mod bond_hooks {
             .unwrap();
         BOND_HOOKS
             .save(deps.as_mut().storage, &vec![Addr::unchecked("val_ref")])
+            .unwrap();
+        PAUSE
+            .save(deps.as_mut().storage, &Pause::default())
             .unwrap();
 
         let response = execute(
@@ -4582,6 +4678,9 @@ mod bond_hooks {
                 &hooks.iter().map(|hook| Addr::unchecked(*hook)).collect(),
             )
             .unwrap();
+        PAUSE
+            .save(deps.as_mut().storage, &Pause::default())
+            .unwrap();
 
         let response = execute(
             deps.as_mut(),
@@ -4619,5 +4718,126 @@ mod bond_hooks {
                 })
                 .collect::<Vec<_>>()
         );
+    }
+}
+
+mod pause {
+    use super::*;
+
+    #[test]
+    fn pause_bond() {
+        let mut deps = mock_dependencies(&[]);
+
+        for pause in [
+            Pause {
+                bond: true,
+                unbond: false,
+                tick: false,
+            },
+            Pause {
+                bond: true,
+                unbond: true,
+                tick: false,
+            },
+            Pause {
+                bond: true,
+                unbond: false,
+                tick: true,
+            },
+            Pause {
+                bond: true,
+                unbond: true,
+                tick: true,
+            },
+        ] {
+            PAUSE.save(deps.as_mut().storage, &pause).unwrap();
+            let error = execute(
+                deps.as_mut(),
+                mock_env(),
+                mock_info("someone", &[]),
+                ExecuteMsg::Bond {
+                    receiver: None,
+                    r#ref: None,
+                },
+            )
+            .unwrap_err();
+            assert_eq!(error, ContractError::PauseError(PauseError::Paused {}));
+        }
+    }
+
+    #[test]
+    fn pause_unbond() {
+        let mut deps = mock_dependencies(&[]);
+
+        for pause in [
+            Pause {
+                bond: false,
+                unbond: true,
+                tick: false,
+            },
+            Pause {
+                bond: true,
+                unbond: true,
+                tick: false,
+            },
+            Pause {
+                bond: false,
+                unbond: true,
+                tick: true,
+            },
+            Pause {
+                bond: true,
+                unbond: true,
+                tick: true,
+            },
+        ] {
+            PAUSE.save(deps.as_mut().storage, &pause).unwrap();
+            let error = execute(
+                deps.as_mut(),
+                mock_env(),
+                mock_info("someone", &[]),
+                ExecuteMsg::Unbond {},
+            )
+            .unwrap_err();
+            assert_eq!(error, ContractError::PauseError(PauseError::Paused {}));
+        }
+    }
+
+    #[test]
+    fn pause_tick() {
+        let mut deps = mock_dependencies(&[]);
+
+        for pause in [
+            Pause {
+                bond: false,
+                unbond: false,
+                tick: true,
+            },
+            Pause {
+                bond: true,
+                unbond: false,
+                tick: true,
+            },
+            Pause {
+                bond: false,
+                unbond: true,
+                tick: true,
+            },
+            Pause {
+                bond: true,
+                unbond: true,
+                tick: true,
+            },
+        ] {
+            PAUSE.save(deps.as_mut().storage, &pause).unwrap();
+            let error = execute(
+                deps.as_mut(),
+                mock_env(),
+                mock_info("someone", &[]),
+                ExecuteMsg::Tick {},
+            )
+            .unwrap_err();
+            assert_eq!(error, ContractError::PauseError(PauseError::Paused {}));
+        }
     }
 }
