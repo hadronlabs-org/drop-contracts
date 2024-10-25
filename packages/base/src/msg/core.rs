@@ -100,8 +100,6 @@ pub enum QueryMsg {
     #[returns(Vec<Addr>)]
     BondProviders {},
     #[returns(Uint128)]
-    TotalLSMShares {}, // used for backward compatibility
-    #[returns(Uint128)]
     TotalAsyncTokens {},
     #[returns(FailedBatchResponse)]
     FailedBatch {},

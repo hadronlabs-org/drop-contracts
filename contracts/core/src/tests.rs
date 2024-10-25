@@ -26,7 +26,7 @@ use drop_staking_base::{
             UnbondBatchStatus, UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_HOOKS,
             BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG, FAILED_BATCH_ID, FSM,
             LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM, PAUSE,
-            TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+            UNBOND_BATCH_ID,
         },
         puppeteer::{Delegations, DropDelegation},
     },
@@ -546,7 +546,6 @@ fn test_tick_idle_claim_wo_unbond() {
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
         .unwrap();
-    TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
     BONDED_AMOUNT
         .save(deps.as_mut().storage, &Uint128::from(1000u128))
         .unwrap();
@@ -707,7 +706,6 @@ fn test_tick_idle_claim_with_unbond_transfer() {
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
         .unwrap();
-    TOTAL_LSM_SHARES.save(deps.as_mut().storage, &0).unwrap();
     BONDED_AMOUNT
         .save(deps.as_mut().storage, &Uint128::from(1000u128))
         .unwrap();

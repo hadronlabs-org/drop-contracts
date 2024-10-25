@@ -56,9 +56,6 @@ class Client {
     queryBondProviders = async () => {
         return this.client.queryContractSmart(this.contractAddress, { bond_providers: {} });
     };
-    queryTotalLSMShares = async () => {
-        return this.client.queryContractSmart(this.contractAddress, { total_l_s_m_shares: {} });
-    };
     queryTotalAsyncTokens = async () => {
         return this.client.queryContractSmart(this.contractAddress, { total_async_tokens: {} });
     };

@@ -171,20 +171,6 @@ export type Uint1282 = string;
  */
 export type Uint1283 = string;
 /**
- * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u128` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
- *
- * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
- *
- * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
- */
-export type Uint1284 = string;
-/**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
  * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
@@ -240,7 +226,7 @@ export type Expiration = {
  */
 export type Timestamp2 = Uint64;
 export interface DropCoreSchema {
-    responses: ArrayOfString | ArrayOfAddr | Config | ContractState | Uint1281 | Decimal | FailedBatchResponse | LastPuppeteerResponse | String | Pause | Uint1282 | Uint1283 | Uint1284 | UnbondBatch | UnbondBatchesResponse;
+    responses: ArrayOfString | ArrayOfAddr | Config | ContractState | Uint1281 | Decimal | FailedBatchResponse | LastPuppeteerResponse | String | Pause | Uint1282 | Uint1283 | UnbondBatch | UnbondBatchesResponse;
     query: UnbondBatchArgs | UnbondBatchesArgs;
     execute: BondArgs | AddBondProviderArgs | RemoveBondProviderArgs | UpdateConfigArgs | UpdateWithdrawnAmountArgs | PeripheralHookArgs | ProcessEmergencyBatchArgs | SetPauseArgs | SetBondHooksArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
@@ -481,7 +467,6 @@ export declare class Client {
     queryLastPuppeteerResponse: () => Promise<LastPuppeteerResponse>;
     queryTotalBonded: () => Promise<Uint128>;
     queryBondProviders: () => Promise<ArrayOfAddr>;
-    queryTotalLSMShares: () => Promise<Uint128>;
     queryTotalAsyncTokens: () => Promise<Uint128>;
     queryFailedBatch: () => Promise<FailedBatchResponse>;
     queryPause: () => Promise<Pause>;

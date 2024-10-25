@@ -104,7 +104,6 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
         QueryMsg::LastPuppeteerResponse {} => to_json_binary(&LastPuppeteerResponse {
             response: LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?,
         })?,
-        QueryMsg::TotalLSMShares {} => to_json_binary(&query_total_async_tokens(deps)?)?,
         QueryMsg::TotalAsyncTokens {} => to_json_binary(&query_total_async_tokens(deps)?)?,
         QueryMsg::FailedBatch {} => to_json_binary(&FailedBatchResponse {
             response: FAILED_BATCH_ID.may_load(deps.storage)?,
