@@ -281,7 +281,7 @@ pub fn execute_complete(
         let mut bond = BONDS.load(deps.storage, id)?;
         attrs.push(attr("id", id.to_string()));
         attrs.push(attr("return_type", bond.state.to_string()));
-        attrs.push(attr("coin", bond.received.clone().unwrap().to_string()));
+        attrs.push(attr("coin", bond.received.clone().unwrap().to_string())); // at this point unwrap is safe as bond is finalized already
         ensure_eq!(
             bond.state,
             BondState::Bonded,
@@ -297,7 +297,7 @@ pub fn execute_complete(
                 msgs.push(CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: source_port.clone(),
                     source_channel: source_channel.clone(),
-                    token: bond.received.unwrap(),
+                    token: bond.received.unwrap(), // at this point unwrap is safe as bond is finalized already
                     sender: env.contract.address.to_string(),
                     receiver: bond.receiver,
                     timeout_height: RequestPacketTimeoutHeight {
@@ -364,7 +364,7 @@ pub fn finalize_bond(
             ];
             Ok(response("finalize_bond", CONTRACT_NAME, attrs))
         }
-        cosmwasm_std::SubMsgResult::Err(_) => unreachable!(),
+        cosmwasm_std::SubMsgResult::Err(_) => unreachable!(), // as there is only SubMsg::reply_on_success()
     }
 }
 

@@ -14,6 +14,16 @@ import { StdFee } from "@cosmjs/amino";
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
+/**
+ * A human readable address.
+ *
+ * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
+ *
+ * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
+ *
+ * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
+ */
+export type Addr = string;
 export type ReturnType = "remote" | "local";
 export type BondState = "initiated" | "bonded" | "sent";
 export type ArrayOfTupleOfUint64AndBondItem = [number, BondItem][];
@@ -76,7 +86,7 @@ export interface DropMirrorSchema {
 }
 export interface BondItem {
   amount: Uint128;
-  backup?: string | null;
+  backup?: Addr | null;
   received?: Coin | null;
   receiver: string;
   return_type: ReturnType;
@@ -96,7 +106,7 @@ export interface Config {
 }
 export interface BondItem1 {
   amount: Uint128;
-  backup?: string | null;
+  backup?: Addr | null;
   received?: Coin | null;
   receiver: string;
   return_type: ReturnType;
