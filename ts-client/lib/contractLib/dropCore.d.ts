@@ -139,14 +139,6 @@ export type Transaction = {
 };
 export type IBCTransferReason = "l_s_m_share" | "stake";
 export type String = string;
-/**
- * Information about if the contract is currently paused.
- */
-export type PauseInfoResponse = {
-    paused: {};
-} | {
-    unpaused: {};
-};
 export type ArrayOfTupleOfStringAndTupleOfStringAndUint1281 = [string, [string, Uint128]][];
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
@@ -246,9 +238,9 @@ export type Expiration = {
  */
 export type Timestamp2 = Uint64;
 export interface DropCoreSchema {
-    responses: ArrayOfString | Config | ContractState | Uint1281 | Decimal | FailedBatchResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | LastStakerResponse | String | PauseInfoResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Uint1282 | Uint1283 | UnbondBatch | UnbondBatchesResponse;
+    responses: ArrayOfString | Config | ContractState | Uint1281 | Decimal | FailedBatchResponse | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | LastStakerResponse | String | Pause | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Uint1282 | Uint1283 | UnbondBatch | UnbondBatchesResponse;
     query: UnbondBatchArgs | UnbondBatchesArgs;
-    execute: BondArgs | UpdateConfigArgs | UpdateWithdrawnAmountArgs | PuppeteerHookArgs | StakerHookArgs | ProcessEmergencyBatchArgs | SetBondHooksArgs | UpdateOwnershipArgs;
+    execute: BondArgs | UpdateConfigArgs | UpdateWithdrawnAmountArgs | PuppeteerHookArgs | StakerHookArgs | ProcessEmergencyBatchArgs | SetPauseArgs | SetBondHooksArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -358,6 +350,11 @@ export interface ResponseHookErrorMsg {
 export interface LastStakerResponse {
     response?: ResponseHookMsg | null;
 }
+export interface Pause {
+    bond: boolean;
+    tick: boolean;
+    unbond: boolean;
+}
 export interface UnbondBatch {
     expected_native_asset_amount: Uint128;
     expected_release_time: number;
@@ -453,6 +450,14 @@ export interface ProcessEmergencyBatchArgs {
     batch_id: number;
     unbonded_amount: Uint128;
 }
+export interface SetPauseArgs {
+    type?: "object";
+    required?: ["bond", "tick", "unbond"];
+    properties?: {
+        [k: string]: unknown;
+    };
+    additionalProperties?: never;
+}
 export interface SetBondHooksArgs {
     hooks: string[];
 }
@@ -502,19 +507,18 @@ export declare class Client {
     queryTotalBonded: () => Promise<Uint128>;
     queryTotalLSMShares: () => Promise<Uint128>;
     queryFailedBatch: () => Promise<FailedBatchResponse>;
+    queryPause: () => Promise<Pause>;
     queryBondHooks: () => Promise<ArrayOfString>;
-    queryPauseInfo: () => Promise<PauseInfoResponse>;
     bond: (sender: string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     unbond: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    tick: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateWithdrawnAmount: (sender: string, args: UpdateWithdrawnAmountArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    tick: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     puppeteerHook: (sender: string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     stakerHook: (sender: string, args: StakerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     resetBondedAmount: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     processEmergencyBatch: (sender: string, args: ProcessEmergencyBatchArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    setPause: (sender: string, args: SetPauseArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     setBondHooks: (sender: string, args: SetBondHooksArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    pause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    unpause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
 }

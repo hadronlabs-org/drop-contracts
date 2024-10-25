@@ -48,13 +48,6 @@ export type Timestamp = Uint64;
  */
 export type Uint64 = string;
 /**
- * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
- *
- * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
- */
-export type Decimal = string;
-export type ArrayOfValidatorInfo = ValidatorInfo[];
-/**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
  * # Examples
@@ -68,6 +61,26 @@ export type ArrayOfValidatorInfo = ValidatorInfo[];
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal = string;
+export type ArrayOfValidatorInfo = ValidatorInfo[];
+export type OnTopEditOperation =
+  | {
+      add: {
+        amount: Uint128;
+        validator_address: string;
+      };
+    }
+  | {
+      subtract: {
+        amount: Uint128;
+        validator_address: string;
+      };
+    };
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -89,6 +102,7 @@ export interface DropValidatorsSetSchema {
     | UpdateValidatorsArgs
     | UpdateValidatorsInfoArgs
     | UpdateValidatorsVotingArgs
+    | EditOnTopArgs
     | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
@@ -96,6 +110,7 @@ export interface DropValidatorsSetSchema {
 export interface Config {
   provider_proposals_contract?: Addr | null;
   stats_contract: Addr;
+  val_ref_contract?: Addr | null;
 }
 /**
  * The contract's ownership info
@@ -124,6 +139,7 @@ export interface ValidatorInfo {
   last_processed_local_height?: number | null;
   last_processed_remote_height?: number | null;
   last_validated_height?: number | null;
+  on_top: Uint128;
   tombstone: boolean;
   total_passed_proposals: number;
   total_voted_proposals: number;
@@ -140,11 +156,13 @@ export interface UpdateConfigArgs {
 export interface ConfigOptional {
   provider_proposals_contract?: string | null;
   stats_contract?: string | null;
+  val_ref_contract?: string | null;
 }
 export interface UpdateValidatorsArgs {
   validators: ValidatorData[];
 }
 export interface ValidatorData {
+  on_top: Uint128;
   valoper_address: string;
   weight: number;
 }
@@ -215,6 +233,9 @@ export interface WeightedVoteOption {
   option: number;
   weight: string;
   [k: string]: unknown;
+}
+export interface EditOnTopArgs {
+  operations: OnTopEditOperation[];
 }
 export interface InstantiateMsg {
   owner: string;
@@ -294,6 +315,10 @@ export class Client {
   updateValidatorsVoting = async(sender:string, args: UpdateValidatorsVotingArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_validators_voting: args }, fee || "auto", memo, funds);
+  }
+  editOnTop = async(sender:string, args: EditOnTopArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { edit_on_top: args }, fee || "auto", memo, funds);
   }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

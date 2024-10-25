@@ -92,10 +92,12 @@ describe('Validator set', () => {
           {
             valoper_address: 'valoper2',
             weight: 2,
+            on_top: '0',
           },
           {
             valoper_address: 'valoper3',
             weight: 3,
+            on_top: '0',
           },
         ],
       },
@@ -110,6 +112,7 @@ describe('Validator set', () => {
         {
           valoper_address: 'valoper2',
           weight: 2,
+          on_top: '0',
           last_processed_remote_height: null,
           last_processed_local_height: null,
           last_validated_height: null,
@@ -124,6 +127,7 @@ describe('Validator set', () => {
         {
           valoper_address: 'valoper3',
           weight: 3,
+          on_top: '0',
           last_processed_remote_height: null,
           last_processed_local_height: null,
           last_validated_height: null,
@@ -137,6 +141,7 @@ describe('Validator set', () => {
         },
       ]),
     );
+    expect(validators).toHaveLength(2);
   });
 
   it('Update validator info', async () => {
@@ -174,6 +179,7 @@ describe('Validator set', () => {
         {
           valoper_address: 'valoper2',
           weight: 2,
+          on_top: '0',
           last_processed_remote_height: 3456,
           last_processed_local_height: 2345,
           last_validated_height: 4567,
@@ -188,6 +194,7 @@ describe('Validator set', () => {
         {
           valoper_address: 'valoper3',
           weight: 3,
+          on_top: '0',
           last_processed_remote_height: null,
           last_processed_local_height: null,
           last_validated_height: null,

@@ -6,7 +6,6 @@ use cosmwasm_std::{
 };
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
-use drop_helpers::pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse};
 use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
 use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::msg::core::{BondCallback, BondHook};
@@ -25,11 +24,12 @@ use drop_staking_base::{
     },
     state::{
         core::{
-            unbond_batches_map, Config, ConfigOptional, ContractState, UnbondBatch,
+            unbond_batches_map, Config, ConfigOptional, ContractState, Pause, UnbondBatch,
             UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse, BONDED_AMOUNT,
             BOND_HOOKS, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT,
             LAST_IDLE_CALL, LAST_LSM_REDEEM, LAST_PUPPETEER_RESPONSE, LAST_STAKER_RESPONSE,
-            LD_DENOM, LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
+            LD_DENOM, LSM_SHARES_TO_REDEEM, PAUSE, PENDING_LSM_SHARES, TOTAL_LSM_SHARES,
+            UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
         withdrawal_voucher::{Metadata, Trait},
@@ -82,6 +82,7 @@ pub fn instantiate(
     TOTAL_LSM_SHARES.save(deps.storage, &0)?;
     BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
     LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
+    PAUSE.save(deps.storage, &Pause::default())?;
     BOND_HOOKS.save(deps.storage, &vec![])?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
@@ -113,11 +114,11 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
         QueryMsg::LastStakerResponse {} => to_json_binary(&LastStakerResponse {
             response: LAST_STAKER_RESPONSE.may_load(deps.storage)?,
         })?,
-        QueryMsg::PauseInfo {} => query_pause_info(deps)?,
         QueryMsg::TotalLSMShares {} => to_json_binary(&TOTAL_LSM_SHARES.load(deps.storage)?)?,
         QueryMsg::FailedBatch {} => to_json_binary(&FailedBatchResponse {
             response: FAILED_BATCH_ID.may_load(deps.storage)?,
         })?,
+        QueryMsg::Pause {} => to_json_binary(&PAUSE.load(deps.storage)?)?,
         QueryMsg::BondHooks {} => to_json_binary(
             &BOND_HOOKS
                 .load(deps.storage)?
@@ -133,14 +134,6 @@ fn query_pending_lsm_shares(deps: Deps<NeutronQuery>) -> ContractResult<Binary> 
         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
         .collect::<StdResult<Vec<_>>>()?;
     to_json_binary(&shares).map_err(From::from)
-}
-
-fn query_pause_info(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    if is_paused(deps.storage)? {
-        to_json_binary(&PauseInfoResponse::Paused {}).map_err(From::from)
-    } else {
-        to_json_binary(&PauseInfoResponse::Unpaused {}).map_err(From::from)
-    }
 }
 
 fn query_lsm_shares_to_redeem(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
@@ -277,6 +270,7 @@ pub fn execute(
     match msg {
         ExecuteMsg::Bond { receiver, r#ref } => execute_bond(deps, info, receiver, r#ref),
         ExecuteMsg::Unbond {} => execute_unbond(deps, info),
+        ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, *new_config),
         ExecuteMsg::UpdateOwnership(action) => {
             cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
@@ -295,11 +289,9 @@ pub fn execute(
             batch_id,
             withdrawn_amount,
         } => execute_update_withdrawn_amount(deps, env, info, batch_id, withdrawn_amount),
-        ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::PuppeteerHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
         ExecuteMsg::StakerHook(msg) => execute_staker_hook(deps, env, info, *msg),
-        ExecuteMsg::Pause {} => exec_pause(deps, info),
-        ExecuteMsg::Unpause {} => exec_unpause(deps, info),
+        ExecuteMsg::SetPause(pause) => execute_set_pause(deps, info, pause),
         ExecuteMsg::SetBondHooks { hooks } => execute_set_bond_hooks(deps, info, hooks),
     }
 }
@@ -329,33 +321,23 @@ fn execute_set_bond_hooks(
     ))
 }
 
-fn exec_pause(
+fn execute_set_pause(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
+    pause: Pause,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
-    set_pause(deps.storage)?;
+    PAUSE.save(deps.storage, &pause)?;
 
     Ok(response(
-        "exec_pause",
+        "execute-set-pause",
         CONTRACT_NAME,
-        Vec::<Attribute>::new(),
-    ))
-}
-
-fn exec_unpause(
-    deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
-) -> ContractResult<Response<NeutronMsg>> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-
-    unpause(deps.storage);
-
-    Ok(response(
-        "exec_unpause",
-        CONTRACT_NAME,
-        Vec::<Attribute>::new(),
+        [
+            ("bond", pause.bond.to_string()),
+            ("unbond", pause.unbond.to_string()),
+            ("tick", pause.tick.to_string()),
+        ],
     ))
 }
 
@@ -572,7 +554,9 @@ fn execute_tick(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    pause_guard(deps.storage)?;
+    if PAUSE.load(deps.storage)?.tick {
+        return Err(drop_helpers::pause::PauseError::Paused {}.into());
+    }
 
     let current_state = FSM.get_current_state(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
@@ -1048,6 +1032,10 @@ fn execute_bond(
     receiver: Option<String>,
     r#ref: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
+    if PAUSE.load(deps.storage)?.bond {
+        return Err(drop_helpers::pause::PauseError::Paused {}.into());
+    }
+
     let config = CONFIG.load(deps.storage)?;
     let bonded_coin = cw_utils::one_coin(&info)?;
     let Coin { mut amount, denom } = bonded_coin.clone();
@@ -1263,6 +1251,10 @@ fn execute_unbond(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
+    if PAUSE.load(deps.storage)?.unbond {
+        return Err(drop_helpers::pause::PauseError::Paused {}.into());
+    }
+
     let attrs = vec![attr("action", "unbond")];
     let unbond_batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
@@ -1771,6 +1763,13 @@ pub fn migrate(
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+        let mut new_pause_state = Pause::default();
+        if drop_helpers::pause::is_paused(deps.storage)? {
+            drop_helpers::pause::unpause(deps.storage);
+            new_pause_state.tick = true;
+        }
+        PAUSE.save(deps.storage, &new_pause_state)?;
 
         BOND_HOOKS.save(deps.storage, &vec![])?;
     }

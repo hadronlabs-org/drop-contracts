@@ -160,16 +160,6 @@ export type Transaction =
     };
 export type IBCTransferReason = "l_s_m_share" | "stake";
 export type String = string;
-/**
- * Information about if the contract is currently paused.
- */
-export type PauseInfoResponse =
-  | {
-      paused: {};
-    }
-  | {
-      unpaused: {};
-    };
 export type ArrayOfTupleOfStringAndTupleOfStringAndUint1281 = [string, [string, Uint128]][];
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
@@ -301,7 +291,7 @@ export interface DropCoreSchema {
     | LastPuppeteerResponse
     | LastStakerResponse
     | String
-    | PauseInfoResponse
+    | Pause
     | ArrayOfTupleOfStringAndTupleOfStringAndUint1281
     | Uint1282
     | Uint1283
@@ -315,6 +305,7 @@ export interface DropCoreSchema {
     | PuppeteerHookArgs
     | StakerHookArgs
     | ProcessEmergencyBatchArgs
+    | SetPauseArgs
     | SetBondHooksArgs
     | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
@@ -422,6 +413,11 @@ export interface ResponseHookErrorMsg {
 export interface LastStakerResponse {
   response?: ResponseHookMsg | null;
 }
+export interface Pause {
+  bond: boolean;
+  tick: boolean;
+  unbond: boolean;
+}
 export interface UnbondBatch {
   expected_native_asset_amount: Uint128;
   expected_release_time: number;
@@ -516,6 +512,14 @@ export interface ResponseHookErrorMsg2 {
 export interface ProcessEmergencyBatchArgs {
   batch_id: number;
   unbonded_amount: Uint128;
+}
+export interface SetPauseArgs {
+  type?: "object";
+  required?: ["bond", "tick", "unbond"];
+  properties?: {
+    [k: string]: unknown;
+  };
+  additionalProperties?: never;
 }
 export interface SetBondHooksArgs {
   hooks: string[];
@@ -634,11 +638,11 @@ export class Client {
   queryFailedBatch = async(): Promise<FailedBatchResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { failed_batch: {} });
   }
+  queryPause = async(): Promise<Pause> => {
+    return this.client.queryContractSmart(this.contractAddress, { pause: {} });
+  }
   queryBondHooks = async(): Promise<ArrayOfString> => {
     return this.client.queryContractSmart(this.contractAddress, { bond_hooks: {} });
-  }
-  queryPauseInfo = async(): Promise<PauseInfoResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
   }
   bond = async(sender:string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
@@ -648,6 +652,10 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { unbond: {} }, fee || "auto", memo, funds);
   }
+  tick = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { tick: {} }, fee || "auto", memo, funds);
+  }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
@@ -655,10 +663,6 @@ export class Client {
   updateWithdrawnAmount = async(sender:string, args: UpdateWithdrawnAmountArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_withdrawn_amount: args }, fee || "auto", memo, funds);
-  }
-  tick = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { tick: {} }, fee || "auto", memo, funds);
   }
   puppeteerHook = async(sender:string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
@@ -676,17 +680,13 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { process_emergency_batch: args }, fee || "auto", memo, funds);
   }
+  setPause = async(sender:string, args: SetPauseArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { set_pause: args }, fee || "auto", memo, funds);
+  }
   setBondHooks = async(sender:string, args: SetBondHooksArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { set_bond_hooks: args }, fee || "auto", memo, funds);
-  }
-  pause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { pause: {} }, fee || "auto", memo, funds);
-  }
-  unpause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { unpause: {} }, fee || "auto", memo, funds);
   }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
