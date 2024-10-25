@@ -185,17 +185,7 @@ pub fn execute_update_bond(
     backup: Option<String>,
     return_type: ReturnType,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let owner =
-        cw_ownable::get_ownership(deps.storage)?
-            .owner
-            .ok_or(ContractError::OwnershipError(
-                cw_ownable::OwnershipError::NoOwner,
-            ))?;
-    ensure_eq!(
-        info.sender,
-        owner,
-        ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
-    );
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut bond = BONDS.load(deps.storage, id)?;
     bond.receiver = receiver.clone();
     bond.backup = backup.clone();
