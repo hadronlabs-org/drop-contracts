@@ -468,9 +468,6 @@ pub fn migrate(
 
 fn get_id_from_request_memo(req: &RequestPacket) -> ContractResult<u64> {
     let request_data: FungibleTokenPacketData = from_json(req.data.clone().unwrap())?; // must present as there is only IBC transfer for this contract
-    let id: u64 = request_data
-        .memo
-        .parse()
-        .map_err(|_| ContractError::InvalidMemo)?;
+    let id: u64 = request_data.memo.parse().unwrap(); // can be safelly unwrapped as it is serialized in execute_complete
     Ok(id)
 }

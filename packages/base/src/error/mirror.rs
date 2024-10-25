@@ -34,9 +34,6 @@ pub enum ContractError {
     #[error("No tokens minted")]
     NoTokensMinted,
 
-    #[error("Invalid memo")]
-    InvalidMemo,
-
     #[error("Invalid prefix")]
     InvalidPrefix,
 
