@@ -131,7 +131,7 @@ pre_deploy_check_code_ids() {
 deploy_factory() {
   # TODO: calculate unbond batch switch time and unbonding period using params queried from the network
   uatom_on_neutron_denom="ibc/$(printf 'transfer/%s/%s' "$NEUTRON_SIDE_TRANSFER_CHANNEL_ID" "$TARGET_BASE_DENOM" \
-    | sha256sum - | awk '{print $1}' | tr '[:lower:]' '[:upper:]')"
+    | shasum -a 256 - | awk '{print $1}' | tr '[:lower:]' '[:upper:]')"
   echo "[OK] IBC denom of $TARGET_BASE_DENOM on Neutron is $uatom_on_neutron_denom"
   msg='{
     "sdk_version":"'"$TARGET_SDK_VERSION"'",
@@ -186,7 +186,8 @@ deploy_factory() {
     },
     "staker_params":{
       "min_stake_amount":"'"$STAKER_PARAMS_MIN_STAKE_AMOUNT"'",
-      "min_ibc_transfer":"'"$STAKER_PARAMS_MIN_IBC_TRANSFER"'"
+      "min_ibc_transfer":"'"$STAKER_PARAMS_MIN_IBC_TRANSFER"'",
+      "chain_type":"'"$STAKER_PARAMS_CHAIN_TYPE"'"
     }
   }'
   factory_address="$(neutrond tx wasm instantiate "$factory_code_id" "$msg" \
@@ -286,7 +287,7 @@ wait_ica_address() {
       | jq -r 'try (.data.registered.ica_address) catch ""')"
     if [[ -n "$ica_address" ]]; then
       echo "[OK] $contract_name ICA address: $ica_address"
-      declare -g "${contract_name}_ica_address=$ica_address"
+      eval "${contract_name}_ica_address=$ica_address"
       break
     fi
     sleep 5
