@@ -222,10 +222,9 @@ fn bond() {
     assert_eq!(
         bond,
         drop_staking_base::state::mirror::BondItem {
-            id: 1,
             receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                 .to_string(),
-            backup: Some("backup".to_string()),
+            backup: Some(Addr::unchecked("backup".to_string())),
             amount: Uint128::new(1000),
             received: None,
             return_type: drop_staking_base::state::mirror::ReturnType::Remote,
@@ -278,10 +277,9 @@ fn complete_remote() {
             deps.as_mut().storage,
             1,
             &drop_staking_base::state::mirror::BondItem {
-                id: 1,
                 receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                     .to_string(),
-                backup: Some("backup".to_string()),
+                backup: Some(Addr::unchecked("backup".to_string())),
                 amount: Uint128::new(1000),
                 received: Some(coin(1000, "ld_denom")),
                 return_type: drop_staking_base::state::mirror::ReturnType::Remote,
@@ -300,10 +298,9 @@ fn complete_remote() {
     assert_eq!(
         bond,
         drop_staking_base::state::mirror::BondItem {
-            id: 1,
             receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                 .to_string(),
-            backup: Some("backup".to_string()),
+            backup: Some(Addr::unchecked("backup".to_string())),
             amount: Uint128::new(1000),
             received: Some(coin(1000, "ld_denom")),
             return_type: drop_staking_base::state::mirror::ReturnType::Remote,
@@ -359,10 +356,9 @@ fn complete_local() {
             deps.as_mut().storage,
             1,
             &drop_staking_base::state::mirror::BondItem {
-                id: 1,
                 receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                     .to_string(),
-                backup: Some("backup".to_string()),
+                backup: Some(Addr::unchecked("backup".to_string())),
                 amount: Uint128::new(1000),
                 received: Some(coin(1000, "ld_denom")),
                 return_type: drop_staking_base::state::mirror::ReturnType::Local,
@@ -411,10 +407,9 @@ fn change_return_type() {
             deps.as_mut().storage,
             1,
             &drop_staking_base::state::mirror::BondItem {
-                id: 1,
                 receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                     .to_string(),
-                backup: Some("backup".to_string()),
+                backup: Some(Addr::unchecked("backup".to_string())),
                 amount: Uint128::new(1000),
                 received: Some(coin(1000, "ld_denom")),
                 return_type: drop_staking_base::state::mirror::ReturnType::Remote,
@@ -451,10 +446,9 @@ fn change_return_type() {
     assert_eq!(
         bond,
         drop_staking_base::state::mirror::BondItem {
-            id: 1,
             receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                 .to_string(),
-            backup: Some("backup".to_string()),
+            backup: Some(Addr::unchecked("backup".to_string())),
             amount: Uint128::new(1000),
             received: Some(coin(1000, "ld_denom")),
             return_type: drop_staking_base::state::mirror::ReturnType::Local,
@@ -485,9 +479,8 @@ fn update_bond() {
             deps.as_mut().storage,
             1,
             &drop_staking_base::state::mirror::BondItem {
-                id: 1,
                 receiver: "receiver".to_string(),
-                backup: Some("backup".to_string()),
+                backup: Some(Addr::unchecked("backup".to_string())),
                 amount: Uint128::new(1000),
                 received: None,
                 return_type: drop_staking_base::state::mirror::ReturnType::Remote,
@@ -532,9 +525,8 @@ fn update_bond() {
     assert_eq!(
         bond,
         drop_staking_base::state::mirror::BondItem {
-            id: 1,
             receiver: "new_receiver".to_string(),
-            backup: Some("new_backup".to_string()),
+            backup: Some(Addr::unchecked("new_backup".to_string())),
             amount: Uint128::new(1000),
             received: None,
             return_type: drop_staking_base::state::mirror::ReturnType::Local,
@@ -567,10 +559,9 @@ fn query_one() {
             deps.as_mut().storage,
             1,
             &drop_staking_base::state::mirror::BondItem {
-                id: 1,
                 receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                     .to_string(),
-                backup: Some("backup".to_string()),
+                backup: Some(Addr::unchecked("backup".to_string())),
                 amount: Uint128::new(1000),
                 received: None,
                 return_type: drop_staking_base::state::mirror::ReturnType::Remote,
@@ -587,10 +578,9 @@ fn query_one() {
     assert_eq!(
         one,
         to_json_binary(&drop_staking_base::state::mirror::BondItem {
-            id: 1,
             receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                 .to_string(),
-            backup: Some("backup".to_string()),
+            backup: Some(Addr::unchecked("backup".to_string())),
             amount: Uint128::new(1000),
             received: None,
             return_type: drop_staking_base::state::mirror::ReturnType::Remote,
@@ -609,10 +599,9 @@ fn query_all() {
             deps.as_mut().storage,
             1,
             &drop_staking_base::state::mirror::BondItem {
-                id: 1,
                 receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                     .to_string(),
-                backup: Some("backup".to_string()),
+                backup: Some(Addr::unchecked("backup".to_string())),
                 amount: Uint128::new(1000),
                 received: None,
                 return_type: drop_staking_base::state::mirror::ReturnType::Remote,
@@ -634,10 +623,9 @@ fn query_all() {
         to_json_binary(&vec![(
             1,
             drop_staking_base::state::mirror::BondItem {
-                id: 1,
                 receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                     .to_string(),
-                backup: Some("backup".to_string()),
+                backup: Some(Addr::unchecked("backup".to_string())),
                 amount: Uint128::new(1000),
                 received: None,
                 return_type: drop_staking_base::state::mirror::ReturnType::Remote,

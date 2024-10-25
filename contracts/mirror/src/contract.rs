@@ -188,7 +188,10 @@ pub fn execute_update_bond(
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut bond = BONDS.load(deps.storage, id)?;
     bond.receiver = receiver.clone();
-    bond.backup = backup.clone();
+    bond.backup = backup
+        .clone()
+        .map(|a| deps.api.addr_validate(&a))
+        .transpose()?;
     bond.return_type = return_type.clone();
     BONDS.save(deps.storage, id, &bond)?;
     let attrs = vec![
@@ -214,7 +217,7 @@ pub fn execute_bond(
         prefix,
         ..
     } = CONFIG.load(deps.storage)?;
-    backup
+    let backup = backup
         .as_ref()
         .map(|addr| deps.api.addr_validate(addr))
         .transpose()?;
@@ -310,7 +313,7 @@ pub fn execute_complete(
                 if let Some(backup) = bond.backup {
                     BONDS.remove(deps.storage, id);
                     msgs.push(CosmosMsg::Bank(BankMsg::Send {
-                        to_address: backup,
+                        to_address: backup.to_string(),
                         amount: vec![bond.received.unwrap()],
                     }));
                 }

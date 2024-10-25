@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Coin, Uint128};
+use cosmwasm_std::{Addr, Coin, Uint128};
 use cw_storage_plus::{Item, Map};
 
 #[cw_serde]
@@ -41,7 +41,7 @@ impl std::fmt::Display for BondState {
 #[cw_serde]
 pub struct BondItem {
     pub receiver: String,
-    pub backup: Option<String>,
+    pub backup: Option<Addr>,
     pub amount: Uint128,
     pub received: Option<Coin>,
     pub return_type: ReturnType,
