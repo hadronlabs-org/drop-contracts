@@ -1,7 +1,0 @@
-{
-    "commands": {
-        "addGenesisAccount": "genesis add-genesis-account",
-        "gentx": "genesis gentx",
-        "collectGenTx": "genesis collect-gentxs"
-    }
-}
