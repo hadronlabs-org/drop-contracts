@@ -1,6 +1,10 @@
 import cosmopark, { CosmoparkConfig } from '@neutron-org/cosmopark';
 import { DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
-import { StargateClient } from '@cosmjs/stargate';
+import {
+  QueryClient,
+  setupIbcExtension,
+  StargateClient,
+} from '@cosmjs/stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { waitFor } from './helpers/waitFor';
 import { sleep } from './helpers/sleep';
@@ -10,6 +14,7 @@ import {
   CosmoparkRelayer,
 } from '@neutron-org/cosmopark/lib/types';
 import { Suite } from 'vitest';
+import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 const packageJSON = require(`${__dirname}/../package.json`);
 const VERSION = (process.env.CI ? '_' : ':') + packageJSON.version;
 const ORG = process.env.CI ? 'neutronorg/lionco-contracts:' : '';
@@ -31,7 +36,13 @@ const TIMEOUT = 10_000;
 const redefinedParams =
   process.env.REMOTE_CHAIN_OPTS && fs.existsSync(process.env.REMOTE_CHAIN_OPTS)
     ? JSON.parse(fs.readFileSync(process.env.REMOTE_CHAIN_OPTS).toString())
-    : {};
+    : {
+        commands: {
+          addGenesisAccount: 'genesis add-genesis-account',
+          gentx: 'genesis gentx',
+          collectGenTx: 'genesis collect-gentxs',
+        },
+      };
 
 const networkConfigs = {
   lsm: {
@@ -126,6 +137,51 @@ const networkConfigs = {
       `/opt/init-gaia.sh > /opt/init-gaia.log 2>&1`,
     ],
   },
+  initia: {
+    binary: redefinedParams.binary || 'initiad',
+    chain_id: 'testinitia',
+    denom: redefinedParams.denom || 'uinit',
+    image: `${ORG}${process.env.REMOTE_CHAIN ?? 'initia-test'}${VERSION}`,
+    prefix: redefinedParams.prefix || 'init',
+    trace: true,
+    validators: 2,
+    commands: redefinedParams.commands,
+    validators_balance: [
+      '100000000',
+      '100000000',
+      '100000000',
+      '100000000',
+      '100000000',
+    ],
+    genesis_opts: redefinedParams.genesisOpts || {
+      'app_state.slashing.params.downtime_jail_duration': '10s',
+      'app_state.slashing.params.signed_blocks_window': '10',
+      'app_state.slashing.params.min_signed_per_window': '0.9',
+      'app_state.slashing.params.slash_fraction_downtime': '0.1',
+      'app_state.staking.params.validator_bond_factor': '10',
+      'app_state.staking.params.unbonding_time': '1814400s',
+      'app_state.mint.minter.inflation': '0.9',
+      'app_state.mint.params.inflation_max': '0.95',
+      'app_state.mint.params.inflation_min': '0.5',
+      'app_state.interchainaccounts.host_genesis_state.params.allow_messages': [
+        '*',
+      ],
+    },
+    config_opts: {
+      'rpc.laddr': 'tcp://0.0.0.0:26657',
+    },
+    app_opts: {
+      'api.enable': true,
+      'api.address': 'tcp://0.0.0.0:1317',
+      'api.swagger': true,
+      'grpc.enable': true,
+      'grpc.address': '0.0.0.0:9090',
+      'minimum-gas-prices': redefinedParams.denom
+        ? `0${redefinedParams.denom}`
+        : '0uinit',
+      'rosetta.enable': true,
+    },
+  },
   neutron: {
     binary: 'neutrond',
     chain_id: 'ntrntest',
@@ -167,9 +223,9 @@ const relayersConfig = {
     balance: '1000000000',
     binary: 'hermes',
     config: {
-      'chains.0.gas_multiplier': 1.2,
+      'chains.0.gas_multiplier': 1.8,
       'chains.0.trusting_period': '112h0m0s',
-      'chains.1.gas_multiplier': 1.2,
+      'chains.1.gas_multiplier': 1.8,
       'chains.1.trusting_period': '168h0m0s',
     },
     image: `${ORG}hermes-test${VERSION}`,
@@ -252,7 +308,23 @@ const awaitNeutronChannels = (rest: string, rpc: string): Promise<void> =>
       await sleep(10000);
       return false;
     }
-  }, 100_000);
+  }, 500_000);
+
+export const awaitTargetChannels = (rpc: string): Promise<void> =>
+  waitFor(async () => {
+    try {
+      const tmClient = await Tendermint34Client.connect(rpc);
+      const client = QueryClient.withExtensions(tmClient, setupIbcExtension);
+      const res = await client.ibc.channel.allChannels();
+      if (res.channels.length > 0 && res.channels[0].state === 3) {
+        return true;
+      }
+      await sleep(10000);
+    } catch (e) {
+      await sleep(10000);
+      return false;
+    }
+  }, 500_000);
 
 export const generateWallets = (): Promise<Record<Keys, string>> =>
   keys.reduce(

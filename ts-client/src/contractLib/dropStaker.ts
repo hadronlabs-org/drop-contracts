@@ -123,6 +123,7 @@ export type UpdateOwnershipArgs =
     }
   | "accept_ownership"
   | "renounce_ownership";
+export type ChainType = "basic_cosmos" | "initia";
 
 export interface DropStakerSchema {
   responses: Uint128 | Config | IcaState | Uint1281 | OwnershipForString | TxState;
@@ -182,6 +183,7 @@ export interface ConfigOptional {
 export interface InstantiateMsg {
   allowed_senders: string[];
   base_denom: string;
+  chain_type?: ChainType | null;
   connection_id: string;
   min_ibc_transfer: Uint1282;
   min_staking_amount: Uint1282;

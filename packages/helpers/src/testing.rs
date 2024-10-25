@@ -7,8 +7,9 @@ use std::marker::PhantomData;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage};
 use cosmwasm_std::{
-    from_json, to_json_binary, Api, Binary, Coin, ContractResult, CustomQuery, OwnedDeps, Querier,
-    QuerierResult, QueryRequest, SystemError, SystemResult, Uint128,
+    from_json, to_json_binary, Api, BalanceResponse, BankQuery, Binary, Coin, ContractResult,
+    CustomQuery, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult,
+    Uint128,
 };
 
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -123,6 +124,7 @@ type CustomFn = dyn Fn(&QueryRequest<NeutronQuery>) -> Binary;
 
 pub struct WasmMockQuerier {
     base: MockQuerier<NeutronQuery>,
+    bank_query_responses: HashMap<String, Binary>,
     query_responses: HashMap<u64, Binary>,
     registered_queries: HashMap<u64, Binary>,
     wasm_query_responses: RefCell<HashMap<String, Vec<Box<WasmFn>>>>, // fml
@@ -148,6 +150,15 @@ impl Querier for WasmMockQuerier {
 impl WasmMockQuerier {
     pub fn handle_query(&self, request: &QueryRequest<NeutronQuery>) -> QuerierResult {
         match &request {
+            QueryRequest::Bank(BankQuery::Balance { address, .. }) => {
+                let custom_balance = self.bank_query_responses.get(address);
+
+                if let Some(balance) = custom_balance {
+                    SystemResult::Ok(ContractResult::Ok(balance.clone()))
+                } else {
+                    self.base.handle_query(request)
+                }
+            }
             QueryRequest::Stargate { path, data } => {
                 let mut stargate_query_responses = self.stargate_query_responses.borrow_mut();
                 let responses = match stargate_query_responses.get_mut(path) {
@@ -258,6 +269,10 @@ impl WasmMockQuerier {
         }
     }
 
+    pub fn add_bank_query_response(&mut self, address: String, response: BalanceResponse) {
+        self.bank_query_responses
+            .insert(address, to_json_binary(&response).unwrap());
+    }
     pub fn add_query_response(&mut self, query_id: u64, response: Binary) {
         self.query_responses.insert(query_id, response);
     }
@@ -306,6 +321,7 @@ impl WasmMockQuerier {
     pub fn new(base: MockQuerier<NeutronQuery>) -> Self {
         WasmMockQuerier {
             base,
+            bank_query_responses: HashMap::new(),
             query_responses: HashMap::new(),
             registered_queries: HashMap::new(),
             wasm_query_responses: HashMap::new().into(),

@@ -70,7 +70,6 @@ export type Transaction = {
     };
 } | {
     redeem_shares: {
-        interchain_account_id: string;
         items: RedeemShareItem[];
     };
 } | {
@@ -84,8 +83,13 @@ export type Transaction = {
     i_b_c_transfer: {
         amount: number;
         denom: string;
+        real_amount: number;
         reason: IBCTransferReason;
         recipient: string;
+    };
+} | {
+    stake: {
+        amount: Uint128;
     };
 } | {
     transfer: {
@@ -94,12 +98,11 @@ export type Transaction = {
     };
 } | {
     setup_protocol: {
-        delegate_grantee: string;
         interchain_account_id: string;
         rewards_withdraw_address: string;
     };
 };
-export type IBCTransferReason = "l_s_m_share" | "stake";
+export type IBCTransferReason = "l_s_m_share" | "delegate";
 export type ArrayOfResponseHookSuccessMsg = ResponseHookSuccessMsg[];
 export type ArrayOfResponseHookErrorMsg = ResponseHookErrorMsg[];
 export type PuppeteerHookArgs = {
