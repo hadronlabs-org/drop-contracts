@@ -159,7 +159,7 @@ pub fn execute_change_return_type(
     ensure!(
         bond.state == BondState::Bonded,
         ContractError::WrongBondState {
-            expected: BondState::Initiated.to_string(),
+            expected: BondState::Bonded.to_string(),
             got: bond.state.to_string(),
         }
     );
