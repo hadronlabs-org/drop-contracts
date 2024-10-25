@@ -605,7 +605,6 @@ describe('Mirror', () => {
     expect(res).toEqual({
       amount: '10000',
       backup: null,
-      id: 1,
       received: {
         amount: '10000',
         denom: context.ldDenom,
@@ -623,7 +622,6 @@ describe('Mirror', () => {
         {
           amount: '10000',
           backup: null,
-          id: 1,
           received: {
             amount: '10000',
             denom: context.ldDenom,
