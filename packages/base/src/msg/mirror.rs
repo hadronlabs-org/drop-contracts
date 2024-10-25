@@ -48,7 +48,7 @@ pub enum QueryMsg {
     #[returns(crate::state::mirror::BondItem)]
     One { id: u64 },
 
-    #[returns(Vec<crate::state::mirror::BondItem>)]
+    #[returns(Vec<(u64, crate::state::mirror::BondItem)>)]
     All {
         start_after: Option<u64>,
         limit: Option<u32>,

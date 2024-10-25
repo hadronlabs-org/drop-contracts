@@ -248,7 +248,6 @@ pub fn execute_bond(
         deps.storage,
         id,
         &BondItem {
-            id,
             receiver,
             backup,
             received: None,

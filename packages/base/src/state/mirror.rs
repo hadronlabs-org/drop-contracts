@@ -40,7 +40,6 @@ impl std::fmt::Display for BondState {
 
 #[cw_serde]
 pub struct BondItem {
-    pub id: u64,
     pub receiver: String,
     pub backup: Option<String>,
     pub amount: Uint128,

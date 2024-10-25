@@ -16,7 +16,7 @@ import { StdFee } from "@cosmjs/amino";
 export type Uint128 = string;
 export type ReturnType = "remote" | "local";
 export type BondState = "initiated" | "bonded" | "sent";
-export type ArrayOfBondItem = BondItem[];
+export type ArrayOfTupleOfUint64AndBondItem = [number, BondItem][];
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -61,7 +61,7 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropMirrorSchema {
-    responses: ArrayOfBondItem | Config | BondItem1 | OwnershipForString;
+    responses: ArrayOfTupleOfUint64AndBondItem | Config | BondItem1 | OwnershipForString;
     query: OneArgs | AllArgs;
     execute: BondArgs | UpdateConfigArgs | CompleteArgs | ChangeReturnTypeArgs | UpdateBondArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
@@ -70,7 +70,6 @@ export interface DropMirrorSchema {
 export interface BondItem {
     amount: Uint128;
     backup?: string | null;
-    id: number;
     received?: Coin | null;
     receiver: string;
     return_type: ReturnType;
@@ -91,7 +90,6 @@ export interface Config {
 export interface BondItem1 {
     amount: Uint128;
     backup?: string | null;
-    id: number;
     received?: Coin | null;
     receiver: string;
     return_type: ReturnType;
@@ -166,7 +164,7 @@ export declare class Client {
     static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
     queryConfig: () => Promise<Config>;
     queryOne: (args: OneArgs) => Promise<BondItem>;
-    queryAll: (args: AllArgs) => Promise<ArrayOfBondItem>;
+    queryAll: (args: AllArgs) => Promise<ArrayOfTupleOfUint64AndBondItem>;
     queryOwnership: () => Promise<OwnershipForString>;
     bond: (sender: string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
