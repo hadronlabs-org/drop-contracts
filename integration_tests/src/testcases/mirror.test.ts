@@ -157,6 +157,7 @@ describe('Mirror', () => {
   });
 
   it('transfer tokens to neutron', async () => {
+    await sleep(30_000);
     context.gaiaUserAddress = (
       await context.gaiaWallet.getAccounts()
     )[0].address;
