@@ -114,6 +114,7 @@ fn lsm_denom_query_config(
                             init_proposal: None,
                             total_passed_proposals: 0u64,
                             total_voted_proposals: 0u64,
+                            on_top: Uint128::zero(),
                         }),
                     })
                     .unwrap()
@@ -1377,6 +1378,7 @@ mod check_denom {
                             init_proposal: None,
                             total_passed_proposals: 0u64,
                             total_voted_proposals: 0u64,
+                            on_top: Uint128::zero(),
                         }),
                     })
                     .unwrap()

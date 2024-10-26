@@ -811,7 +811,7 @@ describe('Core', () => {
       'initia',
       `initiad tx bank send ${context.initiaUserAddress2} ${context.icaAddress} 1000${context.moveDenom} --from=demo1 --home=/opt --chain-id=${context.park.config.networks['initia'].chain_id} --keyring-backend=test --fees=50000uinit --gas 300000 -y`,
     );
-    await sleep(3_000);
+    await sleep(10_000);
 
     const balances = await context.initiaClient.getAllBalances(
       context.icaAddress,
@@ -1032,10 +1032,12 @@ describe('Core', () => {
               {
                 valoper_address: validatorAddress,
                 weight: 1,
+                on_top: '0',
               },
               {
                 valoper_address: secondValidatorAddress,
                 weight: 1,
+                on_top: '0',
               },
             ],
           },
@@ -1724,7 +1726,7 @@ describe('Core', () => {
           `initiad tx move execute 0x1 dex single_asset_provide_liquidity_script --args "object:${context.moveToken.metadataAddr} object:${initiaUINITmetadata} u64:${newBalance - oldBalance} option<u64>:1" --from=demo3 --home=/opt --chain-id=${context.park.config.networks['initia'].chain_id} --keyring-backend=test --fees=50000uinit --gas 300000 -y`,
         );
 
-        await sleep(4_000);
+        await sleep(10_000);
         const balances = await initiaClient.getAllBalances(
           context.temporaryRewardBuffer,
         );
