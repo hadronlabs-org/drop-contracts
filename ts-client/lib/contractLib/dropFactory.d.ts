@@ -704,11 +704,12 @@ export interface Pause {
 export interface State {
     core_contract: string;
     distribution_contract: string;
+    lsm_share_bond_provider_contract: string;
+    native_bond_provider_contract: string;
     puppeteer_contract: string;
     rewards_manager_contract: string;
     rewards_pump_contract: string;
     splitter_contract: string;
-    staker_contract: string;
     strategy_contract: string;
     token_contract: string;
     validators_set_contract: string;
@@ -720,10 +721,6 @@ export interface ConfigOptional {
     bond_limit?: Uint128 | null;
     emergency_address?: string | null;
     idle_min_interval?: number | null;
-    lsm_min_bond_amount?: Uint128 | null;
-    lsm_redeem_maximum_interval?: number | null;
-    lsm_redeem_threshold?: number | null;
-    min_stake_amount?: Uint128 | null;
     pump_ica_address?: string | null;
     puppeteer_contract?: string | null;
     remote_denom?: string | null;
@@ -1121,21 +1118,23 @@ export interface InstantiateMsg {
     core_params: CoreParams;
     fee_params?: FeeParams | null;
     local_denom: string;
+    lsm_share_bond_params: LsmShareBondParams;
+    native_bond_params: NativeBondParams;
     remote_opts: RemoteOpts;
     salt: string;
     sdk_version: string;
-    staker_params: StakerParams;
     subdenom: string;
     token_metadata: DenomMetadata;
 }
 export interface CodeIds {
     core_code_id: number;
     distribution_code_id: number;
+    lsm_share_bond_provider_code_id: number;
+    native_bond_provider_code_id: number;
     puppeteer_code_id: number;
     rewards_manager_code_id: number;
     rewards_pump_code_id: number;
     splitter_code_id: number;
-    staker_code_id: number;
     strategy_code_id: number;
     token_code_id: number;
     validators_set_code_id: number;
@@ -1146,10 +1145,6 @@ export interface CoreParams {
     bond_limit?: Uint128 | null;
     icq_update_delay: number;
     idle_min_interval: number;
-    lsm_min_bond_amount: Uint128;
-    lsm_redeem_max_interval: number;
-    lsm_redeem_threshold: number;
-    min_stake_amount: Uint128;
     unbond_batch_switch_time: number;
     unbonding_period: number;
     unbonding_safe_period: number;
@@ -1157,6 +1152,15 @@ export interface CoreParams {
 export interface FeeParams {
     fee: Decimal;
     fee_address: string;
+}
+export interface LsmShareBondParams {
+    lsm_min_bond_amount: Uint128;
+    lsm_redeem_max_interval: number;
+    lsm_redeem_threshold: number;
+}
+export interface NativeBondParams {
+    min_ibc_transfer: Uint128;
+    min_stake_amount: Uint128;
 }
 export interface RemoteOpts {
     connection_id: string;
@@ -1170,10 +1174,6 @@ export interface RemoteOpts {
 export interface Timeout {
     local: number;
     remote: number;
-}
-export interface StakerParams {
-    min_ibc_transfer: Uint128;
-    min_stake_amount: Uint128;
 }
 export interface DenomMetadata {
     /**

@@ -1,8 +1,8 @@
 use crate::{
     contract::{execute, instantiate, query},
     msg::{
-        CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, QueryMsg, StakerParams, UpdateConfigMsg,
-        ValidatorSetMsg,
+        CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, LsmShareBondParams, NativeBondParams,
+        QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
     },
     state::{CodeIds, RemoteOpts, State, Timeout, STATE},
 };
@@ -16,13 +16,14 @@ use drop_staking_base::{
     msg::{
         core::{ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg},
         distribution::InstantiateMsg as DistributionInstantiateMsg,
+        lsm_share_bond_provider::InstantiateMsg as LsmShareBondProviderInstantiateMsg,
+        native_bond_provider::InstantiateMsg as NativeBondProviderInstantiateMsg,
         pump::InstantiateMsg as RewardsPumpInstantiateMsg,
         puppeteer::{ExecuteMsg as PuppeteerExecuteMsg, InstantiateMsg as PuppeteerInstantiateMsg},
         rewards_manager::{
             ExecuteMsg as RewardsManagerExecuteMsg, InstantiateMsg as RewardsManagerInstantiateMsg,
         },
         splitter::InstantiateMsg as SplitterInstantiateMsg,
-        staker::InstantiateMsg as StakerInstantiateMsg,
         strategy::InstantiateMsg as StrategyInstantiateMsg,
         token::{DenomMetadata, InstantiateMsg as TokenInstantiateMsg},
         validatorset::{
@@ -42,7 +43,6 @@ fn get_default_factory_state() -> State {
         token_contract: "token_contract".to_string(),
         core_contract: "core_contract".to_string(),
         puppeteer_contract: "puppeteer_contract".to_string(),
-        staker_contract: "staker_contract".to_string(),
         withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
         withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
         strategy_contract: "strategy_contract".to_string(),
@@ -51,6 +51,8 @@ fn get_default_factory_state() -> State {
         rewards_manager_contract: "rewards_manager_contract".to_string(),
         rewards_pump_contract: "rewards_pump_contract".to_string(),
         splitter_contract: "splitter_contract".to_string(),
+        lsm_share_bond_provider_contract: "lsm_share_bond_provider_contract".to_string(),
+        native_bond_provider_contract: "native_bond_provider_contract".to_string(),
     }
 }
 
@@ -75,7 +77,6 @@ fn test_instantiate() {
             token_code_id: 1,
             core_code_id: 2,
             puppeteer_code_id: 3,
-            staker_code_id: 4,
             withdrawal_voucher_code_id: 5,
             withdrawal_manager_code_id: 6,
             strategy_code_id: 7,
@@ -84,6 +85,8 @@ fn test_instantiate() {
             rewards_manager_code_id: 10,
             rewards_pump_code_id: 11,
             splitter_code_id: 12,
+            lsm_share_bond_provider_code_id: 13,
+            native_bond_provider_code_id: 14,
         },
         remote_opts: RemoteOpts {
             denom: "denom".to_string(),
@@ -116,14 +119,10 @@ fn test_instantiate() {
             unbonding_period: 0,
             unbonding_safe_period: 0,
             unbond_batch_switch_time: 0,
-            lsm_min_bond_amount: Uint128::from(0u64),
-            lsm_redeem_threshold: 0,
-            lsm_redeem_max_interval: 0,
             bond_limit: Some(Uint128::from(0u64)),
-            min_stake_amount: Uint128::from(0u64),
             icq_update_delay: 0,
         },
-        staker_params: StakerParams {
+        native_bond_params: NativeBondParams {
             min_stake_amount: Uint128::from(0u64),
             min_ibc_transfer: Uint128::from(0u64),
         },
@@ -131,6 +130,11 @@ fn test_instantiate() {
             fee: cosmwasm_std::Decimal::new(Uint128::from(0u64)),
             fee_address: "fee_address".to_string(),
         }),
+        lsm_share_bond_params: LsmShareBondParams {
+            lsm_redeem_threshold: 0,
+            lsm_min_bond_amount: Uint128::from(0u64),
+            lsm_redeem_max_interval: 0,
+        },
     };
     let res = instantiate(
         deps.as_mut().into_empty(),
@@ -215,34 +219,15 @@ fn test_instantiate() {
                             owner: Some("factory_contract".to_string()),
                             allowed_senders: vec![
                                 "some_humanized_address".to_string(),
+                                "some_humanized_address".to_string(),
+                                "some_humanized_address".to_string(),
                                 "factory_contract".to_string()
                             ],
                             transfer_channel_id: "channel-0".to_string(),
                             sdk_version: "sdk-version".to_string(),
                             timeout: 0,
-                            delegations_queries_chunk_size: None
-                        })
-                        .unwrap(),
-                        funds: vec![],
-                        salt: cosmwasm_std::Binary::from("salt".as_bytes())
-                    }
-                )),
-                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
-                    cosmwasm_std::WasmMsg::Instantiate2 {
-                        admin: Some("factory_contract".to_string()),
-                        code_id: 4,
-                        label: "drop-staking-staker".to_string(),
-                        msg: to_json_binary(&StakerInstantiateMsg {
-                            connection_id: "connection-0".to_string(),
-                            port_id: "transfer".to_string(),
-                            timeout: 0,
-                            remote_denom: "denom".to_string(),
-                            base_denom: "base_denom".to_string(),
-                            transfer_channel_id: "channel-0".to_string(),
-                            owner: Some("factory_contract".to_string()),
-                            allowed_senders: vec!["some_humanized_address".to_string()],
-                            min_ibc_transfer: Uint128::from(0u64),
-                            min_staking_amount: Uint128::from(0u64)
+                            delegations_queries_chunk_size: None,
+                            native_bond_provider: "some_humanized_address".to_string(),
                         })
                         .unwrap(),
                         funds: vec![],
@@ -275,15 +260,11 @@ fn test_instantiate() {
                             token_contract: "some_humanized_address".to_string(),
                             puppeteer_contract: "some_humanized_address".to_string(),
                             strategy_contract: "some_humanized_address".to_string(),
-                            staker_contract: "some_humanized_address".to_string(),
                             withdrawal_voucher_contract: "some_humanized_address".to_string(),
                             withdrawal_manager_contract: "some_humanized_address".to_string(),
                             validators_set_contract: "some_humanized_address".to_string(),
                             base_denom: "base_denom".to_string(),
                             remote_denom: "denom".to_string(),
-                            lsm_min_bond_amount: Uint128::from(0u64),
-                            lsm_redeem_threshold: 0,
-                            lsm_redeem_max_interval: 0,
                             idle_min_interval: 0,
                             unbonding_period: 0,
                             unbonding_safe_period: 0,
@@ -293,7 +274,6 @@ fn test_instantiate() {
                             transfer_channel_id: "channel-0".to_string(),
                             owner: "factory_contract".to_string(),
                             emergency_address: None,
-                            min_stake_amount: Uint128::from(0u64),
                             icq_update_delay: 0
                         })
                         .unwrap(),
@@ -390,6 +370,50 @@ fn test_instantiate() {
                         salt: cosmwasm_std::Binary::from("salt".as_bytes())
                     }
                 )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Instantiate2 {
+                        admin: Some("factory_contract".to_string()),
+                        code_id: 13,
+                        label: "drop-staking-lsm-share-bond-provider".to_string(),
+                        msg: to_json_binary(&LsmShareBondProviderInstantiateMsg {
+                            owner: "factory_contract".to_string(),
+                            core_contract: "some_humanized_address".to_string(),
+                            puppeteer_contract: "some_humanized_address".to_string(),
+                            validators_set_contract: "some_humanized_address".to_string(),
+                            transfer_channel_id: "channel-0".to_string(),
+                            lsm_redeem_threshold: 0,
+                            lsm_redeem_maximum_interval: 0,
+                            port_id: "transfer".to_string(),
+                            timeout: 0,
+                            lsm_min_bond_amount: Uint128::from(0u64),
+                        })
+                        .unwrap(),
+                        funds: vec![],
+                        salt: cosmwasm_std::Binary::from("salt".as_bytes()),
+                    }
+                )),
+                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
+                    cosmwasm_std::WasmMsg::Instantiate2 {
+                        admin: Some("factory_contract".to_string()),
+                        code_id: 14,
+                        label: "drop-staking-native-bond-provider".to_string(),
+                        msg: to_json_binary(&NativeBondProviderInstantiateMsg {
+                            owner: "factory_contract".to_string(),
+                            base_denom: "base_denom".to_string(),
+                            min_stake_amount: Uint128::from(0u64),
+                            min_ibc_transfer: Uint128::from(0u64),
+                            puppeteer_contract: "some_humanized_address".to_string(),
+                            core_contract: "some_humanized_address".to_string(),
+                            strategy_contract: "some_humanized_address".to_string(),
+                            timeout: 0,
+                            transfer_channel_id: "channel-0".to_string(),
+                            port_id: "transfer".to_string(),
+                        })
+                        .unwrap(),
+                        funds: vec![],
+                        salt: cosmwasm_std::Binary::from("salt".as_bytes()),
+                    }
+                ))
             ])
             .add_event(
                 cosmwasm_std::Event::new("crates.io:drop-staking__drop-factory-instantiate")
@@ -406,7 +430,6 @@ fn test_instantiate() {
                                     token_code_id: 1,
                                     core_code_id: 2,
                                     puppeteer_code_id: 3,
-                                    staker_code_id: 4,
                                     withdrawal_voucher_code_id: 5,
                                     withdrawal_manager_code_id: 6,
                                     strategy_code_id: 7,
@@ -415,6 +438,8 @@ fn test_instantiate() {
                                     rewards_manager_code_id: 10,
                                     rewards_pump_code_id: 11,
                                     splitter_code_id: 12,
+                                    lsm_share_bond_provider_code_id: 13,
+                                    native_bond_provider_code_id: 14
                                 }
                             )
                         ),
@@ -451,10 +476,6 @@ fn test_instantiate() {
                             "DDB91F7195F3A00683CEF315BF38988FEE4AB7B00518F795E5477EF17928574E"
                         ),
                         cosmwasm_std::attr(
-                            "staker_address",
-                            "186C6D9A24AD6C14B6CDC4E8636FCC3564F17691116D96A533C0D3E5B8EB7099"
-                        ),
-                        cosmwasm_std::attr(
                             "withdrawal_voucher_address",
                             "2EDC9F3CA74FEE8C9C97C5804C5E44B684380772A0C7CFC7FEB14843D437AADD"
                         ),
@@ -485,6 +506,14 @@ fn test_instantiate() {
                         cosmwasm_std::attr(
                             "rewards_pump_address",
                             "6FC09E9FDF411D71139AB50762FB9862D4F519DC21EADB93E93195388E164F25"
+                        ),
+                        cosmwasm_std::attr(
+                            "lsm_share_bond_provider_address",
+                            "1D482178B63387218844AA22FC89A3D4465BD4CC07A8DC1232C62EFE4838F955"
+                        ),
+                        cosmwasm_std::attr(
+                            "native_bond_provider_address",
+                            "4F119F34DBA97DC2D8E9268BC9513D26CF27BA148EF73DDE924F79A97CA47BBF"
                         ),
                     ])
             )
@@ -517,13 +546,9 @@ fn test_update_config_core_unauthorized() {
         unbond_batch_switch_time: None,
         pump_ica_address: None,
         transfer_channel_id: None,
-        lsm_min_bond_amount: None,
-        lsm_redeem_threshold: None,
-        lsm_redeem_maximum_interval: None,
         bond_limit: None,
         rewards_receiver: None,
         emergency_address: None,
-        min_stake_amount: None,
     };
     let res = execute(
         deps.as_mut().into_empty(),
@@ -565,13 +590,9 @@ fn test_update_config_core() {
         unbond_batch_switch_time: Some(1u64),
         pump_ica_address: Some("pump_ica_address1".to_string()),
         transfer_channel_id: Some("channel-1".to_string()),
-        lsm_min_bond_amount: Some(Uint128::from(1u64)),
-        lsm_redeem_threshold: Some(1u64),
-        lsm_redeem_maximum_interval: Some(1u64),
         bond_limit: Some(Uint128::from(1u64)),
         rewards_receiver: Some("rewards_receiver1".to_string()),
         emergency_address: Some("emergency_address1".to_string()),
-        min_stake_amount: Some(Uint128::from(1u64)),
     };
     let res = execute(
         deps.as_mut().into_empty(),

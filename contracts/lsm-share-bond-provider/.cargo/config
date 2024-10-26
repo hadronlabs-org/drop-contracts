@@ -1,0 +1,2 @@
+[alias]
+schema = "run --bin drop-lsm-share-bond-provider-schema"

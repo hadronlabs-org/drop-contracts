@@ -6,13 +6,15 @@ use serde::{de::DeserializeOwned, Serialize};
 use crate::{
     error::{ContractError, ContractResult},
     msg::QueryMsg,
+    r#trait::PuppeteerReconstruct,
     state::{BaseConfig, PuppeteerBase, Transfer},
 };
 
-impl<'a, T, U> PuppeteerBase<'a, T, U>
+impl<'a, T, U, Z> PuppeteerBase<'a, T, U, Z>
 where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
     U: Serialize + DeserializeOwned + Clone,
+    Z: PuppeteerReconstruct + std::fmt::Debug + Serialize + Clone,
 {
     pub fn query<X: std::fmt::Debug + JsonSchema>(
         &self,

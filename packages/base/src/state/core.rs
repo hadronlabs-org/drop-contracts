@@ -1,9 +1,10 @@
-use crate::msg::staker::ResponseHookMsg as StakerResponseHookMsg;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Decimal, Uint128};
-use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
+use cw_storage_plus::{Index, IndexList, IndexedMap, Item, MultiIndex};
 use drop_helpers::fsm::{Fsm, Transition};
-use drop_puppeteer_base::msg::ResponseHookMsg as PuppeteerResponseHookMsg;
+use drop_puppeteer_base::peripheral_hook::ResponseHookMsg as PuppeteerResponseHookMsg;
+
+use super::bond_providers::BondProviders;
 
 #[cw_serde]
 pub struct ConfigOptional {
@@ -22,13 +23,9 @@ pub struct ConfigOptional {
     pub unbond_batch_switch_time: Option<u64>,
     pub pump_ica_address: Option<String>,
     pub transfer_channel_id: Option<String>,
-    pub lsm_min_bond_amount: Option<Uint128>,
-    pub lsm_redeem_threshold: Option<u64>, //amount of lsm denoms
-    pub lsm_redeem_maximum_interval: Option<u64>,
     pub bond_limit: Option<Uint128>,
     pub rewards_receiver: Option<String>,
     pub emergency_address: Option<String>,
-    pub min_stake_amount: Option<Uint128>,
 }
 
 #[cw_serde]
@@ -36,7 +33,6 @@ pub struct Config {
     pub token_contract: Addr,
     pub puppeteer_contract: Addr,
     pub strategy_contract: Addr,
-    pub staker_contract: Addr,
     pub withdrawal_voucher_contract: Addr,
     pub withdrawal_manager_contract: Addr,
     pub validators_set_contract: Addr,
@@ -48,12 +44,8 @@ pub struct Config {
     pub unbond_batch_switch_time: u64, //seconds
     pub pump_ica_address: Option<String>,
     pub transfer_channel_id: String,
-    pub lsm_min_bond_amount: Uint128,
-    pub lsm_redeem_threshold: u64,        //amount of lsm denoms
-    pub lsm_redeem_maximum_interval: u64, //seconds
     pub bond_limit: Option<Uint128>,
     pub emergency_address: Option<String>,
-    pub min_stake_amount: Uint128,
     pub icq_update_delay: u64, // blocks
 }
 
@@ -124,64 +116,27 @@ pub fn unbond_batches_map<'a>() -> IndexedMap<'a, u128, UnbondBatch, UnbondBatch
 }
 
 pub const UNBOND_BATCH_ID: Item<u128> = Item::new("batches_ids");
-pub const TOTAL_LSM_SHARES: Item<u128> = Item::new("total_lsm_shares");
-/// (local_denom, (remote_denom, shares_amount, real_amount))
-pub const PENDING_LSM_SHARES: Map<String, (String, Uint128, Uint128)> =
-    Map::new("pending_lsm_shares_v1");
-/// (local_denom, (remote_denom, shares_amount, real_amount))
-pub const LSM_SHARES_TO_REDEEM: Map<String, (String, Uint128, Uint128)> =
-    Map::new("lsm_shares_to_redeem_v1");
 
 #[cw_serde]
 pub enum ContractState {
     Idle,
-    LSMTransfer,
-    LSMRedeem,
+    Peripheral,
     Claiming,
     Unbonding,
-    StakingBond,
 }
 
 const TRANSITIONS: &[Transition<ContractState>] = &[
     Transition {
         from: ContractState::Idle,
-        to: ContractState::LSMTransfer,
+        to: ContractState::Peripheral,
     },
     Transition {
-        from: ContractState::Idle,
-        to: ContractState::LSMRedeem,
-    },
-    Transition {
-        from: ContractState::LSMTransfer,
-        to: ContractState::Idle,
-    },
-    Transition {
-        from: ContractState::LSMRedeem,
+        from: ContractState::Peripheral,
         to: ContractState::Idle,
     },
     Transition {
         from: ContractState::Idle,
         to: ContractState::Claiming,
-    },
-    Transition {
-        from: ContractState::Idle,
-        to: ContractState::Unbonding,
-    },
-    Transition {
-        from: ContractState::Idle,
-        to: ContractState::Claiming,
-    },
-    Transition {
-        from: ContractState::Idle,
-        to: ContractState::StakingBond,
-    },
-    Transition {
-        from: ContractState::Claiming,
-        to: ContractState::StakingBond,
-    },
-    Transition {
-        from: ContractState::StakingBond,
-        to: ContractState::Unbonding,
     },
     Transition {
         from: ContractState::Claiming,
@@ -189,10 +144,6 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
     },
     Transition {
         from: ContractState::Unbonding,
-        to: ContractState::Idle,
-    },
-    Transition {
-        from: ContractState::StakingBond,
         to: ContractState::Idle,
     },
     Transition {
@@ -208,13 +159,13 @@ pub struct Pause {
     pub unbond: bool,
     pub tick: bool,
 }
+pub const BOND_PROVIDER_REPLY_ID: u64 = 1;
 
 pub const FSM: Fsm<ContractState> = Fsm::new("machine_state", TRANSITIONS);
 pub const LAST_IDLE_CALL: Item<u64> = Item::new("last_tick");
 pub const LAST_ICA_CHANGE_HEIGHT: Item<u64> = Item::new("last_ica_change_height");
 pub const LAST_PUPPETEER_RESPONSE: Item<PuppeteerResponseHookMsg> =
     Item::new("last_puppeteer_response");
-pub const LAST_STAKER_RESPONSE: Item<StakerResponseHookMsg> = Item::new("last_staker_response");
 pub const FAILED_BATCH_ID: Item<u128> = Item::new("failed_batch_id");
 pub const BONDED_AMOUNT: Item<Uint128> = Item::new("bonded_amount"); // to be used in bond limit
 pub const LAST_LSM_REDEEM: Item<u64> = Item::new("last_lsm_redeem");
@@ -222,3 +173,6 @@ pub const EXCHANGE_RATE: Item<(Decimal, u64)> = Item::new("exchange_rate");
 pub const LD_DENOM: Item<String> = Item::new("ld_denom");
 pub const PAUSE: Item<Pause> = Item::new("pause");
 pub const BOND_HOOKS: Item<Vec<Addr>> = Item::new("bond_hooks");
+
+pub const BOND_PROVIDERS: BondProviders =
+    BondProviders::new("bond_providers", "bond_providers_ptr");
