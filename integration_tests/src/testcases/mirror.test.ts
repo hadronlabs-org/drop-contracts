@@ -1,5 +1,11 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { DropCore, DropFactory, DropMirror } from 'drop-ts-client';
+import {
+  DropCore,
+  DropFactory,
+  DropMirror,
+  DropNativeBondProvider,
+  DropPuppeteer,
+} from 'drop-ts-client';
 import {
   QueryClient,
   StakingExtension,
@@ -26,6 +32,8 @@ import { sleep } from '../helpers/sleep';
 const DropMirrorClass = DropMirror.Client;
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
+const DropNativeBondProviderClass = DropNativeBondProvider.Client;
+const DropPuppeteerClass = DropPuppeteer.Client;
 const UNBONDING_TIME = 360;
 
 describe('Mirror', () => {
@@ -41,7 +49,6 @@ describe('Mirror', () => {
     account?: AccountData;
     icaAddress?: string;
     rewardsPumpIcaAddress?: string;
-    stakerIcaAddress?: string;
     client?: SigningCosmWasmClient;
     gaiaClient?: SigningStargateClient;
     gaiaUserAddress?: string;
@@ -54,6 +61,10 @@ describe('Mirror', () => {
     validatorAddress?: string;
     secondValidatorAddress?: string;
     tokenizedDenomOnNeutron?: string;
+    nativeBondProviderContractClient?: InstanceType<
+      typeof DropNativeBondProviderClass
+    >;
+    puppeteerContractClient?: InstanceType<typeof DropPuppeteerClass>;
     codeIds: {
       core?: number;
       token?: number;
@@ -61,13 +72,14 @@ describe('Mirror', () => {
       withdrawalManager?: number;
       strategy?: number;
       puppeteer?: number;
-      staker?: number;
       validatorsSet?: number;
       distribution?: number;
       rewardsManager?: number;
       splitter?: number;
       pump?: number;
       mirror?: number;
+      lsmShareBondProvider?: number;
+      nativeBondProvider?: number;
     };
     exchangeRate?: number;
     neutronIBCDenom?: string;
@@ -348,19 +360,6 @@ describe('Mirror', () => {
         account.address,
         Uint8Array.from(
           fs.readFileSync(
-            join(__dirname, '../../../artifacts/drop_staker.wasm'),
-          ),
-        ),
-        1.5,
-      );
-      expect(res.codeId).toBeGreaterThan(0);
-      context.codeIds.staker = res.codeId;
-    }
-    {
-      const res = await client.upload(
-        account.address,
-        Uint8Array.from(
-          fs.readFileSync(
             join(__dirname, '../../../artifacts/drop_splitter.wasm'),
           ),
         ),
@@ -393,6 +392,39 @@ describe('Mirror', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.mirror = res.codeId;
     }
+    {
+      const res = await client.upload(
+        account.address,
+        Uint8Array.from(
+          fs.readFileSync(
+            join(
+              __dirname,
+              '../../../artifacts/drop_lsm_share_bond_provider.wasm',
+            ),
+          ),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.lsmShareBondProvider = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        Uint8Array.from(
+          fs.readFileSync(
+            join(
+              __dirname,
+              '../../../artifacts/drop_native_bond_provider.wasm',
+            ),
+          ),
+        ),
+
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.nativeBondProvider = res.codeId;
+    }
     const res = await client.upload(
       account.address,
       Uint8Array.from(
@@ -408,7 +440,8 @@ describe('Mirror', () => {
       account.address,
       res.codeId,
       {
-        sdk_version: process.env.SDK_VERSION || '0.46.0',
+        sdk_version: process.env.SDK_VERSION || '0.47.10',
+        local_denom: 'untrn',
         code_ids: {
           core_code_id: context.codeIds.core,
           token_code_id: context.codeIds.token,
@@ -419,9 +452,10 @@ describe('Mirror', () => {
           validators_set_code_id: context.codeIds.validatorsSet,
           puppeteer_code_id: context.codeIds.puppeteer,
           rewards_manager_code_id: context.codeIds.rewardsManager,
-          staker_code_id: context.codeIds.staker,
           splitter_code_id: context.codeIds.splitter,
           rewards_pump_code_id: context.codeIds.pump,
+          lsm_share_bond_provider_code_id: context.codeIds.lsmShareBondProvider,
+          native_bond_provider_code_id: context.codeIds.nativeBondProvider,
         },
         remote_opts: {
           connection_id: 'connection-0',
@@ -446,22 +480,23 @@ describe('Mirror', () => {
           uri: null,
           uri_hash: null,
         },
-        local_denom: 'untrn',
         base_denom: context.neutronIBCDenom,
         core_params: {
-          idle_min_interval: 40,
+          idle_min_interval: 120,
           unbond_batch_switch_time: 60,
           unbonding_safe_period: 10,
-          unbonding_period: UNBONDING_TIME,
-          lsm_redeem_threshold: 10,
-          lsm_redeem_max_interval: 60_000,
-          lsm_min_bond_amount: '1',
-          min_stake_amount: '2',
+          unbonding_period: 360,
+          bond_limit: '0',
           icq_update_delay: 5,
         },
-        staker_params: {
-          min_stake_amount: '10000',
-          min_ibc_transfer: '10000',
+        native_bond_params: {
+          min_stake_amount: '100',
+          min_ibc_transfer: '100',
+        },
+        lsm_share_bond_params: {
+          lsm_redeem_threshold: 2,
+          lsm_min_bond_amount: '1000',
+          lsm_redeem_max_interval: 60_000,
         },
       },
       'drop-staking-factory',
@@ -516,7 +551,54 @@ describe('Mirror', () => {
     context.coreContractClient = instrumentCoreClass(
       new DropCore.Client(context.client, res.core_contract),
     );
+    context.nativeBondProviderContractClient =
+      new DropNativeBondProvider.Client(
+        context.client,
+        res.native_bond_provider_contract,
+      );
+    context.puppeteerContractClient = new DropPuppeteer.Client(
+      context.client,
+      res.puppeteer_contract,
+    );
     context.ldDenom = `factory/${res.token_contract}/drop`;
+  });
+
+  it('register native bond provider in the core', async () => {
+    const res = await context.factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.coreContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    add_bond_provider: {
+                      bond_provider_address:
+                        context.nativeBondProviderContractClient
+                          .contractAddress,
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      1.5,
+      undefined,
+      [],
+    );
+    expect(res.transactionHash).toHaveLength(64);
+  });
+  it('wait puppeteer response', async () => {
+    const { puppeteerContractClient } = context;
+    await waitFor(async () => {
+      const res = await puppeteerContractClient.queryTxState();
+      return res.status === 'idle';
+    }, 100_000);
   });
 
   it('instantiate mirror', async () => {
@@ -550,7 +632,7 @@ describe('Mirror', () => {
         },
         1.6,
       ),
-    ).to.rejects.toThrow(/Wrong receiver address/);
+    ).to.rejects.toThrow(/Invalid prefix/);
   });
 
   it('bond without funds attached', async () => {
@@ -580,7 +662,7 @@ describe('Mirror', () => {
           },
         ],
       ),
-    ).to.rejects.toThrow(/perhaps, this is not an IBC denom/);
+    ).to.rejects.toThrow(/No sufficient bond provider found/);
   });
 
   it('bond', async () => {

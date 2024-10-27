@@ -1,1 +1,1 @@
-# DROP Staking distribution
+# DROP Mirror contract

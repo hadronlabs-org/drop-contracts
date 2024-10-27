@@ -221,8 +221,8 @@ pub fn execute_bond(
         .as_ref()
         .map(|addr| deps.api.addr_validate(addr))
         .transpose()?;
-    bech32::decode(&receiver).map_err(|_| ContractError::WrongReceiverAddress)?;
     ensure!(receiver.starts_with(&prefix), ContractError::InvalidPrefix);
+    bech32::decode(&receiver).map_err(|_| ContractError::WrongReceiverAddress)?;
     let coin = cw_utils::one_coin(&info)?;
     let counter = COUNTER.load(deps.storage)?;
     let id = counter + 1;
@@ -381,16 +381,16 @@ pub fn sudo(
     }
 }
 
-fn sudo_error(
+fn handle_sudo_error(
+    err_type: &str,
     deps: DepsMut<NeutronQuery>,
     req: RequestPacket,
-    _data: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let id = get_id_from_request_memo(&req)?;
     deps.api.debug(
         format!(
-            "WASMDEBUG: sudo_error: ack received: {:?} id: {:?}",
-            req, id
+            "WASMDEBUG: {}: ack received: {:?} id: {:?}",
+            err_type, req, id
         )
         .as_str(),
     );
@@ -398,34 +398,26 @@ fn sudo_error(
     bond.state = BondState::Bonded;
     BONDS.save(deps.storage, id, &bond)?;
     let attrs = vec![
-        attr("action", "sudo_error"),
+        attr("action", err_type),
         attr("id", id.to_string()),
         attr("state", bond.state.to_string()),
     ];
-    Ok(response("sudo_error", CONTRACT_NAME, attrs))
+    Ok(response(err_type, CONTRACT_NAME, attrs))
+}
+
+fn sudo_error(
+    deps: DepsMut<NeutronQuery>,
+    req: RequestPacket,
+    _data: String,
+) -> ContractResult<Response<NeutronMsg>> {
+    handle_sudo_error("sudo_error", deps, req)
 }
 
 fn sudo_timeout(
     deps: DepsMut<NeutronQuery>,
     req: RequestPacket,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let id = get_id_from_request_memo(&req)?;
-    deps.api.debug(
-        format!(
-            "WASMDEBUG: sudo_timeout: ack received: {:?} id: {:?}",
-            req, id
-        )
-        .as_str(),
-    );
-    let mut bond = BONDS.load(deps.storage, id)?;
-    bond.state = BondState::Bonded;
-    BONDS.save(deps.storage, id, &bond)?;
-    let attrs = vec![
-        attr("action", "sudo_timeout"),
-        attr("id", id.to_string()),
-        attr("state", bond.state.to_string()),
-    ];
-    Ok(response("sudo_timeout", CONTRACT_NAME, attrs))
+    handle_sudo_error("sudo_timeout", deps, req)
 }
 
 fn sudo_response(

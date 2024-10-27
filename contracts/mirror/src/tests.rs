@@ -171,7 +171,7 @@ fn bond_wrong_receiver() {
     );
     assert_eq!(
         response,
-        Err(drop_staking_base::error::mirror::ContractError::WrongReceiverAddress {})
+        Err(drop_staking_base::error::mirror::ContractError::InvalidPrefix {})
     );
 }
 
