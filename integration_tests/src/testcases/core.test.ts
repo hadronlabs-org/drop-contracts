@@ -13,6 +13,8 @@ import {
   DropRedemptionRateAdapter,
   DropLsmShareBondProvider,
   DropNativeBondProvider,
+  DropValRef,
+  DropValidatorsSet,
 } from 'drop-ts-client';
 import {
   QueryClient,
@@ -58,13 +60,14 @@ const DropSplitterClass = DropSplitter.Client;
 const DropRedemptionAdapterClass = DropRedemptionRateAdapter.Client;
 const DropLsmShareBondProviderClass = DropLsmShareBondProvider.Client;
 const DropNativeBondProviderClass = DropNativeBondProvider.Client;
+const DropValRefClass = DropValRef.Client;
+const DropValidatorsSetClass = DropValidatorsSet.Client;
 
 const UNBONDING_TIME = 360;
 
 describe('Core', () => {
   const context: {
     park?: Cosmopark;
-    contractAddress?: string;
     wallet?: DirectSecp256k1HdWallet;
     gaiaWallet?: DirectSecp256k1HdWallet;
     gaiaWallet2?: DirectSecp256k1HdWallet;
@@ -90,8 +93,10 @@ describe('Core', () => {
     nativeBondProviderContractClient?: InstanceType<
       typeof DropNativeBondProviderClass
     >;
+    valRefClient?: InstanceType<typeof DropValRefClass>;
+    validatorsSetClient?: InstanceType<typeof DropValidatorsSetClass>;
     account?: AccountData;
-    icaAddress?: string;
+    puppeteerIcaAddress?: string;
     rewardsPumpIcaAddress?: string;
     client?: SigningCosmWasmClient;
     gaiaClient?: SigningStargateClient;
@@ -120,6 +125,7 @@ describe('Core', () => {
       pump?: number;
       lsmShareBondProvider?: number;
       nativeBondProvider?: number;
+      valRef?: number;
     };
     exchangeRate?: number;
     neutronIBCDenom?: string;
@@ -437,6 +443,17 @@ describe('Core', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.nativeBondProvider = res.codeId;
     }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_val_ref.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.valRef = res.codeId;
+    }
 
     const res = await client.upload(
       account.address,
@@ -513,10 +530,9 @@ describe('Core', () => {
       [],
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
-    context.contractAddress = instantiateRes.contractAddress;
     context.factoryContractClient = new DropFactory.Client(
       client,
-      context.contractAddress,
+      instantiateRes.contractAddress,
     );
   });
 
@@ -602,6 +618,10 @@ describe('Core', () => {
         context.client,
         res.native_bond_provider_contract,
       );
+    context.validatorsSetClient = new DropValidatorsSet.Client(
+      context.client,
+      res.validators_set_contract,
+    );
   });
 
   it('deploy redemption rate adapter', async () => {
@@ -758,7 +778,7 @@ describe('Core', () => {
     }, 100_000);
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();
-    context.icaAddress = ica;
+    context.puppeteerIcaAddress = ica;
   });
 
   it('set up rewards receiver', async () => {
@@ -817,6 +837,208 @@ describe('Core', () => {
     expect(context.exchangeRate).toEqual(1);
     await checkExchangeRate(context);
   });
+
+  it('delegate tokens on gaia side', async () => {
+    const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
+      context.park.config.master_mnemonic,
+      {
+        prefix: 'cosmosvaloper',
+        hdPaths: [stringToPath("m/44'/118'/1'/0/0") as any],
+      },
+    );
+    context.validatorAddress = (await wallet.getAccounts())[0].address;
+    const res = await context.park.executeInNetwork(
+      'gaia',
+      `gaiad tx staking delegate ${context.validatorAddress} 1000000stake --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --output json`,
+    );
+    expect(res.exitCode).toBe(0);
+    const out = JSON.parse(res.out);
+    expect(out.code).toBe(0);
+    expect(out.txhash).toHaveLength(64);
+    await waitForTx(context.gaiaClient, out.txhash);
+  });
+  it('tokenize share on gaia side', async () => {
+    const res = await context.park.executeInNetwork(
+      'gaia',
+      `gaiad tx staking tokenize-share ${context.validatorAddress} 600000stake ${context.gaiaUserAddress} --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
+    );
+    expect(res.exitCode).toBe(0);
+    const out = JSON.parse(res.out);
+    expect(out.code).toBe(0);
+    expect(out.txhash).toHaveLength(64);
+    await waitForTx(context.gaiaClient, out.txhash);
+    const balances = await context.gaiaQueryClient.bank.allBalances(
+      context.gaiaUserAddress,
+    );
+    expect(
+      balances.find((a) => a.denom == `${context.validatorAddress}/1`),
+    ).toEqual({
+      denom: `${context.validatorAddress}/1`,
+      amount: '600000',
+    });
+  });
+  it('transfer tokenized share to neutron', async () => {
+    const res = await context.park.executeInNetwork(
+      'gaia',
+      `gaiad tx ibc-transfer transfer transfer channel-0 ${context.neutronUserAddress} 600000${context.validatorAddress}/1 --from ${context.gaiaUserAddress}  --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
+    );
+    expect(res.exitCode).toBe(0);
+    const out = JSON.parse(res.out);
+    expect(out.code).toBe(0);
+    expect(out.txhash).toHaveLength(64);
+    await waitForTx(context.gaiaClient, out.txhash);
+  });
+  it('wait for neutron to receive tokenized share', async () => {
+    const { neutronClient, neutronUserAddress } = context;
+    let balances;
+    await waitFor(async () => {
+      balances =
+        await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+          neutronUserAddress,
+        );
+      return balances.data.balances.some((b) => b.amount === '600000');
+    });
+    const shareOnNeutron = balances.data.balances.find(
+      (b) => b.amount === '600000',
+    );
+    expect(shareOnNeutron).toBeDefined();
+    expect(shareOnNeutron?.amount).toBe('600000');
+    context.tokenizedDenomOnNeutron = shareOnNeutron?.denom;
+  });
+  it('bond tokenized share from unregistered validator', async () => {
+    const { coreContractClient, neutronUserAddress } = context;
+
+    await expect(
+      coreContractClient.bond(neutronUserAddress, {}, 1.6, undefined, [
+        {
+          amount: '20000',
+          denom: context.tokenizedDenomOnNeutron,
+        },
+      ]),
+    ).rejects.toThrowError(
+      /Bond provider error: No sufficient bond provider found/,
+    );
+  });
+
+  it('deploy val ref contract', async () => {
+    const res = await DropValRef.Client.instantiate(
+      context.client,
+      context.account.address,
+      context.codeIds.valRef,
+      {
+        owner: context.account.address,
+        core_address: context.coreContractClient.contractAddress,
+        validators_set_address: context.validatorsSetClient.contractAddress,
+      },
+      'drop-val-ref',
+      1.5,
+    );
+    expect(res.contractAddress).toHaveLength(66);
+    context.valRefClient = new DropValRef.Client(
+      context.client,
+      res.contractAddress,
+    );
+
+    await context.factoryContractClient.adminExecute(
+      context.account.address,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.validatorsSetClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    update_config: {
+                      new_config: {
+                        val_ref_contract: context.valRefClient.contractAddress,
+                      },
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      1.5,
+    );
+  });
+  it('register first validator in val_ref', async () => {
+    await context.valRefClient.setRefs(context.account.address, {
+      refs: [
+        {
+          ref: 'valX001',
+          validator_address: context.validatorAddress,
+        },
+      ],
+    });
+  });
+  it('add validators into validators set', async () => {
+    const {
+      neutronUserAddress,
+      factoryContractClient,
+      validatorAddress,
+      secondValidatorAddress,
+    } = context;
+    const res = await factoryContractClient.proxy(
+      neutronUserAddress,
+      {
+        validator_set: {
+          update_validators: {
+            validators: [
+              {
+                valoper_address: validatorAddress,
+                weight: 2,
+                on_top: '80000',
+              },
+              {
+                valoper_address: secondValidatorAddress,
+                weight: 3,
+                on_top: '20000',
+              },
+            ],
+          },
+        },
+      },
+      1.5,
+      undefined,
+      [
+        {
+          amount: '1000000',
+          denom: 'untrn',
+        },
+      ],
+    );
+    expect(res.transactionHash).toHaveLength(64);
+  });
+  it('register core bond hook', async () => {
+    await context.factoryContractClient.adminExecute(
+      context.account.address,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.coreContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    set_bond_hooks: {
+                      hooks: [context.valRefClient.contractAddress],
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      1.5,
+    );
+  });
+
   it('register native bond provider in the core', async () => {
     const res = await context.factoryContractClient.adminExecute(
       context.neutronUserAddress,
@@ -1073,7 +1295,44 @@ describe('Core', () => {
       undefined,
       [
         {
-          amount: '500000',
+          amount: '400000',
+          denom: neutronIBCDenom,
+        },
+      ],
+    );
+    expect(res.transactionHash).toHaveLength(64);
+    await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 1);
+    const balances =
+      await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+        neutronSecondUserAddress,
+      );
+    const ldBalance = balances.data.balances.find((one) =>
+      one.denom.startsWith('factory'),
+    );
+    expect(ldBalance).toEqual({
+      denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
+      amount: String(Math.floor(400_000 / context.exchangeRate)),
+    });
+    context.ldDenom = ldBalance?.denom;
+    await checkExchangeRate(context);
+  });
+
+  it('bond with ref', async () => {
+    const {
+      coreContractClient,
+      neutronClient,
+      neutronUserAddress,
+      neutronIBCDenom,
+      neutronSecondUserAddress,
+    } = context;
+    const res = await coreContractClient.bond(
+      neutronUserAddress,
+      { receiver: neutronSecondUserAddress, ref: 'valX001' },
+      1.6,
+      undefined,
+      [
+        {
+          amount: '100000',
           denom: neutronIBCDenom,
         },
       ],
@@ -1091,11 +1350,53 @@ describe('Core', () => {
       denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
       amount: String(Math.floor(500_000 / context.exchangeRate)),
     });
-    context.ldDenom = ldBalance?.denom;
     await checkExchangeRate(context);
   });
+  it('validate increased on_top', async () => {
+    const validators = await context.validatorsSetClient.queryValidators();
+    validators.sort((a, b) =>
+      a.valoper_address.localeCompare(b.valoper_address),
+    );
 
-  it('query redepmtion rate', async () => {
+    const expectedValidators = [
+      {
+        valoper_address: context.validatorAddress,
+        weight: 2,
+        on_top: '180000',
+        last_processed_remote_height: null,
+        last_processed_local_height: null,
+        last_validated_height: null,
+        last_commission_in_range: null,
+        uptime: '0',
+        tombstone: false,
+        jailed_number: null,
+        init_proposal: null,
+        total_passed_proposals: 0,
+        total_voted_proposals: 0,
+      },
+      {
+        valoper_address: context.secondValidatorAddress,
+        weight: 3,
+        on_top: '20000',
+        last_processed_remote_height: null,
+        last_processed_local_height: null,
+        last_validated_height: null,
+        last_commission_in_range: null,
+        uptime: '0',
+        tombstone: false,
+        jailed_number: null,
+        init_proposal: null,
+        total_passed_proposals: 0,
+        total_voted_proposals: 0,
+      },
+    ];
+    expectedValidators.sort((a, b) =>
+      a.valoper_address.localeCompare(b.valoper_address),
+    );
+    expect(validators).toEqual(expectedValidators);
+  });
+
+  it('query redemption rate', async () => {
     const exchangeRate = await context.coreContractClient.queryExchangeRate();
     const rate = await context.redemptionAdapterClient.queryRedemptionRate({
       denom: `factory/${context.tokenContractClient.contractAddress}/udatom`,
@@ -1103,127 +1404,6 @@ describe('Core', () => {
     expect(rate.redemption_rate).toEqual('1');
     expect(Date.now() / 1000 - rate.update_time).toBeLessThan(5);
     expect(rate.redemption_rate).toEqual(exchangeRate);
-  });
-
-  it('delegate tokens on gaia side', async () => {
-    const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
-      context.park.config.master_mnemonic,
-      {
-        prefix: 'cosmosvaloper',
-        hdPaths: [stringToPath("m/44'/118'/1'/0/0") as any],
-      },
-    );
-    context.validatorAddress = (await wallet.getAccounts())[0].address;
-    const res = await context.park.executeInNetwork(
-      'gaia',
-      `gaiad tx staking delegate ${context.validatorAddress} 1000000stake --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --output json`,
-    );
-    expect(res.exitCode).toBe(0);
-    const out = JSON.parse(res.out);
-    expect(out.code).toBe(0);
-    expect(out.txhash).toHaveLength(64);
-    await waitForTx(context.gaiaClient, out.txhash);
-  });
-  it('tokenize share on gaia side', async () => {
-    const res = await context.park.executeInNetwork(
-      'gaia',
-      `gaiad tx staking tokenize-share ${context.validatorAddress} 600000stake ${context.gaiaUserAddress} --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
-    );
-    expect(res.exitCode).toBe(0);
-    const out = JSON.parse(res.out);
-    expect(out.code).toBe(0);
-    expect(out.txhash).toHaveLength(64);
-    await waitForTx(context.gaiaClient, out.txhash);
-    const balances = await context.gaiaQueryClient.bank.allBalances(
-      context.gaiaUserAddress,
-    );
-    expect(
-      balances.find((a) => a.denom == `${context.validatorAddress}/1`),
-    ).toEqual({
-      denom: `${context.validatorAddress}/1`,
-      amount: '600000',
-    });
-  });
-  it('transfer tokenized share to neutron', async () => {
-    const res = await context.park.executeInNetwork(
-      'gaia',
-      `gaiad tx ibc-transfer transfer transfer channel-0 ${context.neutronUserAddress} 600000${context.validatorAddress}/1 --from ${context.gaiaUserAddress}  --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
-    );
-    expect(res.exitCode).toBe(0);
-    const out = JSON.parse(res.out);
-    expect(out.code).toBe(0);
-    expect(out.txhash).toHaveLength(64);
-    await waitForTx(context.gaiaClient, out.txhash);
-  });
-  it('wait for neutron to receive tokenized share', async () => {
-    const { neutronClient, neutronUserAddress } = context;
-    let balances;
-    await waitFor(async () => {
-      balances =
-        await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
-          neutronUserAddress,
-        );
-      return balances.data.balances.some((b) => b.amount === '600000');
-    });
-    const shareOnNeutron = balances.data.balances.find(
-      (b) => b.amount === '600000',
-    );
-    expect(shareOnNeutron).toBeDefined();
-    expect(shareOnNeutron?.amount).toBe('600000');
-    context.tokenizedDenomOnNeutron = shareOnNeutron?.denom;
-  });
-  it('bond tokenized share from unregistered validator', async () => {
-    const { coreContractClient, neutronUserAddress } = context;
-
-    await expect(
-      coreContractClient.bond(neutronUserAddress, {}, 1.6, undefined, [
-        {
-          amount: '20000',
-          denom: context.tokenizedDenomOnNeutron,
-        },
-      ]),
-    ).rejects.toThrowError(
-      /Bond provider error: No sufficient bond provider found/,
-    );
-  });
-  it('add validators into validators set', async () => {
-    const {
-      neutronUserAddress,
-      factoryContractClient,
-      validatorAddress,
-      secondValidatorAddress,
-    } = context;
-    const res = await factoryContractClient.proxy(
-      neutronUserAddress,
-      {
-        validator_set: {
-          update_validators: {
-            validators: [
-              {
-                valoper_address: validatorAddress,
-                weight: 1,
-                on_top: '0',
-              },
-              {
-                valoper_address: secondValidatorAddress,
-                weight: 1,
-                on_top: '0',
-              },
-            ],
-          },
-        },
-      },
-      1.5,
-      undefined,
-      [
-        {
-          amount: '1000000',
-          denom: 'untrn',
-        },
-      ],
-    );
-
-    expect(res.transactionHash).toHaveLength(64);
   });
 
   it('unbond', async () => {
@@ -1273,7 +1453,10 @@ describe('Core', () => {
     describe('prepare', () => {
       it('get ICA balance', async () => {
         const { gaiaClient } = context;
-        const res = await gaiaClient.getBalance(context.icaAddress, 'stake');
+        const res = await gaiaClient.getBalance(
+          context.puppeteerIcaAddress,
+          context.park.config.networks.gaia.denom,
+        );
         ica.balance = parseInt(res.amount);
         expect(ica.balance).toEqual(0);
       });
@@ -1414,7 +1597,7 @@ describe('Core', () => {
           coreContractClient,
           puppeteerContractClient,
           neutronIBCDenom,
-          icaAddress,
+          puppeteerIcaAddress,
         } = context;
 
         await waitForPuppeteerICQ(
@@ -1447,7 +1630,7 @@ describe('Core', () => {
               denom: neutronIBCDenom,
               real_amount: '1000000',
               reason: 'delegate',
-              recipient: icaAddress,
+              recipient: puppeteerIcaAddress,
             },
           },
         });
@@ -1541,16 +1724,52 @@ describe('Core', () => {
         expect(state).toEqual('peripheral');
       });
       it('wait delegations', async () => {
+        const {
+          puppeteerContractClient,
+          validatorAddress,
+          secondValidatorAddress,
+          puppeteerIcaAddress,
+        } = context;
         await waitFor(async () => {
-          const res: any = await context.puppeteerContractClient.queryExtension(
-            {
-              msg: {
-                delegations: {},
-              },
+          const res: any = await puppeteerContractClient.queryExtension({
+            msg: {
+              delegations: {},
             },
-          );
+          });
           return res && res.delegations.delegations.length > 0;
         }, 100_000);
+        const delegations = (
+          (await puppeteerContractClient.queryExtension({
+            msg: {
+              delegations: {},
+            },
+          })) as any
+        ).delegations.delegations;
+        delegations.sort((a, b) => a.validator.localeCompare(b.validator));
+        const expectedDelegations = [
+          {
+            delegator: puppeteerIcaAddress,
+            validator: validatorAddress,
+            amount: {
+              denom: context.park.config.networks.gaia.denom,
+              amount: String((800000 / 5) * 2 + 180000),
+            },
+            share_ratio: '1',
+          },
+          {
+            delegator: puppeteerIcaAddress,
+            validator: secondValidatorAddress,
+            amount: {
+              denom: context.park.config.networks.gaia.denom,
+              amount: String((800000 / 5) * 3 + 20000),
+            },
+            share_ratio: '1',
+          },
+        ];
+        expectedDelegations.sort((a, b) =>
+          a.validator.localeCompare(b.validator),
+        );
+        expect(delegations).toEqual(expectedDelegations);
       });
       it('tick goes to idle', async () => {
         const {
@@ -3027,7 +3246,7 @@ describe('Core', () => {
           return res.status === 'idle';
         }, 80_000);
         const balances = await context.gaiaClient.getAllBalances(
-          context.icaAddress,
+          context.puppeteerIcaAddress,
         );
         expect(balances).toEqual([
           {
