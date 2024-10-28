@@ -12,9 +12,8 @@ use crate::{
     },
 };
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg,
-    Decimal, Deps, DepsMut, Env, Event, MessageInfo, Order, Reply, Response, SubMsg, Uint128,
-    Uint64, WasmMsg,
+    attr, ensure, ensure_eq, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut,
+    Env, Event, MessageInfo, Order, Reply, Response, SubMsg, Uint128, Uint64, WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
@@ -78,11 +77,9 @@ pub fn execute(
             }
         },
         ExecuteMsg::Unbond { batch_id } => execute_unbond(deps, info, batch_id),
-        ExecuteMsg::Withdraw {
-            batch_id,
-            receiver,
-            amount,
-        } => execute_withdraw(deps, info, batch_id, receiver, amount),
+        ExecuteMsg::Withdraw { batch_id, receiver } => {
+            execute_withdraw(deps, info, batch_id, receiver)
+        }
     }
 }
 
@@ -144,7 +141,7 @@ fn execute_bond_with_withdrawal_denoms(
     let bonding_id = get_bonding_id(&info.sender, batch_id);
     let existing_bonding = bondings_map().may_load(deps.storage, &bonding_id)?;
     if let Some(existing_bonding) = existing_bonding {
-        deposit = merge_deposits(existing_bonding.deposit, deposit);
+        deposit = merge_coin_vecs(existing_bonding.deposit, deposit);
         withdrawal_asset.amount += existing_bonding.withdrawal_amount;
     }
     bondings_map().save(
@@ -176,21 +173,19 @@ fn execute_unbond(
     let withdrawal_denom =
         get_full_withdrawal_denom(withdrawal_denom_prefix, withdrawal_token_address, batch_id);
 
-    let withdrawal_asset_msg: BankMsg = BankMsg::Send {
+    let send_assets_msg: BankMsg = BankMsg::Send {
         to_address: info.sender.to_string(),
-        amount: vec![Coin::new(
-            bonding.withdrawal_amount.u128(),
-            withdrawal_denom,
-        )],
-    };
-
-    let deposit_msg: BankMsg = BankMsg::Send {
-        to_address: info.sender.to_string(),
-        amount: bonding.deposit,
+        amount: merge_coin_vecs(
+            vec![Coin::new(
+                bonding.withdrawal_amount.u128(),
+                withdrawal_denom,
+            )],
+            bonding.deposit,
+        ),
     };
 
     // TODO: attributes
-    Ok(Response::new().add_messages([withdrawal_asset_msg, deposit_msg]))
+    Ok(Response::new().add_message(send_assets_msg))
 }
 
 fn execute_withdraw(
@@ -198,35 +193,13 @@ fn execute_withdraw(
     info: MessageInfo,
     batch_id: Uint128,
     receiver: Option<Addr>,
-    amount: Uint128,
 ) -> ContractResult<Response<NeutronMsg>> {
     let bonder = receiver.unwrap_or(info.sender.clone());
 
     let bonding_id = get_bonding_id(&bonder, batch_id);
     let bonding = bondings_map().load(deps.storage, &bonding_id)?;
 
-    ensure_ne!(amount, Uint128::zero(), ContractError::NothingToWithdraw {});
-    ensure!(
-        amount <= bonding.withdrawal_amount,
-        ContractError::WithdrawnAmountTooBig {}
-    );
-
-    let sender_share = Decimal::from_ratio(amount, bonding.withdrawal_amount);
-    let divided_deposit = divide_deposits(bonding.deposit.clone(), sender_share);
-
-    if amount < bonding.withdrawal_amount {
-        bondings_map().save(
-            deps.storage,
-            &bonding_id,
-            &BondingRecord {
-                bonder: bonder.clone(),
-                withdrawal_amount: bonding.withdrawal_amount - amount,
-                deposit: subtract_deposits(bonding.deposit.clone(), divided_deposit.clone()),
-            },
-        )?;
-    } else {
-        bondings_map().remove(deps.storage, &bonding_id)?;
-    }
+    bondings_map().remove(deps.storage, &bonding_id)?;
 
     let withdrawal_denom_prefix = WITHDRAWAL_DENOM_PREFIX.load(deps.storage)?;
     let withdrawal_token_address = WITHDRAWAL_TOKEN_ADDRESS.load(deps.storage)?;
@@ -242,13 +215,16 @@ fn execute_withdraw(
                 receiver: Some(bonder.into_string()),
             },
         )?,
-        funds: vec![Coin::new(amount.u128(), withdrawal_denom)],
+        funds: vec![Coin::new(
+            bonding.withdrawal_amount.u128(),
+            withdrawal_denom,
+        )],
     }
     .into();
 
     let deposit_msg = BankMsg::Send {
         to_address: info.sender.clone().into_string(),
-        amount: divided_deposit,
+        amount: bonding.deposit,
     }
     .into();
 
@@ -271,7 +247,7 @@ pub fn reply(
             deps.api.debug(&format!("WASMDEBUG: {:?}", events));
             reply_core_unbond(deps, sender, deposit, events)
         }
-        id => Err(ContractError::InvalidCoreReplyId { id }),
+        _ => unreachable!(),
     }
 }
 
@@ -286,7 +262,7 @@ fn get_core_event_value(events: &[Event], key: &str) -> String {
         .clone()
 }
 
-fn merge_deposits(vec1: Vec<Coin>, vec2: Vec<Coin>) -> Vec<Coin> {
+fn merge_coin_vecs(vec1: Vec<Coin>, vec2: Vec<Coin>) -> Vec<Coin> {
     let mut coin_map: HashMap<String, Uint128> = HashMap::new();
 
     for coin in vec1.into_iter().chain(vec2.into_iter()) {
@@ -304,45 +280,6 @@ fn merge_deposits(vec1: Vec<Coin>, vec2: Vec<Coin>) -> Vec<Coin> {
     merged_coins.sort_by(|a, b| a.denom.cmp(&b.denom));
 
     merged_coins
-}
-
-fn divide_deposits(coins: Vec<Coin>, multiplier: Decimal) -> Vec<Coin> {
-    coins
-        .into_iter()
-        .map(|coin| Coin {
-            denom: coin.denom,
-            amount: coin.amount * multiplier,
-        })
-        .collect()
-}
-
-fn subtract_deposits(vec1: Vec<Coin>, vec2: Vec<Coin>) -> Vec<Coin> {
-    let mut coin_map: HashMap<String, Uint128> = HashMap::new();
-
-    for coin in vec1 {
-        coin_map.insert(coin.denom.clone(), coin.amount);
-    }
-
-    for coin in vec2 {
-        coin_map
-            .entry(coin.denom.clone())
-            .and_modify(|e| {
-                if *e >= coin.amount {
-                    *e -= coin.amount;
-                }
-            })
-            .or_insert(Uint128::zero());
-    }
-
-    let mut result_coins: Vec<Coin> = coin_map
-        .into_iter()
-        .filter(|(_, amount)| !amount.is_zero())
-        .map(|(denom, amount)| Coin { denom, amount })
-        .collect();
-
-    result_coins.sort_by(|a, b| a.denom.cmp(&b.denom));
-
-    result_coins
 }
 
 fn get_bonding_id(sender: impl Display, batch_id: impl Display) -> String {
@@ -366,16 +303,13 @@ fn reply_core_unbond(
     let batch_id = get_core_event_value(&events, "batch_id");
     let str_amount = get_core_event_value(&events, "amount");
 
-    let mut amount = match Uint128::from_str(&str_amount) {
-        Ok(value) => Ok(value),
-        Err(_) => Err(ContractError::InvalidCoreReplyAttributes {}),
-    }?;
+    let mut amount = Uint128::from_str(&str_amount)?;
 
     let bonding_id = get_bonding_id(&sender, batch_id);
 
     let existing_bonding = bondings_map().may_load(deps.storage, &bonding_id)?;
     if let Some(existing_bonding) = existing_bonding {
-        deposit = merge_deposits(existing_bonding.deposit, deposit);
+        deposit = merge_coin_vecs(existing_bonding.deposit, deposit);
         amount += existing_bonding.withdrawal_amount;
     }
     bondings_map().save(

@@ -93,7 +93,6 @@ export interface UnbondArgs {
   batch_id: Uint128;
 }
 export interface WithdrawArgs {
-  amount: Uint128;
   batch_id: Uint128;
   receiver?: Addr | null;
 }

@@ -370,55 +370,6 @@ fn reply_after_existing_bond_with_ld_assets() {
 }
 
 #[test]
-fn reply_unknown_id() {
-    let mut deps = drop_helpers::testing::mock_dependencies(&[]);
-    let error = contract::reply(
-        deps.as_mut(),
-        mock_env(),
-        Reply {
-            id: 512,
-            result: SubMsgResult::Err("".to_string()),
-        },
-    )
-    .unwrap_err();
-    assert_eq!(error, ContractError::InvalidCoreReplyId { id: 512 });
-}
-
-#[test]
-fn reply_invalid_attribute() {
-    let mut deps = drop_helpers::testing::mock_dependencies(&[]);
-
-    CORE_UNBOND
-        .save(
-            deps.as_mut().storage,
-            &CoreUnbond {
-                sender: Addr::unchecked("sender"),
-                deposit: vec![Coin::new(10, "untrn")],
-            },
-        )
-        .unwrap();
-
-    let error = contract::reply(
-        deps.as_mut(),
-        mock_env(),
-        Reply {
-            id: CORE_UNBOND_REPLY_ID,
-            result: SubMsgResult::Ok(SubMsgResponse {
-                events: vec![Event::new("wasm-drop-withdrawal-token-execute-mint")
-                    .add_attribute("denom", "factory/withdrawal_token_contract/drop:unbond:0")
-                    .add_attribute("receiver", "receiver")
-                    .add_attribute("batch_id", "0")
-                    .add_attribute("amount", "invalid")],
-                data: None,
-            }),
-        },
-    )
-    .unwrap_err();
-
-    assert_eq!(error, ContractError::InvalidCoreReplyAttributes {});
-}
-
-#[test]
 fn bond_with_withdrawal_denoms_for_new_bond() {
     let mut deps = mock_dependencies::<MockQuerier>();
 
@@ -703,113 +654,18 @@ fn unbond_happy_path() {
 
     assert_eq!(
         response,
-        Response::new()
-            .add_submessage(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-                to_address: "sender".to_string(),
-                amount: vec![Coin::new(
-                    100,
-                    "factory/withdrawal_token_contract/drop:unbond:0"
-                )],
-            })))
-            .add_submessage(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-                to_address: "sender".to_string(),
-                amount: vec![Coin::new(10, "untrn")],
-            })))
+        Response::new().add_submessage(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+            to_address: "sender".to_string(),
+            amount: vec![
+                Coin::new(100, "factory/withdrawal_token_contract/drop:unbond:0"),
+                Coin::new(10, "untrn")
+            ],
+        })))
     );
 }
 
 #[test]
-fn execute_withdraw_nothing() {
-    let mut deps = mock_dependencies::<MockQuerier>();
-
-    WITHDRAWAL_DENOM_PREFIX
-        .save(deps.as_mut().storage, &"drop".into())
-        .unwrap();
-    WITHDRAWAL_TOKEN_ADDRESS
-        .save(
-            deps.as_mut().storage,
-            &Addr::unchecked("withdrawal_token_contract"),
-        )
-        .unwrap();
-
-    let _ = contract::execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info(
-            "sender",
-            &[
-                coin(100, "factory/withdrawal_token_contract/drop:unbond:0"),
-                coin(10, "untrn"),
-            ],
-        ),
-        ExecuteMsg::Bond(BondMsg::WithWithdrawalDenoms {
-            batch_id: Uint128::zero(),
-        }),
-    )
-    .unwrap();
-
-    let error = contract::execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("sender", &[]),
-        ExecuteMsg::Withdraw {
-            batch_id: Uint128::zero(),
-            receiver: None,
-            amount: Uint128::zero(),
-        },
-    )
-    .unwrap_err();
-
-    assert_eq!(error, ContractError::NothingToWithdraw {});
-}
-
-#[test]
-fn execute_withdraw_too_much() {
-    let mut deps = mock_dependencies::<MockQuerier>();
-
-    WITHDRAWAL_DENOM_PREFIX
-        .save(deps.as_mut().storage, &"drop".into())
-        .unwrap();
-    WITHDRAWAL_TOKEN_ADDRESS
-        .save(
-            deps.as_mut().storage,
-            &Addr::unchecked("withdrawal_token_contract"),
-        )
-        .unwrap();
-
-    let _ = contract::execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info(
-            "sender",
-            &[
-                coin(100, "factory/withdrawal_token_contract/drop:unbond:0"),
-                coin(10, "untrn"),
-            ],
-        ),
-        ExecuteMsg::Bond(BondMsg::WithWithdrawalDenoms {
-            batch_id: Uint128::zero(),
-        }),
-    )
-    .unwrap();
-
-    let error = contract::execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("sender", &[]),
-        ExecuteMsg::Withdraw {
-            batch_id: Uint128::zero(),
-            receiver: None,
-            amount: Uint128::from(101u64),
-        },
-    )
-    .unwrap_err();
-
-    assert_eq!(error, ContractError::WithdrawnAmountTooBig {});
-}
-
-#[test]
-fn execute_withdraw_full_amount() {
+fn execute_withdraw() {
     let mut deps = mock_dependencies::<MockQuerier>();
 
     WITHDRAWAL_DENOM_PREFIX
@@ -851,7 +707,6 @@ fn execute_withdraw_full_amount() {
         ExecuteMsg::Withdraw {
             batch_id: Uint128::zero(),
             receiver: Option::from(Addr::unchecked("bonder")),
-            amount: Uint128::from(100u64),
         },
     )
     .unwrap();
@@ -885,100 +740,6 @@ fn execute_withdraw_full_amount() {
 
     let bondings_response = from_json::<BondingsResponse>(query_response.unwrap()).unwrap();
     assert_eq!(bondings_response.bondings.len(), 0);
-}
-
-#[test]
-fn execute_withdraw_part_amount() {
-    let mut deps = mock_dependencies::<MockQuerier>();
-
-    WITHDRAWAL_DENOM_PREFIX
-        .save(deps.as_mut().storage, &"drop".into())
-        .unwrap();
-    WITHDRAWAL_TOKEN_ADDRESS
-        .save(
-            deps.as_mut().storage,
-            &Addr::unchecked("withdrawal_token_contract"),
-        )
-        .unwrap();
-    WITHDRAWAL_MANAGER_ADDRESS
-        .save(
-            deps.as_mut().storage,
-            &Addr::unchecked("withdrawal_manager_contract"),
-        )
-        .unwrap();
-
-    let _ = contract::execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info(
-            "bonder",
-            &[
-                coin(100, "factory/withdrawal_token_contract/drop:unbond:0"),
-                coin(10, "untrn"),
-            ],
-        ),
-        ExecuteMsg::Bond(BondMsg::WithWithdrawalDenoms {
-            batch_id: Uint128::zero(),
-        }),
-    )
-    .unwrap();
-
-    let execute_response = contract::execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("sender", &[]),
-        ExecuteMsg::Withdraw {
-            batch_id: Uint128::zero(),
-            receiver: Option::from(Addr::unchecked("bonder")),
-            amount: Uint128::from(70u64),
-        },
-    )
-    .unwrap();
-
-    assert_eq!(
-        execute_response,
-        Response::new()
-            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "withdrawal_manager_contract".to_string(),
-                msg: to_json_binary(&drop_staking_base::msg::withdrawal_manager::ExecuteMsg::ReceiveWithdrawalDenoms {
-                    receiver: Option::from("bonder".to_string()),
-                })
-                    .unwrap(),
-                funds: vec![Coin::new(70, "factory/withdrawal_token_contract/drop:unbond:0")],
-            })))
-            .add_submessage(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-                to_address: "sender".to_string(),
-                amount: vec![Coin::new(7, "untrn")],
-            })))
-    );
-
-    let query_response = contract::query(
-        deps.as_ref(),
-        mock_env(),
-        QueryMsg::Bondings {
-            user: None,
-            limit: Option::from(Uint64::new(10u64)),
-            page_key: None,
-        },
-    );
-
-    let bondings_response = from_json::<BondingsResponse>(query_response.unwrap()).unwrap();
-    assert_eq!(bondings_response.bondings.len(), 1);
-    assert_eq!(bondings_response.bondings[0].bonding_id, "bonder_0");
-    assert_eq!(bondings_response.bondings[0].bonder, "bonder");
-    assert_eq!(
-        bondings_response.bondings[0].withdrawal_amount,
-        Uint128::from(30u64)
-    );
-    assert_eq!(bondings_response.bondings[0].deposit.len(), 1);
-    assert_eq!(
-        bondings_response.bondings[0].deposit[0].denom,
-        "untrn".to_string()
-    );
-    assert_eq!(
-        bondings_response.bondings[0].deposit[0].amount,
-        Uint128::from(3u64)
-    );
 }
 
 #[test]

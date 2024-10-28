@@ -26,12 +26,6 @@ pub enum ContractError {
 
     #[error("Bondings query limit exceeded")]
     QueryBondingsLimitExceeded {},
-
-    #[error("Core replies with invalid data")]
-    InvalidCoreReplyId { id: u64 },
-
-    #[error("Bondings query limit exceeded")]
-    InvalidCoreReplyAttributes {},
 }
 
 impl From<semver::Error> for ContractError {

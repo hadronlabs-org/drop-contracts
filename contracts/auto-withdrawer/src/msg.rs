@@ -19,7 +19,6 @@ pub enum ExecuteMsg {
     Withdraw {
         batch_id: Uint128,
         receiver: Option<Addr>,
-        amount: Uint128,
     },
 }
 
