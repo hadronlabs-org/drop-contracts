@@ -43,6 +43,7 @@ fn get_default_factory_state() -> State {
         token_contract: "token_contract".to_string(),
         core_contract: "core_contract".to_string(),
         puppeteer_contract: "puppeteer_contract".to_string(),
+        withdrawal_token_contract: "withdrawal_token_contract".to_string(),
         withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
         withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
         strategy_contract: "strategy_contract".to_string(),
@@ -77,6 +78,7 @@ fn test_instantiate() {
             token_code_id: 1,
             core_code_id: 2,
             puppeteer_code_id: 3,
+            withdrawal_token_code_id: 4,
             withdrawal_voucher_code_id: 5,
             withdrawal_manager_code_id: 6,
             strategy_code_id: 7,
@@ -260,6 +262,7 @@ fn test_instantiate() {
                             token_contract: "some_humanized_address".to_string(),
                             puppeteer_contract: "some_humanized_address".to_string(),
                             strategy_contract: "some_humanized_address".to_string(),
+                            withdrawal_token_contract: "some_humanized_address".to_string(),
                             withdrawal_voucher_contract: "some_humanized_address".to_string(),
                             withdrawal_manager_contract: "some_humanized_address".to_string(),
                             validators_set_contract: "some_humanized_address".to_string(),
@@ -303,6 +306,7 @@ fn test_instantiate() {
                         label: "drop-staking-withdrawal-manager".to_string(),
                         msg: to_json_binary(&WithdrawalManagerInstantiateMsg {
                             core_contract: "some_humanized_address".to_string(),
+                            token_contract: "some_humanized_address".to_string(),
                             voucher_contract: "some_humanized_address".to_string(),
                             base_denom: "base_denom".to_string(),
                             owner: "factory_contract".to_string()
@@ -430,6 +434,7 @@ fn test_instantiate() {
                                     token_code_id: 1,
                                     core_code_id: 2,
                                     puppeteer_code_id: 3,
+                                    withdrawal_token_code_id: 4,
                                     withdrawal_voucher_code_id: 5,
                                     withdrawal_manager_code_id: 6,
                                     strategy_code_id: 7,
@@ -474,6 +479,10 @@ fn test_instantiate() {
                         cosmwasm_std::attr(
                             "puppeteer_address",
                             "DDB91F7195F3A00683CEF315BF38988FEE4AB7B00518F795E5477EF17928574E"
+                        ),
+                        cosmwasm_std::attr(
+                            "withdrawal_token_address",
+                            "186C6D9A24AD6C14B6CDC4E8636FCC3564F17691116D96A533C0D3E5B8EB7099"
                         ),
                         cosmwasm_std::attr(
                             "withdrawal_voucher_address",
@@ -535,6 +544,7 @@ fn test_update_config_core_unauthorized() {
         puppeteer_contract: None,
         strategy_contract: None,
         staker_contract: None,
+        withdrawal_token_contract: None,
         withdrawal_voucher_contract: None,
         withdrawal_manager_contract: None,
         validators_set_contract: None,
@@ -579,6 +589,7 @@ fn test_update_config_core() {
         puppeteer_contract: Some("puppeteer_contract1".to_string()),
         strategy_contract: Some("strategy_contract1".to_string()),
         staker_contract: Some("staker_contract1".to_string()),
+        withdrawal_token_contract: Some("withdrawal_token_contract1".to_string()),
         withdrawal_voucher_contract: Some("withdrawal_voucher_contract1".to_string()),
         withdrawal_manager_contract: Some("withdrawal_manager_contract1".to_string()),
         validators_set_contract: Some("validators_set_contract1".to_string()),

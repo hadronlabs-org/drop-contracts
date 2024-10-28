@@ -1098,8 +1098,26 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-ownable",
+ "cw-utils 1.0.3",
  "cw2 1.1.2",
  "cw721 0.18.0",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "semver",
+ "thiserror",
+]
+
+[[package]]
+name = "drop-withdrawal-token"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
  "drop-helpers",
  "drop-staking-base",
  "neutron-sdk",

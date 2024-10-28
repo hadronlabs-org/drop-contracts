@@ -18,7 +18,7 @@ use drop_staking_base::{
             ConfigResponse as TokenConfigResponse, ExecuteMsg as TokenExecuteMsg,
             QueryMsg as TokenQueryMsg,
         },
-        withdrawal_voucher::ExecuteMsg as VoucherExecuteMsg,
+        withdrawal_token::ExecuteMsg as WithdrawalTokenExecuteMsg,
     },
     state::{
         core::{
@@ -29,7 +29,6 @@ use drop_staking_base::{
             LD_DENOM, PAUSE, UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
-        withdrawal_voucher::{Metadata, Trait},
     },
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
@@ -69,9 +68,12 @@ pub fn instantiate(
             )?
             .denom,
     )?;
-    //an empty unbonding batch added as it's ready to be used on unbond action
+
+    //an empty unbonding batch and first withdrawal denom are added as they`re ready to be used on unbond action
     UNBOND_BATCH_ID.save(deps.storage, &0)?;
     unbond_batches_map().save(deps.storage, 0, &new_unbond(env.block.time.seconds()))?;
+    let create_withdrawal_denom_result = send_create_withdrawal_denom_msg(Uint128::zero(), &config);
+
     FSM.set_initial_state(deps.storage, ContractState::Idle)?;
     LAST_IDLE_CALL.save(deps.storage, &0)?;
     LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &0)?;
@@ -79,7 +81,7 @@ pub fn instantiate(
     BOND_HOOKS.save(deps.storage, &vec![])?;
     BOND_PROVIDERS.init(deps.storage)?;
     PAUSE.save(deps.storage, &Pause::default())?;
-    Ok(response("instantiate", CONTRACT_NAME, attrs))
+    Ok(response("instantiate", CONTRACT_NAME, attrs).add_message(create_withdrawal_denom_result))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
@@ -878,6 +880,14 @@ fn execute_tick_claiming(
         FSM.go_to(deps.storage, ContractState::Unbonding)?;
         attrs.push(attr("knot", "029"));
         attrs.push(attr("state", "unbonding"));
+
+        let batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
+        let current_unbond_batch = unbond_batches_map().load(deps.storage, batch_id)?;
+        if current_unbond_batch.status == UnbondBatchStatus::New {
+            let create_withdrawal_denom_message =
+                send_create_withdrawal_denom_msg(Uint128::from(batch_id), config);
+            messages.push(create_withdrawal_denom_message);
+        }
     } else {
         FSM.go_to(deps.storage, ContractState::Idle)?;
         attrs.push(attr("knot", "000"));
@@ -1076,6 +1086,10 @@ fn execute_update_config(
         config.strategy_contract = deps.api.addr_validate(&strategy_contract)?;
         attrs.push(attr("strategy_contract", strategy_contract));
     }
+    if let Some(withdrawal_token_contract) = new_config.withdrawal_token_contract {
+        config.withdrawal_token_contract = deps.api.addr_validate(&withdrawal_token_contract)?;
+        attrs.push(attr("withdrawal_token_contract", withdrawal_token_contract));
+    }
     if let Some(withdrawal_voucher_contract) = new_config.withdrawal_voucher_contract {
         config.withdrawal_voucher_contract =
             deps.api.addr_validate(&withdrawal_voucher_contract)?;
@@ -1174,37 +1188,13 @@ fn execute_unbond(
     unbond_batch.total_dasset_amount_to_withdraw += dasset_amount;
     unbond_batches_map().save(deps.storage, unbond_batch_id, &unbond_batch)?;
 
-    let extension = Some(Metadata {
-        description: Some("Withdrawal voucher".into()),
-        name: "LDV voucher".to_string(),
-        batch_id: unbond_batch_id.to_string(),
-        amount: dasset_amount,
-        attributes: Some(vec![
-            Trait {
-                display_type: None,
-                trait_type: "unbond_batch_id".to_string(),
-                value: unbond_batch_id.to_string(),
-            },
-            Trait {
-                display_type: None,
-                trait_type: "received_amount".to_string(),
-                value: dasset_amount.to_string(),
-            },
-        ]),
-    });
-
     let msgs = vec![
         CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.withdrawal_voucher_contract.into_string(),
-            msg: to_json_binary(&VoucherExecuteMsg::Mint {
-                owner: info.sender.to_string(),
-                token_id: unbond_batch_id.to_string()
-                    + "_"
-                    + info.sender.to_string().as_str()
-                    + "_"
-                    + &unbond_batch.total_unbond_items.to_string(),
-                token_uri: None,
-                extension,
+            contract_addr: config.withdrawal_token_contract.into_string(),
+            msg: to_json_binary(&WithdrawalTokenExecuteMsg::Mint {
+                receiver: info.sender.to_string(),
+                amount: dasset_amount,
+                batch_id: Uint128::from(unbond_batch_id),
             })?,
             funds: vec![],
         }),
@@ -1434,6 +1424,14 @@ fn bond_provider_reply(_deps: Deps, msg: Reply) -> ContractResult<Response> {
     }
 
     Ok(Response::new())
+}
+
+fn send_create_withdrawal_denom_msg(batch_id: Uint128, config: &Config) -> CosmosMsg<NeutronMsg> {
+    CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.withdrawal_token_contract.to_string(),
+        msg: to_json_binary(&WithdrawalTokenExecuteMsg::CreateDenom { batch_id }).unwrap(),
+        funds: vec![],
+    })
 }
 
 pub mod check_denom {

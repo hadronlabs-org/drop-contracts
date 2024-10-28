@@ -20,4 +20,5 @@ pub mod val_ref;
 pub mod validatorset;
 pub mod validatorsstats;
 pub mod withdrawal_manager;
+pub mod withdrawal_token;
 pub mod withdrawal_voucher;

@@ -14,6 +14,7 @@ pub struct InstantiateMsg {
     pub token_contract: String,
     pub puppeteer_contract: String,
     pub strategy_contract: String,
+    pub withdrawal_token_contract: String,
     pub withdrawal_voucher_contract: String,
     pub withdrawal_manager_contract: String,
     pub validators_set_contract: String,
@@ -37,6 +38,7 @@ impl InstantiateMsg {
             token_contract: deps.api.addr_validate(&self.token_contract)?,
             puppeteer_contract: deps.api.addr_validate(&self.puppeteer_contract)?,
             strategy_contract: deps.api.addr_validate(&self.strategy_contract)?,
+            withdrawal_token_contract: deps.api.addr_validate(&self.withdrawal_token_contract)?,
             withdrawal_voucher_contract: deps
                 .api
                 .addr_validate(&self.withdrawal_voucher_contract)?,
