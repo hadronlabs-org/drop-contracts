@@ -238,7 +238,7 @@ pub fn instantiate(
         token_contract: token_contract.to_string(),
         core_contract: core_contract.to_string(),
         puppeteer_contract: puppeteer_contract.to_string(),
-        withdrawal_token_contract: withdrawal_voucher_contract.to_string(),
+        withdrawal_token_contract: withdrawal_token_contract.to_string(),
         withdrawal_voucher_contract: withdrawal_voucher_contract.to_string(),
         withdrawal_manager_contract: withdrawal_manager_contract.to_string(),
         strategy_contract: strategy_contract.to_string(),

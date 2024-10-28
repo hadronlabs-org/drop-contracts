@@ -176,19 +176,21 @@ fn execute_unbond(
     let withdrawal_denom =
         get_full_withdrawal_denom(withdrawal_denom_prefix, withdrawal_token_address, batch_id);
 
-    let mut send_assets_vec = vec![Coin::new(
-        bonding.withdrawal_amount.u128(),
-        withdrawal_denom,
-    )];
-    send_assets_vec.extend(bonding.deposit);
-
-    let send_assets_msg: BankMsg = BankMsg::Send {
+    let withdrawal_asset_msg: BankMsg = BankMsg::Send {
         to_address: info.sender.to_string(),
-        amount: send_assets_vec,
+        amount: vec![Coin::new(
+            bonding.withdrawal_amount.u128(),
+            withdrawal_denom,
+        )],
+    };
+
+    let deposit_msg: BankMsg = BankMsg::Send {
+        to_address: info.sender.to_string(),
+        amount: bonding.deposit,
     };
 
     // TODO: attributes
-    Ok(Response::new().add_messages([send_assets_msg]))
+    Ok(Response::new().add_messages([withdrawal_asset_msg, deposit_msg]))
 }
 
 fn execute_withdraw(

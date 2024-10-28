@@ -257,7 +257,7 @@ fn test_instantiate() {
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Instantiate2 {
                         admin: Some("factory_contract".to_string()),
-                        code_id: 5,
+                        code_id: 4,
                         label: "drop-staking-withdrawal-token".to_string(),
                         msg: to_json_binary(&WithdrawalTokenInstantiateMsg {
                             core_address: "some_humanized_address".to_string(),
