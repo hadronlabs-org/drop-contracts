@@ -18,9 +18,12 @@ drop-staking-base = { workspace = true }
 drop-helpers = { workspace = true }
 cosmwasm-schema = { workspace = true }
 cw2 = { workspace = true }
+cw721 = { workspace = true }
 cw-utils = { workspace = true }
 neutron-sdk = { workspace = true }
 thiserror = { workspace = true }
 cw-ownable = { workspace = true }
 cosmos-sdk-proto = { workspace = true }
 semver = { workspace = true }
+base64 = "0.21.7"
+serde_json = "1.0.132"

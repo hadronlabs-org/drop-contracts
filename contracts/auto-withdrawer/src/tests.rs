@@ -613,7 +613,7 @@ fn second_bond_with_withdrawal_denoms() {
 }
 
 #[test]
-fn unbond_happy_path() {
+fn execute_unbond() {
     let mut deps = mock_dependencies::<MockQuerier>();
 
     WITHDRAWAL_DENOM_PREFIX
@@ -660,6 +660,74 @@ fn unbond_happy_path() {
                 Coin::new(100, "factory/withdrawal_token_contract/drop:unbond:0"),
                 Coin::new(10, "untrn")
             ],
+        })))
+    );
+}
+
+#[test]
+fn execute_unbond_with_withdrawal_denoms_as_deposit() {
+    let mut deps = mock_dependencies::<MockQuerier>();
+
+    WITHDRAWAL_DENOM_PREFIX
+        .save(deps.as_mut().storage, &"drop".into())
+        .unwrap();
+    WITHDRAWAL_TOKEN_ADDRESS
+        .save(
+            deps.as_mut().storage,
+            &Addr::unchecked("withdrawal_token_contract"),
+        )
+        .unwrap();
+
+    CORE_UNBOND
+        .save(
+            deps.as_mut().storage,
+            &CoreUnbond {
+                sender: Addr::unchecked("sender"),
+                deposit: vec![Coin::new(
+                    100,
+                    "factory/withdrawal_token_contract/drop:unbond:0",
+                )],
+            },
+        )
+        .unwrap();
+
+    let response = contract::reply(
+        deps.as_mut(),
+        mock_env(),
+        Reply {
+            id: CORE_UNBOND_REPLY_ID,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![Event::new("wasm-drop-withdrawal-token-execute-mint")
+                    .add_attribute("denom", "factory/withdrawal_token_contract/drop:unbond:0")
+                    .add_attribute("receiver", "receiver")
+                    .add_attribute("batch_id", "0")
+                    .add_attribute("amount", "100")],
+                data: None,
+            }),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(response, Response::new());
+
+    let response = contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("sender", &[]),
+        ExecuteMsg::Unbond {
+            batch_id: Uint128::zero(),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        response,
+        Response::new().add_submessage(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+            to_address: "sender".to_string(),
+            amount: vec![Coin::new(
+                200,
+                "factory/withdrawal_token_contract/drop:unbond:0"
+            )],
         })))
     );
 }
