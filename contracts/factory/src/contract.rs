@@ -613,7 +613,7 @@ fn get_contract_label(base: &str) -> String {
 pub fn migrate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
-    _msg: MigrateMsg,
+    msg: MigrateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let version: semver::Version = CONTRACT_VERSION.parse()?;
     let storage_version: semver::Version =
@@ -621,6 +621,73 @@ pub fn migrate(
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+        let mut messages = vec![];
+
+        let state = STATE.load(deps.storage)?;
+
+        messages.push(CosmosMsg::Wasm(WasmMsg::Migrate {
+            contract_addr: state.core_contract.clone(),
+            new_code_id: msg.core_code_id,
+            msg: to_json_binary(&{})?,
+        }));
+
+        messages.push(get_proxied_message(
+            state.core_contract,
+            drop_staking_base::msg::core::ExecuteMsg::UpdateConfig {
+                new_config: Box::new(drop_staking_base::state::core::ConfigOptional {
+                    token_contract: None,
+                    puppeteer_contract: None,
+                    strategy_contract: None,
+                    staker_contract: None,
+                    withdrawal_voucher_contract: None,
+                    withdrawal_manager_contract: None,
+                    validators_set_contract: None,
+                    base_denom: None,
+                    remote_denom: None,
+                    idle_min_interval: None,
+                    unbonding_period: None,
+                    unbonding_safe_period: None,
+                    unbond_batch_switch_time: None,
+                    transfer_channel_id: None,
+                    lsm_redeem_threshold: Some(1),
+                    lsm_min_bond_amount: None,
+                    lsm_redeem_maximum_interval: None,
+                    pump_ica_address: None,
+                    rewards_receiver: None,
+                    bond_limit: None,
+                    emergency_address: None,
+                    min_stake_amount: None,
+                }),
+            },
+            vec![],
+        )?);
+
+        messages.push(get_proxied_message(
+            state.staker_contract,
+            drop_staking_base::msg::staker::ExecuteMsg::UpdateConfig {
+                new_config: Box::new(drop_staking_base::state::staker::ConfigOptional {
+                    timeout: None,
+                    allowed_senders: None,
+                    puppeteer_ica: None,
+                    min_ibc_transfer: Some(Uint128::one()),
+                    min_staking_amount: Some(Uint128::one()),
+                }),
+            },
+            vec![],
+        )?);
+
+        messages.push(get_proxied_message(
+            state.splitter_contract,
+            drop_staking_base::msg::splitter::ExecuteMsg::UpdateConfig {
+                new_config: drop_staking_base::state::splitter::Config {
+                    denom: "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9"
+                        .to_string(),
+                    receivers: vec![],
+                },
+            },
+            vec![],
+        )?);
     }
 
     Ok(Response::new())
