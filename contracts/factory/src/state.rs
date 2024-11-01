@@ -9,6 +9,7 @@ pub struct CodeIds {
     pub withdrawal_token_code_id: u64,
     pub withdrawal_voucher_code_id: u64,
     pub withdrawal_manager_code_id: u64,
+    pub withdrawal_exchange_code_id: u64,
     pub strategy_code_id: u64,
     pub validators_set_code_id: u64,
     pub distribution_code_id: u64,

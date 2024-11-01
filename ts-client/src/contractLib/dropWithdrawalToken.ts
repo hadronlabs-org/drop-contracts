@@ -107,7 +107,9 @@ export interface BurnArgs {
 export interface InstantiateMsg {
   core_address: string;
   denom_prefix: string;
+  is_init_state: boolean;
   owner: string;
+  withdrawal_exchange_address: string;
   withdrawal_manager_address: string;
 }
 
@@ -174,6 +176,10 @@ export class Client {
   burn = async(sender:string, args: BurnArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { burn: args }, fee || "auto", memo, funds);
+  }
+  premint = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { premint: {} }, fee || "auto", memo, funds);
   }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

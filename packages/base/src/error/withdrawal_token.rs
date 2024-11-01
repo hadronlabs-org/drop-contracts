@@ -23,6 +23,12 @@ pub enum ContractError {
     #[error("unknown reply id: {id}")]
     UnknownReplyId { id: u64 },
 
+    #[error("incorrect contract state")]
+    IncorrectState,
+
+    #[error("all batches are already preminted")]
+    AllBatchesPreminted,
+
     #[error("Semver parsing error: {0}")]
     SemVer(String),
 }

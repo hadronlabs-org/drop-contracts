@@ -31,12 +31,15 @@ pub enum ExecuteMsg {
     Burn {
         batch_id: Uint128,
     },
+    Premint {},
 }
 #[cw_serde]
 pub struct InstantiateMsg {
     pub core_address: String,
     pub withdrawal_manager_address: String,
+    pub withdrawal_exchange_address: String,
     pub denom_prefix: String,
+    pub is_init_state: bool,
     pub owner: String,
 }
 

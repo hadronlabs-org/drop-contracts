@@ -132,6 +132,7 @@ describe('Core', () => {
       lsmShareBondProvider?: number;
       nativeBondProvider?: number;
       valRef?: number;
+      withdrawalExchange?: number;
     };
     exchangeRate?: number;
     neutronIBCDenom?: string;
@@ -349,6 +350,17 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_withdrawal_exchange.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.withdrawalExchange = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
         fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
         1.5,
       );
@@ -500,6 +512,7 @@ describe('Core', () => {
           rewards_pump_code_id: context.codeIds.pump,
           lsm_share_bond_provider_code_id: context.codeIds.lsmShareBondProvider,
           native_bond_provider_code_id: context.codeIds.nativeBondProvider,
+          withdrawal_exchange_code_id: context.codeIds.withdrawalExchange,
         },
         remote_opts: {
           connection_id: 'connection-0',
@@ -541,6 +554,9 @@ describe('Core', () => {
           lsm_redeem_threshold: 2,
           lsm_min_bond_amount: '1000',
           lsm_redeem_max_interval: 60_000,
+        },
+        withdrawal_token_params: {
+          is_init_state: false,
         },
       },
       'drop-staking-factory',

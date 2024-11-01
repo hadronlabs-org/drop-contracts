@@ -1,3 +1,4 @@
+use crate::msg::WithdrawalTokenParams;
 use crate::{
     contract::{execute, instantiate, query},
     msg::{
@@ -90,6 +91,7 @@ fn test_instantiate() {
             splitter_code_id: 12,
             lsm_share_bond_provider_code_id: 13,
             native_bond_provider_code_id: 14,
+            withdrawal_exchange_code_id: 15,
         },
         remote_opts: RemoteOpts {
             denom: "denom".to_string(),
@@ -137,6 +139,9 @@ fn test_instantiate() {
             lsm_redeem_threshold: 0,
             lsm_min_bond_amount: Uint128::from(0u64),
             lsm_redeem_max_interval: 0,
+        },
+        withdrawal_token_params: WithdrawalTokenParams {
+            is_init_state: false,
         },
     };
     let res = instantiate(
@@ -262,7 +267,9 @@ fn test_instantiate() {
                         msg: to_json_binary(&WithdrawalTokenInstantiateMsg {
                             core_address: "some_humanized_address".to_string(),
                             withdrawal_manager_address: "some_humanized_address".to_string(),
+                            withdrawal_exchange_address: "some_humanized_address".to_string(),
                             denom_prefix: "subdenom".to_string(),
+                            is_init_state: false,
                             owner: "factory_contract".to_string(),
                         })
                         .unwrap(),
@@ -461,7 +468,8 @@ fn test_instantiate() {
                                     rewards_pump_code_id: 11,
                                     splitter_code_id: 12,
                                     lsm_share_bond_provider_code_id: 13,
-                                    native_bond_provider_code_id: 14
+                                    native_bond_provider_code_id: 14,
+                                    withdrawal_exchange_code_id: 15,
                                 }
                             )
                         ),
@@ -508,6 +516,10 @@ fn test_instantiate() {
                         cosmwasm_std::attr(
                             "withdrawal_manager_address",
                             "9080C5A07DA3FAE670586720247E99E9CAB3DF2C79EBD967BEB03747252B97A0"
+                        ),
+                        cosmwasm_std::attr(
+                            "withdrawal_exchange_address",
+                            "C3D0471C4AF6039521D72BFA5BA221646681AB2AFAE5EA7AE6986A5EF97E5EF1"
                         ),
                         cosmwasm_std::attr(
                             "strategy_address",

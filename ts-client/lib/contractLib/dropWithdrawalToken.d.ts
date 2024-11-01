@@ -100,7 +100,9 @@ export interface BurnArgs {
 export interface InstantiateMsg {
     core_address: string;
     denom_prefix: string;
+    is_init_state: boolean;
     owner: string;
+    withdrawal_exchange_address: string;
     withdrawal_manager_address: string;
 }
 export declare class Client {
@@ -115,5 +117,6 @@ export declare class Client {
     createDenom: (sender: string, args: CreateDenomArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     mint: (sender: string, args: MintArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     burn: (sender: string, args: BurnArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    premint: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
 }

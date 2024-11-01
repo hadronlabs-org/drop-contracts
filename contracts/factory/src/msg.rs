@@ -20,6 +20,7 @@ pub struct InstantiateMsg {
     pub native_bond_params: NativeBondParams,
     pub lsm_share_bond_params: LsmShareBondParams,
     pub fee_params: Option<FeeParams>,
+    pub withdrawal_token_params: WithdrawalTokenParams,
 }
 
 #[cw_serde]
@@ -49,6 +50,11 @@ pub struct LsmShareBondParams {
     pub lsm_min_bond_amount: Uint128,
     pub lsm_redeem_threshold: u64,    //amount of lsm denoms
     pub lsm_redeem_max_interval: u64, //seconds
+}
+
+#[cw_serde]
+pub struct WithdrawalTokenParams {
+    pub is_init_state: bool,
 }
 
 #[cw_serde]

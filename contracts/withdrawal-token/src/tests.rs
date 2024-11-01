@@ -11,7 +11,7 @@ use drop_staking_base::msg::withdrawal_token::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
 use drop_staking_base::state::withdrawal_token::{
-    CORE_ADDRESS, DENOM_PREFIX, WITHDRAWAL_MANAGER_ADDRESS,
+    CORE_ADDRESS, DENOM_PREFIX, IS_INIT_STATE, WITHDRAWAL_MANAGER_ADDRESS,
 };
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -23,6 +23,8 @@ fn test_instantiate() {
     let msg = InstantiateMsg {
         core_address: "core_contract".to_string(),
         withdrawal_manager_address: "withdrawal_manager_contract".to_string(),
+        withdrawal_exchange_address: "withdrawal_exchange_contract".to_string(),
+        is_init_state: true,
         denom_prefix: "denom".to_string(),
         owner: "owner".to_string(),
     };
@@ -34,7 +36,11 @@ fn test_instantiate() {
         Response::new().add_event(
             Event::new("drop-withdrawal-token-instantiate").add_attributes(vec![
                 ("core_address", "core_contract"),
-                ("withdrawal_manager_address", "withdrawal_manager_contract")
+                ("withdrawal_manager_address", "withdrawal_manager_contract"),
+                (
+                    "withdrawal_exchange_address",
+                    "withdrawal_exchange_contract"
+                ),
             ])
         )
     );
@@ -90,6 +96,8 @@ fn test_query_config() {
 #[test]
 fn test_create_denom() {
     let mut deps = mock_dependencies(&[]);
+
+    IS_INIT_STATE.save(deps.as_mut().storage, &false).unwrap();
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
         .unwrap();
@@ -174,6 +182,8 @@ fn test_reply() {
 #[test]
 fn test_mint_zero() {
     let mut deps = mock_dependencies(&[]);
+
+    IS_INIT_STATE.save(deps.as_mut().storage, &false).unwrap();
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
         .unwrap();
@@ -205,6 +215,7 @@ fn test_mint_zero() {
 fn test_mint() {
     let mut deps = mock_dependencies(&[]);
 
+    IS_INIT_STATE.save(deps.as_mut().storage, &false).unwrap();
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
         .unwrap();
@@ -288,6 +299,7 @@ fn test_mint() {
 fn mint_stranger() {
     let mut deps = mock_dependencies(&[]);
 
+    IS_INIT_STATE.save(deps.as_mut().storage, &false).unwrap();
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
         .unwrap();
@@ -320,6 +332,7 @@ fn mint_stranger() {
 fn burn_zero() {
     let mut deps = mock_dependencies(&[]);
 
+    IS_INIT_STATE.save(deps.as_mut().storage, &false).unwrap();
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
         .unwrap();
@@ -372,6 +385,7 @@ fn burn_zero() {
 fn burn_multiple_coins() {
     let mut deps = mock_dependencies(&[]);
 
+    IS_INIT_STATE.save(deps.as_mut().storage, &false).unwrap();
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
         .unwrap();
@@ -427,6 +441,7 @@ fn burn_multiple_coins() {
 fn burn_invalid_coin() {
     let mut deps = mock_dependencies(&[]);
 
+    IS_INIT_STATE.save(deps.as_mut().storage, &false).unwrap();
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
         .unwrap();
@@ -485,6 +500,7 @@ fn burn_invalid_coin() {
 fn burn_stranger() {
     let mut deps = mock_dependencies(&[]);
 
+    IS_INIT_STATE.save(deps.as_mut().storage, &false).unwrap();
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
         .unwrap();
@@ -545,6 +561,7 @@ fn burn_stranger() {
 fn burn() {
     let mut deps = mock_dependencies(&[]);
 
+    IS_INIT_STATE.save(deps.as_mut().storage, &false).unwrap();
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core_contract"))
         .unwrap();

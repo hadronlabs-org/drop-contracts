@@ -75,6 +75,8 @@ pub fn instantiate(
         get_code_checksum(deps.as_ref(), msg.code_ids.withdrawal_voucher_code_id)?;
     let withdrawal_manager_contract_checksum =
         get_code_checksum(deps.as_ref(), msg.code_ids.withdrawal_manager_code_id)?;
+    let withdrawal_exchange_contract_checksum =
+        get_code_checksum(deps.as_ref(), msg.code_ids.withdrawal_exchange_code_id)?;
     let strategy_contract_checksum =
         get_code_checksum(deps.as_ref(), msg.code_ids.strategy_code_id)?;
     let validators_set_contract_checksum =
@@ -133,6 +135,16 @@ pub fn instantiate(
     attrs.push(attr(
         "withdrawal_manager_address",
         withdrawal_manager_address.to_string(),
+    ));
+
+    let withdrawal_exchange_address = instantiate2_address(
+        &withdrawal_exchange_contract_checksum,
+        &canonical_self_address,
+        salt,
+    )?;
+    attrs.push(attr(
+        "withdrawal_exchange_address",
+        withdrawal_exchange_address.to_string(),
     ));
 
     let strategy_address =
@@ -211,6 +223,10 @@ pub fn instantiate(
     let withdrawal_manager_contract = deps
         .api
         .addr_humanize(&withdrawal_manager_address)?
+        .to_string();
+    let withdrawal_exchange_contract = deps
+        .api
+        .addr_humanize(&withdrawal_exchange_address)?
         .to_string();
     let strategy_contract = deps.api.addr_humanize(&strategy_address)?.to_string();
     let validators_set_contract = deps.api.addr_humanize(&validators_set_address)?.to_string();
@@ -331,7 +347,9 @@ pub fn instantiate(
             msg: to_json_binary(&WithdrawalTokenInstantiateMsg {
                 core_address: core_contract.to_string(),
                 withdrawal_manager_address: withdrawal_manager_contract.to_string(),
+                withdrawal_exchange_address: withdrawal_exchange_contract.to_string(),
                 denom_prefix: msg.subdenom.clone(),
+                is_init_state: msg.withdrawal_token_params.is_init_state,
                 owner: env.contract.address.to_string(),
             })?,
             funds: vec![],

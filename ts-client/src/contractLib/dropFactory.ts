@@ -1197,6 +1197,7 @@ export interface InstantiateMsg {
   sdk_version: string;
   subdenom: string;
   token_metadata: DenomMetadata;
+  withdrawal_token_params: WithdrawalTokenParams;
 }
 export interface CodeIds {
   core_code_id: number;
@@ -1210,6 +1211,7 @@ export interface CodeIds {
   strategy_code_id: number;
   token_code_id: number;
   validators_set_code_id: number;
+  withdrawal_exchange_code_id: number;
   withdrawal_manager_code_id: number;
   withdrawal_token_code_id: number;
   withdrawal_voucher_code_id: number;
@@ -1277,6 +1279,9 @@ export interface DenomMetadata {
    * SHA256 hash of a document pointed by URI
    */
   uri_hash?: string | null;
+}
+export interface WithdrawalTokenParams {
+  is_init_state: boolean;
 }
 
 
