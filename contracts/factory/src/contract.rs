@@ -629,7 +629,7 @@ pub fn migrate(
         messages.push(CosmosMsg::Wasm(WasmMsg::Migrate {
             contract_addr: state.core_contract.clone(),
             new_code_id: msg.core_code_id,
-            msg: to_json_binary(&{})?,
+            msg: to_json_binary(&drop_staking_base::msg::core::MigrateMsg {})?,
         }));
 
         messages.push(get_proxied_message(
@@ -688,6 +688,8 @@ pub fn migrate(
             },
             vec![],
         )?);
+
+        return Ok(Response::new().add_messages(messages));
     }
 
     Ok(Response::new())

@@ -1,8 +1,8 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankQuery, Binary,
-    CosmosMsg, CustomQuery, Decimal, Decimal256, Deps, DepsMut, Env, MessageInfo, Order,
-    QueryRequest, Response, StdError, StdResult, Uint128, Uint256, Uint64, WasmMsg,
+    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest,
+    Response, StdError, StdResult, Uint128, Uint64, WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
@@ -30,7 +30,6 @@ use drop_staking_base::{
     },
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
-use neutron_sdk::interchain_queries::v047::types::DECIMAL_FRACTIONAL;
 use prost::Message;
 
 pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
@@ -1009,7 +1008,7 @@ fn execute_bond(
     _: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     Err(ContractError::Std(StdError::generic_err(
-        "Message temporarily disabled due to protocol upgrade",
+        "Bonding is temporarily disabled due to protocol upgrade",
     )))
 }
 
@@ -1142,7 +1141,7 @@ fn execute_unbond(
     _info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
     Err(ContractError::Std(StdError::generic_err(
-        "Message temporarily disabled due to protocol upgrade",
+        "Unbonding is temporarily disabled due to protocol upgrade",
     )))
 }
 
@@ -1460,38 +1459,6 @@ fn get_pending_lsm_share_msg<T, X: CustomQuery>(
         }
         None => Ok(None),
     }
-}
-
-fn calc_lsm_share_underlying_amount<T: CustomQuery>(
-    deps: Deps<T>,
-    puppeteer_contract: &Addr,
-    lsm_share: &Uint128,
-    validator: String,
-) -> ContractResult<Uint128> {
-    let delegations = deps
-        .querier
-        .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
-            puppeteer_contract,
-            &drop_puppeteer_base::msg::QueryMsg::Extension {
-                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
-            },
-        )?
-        .delegations
-        .delegations;
-    if delegations.is_empty() {
-        return Err(ContractError::NoDelegations {});
-    }
-    let validator_info = delegations
-        .iter()
-        .find(|one| one.validator == validator)
-        .ok_or(ContractError::ValidatorInfoNotFound {
-            validator: validator.clone(),
-        })?;
-    let share = Decimal256::from_atomics(*lsm_share, 0)?;
-    Ok(Uint128::try_from(
-        share.checked_mul(validator_info.share_ratio)?.atomics()
-            / Uint256::from(DECIMAL_FRACTIONAL),
-    )?)
 }
 
 pub mod check_denom {
