@@ -272,7 +272,9 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_core.wasm')),
+        fs.readFileSync(
+          join(__dirname, '../../old_contracts/v1.0.1/drop_core.wasm'),
+        ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -281,7 +283,9 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_token.wasm')),
+        fs.readFileSync(
+          join(__dirname, '../../old_contracts/v1.0.1/drop_token.wasm'),
+        ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -291,7 +295,10 @@ describe('Core', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
+          join(
+            __dirname,
+            '../../old_contracts/v1.0.1/drop_withdrawal_voucher.wasm',
+          ),
         ),
         1.5,
       );
@@ -302,7 +309,10 @@ describe('Core', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_withdrawal_manager.wasm'),
+          join(
+            __dirname,
+            '../../old_contracts/v1.0.1/drop_withdrawal_manager.wasm',
+          ),
         ),
         1.5,
       );
@@ -312,7 +322,9 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+        fs.readFileSync(
+          join(__dirname, '../../old_contracts/v1.0.1/drop_pump.wasm'),
+        ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -322,7 +334,7 @@ describe('Core', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_strategy.wasm'),
+          join(__dirname, '../../old_contracts/v1.0.1/drop_strategy.wasm'),
         ),
         1.5,
       );
@@ -333,7 +345,7 @@ describe('Core', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_distribution.wasm'),
+          join(__dirname, '../../old_contracts/v1.0.1/drop_distribution.wasm'),
         ),
         1.5,
       );
@@ -344,7 +356,10 @@ describe('Core', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
+          join(
+            __dirname,
+            '../../old_contracts/v1.0.1/drop_validators_set.wasm',
+          ),
         ),
         1.5,
       );
@@ -355,7 +370,7 @@ describe('Core', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_puppeteer.wasm'),
+          join(__dirname, '../../old_contracts/v1.0.1/drop_puppeteer.wasm'),
         ),
         1.5,
       );
@@ -366,7 +381,10 @@ describe('Core', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
+          join(
+            __dirname,
+            '../../old_contracts/v1.0.1/drop_rewards_manager.wasm',
+          ),
         ),
         1.5,
       );
@@ -377,7 +395,7 @@ describe('Core', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+          join(__dirname, '../../old_contracts/v1.0.1/drop_splitter.wasm'),
         ),
         1.5,
       );
@@ -387,7 +405,9 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_staker.wasm')),
+        fs.readFileSync(
+          join(__dirname, '../../old_contracts/v1.0.1/drop_staker.wasm'),
+        ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -396,7 +416,9 @@ describe('Core', () => {
 
     const res = await client.upload(
       account.address,
-      fs.readFileSync(join(__dirname, '../../../artifacts/drop_factory.wasm')),
+      fs.readFileSync(
+        join(__dirname, '../../old_contracts/v1.0.1/drop_factory.wasm'),
+      ),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
@@ -1099,7 +1121,9 @@ describe('Core', () => {
         const { client, account, neutronUserAddress } = context;
         const resUpload = await client.upload(
           account.address,
-          fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+          fs.readFileSync(
+            join(__dirname, '../../old_contracts/v1.0.1/drop_pump.wasm'),
+          ),
           1.5,
         );
         expect(resUpload.codeId).toBeGreaterThan(0);
