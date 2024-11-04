@@ -3,7 +3,7 @@ echo "Building initia-test docker image"
 DIR="$(dirname $0)"
 cd $DIR
 VERSION=$(cat ../../package.json | jq -r '.version')
-git clone https://github.com/initia-labs/initia -b v0.2.15
+git clone https://github.com/initia-labs/initia 
 
 # Copy Dockerfile to initia directory for arm and Dockerfile.x86 for x86
 if [[ "$(arch)" == "arm64" ]]; then
