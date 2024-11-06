@@ -11,7 +11,7 @@ This way, you should have:
 #### 2. Configure deployment
 
 Navigate to `Move.toml` and open it in your editor of choice. You are interested in the
-section `[addresses]`. `me` and `recipient` are filled with placeholder (`_`) addresses,
+section `[addresses]`. `me`, `backup_owner` and `recipient` are filled with placeholder (`_`) addresses,
 so you will have to fill them up. You can use this easy snippet to generate hexadecimal
 addresses from keys stored in your initiad keychain:
 
