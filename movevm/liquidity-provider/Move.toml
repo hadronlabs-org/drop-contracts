@@ -15,6 +15,9 @@ pair = "0xdbf06c48af3984ec6d9ae8a9aa7dbb0bb1e784aa9b8c4a5681af660cf8558d7d"
 # Address of uinit token
 asset = "0x8e4733bdabcf7d4afc3d14f0dd46c9bf52fb0fce9e4b996c939e195b8bc891d9"
 
+# Backup owner
+backup_owner = "_"
+
 # Contract owner
 me = "_"
 

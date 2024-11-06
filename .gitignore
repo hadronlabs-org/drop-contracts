@@ -9,3 +9,4 @@ node_modules
 scripts/deploy_scripts/.env.instantiate
 scripts/deploy_scripts/.env.upload
 neutron/data/
+build

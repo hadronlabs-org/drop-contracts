@@ -73,7 +73,7 @@ module me::liquidity_provider {
     // from module's object address in case if there is an unrecoverable bug somewhere
     public entry fun backup(account: &signer, coin: Object<Metadata>) acquires ModuleStore {
         assert!(
-            signer::address_of(account) == @me,
+            signer::address_of(account) == @backup_owner,
             error::permission_denied(ENOT_OWNER),
         );
 
