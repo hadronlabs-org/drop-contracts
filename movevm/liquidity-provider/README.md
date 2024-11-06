@@ -20,7 +20,7 @@ NAME="<name of your key>"; echo "0x$(initiad keys parse "$(initiad keys show "$N
 ```
 
 First, fill `me` to the address of your own account. For `recipient`, you can create a new
-empty account and use it's address.
+empty account and use it's address. Past into `backup_owner` an owner address that's eligible to call **backup** method
 
 #### 3. Build module
 
