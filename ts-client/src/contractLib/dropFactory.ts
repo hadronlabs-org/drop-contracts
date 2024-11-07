@@ -1,6 +1,5 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
-export type ArrayOfTupleOfStringAndString = [string, string][];
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -740,11 +739,14 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropFactorySchema {
-  responses: ArrayOfTupleOfStringAndString | OwnershipForString | PauseInfoResponse | State;
+  responses: MapOfString | OwnershipForString | PauseInfoResponse | MapOfString1;
   query: LocateArgs;
   execute: UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
+}
+export interface MapOfString {
+  [k: string]: string;
 }
 /**
  * The contract's ownership info
@@ -773,20 +775,8 @@ export interface Pause {
   tick: boolean;
   unbond: boolean;
 }
-export interface State {
-  core_contract: string;
-  distribution_contract: string;
-  lsm_share_bond_provider_contract: string;
-  native_bond_provider_contract: string;
-  puppeteer_contract: string;
-  rewards_manager_contract: string;
-  rewards_pump_contract: string;
-  splitter_contract: string;
-  strategy_contract: string;
-  token_contract: string;
-  validators_set_contract: string;
-  withdrawal_manager_contract: string;
-  withdrawal_voucher_contract: string;
+export interface MapOfString1 {
+  [k: string]: string;
 }
 export interface LocateArgs {
   contracts: string[];
@@ -1327,10 +1317,10 @@ export class Client {
     });
     return res;
   }
-  queryState = async(): Promise<State> => {
+  queryState = async(): Promise<MapOfString> => {
     return this.client.queryContractSmart(this.contractAddress, { state: {} });
   }
-  queryLocate = async(args: LocateArgs): Promise<ArrayOfTupleOfStringAndString> => {
+  queryLocate = async(args: LocateArgs): Promise<MapOfString> => {
     return this.client.queryContractSmart(this.contractAddress, { locate: args });
   }
   queryPauseInfo = async(): Promise<PauseInfoResponse> => {

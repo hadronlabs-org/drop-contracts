@@ -1,5 +1,6 @@
 use cosmwasm_schema::cw_serde;
-use cw_storage_plus::Item;
+use cosmwasm_std::Addr;
+use cw_storage_plus::Map;
 
 #[cw_serde]
 pub struct CodeIds {
@@ -36,27 +37,10 @@ pub struct Timeout {
 }
 
 #[cw_serde]
-pub struct State {
-    pub token_contract: String,
-    pub core_contract: String,
-    pub puppeteer_contract: String,
-    pub withdrawal_voucher_contract: String,
-    pub withdrawal_manager_contract: String,
-    pub strategy_contract: String,
-    pub validators_set_contract: String,
-    pub distribution_contract: String,
-    pub rewards_manager_contract: String,
-    pub rewards_pump_contract: String,
-    pub splitter_contract: String,
-    pub lsm_share_bond_provider_contract: String,
-    pub native_bond_provider_contract: String,
-}
-
-#[cw_serde]
 pub struct PauseInfoResponse {
     pub withdrawal_manager: drop_helpers::pause::PauseInfoResponse,
     pub core: crate::state::core::Pause,
     pub rewards_manager: drop_helpers::pause::PauseInfoResponse,
 }
 
-pub const STATE: Item<State> = Item::new("state");
+pub const STATE: Map<String, Addr> = Map::new("state");

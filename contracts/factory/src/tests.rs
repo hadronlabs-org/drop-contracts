@@ -2,7 +2,7 @@ use crate::contract::{execute, instantiate, query};
 use cosmwasm_std::{
     attr, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, BankMsg, Uint128,
+    to_json_binary, Addr, BankMsg, DepsMut, Uint128,
 };
 use drop_helpers::testing::{mock_dependencies, mock_dependencies_with_api};
 use drop_staking_base::{
@@ -10,7 +10,7 @@ use drop_staking_base::{
         CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, LsmShareBondParams, NativeBondParams,
         QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
     },
-    state::factory::{CodeIds, RemoteOpts, State, Timeout, STATE},
+    state::factory::{CodeIds, RemoteOpts, Timeout, STATE},
 };
 use drop_staking_base::{
     msg::{
@@ -37,23 +37,101 @@ use drop_staking_base::{
     },
     state::{core::Pause as CorePause, pump::PumpTimeout, splitter::Config as SplitterConfig},
 };
+use neutron_sdk::bindings::query::NeutronQuery;
+use std::collections::HashMap;
 
-fn get_default_factory_state() -> State {
-    State {
-        token_contract: "token_contract".to_string(),
-        core_contract: "core_contract".to_string(),
-        puppeteer_contract: "puppeteer_contract".to_string(),
-        withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-        withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-        strategy_contract: "strategy_contract".to_string(),
-        validators_set_contract: "validators_set_contract".to_string(),
-        distribution_contract: "distribution_contract".to_string(),
-        rewards_manager_contract: "rewards_manager_contract".to_string(),
-        rewards_pump_contract: "rewards_pump_contract".to_string(),
-        splitter_contract: "splitter_contract".to_string(),
-        lsm_share_bond_provider_contract: "lsm_share_bond_provider_contract".to_string(),
-        native_bond_provider_contract: "native_bond_provider_contract".to_string(),
-    }
+fn set_default_factory_state(deps: DepsMut<NeutronQuery>) {
+    STATE
+        .save(
+            deps.storage,
+            "token_contract".to_string(),
+            &Addr::unchecked("token_contract".to_string()),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            "core_contract".to_string(),
+            &Addr::unchecked("core_contract".to_string()),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            "puppeteer_contract".to_string(),
+            &Addr::unchecked("puppeteer_contract".to_string()),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            "withdrawal_voucher_contract".to_string(),
+            &Addr::unchecked("withdrawal_voucher_contract".to_string()),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            "withdrawal_manager_contract".to_string(),
+            &Addr::unchecked("withdrawal_manager_contract".to_string()),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            "strategy_contract".to_string(),
+            &Addr::unchecked("strategy_contract".to_string()),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            "validators_set_contract".to_string(),
+            &Addr::unchecked("validators_set_contract".to_string()),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            "distribution_contract".to_string(),
+            &Addr::unchecked("distribution_contract".to_string()),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            "rewards_manager_contract".to_string(),
+            &Addr::unchecked("rewards_manager_contract".to_string()),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            "rewards_pump_contract".to_string(),
+            &Addr::unchecked("rewards_pump_contract".to_string()),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            "splitter_contract".to_string(),
+            &Addr::unchecked("splitter_contract".to_string()),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            "lsm_share_bond_provider_contract".to_string(),
+            &Addr::unchecked("lsm_share_bond_provider_contract".to_string()),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            "native_bond_provider_contract".to_string(),
+            &Addr::unchecked("native_bond_provider_contract".to_string()),
+        )
+        .unwrap();
 }
 
 #[test]
@@ -570,10 +648,7 @@ fn test_update_config_core() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    STATE
-        .save(deps_mut.storage, &get_default_factory_state())
-        .unwrap();
-
+    set_default_factory_state(deps.as_mut());
     let new_core_config = drop_staking_base::state::core::ConfigOptional {
         token_contract: Some("token_contract1".to_string()),
         puppeteer_contract: Some("puppeteer_contract1".to_string()),
@@ -655,9 +730,7 @@ fn test_update_config_validators_set() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    STATE
-        .save(deps_mut.storage, &get_default_factory_state())
-        .unwrap();
+    set_default_factory_state(deps.as_mut());
 
     let new_validator_set_config = drop_staking_base::state::validatorset::ConfigOptional {
         stats_contract: Some("validator_stats_contract".to_string()),
@@ -700,9 +773,7 @@ fn test_proxy_validators_set_update_validators_unauthorized() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    STATE
-        .save(deps_mut.storage, &get_default_factory_state())
-        .unwrap();
+    set_default_factory_state(deps.as_mut());
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
@@ -736,9 +807,7 @@ fn test_proxy_validators_set_update_validators() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    STATE
-        .save(deps_mut.storage, &get_default_factory_state())
-        .unwrap();
+    set_default_factory_state(deps.as_mut());
 
     let res = execute(
         deps.as_mut().into_empty(),
@@ -956,9 +1025,7 @@ fn test_pause() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    STATE
-        .save(deps.as_mut().storage, &get_default_factory_state())
-        .unwrap();
+    set_default_factory_state(deps.as_mut());
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
@@ -1032,9 +1099,7 @@ fn test_unpause() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    STATE
-        .save(deps.as_mut().storage, &get_default_factory_state())
-        .unwrap();
+    set_default_factory_state(deps.as_mut());
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
@@ -1088,26 +1153,72 @@ fn test_unpause() {
 #[test]
 fn test_query_state() {
     let mut deps = mock_dependencies(&[]);
-    STATE
-        .save(deps.as_mut().storage, &get_default_factory_state())
-        .unwrap();
-    let query_res: drop_staking_base::state::factory::State =
+    set_default_factory_state(deps.as_mut());
+    let query_res: HashMap<String, String> =
         from_json(query(deps.as_ref(), mock_env(), QueryMsg::State {}).unwrap()).unwrap();
-    assert_eq!(query_res, get_default_factory_state());
+    assert_eq!(
+        query_res,
+        HashMap::from([
+            ("core_contract".to_string(), "core_contract".to_string()),
+            ("token_contract".to_string(), "token_contract".to_string()),
+            (
+                "puppeteer_contract".to_string(),
+                "puppeteer_contract".to_string()
+            ),
+            (
+                "withdrawal_voucher_contract".to_string(),
+                "withdrawal_voucher_contract".to_string()
+            ),
+            (
+                "withdrawal_manager_contract".to_string(),
+                "withdrawal_manager_contract".to_string()
+            ),
+            (
+                "strategy_contract".to_string(),
+                "strategy_contract".to_string()
+            ),
+            (
+                "validators_set_contract".to_string(),
+                "validators_set_contract".to_string()
+            ),
+            (
+                "distribution_contract".to_string(),
+                "distribution_contract".to_string()
+            ),
+            (
+                "rewards_manager_contract".to_string(),
+                "rewards_manager_contract".to_string()
+            ),
+            (
+                "rewards_pump_contract".to_string(),
+                "rewards_pump_contract".to_string()
+            ),
+            (
+                "splitter_contract".to_string(),
+                "splitter_contract".to_string()
+            ),
+            (
+                "lsm_share_bond_provider_contract".to_string(),
+                "lsm_share_bond_provider_contract".to_string()
+            ),
+            (
+                "native_bond_provider_contract".to_string(),
+                "native_bond_provider_contract".to_string()
+            )
+        ])
+    );
 }
 
 #[test]
 fn test_query_locate() {
     let mut deps = mock_dependencies(&[]);
-    STATE
-        .save(deps.as_mut().storage, &get_default_factory_state())
-        .unwrap();
-    let query_res: Vec<(String, String)> = from_json(
+    set_default_factory_state(deps.as_mut());
+    let query_res: HashMap<String, String> = from_json(
         query(
             deps.as_ref(),
             mock_env(),
             QueryMsg::Locate {
-                contracts: vec!["core".to_string(), "token".to_string()],
+                contracts: vec!["core_contract".to_string(), "token_contract".to_string()],
             },
         )
         .unwrap(),
@@ -1115,10 +1226,10 @@ fn test_query_locate() {
     .unwrap();
     assert_eq!(
         query_res,
-        vec![
-            ("core".to_string(), "core_contract".to_string()),
-            ("token".to_string(), "token_contract".to_string())
-        ]
+        HashMap::from([
+            ("core_contract".to_string(), "core_contract".to_string()),
+            ("token_contract".to_string(), "token_contract".to_string()),
+        ])
     );
 }
 
@@ -1144,9 +1255,7 @@ fn test_query_pause_info() {
         .add_wasm_query_response("rewards_manager_contract", |_| -> cosmwasm_std::Binary {
             to_json_binary(&drop_helpers::pause::PauseInfoResponse::Paused {}).unwrap()
         });
-    STATE
-        .save(deps.as_mut().storage, &get_default_factory_state())
-        .unwrap();
+    set_default_factory_state(deps.as_mut());
     let query_res: drop_staking_base::state::factory::PauseInfoResponse =
         from_json(query(deps.as_ref(), mock_env(), QueryMsg::PauseInfo {}).unwrap()).unwrap();
     assert_eq!(
