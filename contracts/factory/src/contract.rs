@@ -1,17 +1,17 @@
-use crate::{
-    error::ContractResult,
-    msg::{
-        ExecuteMsg, InstantiateMsg, MigrateMsg, ProxyMsg, QueryMsg, UpdateConfigMsg,
-        ValidatorSetMsg,
-    },
-    state::{State, STATE},
-};
+use crate::error::ContractResult;
 use cosmwasm_std::{
     attr, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg, Deps, DepsMut,
     Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use drop_helpers::answer::response;
 use drop_staking_base::state::splitter::Config as SplitterConfig;
+use drop_staking_base::{
+    msg::factory::{
+        ExecuteMsg, InstantiateMsg, MigrateMsg, ProxyMsg, QueryMsg, UpdateConfigMsg,
+        ValidatorSetMsg,
+    },
+    state::factory::{State, STATE},
+};
 use drop_staking_base::{
     msg::{
         core::{InstantiateMsg as CoreInstantiateMsg, QueryMsg as CoreQueryMsg},
@@ -462,7 +462,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
 fn query_pause_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
     let state = STATE.load(deps.storage)?;
 
-    to_json_binary(&crate::state::PauseInfoResponse {
+    to_json_binary(&drop_staking_base::state::factory::PauseInfoResponse {
         core: deps
             .querier
             .query_wasm_smart(state.core_contract, &CoreQueryMsg::Pause {})?,
@@ -670,7 +670,7 @@ pub fn migrate(
 }
 
 fn get_splitter_receivers(
-    fee_params: Option<crate::msg::FeeParams>,
+    fee_params: Option<drop_staking_base::msg::factory::FeeParams>,
     bond_provider_address: String,
 ) -> ContractResult<Vec<(String, cosmwasm_std::Uint128)>> {
     match fee_params {
