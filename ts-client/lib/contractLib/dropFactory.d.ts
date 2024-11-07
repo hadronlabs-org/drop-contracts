@@ -1,5 +1,6 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
+export type ArrayOfTupleOfStringAndString = [string, string][];
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -669,7 +670,8 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropFactorySchema {
-    responses: OwnershipForString | PauseInfoResponse | State;
+    responses: ArrayOfTupleOfStringAndString | OwnershipForString | PauseInfoResponse | State;
+    query: LocateArgs;
     execute: UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
@@ -715,6 +717,9 @@ export interface State {
     validators_set_contract: string;
     withdrawal_manager_contract: string;
     withdrawal_voucher_contract: string;
+}
+export interface LocateArgs {
+    contracts: string[];
 }
 export interface ConfigOptional {
     base_denom?: string | null;
@@ -1213,6 +1218,7 @@ export declare class Client {
     static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
     static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
     queryState: () => Promise<State>;
+    queryLocate: (args: LocateArgs) => Promise<ArrayOfTupleOfStringAndString>;
     queryPauseInfo: () => Promise<PauseInfoResponse>;
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

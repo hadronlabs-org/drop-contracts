@@ -29,6 +29,9 @@ class Client {
     queryState = async () => {
         return this.client.queryContractSmart(this.contractAddress, { state: {} });
     };
+    queryLocate = async (args) => {
+        return this.client.queryContractSmart(this.contractAddress, { locate: args });
+    };
     queryPauseInfo = async () => {
         return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
     };

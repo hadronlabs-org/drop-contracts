@@ -1,7 +1,7 @@
 use crate::error::ContractResult;
 use cosmwasm_std::{
     attr, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg, Deps, DepsMut,
-    Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
+    Env, HexBinary, MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use drop_helpers::answer::response;
 use drop_staking_base::state::splitter::Config as SplitterConfig;
@@ -456,7 +456,33 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
             let ownership = cw_ownable::get_ownership(deps.storage)?;
             Ok(to_json_binary(&ownership)?)
         }
+        QueryMsg::Locate { contracts } => query_locate(deps, contracts),
     }
+}
+
+fn query_locate(deps: Deps<NeutronQuery>, items: Vec<String>) -> StdResult<Binary> {
+    let state = STATE.load(deps.storage)?;
+    let mut contracts: Vec<(String, String)> = vec![];
+    for item in items {
+        let addr = match item.as_str() {
+            "token" => state.token_contract.to_string(),
+            "core" => state.core_contract.to_string(),
+            "puppeteer" => state.puppeteer_contract.to_string(),
+            "withdrawal_voucher" => state.withdrawal_voucher_contract.to_string(),
+            "withdrawal_manager" => state.withdrawal_manager_contract.to_string(),
+            "strategy" => state.strategy_contract.to_string(),
+            "validators_set" => state.validators_set_contract.to_string(),
+            "distribution" => state.distribution_contract.to_string(),
+            "rewards_manager" => state.rewards_manager_contract.to_string(),
+            "rewards_pump" => state.rewards_pump_contract.to_string(),
+            "splitter" => state.splitter_contract.to_string(),
+            "lsm_share_bond_provider" => state.lsm_share_bond_provider_contract.to_string(),
+            "native_bond_provider" => state.native_bond_provider_contract.to_string(),
+            _ => return Err(StdError::generic_err("Unknown item")),
+        };
+        contracts.push((item, addr));
+    }
+    to_json_binary(&contracts)
 }
 
 fn query_pause_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {

@@ -86,6 +86,8 @@ pub struct MigrateMsg {}
 pub enum QueryMsg {
     #[returns(crate::state::factory::State)]
     State {},
+    #[returns(Vec<(String, String)>)]
+    Locate { contracts: Vec<String> },
     #[returns(crate::state::factory::PauseInfoResponse)]
     PauseInfo {},
 }

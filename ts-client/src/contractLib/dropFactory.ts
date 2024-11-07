@@ -1,5 +1,6 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
+export type ArrayOfTupleOfStringAndString = [string, string][];
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -739,7 +740,8 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropFactorySchema {
-  responses: OwnershipForString | PauseInfoResponse | State;
+  responses: ArrayOfTupleOfStringAndString | OwnershipForString | PauseInfoResponse | State;
+  query: LocateArgs;
   execute: UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
@@ -785,6 +787,9 @@ export interface State {
   validators_set_contract: string;
   withdrawal_manager_contract: string;
   withdrawal_voucher_contract: string;
+}
+export interface LocateArgs {
+  contracts: string[];
 }
 export interface ConfigOptional {
   base_denom?: string | null;
@@ -1324,6 +1329,9 @@ export class Client {
   }
   queryState = async(): Promise<State> => {
     return this.client.queryContractSmart(this.contractAddress, { state: {} });
+  }
+  queryLocate = async(args: LocateArgs): Promise<ArrayOfTupleOfStringAndString> => {
+    return this.client.queryContractSmart(this.contractAddress, { locate: args });
   }
   queryPauseInfo = async(): Promise<PauseInfoResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });

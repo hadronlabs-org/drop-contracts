@@ -1097,6 +1097,32 @@ fn test_query_state() {
 }
 
 #[test]
+fn test_query_locate() {
+    let mut deps = mock_dependencies(&[]);
+    STATE
+        .save(deps.as_mut().storage, &get_default_factory_state())
+        .unwrap();
+    let query_res: Vec<(String, String)> = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            QueryMsg::Locate {
+                contracts: vec!["core".to_string(), "token".to_string()],
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        vec![
+            ("core".to_string(), "core_contract".to_string()),
+            ("token".to_string(), "token_contract".to_string())
+        ]
+    );
+}
+
+#[test]
 fn test_query_pause_info() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
