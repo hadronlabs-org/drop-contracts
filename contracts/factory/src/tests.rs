@@ -335,12 +335,8 @@ fn test_instantiate() {
                         code_id: 2,
                         label: "drop-staking-core".to_string(),
                         msg: to_json_binary(&CoreInstantiateMsg {
-                            token_contract: "some_humanized_address".to_string(),
-                            puppeteer_contract: "some_humanized_address".to_string(),
-                            strategy_contract: "some_humanized_address".to_string(),
-                            withdrawal_voucher_contract: "some_humanized_address".to_string(),
-                            withdrawal_manager_contract: "some_humanized_address".to_string(),
-                            validators_set_contract: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
+
                             base_denom: "base_denom".to_string(),
                             remote_denom: "denom".to_string(),
                             idle_min_interval: 0,
@@ -609,13 +605,7 @@ fn test_update_config_core_unauthorized() {
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     let new_core_config = drop_staking_base::state::core::ConfigOptional {
-        token_contract: None,
-        puppeteer_contract: None,
-        strategy_contract: None,
-        staker_contract: None,
-        withdrawal_voucher_contract: None,
-        withdrawal_manager_contract: None,
-        validators_set_contract: None,
+        factory_contract: None,
         base_denom: None,
         remote_denom: None,
         idle_min_interval: None,
@@ -650,13 +640,7 @@ fn test_update_config_core() {
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     set_default_factory_state(deps.as_mut());
     let new_core_config = drop_staking_base::state::core::ConfigOptional {
-        token_contract: Some("token_contract1".to_string()),
-        puppeteer_contract: Some("puppeteer_contract1".to_string()),
-        strategy_contract: Some("strategy_contract1".to_string()),
-        staker_contract: Some("staker_contract1".to_string()),
-        withdrawal_voucher_contract: Some("withdrawal_voucher_contract1".to_string()),
-        withdrawal_manager_contract: Some("withdrawal_manager_contract1".to_string()),
-        validators_set_contract: Some("validators_set_contract1".to_string()),
+        factory_contract: Some("factory_contract1".to_string()),
         base_denom: Some("base_denom1".to_string()),
         remote_denom: Some("remote_denom1".to_string()),
         idle_min_interval: Some(1u64),
