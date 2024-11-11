@@ -1,5 +1,6 @@
-use cosmwasm_std::Empty;
+use cosmwasm_std::{attr, Empty};
 pub use cw721_base::{ContractError, MinterResponse};
+use drop_helpers::answer::response;
 use drop_staking_base::{
     msg::withdrawal_voucher::Extension,
     state::withdrawal_voucher::{Pause, PAUSE},
@@ -78,7 +79,11 @@ pub mod entry {
     ) -> Result<Response, cw721_base::ContractError> {
         cw_ownable::assert_owner(deps.storage, &info.sender)?;
         PAUSE.save(deps.storage, &pause)?;
-        Ok(Response::default())
+        Ok(response(
+            "execute-set-pause",
+            CONTRACT_NAME,
+            vec![attr("mint", pause.mint.to_string())],
+        ))
     }
 
     pub fn ensure_not_paused_method(deps: &DepsMut, msg: &ExecuteMsg) -> Result<(), ContractError> {
