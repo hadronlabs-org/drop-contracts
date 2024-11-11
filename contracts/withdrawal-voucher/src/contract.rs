@@ -1,6 +1,9 @@
 use cosmwasm_std::Empty;
 pub use cw721_base::{ContractError, MinterResponse};
-use drop_staking_base::msg::withdrawal_voucher::Extension;
+use drop_staking_base::{
+    msg::withdrawal_voucher::Extension,
+    state::withdrawal_voucher::{Pause, PAUSE},
+};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -12,6 +15,7 @@ pub mod entry {
     use super::*;
 
     use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult};
+    use cw721_base::ExecuteMsg as CW721ExecuteMsg;
     use drop_staking_base::msg::withdrawal_voucher::{
         ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
     };
@@ -25,6 +29,7 @@ pub mod entry {
         msg: InstantiateMsg,
     ) -> StdResult<Response> {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+        PAUSE.save(deps.storage, &Pause::default())?;
         Cw721VoucherContract::default().instantiate(deps.branch(), env, info, msg)
     }
 
@@ -35,7 +40,13 @@ pub mod entry {
         info: MessageInfo,
         msg: ExecuteMsg,
     ) -> Result<Response, ContractError> {
-        Cw721VoucherContract::default().execute(deps, env, info, msg)
+        ensure_not_paused_method(&deps, &msg)?;
+        match msg {
+            ExecuteMsg::Custom { msg } => {
+                Cw721VoucherContract::default().execute(deps, env, info, msg)
+            }
+            ExecuteMsg::SetPause(pause) => execute_set_pause(deps, info, pause),
+        }
     }
 
     #[cosmwasm_std::entry_point]
@@ -58,5 +69,32 @@ pub mod entry {
         }
 
         Ok(Response::new())
+    }
+
+    pub fn execute_set_pause(
+        deps: DepsMut,
+        info: MessageInfo,
+        pause: Pause,
+    ) -> Result<Response, cw721_base::ContractError> {
+        cw_ownable::assert_owner(deps.storage, &info.sender)?;
+        PAUSE.save(deps.storage, &pause)?;
+        Ok(Response::default())
+    }
+
+    pub fn ensure_not_paused_method(deps: &DepsMut, msg: &ExecuteMsg) -> Result<(), ContractError> {
+        match msg {
+            ExecuteMsg::Custom { msg } => match msg {
+                CW721ExecuteMsg::Mint { .. } => {
+                    if PAUSE.load(deps.as_ref().storage)?.mint {
+                        Err(ContractError::Std(StdError::GenericErr {
+                            msg: "method mint is paused".to_string(),
+                        }))?
+                    }
+                    Ok(())
+                }
+                _ => Ok(()),
+            },
+            _ => Ok(()),
+        }
     }
 }

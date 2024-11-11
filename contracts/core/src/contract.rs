@@ -18,7 +18,9 @@ use drop_staking_base::{
             ConfigResponse as TokenConfigResponse, ExecuteMsg as TokenExecuteMsg,
             QueryMsg as TokenQueryMsg,
         },
-        withdrawal_voucher::ExecuteMsg as VoucherExecuteMsg,
+        withdrawal_voucher::{
+            CW721ExecuteMsg as VoucherCW721ExecuteMsg, ExecuteMsg as VoucherExecuteMsg,
+        },
     },
     state::{
         core::{
@@ -1196,15 +1198,17 @@ fn execute_unbond(
     let msgs = vec![
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.withdrawal_voucher_contract.into_string(),
-            msg: to_json_binary(&VoucherExecuteMsg::Mint {
-                owner: info.sender.to_string(),
-                token_id: unbond_batch_id.to_string()
-                    + "_"
-                    + info.sender.to_string().as_str()
-                    + "_"
-                    + &unbond_batch.total_unbond_items.to_string(),
-                token_uri: None,
-                extension,
+            msg: to_json_binary(&VoucherExecuteMsg::Custom {
+                msg: VoucherCW721ExecuteMsg::Mint {
+                    owner: info.sender.to_string(),
+                    token_id: unbond_batch_id.to_string()
+                        + "_"
+                        + info.sender.to_string().as_str()
+                        + "_"
+                        + &unbond_batch.total_unbond_items.to_string(),
+                    token_uri: None,
+                    extension,
+                },
             })?,
             funds: vec![],
         }),

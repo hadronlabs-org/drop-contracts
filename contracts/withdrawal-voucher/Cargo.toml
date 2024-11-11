@@ -29,3 +29,4 @@ cw2 = { workspace = true }
 cw721-base = { workspace = true }
 drop-staking-base = { workspace = true }
 semver = { workspace = true }
+cw-ownable = { workspace = true }
