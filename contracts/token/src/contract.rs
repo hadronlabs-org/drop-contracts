@@ -33,6 +33,8 @@ pub fn instantiate(
     let core = deps.api.addr_validate(&msg.core_address)?;
     CORE_ADDRESS.save(deps.storage, &core)?;
 
+    PAUSE.save(deps.storage, &Pause::default())?;
+
     TOKEN_METADATA.save(deps.storage, &msg.token_metadata)?;
 
     DENOM.save(deps.storage, &msg.subdenom)?;
