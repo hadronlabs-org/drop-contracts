@@ -526,12 +526,7 @@ fn execute_tick(
 
     let current_state = FSM.get_current_state(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
-    let addrs = drop_helpers::get_contracts!(
-        deps,
-        config.factory_contract,
-        puppeteer_contract,
-        validators_set_contract
-    );
+    let addrs = drop_helpers::get_contracts!(deps, config.factory_contract, puppeteer_contract);
 
     check_latest_icq_responses(deps.as_ref(), addrs.puppeteer_contract)?;
 
