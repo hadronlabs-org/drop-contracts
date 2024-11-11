@@ -5,8 +5,6 @@ use cosmwasm_std::{CosmosMsg, Decimal, Uint128};
 use cw_ownable::cw_ownable_execute;
 use drop_macros::pausable;
 use neutron_sdk::bindings::msg::NeutronMsg;
-#[allow(unused_imports)]
-use std::collections::HashMap;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -86,9 +84,9 @@ pub struct MigrateMsg {}
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(HashMap<String, String>)]
+    #[returns(std::collections::HashMap<String, String>)]
     State {},
-    #[returns(HashMap<String, String>)]
+    #[returns(std::collections::HashMap<String, String>)]
     Locate { contracts: Vec<String> },
     #[returns(crate::state::factory::PauseInfoResponse)]
     PauseInfo {},

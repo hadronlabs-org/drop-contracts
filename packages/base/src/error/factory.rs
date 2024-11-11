@@ -26,6 +26,8 @@ pub enum ContractError {
     Unknown {},
     #[error("Semver parsing error: {0}")]
     SemVer(String),
+    #[error("Contract address not found: {name}")]
+    ContractAddressNotFound { name: String },
 }
 
 impl From<semver::Error> for ContractError {

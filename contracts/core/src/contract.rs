@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankQuery, Binary, Coin,

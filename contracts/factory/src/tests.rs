@@ -4,13 +4,21 @@ use cosmwasm_std::{
     testing::{mock_env, mock_info},
     to_json_binary, Addr, BankMsg, DepsMut, Uint128,
 };
-use drop_helpers::testing::{mock_dependencies, mock_dependencies_with_api};
+use drop_helpers::{
+    phonebook::{
+        CORE_CONTRACT, DISTRIBUTION_CONTRACT, LSM_SHARE_BOND_PROVIDER_CONTRACT,
+        NATIVE_BOND_PROVIDER_CONTRACT, PUPPETEER_CONTRACT, REWARDS_MANAGER_CONTRACT,
+        REWARDS_PUMP_CONTRACT, SPLITTER_CONTRACT, STRATEGY_CONTRACT, TOKEN_CONTRACT,
+        VALIDATORS_SET_CONTRACT, WITHDRAWAL_MANAGER_CONTRACT, WITHDRAWAL_VOUCHER_CONTRACT,
+    },
+    testing::{mock_dependencies, mock_dependencies_with_api},
+};
 use drop_staking_base::{
     msg::factory::{
         CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, LsmShareBondParams, NativeBondParams,
         QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
     },
-    state::factory::{CodeIds, RemoteOpts, Timeout, STATE},
+    state::factory::{CodeIds, Phonebook, RemoteOpts, Timeout, STATE},
 };
 use drop_staking_base::{
     msg::{
@@ -44,92 +52,45 @@ fn set_default_factory_state(deps: DepsMut<NeutronQuery>) {
     STATE
         .save(
             deps.storage,
-            "token_contract".to_string(),
-            &Addr::unchecked("token_contract".to_string()),
-        )
-        .unwrap();
-    STATE
-        .save(
-            deps.storage,
-            "core_contract".to_string(),
-            &Addr::unchecked("core_contract".to_string()),
-        )
-        .unwrap();
-    STATE
-        .save(
-            deps.storage,
-            "puppeteer_contract".to_string(),
-            &Addr::unchecked("puppeteer_contract".to_string()),
-        )
-        .unwrap();
-    STATE
-        .save(
-            deps.storage,
-            "withdrawal_voucher_contract".to_string(),
-            &Addr::unchecked("withdrawal_voucher_contract".to_string()),
-        )
-        .unwrap();
-    STATE
-        .save(
-            deps.storage,
-            "withdrawal_manager_contract".to_string(),
-            &Addr::unchecked("withdrawal_manager_contract".to_string()),
-        )
-        .unwrap();
-    STATE
-        .save(
-            deps.storage,
-            "strategy_contract".to_string(),
-            &Addr::unchecked("strategy_contract".to_string()),
-        )
-        .unwrap();
-    STATE
-        .save(
-            deps.storage,
-            "validators_set_contract".to_string(),
-            &Addr::unchecked("validators_set_contract".to_string()),
-        )
-        .unwrap();
-    STATE
-        .save(
-            deps.storage,
-            "distribution_contract".to_string(),
-            &Addr::unchecked("distribution_contract".to_string()),
-        )
-        .unwrap();
-    STATE
-        .save(
-            deps.storage,
-            "rewards_manager_contract".to_string(),
-            &Addr::unchecked("rewards_manager_contract".to_string()),
-        )
-        .unwrap();
-    STATE
-        .save(
-            deps.storage,
-            "rewards_pump_contract".to_string(),
-            &Addr::unchecked("rewards_pump_contract".to_string()),
-        )
-        .unwrap();
-    STATE
-        .save(
-            deps.storage,
-            "splitter_contract".to_string(),
-            &Addr::unchecked("splitter_contract".to_string()),
-        )
-        .unwrap();
-    STATE
-        .save(
-            deps.storage,
-            "lsm_share_bond_provider_contract".to_string(),
-            &Addr::unchecked("lsm_share_bond_provider_contract".to_string()),
-        )
-        .unwrap();
-    STATE
-        .save(
-            deps.storage,
-            "native_bond_provider_contract".to_string(),
-            &Addr::unchecked("native_bond_provider_contract".to_string()),
+            &Phonebook::new([
+                (TOKEN_CONTRACT, Addr::unchecked("token_contract")),
+                (CORE_CONTRACT, Addr::unchecked("core_contract")),
+                (PUPPETEER_CONTRACT, Addr::unchecked("puppeteer_contract")),
+                (
+                    WITHDRAWAL_MANAGER_CONTRACT,
+                    Addr::unchecked("withdrawal_manager_contract"),
+                ),
+                (
+                    WITHDRAWAL_VOUCHER_CONTRACT,
+                    Addr::unchecked("withdrawal_voucher_contract"),
+                ),
+                (STRATEGY_CONTRACT, Addr::unchecked("strategy_contract")),
+                (
+                    VALIDATORS_SET_CONTRACT,
+                    Addr::unchecked("validators_set_contract"),
+                ),
+                (
+                    DISTRIBUTION_CONTRACT,
+                    Addr::unchecked("distribution_contract"),
+                ),
+                (
+                    REWARDS_MANAGER_CONTRACT,
+                    Addr::unchecked("rewards_manager_contract"),
+                ),
+                (
+                    REWARDS_PUMP_CONTRACT,
+                    Addr::unchecked("rewards_pump_contract"),
+                ),
+                (SPLITTER_CONTRACT, Addr::unchecked("splitter_contract")),
+                (
+                    LSM_SHARE_BOND_PROVIDER_CONTRACT,
+                    Addr::unchecked("lsm_share_bond_provider_contract"),
+                ),
+                (
+                    NATIVE_BOND_PROVIDER_CONTRACT,
+                    Addr::unchecked("native_bond_provider_contract"),
+                ),
+            ]),
         )
         .unwrap();
 }
@@ -629,7 +590,9 @@ fn test_update_config_core_unauthorized() {
     .unwrap_err();
     assert_eq!(
         res,
-        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+        drop_staking_base::error::factory::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
     );
 }
 
@@ -705,7 +668,9 @@ fn test_update_config_validators_set_unauthorized() {
     .unwrap_err();
     assert_eq!(
         res,
-        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+        drop_staking_base::error::factory::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
     );
 }
 
@@ -782,7 +747,9 @@ fn test_proxy_validators_set_update_validators_unauthorized() {
     .unwrap_err();
     assert_eq!(
         res,
-        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+        drop_staking_base::error::factory::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
     );
 }
 
@@ -905,7 +872,9 @@ fn test_admin_execute_unauthorized() {
     .unwrap_err();
     assert_eq!(
         res,
-        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+        drop_staking_base::error::factory::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
     );
 }
 
@@ -1000,7 +969,9 @@ fn test_pause_unauthorized() {
     .unwrap_err();
     assert_eq!(
         res,
-        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+        drop_staking_base::error::factory::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
     );
 }
 
@@ -1074,7 +1045,9 @@ fn test_unpause_unauthorized() {
     .unwrap_err();
     assert_eq!(
         res,
-        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+        drop_staking_base::error::factory::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
     );
 }
 

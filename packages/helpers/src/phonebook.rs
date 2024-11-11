@@ -10,7 +10,7 @@ macro_rules! get_contracts {
             }
             let contracts = $deps
                                 .querier
-                                .query::<HashMap<String, String>>(&QueryRequest::Wasm(WasmQuery::Smart {
+                                .query::<std::collections::HashMap<String, String>>(&QueryRequest::Wasm(WasmQuery::Smart {
                                     contract_addr: $factory_contract.to_string(),
                                     msg: to_json_binary(&drop_staking_base::msg::factory::QueryMsg::Locate {
                                         contracts: vec![$(stringify!($field_name).to_string()),*],
@@ -27,3 +27,17 @@ macro_rules! get_contracts {
         }
     };
 }
+
+pub const CORE_CONTRACT: &str = "core_contract";
+pub const WITHDRAWAL_MANAGER_CONTRACT: &str = "withdrawal_manager_contract";
+pub const REWARDS_MANAGER_CONTRACT: &str = "rewards_manager_contract";
+pub const TOKEN_CONTRACT: &str = "token_contract";
+pub const PUPPETEER_CONTRACT: &str = "puppeteer_contract";
+pub const WITHDRAWAL_VOUCHER_CONTRACT: &str = "withdrawal_voucher_contract";
+pub const STRATEGY_CONTRACT: &str = "strategy_contract";
+pub const VALIDATORS_SET_CONTRACT: &str = "validators_set_contract";
+pub const DISTRIBUTION_CONTRACT: &str = "distribution_contract";
+pub const REWARDS_PUMP_CONTRACT: &str = "rewards_pump_contract";
+pub const SPLITTER_CONTRACT: &str = "splitter_contract";
+pub const LSM_SHARE_BOND_PROVIDER_CONTRACT: &str = "lsm_share_bond_provider_contract";
+pub const NATIVE_BOND_PROVIDER_CONTRACT: &str = "native_bond_provider_contract";
