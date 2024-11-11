@@ -20,7 +20,7 @@ macro_rules! get_contracts {
             Phonebook {
                 $(
                     $field_name: contracts.get(stringify!($field_name))
-                        .unwrap_or_else(|| panic!("Field {} not found in contracts", stringify!($field_name)))
+                        .expect(&format!("{} contract not found", stringify!($field_name)))
                         .to_string(),
                 )*
             }
