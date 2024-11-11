@@ -67,8 +67,14 @@ export const DropValidatorsSet = _21;
 import * as _22 from './dropValidatorsStats';
 export const DropValidatorsStats = _22;
 
-import * as _23 from './dropWithdrawalManager';
-export const DropWithdrawalManager = _23;
+import * as _23 from './dropWithdrawalExchange';
+export const DropWithdrawalExchange = _23;
 
-import * as _24 from './dropWithdrawalVoucher';
-export const DropWithdrawalVoucher = _24;
+import * as _24 from './dropWithdrawalManager';
+export const DropWithdrawalManager = _24;
+
+import * as _25 from './dropWithdrawalToken';
+export const DropWithdrawalToken = _25;
+
+import * as _26 from './dropWithdrawalVoucher';
+export const DropWithdrawalVoucher = _26;

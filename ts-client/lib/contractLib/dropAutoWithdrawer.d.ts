@@ -29,10 +29,20 @@ export type Uint64 = string;
 export type BondArgs = {
     with_ld_assets: {};
 } | {
-    with_n_f_t: {
-        token_id: string;
+    with_withdrawal_denoms: {
+        batch_id: Uint128;
     };
 };
+/**
+ * A human readable address.
+ *
+ * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
+ *
+ * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
+ *
+ * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
+ */
+export type Addr = string;
 export interface DropAutoWithdrawerSchema {
     responses: BondingsResponse | InstantiateMsg;
     query: BondingsArgs;
@@ -46,8 +56,9 @@ export interface BondingsResponse {
 }
 export interface BondingResponse {
     bonder: string;
+    bonding_id: string;
     deposit: Coin[];
-    token_id: string;
+    withdrawal_amount: Uint128;
 }
 export interface Coin {
     amount: Uint128;
@@ -57,8 +68,9 @@ export interface Coin {
 export interface InstantiateMsg {
     core_address: string;
     ld_token: string;
+    withdrawal_denom_prefix: string;
     withdrawal_manager_address: string;
-    withdrawal_voucher_address: string;
+    withdrawal_token_address: string;
 }
 export interface BondingsArgs {
     /**
@@ -75,16 +87,18 @@ export interface BondingsArgs {
     user?: string | null;
 }
 export interface UnbondArgs {
-    token_id: string;
+    batch_id: Uint128;
 }
 export interface WithdrawArgs {
-    token_id: string;
+    batch_id: Uint128;
+    receiver?: Addr | null;
 }
 export interface InstantiateMsg1 {
     core_address: string;
     ld_token: string;
+    withdrawal_denom_prefix: string;
     withdrawal_manager_address: string;
-    withdrawal_voucher_address: string;
+    withdrawal_token_address: string;
 }
 export declare class Client {
     private readonly client;

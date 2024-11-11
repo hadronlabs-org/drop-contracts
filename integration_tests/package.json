@@ -19,6 +19,7 @@
     "test:auto-withdrawer": "vitest --run auto-withdrawer.test.ts --bail 1",
     "test:gv": "vitest --run gv.test.ts --bail 1",
     "test:splitter": "vitest --run splitter.test.ts --bail 1",
+    "test:withdrawal-token": "vitest --run withdrawal-token.test.ts --bail 1",
     "debug": "vitest --inspect-brk --bail 1 --threads false --run core.test.ts",
     "watch": "vitest",
     "build-ts-client": "ts-node ./src/rebuild-client.ts",

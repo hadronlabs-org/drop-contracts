@@ -7,6 +7,7 @@ import {
   DropPuppeteer,
   DropStrategy,
   DropWithdrawalManager,
+  DropWithdrawalToken,
   DropWithdrawalVoucher,
   DropSplitter,
   DropToken,
@@ -44,6 +45,7 @@ const DropCoreClass = DropCore.Client;
 const DropPumpClass = DropPump.Client;
 const DropPuppeteerClass = DropPuppeteer.Client;
 const DropStrategyClass = DropStrategy.Client;
+const DropWithdrawalTokenClass = DropWithdrawalToken.Client;
 const DropWithdrawalVoucherClass = DropWithdrawalVoucher.Client;
 const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
 const DropAutoWithdrawerClass = DropAutoWithdrawer.Client;
@@ -68,6 +70,9 @@ describe('Auto withdrawer', () => {
     rewardsPumpContractClient?: InstanceType<typeof DropRewardsPumpClass>;
     puppeteerContractClient?: InstanceType<typeof DropPuppeteerClass>;
     tokenContractClient?: InstanceType<typeof DropTokenClass>;
+    withdrawalTokenContractClient?: InstanceType<
+      typeof DropWithdrawalTokenClass
+    >;
     withdrawalVoucherContractClient?: InstanceType<
       typeof DropWithdrawalVoucherClass
     >;
@@ -97,6 +102,7 @@ describe('Auto withdrawer', () => {
     codeIds: {
       core?: number;
       token?: number;
+      withdrawalToken?: number;
       withdrawalVoucher?: number;
       withdrawalManager?: number;
       strategy?: number;
@@ -108,10 +114,12 @@ describe('Auto withdrawer', () => {
       pump?: number;
       lsmShareBondProvider?: number;
       nativeBondProvider?: number;
+      withdrawalExchange?: number;
     };
     exchangeRate?: number;
     neutronIBCDenom?: string;
     ldDenom?: string;
+    withdrawalDenom?: (string) => string;
   } = { codeIds: {} };
 
   beforeAll(async (t) => {
@@ -292,6 +300,17 @@ describe('Auto withdrawer', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_withdrawal_token.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.withdrawalToken = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
           join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
         ),
         1.5,
@@ -309,6 +328,17 @@ describe('Auto withdrawer', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.withdrawalManager = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_withdrawal_exchange.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.withdrawalExchange = res.codeId;
     }
     {
       const res = await client.upload(
@@ -426,6 +456,7 @@ describe('Auto withdrawer', () => {
         code_ids: {
           core_code_id: context.codeIds.core,
           token_code_id: context.codeIds.token,
+          withdrawal_token_code_id: context.codeIds.withdrawalToken,
           withdrawal_voucher_code_id: context.codeIds.withdrawalVoucher,
           withdrawal_manager_code_id: context.codeIds.withdrawalManager,
           strategy_code_id: context.codeIds.strategy,
@@ -437,6 +468,7 @@ describe('Auto withdrawer', () => {
           rewards_pump_code_id: context.codeIds.pump,
           lsm_share_bond_provider_code_id: context.codeIds.lsmShareBondProvider,
           native_bond_provider_code_id: context.codeIds.nativeBondProvider,
+          withdrawal_exchange_code_id: context.codeIds.withdrawalExchange,
         },
         remote_opts: {
           connection_id: 'connection-0',
@@ -479,6 +511,9 @@ describe('Auto withdrawer', () => {
           lsm_min_bond_amount: '1000',
           lsm_redeem_max_interval: 60_000,
         },
+        withdrawal_token_params: {
+          is_init_state: false,
+        },
       },
       'drop-staking-factory',
       'auto',
@@ -508,6 +543,13 @@ describe('Auto withdrawer', () => {
         res.core_contract,
       );
     expect(coreContractInfo.data.contract_info.label).toBe('drop-staking-core');
+    const withdrawalTokenContractInfo =
+      await neutronClient.CosmwasmWasmV1.query.queryContractInfo(
+        res.withdrawal_token_contract,
+      );
+    expect(withdrawalTokenContractInfo.data.contract_info.label).toBe(
+      'drop-staking-withdrawal-token',
+    );
     const withdrawalVoucherContractInfo =
       await neutronClient.CosmwasmWasmV1.query.queryContractInfo(
         res.withdrawal_voucher_contract,
@@ -531,6 +573,10 @@ describe('Auto withdrawer', () => {
     );
     context.coreContractClient = instrumentCoreClass(
       new DropCore.Client(context.client, res.core_contract),
+    );
+    context.withdrawalTokenContractClient = new DropWithdrawalToken.Client(
+      context.client,
+      res.withdrawal_token_contract,
     );
     context.withdrawalVoucherContractClient = new DropWithdrawalVoucher.Client(
       context.client,
@@ -566,6 +612,8 @@ describe('Auto withdrawer', () => {
       res.token_contract,
     );
     context.ldDenom = `factory/${res.token_contract}/drop`;
+    context.withdrawalDenom = (batchId) =>
+      `factory/${res.withdrawal_token_contract}/drop:unbond:${batchId}`;
   });
 
   it('setup ICA for rewards pump', async () => {
@@ -795,11 +843,12 @@ describe('Auto withdrawer', () => {
       res.codeId,
       {
         core_address: context.coreContractClient.contractAddress,
-        withdrawal_voucher_address:
-          context.withdrawalVoucherContractClient.contractAddress,
+        withdrawal_token_address:
+          context.withdrawalTokenContractClient.contractAddress,
         withdrawal_manager_address:
           context.withdrawalManagerContractClient.contractAddress,
         ld_token: ldDenom,
+        withdrawal_denom_prefix: 'drop',
       },
       'drop-auto-withdrawer',
       'auto',
@@ -840,6 +889,7 @@ describe('Auto withdrawer', () => {
     expect(bondings).toEqual({
       bondings: [
         {
+          bonding_id: `${neutronUserAddress}_0`,
           bonder: neutronUserAddress,
           deposit: [
             {
@@ -847,7 +897,7 @@ describe('Auto withdrawer', () => {
               denom: 'untrn',
             },
           ],
-          token_id: `0_${autoWithdrawerContractClient.contractAddress}_2`,
+          withdrawal_amount: '20000',
         },
       ],
       next_page_key: null,
@@ -856,15 +906,12 @@ describe('Auto withdrawer', () => {
     await checkExchangeRate(context);
   });
   it('unbond', async () => {
-    const {
-      neutronUserAddress,
-      autoWithdrawerContractClient,
-      withdrawalVoucherContractClient,
-    } = context;
+    const { neutronClient, neutronUserAddress, autoWithdrawerContractClient } =
+      context;
     const res = await autoWithdrawerContractClient.unbond(
       neutronUserAddress,
       {
-        token_id: `0_${autoWithdrawerContractClient.contractAddress}_2`,
+        batch_id: '0',
       },
       1.6,
       undefined,
@@ -872,10 +919,18 @@ describe('Auto withdrawer', () => {
     );
     expect(res.transactionHash).toHaveLength(64);
 
-    const owner = await withdrawalVoucherContractClient.queryOwnerOf({
-      token_id: `0_${autoWithdrawerContractClient.contractAddress}_2`,
+    const balances =
+      await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+        neutronUserAddress,
+      );
+    expect(
+      balances.data.balances.find(
+        (one) => one.denom === context.withdrawalDenom('0'),
+      ),
+    ).toEqual({
+      denom: context.withdrawalDenom('0'),
+      amount: '520000',
     });
-    expect(owner.owner).toEqual(neutronUserAddress);
 
     const bondings = await autoWithdrawerContractClient.queryBondings({
       user: neutronUserAddress,
@@ -886,37 +941,23 @@ describe('Auto withdrawer', () => {
     });
     await checkExchangeRate(context);
   });
-  it('bond with NFT', async () => {
-    const {
-      neutronUserAddress,
-      autoWithdrawerContractClient,
-      withdrawalVoucherContractClient,
-    } = context;
+  it('bond with withdrawal denoms', async () => {
+    const { neutronUserAddress, autoWithdrawerContractClient } = context;
 
-    {
-      const res = await withdrawalVoucherContractClient.approve(
-        neutronUserAddress,
-        {
-          spender: autoWithdrawerContractClient.contractAddress,
-          token_id: `0_${autoWithdrawerContractClient.contractAddress}_2`,
-        },
-        1.6,
-        undefined,
-        [],
-      );
-      expect(res.transactionHash).toHaveLength(64);
-    }
     {
       const res = await autoWithdrawerContractClient.bond(
         neutronUserAddress,
         {
-          with_n_f_t: {
-            token_id: `0_${autoWithdrawerContractClient.contractAddress}_2`,
+          with_withdrawal_denoms: {
+            batch_id: '0',
           },
         },
         1.6,
         undefined,
-        [{ amount: '40000', denom: 'untrn' }],
+        [
+          { amount: '20000', denom: context.withdrawalDenom('0') },
+          { amount: '40000', denom: 'untrn' },
+        ],
       );
       expect(res.transactionHash).toHaveLength(64);
     }
@@ -927,6 +968,7 @@ describe('Auto withdrawer', () => {
     expect(bondings).toEqual({
       bondings: [
         {
+          bonding_id: `${neutronUserAddress}_0`,
           bonder: neutronUserAddress,
           deposit: [
             {
@@ -934,7 +976,7 @@ describe('Auto withdrawer', () => {
               denom: 'untrn',
             },
           ],
-          token_id: `0_${autoWithdrawerContractClient.contractAddress}_2`,
+          withdrawal_amount: '20000',
         },
       ],
       next_page_key: null,
@@ -1528,7 +1570,7 @@ describe('Auto withdrawer', () => {
         const res = await autoWithdrawerContractClient.withdraw(
           neutronUserAddress,
           {
-            token_id: `0_${autoWithdrawerContractClient.contractAddress}_2`,
+            batch_id: '0',
           },
           1.6,
           undefined,

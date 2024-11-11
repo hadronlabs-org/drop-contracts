@@ -1,0 +1,29 @@
+[package]
+authors = ["Denis Zagumennov <zagumen.denis@gmail.com>"]
+description = "Contract which exchanges withdrawal NFTs to withdrawal denoms"
+edition = "2021"
+name = "drop-withdrawal-exchange"
+version = "1.0.0"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+backtraces = ["cosmwasm-std/backtraces"]
+library = []
+
+[dependencies]
+cosmwasm-std = { workspace = true }
+drop-staking-base = { workspace = true }
+drop-helpers = { workspace = true }
+cosmwasm-schema = { workspace = true }
+cw2 = { workspace = true }
+cw721 = { workspace = true }
+cw-utils = { workspace = true }
+neutron-sdk = { workspace = true }
+thiserror = { workspace = true }
+cw-ownable = { workspace = true }
+cosmos-sdk-proto = { workspace = true }
+semver = { workspace = true }
+base64 = "0.21.7"
+serde_json = "1.0.132"

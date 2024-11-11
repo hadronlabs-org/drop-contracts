@@ -713,7 +713,9 @@ export interface State {
     strategy_contract: string;
     token_contract: string;
     validators_set_contract: string;
+    withdrawal_exchange_contract: string;
     withdrawal_manager_contract: string;
+    withdrawal_token_contract: string;
     withdrawal_voucher_contract: string;
 }
 export interface ConfigOptional {
@@ -734,6 +736,7 @@ export interface ConfigOptional {
     unbonding_safe_period?: number | null;
     validators_set_contract?: string | null;
     withdrawal_manager_contract?: string | null;
+    withdrawal_token_contract?: string | null;
     withdrawal_voucher_contract?: string | null;
 }
 export interface ConfigOptional2 {
@@ -1125,6 +1128,7 @@ export interface InstantiateMsg {
     sdk_version: string;
     subdenom: string;
     token_metadata: DenomMetadata;
+    withdrawal_token_params: WithdrawalTokenParams;
 }
 export interface CodeIds {
     core_code_id: number;
@@ -1138,7 +1142,9 @@ export interface CodeIds {
     strategy_code_id: number;
     token_code_id: number;
     validators_set_code_id: number;
+    withdrawal_exchange_code_id: number;
     withdrawal_manager_code_id: number;
+    withdrawal_token_code_id: number;
     withdrawal_voucher_code_id: number;
 }
 export interface CoreParams {
@@ -1204,6 +1210,9 @@ export interface DenomMetadata {
      * SHA256 hash of a document pointed by URI
      */
     uri_hash?: string | null;
+}
+export interface WithdrawalTokenParams {
+    is_init_state: boolean;
 }
 export declare class Client {
     private readonly client;

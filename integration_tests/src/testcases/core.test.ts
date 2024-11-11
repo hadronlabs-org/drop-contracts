@@ -6,6 +6,7 @@ import {
   DropPuppeteer,
   DropStrategy,
   DropWithdrawalManager,
+  DropWithdrawalToken,
   DropWithdrawalVoucher,
   DropRewardsManager,
   DropSplitter,
@@ -52,6 +53,7 @@ const DropCoreClass = DropCore.Client;
 const DropPumpClass = DropPump.Client;
 const DropPuppeteerClass = DropPuppeteer.Client;
 const DropStrategyClass = DropStrategy.Client;
+const DropWithdrawalTokenClass = DropWithdrawalToken.Client;
 const DropWithdrawalVoucherClass = DropWithdrawalVoucher.Client;
 const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
 const DropRewardsManagerClass = DropRewardsManager.Client;
@@ -78,6 +80,9 @@ describe('Core', () => {
     puppeteerContractClient?: InstanceType<typeof DropPuppeteerClass>;
     splitterContractClient?: InstanceType<typeof DropSplitterClass>;
     tokenContractClient?: InstanceType<typeof DropTokenClass>;
+    withdrawalTokenContractClient?: InstanceType<
+      typeof DropWithdrawalTokenClass
+    >;
     withdrawalVoucherContractClient?: InstanceType<
       typeof DropWithdrawalVoucherClass
     >;
@@ -113,6 +118,7 @@ describe('Core', () => {
     codeIds: {
       core?: number;
       token?: number;
+      withdrawalToken?: number;
       withdrawalVoucher?: number;
       withdrawalManager?: number;
       redemptionRateAdapter?: number;
@@ -126,6 +132,7 @@ describe('Core', () => {
       lsmShareBondProvider?: number;
       nativeBondProvider?: number;
       valRef?: number;
+      withdrawalExchange?: number;
     };
     exchangeRate?: number;
     neutronIBCDenom?: string;
@@ -311,6 +318,17 @@ describe('Core', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_withdrawal_token.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.withdrawalToken = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
           join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
         ),
         1.5,
@@ -328,6 +346,17 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.withdrawalManager = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_withdrawal_exchange.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.withdrawalExchange = res.codeId;
     }
     {
       const res = await client.upload(
@@ -471,6 +500,7 @@ describe('Core', () => {
         code_ids: {
           core_code_id: context.codeIds.core,
           token_code_id: context.codeIds.token,
+          withdrawal_token_code_id: context.codeIds.withdrawalToken,
           withdrawal_voucher_code_id: context.codeIds.withdrawalVoucher,
           withdrawal_manager_code_id: context.codeIds.withdrawalManager,
           strategy_code_id: context.codeIds.strategy,
@@ -482,6 +512,7 @@ describe('Core', () => {
           rewards_pump_code_id: context.codeIds.pump,
           lsm_share_bond_provider_code_id: context.codeIds.lsmShareBondProvider,
           native_bond_provider_code_id: context.codeIds.nativeBondProvider,
+          withdrawal_exchange_code_id: context.codeIds.withdrawalExchange,
         },
         remote_opts: {
           connection_id: 'connection-0',
@@ -524,6 +555,9 @@ describe('Core', () => {
           lsm_min_bond_amount: '1000',
           lsm_redeem_max_interval: 60_000,
         },
+        withdrawal_token_params: {
+          is_init_state: false,
+        },
       },
       'drop-staking-factory',
       'auto',
@@ -552,6 +586,13 @@ describe('Core', () => {
         res.core_contract,
       );
     expect(coreContractInfo.data.contract_info.label).toBe('drop-staking-core');
+    const withdrawalTokenContractInfo =
+      await neutronClient.CosmwasmWasmV1.query.queryContractInfo(
+        res.withdrawal_token_contract,
+      );
+    expect(withdrawalTokenContractInfo.data.contract_info.label).toBe(
+      'drop-staking-withdrawal-token',
+    );
     const withdrawalVoucherContractInfo =
       await neutronClient.CosmwasmWasmV1.query.queryContractInfo(
         res.withdrawal_voucher_contract,
@@ -575,6 +616,10 @@ describe('Core', () => {
     );
     context.coreContractClient = instrumentCoreClass(
       new DropCore.Client(context.client, res.core_contract),
+    );
+    context.withdrawalTokenContractClient = new DropWithdrawalToken.Client(
+      context.client,
+      res.withdrawal_token_contract,
     );
     context.withdrawalVoucherContractClient = new DropWithdrawalVoucher.Client(
       context.client,
@@ -2627,66 +2672,22 @@ describe('Core', () => {
     });
 
     describe('forth cycle', () => {
-      it('validate NFT', async () => {
-        const { withdrawalVoucherContractClient, neutronUserAddress } = context;
-        const vouchers = await withdrawalVoucherContractClient.queryTokens({
-          owner: context.neutronUserAddress,
-        });
-        expect(vouchers.tokens.length).toBe(2);
-        expect(vouchers.tokens[0]).toBe(`0_${neutronUserAddress}_1`);
-        let tokenId = vouchers.tokens[0];
-        let voucher = await withdrawalVoucherContractClient.queryNftInfo({
-          token_id: tokenId,
-        });
-        expect(voucher).toBeTruthy();
-        expect(voucher).toMatchObject({
-          extension: {
-            amount: '200000',
-            attributes: [
-              {
-                display_type: null,
-                trait_type: 'unbond_batch_id',
-                value: '0',
-              },
-              {
-                display_type: null,
-                trait_type: 'received_amount',
-                value: '200000',
-              },
-            ],
-            batch_id: '0',
-            description: 'Withdrawal voucher',
-            name: 'LDV voucher',
-          },
-          token_uri: null,
-        });
-        expect(vouchers.tokens[1]).toBe(`0_${neutronUserAddress}_2`);
-        tokenId = vouchers.tokens[1];
-        voucher = await withdrawalVoucherContractClient.queryNftInfo({
-          token_id: tokenId,
-        });
-        expect(voucher).toBeTruthy();
-        expect(voucher).toMatchObject({
-          extension: {
-            amount: '300000',
-            attributes: [
-              {
-                display_type: null,
-                trait_type: 'unbond_batch_id',
-                value: '0',
-              },
-              {
-                display_type: null,
-                trait_type: 'received_amount',
-                value: '300000',
-              },
-            ],
-            batch_id: '0',
-            description: 'Withdrawal voucher',
-            name: 'LDV voucher',
-          },
-          token_uri: null,
-        });
+      it('validates withdrawal tokens balance', async () => {
+        const {
+          neutronClient,
+          neutronUserAddress,
+          withdrawalTokenContractClient,
+        } = context;
+        const balances =
+          await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+            neutronUserAddress,
+          );
+        const withdrawalTokenBalance = balances.data.balances.find(
+          (b) =>
+            b.denom ===
+            `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`,
+        );
+        expect(withdrawalTokenBalance.amount).eq('500000');
       });
       it('bond tokenized share from registered validator', async () => {
         const { coreContractClient, neutronUserAddress } = context;
@@ -2707,7 +2708,8 @@ describe('Core', () => {
       });
       it('try to withdraw from paused manager', async () => {
         const {
-          withdrawalVoucherContractClient,
+          withdrawalManagerContractClient,
+          withdrawalTokenContractClient,
           neutronUserAddress,
           factoryContractClient: contractClient,
           account,
@@ -2715,34 +2717,42 @@ describe('Core', () => {
 
         await contractClient.pause(account.address);
 
-        const tokenId = `0_${neutronUserAddress}_1`;
         await expect(
-          withdrawalVoucherContractClient.sendNft(neutronUserAddress, {
-            token_id: tokenId,
-            contract: context.withdrawalManagerContractClient.contractAddress,
-            msg: Buffer.from(
-              JSON.stringify({
-                withdraw: {},
-              }),
-            ).toString('base64'),
-          }),
+          withdrawalManagerContractClient.receiveWithdrawalDenoms(
+            neutronUserAddress,
+            {},
+            'auto',
+            null,
+            [
+              {
+                denom: `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`,
+                amount: '100000',
+              },
+            ],
+          ),
         ).rejects.toThrowError(/Contract execution is paused/);
 
         await contractClient.unpause(account.address);
       });
       it('try to withdraw before withdrawn', async () => {
-        const { withdrawalVoucherContractClient, neutronUserAddress } = context;
-        const tokenId = `0_${neutronUserAddress}_1`;
+        const {
+          withdrawalManagerContractClient,
+          withdrawalTokenContractClient,
+          neutronUserAddress,
+        } = context;
         await expect(
-          withdrawalVoucherContractClient.sendNft(neutronUserAddress, {
-            token_id: tokenId,
-            contract: context.withdrawalManagerContractClient.contractAddress,
-            msg: Buffer.from(
-              JSON.stringify({
-                withdraw: {},
-              }),
-            ).toString('base64'),
-          }),
+          withdrawalManagerContractClient.receiveWithdrawalDenoms(
+            neutronUserAddress,
+            {},
+            'auto',
+            null,
+            [
+              {
+                denom: `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`,
+                amount: '100000',
+              },
+            ],
+          ),
         ).rejects.toThrowError(/is not withdrawn yet/);
       });
       it('update idle interval', async () => {
@@ -2883,20 +2893,23 @@ describe('Core', () => {
       });
       it('withdraw with non funded withdrawal manager', async () => {
         const {
-          withdrawalVoucherContractClient: voucherContractClient,
+          withdrawalTokenContractClient,
+          withdrawalManagerContractClient,
           neutronUserAddress,
         } = context;
-        const tokenId = `0_${neutronUserAddress}_1`;
         await expect(
-          voucherContractClient.sendNft(neutronUserAddress, {
-            token_id: tokenId,
-            contract: context.withdrawalManagerContractClient.contractAddress,
-            msg: Buffer.from(
-              JSON.stringify({
-                withdraw: {},
-              }),
-            ).toString('base64'),
-          }),
+          withdrawalManagerContractClient.receiveWithdrawalDenoms(
+            neutronUserAddress,
+            {},
+            'auto',
+            null,
+            [
+              {
+                denom: `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`,
+                amount: '100000',
+              },
+            ],
+          ),
         ).rejects.toThrowError(/spendable balance [\w/]+ is smaller than/);
       });
       it('fund withdrawal manager', async () => {
@@ -2921,7 +2934,8 @@ describe('Core', () => {
       });
       it('withdraw', async () => {
         const {
-          withdrawalVoucherContractClient: voucherContractClient,
+          withdrawalTokenContractClient,
+          withdrawalManagerContractClient,
           neutronUserAddress,
           neutronClient,
           neutronIBCDenom,
@@ -2934,16 +2948,19 @@ describe('Core', () => {
             )
           ).data.balance.amount,
         );
-        const tokenId = `0_${neutronUserAddress}_1`;
-        const res = await voucherContractClient.sendNft(neutronUserAddress, {
-          token_id: tokenId,
-          contract: context.withdrawalManagerContractClient.contractAddress,
-          msg: Buffer.from(
-            JSON.stringify({
-              withdraw: {},
-            }),
-          ).toString('base64'),
-        });
+        const res =
+          await withdrawalManagerContractClient.receiveWithdrawalDenoms(
+            neutronUserAddress,
+            {},
+            'auto',
+            null,
+            [
+              {
+                denom: `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`,
+                amount: '200000',
+              },
+            ],
+          );
         expect(res.transactionHash).toHaveLength(64);
         const balance =
           await neutronClient.CosmosBankV1Beta1.query.queryBalance(
@@ -2957,7 +2974,8 @@ describe('Core', () => {
       });
       it('withdraw to custom receiver', async () => {
         const {
-          withdrawalVoucherContractClient: voucherContractClient,
+          withdrawalTokenContractClient,
+          withdrawalManagerContractClient,
           neutronUserAddress,
           neutronSecondUserAddress,
           neutronClient,
@@ -2972,18 +2990,19 @@ describe('Core', () => {
           ).data.balance.amount,
         );
         expect(balanceBefore).toEqual(0);
-        const tokenId = `0_${neutronUserAddress}_2`;
-        const res = await voucherContractClient.sendNft(neutronUserAddress, {
-          token_id: tokenId,
-          contract: context.withdrawalManagerContractClient.contractAddress,
-          msg: Buffer.from(
-            JSON.stringify({
-              withdraw: {
-                receiver: neutronSecondUserAddress,
+        const res =
+          await withdrawalManagerContractClient.receiveWithdrawalDenoms(
+            neutronUserAddress,
+            { receiver: neutronSecondUserAddress },
+            'auto',
+            null,
+            [
+              {
+                denom: `factory/${withdrawalTokenContractClient.contractAddress}/drop:unbond:0`,
+                amount: '300000',
               },
-            }),
-          ).toString('base64'),
-        });
+            ],
+          );
         expect(res.transactionHash).toHaveLength(64);
         const balance =
           await neutronClient.CosmosBankV1Beta1.query.queryBalance(

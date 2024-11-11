@@ -1,25 +1,31 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Coin, Uint64};
+use cosmwasm_std::{Addr, Coin, Uint128, Uint64};
 
 #[cw_serde]
 pub struct InstantiateMsg {
     pub core_address: String,
-    pub withdrawal_voucher_address: String,
+    pub withdrawal_token_address: String,
     pub withdrawal_manager_address: String,
     pub ld_token: String,
+    pub withdrawal_denom_prefix: String,
 }
 
 #[cw_serde]
 pub enum ExecuteMsg {
     Bond(BondMsg),
-    Unbond { token_id: String },
-    Withdraw { token_id: String },
+    Unbond {
+        batch_id: Uint128,
+    },
+    Withdraw {
+        batch_id: Uint128,
+        receiver: Option<Addr>,
+    },
 }
 
 #[cw_serde]
 pub enum BondMsg {
     WithLdAssets {},
-    WithNFT { token_id: String },
+    WithWithdrawalDenoms { batch_id: Uint128 },
 }
 
 #[cw_serde]
@@ -47,9 +53,10 @@ pub struct BondingsResponse {
 
 #[cw_serde]
 pub struct BondingResponse {
-    pub token_id: String,
+    pub bonding_id: String,
     pub bonder: String,
     pub deposit: Vec<Coin>,
+    pub withdrawal_amount: Uint128,
 }
 
 #[cw_serde]

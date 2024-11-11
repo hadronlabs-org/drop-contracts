@@ -64,13 +64,14 @@ export type UpdateOwnershipArgs = {
 } | "accept_ownership" | "renounce_ownership";
 export interface DropWithdrawalManagerSchema {
     responses: Config | OwnershipForString | PauseInfoResponse;
-    execute: UpdateConfigArgs | ReceiveNftArgs | UpdateOwnershipArgs;
+    execute: UpdateConfigArgs | ReceiveNftArgs | ReceiveWithdrawalDenomsArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
 export interface Config {
     base_denom: string;
     core_contract: Addr;
+    withdrawal_token_contract: Addr;
     withdrawal_voucher_contract: Addr;
 }
 /**
@@ -107,10 +108,14 @@ export interface ReceiveNftArgs {
     };
     additionalProperties?: never;
 }
+export interface ReceiveWithdrawalDenomsArgs {
+    receiver?: string | null;
+}
 export interface InstantiateMsg {
     base_denom: string;
     core_contract: string;
     owner: string;
+    token_contract: string;
     voucher_contract: string;
 }
 export declare class Client {
@@ -125,6 +130,7 @@ export declare class Client {
     queryPauseInfo: () => Promise<PauseInfoResponse>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     receiveNft: (sender: string, args: ReceiveNftArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    receiveWithdrawalDenoms: (sender: string, args: ReceiveWithdrawalDenomsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     pause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     unpause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

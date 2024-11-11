@@ -49,6 +49,7 @@ describe('Locator', () => {
       distribution?: number;
       rewardsManager?: number;
       factory?: number;
+      withdrawalExchange?: number;
     };
   } = { contracts: {}, codeIds: {} };
 
@@ -172,6 +173,17 @@ describe('Locator', () => {
       const res = await client.upload(
         account.address,
         fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_withdrawal_exchange.wasm'),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.withdrawalExchange = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        fs.readFileSync(
           join(__dirname, '../../../artifacts/drop_strategy.wasm'),
         ),
         1.5,
@@ -259,6 +271,7 @@ describe('Locator', () => {
         validators_set_code_id: context.codeIds.validatorsSet,
         puppeteer_code_id: context.codeIds.puppeteer,
         rewards_manager_code_id: context.codeIds.rewardsManager,
+        withdrawal_exchange_code_id: context.codeIds.withdrawalExchange,
       },
       remote_opts: {
         connection_id: 'connection-0',
@@ -295,6 +308,9 @@ describe('Locator', () => {
       staker_params: {
         min_stake_amount: '10000',
         min_ibc_transfer: '10000',
+      },
+      withdrawal_token_params: {
+        is_init_state: false,
       },
     };
     const factory2_instantiate_message = factory1_instantiate_message;
