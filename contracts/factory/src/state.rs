@@ -45,6 +45,7 @@ pub struct State {
     pub withdrawal_token_contract: String,
     pub withdrawal_voucher_contract: String,
     pub withdrawal_manager_contract: String,
+    pub withdrawal_exchange_contract: String,
     pub strategy_contract: String,
     pub validators_set_contract: String,
     pub distribution_contract: String,

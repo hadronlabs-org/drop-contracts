@@ -123,15 +123,25 @@ fn premint(deps: DepsMut<NeutronQuery>, env: Env) -> ContractResult<Response<Neu
         let denom_prefix = DENOM_PREFIX.load(deps.storage)?;
         let subdenom = build_subdenom_name(denom_prefix, batch_id);
 
-        messages.push(CosmosMsg::from(NeutronMsg::submit_create_denom(&subdenom)));
+        let full_denom = match query_full_denom(deps.as_ref(), &env.contract.address, &subdenom) {
+            Ok(response) => Some(response),
+            Err(_) => {
+                messages.push(CosmosMsg::from(NeutronMsg::submit_create_denom(&subdenom)));
+                Some(query_full_denom(
+                    deps.as_ref(),
+                    &env.contract.address,
+                    &subdenom,
+                )?)
+            }
+        };
 
-        let full_denom = query_full_denom(deps.as_ref(), &env.contract.address, subdenom)?;
-
-        messages.push(CosmosMsg::from(NeutronMsg::submit_mint_tokens(
-            &full_denom.denom,
-            amount_to_premint,
-            &withdrawal_exchange_address,
-        )));
+        if let Some(denom) = full_denom {
+            messages.push(CosmosMsg::from(NeutronMsg::submit_mint_tokens(
+                &denom.denom,
+                amount_to_premint,
+                &withdrawal_exchange_address,
+            )));
+        }
     }
 
     Ok(response(
@@ -153,9 +163,6 @@ fn create_denom(
     info: MessageInfo,
     batch_id: Uint128,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let is_init_state = IS_INIT_STATE.load(deps.storage)?;
-    ensure_eq!(is_init_state, false, ContractError::IncorrectState);
-
     let core = CORE_ADDRESS.load(deps.storage)?;
     ensure_eq!(info.sender, core, ContractError::Unauthorized);
 
@@ -183,9 +190,6 @@ fn mint(
     receiver: String,
     batch_id: Uint128,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let is_init_state = IS_INIT_STATE.load(deps.storage)?;
-    ensure_eq!(is_init_state, false, ContractError::IncorrectState);
-
     ensure_ne!(amount, Uint128::zero(), ContractError::NothingToMint);
 
     let core = CORE_ADDRESS.load(deps.storage)?;
@@ -215,9 +219,6 @@ fn burn(
     env: Env,
     batch_id: Uint128,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let is_init_state = IS_INIT_STATE.load(deps.storage)?;
-    ensure_eq!(is_init_state, false, ContractError::IncorrectState);
-
     let withdrawal_manager = WITHDRAWAL_MANAGER_ADDRESS.load(deps.storage)?;
     ensure_eq!(info.sender, withdrawal_manager, ContractError::Unauthorized);
 

@@ -257,6 +257,7 @@ pub fn instantiate(
         withdrawal_token_contract: withdrawal_token_contract.to_string(),
         withdrawal_voucher_contract: withdrawal_voucher_contract.to_string(),
         withdrawal_manager_contract: withdrawal_manager_contract.to_string(),
+        withdrawal_exchange_contract: withdrawal_exchange_contract.to_string(),
         strategy_contract: strategy_contract.to_string(),
         validators_set_contract: validators_set_contract.to_string(),
         distribution_contract: distribution_contract.to_string(),

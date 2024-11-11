@@ -713,6 +713,7 @@ export interface State {
     strategy_contract: string;
     token_contract: string;
     validators_set_contract: string;
+    withdrawal_exchange_contract: string;
     withdrawal_manager_contract: string;
     withdrawal_token_contract: string;
     withdrawal_voucher_contract: string;
