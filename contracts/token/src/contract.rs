@@ -7,7 +7,7 @@ use cosmwasm_std::{
 use drop_helpers::answer::{attr_coin, response};
 use drop_staking_base::{
     msg::token::{ConfigResponse, DenomMetadata, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
-    state::token::{CORE_ADDRESS, DENOM, TOKEN_METADATA},
+    state::token::{CORE_ADDRESS, DENOM, PAUSE, TOKEN_METADATA},
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -79,6 +79,9 @@ fn mint(
     amount: Uint128,
     receiver: String,
 ) -> ContractResult<Response<NeutronMsg>> {
+    if PAUSE.load(deps.storage)?.mint {
+        return Err(drop_helpers::pause::PauseError::Paused {}.into());
+    }
     ensure_ne!(amount, Uint128::zero(), ContractError::NothingToMint);
 
     let core = CORE_ADDRESS.load(deps.storage)?;
@@ -99,6 +102,10 @@ fn mint(
 }
 
 fn burn(deps: DepsMut<NeutronQuery>, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
+    if PAUSE.load(deps.storage)?.burn {
+        return Err(drop_helpers::pause::PauseError::Paused {}.into());
+    }
+
     let core = CORE_ADDRESS.load(deps.storage)?;
     ensure_eq!(info.sender, core, ContractError::Unauthorized);
 

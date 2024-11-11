@@ -12,10 +12,11 @@ use cosmwasm_std::{
     to_json_binary, Addr, Binary, CosmosMsg, Event, QueryRequest, Reply, ReplyOn, SubMsgResult,
     Uint128,
 };
+use drop_helpers::pause::PauseError;
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::{
     msg::token::{ConfigResponse, DenomMetadata, ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::token::{CORE_ADDRESS, DENOM, TOKEN_METADATA},
+    state::token::{Pause, CORE_ADDRESS, DENOM, PAUSE, TOKEN_METADATA},
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -184,6 +185,15 @@ fn reply() {
 #[test]
 fn mint_zero() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: false,
+                burn: true,
+            },
+        )
+        .unwrap();
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
@@ -207,6 +217,15 @@ fn mint_zero() {
 #[test]
 fn mint() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: false,
+                burn: true,
+            },
+        )
+        .unwrap();
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
@@ -243,8 +262,42 @@ fn mint() {
 }
 
 #[test]
+fn mint_paused() {
+    let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: true,
+                burn: true,
+            },
+        )
+        .unwrap();
+    let error = contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &[]),
+        ExecuteMsg::Mint {
+            amount: Uint128::zero(),
+            receiver: "".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(error, ContractError::PauseError(PauseError::Paused {}));
+}
+
+#[test]
 fn mint_stranger() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: false,
+                burn: true,
+            },
+        )
+        .unwrap();
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
@@ -267,8 +320,40 @@ fn mint_stranger() {
 }
 
 #[test]
-fn burn_zero() {
+fn burn_paused() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: true,
+                burn: true,
+            },
+        )
+        .unwrap();
+
+    let error = contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &[]),
+        ExecuteMsg::Burn {},
+    )
+    .unwrap_err();
+    assert_eq!(error, ContractError::PauseError(PauseError::Paused {}));
+}
+
+#[test]
+fn burn_zero_unpaused() {
+    let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: true,
+                burn: false,
+            },
+        )
+        .unwrap();
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
@@ -292,6 +377,15 @@ fn burn_zero() {
 #[test]
 fn burn_multiple_coins() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: true,
+                burn: false,
+            },
+        )
+        .unwrap();
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
@@ -313,8 +407,17 @@ fn burn_multiple_coins() {
 }
 
 #[test]
-fn burn_invalid_coin() {
+fn burn_invalid_coin_unpaused() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: true,
+                burn: false,
+            },
+        )
+        .unwrap();
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
@@ -338,6 +441,15 @@ fn burn_invalid_coin() {
 #[test]
 fn burn() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: true,
+                burn: false,
+            },
+        )
+        .unwrap();
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
@@ -370,8 +482,17 @@ fn burn() {
 }
 
 #[test]
-fn burn_stranger() {
+fn burn_stranger_paused() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: true,
+                burn: false,
+            },
+        )
+        .unwrap();
     CORE_ADDRESS
         .save(deps.as_mut().storage, &Addr::unchecked("core"))
         .unwrap();
