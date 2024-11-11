@@ -56,6 +56,12 @@ class Client {
         }
         return this.client.execute(sender, this.contractAddress, { premint: {} }, fee || "auto", memo, funds);
     };
+    disableInitState = async (sender, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { disable_init_state: {} }, fee || "auto", memo, funds);
+    };
     updateOwnership = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();

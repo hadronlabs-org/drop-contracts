@@ -29,6 +29,9 @@ pub enum ContractError {
     #[error("all batches are already preminted")]
     AllBatchesPreminted,
 
+    #[error("not all batches are preminted")]
+    NotPremintedBatchesLeft,
+
     #[error("Semver parsing error: {0}")]
     SemVer(String),
 }

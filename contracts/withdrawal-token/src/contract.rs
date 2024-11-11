@@ -83,6 +83,7 @@ pub fn execute(
         } => mint(deps, info, env, amount, receiver, batch_id),
         ExecuteMsg::Burn { batch_id } => burn(deps, info, env, batch_id),
         ExecuteMsg::Premint {} => premint(deps, env),
+        ExecuteMsg::DisableInitState {} => disable_init_state(deps),
     }
 }
 
@@ -156,6 +157,26 @@ fn premint(deps: DepsMut<NeutronQuery>, env: Env) -> ContractResult<Response<Neu
         ],
     )
     .add_messages(messages))
+}
+
+fn disable_init_state(deps: DepsMut<NeutronQuery>) -> ContractResult<Response<NeutronMsg>> {
+    let is_init_state = IS_INIT_STATE.load(deps.storage)?;
+    ensure_eq!(is_init_state, true, ContractError::IncorrectState);
+
+    let next_batch_to_premint = NEXT_BATCH_TO_PREMINT.load(deps.storage)?;
+    ensure_eq!(
+        next_batch_to_premint,
+        None,
+        ContractError::NotPremintedBatchesLeft
+    );
+
+    IS_INIT_STATE.save(deps.storage, &false)?;
+
+    Ok(response(
+        "execute-disable-init-state",
+        CONTRACT_NAME,
+        [attr("action", "disable-init-state")],
+    ))
 }
 
 fn create_denom(

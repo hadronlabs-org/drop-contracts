@@ -32,6 +32,7 @@ pub enum ExecuteMsg {
         batch_id: Uint128,
     },
     Premint {},
+    DisableInitState {},
 }
 #[cw_serde]
 pub struct InstantiateMsg {

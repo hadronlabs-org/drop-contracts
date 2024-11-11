@@ -1018,5 +1018,13 @@ describe('Withdrawal token', () => {
         ),
       ).rejects.toThrowError(/all batches are already preminted/);
     });
+    it('disable init state', async () => {
+      await context.withdrawalTokenContractClient.disableInitState(
+        context.neutronUserAddress,
+        1.5,
+        undefined,
+        [],
+      );
+    });
   });
 });
