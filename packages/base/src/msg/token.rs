@@ -9,6 +9,8 @@ use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 pub enum QueryMsg {
     #[returns(ConfigResponse)]
     Config {},
+    #[returns(Pause)]
+    Pause {},
 }
 
 #[cw_serde]

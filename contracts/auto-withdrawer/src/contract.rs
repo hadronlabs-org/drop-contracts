@@ -17,7 +17,6 @@ use cosmwasm_std::{
 };
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
-use drop_staking_base::msg::withdrawal_voucher::CW721ExecuteMsg as VoucherCW721ExecuteMsg;
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 
 pub const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
@@ -132,11 +131,9 @@ fn execute_bond_with_nft(
     let msg = WasmMsg::Execute {
         contract_addr: withdrawal_voucher.into_string(),
         msg: to_json_binary(
-            &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::Custom {
-                msg: VoucherCW721ExecuteMsg::TransferNft {
-                    recipient: env.contract.address.into_string(),
-                    token_id,
-                },
+            &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::TransferNft {
+                recipient: env.contract.address.into_string(),
+                token_id,
             },
         )?,
         funds: vec![],
@@ -160,11 +157,9 @@ fn execute_unbond(
     let nft_msg: CosmosMsg<NeutronMsg> = WasmMsg::Execute {
         contract_addr: withdrawal_voucher.into_string(),
         msg: to_json_binary(
-            &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::Custom {
-                msg: VoucherCW721ExecuteMsg::TransferNft {
-                    recipient: info.sender.to_string(),
-                    token_id,
-                },
+            &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::TransferNft {
+                recipient: info.sender.to_string(),
+                token_id,
             },
         )?,
         funds: vec![],
@@ -195,16 +190,14 @@ fn execute_withdraw(
     let withdraw_msg: CosmosMsg<NeutronMsg> = WasmMsg::Execute {
         contract_addr: withdrawal_voucher.into_string(),
         msg: to_json_binary(
-            &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::Custom {
-                msg: VoucherCW721ExecuteMsg::SendNft {
-                    contract: withdrawal_manager.into_string(),
-                    token_id,
-                    msg: to_json_binary(
-                        &drop_staking_base::msg::withdrawal_manager::ReceiveNftMsg::Withdraw {
-                            receiver: Some(bonding.bonder.into_string()),
-                        },
-                    )?,
-                },
+            &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::SendNft {
+                contract: withdrawal_manager.into_string(),
+                token_id,
+                msg: to_json_binary(
+                    &drop_staking_base::msg::withdrawal_manager::ReceiveNftMsg::Withdraw {
+                        receiver: Some(bonding.bonder.into_string()),
+                    },
+                )?,
             },
         )?,
         funds: vec![],

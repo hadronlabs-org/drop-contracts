@@ -4,7 +4,8 @@ use cosmwasm_std::{
     Event, Response, StdError,
 };
 use drop_helpers::testing::mock_dependencies;
-use drop_staking_base::msg::withdrawal_voucher::{CW721ExecuteMsg, ExecuteMsg};
+use drop_staking_base::msg::withdrawal_voucher::ExecuteMsg;
+use drop_staking_base::msg::withdrawal_voucher::ExtensionExecuteMsg;
 use drop_staking_base::state::withdrawal_voucher::{Pause, PAUSE};
 
 #[test]
@@ -19,7 +20,9 @@ fn test_set_pause() {
         deps.as_mut().into_empty(),
         mock_env(),
         mock_info("owner", &[]),
-        ExecuteMsg::SetPause(Pause { mint: true }),
+        ExecuteMsg::Extension {
+            msg: ExtensionExecuteMsg::SetPause(Pause { mint: true }),
+        },
     )
     .unwrap();
     assert_eq!(
@@ -47,13 +50,11 @@ fn test_mint_unpaused() {
         deps.as_mut().into_empty(),
         mock_env(),
         mock_info("owner", &[]),
-        ExecuteMsg::Custom {
-            msg: CW721ExecuteMsg::Mint {
-                token_id: "1".to_string(),
-                owner: "new_owner".to_string(),
-                token_uri: None,
-                extension: None,
-            },
+        ExecuteMsg::Mint {
+            token_id: "1".to_string(),
+            owner: "new_owner".to_string(),
+            token_uri: None,
+            extension: None,
         },
     )
     .unwrap();
@@ -80,13 +81,11 @@ fn test_mint_paused() {
         deps.as_mut().into_empty(),
         mock_env(),
         mock_info("owner", &[]),
-        ExecuteMsg::Custom {
-            msg: CW721ExecuteMsg::Mint {
-                token_id: "1".to_string(),
-                owner: "new_owner".to_string(),
-                token_uri: None,
-                extension: None,
-            },
+        ExecuteMsg::Mint {
+            token_id: "1".to_string(),
+            owner: "new_owner".to_string(),
+            token_uri: None,
+            extension: None,
         },
     )
     .unwrap_err();

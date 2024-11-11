@@ -1,22 +1,21 @@
-use cosmwasm_std::{attr, Empty};
+use cosmwasm_std::{attr, to_json_binary, Empty};
 pub use cw721_base::{ContractError, MinterResponse};
 use drop_helpers::answer::response;
 use drop_staking_base::{
-    msg::withdrawal_voucher::Extension,
+    msg::withdrawal_voucher::{Extension, ExtensionExecuteMsg, ExtensionQueryMsg},
     state::withdrawal_voucher::{Pause, PAUSE},
 };
-
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub type Cw721VoucherContract<'a> = cw721_base::Cw721Contract<'a, Extension, Empty, Empty, Empty>;
+pub type Cw721VoucherContract<'a> =
+    cw721_base::Cw721Contract<'a, Extension, Empty, ExtensionExecuteMsg, ExtensionQueryMsg>;
 
 #[cfg(not(feature = "library"))]
 pub mod entry {
     use super::*;
 
     use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult};
-    use cw721_base::ExecuteMsg as CW721ExecuteMsg;
     use drop_staking_base::msg::withdrawal_voucher::{
         ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
     };
@@ -43,16 +42,28 @@ pub mod entry {
     ) -> Result<Response, ContractError> {
         ensure_not_paused_method(&deps, &msg)?;
         match msg {
-            ExecuteMsg::Custom { msg } => {
-                Cw721VoucherContract::default().execute(deps, env, info, msg)
-            }
-            ExecuteMsg::SetPause(pause) => execute_set_pause(deps, info, pause),
+            ExecuteMsg::Extension { msg } => match msg {
+                ExtensionExecuteMsg::SetPause(pause) => {
+                    PAUSE.save(deps.storage, &pause)?;
+                    Ok(response(
+                        "execute-set-pause",
+                        CONTRACT_NAME,
+                        vec![attr("mint", pause.mint.to_string())],
+                    ))
+                }
+            },
+            _ => Cw721VoucherContract::default().execute(deps, env, info, msg),
         }
     }
 
     #[cosmwasm_std::entry_point]
     pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
-        Cw721VoucherContract::default().query(deps, env, msg)
+        match msg {
+            QueryMsg::Extension { msg } => match msg {
+                ExtensionQueryMsg::Pause => Ok(to_json_binary(&PAUSE.load(deps.storage)?)?),
+            },
+            _ => Cw721VoucherContract::default().query(deps, env, msg),
+        }
     }
 
     #[cosmwasm_std::entry_point]
@@ -88,17 +99,14 @@ pub mod entry {
 
     pub fn ensure_not_paused_method(deps: &DepsMut, msg: &ExecuteMsg) -> Result<(), ContractError> {
         match msg {
-            ExecuteMsg::Custom { msg } => match msg {
-                CW721ExecuteMsg::Mint { .. } => {
-                    if PAUSE.load(deps.as_ref().storage)?.mint {
-                        Err(ContractError::Std(StdError::GenericErr {
-                            msg: "method mint is paused".to_string(),
-                        }))?
-                    }
-                    Ok(())
+            ExecuteMsg::Mint { .. } => {
+                if PAUSE.load(deps.as_ref().storage)?.mint {
+                    Err(ContractError::Std(StdError::GenericErr {
+                        msg: "method mint is paused".to_string(),
+                    }))?
                 }
-                _ => Ok(()),
-            },
+                Ok(())
+            }
             _ => Ok(()),
         }
     }

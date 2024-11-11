@@ -19,7 +19,6 @@ use drop_staking_base::{
         core::{ExecuteMsg, FailedBatchResponse, InstantiateMsg, QueryMsg},
         puppeteer::{BalancesResponse, DelegationsResponse},
         strategy::QueryMsg as StrategyQueryMsg,
-        withdrawal_voucher::CW721ExecuteMsg as VoucherCW721ExecuteMsg,
     },
     state::{
         core::{
@@ -1982,13 +1981,11 @@ fn test_unbond() {
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "withdrawal_voucher_contract".to_string(),
                 msg: to_json_binary(
-                    &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::Custom {
-                        msg: VoucherCW721ExecuteMsg::Mint {
-                            token_id: "0_some_sender_1".to_string(),
-                            owner: "some_sender".to_string(),
-                            token_uri: None,
-                            extension,
-                        }
+                    &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::Mint {
+                        token_id: "0_some_sender_1".to_string(),
+                        owner: "some_sender".to_string(),
+                        token_uri: None,
+                        extension,
                     }
                 )
                 .unwrap(),
