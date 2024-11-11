@@ -97,3 +97,10 @@ pub mod reply_msg {
         }
     }
 }
+
+#[cw_serde]
+#[derive(Default)]
+pub struct Pause {
+    pub process_on_idle: bool,
+}
+pub const PAUSE: Item<Pause> = Item::new("pause");

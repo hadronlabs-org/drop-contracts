@@ -9,6 +9,7 @@ use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::{attr_coin, response};
 use drop_helpers::ibc_client_state::query_client_state;
 use drop_helpers::ibc_fee::query_ibc_fee;
+use drop_helpers::pause::PauseError;
 use drop_puppeteer_base::peripheral_hook::{
     IBCTransferReason, ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg, ResponseHookMsg,
     ResponseHookSuccessMsg, Transaction,
@@ -22,8 +23,8 @@ use drop_staking_base::msg::lsm_share_bond_provider::{
 };
 use drop_staking_base::state::core::LAST_PUPPETEER_RESPONSE;
 use drop_staking_base::state::lsm_share_bond_provider::{
-    Config, ConfigOptional, ReplyMsg, TxState, TxStateStatus, CONFIG, LAST_LSM_REDEEM,
-    LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES_REAL_AMOUNT, TX_STATE,
+    Config, ConfigOptional, Pause, ReplyMsg, TxState, TxStateStatus, CONFIG, LAST_LSM_REDEEM,
+    LSM_SHARES_TO_REDEEM, PAUSE, PENDING_LSM_SHARES, TOTAL_LSM_SHARES_REAL_AMOUNT, TX_STATE,
 };
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -61,7 +62,7 @@ pub fn instantiate(
         lsm_redeem_maximum_interval: msg.lsm_redeem_maximum_interval,
     };
     CONFIG.save(deps.storage, config)?;
-
+    PAUSE.save(deps.storage, &Pause::default())?;
     TOTAL_LSM_SHARES_REAL_AMOUNT.save(deps.storage, &0)?;
     LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
     TX_STATE.save(deps.storage, &TxState::default())?;
@@ -109,6 +110,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::AsyncTokensAmount {} => {
             to_json_binary(&TOTAL_LSM_SHARES_REAL_AMOUNT.load(deps.storage)?).map_err(From::from)
         }
+        QueryMsg::Pause {} => Ok(to_json_binary(&PAUSE.load(deps.storage)?)?),
     }
 }
 
@@ -219,7 +221,24 @@ pub fn execute(
         ExecuteMsg::Bond {} => execute_bond(deps, info),
         ExecuteMsg::ProcessOnIdle {} => execute_process_on_idle(deps, env, info),
         ExecuteMsg::PeripheralHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
+        ExecuteMsg::SetPause(pause) => execute_set_pause(deps.into_empty(), info, pause),
     }
+}
+
+fn execute_set_pause(
+    deps: DepsMut,
+    info: MessageInfo,
+    pause: Pause,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    PAUSE.save(deps.storage, &pause)?;
+
+    Ok(response(
+        "execute-set-pause",
+        CONTRACT_NAME,
+        [("process_on_idle", pause.process_on_idle.to_string())],
+    ))
 }
 
 fn execute_process_on_idle(
@@ -227,6 +246,10 @@ fn execute_process_on_idle(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
+    if PAUSE.load(deps.as_ref().storage)?.process_on_idle {
+        Err(ContractError::PauseError(PauseError::Paused {}))?
+    }
+
     let config = CONFIG.load(deps.storage)?;
     ensure_eq!(
         info.sender,
