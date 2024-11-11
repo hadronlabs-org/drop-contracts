@@ -183,6 +183,47 @@ fn reply() {
 }
 
 #[test]
+fn execute_set_pause() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("core")).unwrap();
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: false,
+                burn: false,
+            },
+        )
+        .unwrap();
+
+    let res = contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &[]),
+        ExecuteMsg::SetPause(Pause {
+            mint: true,
+            burn: true,
+        }),
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_event(
+            Event::new("drop-token-execute-set-pause")
+                .add_attributes(vec![attr("burn", "true"), attr("mint", "true")])
+        )
+    );
+    assert_eq!(
+        PAUSE.load(deps.as_ref().storage).unwrap(),
+        Pause {
+            mint: true,
+            burn: true,
+        }
+    );
+}
+
+#[test]
 fn mint_zero() {
     let mut deps = mock_dependencies(&[]);
     PAUSE

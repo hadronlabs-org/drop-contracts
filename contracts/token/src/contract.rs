@@ -7,7 +7,7 @@ use cosmwasm_std::{
 use drop_helpers::answer::{attr_coin, response};
 use drop_staking_base::{
     msg::token::{ConfigResponse, DenomMetadata, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
-    state::token::{CORE_ADDRESS, DENOM, PAUSE, TOKEN_METADATA},
+    state::token::{Pause, CORE_ADDRESS, DENOM, PAUSE, TOKEN_METADATA},
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -65,15 +65,35 @@ pub fn execute(
                 [],
             ))
         }
-        ExecuteMsg::Mint { amount, receiver } => mint(deps, info, amount, receiver),
-        ExecuteMsg::Burn {} => burn(deps, info),
+        ExecuteMsg::Mint { amount, receiver } => execute_mint(deps, info, amount, receiver),
+        ExecuteMsg::Burn {} => execute_burn(deps, info),
         ExecuteMsg::SetTokenMetadata { token_metadata } => {
-            set_token_metadata(deps, env, info, token_metadata)
+            execute_set_token_metadata(deps, env, info, token_metadata)
         }
+        ExecuteMsg::SetPause(pause) => execute_set_pause(deps, info, pause),
     }
 }
 
-fn mint(
+fn execute_set_pause(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    pause: Pause,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    PAUSE.save(deps.storage, &pause)?;
+
+    Ok(response(
+        "execute-set-pause",
+        CONTRACT_NAME,
+        [
+            ("burn", pause.burn.to_string()),
+            ("mint", pause.mint.to_string()),
+        ],
+    ))
+}
+
+fn execute_mint(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
     amount: Uint128,
@@ -101,7 +121,10 @@ fn mint(
     .add_message(mint_msg))
 }
 
-fn burn(deps: DepsMut<NeutronQuery>, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
+fn execute_burn(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+) -> ContractResult<Response<NeutronMsg>> {
     if PAUSE.load(deps.storage)?.burn {
         return Err(drop_helpers::pause::PauseError::Paused {}.into());
     }
@@ -122,7 +145,7 @@ fn burn(deps: DepsMut<NeutronQuery>, info: MessageInfo) -> ContractResult<Respon
     .add_message(burn_msg))
 }
 
-fn set_token_metadata(
+fn execute_set_token_metadata(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
