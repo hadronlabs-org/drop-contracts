@@ -99,7 +99,10 @@ impl ExecuteMsg {
 }
 
 #[cw_serde]
-pub struct MigrateMsg {}
+pub struct MigrateMsg {
+    pub native_bond_provider: String,
+    pub allowed_senders: Vec<String>,
+}
 
 pub type RemoteHeight = u64;
 pub type LocalHeight = u64;

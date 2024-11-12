@@ -50,8 +50,8 @@ use drop_staking_base::{
         BalancesResponse, DelegationsResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryExtMsg,
     },
     state::puppeteer::{
-        BalancesAndDelegations, Config, ConfigOptional, Delegations, KVQueryType,
-        NON_NATIVE_REWARD_BALANCES,
+        BalancesAndDelegations, Config, ConfigOptional, Delegations, KVQueryType, CONFIG,
+        CONFIG_DEPRECATED, NON_NATIVE_REWARD_BALANCES,
     },
 };
 use neutron_sdk::{
@@ -1281,23 +1281,6 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
     }
 }
 
-#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
-pub fn migrate(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    _msg: MigrateMsg,
-) -> ContractResult<Response<NeutronMsg>> {
-    let version: semver::Version = CONTRACT_VERSION.parse()?;
-    let storage_version: semver::Version =
-        cw2::get_contract_version(deps.storage)?.version.parse()?;
-
-    if storage_version < version {
-        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    }
-
-    Ok(Response::new())
-}
-
 fn sudo_delegations_and_balance_kv_query_result(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -1381,4 +1364,47 @@ fn validate_timeout(timeout: u64) -> StdResult<()> {
     } else {
         Ok(())
     }
+}
+
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+        let config = CONFIG_DEPRECATED.load(deps.storage)?;
+
+        let native_bond_provider = deps.api.addr_validate(&msg.native_bond_provider)?;
+
+        let allowed_senders = validate_addresses(
+            deps.as_ref().into_empty(),
+            msg.allowed_senders.as_ref(),
+            None,
+        )?;
+
+        CONFIG.save(
+            deps.storage,
+            &Config {
+                delegations_queries_chunk_size: config.delegations_queries_chunk_size,
+                port_id: config.port_id,
+                connection_id: config.connection_id,
+                native_bond_provider,
+                update_period: config.update_period,
+                remote_denom: config.remote_denom,
+                allowed_senders,
+                transfer_channel_id: config.transfer_channel_id,
+                sdk_version: config.sdk_version,
+                timeout: config.timeout,
+            },
+        )?;
+    }
+
+    Ok(Response::new())
 }

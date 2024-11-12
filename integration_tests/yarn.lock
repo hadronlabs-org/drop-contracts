@@ -708,6 +708,26 @@
     lodash "^4.17.21"
     node-recursive-directory "^1.2.0"
 
+"@neutron-org/contracts2ts@1.5.2":
+  version "1.5.2"
+  resolved "https://registry.yarnpkg.com/@neutron-org/contracts2ts/-/contracts2ts-1.5.2.tgz#ff323a6238904b4fec60cc6c2b45da646f5da620"
+  integrity sha512-JkxOqV1TAyJKBhmmInncex3FDSRF9Z9Y+E9u87YmrQVUr4OHZdO3oclaGAtglB1IQSqe2RfZp3iHnT7JrIM8jQ==
+  dependencies:
+    "@apidevtools/json-schema-ref-parser" "^11.5.4"
+    "@cosmjs/cosmwasm-stargate" "^0.32.4"
+    "@cosmjs/launchpad" "^0.27.1"
+    "@cosmjs/proto-signing" "^0.32.4"
+    "@cosmjs/tendermint-rpc" "^0.32.3"
+    "@types/yargs" "^17.0.32"
+    commander "^12.0.0"
+    cosmjs-types "0.9.0"
+    crypto-js "^4.2.0"
+    express "^4.18.2"
+    json-schema "^0.4.0"
+    json-schema-to-typescript "14.1.0"
+    lodash "^4.17.21"
+    node-recursive-directory "^1.2.0"
+
 "@neutron-org/cosmopark@^1.7.3":
   version "1.7.3"
   resolved "https://registry.yarnpkg.com/@neutron-org/cosmopark/-/cosmopark-1.7.3.tgz#0bf2da78100bb690ffc537b9048cbeab16eedd2b"
@@ -1799,6 +1819,14 @@ dotparser@^1.1.1:
   version "1.1.1"
   resolved "https://registry.yarnpkg.com/dotparser/-/dotparser-1.1.1.tgz#c474942f329638b44ddb3dff27e9a6385dbab2f9"
   integrity sha512-8ojhUts0HbLnXJgjTiJOddwVVBUk6hg4SJ5kGiuhzgK/f+y79TiWvICwx1oCWlVbBC8YI3nEaIQg9fjGYbGBXw==
+
+"drop-ts-client-v1-0-1@file:./migration_data/v1.1.0/ts-client":
+  version "1.0.0"
+  dependencies:
+    "@cosmjs/cosmwasm-stargate" "^0.32.4"
+    "@cosmjs/proto-signing" "^0.32.4"
+    "@neutron-org/client-ts" "^1.4.0"
+    "@neutron-org/contracts2ts" "1.5.2"
 
 "drop-ts-client@file:../ts-client":
   version "1.0.0"
