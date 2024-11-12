@@ -6,7 +6,8 @@ use cosmwasm_std::{
 };
 use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
-use drop_helpers::{ica::IcaState, testing::mock_dependencies};
+use drop_helpers::{ica::IcaState, pause::PauseError, testing::mock_dependencies};
+use drop_puppeteer_base::error::ContractError;
 use drop_staking_base::state::native_bond_provider::{
     Config, ConfigOptional, Pause, ReplyMsg, TxState, CONFIG, NON_STAKED_BALANCE, PAUSE, TX_STATE,
 };
@@ -623,6 +624,34 @@ fn execute_set_pause() {
         Pause {
             process_on_idle: true
         }
+    )
+}
+
+#[test]
+fn execute_process_on_idle_paused() {
+    let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                process_on_idle: true,
+            },
+        )
+        .unwrap();
+
+    let error = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::native_bond_provider::ExecuteMsg::ProcessOnIdle {},
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        error,
+        drop_staking_base::error::native_bond_provider::ContractError::PauseError(
+            PauseError::Paused {}
+        )
     )
 }
 
