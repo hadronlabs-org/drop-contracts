@@ -193,3 +193,13 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
         })
     }
 }
+
+#[cw_serde]
+#[derive(Default)]
+pub struct Pause {
+    pub delegate: bool,
+    pub undelegate: bool,
+    pub claim_rewards_and_optionally_transfer: bool,
+}
+
+pub const PAUSE: Item<Pause> = Item::new("pause");
