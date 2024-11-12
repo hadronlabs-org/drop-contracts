@@ -1,5 +1,6 @@
 use cosmwasm_std::{StdError, Uint128};
 use cw_ownable::OwnershipError;
+use drop_helpers::pause::PauseError;
 use neutron_sdk::NeutronError;
 use thiserror::Error;
 
@@ -48,6 +49,9 @@ pub enum ContractError {
 
     #[error("Puppeteer ICA is not registered")]
     IcaNotRegistered {},
+
+    #[error(transparent)]
+    PauseError(#[from] PauseError),
 }
 
 impl From<semver::Error> for ContractError {

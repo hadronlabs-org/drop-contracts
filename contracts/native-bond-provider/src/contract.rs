@@ -8,6 +8,7 @@ use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::{attr_coin, response};
 use drop_helpers::ibc_client_state::query_client_state;
 use drop_helpers::ibc_fee::query_ibc_fee;
+use drop_helpers::pause::PauseError;
 use drop_puppeteer_base::peripheral_hook::{
     IBCTransferReason, ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg, ResponseHookMsg,
     ResponseHookSuccessMsg, Transaction,
@@ -19,8 +20,8 @@ use drop_staking_base::msg::native_bond_provider::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
 use drop_staking_base::state::native_bond_provider::{
-    Config, ConfigOptional, ReplyMsg, TxState, TxStateStatus, CONFIG, LAST_PUPPETEER_RESPONSE,
-    NON_STAKED_BALANCE, TX_STATE,
+    Config, ConfigOptional, Pause, ReplyMsg, TxState, TxStateStatus, CONFIG,
+    LAST_PUPPETEER_RESPONSE, NON_STAKED_BALANCE, PAUSE, TX_STATE,
 };
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -57,7 +58,7 @@ pub fn instantiate(
         timeout: msg.timeout,
     };
     CONFIG.save(deps.storage, config)?;
-
+    PAUSE.save(deps.storage, &Pause::default())?;
     NON_STAKED_BALANCE.save(deps.storage, &Uint128::zero())?;
     TX_STATE.save(deps.storage, &TxState::default())?;
 
@@ -100,6 +101,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::LastPuppeteerResponse {} => Ok(to_json_binary(&LastPuppeteerResponse {
             response: LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?,
         })?),
+        QueryMsg::Pause {} => Ok(to_json_binary(&PAUSE.load(deps.storage)?)?),
     }
 }
 
@@ -202,7 +204,24 @@ pub fn execute(
         ExecuteMsg::Bond {} => execute_bond(deps, info),
         ExecuteMsg::ProcessOnIdle {} => execute_process_on_idle(deps, env, info),
         ExecuteMsg::PeripheralHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
+        ExecuteMsg::SetPause(pause) => execute_set_pause(deps.into_empty(), info, pause),
     }
+}
+
+fn execute_set_pause(
+    deps: DepsMut,
+    info: MessageInfo,
+    pause: Pause,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    PAUSE.save(deps.storage, &pause)?;
+
+    Ok(response(
+        "execute-set-pause",
+        CONTRACT_NAME,
+        [("process_on_idle", pause.process_on_idle.to_string())],
+    ))
 }
 
 fn execute_update_config(
@@ -288,6 +307,10 @@ fn execute_process_on_idle(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
+    if PAUSE.load(deps.as_ref().storage)?.process_on_idle {
+        Err(ContractError::PauseError(PauseError::Paused {}))?
+    }
+
     let config = CONFIG.load(deps.storage)?;
     ensure_eq!(
         info.sender,
