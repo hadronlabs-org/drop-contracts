@@ -74,7 +74,21 @@ pub enum ExecuteMsg {
     AdminExecute { msgs: Vec<CosmosMsg<NeutronMsg>> },
 }
 #[cw_serde]
-pub struct MigrateMsg {}
+pub struct MigrateMsg {
+    pub core_code_id: u64,
+    pub lsm_share_bond_provider_code_id: u64,
+    pub native_bond_provider_code_id: u64,
+    pub distribution_code_id: u64,
+    pub pump_code_id: u64,
+    pub unbonding_pump_contract: String,
+    pub puppeteer_code_id: u64,
+    pub validators_set_code_id: u64,
+    pub strategy_code_id: u64,
+    pub salt: String,
+    pub port_id: String,
+    pub timeout: u64,
+    pub min_ibc_transfer: Uint128,
+}
 
 #[cw_ownable::cw_ownable_query]
 #[cw_serde]

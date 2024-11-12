@@ -639,7 +639,7 @@ dependencies = [
 
 [[package]]
 name = "drop-core"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -656,7 +656,7 @@ dependencies = [
 
 [[package]]
 name = "drop-distribution"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -669,7 +669,7 @@ dependencies = [
 
 [[package]]
 name = "drop-factory"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -898,7 +898,7 @@ dependencies = [
 
 [[package]]
 name = "drop-pump"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmos-sdk-proto",
  "cosmwasm-schema",
@@ -916,7 +916,7 @@ dependencies = [
 
 [[package]]
 name = "drop-puppeteer"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmos-sdk-proto",
  "cosmwasm-schema",
@@ -1067,7 +1067,7 @@ dependencies = [
 
 [[package]]
 name = "drop-strategy"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -1139,7 +1139,7 @@ dependencies = [
 
 [[package]]
 name = "drop-validators-set"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",

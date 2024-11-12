@@ -1398,7 +1398,7 @@ fn new_unbond(now: u64) -> UnbondBatch {
 pub fn migrate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
-    _msg: MigrateMsg,
+    msg: MigrateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
     let storage_contract_name = contract_version_metadata.contract.as_str();
@@ -1418,37 +1418,66 @@ pub fn migrate(
         deps.storage.remove("pause".as_bytes());
         PAUSE.save(deps.storage, &Pause::default())?;
 
+        BOND_HOOKS.save(deps.storage, &vec![])?;
+
+        BOND_PROVIDERS.init(deps.storage)?;
+
+        let native_bond_provider_address =
+            deps.api.addr_validate(&msg.native_bond_provider_contract)?;
+
+        BOND_PROVIDERS.add(deps.storage, native_bond_provider_address.clone())?;
+
+        let lsm_share_bond_provider_address = deps
+            .api
+            .addr_validate(&msg.lsm_share_bond_provider_contract)?;
+
+        BOND_PROVIDERS.add(deps.storage, lsm_share_bond_provider_address.clone())?;
+
         #[cosmwasm_schema::cw_serde]
         pub struct OldConfig {
-            pub factory_contract: Addr,
+            pub token_contract: Addr,
+            pub puppeteer_contract: Addr,
+            pub strategy_contract: Addr,
+            pub staker_contract: Addr,
+            pub withdrawal_voucher_contract: Addr,
+            pub withdrawal_manager_contract: Addr,
+            pub validators_set_contract: Addr,
             pub base_denom: String,
             pub remote_denom: String,
-            pub idle_min_interval: u64,
-            pub unbonding_period: u64,
-            pub unbonding_safe_period: u64,
-            pub unbond_batch_switch_time: u64,
+            pub idle_min_interval: u64,        //seconds
+            pub unbonding_period: u64,         //seconds
+            pub unbonding_safe_period: u64,    //seconds
+            pub unbond_batch_switch_time: u64, //seconds
             pub pump_ica_address: Option<String>,
             pub transfer_channel_id: String,
+            pub lsm_min_bond_amount: Uint128,
+            pub lsm_redeem_threshold: u64,        //amount of lsm denoms
+            pub lsm_redeem_maximum_interval: u64, //seconds
+            pub bond_limit: Option<Uint128>,
             pub emergency_address: Option<String>,
-            pub icq_update_delay: u64,
+            pub min_stake_amount: Uint128,
+            pub icq_update_delay: u64, // blocks
         }
 
-        let old_config = Item::<OldConfig>::new("config").load(deps.storage)?;
-        let new_config = Config {
-            factory_contract: old_config.factory_contract,
-            remote_denom: old_config.remote_denom,
-            base_denom: old_config.base_denom,
-            emergency_address: old_config.emergency_address,
-            pump_ica_address: old_config.pump_ica_address,
-            idle_min_interval: old_config.idle_min_interval,
-            unbonding_period: old_config.unbonding_period,
-            icq_update_delay: old_config.icq_update_delay,
-            unbond_batch_switch_time: old_config.unbond_batch_switch_time,
-            unbonding_safe_period: old_config.unbonding_safe_period,
-        };
-        CONFIG.save(deps.storage, &new_config)?;
+        let config = Item::<OldConfig>::new("config").load(deps.storage)?;
 
-        BOND_HOOKS.save(deps.storage, &vec![])?;
+        let factory_contract_address = deps.api.addr_validate(&msg.factory_contract)?;
+
+        drop_staking_base::state::core::CONFIG.save(
+            deps.storage,
+            &Config {
+                factory_contract: factory_contract_address,
+                pump_ica_address: config.pump_ica_address,
+                base_denom: config.base_denom,
+                remote_denom: config.remote_denom,
+                idle_min_interval: config.idle_min_interval,
+                unbonding_period: config.unbonding_period,
+                unbonding_safe_period: config.unbonding_safe_period,
+                unbond_batch_switch_time: config.unbond_batch_switch_time,
+                emergency_address: config.emergency_address,
+                icq_update_delay: config.icq_update_delay,
+            },
+        )?;
     }
 
     Ok(Response::new())
