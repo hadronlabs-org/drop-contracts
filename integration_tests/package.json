@@ -15,6 +15,7 @@
     "test:validators-stats": "vitest --run validators-stats.test.ts --bail 1",
     "test:validator-set": "vitest --run validator-set.test.ts --bail 1",
     "test:distribution": "vitest --run distribution.test.ts --bail 1",
+    "test:pre-migration-v1.0.2": "vitest --run pre-migration-v1.0.2.test --bail 1",
     "test:initia": "REMOTE_CHAIN_OPTS=./dockerfiles/initia/options.json vitest --run initia.test.ts --bail 1",
     "test:auto-withdrawer": "vitest --run auto-withdrawer.test.ts --bail 1",
     "test:gv": "vitest --run gv.test.ts --bail 1",
@@ -46,6 +47,7 @@
     "decimal.js": "^10.4.3",
     "dotparser": "^1.1.1",
     "drop-ts-client": "file:../ts-client",
+    "drop-ts-client-v1-0-1": "file:./migration_data/v1.1.0/ts-client",
     "sha3": "^2.1.4",
     "yaml": "^2.4.1"
   },

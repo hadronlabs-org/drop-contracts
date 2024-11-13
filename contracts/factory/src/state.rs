@@ -36,6 +36,22 @@ pub struct Timeout {
 }
 
 #[cw_serde]
+pub struct StateOld {
+    pub token_contract: String,
+    pub core_contract: String,
+    pub puppeteer_contract: String,
+    pub staker_contract: String,
+    pub withdrawal_voucher_contract: String,
+    pub withdrawal_manager_contract: String,
+    pub strategy_contract: String,
+    pub validators_set_contract: String,
+    pub distribution_contract: String,
+    pub rewards_manager_contract: String,
+    pub rewards_pump_contract: String,
+    pub splitter_contract: String,
+}
+
+#[cw_serde]
 pub struct State {
     pub token_contract: String,
     pub core_contract: String,
@@ -59,4 +75,5 @@ pub struct PauseInfoResponse {
     pub rewards_manager: drop_helpers::pause::PauseInfoResponse,
 }
 
-pub const STATE: Item<State> = Item::new("state");
+pub const STATE_OLD: Item<StateOld> = Item::new("state");
+pub const STATE: Item<State> = Item::new("state_v1");

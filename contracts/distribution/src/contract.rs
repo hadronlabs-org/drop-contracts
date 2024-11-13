@@ -13,6 +13,27 @@ use std::collections::HashMap;
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[derive(Default)]
+struct StakeChanges {
+    changes: HashMap<String, Uint128>,
+}
+
+impl StakeChanges {
+    fn new() -> Self {
+        Self {
+            changes: HashMap::new(),
+        }
+    }
+
+    fn push(&mut self, addr: impl Into<String>, change: impl Into<Uint128>) {
+        *self.changes.entry(addr.into()).or_insert(Uint128::zero()) += change.into()
+    }
+
+    fn into_vec(self) -> Vec<(String, Uint128)> {
+        self.changes.into_iter().collect()
+    }
+}
+
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut,
@@ -60,27 +81,6 @@ pub fn calc_deposit(
     calc_deposit_on_top(&mut delegations, &mut stake_changes, &mut deposit)?;
     calc_deposit_normal(delegations, &mut stake_changes, deposit)?;
     Ok(stake_changes.into_vec())
-}
-
-#[derive(Default)]
-struct StakeChanges {
-    changes: HashMap<String, Uint128>,
-}
-
-impl StakeChanges {
-    fn new() -> Self {
-        Self {
-            changes: HashMap::new(),
-        }
-    }
-
-    fn push(&mut self, addr: impl Into<String>, change: impl Into<Uint128>) {
-        *self.changes.entry(addr.into()).or_insert(Uint128::zero()) += change.into()
-    }
-
-    fn into_vec(self) -> Vec<(String, Uint128)> {
-        self.changes.into_iter().collect()
-    }
 }
 
 fn calc_excess(delegation: &Delegation) -> Uint128 {

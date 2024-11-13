@@ -1436,6 +1436,70 @@ fn bond_provider_reply(_deps: Deps, msg: Reply) -> ContractResult<Response> {
     Ok(Response::new())
 }
 
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+    let storage_version: semver::Version =
+        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+        let mut new_pause_state = Pause::default();
+        if drop_helpers::pause::is_paused(deps.storage)? {
+            drop_helpers::pause::unpause(deps.storage);
+            new_pause_state.tick = true;
+        }
+        PAUSE.save(deps.storage, &new_pause_state)?;
+
+        BOND_HOOKS.save(deps.storage, &vec![])?;
+
+        BOND_PROVIDERS.init(deps.storage)?;
+
+        let native_bond_provider_address =
+            deps.api.addr_validate(&msg.native_bond_provider_contract)?;
+
+        BOND_PROVIDERS.add(deps.storage, native_bond_provider_address.clone())?;
+
+        let lsm_share_bond_provider_address = deps
+            .api
+            .addr_validate(&msg.lsm_share_bond_provider_contract)?;
+
+        BOND_PROVIDERS.add(deps.storage, lsm_share_bond_provider_address.clone())?;
+
+        let config = drop_staking_base::state::core::CONFIG_DEPRECATED.load(deps.storage)?;
+
+        drop_staking_base::state::core::CONFIG.save(
+            deps.storage,
+            &Config {
+                token_contract: config.token_contract,
+                puppeteer_contract: config.puppeteer_contract,
+                strategy_contract: config.strategy_contract,
+                pump_ica_address: config.pump_ica_address,
+                withdrawal_voucher_contract: config.withdrawal_voucher_contract,
+                withdrawal_manager_contract: config.withdrawal_manager_contract,
+                validators_set_contract: config.validators_set_contract,
+                base_denom: config.base_denom,
+                remote_denom: config.remote_denom,
+                idle_min_interval: config.idle_min_interval,
+                unbonding_period: config.unbonding_period,
+                unbonding_safe_period: config.unbonding_safe_period,
+                unbond_batch_switch_time: config.unbond_batch_switch_time,
+                transfer_channel_id: config.transfer_channel_id,
+                bond_limit: config.bond_limit,
+                emergency_address: config.emergency_address,
+                icq_update_delay: config.icq_update_delay,
+            },
+        )?;
+    }
+
+    Ok(Response::new())
+}
+
 pub mod check_denom {
     use super::*;
 
@@ -1525,30 +1589,4 @@ pub mod check_denom {
             validator.to_string(),
         ))
     }
-}
-
-#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
-pub fn migrate(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    _msg: MigrateMsg,
-) -> ContractResult<Response<NeutronMsg>> {
-    let version: semver::Version = CONTRACT_VERSION.parse()?;
-    let storage_version: semver::Version =
-        cw2::get_contract_version(deps.storage)?.version.parse()?;
-
-    if storage_version < version {
-        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-
-        let mut new_pause_state = Pause::default();
-        if drop_helpers::pause::is_paused(deps.storage)? {
-            drop_helpers::pause::unpause(deps.storage);
-            new_pause_state.tick = true;
-        }
-        PAUSE.save(deps.storage, &new_pause_state)?;
-
-        BOND_HOOKS.save(deps.storage, &vec![])?;
-    }
-
-    Ok(Response::new())
 }
