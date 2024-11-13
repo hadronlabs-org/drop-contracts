@@ -49,14 +49,9 @@ import { awaitBlocks, awaitTargetChannels, setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import {
-  ResponseHookMsg as DeprecatedResponseHookMsg,
-  UnbondBatch as DeprecatedUnbondBatch,
-} from 'drop-ts-client-v1-0-1/lib/contractLib/dropCore';
+import { UnbondBatch as DeprecatedUnbondBatch } from 'drop-ts-client-v1-0-1/lib/contractLib/dropCore';
 import { stringToPath } from '@cosmjs/crypto';
-import { sleep } from '../helpers/sleep';
 import { waitForTx } from '../helpers/waitForTx';
-import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 import { instrumentCoreClass } from '../helpers/knot';
 
 const DeprecatedDropTokenClass = DeprecatedDropToken.Client;
