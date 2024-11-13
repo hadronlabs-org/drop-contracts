@@ -7,7 +7,6 @@ use cosmwasm_std::{
 use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
 use drop_helpers::{ica::IcaState, pause::PauseError, testing::mock_dependencies};
-use drop_puppeteer_base::error::ContractError;
 use drop_staking_base::state::native_bond_provider::{
     Config, ConfigOptional, Pause, ReplyMsg, TxState, CONFIG, NON_STAKED_BALANCE, PAUSE, TX_STATE,
 };
