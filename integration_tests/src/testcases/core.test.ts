@@ -45,7 +45,6 @@ import { waitForTx } from '../helpers/waitForTx';
 import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 import { instrumentCoreClass } from '../helpers/knot';
 import { checkExchangeRate } from '../helpers/exchangeRate';
-import { base64FromBytes } from 'cosmjs-types/helpers';
 
 const DropTokenClass = DropToken.Client;
 const DropFactoryClass = DropFactory.Client;
