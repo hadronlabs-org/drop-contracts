@@ -45,6 +45,7 @@ import { waitForTx } from '../helpers/waitForTx';
 import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 import { instrumentCoreClass } from '../helpers/knot';
 import { checkExchangeRate } from '../helpers/exchangeRate';
+import { base64FromBytes } from 'cosmjs-types/helpers';
 
 const DropTokenClass = DropToken.Client;
 const DropFactoryClass = DropFactory.Client;
@@ -1100,6 +1101,45 @@ describe('Core', () => {
     expect(res.transactionHash).toHaveLength(64);
   });
 
+  it('Pause token, try to call bond', async () => {
+    const { factoryContractClient, tokenContractClient, coreContractClient } =
+      context;
+    await factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: tokenContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    set_pause: {
+                      mint: true,
+                      burn: true,
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      'auto',
+      '',
+      [],
+    );
+    await expect(
+      coreContractClient.bond(context.neutronUserAddress, {}, 'auto', '', [
+        {
+          denom: context.neutronIBCDenom,
+          amount: '20000',
+        },
+      ]),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
   it('query list of bond providers', async () => {
     const { coreContractClient } = context;
     const bondProviders = await coreContractClient.queryBondProviders();
@@ -1199,6 +1239,36 @@ describe('Core', () => {
     expect(res.transactionHash).toHaveLength(64);
     const config = await context.coreContractClient.queryConfig();
     expect(config.bond_limit).toBe(null);
+  });
+
+  it('Unpause token mint', async () => {
+    const { factoryContractClient, tokenContractClient } = context;
+    await factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: tokenContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    set_pause: {
+                      mint: false,
+                      burn: true,
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      'auto',
+      '',
+      [],
+    );
   });
 
   it('bond w/o receiver', async () => {
@@ -1404,6 +1474,48 @@ describe('Core', () => {
     expect(rate.redemption_rate).toEqual('1');
     expect(Date.now() / 1000 - rate.update_time).toBeLessThan(5);
     expect(rate.redemption_rate).toEqual(exchangeRate);
+  });
+
+  it('Unbond error paused', async () => {
+    const { coreContractClient } = context;
+    await expect(
+      coreContractClient.unbond(context.neutronUserAddress, 'auto', '', [
+        {
+          denom: context.ldDenom,
+          amount: '20000',
+        },
+      ]),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
+  it('Unpause token burn', async () => {
+    const { factoryContractClient, tokenContractClient } = context;
+    await factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: tokenContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    set_pause: {
+                      mint: false,
+                      burn: false,
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      'auto',
+      '',
+      [],
+    );
   });
 
   it('unbond', async () => {
