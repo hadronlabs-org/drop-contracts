@@ -400,7 +400,7 @@ export const setupPark = async (
     context,
     networks: {},
     master_mnemonic: wallets.master,
-    loglevel: 'info',
+    loglevel: 'debug',
     wallets: {
       demowallet1: {
         mnemonic: wallets.demowallet1,

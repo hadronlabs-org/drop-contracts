@@ -273,7 +273,7 @@ describe('Core', () => {
         (
           await context.park.executeInNetwork(
             'initia',
-            `initiad query move view 0x1 coin metadata --args "address:0x1 string:${context.initiaNTRN}" --output=json`,
+            `initiad query move view 0x1 coin metadata --args '["address:0x1", "string:${context.initiaNTRN}"]' --output=json`,
           )
         ).out,
       ).data,
@@ -284,21 +284,19 @@ describe('Core', () => {
         (
           await context.park.executeInNetwork(
             'initia',
-            `initiad query move view 0x1 coin metadata --args "address:0x1 string:uinit" --output=json`,
+            `initiad query move view 0x1 coin metadata --args '["address:0x1", "string:uinit"]' --output=json`,
           )
         ).out,
       ).data,
     );
-
     const createPairTx = JSON.parse(
       (
         await context.park.executeInNetwork(
           'initia',
-          `initiad tx move execute 0x1 dex create_pair_script --args "string:name string:INIT_NTRN decimal128:0.001 decimal128:0.5 decimal128:0.5 object:${initiaUINITmetadata} object:${initiaNTRNmetadata} u64:9000000 u64:9000000" --from=demo1  --keyring-backend=test --home=/opt --chain-id=${context.park.config.networks['initia'].chain_id} --fees 3000000uinit --gas=2000000 --output=json -y`,
+          `initiad tx move execute 0x1 dex create_pair_script --args '["string:name", "string:INIT_NTRN", "bigdecimal:0.001", "bigdecimal:0.5", "bigdecimal:0.5", "object:${initiaUINITmetadata}", "object:${initiaNTRNmetadata}", "u64:9000000", "u64:9000000"]' --from=demo1  --keyring-backend=test --home=/opt --chain-id=${context.park.config.networks['initia'].chain_id} --fees 3000000uinit --gas=2000000 --output=json -y`,
         )
       ).out,
     );
-
     await sleep(3_000);
 
     const createPairRes = JSON.parse(
@@ -448,7 +446,9 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_core.wasm')),
+        Uint8Array.from(
+          fs.readFileSync(join(__dirname, '../../../artifacts/drop_core.wasm')),
+        ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -457,7 +457,11 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_token.wasm')),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_token.wasm'),
+          ),
+        ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -466,8 +470,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
+          ),
         ),
         1.5,
       );
@@ -477,8 +483,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_withdrawal_manager.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_withdrawal_manager.wasm'),
+          ),
         ),
         1.5,
       );
@@ -488,7 +496,9 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+        Uint8Array.from(
+          fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+        ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -497,8 +507,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_strategy.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_strategy.wasm'),
+          ),
         ),
         1.5,
       );
@@ -508,8 +520,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_distribution.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_distribution.wasm'),
+          ),
         ),
         1.5,
       );
@@ -519,8 +533,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
+          ),
         ),
         1.5,
       );
@@ -530,8 +546,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_puppeteer_initia.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_puppeteer_initia.wasm'),
+          ),
         ),
         1.5,
       );
@@ -541,8 +559,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
+          ),
         ),
         1.5,
       );
@@ -552,8 +572,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+          ),
         ),
         1.5,
       );
@@ -563,10 +585,12 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../../artifacts/drop_lsm_share_bond_provider.wasm',
+        Uint8Array.from(
+          fs.readFileSync(
+            join(
+              __dirname,
+              '../../../artifacts/drop_lsm_share_bond_provider.wasm',
+            ),
           ),
         ),
         1.5,
@@ -577,8 +601,13 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_native_bond_provider.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(
+              __dirname,
+              '../../../artifacts/drop_native_bond_provider.wasm',
+            ),
+          ),
         ),
         1.5,
       );
@@ -588,7 +617,11 @@ describe('Core', () => {
 
     const res = await client.upload(
       account.address,
-      fs.readFileSync(join(__dirname, '../../../artifacts/drop_factory.wasm')),
+      Uint8Array.from(
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_factory.wasm'),
+        ),
+      ),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
@@ -1123,7 +1156,11 @@ describe('Core', () => {
         const { client, account, neutronUserAddress } = context;
         const resUpload = await client.upload(
           account.address,
-          fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+          Uint8Array.from(
+            fs.readFileSync(
+              join(__dirname, '../../../artifacts/drop_pump.wasm'),
+            ),
+          ),
           1.5,
         );
         expect(resUpload.codeId).toBeGreaterThan(0);
@@ -1715,7 +1752,7 @@ describe('Core', () => {
             (
               await context.park.executeInNetwork(
                 'initia',
-                `initiad query move view 0x1 coin metadata --args "address:0x1 string:uinit" --output=json`,
+                `initiad query move view 0x1 coin metadata --args '["address:0x1", "string:uinit"]' --output=json`,
               )
             ).out,
           ).data,
@@ -1723,7 +1760,7 @@ describe('Core', () => {
 
         await context.park.executeInNetwork(
           'initia',
-          `initiad tx move execute 0x1 dex single_asset_provide_liquidity_script --args "object:${context.moveToken.metadataAddr} object:${initiaUINITmetadata} u64:${newBalance - oldBalance} option<u64>:1" --from=demo3 --home=/opt --chain-id=${context.park.config.networks['initia'].chain_id} --keyring-backend=test --fees=50000uinit --gas 300000 -y`,
+          `initiad tx move execute 0x1 dex single_asset_provide_liquidity_script --args '["object:${context.moveToken.metadataAddr}", "object:${initiaUINITmetadata}", "u64:${newBalance - oldBalance}", "option<u64>:1"]' --from=demo3 --home=/opt --chain-id=${context.park.config.networks['initia'].chain_id} --keyring-backend=test --fees=50000uinit --gas 300000 -y`,
         );
 
         await sleep(10_000);
@@ -1848,7 +1885,7 @@ describe('Core', () => {
             { denom: context.moveIBCDenom },
           )
         ).data.balance.amount;
-        expect(parseInt(nativeBondProviderBalance, 10)).toEqual(170000);
+        expect(parseInt(nativeBondProviderBalance, 10)).toEqual(150000);
       });
     });
   });
