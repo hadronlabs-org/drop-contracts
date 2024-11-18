@@ -59,8 +59,8 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropTokenSchema {
-    responses: ConfigResponse | OwnershipForString;
-    execute: MintArgs | SetTokenMetadataArgs | UpdateOwnershipArgs;
+    responses: ConfigResponse | OwnershipForString | Pause;
+    execute: MintArgs | SetTokenMetadataArgs | SetPauseArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -84,6 +84,10 @@ export interface OwnershipForString {
      * The account who has been proposed to take over the ownership. `None` if there isn't a pending ownership transfer.
      */
     pending_owner?: string | null;
+}
+export interface Pause {
+    burn: boolean;
+    mint: boolean;
 }
 export interface MintArgs {
     amount: Uint128;
@@ -122,6 +126,14 @@ export interface DenomMetadata {
      */
     uri_hash?: string | null;
 }
+export interface SetPauseArgs {
+    type?: "object";
+    required?: ["burn", "mint"];
+    properties?: {
+        [k: string]: unknown;
+    };
+    additionalProperties?: never;
+}
 export interface InstantiateMsg {
     core_address: string;
     owner: string;
@@ -136,9 +148,11 @@ export declare class Client {
     static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
     static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
     queryConfig: () => Promise<ConfigResponse>;
+    queryPause: () => Promise<Pause>;
     queryOwnership: () => Promise<OwnershipForString>;
     mint: (sender: string, args: MintArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     burn: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     setTokenMetadata: (sender: string, args: SetTokenMetadataArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    setPause: (sender: string, args: SetPauseArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
 }

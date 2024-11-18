@@ -198,9 +198,9 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropLsmShareBondProviderSchema {
-    responses: Uint128 | Boolean | Boolean1 | Config | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | OwnershipForString | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Decimal | TxState;
+    responses: Uint128 | Boolean | Boolean1 | Config | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | OwnershipForString | Pause | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Decimal | TxState;
     query: CanBondArgs | TokensAmountArgs;
-    execute: UpdateConfigArgs | PeripheralHookArgs | UpdateOwnershipArgs;
+    execute: UpdateConfigArgs | PeripheralHookArgs | SetPauseArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -308,6 +308,9 @@ export interface OwnershipForString {
      */
     pending_owner?: string | null;
 }
+export interface Pause {
+    process_on_idle: boolean;
+}
 export interface TxState {
     status: TxStateStatus;
     transaction?: Transaction | null;
@@ -333,6 +336,14 @@ export interface ConfigOptional {
     transfer_channel_id?: string | null;
     validators_set_contract?: Addr | null;
 }
+export interface SetPauseArgs {
+    type?: "object";
+    required?: ["process_on_idle"];
+    properties?: {
+        [k: string]: unknown;
+    };
+    additionalProperties?: never;
+}
 export interface InstantiateMsg {
     core_contract: string;
     lsm_min_bond_amount: Uint1281;
@@ -357,6 +368,7 @@ export declare class Client {
     queryLSMSharesToRedeem: () => Promise<ArrayOfTupleOfStringAndTupleOfStringAndUint128>;
     queryLastPuppeteerResponse: () => Promise<LastPuppeteerResponse>;
     queryTxState: () => Promise<TxState>;
+    queryPause: () => Promise<Pause>;
     queryCanBond: (args: CanBondArgs) => Promise<Boolean>;
     queryCanProcessOnIdle: () => Promise<Boolean>;
     queryTokensAmount: (args: TokensAmountArgs) => Promise<Decimal>;
@@ -364,6 +376,7 @@ export declare class Client {
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     peripheralHook: (sender: string, args: PeripheralHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    setPause: (sender: string, args: SetPauseArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     bond: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     processOnIdle: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

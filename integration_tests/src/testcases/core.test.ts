@@ -1595,6 +1595,77 @@ describe('Core', () => {
     );
   });
 
+  it('Pause puppeteer', async () => {
+    await context.factoryContractClient.adminExecute(context.account.address, {
+      msgs: [
+        {
+          wasm: {
+            execute: {
+              contract_addr: context.puppeteerContractClient.contractAddress,
+              msg: Buffer.from(
+                JSON.stringify({
+                  set_pause: {
+                    delegate: true,
+                    undelegate: true,
+                    claim_rewards_and_optionally_transfer: true,
+                  },
+                }),
+              ).toString('base64'),
+              funds: [],
+            },
+          },
+        },
+      ],
+    });
+  });
+
+  it('Call delegate', async () => {
+    const { puppeteerContractClient } = context;
+    await expect(
+      puppeteerContractClient.delegate(context.account.address, {
+        reply_to: puppeteerContractClient.contractAddress,
+        items: [],
+      }),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
+  it('Call claim_rewards_and_optionally_transfer', async () => {
+    const { puppeteerContractClient } = context;
+    await expect(
+      puppeteerContractClient.claimRewardsAndOptionalyTransfer(
+        context.account.address,
+        {
+          reply_to: puppeteerContractClient.contractAddress,
+          validators: [],
+        },
+      ),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
+  it('Unpause puppeteer', async () => {
+    await context.factoryContractClient.adminExecute(context.account.address, {
+      msgs: [
+        {
+          wasm: {
+            execute: {
+              contract_addr: context.puppeteerContractClient.contractAddress,
+              msg: Buffer.from(
+                JSON.stringify({
+                  set_pause: {
+                    delegate: false,
+                    undelegate: false,
+                    claim_rewards_and_optionally_transfer: false,
+                  },
+                }),
+              ).toString('base64'),
+              funds: [],
+            },
+          },
+        },
+      ],
+    });
+  });
+
   it('unbond', async () => {
     const { coreContractClient, neutronUserAddress, ldDenom } = context;
     let res = await coreContractClient.unbond(
@@ -2252,6 +2323,7 @@ describe('Core', () => {
         expect(state).toEqual('claiming');
         await checkExchangeRate(context);
       });
+      //
       it('wait for response from puppeteer', async () => {
         let response;
         await waitFor(async () => {

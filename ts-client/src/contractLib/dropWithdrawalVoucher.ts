@@ -38,6 +38,7 @@ export type Timestamp = Uint64;
  * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
  */
 export type Uint64 = string;
+export type ExtensionQueryMsg = "pause";
 export type Null = null;
 /**
  * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
@@ -59,6 +60,9 @@ export type Binary = string;
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
+export type ExtensionExecuteMsg = {
+  set_pause: Pause;
+};
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -74,7 +78,7 @@ export type UpdateOwnershipArgs =
 
 export interface DropWithdrawalVoucherSchema {
   responses:
-    | AllNftInfoResponseForEmpty
+    | AllNftInfoResponseForExtensionQueryMsg
     | OperatorsResponse
     | TokensResponse
     | ApprovalResponse
@@ -82,7 +86,7 @@ export interface DropWithdrawalVoucherSchema {
     | ContractInfoResponse
     | Null
     | MinterResponse
-    | NftInfoResponseForEmpty
+    | NftInfoResponseForExtensionQueryMsg
     | NumTokensResponse
     | OperatorResponse
     | OwnerOfResponse1
@@ -113,7 +117,7 @@ export interface DropWithdrawalVoucherSchema {
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
-export interface AllNftInfoResponseForEmpty {
+export interface AllNftInfoResponseForExtensionQueryMsg {
   /**
    * Who can transfer the token
    */
@@ -121,7 +125,7 @@ export interface AllNftInfoResponseForEmpty {
   /**
    * Data on the token itself,
    */
-  info: NftInfoResponseFor_Empty;
+  info: NftInfoResponseFor_ExtensionQueryMsg;
 }
 export interface OwnerOfResponse {
   /**
@@ -143,23 +147,15 @@ export interface Approval {
    */
   spender: string;
 }
-export interface NftInfoResponseFor_Empty {
+export interface NftInfoResponseFor_ExtensionQueryMsg {
   /**
    * You can add any custom metadata here when you extend cw721-base
    */
-  extension: Empty;
+  extension: ExtensionQueryMsg;
   /**
    * Universal resource identifier for this NFT Should point to a JSON file that conforms to the ERC721 Metadata JSON Schema
    */
   token_uri?: string | null;
-}
-/**
- * An empty struct that serves as a placeholder in different places, such as contracts that don't set a custom message.
- *
- * It is designed to be expressable in correct JSON and JSON Schema but contains no meaningful data. Previously we used enums without cases, but those cannot represented as valid JSON Schema (https://github.com/CosmWasm/cosmwasm/issues/451)
- */
-export interface Empty {
-  [k: string]: unknown;
 }
 export interface OperatorsResponse {
   operators: Approval[];
@@ -186,11 +182,11 @@ export interface ContractInfoResponse {
 export interface MinterResponse {
   minter?: string | null;
 }
-export interface NftInfoResponseForEmpty {
+export interface NftInfoResponseForExtensionQueryMsg {
   /**
    * You can add any custom metadata here when you extend cw721-base
    */
-  extension: Empty;
+  extension: ExtensionQueryMsg;
   /**
    * Universal resource identifier for this NFT Should point to a JSON file that conforms to the ERC721 Metadata JSON Schema
    */
@@ -285,7 +281,7 @@ export interface AllTokensArgs {
   start_after?: string | null;
 }
 export interface ExtensionArgs {
-  msg: Empty;
+  msg: ExtensionQueryMsg;
 }
 export interface TransferNftArgs {
   recipient: string;
@@ -346,7 +342,10 @@ export interface BurnArgs {
   token_id: string;
 }
 export interface ExtensionArgs1 {
-  msg: Empty;
+  msg: ExtensionExecuteMsg;
+}
+export interface Pause {
+  mint: boolean;
 }
 export interface InstantiateMsg {
   /**
@@ -430,10 +429,10 @@ export class Client {
   queryContractInfo = async(): Promise<ContractInfoResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { contract_info: {} });
   }
-  queryNftInfo = async(args: NftInfoArgs): Promise<NftInfoResponseForEmpty> => {
+  queryNftInfo = async(args: NftInfoArgs): Promise<NftInfoResponseForExtensionQueryMsg> => {
     return this.client.queryContractSmart(this.contractAddress, { nft_info: args });
   }
-  queryAllNftInfo = async(args: AllNftInfoArgs): Promise<AllNftInfoResponseForEmpty> => {
+  queryAllNftInfo = async(args: AllNftInfoArgs): Promise<AllNftInfoResponseForExtensionQueryMsg> => {
     return this.client.queryContractSmart(this.contractAddress, { all_nft_info: args });
   }
   queryTokens = async(args: TokensArgs): Promise<TokensResponse> => {

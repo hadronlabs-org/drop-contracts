@@ -101,6 +101,8 @@ export type QueryExtMsg = {
 } | {
     unbonding_delegations: {};
 } | {
+    pause: {};
+} | {
     ownership: {};
 };
 /**
@@ -159,7 +161,7 @@ export type Uint64 = string;
 export interface DropPuppeteerSchema {
     responses: ConfigResponse | Binary | IcaState | ArrayOfTupleOfUint64AndString | ArrayOfTransaction | TxState;
     query: ExtensionArgs;
-    execute: RegisterBalanceAndDelegatorDelegationsQueryArgs | RegisterDelegatorUnbondingDelegationsQueryArgs | RegisterNonNativeRewardsBalancesQueryArgs | SetupProtocolArgs | DelegateArgs | UndelegateArgs | RedelegateArgs | TokenizeShareArgs | RedeemSharesArgs | TransferArgs | ClaimRewardsAndOptionalyTransferArgs | UpdateConfigArgs | UpdateOwnershipArgs;
+    execute: RegisterBalanceAndDelegatorDelegationsQueryArgs | RegisterDelegatorUnbondingDelegationsQueryArgs | RegisterNonNativeRewardsBalancesQueryArgs | SetupProtocolArgs | DelegateArgs | UndelegateArgs | RedelegateArgs | TokenizeShareArgs | RedeemSharesArgs | TransferArgs | ClaimRewardsAndOptionalyTransferArgs | UpdateConfigArgs | SetPauseArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -251,6 +253,14 @@ export interface ConfigOptional {
     transfer_channel_id?: string | null;
     update_period?: number | null;
 }
+export interface SetPauseArgs {
+    type?: "object";
+    required?: ["claim_rewards_and_optionally_transfer", "delegate", "undelegate"];
+    properties?: {
+        [k: string]: unknown;
+    };
+    additionalProperties?: never;
+}
 export interface InstantiateMsg {
     allowed_senders: string[];
     connection_id: string;
@@ -291,5 +301,6 @@ export declare class Client {
     transfer: (sender: string, args: TransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     claimRewardsAndOptionalyTransfer: (sender: string, args: ClaimRewardsAndOptionalyTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    setPause: (sender: string, args: SetPauseArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
 }
