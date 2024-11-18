@@ -1666,6 +1666,59 @@ describe('Core', () => {
     });
   });
 
+  it('Pause Native Bond Provider', async () => {
+    await context.factoryContractClient.adminExecute(context.account.address, {
+      msgs: [
+        {
+          wasm: {
+            execute: {
+              contract_addr:
+                context.nativeBondProviderContractClient.contractAddress,
+              msg: Buffer.from(
+                JSON.stringify({
+                  set_pause: {
+                    process_on_idle: true,
+                  },
+                }),
+              ).toString('base64'),
+              funds: [],
+            },
+          },
+        },
+      ],
+    });
+  });
+
+  it('Call process_on_idle', async () => {
+    const { nativeBondProviderContractClient } = context;
+    await expect(
+      nativeBondProviderContractClient.processOnIdle(context.account.address),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
+  it('Unpause Native Bond Provider', async () => {
+    await context.factoryContractClient.adminExecute(context.account.address, {
+      msgs: [
+        {
+          wasm: {
+            execute: {
+              contract_addr:
+                context.nativeBondProviderContractClient.contractAddress,
+              msg: Buffer.from(
+                JSON.stringify({
+                  set_pause: {
+                    process_on_idle: false,
+                  },
+                }),
+              ).toString('base64'),
+              funds: [],
+            },
+          },
+        },
+      ],
+    });
+  });
+
   it('unbond', async () => {
     const { coreContractClient, neutronUserAddress, ldDenom } = context;
     let res = await coreContractClient.unbond(
