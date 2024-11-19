@@ -51,11 +51,6 @@ impl InstantiateMsg {
             pump_ica_address: self.pump_ica_address,
             transfer_channel_id: self.transfer_channel_id,
             validators_set_contract: deps.api.addr_validate(&self.validators_set_contract)?,
-            bond_limit: match self.bond_limit {
-                None => None,
-                Some(limit) if limit.is_zero() => None,
-                Some(limit) => Some(limit),
-            },
             unbond_batch_switch_time: self.unbond_batch_switch_time,
             emergency_address: self.emergency_address,
             icq_update_delay: self.icq_update_delay,
@@ -133,7 +128,6 @@ pub enum ExecuteMsg {
         withdrawn_amount: Uint128,
     },
     PeripheralHook(Box<PuppeteerResponseHookMsg>),
-    ResetBondedAmount {},
     ProcessEmergencyBatch {
         batch_id: u128,
         unbonded_amount: Uint128,
