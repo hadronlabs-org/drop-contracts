@@ -130,7 +130,7 @@ pub fn execute_update_config(
         config.core_contract = core_contract;
     }
     if let Some(ibc_timeout) = new_config.ibc_timeout {
-        if ibc_timeout > TIMEOUT_RANGE.to || ibc_timeout < TIMEOUT_RANGE.from {
+        if !(TIMEOUT_RANGE.from..=TIMEOUT_RANGE.to).contains(&ibc_timeout) {
             return Err(ContractError::IbcTimeoutOutOfRange);
         }
         attrs.push(attr("ibc_timeout", ibc_timeout.to_string()));

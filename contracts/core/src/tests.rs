@@ -5,8 +5,8 @@ use crate::contract::{
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockStorage},
-    to_json_binary, Addr, AllBalanceResponse, BalanceResponse, Coin, CosmosMsg, Decimal,
-    Decimal256, Event, OwnedDeps, Response, SubMsg, Timestamp, Uint128, WasmMsg,
+    to_json_binary, Addr, AllBalanceResponse, Coin, CosmosMsg, Decimal, Decimal256, Event,
+    OwnedDeps, Response, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use drop_helpers::{
     pause::PauseError,
