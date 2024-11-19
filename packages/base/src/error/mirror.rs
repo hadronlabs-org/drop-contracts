@@ -42,6 +42,9 @@ pub enum ContractError {
 
     #[error("Wrong bond state. Expected {expected:?}, got {got:?}")]
     WrongBondState { expected: String, got: String },
+
+    #[error("Channel on the host chain wasn't found")]
+    SourceChannelNotFound,
 }
 
 impl From<semver::Error> for ContractError {

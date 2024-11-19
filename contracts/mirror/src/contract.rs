@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     attr, ensure, ensure_eq, from_json, to_json_binary, BankMsg, Binary, Coin, CosmosMsg, Deps,
-    DepsMut, Env, MessageInfo, Order, Reply, Response, SubMsg, WasmMsg,
+    DepsMut, Env, IbcQuery, MessageInfo, Order, Reply, Response, SubMsg, WasmMsg,
 };
 use cw_ownable::update_ownership;
 use drop_helpers::answer::response;
@@ -128,6 +128,14 @@ pub fn execute_update_config(
         attrs.push(attr("core_contract", &core_contract));
         config.core_contract = core_contract;
     }
+    if let Some(ibc_timeout) = new_config.ibc_timeout {
+        attrs.push(attr("ibc_timeout", ibc_timeout.to_string()));
+        config.ibc_timeout = ibc_timeout;
+    }
+    if let Some(prefix) = new_config.prefix {
+        attrs.push(attr("prefix", &prefix));
+        config.prefix = prefix;
+    }
     if let Some(source_port) = new_config.source_port {
         attrs.push(attr("source_port", &source_port));
         config.source_port = source_port;
@@ -136,13 +144,15 @@ pub fn execute_update_config(
         attrs.push(attr("source_channel", &source_channel));
         config.source_channel = source_channel;
     }
-    if let Some(ibc_timeout) = new_config.ibc_timeout {
-        attrs.push(attr("ibc_timeout", ibc_timeout.to_string()));
-        config.ibc_timeout = ibc_timeout;
-    }
-    if let Some(prefix) = new_config.prefix {
-        attrs.push(attr("prefix", &prefix));
-        config.prefix = prefix;
+    let res: cosmwasm_std::ChannelResponse = deps
+        .querier
+        .query(&cosmwasm_std::QueryRequest::Ibc(IbcQuery::Channel {
+            channel_id: config.source_channel.clone(),
+            port_id: Some(config.source_port.clone()),
+        }))
+        .unwrap();
+    if res.channel.is_none() {
+        return Err(ContractError::SourceChannelNotFound);
     }
     CONFIG.save(deps.storage, &config)?;
     Ok(response("update_config", CONTRACT_NAME, attrs))
