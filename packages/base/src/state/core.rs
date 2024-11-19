@@ -158,6 +158,7 @@ pub struct Pause {
     pub tick: bool,
 }
 pub const BOND_PROVIDER_REPLY_ID: u64 = 1;
+pub const MAX_BOND_PROVIDERS: u64 = 10;
 
 pub const FSM: Fsm<ContractState> = Fsm::new("machine_state", TRANSITIONS);
 pub const LAST_IDLE_CALL: Item<u64> = Item::new("last_tick");

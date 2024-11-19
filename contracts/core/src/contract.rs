@@ -25,8 +25,8 @@ use drop_staking_base::{
             unbond_batches_map, Config, ConfigOptional, ContractState, Pause, UnbondBatch,
             UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse, BOND_HOOKS,
             BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM,
-            LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM, PAUSE,
-            UNBOND_BATCH_ID,
+            LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM,
+            MAX_BOND_PROVIDERS, PAUSE, UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
         withdrawal_voucher::{Metadata, Trait},
@@ -345,6 +345,10 @@ fn execute_add_bond_provider(
     bond_provider_address: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    if BOND_PROVIDERS.get_all_providers(deps.storage)?.len() as u64 >= MAX_BOND_PROVIDERS {
+        return Err(ContractError::MaxBondProvidersReached {});
+    }
 
     let bond_provider_address = deps.api.addr_validate(&bond_provider_address)?;
 

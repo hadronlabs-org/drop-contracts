@@ -25,7 +25,8 @@ use drop_staking_base::{
             unbond_batches_map, Config, ConfigOptional, ContractState, Pause, UnbondBatch,
             UnbondBatchStatus, UnbondBatchStatusTimestamps, BOND_HOOKS, BOND_PROVIDERS,
             BOND_PROVIDER_REPLY_ID, CONFIG, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT,
-            LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM, PAUSE, UNBOND_BATCH_ID,
+            LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM, MAX_BOND_PROVIDERS, PAUSE,
+            UNBOND_BATCH_ID,
         },
         puppeteer::{Delegations, DropDelegation},
     },
@@ -195,6 +196,32 @@ fn query_ownership() {
             .unwrap(),
         String::from("owner"),
     );
+}
+
+#[test]
+fn test_execute_add_bond_provider_max_limit_reached() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+
+    for i in 0..MAX_BOND_PROVIDERS {
+        let mut provider: String = "provider".to_string();
+        provider.push_str(i.to_string().as_str());
+
+        BOND_PROVIDERS
+            .add(deps_mut.storage, cosmwasm_std::Addr::unchecked(provider))
+            .unwrap();
+    }
+    let res = execute(
+        deps_mut,
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::AddBondProvider {
+            bond_provider_address: "bond_provider_address".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::MaxBondProvidersReached {})
 }
 
 #[test]

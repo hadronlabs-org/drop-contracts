@@ -144,6 +144,9 @@ pub enum ContractError {
 
     #[error("Semver parsing error: {0}")]
     SemVer(String),
+
+    #[error("Max amount of bond providers reached")]
+    MaxBondProvidersReached {},
 }
 
 impl From<semver::Error> for ContractError {
