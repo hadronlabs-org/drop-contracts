@@ -34,7 +34,6 @@ pub struct CoreParams {
     pub unbonding_period: u64,
     pub unbonding_safe_period: u64,
     pub unbond_batch_switch_time: u64,
-    pub bond_limit: Option<Uint128>,
     pub icq_update_delay: u64, // blocks
 }
 

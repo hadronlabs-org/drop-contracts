@@ -23,7 +23,6 @@ pub struct InstantiateMsg {
     pub unbonding_period: u64,         //seconds
     pub unbonding_safe_period: u64,    //seconds
     pub unbond_batch_switch_time: u64, //seconds
-    pub bond_limit: Option<Uint128>,
     pub pump_ica_address: Option<String>,
     pub transfer_channel_id: String,
     pub owner: String,

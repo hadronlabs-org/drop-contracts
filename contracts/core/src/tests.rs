@@ -111,7 +111,6 @@ fn test_update_config() {
             unbond_batch_switch_time: 2000,
             pump_ica_address: Some("old_pump_address".to_string()),
             transfer_channel_id: "old_transfer_channel".to_string(),
-            bond_limit: Some(Uint128::new(12)),
             emergency_address: Some("old_emergency_address".to_string()),
             owner: "admin".to_string(),
             icq_update_delay: 5,

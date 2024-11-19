@@ -119,7 +119,6 @@ fn test_instantiate() {
             unbonding_period: 0,
             unbonding_safe_period: 0,
             unbond_batch_switch_time: 0,
-            bond_limit: Some(Uint128::from(0u64)),
             icq_update_delay: 0,
         },
         native_bond_params: NativeBondParams {
@@ -269,7 +268,6 @@ fn test_instantiate() {
                             unbonding_period: 0,
                             unbonding_safe_period: 0,
                             unbond_batch_switch_time: 0,
-                            bond_limit: Some(Uint128::from(0u64)),
                             pump_ica_address: None,
                             transfer_channel_id: "channel-0".to_string(),
                             owner: "factory_contract".to_string(),
