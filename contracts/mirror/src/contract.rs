@@ -12,6 +12,7 @@ use drop_staking_base::state::mirror::{
 use drop_staking_base::{
     error::mirror::{ContractError, ContractResult},
     msg::mirror::{InstantiateMsg, MigrateMsg, QueryMsg},
+    state::mirror::TIMEOUT_RANGE,
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, TransferSudoMsg};
@@ -129,6 +130,9 @@ pub fn execute_update_config(
         config.core_contract = core_contract;
     }
     if let Some(ibc_timeout) = new_config.ibc_timeout {
+        if ibc_timeout > TIMEOUT_RANGE.to || ibc_timeout < TIMEOUT_RANGE.from {
+            return Err(ContractError::IbcTimeoutOutOfRange);
+        }
         attrs.push(attr("ibc_timeout", ibc_timeout.to_string()));
         config.ibc_timeout = ibc_timeout;
     }
@@ -136,23 +140,25 @@ pub fn execute_update_config(
         attrs.push(attr("prefix", &prefix));
         config.prefix = prefix;
     }
-    if let Some(source_port) = new_config.source_port {
-        attrs.push(attr("source_port", &source_port));
-        config.source_port = source_port;
-    }
-    if let Some(source_channel) = new_config.source_channel {
-        attrs.push(attr("source_channel", &source_channel));
-        config.source_channel = source_channel;
-    }
-    let res: cosmwasm_std::ChannelResponse = deps
-        .querier
-        .query(&cosmwasm_std::QueryRequest::Ibc(IbcQuery::Channel {
-            channel_id: config.source_channel.clone(),
-            port_id: Some(config.source_port.clone()),
-        }))
-        .unwrap();
-    if res.channel.is_none() {
-        return Err(ContractError::SourceChannelNotFound);
+    {
+        if let Some(source_port) = new_config.source_port {
+            attrs.push(attr("source_port", &source_port));
+            config.source_port = source_port;
+        }
+        if let Some(source_channel) = new_config.source_channel {
+            attrs.push(attr("source_channel", &source_channel));
+            config.source_channel = source_channel;
+        }
+        let res: cosmwasm_std::ChannelResponse = deps
+            .querier
+            .query(&cosmwasm_std::QueryRequest::Ibc(IbcQuery::Channel {
+                channel_id: config.source_channel.clone(),
+                port_id: Some(config.source_port.clone()),
+            }))
+            .unwrap();
+        if res.channel.is_none() {
+            return Err(ContractError::SourceChannelNotFound);
+        }
     }
     CONFIG.save(deps.storage, &config)?;
     Ok(response("update_config", CONTRACT_NAME, attrs))

@@ -45,6 +45,9 @@ pub enum ContractError {
 
     #[error("Channel on the host chain wasn't found")]
     SourceChannelNotFound,
+
+    #[error("IBC timeout out of range")]
+    IbcTimeoutOutOfRange,
 }
 
 impl From<semver::Error> for ContractError {
