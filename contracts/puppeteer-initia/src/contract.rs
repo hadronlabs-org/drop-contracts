@@ -74,6 +74,7 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    PAUSE.save(deps.storage, &Pause::default())?;
     let allowed_senders = validate_addresses(
         deps.as_ref().into_empty(),
         msg.allowed_senders.as_ref(),
