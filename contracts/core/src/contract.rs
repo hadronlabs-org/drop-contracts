@@ -141,7 +141,7 @@ fn query_total_bonded(deps: Deps<NeutronQuery>, config: &Config) -> ContractResu
 }
 
 fn query_total_async_tokens(deps: Deps<NeutronQuery>) -> ContractResult<Uint128> {
-    let mut total_async_shares = Uint128::zero();
+    let mut total_async_tokens = Uint128::zero();
     let bond_providers = BOND_PROVIDERS.get_all_providers(deps.storage)?;
     for provider in bond_providers {
         let async_tokens_amount: Uint128 = deps.querier.query_wasm_smart(
@@ -149,10 +149,10 @@ fn query_total_async_tokens(deps: Deps<NeutronQuery>) -> ContractResult<Uint128>
             &drop_staking_base::msg::bond_provider::QueryMsg::AsyncTokensAmount {},
         )?;
 
-        total_async_shares += async_tokens_amount;
+        total_async_tokens += async_tokens_amount;
     }
 
-    Ok(total_async_shares)
+    Ok(total_async_tokens)
 }
 
 fn query_bond_providers(deps: Deps<NeutronQuery>) -> ContractResult<Vec<Addr>> {
