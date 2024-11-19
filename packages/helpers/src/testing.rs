@@ -170,9 +170,7 @@ impl WasmMockQuerier {
                         self.base.handle_query(request)
                     }
                 }
-                _ => SystemResult::Err(SystemError::UnsupportedRequest {
-                    kind: "Unsupported request given".to_string(),
-                }),
+                _ => self.base.handle_query(request),
             },
             QueryRequest::Ibc(cosmwasm_std::IbcQuery::Channel {
                 channel_id,
@@ -180,14 +178,21 @@ impl WasmMockQuerier {
             }) => {
                 let mut channel_port: String = (*channel_id).clone();
                 if let Some(port_id) = (*port_id).clone() {
-                    channel_port.push_str("/");
+                    channel_port.push('/');
                     channel_port.push_str(&port_id);
                 } else {
                     channel_port.push_str("/*");
                 }
-                SystemResult::Ok(ContractResult::Ok(
-                    (*self.ibc_query_responses.get(&channel_port).unwrap()).clone(),
-                ))
+                SystemResult::Ok(
+                    ContractResult::Ok(
+                        (*self.ibc_query_responses.get(&channel_port).unwrap_or(
+                            &to_json_binary(&cosmwasm_std::ChannelResponse { channel: None })
+                                .unwrap(),
+                        ))
+                        .clone(),
+                    )
+                    .clone(),
+                )
             }
             QueryRequest::Stargate { path, data } => {
                 let mut stargate_query_responses = self.stargate_query_responses.borrow_mut();
@@ -333,7 +338,7 @@ impl WasmMockQuerier {
         if let Some(port_id) = port_id {
             channel_port.push_str(port_id.clone().as_str());
         } else {
-            channel_port.push_str("*");
+            channel_port.push('*');
         }
         self.ibc_query_responses
             .insert(channel_port, to_json_binary(&response).unwrap());
