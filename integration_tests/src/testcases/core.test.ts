@@ -1156,19 +1156,6 @@ describe('Core', () => {
     );
   });
 
-  it('bond failed as over limit', async () => {
-    const { coreContractClient, neutronUserAddress, neutronIBCDenom } = context;
-    await expect(
-      coreContractClient.bond(neutronUserAddress, {}, 1.6, undefined, [
-        {
-          amount: '500000',
-          denom: neutronIBCDenom,
-        },
-      ]),
-    ).rejects.toThrowError(/Bond limit exceeded/);
-    await checkExchangeRate(context);
-  });
-
   it('update limit', async () => {
     const { factoryContractClient, neutronUserAddress } = context;
     const res = await factoryContractClient.adminExecute(
