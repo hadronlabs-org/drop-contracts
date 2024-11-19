@@ -643,7 +643,6 @@ describe('Core', () => {
           unbond_batch_switch_time: 60,
           unbonding_safe_period: 10,
           unbonding_period: 360,
-          bond_limit: '0',
           icq_update_delay: 5,
         },
         native_bond_params: {
@@ -947,39 +946,6 @@ describe('Core', () => {
     await checkExchangeRate(context);
   });
 
-  it('verify bonded amount', async () => {
-    const { coreContractClient } = context;
-    const bonded = await coreContractClient.queryTotalBonded();
-    expect(bonded).toEqual('500000');
-  });
-
-  it('reset bonded amount', async () => {
-    const { coreContractClient, neutronUserAddress } = context;
-    const res = await context.factoryContractClient.adminExecute(
-      neutronUserAddress,
-      {
-        msgs: [
-          {
-            wasm: {
-              execute: {
-                contract_addr: context.coreContractClient.contractAddress,
-                msg: Buffer.from(
-                  JSON.stringify({
-                    reset_bonded_amount: {},
-                  }),
-                ).toString('base64'),
-                funds: [],
-              },
-            },
-          },
-        ],
-      },
-      1.5,
-    );
-    expect(res.transactionHash).toHaveLength(64);
-    const bonded = await coreContractClient.queryTotalBonded();
-    expect(bonded).toEqual('0');
-  });
   it('bond with receiver', async () => {
     const {
       coreContractClient,

@@ -1202,11 +1202,6 @@ describe('Core', () => {
     });
     await checkExchangeRate(context);
   });
-  it('verify bonded amount', async () => {
-    const { coreContractClient } = context;
-    const bonded = await coreContractClient.queryTotalBonded();
-    expect(bonded).toEqual('500000');
-  });
   it('bond with receiver', async () => {
     const {
       coreContractClient,
