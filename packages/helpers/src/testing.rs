@@ -7,9 +7,9 @@ use std::marker::PhantomData;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage};
 use cosmwasm_std::{
-    from_json, to_json_binary, Api, BalanceResponse, BankQuery, Binary, Coin, ContractResult,
-    CustomQuery, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult,
-    Uint128,
+    from_json, to_json_binary, AllBalanceResponse, Api, BalanceResponse, BankQuery, Binary, Coin,
+    ContractResult, CustomQuery, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError,
+    SystemResult, Uint128,
 };
 
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -159,6 +159,15 @@ impl WasmMockQuerier {
                     self.base.handle_query(request)
                 }
             }
+            QueryRequest::Bank(BankQuery::AllBalances { address, .. }) => {
+                let custom_balance = self.bank_query_responses.get(address);
+
+                if let Some(balances) = custom_balance {
+                    SystemResult::Ok(ContractResult::Ok(balances.clone()))
+                } else {
+                    self.base.handle_query(request)
+                }
+            }
             QueryRequest::Stargate { path, data } => {
                 let mut stargate_query_responses = self.stargate_query_responses.borrow_mut();
                 let responses = match stargate_query_responses.get_mut(path) {
@@ -270,6 +279,14 @@ impl WasmMockQuerier {
     }
 
     pub fn add_bank_query_response(&mut self, address: String, response: BalanceResponse) {
+        self.bank_query_responses
+            .insert(address, to_json_binary(&response).unwrap());
+    }
+    pub fn add_all_balances_query_response(
+        &mut self,
+        address: String,
+        response: AllBalanceResponse,
+    ) {
         self.bank_query_responses
             .insert(address, to_json_binary(&response).unwrap());
     }

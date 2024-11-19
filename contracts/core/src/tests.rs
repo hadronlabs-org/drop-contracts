@@ -5,8 +5,8 @@ use crate::contract::{
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockStorage},
-    to_json_binary, Addr, Coin, CosmosMsg, Decimal, Decimal256, Event, OwnedDeps, Response, SubMsg,
-    Timestamp, Uint128, WasmMsg,
+    to_json_binary, Addr, AllBalanceResponse, BalanceResponse, Coin, CosmosMsg, Decimal,
+    Decimal256, Event, OwnedDeps, Response, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use drop_helpers::{
     pause::PauseError,
@@ -196,6 +196,35 @@ fn query_ownership() {
             .unwrap(),
         String::from("owner"),
     );
+}
+
+#[test]
+fn test_bond_provider_has_any_tokens() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+
+    deps.querier.add_all_balances_query_response(
+        "bond_provider_address".to_string(),
+        AllBalanceResponse {
+            amount: vec![Coin {
+                denom: "denom".to_string(),
+                amount: Uint128::from(123u128),
+            }],
+        },
+    );
+
+    let error = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::RemoveBondProvider {
+            bond_provider_address: "bond_provider_address".to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(error, ContractError::BondProviderBalanceNotEmpty {})
 }
 
 #[test]

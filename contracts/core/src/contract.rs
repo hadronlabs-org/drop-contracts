@@ -369,6 +369,12 @@ fn execute_remove_bond_provider(
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     let bond_provider_address = deps.api.addr_validate(&bond_provider_address)?;
+    let bond_provider_balances = deps
+        .querier
+        .query_all_balances(bond_provider_address.clone())?;
+    if !bond_provider_balances.is_empty() {
+        return Err(ContractError::BondProviderBalanceNotEmpty {});
+    }
 
     BOND_PROVIDERS.remove(deps.storage, bond_provider_address.clone())?;
 

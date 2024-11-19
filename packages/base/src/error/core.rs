@@ -147,6 +147,9 @@ pub enum ContractError {
 
     #[error("Max amount of bond providers reached")]
     MaxBondProvidersReached {},
+
+    #[error("Bond provider balance isn't empty")]
+    BondProviderBalanceNotEmpty {},
 }
 
 impl From<semver::Error> for ContractError {
