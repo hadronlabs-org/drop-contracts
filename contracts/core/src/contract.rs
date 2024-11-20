@@ -374,7 +374,7 @@ fn execute_remove_bond_provider(
         .query_all_balances(bond_provider_address.clone())?;
     let bond_provider_balances_except_untrn = bond_provider_balances
         .into_iter()
-        .filter(|coin| coin.denom == UNTRN_DENOM.to_string())
+        .filter(|coin| coin.denom != *UNTRN_DENOM.to_string())
         .collect::<Vec<Coin>>();
     if !bond_provider_balances_except_untrn.is_empty() {
         return Err(ContractError::BondProviderBalanceNotEmpty {});

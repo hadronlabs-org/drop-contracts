@@ -206,10 +206,16 @@ fn test_bond_provider_has_any_tokens() {
     deps.querier.add_all_balances_query_response(
         "bond_provider_address".to_string(),
         AllBalanceResponse {
-            amount: vec![Coin {
-                denom: "denom".to_string(),
-                amount: Uint128::from(123u128),
-            }],
+            amount: vec![
+                Coin {
+                    denom: "denom".to_string(),
+                    amount: Uint128::from(123u128),
+                },
+                Coin {
+                    denom: "untrn".to_string(),
+                    amount: Uint128::from(123u128),
+                },
+            ],
         },
     );
 
