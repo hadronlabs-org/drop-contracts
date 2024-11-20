@@ -138,7 +138,6 @@ fn execute_update_validators(
 
     let total_count = validators.len();
 
-    // TODO: implement notification of the validator stats contract about new validators set
     VALIDATORS_SET.clear(deps.storage);
 
     for validator in validators {
