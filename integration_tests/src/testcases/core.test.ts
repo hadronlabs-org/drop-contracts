@@ -1628,7 +1628,6 @@ describe('Core', () => {
           coreContractClient,
           puppeteerContractClient,
         );
-
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
