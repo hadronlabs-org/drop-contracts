@@ -15,6 +15,8 @@ use drop_staking_base::state::validatorset::{
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
 
+use std::collections::HashMap;
+
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -138,14 +140,25 @@ fn execute_update_validators(
 
     let total_count = validators.len();
 
-    // TODO: implement notification of the validator stats contract about new validators set
+    let old_validator_set: HashMap<String, ValidatorInfo> = VALIDATORS_SET
+        .range_raw(deps.storage, None, None, Order::Ascending)
+        .map(|item| item.and_then(|(_key, value)| Ok((value.valoper_address.to_string(), value))))
+        .collect::<StdResult<Vec<(String, ValidatorInfo)>>>()?
+        .into_iter()
+        .collect();
+
     VALIDATORS_SET.clear(deps.storage);
 
     for validator in validators {
+        let on_top_value = old_validator_set
+            .get(&validator.valoper_address)
+            .map(|validator_info| validator_info.on_top)
+            .unwrap_or_default();
+
         let validator_info = ValidatorInfo {
             valoper_address: validator.valoper_address,
             weight: validator.weight,
-            on_top: validator.on_top,
+            on_top: validator.on_top.unwrap_or(on_top_value),
             last_processed_remote_height: None,
             last_processed_local_height: None,
             last_validated_height: None,
@@ -330,12 +343,12 @@ fn execute_edit_on_top(
                 validator_info.on_top = validator_info.on_top.checked_add(amount)?;
                 validator_info
             }
-            OnTopEditOperation::Subtract {
+            OnTopEditOperation::Set {
                 validator_address,
                 amount,
             } => {
                 let mut validator_info = VALIDATORS_SET.load(deps.storage, &validator_address)?;
-                validator_info.on_top = validator_info.on_top.checked_sub(amount)?;
+                validator_info.on_top = amount;
                 validator_info
             }
         };
