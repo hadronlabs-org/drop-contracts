@@ -340,13 +340,12 @@ pub fn mock_locator_query(
 ) {
     deps.querier
         .add_wasm_query_response("factory_contract", |req| {
-            let q: FactoryQueryMsg = cosmwasm_std::from_json(&req).unwrap();
+            let q: FactoryQueryMsg = cosmwasm_std::from_json(req).unwrap();
             let contracts = match q {
                 FactoryQueryMsg::Locate { contracts } => contracts
                     .iter()
                     .map(|c| (c.to_string(), c.to_string()))
                     .collect::<HashMap<_, _>>(),
-                _ => unimplemented!(),
             };
             to_json_binary(&contracts).unwrap()
         });
