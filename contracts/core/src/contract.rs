@@ -1421,22 +1421,6 @@ fn new_unbond(now: u64) -> UnbondBatch {
     }
 }
 
-#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
-pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
-    match msg.id {
-        BOND_PROVIDER_REPLY_ID => bond_provider_reply(deps.as_ref(), msg),
-        id => Err(ContractError::UnknownReplyId { id }),
-    }
-}
-
-fn bond_provider_reply(_deps: Deps, msg: Reply) -> ContractResult<Response> {
-    if let SubMsgResult::Err(err) = msg.result {
-        return Err(ContractError::BondProviderError { message: err });
-    }
-
-    Ok(Response::new())
-}
-
 pub mod check_denom {
     use super::*;
 
