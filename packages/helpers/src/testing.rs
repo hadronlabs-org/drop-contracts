@@ -319,7 +319,7 @@ impl WasmMockQuerier {
     pub fn add_query_response(&mut self, query_id: u64, response: Binary) {
         self.query_responses.insert(query_id, response);
     }
-    pub fn add_ibc_response(
+    pub fn add_ibc_channel_response(
         &mut self,
         channel_id: Option<String>,
         port_id: Option<String>,

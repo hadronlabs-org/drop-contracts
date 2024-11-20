@@ -160,7 +160,7 @@ fn update_config_source_channel_not_found() {
 fn update_config() {
     let mut deps = mock_dependencies(&[]);
     base_init(deps.as_mut());
-    deps.querier.add_ibc_response(
+    deps.querier.add_ibc_channel_response(
         Some("channel-0".to_string()),
         Some("transfer".to_string()),
         cosmwasm_std::ChannelResponse {
