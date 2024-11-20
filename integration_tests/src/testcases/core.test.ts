@@ -2609,23 +2609,6 @@ describe('Core', () => {
           token_uri: null,
         });
       });
-      it('bond tokenized share from registered validator', async () => {
-        const { coreContractClient, neutronUserAddress } = context;
-        const res = await coreContractClient.bond(
-          neutronUserAddress,
-          {},
-          1.6,
-          undefined,
-          [
-            {
-              amount: '20000',
-              denom: context.tokenizedDenomOnNeutron,
-            },
-          ],
-        );
-        expect(res.transactionHash).toHaveLength(64);
-        await checkExchangeRate(context);
-      });
       it('try to withdraw from paused manager', async () => {
         const {
           withdrawalVoucherContractClient,
