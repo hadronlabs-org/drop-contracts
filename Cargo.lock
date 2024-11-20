@@ -699,6 +699,7 @@ dependencies = [
  "cw-storage-plus 1.2.0",
  "hex",
  "neutron-sdk",
+ "once_cell",
  "prost",
  "schemars",
  "serde",
