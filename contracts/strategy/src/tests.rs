@@ -27,7 +27,7 @@ use drop_staking_base::state::strategy::{DENOM, FACTORY_CONTRACT};
 const CORE_CONTRACT_ADDR: &str = "core_contract";
 const FACTORY_CONTRACT_ADDR: &str = "factory_contract";
 const PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
-const VALIDATOR_SET_CONTRACT_ADDR: &str = "validator_set_contract";
+const VALIDATOR_SET_CONTRACT_ADDR: &str = "validators_set_contract";
 const DISTRIBUTION_CONTRACT_ADDR: &str = "distribution_contract";
 
 #[cw_serde]

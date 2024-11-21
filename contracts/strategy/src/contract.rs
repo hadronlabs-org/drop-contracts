@@ -63,9 +63,7 @@ fn query_config(deps: Deps, _env: Env) -> ContractResult<Binary> {
 
 pub fn query_calc_deposit(deps: Deps, deposit: Uint128) -> ContractResult<Binary> {
     let factory_contract = FACTORY_CONTRACT.load(deps.storage)?.to_string();
-    println!("factory_contract: {:?}", factory_contract);
     let addrs = drop_helpers::get_contracts!(deps, factory_contract, distribution_contract);
-    println!("addrs: {:?}", addrs);
     let delegations = prepare_delegation_data(deps)?;
 
     let deposit_changes: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
@@ -118,7 +116,7 @@ fn prepare_delegation_data(
         deps,
         factory_contract,
         puppeteer_contract,
-        validator_set_contract
+        validators_set_contract
     );
     let denom = DENOM.load(deps.storage)?;
     let account_delegations: drop_staking_base::msg::puppeteer::DelegationsResponse =
@@ -131,7 +129,7 @@ fn prepare_delegation_data(
 
     let validator_set: Vec<drop_staking_base::state::validatorset::ValidatorInfo> =
         deps.querier.query_wasm_smart(
-            addrs.validator_set_contract.to_string(),
+            addrs.validators_set_contract.to_string(),
             &drop_staking_base::msg::validatorset::QueryMsg::Validators {},
         )?;
 

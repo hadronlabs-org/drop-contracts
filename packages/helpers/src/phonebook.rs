@@ -30,7 +30,6 @@ macro_rules! get_contracts {
 
             // Query for the missing contracts if needed
             if !not_cached_contracts.is_empty() {
-                println!("Querying for missing contracts: {:?}", not_cached_contracts);
                 let queried_results:std::collections::HashMap<String, String> = $deps
                     .querier
                     .query(&cosmwasm_std::QueryRequest::Wasm(cosmwasm_std::WasmQuery::Smart {
