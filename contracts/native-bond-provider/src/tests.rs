@@ -634,6 +634,7 @@ fn process_on_idle_not_core_contract() {
 fn process_on_idle_delegation() {
     let mut deps = mock_dependencies(&[]);
     mock_locator_query(&mut deps);
+    mock_locator_query(&mut deps);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
