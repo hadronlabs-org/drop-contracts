@@ -11,6 +11,7 @@ use cosmwasm_std::{
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{
     answer::response,
+    get_contracts,
     ibc_client_state::query_client_state,
     ibc_fee::query_ibc_fee,
     icq::{
@@ -100,7 +101,7 @@ pub fn instantiate(
         transfer_channel_id: msg.transfer_channel_id,
         sdk_version: msg.sdk_version,
         timeout: msg.timeout,
-        native_bond_provider: deps.api.addr_validate(&msg.native_bond_provider)?,
+        factory_contract: deps.api.addr_validate(&msg.factory_contract)?,
         delegations_queries_chunk_size: msg
             .delegations_queries_chunk_size
             .unwrap_or(DEFAULT_DELEGATIONS_QUERIES_CHUNK_SIZE),
@@ -327,9 +328,9 @@ fn execute_update_config(
         attrs.push(attr("timeout", timeout.to_string()));
         config.timeout = timeout;
     }
-    if let Some(native_bond_provider) = new_config.native_bond_provider {
-        config.native_bond_provider = native_bond_provider.clone();
-        attrs.push(attr("native_bond_provider", native_bond_provider))
+    if let Some(factory_contract) = new_config.factory_contract {
+        config.factory_contract = factory_contract.clone();
+        attrs.push(attr("factory_contract", factory_contract))
     }
 
     puppeteer_base.update_config(deps.into_empty(), &config)?;
@@ -345,11 +346,12 @@ fn execute_delegate(
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.storage)?;
+    let addrs = get_contracts!(deps, config.factory_contract, native_bond_provider_contract);
     validate_sender(&config, &info.sender)?;
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
 
     let non_staked_balance = deps.querier.query_wasm_smart::<Uint128>(
-        &config.native_bond_provider,
+        &addrs.native_bond_provider_contract,
         &drop_staking_base::msg::native_bond_provider::QueryMsg::NonStakedBalance {},
     )?;
 

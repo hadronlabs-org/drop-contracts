@@ -266,7 +266,7 @@ fn test_instantiate() {
                             sdk_version: "sdk-version".to_string(),
                             timeout: 0,
                             delegations_queries_chunk_size: None,
-                            native_bond_provider: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
                         })
                         .unwrap(),
                         funds: vec![],

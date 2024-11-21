@@ -293,7 +293,7 @@ pub fn instantiate(
                 sdk_version: msg.sdk_version.to_string(),
                 timeout: msg.remote_opts.timeout.local,
                 delegations_queries_chunk_size: None,
-                native_bond_provider: native_bond_provider_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),
