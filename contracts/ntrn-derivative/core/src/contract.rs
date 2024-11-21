@@ -174,11 +174,7 @@ fn execute_receive_nft_withdraw(
     })?;
     let receiver = receiver
         .map(|a| deps.api.addr_validate(&a))
-        .unwrap_or_else(|| {
-            Ok(deps
-                .api
-                .addr_validate(voucher_extension.recepient.as_str())?)
-        })?
+        .unwrap_or_else(|| deps.api.addr_validate(voucher_extension.recepient.as_str()))?
         .to_string();
     let attrs = vec![
         attr("action", "receive_nft"),
