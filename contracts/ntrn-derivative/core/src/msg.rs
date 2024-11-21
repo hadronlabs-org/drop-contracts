@@ -10,10 +10,14 @@ pub enum QueryMsg {}
 #[cw_serde]
 pub enum ExecuteMsg {
     Bond { receiver: Option<String> },
+    Unbond { receiver: Option<String> },
 }
 
 #[cw_serde]
-pub struct InstantiateMsg {}
+pub struct InstantiateMsg {
+    pub withdrawal_voucher_code_id: u64,
+    pub unbonding_period: u64,
+}
 
 #[cw_serde]
 pub struct MigrateMsg {}

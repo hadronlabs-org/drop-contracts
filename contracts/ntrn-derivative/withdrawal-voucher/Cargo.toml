@@ -1,8 +1,8 @@
 [package]
 authors = ["Vladislav Vasilev <vfaust.thefuture@gmail.com>"]
-description = "Contract to mint derivatives for locked Neutron tokens"
+description = "Contract to mint NFT's for dNTRN"
 edition = "2021"
-name = "drop-ntrn-derivative"
+name = "drop-ntrn-derivative-withdrawal-voucher"
 version = "1.0.0"
 
 exclude = [
@@ -35,5 +35,6 @@ semver = { workspace = true }
 neutron-sdk = { workspace = true }
 thiserror = { workspace = true }
 cw721 = { workspace = true }
+cw721-base = { workspace = true }
 cw-utils = { workspace = true }
 cw-storage-plus = { workspace = true }

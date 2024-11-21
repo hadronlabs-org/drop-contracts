@@ -1,4 +1,4 @@
-use cosmwasm_std::StdError;
+use cosmwasm_std::{Instantiate2AddressError, StdError};
 use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use thiserror::Error;
@@ -13,6 +13,8 @@ pub enum ContractError {
     SemVer(String),
     #[error("{0}")]
     PaymentError(#[from] PaymentError),
+    #[error("Could not calculcate instantiate2 address: {0}")]
+    Instantiate2AddressError(#[from] Instantiate2AddressError),
 }
 
 impl From<semver::Error> for ContractError {

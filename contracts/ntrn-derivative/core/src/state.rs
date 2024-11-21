@@ -1,17 +1,16 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Decimal, DenomMetadata, Uint128};
+use cosmwasm_std::{Addr, DenomMetadata};
 use cw_storage_plus::Item;
 
 #[cw_serde]
 pub struct Config {
-    pub fee: Decimal,
-    pub fee_receiver: Addr,
-    pub profit: Decimal,
-    pub voucher_contract: Addr,
     pub unbonding_period: u64,
+    pub withdrawal_voucher: Addr,
 }
 
 pub const BASE_DENOM: &str = "untrn";
+pub const SALT: &str = "salt";
+
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const TOKEN_METADATA: Item<DenomMetadata> = Item::new("token_metadata");
 pub const DENOM: Item<String> = Item::new("denom");
