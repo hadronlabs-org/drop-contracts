@@ -1,4 +1,3 @@
-use crate::state::Config;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::DenomMetadata;
 use cw_ownable::cw_ownable_execute;
@@ -13,7 +12,7 @@ pub enum NftStatus {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(Config)]
+    #[returns(crate::state::Config)]
     Config {},
     #[returns(NftStatus)]
     NftStatus { token_id: String },

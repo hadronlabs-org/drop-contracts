@@ -119,7 +119,7 @@ pub fn query_nft_status(deps: Deps, env: Env, token_id: String) -> StdResult<Bin
         true => NftStatus::Ready {},
         false => NftStatus::NotReady {},
     };
-    Ok(to_json_binary(&nft_status)?)
+    to_json_binary(&nft_status)
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
