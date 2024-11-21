@@ -5,9 +5,7 @@ use drop_helpers::answer::response;
 use drop_staking_base::msg::strategy::{
     Config, ConfigOptional, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
-use drop_staking_base::state::strategy::{
-    DENOM, DISTRIBUTION_ADDRESS, PUPPETEER_ADDRESS, VALIDATOR_SET_ADDRESS,
-};
+use drop_staking_base::state::strategy::{DENOM, FACTORY_CONTRACT};
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     NeutronResult,
@@ -27,14 +25,8 @@ pub fn instantiate(
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(&msg.owner))?;
 
-    let puppeteer = deps.api.addr_validate(&msg.puppeteer_address)?;
-    PUPPETEER_ADDRESS.save(deps.storage, &puppeteer)?;
-
-    let validator_set = deps.api.addr_validate(&msg.validator_set_address)?;
-    VALIDATOR_SET_ADDRESS.save(deps.storage, &validator_set)?;
-
-    let distribution = deps.api.addr_validate(&msg.distribution_address)?;
-    DISTRIBUTION_ADDRESS.save(deps.storage, &distribution)?;
+    let factory_contract = deps.api.addr_validate(&msg.factory_contract)?;
+    FACTORY_CONTRACT.save(deps.storage, &factory_contract)?;
 
     DENOM.save(deps.storage, &msg.denom)?;
 
@@ -43,9 +35,7 @@ pub fn instantiate(
         CONTRACT_NAME,
         [
             attr("owner", msg.owner),
-            attr("puppeteer_address", msg.puppeteer_address),
-            attr("validator_set_address", msg.validator_set_address),
-            attr("distribution_address", msg.distribution_address),
+            attr("factory_contract", msg.factory_contract),
             attr("denom", msg.denom),
         ],
     ))
@@ -62,26 +52,24 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> ContractResult<Binary> {
 }
 
 fn query_config(deps: Deps, _env: Env) -> ContractResult<Binary> {
-    let puppeteer_address = PUPPETEER_ADDRESS.load(deps.storage)?.into_string();
-    let validator_set_address = VALIDATOR_SET_ADDRESS.load(deps.storage)?.into_string();
-    let distribution_address = DISTRIBUTION_ADDRESS.load(deps.storage)?.into_string();
+    let factory_contract = FACTORY_CONTRACT.load(deps.storage)?.into_string();
     let denom = DENOM.load(deps.storage)?;
 
     Ok(to_json_binary(&Config {
-        puppeteer_address,
-        validator_set_address,
-        distribution_address,
+        factory_contract,
         denom,
     })?)
 }
 
 pub fn query_calc_deposit(deps: Deps, deposit: Uint128) -> ContractResult<Binary> {
-    let distribution_address = DISTRIBUTION_ADDRESS.load(deps.storage)?.into_string();
-
+    let factory_contract = FACTORY_CONTRACT.load(deps.storage)?.to_string();
+    println!("factory_contract: {:?}", factory_contract);
+    let addrs = drop_helpers::get_contracts!(deps, factory_contract, distribution_contract);
+    println!("addrs: {:?}", addrs);
     let delegations = prepare_delegation_data(deps)?;
 
     let deposit_changes: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
-        distribution_address,
+        addrs.distribution_contract.to_string(),
         &drop_staking_base::msg::distribution::QueryMsg::CalcDeposit {
             deposit,
             delegations,
@@ -99,12 +87,13 @@ pub fn query_calc_deposit(deps: Deps, deposit: Uint128) -> ContractResult<Binary
 }
 
 pub fn query_calc_withdraw(deps: Deps, withdraw: Uint128) -> ContractResult<Binary> {
-    let distribution_address = DISTRIBUTION_ADDRESS.load(deps.storage)?.into_string();
+    let factory_contract = FACTORY_CONTRACT.load(deps.storage)?.to_string();
+    let addrs = drop_helpers::get_contracts!(deps, factory_contract, distribution_contract);
 
     let delegations = prepare_delegation_data(deps)?;
 
     let deposit_changes: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
-        distribution_address,
+        addrs.distribution_contract.to_string(),
         &drop_staking_base::msg::distribution::QueryMsg::CalcWithdraw {
             withdraw,
             delegations,
@@ -124,12 +113,17 @@ pub fn query_calc_withdraw(deps: Deps, withdraw: Uint128) -> ContractResult<Bina
 fn prepare_delegation_data(
     deps: Deps,
 ) -> NeutronResult<drop_staking_base::msg::distribution::Delegations> {
-    let puppeteer_address = PUPPETEER_ADDRESS.load(deps.storage)?.into_string();
-    let validator_set_address = VALIDATOR_SET_ADDRESS.load(deps.storage)?.into_string();
+    let factory_contract = FACTORY_CONTRACT.load(deps.storage)?.to_string();
+    let addrs = drop_helpers::get_contracts!(
+        deps,
+        factory_contract,
+        puppeteer_contract,
+        validator_set_contract
+    );
     let denom = DENOM.load(deps.storage)?;
     let account_delegations: drop_staking_base::msg::puppeteer::DelegationsResponse =
         deps.querier.query_wasm_smart(
-            puppeteer_address,
+            addrs.puppeteer_contract.to_string(),
             &drop_puppeteer_base::msg::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
@@ -137,7 +131,7 @@ fn prepare_delegation_data(
 
     let validator_set: Vec<drop_staking_base::state::validatorset::ValidatorInfo> =
         deps.querier.query_wasm_smart(
-            validator_set_address,
+            addrs.validator_set_contract.to_string(),
             &drop_staking_base::msg::validatorset::QueryMsg::Validators {},
         )?;
 
@@ -209,22 +203,10 @@ fn exec_config_update(
 
     let mut attrs: Vec<Attribute> = Vec::new();
 
-    if let Some(puppeteer_address) = new_config.puppeteer_address {
-        let puppeteer_address = deps.api.addr_validate(&puppeteer_address)?;
-        PUPPETEER_ADDRESS.save(deps.storage, &puppeteer_address)?;
-        attrs.push(attr("puppeteer_address", puppeteer_address))
-    }
-
-    if let Some(validator_set_address) = new_config.validator_set_address {
-        let validator_set_address = deps.api.addr_validate(&validator_set_address)?;
-        VALIDATOR_SET_ADDRESS.save(deps.storage, &validator_set_address)?;
-        attrs.push(attr("validator_set_address", validator_set_address))
-    }
-
-    if let Some(distribution_address) = new_config.distribution_address {
-        let distribution_address = deps.api.addr_validate(&distribution_address)?;
-        DISTRIBUTION_ADDRESS.save(deps.storage, &distribution_address)?;
-        attrs.push(attr("distribution_address", distribution_address))
+    if let Some(factory_contract) = new_config.factory_contract {
+        let factory_contract = deps.api.addr_validate(&factory_contract)?;
+        FACTORY_CONTRACT.save(deps.storage, &factory_contract)?;
+        attrs.push(attr("factory_contract", factory_contract))
     }
 
     if let Some(denom) = new_config.denom {

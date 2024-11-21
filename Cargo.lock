@@ -1020,6 +1020,7 @@ dependencies = [
  "cw-ownable",
  "cw2 1.1.2",
  "drop-distribution",
+ "drop-factory",
  "drop-helpers",
  "drop-puppeteer-base",
  "drop-staking-base",

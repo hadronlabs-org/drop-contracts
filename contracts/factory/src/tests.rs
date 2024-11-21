@@ -280,9 +280,7 @@ fn test_instantiate() {
                         label: "strategy".to_string(),
                         msg: to_json_binary(&StrategyInstantiateMsg {
                             owner: "factory_contract".to_string(),
-                            puppeteer_address: "some_humanized_address".to_string(),
-                            validator_set_address: "some_humanized_address".to_string(),
-                            distribution_address: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
                             denom: "denom".to_string()
                         })
                         .unwrap(),

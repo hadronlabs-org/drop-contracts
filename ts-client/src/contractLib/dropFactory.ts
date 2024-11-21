@@ -785,21 +785,15 @@ export interface ConfigOptional {
   base_denom?: string | null;
   bond_limit?: Uint128 | null;
   emergency_address?: string | null;
+  factory_contract?: string | null;
   idle_min_interval?: number | null;
   pump_ica_address?: string | null;
-  puppeteer_contract?: string | null;
   remote_denom?: string | null;
   rewards_receiver?: string | null;
-  staker_contract?: string | null;
-  strategy_contract?: string | null;
-  token_contract?: string | null;
   transfer_channel_id?: string | null;
   unbond_batch_switch_time?: number | null;
   unbonding_period?: number | null;
   unbonding_safe_period?: number | null;
-  validators_set_contract?: string | null;
-  withdrawal_manager_contract?: string | null;
-  withdrawal_voucher_contract?: string | null;
 }
 export interface ConfigOptional2 {
   provider_proposals_contract?: string | null;

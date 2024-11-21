@@ -304,9 +304,7 @@ pub fn instantiate(
             label: "strategy".to_string(),
             msg: to_json_binary(&StrategyInstantiateMsg {
                 owner: env.contract.address.to_string(),
-                puppeteer_address: puppeteer_contract.to_string(),
-                validator_set_address: validators_set_contract.to_string(),
-                distribution_address: distribution_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
                 denom: msg.remote_opts.denom.to_string(),
             })?,
             funds: vec![],
