@@ -1,6 +1,7 @@
 use crate::{
     error::ContractResult,
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
+    state::{BASE_DENOM, DENOM},
 };
 use cosmwasm_std::{
     to_json_binary, Attribute, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
@@ -53,5 +54,24 @@ pub fn execute(
                 [],
             ))
         }
+        ExecuteMsg::Bond { receiver } => execute_bond(deps, env, info, receiver),
     }
+}
+
+fn execute_bond(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    receiver: Option<String>,
+) -> ContractResult<Response<NeutronMsg>> {
+    let amount = cw_utils::may_pay(&info, BASE_DENOM)?;
+    let receiver = receiver
+        .map(|a| deps.api.addr_validate(&a))
+        .unwrap_or_else(|| Ok(info.sender))?;
+    let dntrn_denom = DENOM.load(deps.storage)?;
+    let msg = NeutronMsg::submit_mint_tokens(dntrn_denom, amount, receiver);
+    Ok(Response::new()
+        .add_attribute("action", "bond")
+        .add_attribute("amount", amount.to_string())
+        .add_message(msg))
 }

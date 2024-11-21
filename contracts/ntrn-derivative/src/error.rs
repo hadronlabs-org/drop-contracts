@@ -1,5 +1,6 @@
 use cosmwasm_std::StdError;
 use cw_ownable::OwnershipError;
+use cw_utils::PaymentError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -10,6 +11,8 @@ pub enum ContractError {
     OwnershipError(#[from] OwnershipError),
     #[error("Semver parsing error: {0}")]
     SemVer(String),
+    #[error("{0}")]
+    PaymentError(#[from] PaymentError),
 }
 
 impl From<semver::Error> for ContractError {

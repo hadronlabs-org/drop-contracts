@@ -34,3 +34,6 @@ drop-helpers = { workspace = true }
 semver = { workspace = true }
 neutron-sdk = { workspace = true }
 thiserror = { workspace = true }
+cw721 = { workspace = true }
+cw-utils = { workspace = true }
+cw-storage-plus = { workspace = true }
