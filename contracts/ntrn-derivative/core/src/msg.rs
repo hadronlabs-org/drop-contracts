@@ -1,3 +1,4 @@
+use crate::state::Config;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::DenomMetadata;
 use cw_ownable::cw_ownable_execute;
@@ -5,7 +6,10 @@ use cw_ownable::cw_ownable_execute;
 #[cw_ownable::cw_ownable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
-pub enum QueryMsg {}
+pub enum QueryMsg {
+    #[returns(Config)]
+    Config {},
+}
 
 #[cw_ownable_execute]
 #[cw_serde]

@@ -37,3 +37,4 @@ thiserror = { workspace = true }
 cw721 = { workspace = true }
 cw-utils = { workspace = true }
 cw-storage-plus = { workspace = true }
+cosmos-sdk-proto = { workspace = true }

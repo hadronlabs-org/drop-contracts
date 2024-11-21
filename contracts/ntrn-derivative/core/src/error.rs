@@ -1,6 +1,7 @@
 use cosmwasm_std::{Instantiate2AddressError, StdError};
 use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
+use neutron_sdk::NeutronError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -15,6 +16,10 @@ pub enum ContractError {
     PaymentError(#[from] PaymentError),
     #[error("Could not calculcate instantiate2 address: {0}")]
     Instantiate2AddressError(#[from] Instantiate2AddressError),
+    #[error("Unknown reply id {id}")]
+    UnknownReplyId { id: u64 },
+    #[error("{0}")]
+    NeutronError(#[from] NeutronError),
 }
 
 impl From<semver::Error> for ContractError {

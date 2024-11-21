@@ -791,6 +791,7 @@ dependencies = [
 name = "drop-ntrn-derivative-core"
 version = "1.0.0"
 dependencies = [
+ "cosmos-sdk-proto",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-ownable",
