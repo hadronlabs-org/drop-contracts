@@ -8,9 +8,9 @@ use crate::{
 };
 use cosmos_sdk_proto::cosmos::bank::v1beta1::{DenomUnit, Metadata};
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, from_json, instantiate2_address, to_json_binary, Attribute, BankMsg,
-    Binary, Coin, CosmosMsg, DenomMetadata, Deps, DepsMut, Env, MessageInfo, Reply, Response,
-    StdResult, SubMsg, WasmMsg,
+    attr, ensure, ensure_eq, from_json, instantiate2_address, to_json_binary, BankMsg, Binary,
+    Coin, CosmosMsg, DenomMetadata, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
+    SubMsg, WasmMsg,
 };
 use cw721::NftInfoResponse;
 use drop_helpers::answer::response;
@@ -50,6 +50,26 @@ pub fn instantiate(
         instantiate2_address(&checksum, &canonical_self_address, SALT.as_bytes())?;
     let humanized_withdrawal_voucher_addr =
         deps.api.addr_humanize(&canonical_withdrawal_voucher_addr)?;
+    let attrs = vec![
+        attr("owner", info.sender),
+        attr("denom", msg.subdenom.clone()),
+        attr(
+            "withdrawal_voucher_contract",
+            humanized_withdrawal_voucher_addr.clone(),
+        ),
+    ];
+    let instantiate_withdrawal_voucher_msg = CosmosMsg::Wasm(WasmMsg::Instantiate2 {
+        admin: Some(env.contract.address.to_string()),
+        code_id: msg.withdrawal_voucher_code_id,
+        label: get_contract_label("rewards-manager"),
+        msg: to_json_binary(&WithdrawalVoucherInstantiateMsg {
+            name: "Drop NTRN Voucher".to_string(),
+            symbol: "DROPV".to_string(),
+            minter: env.contract.address.to_string(),
+        })?,
+        funds: vec![],
+        salt: Binary::from(SALT.as_bytes()),
+    });
     CONFIG.save(
         deps.storage,
         &Config {
@@ -61,30 +81,9 @@ pub fn instantiate(
     DENOM.save(deps.storage, &msg.subdenom)?;
     EXPONENT.save(deps.storage, &msg.exponent)?;
     UNBOND_ID.save(deps.storage, &0u64)?;
-    Ok(
-        response("instantiate", CONTRACT_NAME, Vec::<Attribute>::new())
-            .add_attributes(vec![
-                attr("owner", info.sender),
-                attr("denom", msg.subdenom),
-                attr(
-                    "withdrawal_voucher_contract",
-                    humanized_withdrawal_voucher_addr,
-                ),
-            ])
-            .add_message(CosmosMsg::Wasm(WasmMsg::Instantiate2 {
-                admin: Some(env.contract.address.to_string()),
-                code_id: msg.withdrawal_voucher_code_id,
-                label: get_contract_label("rewards-manager"),
-                msg: to_json_binary(&WithdrawalVoucherInstantiateMsg {
-                    name: "Drop NTRN Voucher".to_string(),
-                    symbol: "DROPV".to_string(),
-                    minter: env.contract.address.to_string(),
-                })?,
-                funds: vec![],
-                salt: Binary::from(SALT.as_bytes()),
-            }))
-            .add_submessage(create_denom_msg),
-    )
+    Ok(response("instantiate", CONTRACT_NAME, attrs)
+        .add_message(instantiate_withdrawal_voucher_msg)
+        .add_submessage(create_denom_msg))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
@@ -145,13 +144,8 @@ fn execute_receive_nft_withdraw(
         .map(|a| deps.api.addr_validate(&a))
         .unwrap_or_else(|| Ok(info.sender.clone()))?;
     let config = CONFIG.load(deps.storage)?;
-    ensure_eq!(
-        config.withdrawal_voucher,
-        info.sender,
-        ContractError::Unauthorized {}
-    );
     let voucher: NftInfoResponse<WithdrawalVoucherExtension> = deps.querier.query_wasm_smart(
-        config.withdrawal_voucher,
+        config.withdrawal_voucher.clone(),
         &drop_staking_base::msg::ntrn_derivative::withdrawal_voucher::QueryMsg::NftInfo {
             token_id,
         },
@@ -159,26 +153,28 @@ fn execute_receive_nft_withdraw(
     let voucher_extension = voucher.extension.ok_or_else(|| ContractError::InvalidNFT {
         reason: "extension is not set".to_string(),
     })?;
-    ensure!(
-        voucher_extension.release_at <= env.block.time.seconds(),
-        ContractError::NftNotReady {}
-    );
-    Ok(response(
-        "execute-receive_nft",
-        CONTRACT_NAME,
-        vec![
-            attr("action", "receive_nft"),
-            attr("amount", voucher_extension.amount.to_string()),
-            attr("to_address", &receiver),
-        ],
-    )
-    .add_message(CosmosMsg::Bank(BankMsg::Send {
+    let attrs = vec![
+        attr("action", "receive_nft"),
+        attr("amount", voucher_extension.amount.to_string()),
+        attr("to_address", &receiver),
+    ];
+    let bank_send_msg = CosmosMsg::Bank(BankMsg::Send {
         to_address: receiver.to_string(),
         amount: vec![Coin {
             denom: BASE_DENOM.to_string(),
             amount: voucher_extension.amount,
         }],
-    })))
+    });
+    ensure_eq!(
+        config.withdrawal_voucher,
+        info.sender,
+        ContractError::Unauthorized {}
+    );
+    ensure!(
+        voucher_extension.release_at <= env.block.time.seconds(),
+        ContractError::NftNotReady {}
+    );
+    Ok(response("execute-receive_nft", CONTRACT_NAME, attrs).add_message(bank_send_msg))
 }
 
 fn execute_bond(
@@ -191,11 +187,9 @@ fn execute_bond(
         .map(|a| deps.api.addr_validate(&a))
         .unwrap_or_else(|| Ok(info.sender))?;
     let dntrn_denom = DENOM.load(deps.storage)?;
+    let attrs = vec![attr("action", "bond"), attr("amount", amount.to_string())];
     let msg = NeutronMsg::submit_mint_tokens(dntrn_denom, amount, receiver);
-    Ok(Response::new()
-        .add_attribute("action", "bond")
-        .add_attribute("amount", amount.to_string())
-        .add_message(msg))
+    Ok(response("execute-bond", CONTRACT_NAME, attrs).add_message(msg))
 }
 
 fn execute_unbond(
@@ -217,23 +211,25 @@ fn execute_unbond(
         release_at: env.block.time.seconds() + config.unbonding_period,
     };
     let unbond_id = UNBOND_ID.update(deps.storage, |a| StdResult::Ok(a + 1))?;
+    let attrs = vec![
+        attr("action", "unbond"),
+        attr("amount", amount_to_withdraw.to_string()),
+    ];
+    let mint_nft_msg = CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
+        contract_addr: config.withdrawal_voucher.to_string(),
+        msg: to_json_binary(&WithdrawalVoucherExecuteMsg::Mint {
+            token_id: unbond_id.to_string(),
+            owner: owner.to_string(),
+            token_uri: None,
+            extension: Some(extension),
+        })?,
+        funds: vec![],
+    });
+    let burn_tokens_msg = NeutronMsg::submit_burn_tokens(dntrn_denom, amount_to_withdraw);
     Ok(Response::<NeutronMsg>::new()
-        .add_message(CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
-            contract_addr: config.withdrawal_voucher.to_string(),
-            msg: to_json_binary(&WithdrawalVoucherExecuteMsg::Mint {
-                token_id: unbond_id.to_string(),
-                owner: owner.to_string(),
-                token_uri: None,
-                extension: Some(extension),
-            })?,
-            funds: vec![],
-        }))
-        .add_message(NeutronMsg::submit_burn_tokens(
-            dntrn_denom,
-            amount_to_withdraw,
-        ))
-        .add_attribute("action", "unbond")
-        .add_attribute("amount", amount_to_withdraw.to_string()))
+        .add_message(mint_nft_msg)
+        .add_message(burn_tokens_msg)
+        .add_attributes(attrs))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
@@ -246,19 +242,18 @@ pub fn reply(
         CREATE_DENOM_REPLY_ID => {
             let subdenom = DENOM.load(deps.storage)?;
             let full_denom = query_full_denom(deps.as_ref(), &env.contract.address, subdenom)?;
-            DENOM.save(deps.storage, &full_denom.denom)?;
-
             let token_metadata = TOKEN_METADATA.load(deps.storage)?;
-            TOKEN_METADATA.remove(deps.storage);
             let exponent = EXPONENT.load(deps.storage)?;
-            deps.api
-                .debug(&format!("WASMDEBUG: msg: {:?}", token_metadata));
             let msg = create_set_denom_metadata_msg(
                 env.contract.address.into_string(),
                 full_denom.denom.clone(),
-                token_metadata,
+                token_metadata.clone(),
                 exponent,
             );
+            deps.api
+                .debug(&format!("WASMDEBUG: msg: {:?}", token_metadata));
+            DENOM.save(deps.storage, &full_denom.denom)?;
+            TOKEN_METADATA.remove(deps.storage);
             Ok(Response::new()
                 .add_attribute("full_denom", full_denom.denom)
                 .add_message(msg))
