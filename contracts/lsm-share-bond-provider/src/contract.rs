@@ -477,7 +477,7 @@ fn get_pending_lsm_share_msg(
     match lsm_share {
         Some((local_denom, (_remote_denom, share_amount, real_amount))) => {
             let puppeteer_ica: drop_helpers::ica::IcaState = deps.querier.query_wasm_smart(
-                &addrs.puppeteer_contract,
+                addrs.puppeteer_contract,
                 &drop_puppeteer_base::msg::QueryMsg::<Empty>::Ica {},
             )?;
 

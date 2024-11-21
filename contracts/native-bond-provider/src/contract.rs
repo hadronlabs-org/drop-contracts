@@ -358,7 +358,7 @@ fn get_ibc_transfer_msg(
     }
 
     let puppeteer_ica: drop_helpers::ica::IcaState = deps.querier.query_wasm_smart(
-        &addrs.puppeteer_contract,
+        addrs.puppeteer_contract,
         &drop_puppeteer_base::msg::QueryMsg::<Empty>::Ica {},
     )?;
 
