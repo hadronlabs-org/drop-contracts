@@ -15,9 +15,10 @@ use cosmwasm_std::{
 use cw721::NftInfoResponse;
 use drop_helpers::answer::response;
 use drop_staking_base::{
-    msg::ntrn_derivative::withdrawal_voucher::ExecuteMsg as WithdrawalVoucherExecuteMsg,
-    msg::ntrn_derivative::withdrawal_voucher::Extension as WithdrawalVoucherExtension,
-    msg::ntrn_derivative::withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
+    msg::ntrn_derivative::withdrawal_voucher::{
+        ExecuteMsg as WithdrawalVoucherExecuteMsg, Extension as WithdrawalVoucherExtension,
+        InstantiateMsg as WithdrawalVoucherInstantiateMsg,
+    },
     state::ntrn_derivative::withdrawal_voucher::Metadata as VoucherMetadata,
 };
 use neutron_sdk::{
