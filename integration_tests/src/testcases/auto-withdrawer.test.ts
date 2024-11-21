@@ -831,11 +831,7 @@ describe('Auto withdrawer', () => {
       account.address,
       res.codeId,
       {
-        core_address: context.coreContractClient.contractAddress,
-        withdrawal_voucher_address:
-          context.withdrawalVoucherContractClient.contractAddress,
-        withdrawal_manager_address:
-          context.withdrawalManagerContractClient.contractAddress,
+        factory_contract: context.factoryContractClient.contractAddress,
         ld_token: ldDenom,
       },
       'drop-auto-withdrawer',
