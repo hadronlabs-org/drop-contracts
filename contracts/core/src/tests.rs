@@ -76,7 +76,7 @@ fn test_update_config() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.add_wasm_query_response("token_contract", |_| {
         to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
-            core_address: "core_contract".to_string(),
+            factory_contract: "factory_contract".to_string(),
             denom: "ld_denom".to_string(),
         })
         .unwrap()
@@ -84,7 +84,7 @@ fn test_update_config() {
     deps.querier
         .add_wasm_query_response("old_token_contract", |_| {
             to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
-                core_address: "core_contract".to_string(),
+                factory_contract: "factory_contract".to_string(),
                 denom: "ld_denom".to_string(),
             })
             .unwrap()

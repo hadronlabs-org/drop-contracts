@@ -202,7 +202,7 @@ fn test_instantiate() {
                         code_id: 1,
                         label: "drop-staking-token".to_string(),
                         msg: to_json_binary(&TokenInstantiateMsg {
-                            core_address: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
                             subdenom: "subdenom".to_string(),
                             token_metadata: DenomMetadata {
                                 exponent: 6,

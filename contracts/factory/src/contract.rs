@@ -246,7 +246,7 @@ pub fn instantiate(
             code_id: msg.code_ids.token_code_id,
             label: get_contract_label("token"),
             msg: to_json_binary(&TokenInstantiateMsg {
-                core_address: core_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
                 subdenom: msg.subdenom,
                 token_metadata: msg.token_metadata,
                 owner: env.contract.address.to_string(),
