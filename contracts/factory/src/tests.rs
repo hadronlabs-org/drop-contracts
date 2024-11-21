@@ -335,8 +335,7 @@ fn test_instantiate() {
                         code_id: 6,
                         label: "drop-staking-withdrawal-manager".to_string(),
                         msg: to_json_binary(&WithdrawalManagerInstantiateMsg {
-                            core_contract: "some_humanized_address".to_string(),
-                            voucher_contract: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
                             base_denom: "base_denom".to_string(),
                             owner: "factory_contract".to_string()
                         })

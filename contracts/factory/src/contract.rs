@@ -349,8 +349,7 @@ pub fn instantiate(
             code_id: msg.code_ids.withdrawal_manager_code_id,
             label: get_contract_label("withdrawal-manager"),
             msg: to_json_binary(&WithdrawalManagerInstantiateMsg {
-                core_contract: core_contract.to_string(),
-                voucher_contract: withdrawal_voucher_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
                 owner: env.contract.address.to_string(),
                 base_denom: msg.base_denom.to_string(),
             })?,
