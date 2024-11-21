@@ -1,6 +1,6 @@
 use crate::{
     error::{ContractError, ContractResult},
-    msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveNftMsg},
+    msg::{ExecuteMsg, InstantiateMsg, NftStatus, QueryMsg, ReceiveNftMsg},
     state::{
         Config, BASE_DENOM, CONFIG, CREATE_DENOM_REPLY_ID, DENOM, EXPONENT, SALT, TOKEN_METADATA,
         UNBOND_ID,
@@ -87,7 +87,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
-pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Ownership {} => {
             let ownership = cw_ownable::get_ownership(deps.storage)?;
@@ -97,7 +97,29 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
             let config = CONFIG.load(deps.storage)?;
             Ok(to_json_binary(&config)?)
         }
+        QueryMsg::NftStatus { token_id } => query_nft_status(deps.into_empty(), env, token_id),
     }
+}
+
+pub fn query_nft_status(deps: Deps, env: Env, token_id: String) -> StdResult<Binary> {
+    let config = CONFIG.load(deps.storage)?;
+    let nft_info: NftInfoResponse<WithdrawalVoucherExtension> = deps.querier.query_wasm_smart(
+        config.withdrawal_voucher.clone(),
+        &drop_staking_base::msg::ntrn_derivative::withdrawal_voucher::QueryMsg::NftInfo {
+            token_id,
+        },
+    )?;
+    let nft_extension = nft_info
+        .extension
+        .ok_or_else(|| ContractError::InvalidNFT {
+            reason: "extension is not set".to_string(),
+        })
+        .unwrap();
+    let nft_status = match nft_extension.release_at <= env.block.time.seconds() {
+        true => NftStatus::Ready {},
+        false => NftStatus::NotReady {},
+    };
+    Ok(to_json_binary(&nft_status)?)
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]

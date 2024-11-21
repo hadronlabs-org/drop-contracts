@@ -3,12 +3,20 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::DenomMetadata;
 use cw_ownable::cw_ownable_execute;
 
+#[cw_serde]
+pub enum NftStatus {
+    Ready {},
+    NotReady {},
+}
+
 #[cw_ownable::cw_ownable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     #[returns(Config)]
     Config {},
+    #[returns(NftStatus)]
+    NftStatus { token_id: String },
 }
 
 #[cw_ownable_execute]
