@@ -1,4 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::DenomMetadata;
 use cw_ownable::cw_ownable_execute;
 
 #[cw_ownable::cw_ownable_query]
@@ -17,6 +18,9 @@ pub enum ExecuteMsg {
 pub struct InstantiateMsg {
     pub withdrawal_voucher_code_id: u64,
     pub unbonding_period: u64,
+    pub token_metadata: DenomMetadata,
+    pub subdenom: String,
+    pub exponent: u32,
 }
 
 #[cw_serde]

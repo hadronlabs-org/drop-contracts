@@ -1,7 +1,7 @@
 use crate::{
     error::ContractResult,
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::{Config, BASE_DENOM, CONFIG, DENOM, SALT, UNBOND_ID},
+    state::{Config, BASE_DENOM, CONFIG, DENOM, EXPONENT, SALT, TOKEN_METADATA, UNBOND_ID},
 };
 use cosmwasm_std::{
     instantiate2_address, to_json_binary, Attribute, Binary, CosmosMsg, Deps, DepsMut, Env,
@@ -39,6 +39,10 @@ pub fn instantiate(
             withdrawal_voucher: deps.api.addr_humanize(&voucher_addr)?,
         },
     )?;
+    TOKEN_METADATA.save(deps.storage, &msg.token_metadata)?;
+    DENOM.save(deps.storage, &msg.subdenom)?;
+    EXPONENT.save(deps.storage, &msg.exponent)?;
+    UNBOND_ID.save(deps.storage, &0u64)?;
     Ok(
         response("instantiate", CONTRACT_NAME, Vec::<Attribute>::new()).add_message(
             CosmosMsg::Wasm(WasmMsg::Instantiate2 {
