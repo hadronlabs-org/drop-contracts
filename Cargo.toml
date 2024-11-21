@@ -16,6 +16,7 @@ members = [
     "contracts/pump",
     "contracts/puppeteer",
     "contracts/puppeteer-initia",
+    "contracts/ntrn-derivative",
     # "contracts/puppeteer-authz",
     "contracts/rewards-manager",
     "contracts/strategy",

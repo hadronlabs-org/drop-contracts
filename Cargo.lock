@@ -788,6 +788,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-ntrn-derivative"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "semver",
+ "serde-json-wasm 1.0.1",
+ "sha2 0.10.8",
+ "thiserror",
+]
+
+[[package]]
 name = "drop-price-provider"
 version = "1.0.0"
 dependencies = [
