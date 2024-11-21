@@ -61,7 +61,7 @@ pub fn instantiate(
     let instantiate_withdrawal_voucher_msg = CosmosMsg::Wasm(WasmMsg::Instantiate2 {
         admin: Some(env.contract.address.to_string()),
         code_id: msg.withdrawal_voucher_code_id,
-        label: get_contract_label("rewards-manager"),
+        label: get_contract_label("withdrawal-manager"),
         msg: to_json_binary(&WithdrawalVoucherInstantiateMsg {
             name: "Drop NTRN Voucher".to_string(),
             symbol: "DROPV".to_string(),
@@ -162,9 +162,6 @@ fn execute_receive_nft_withdraw(
     token_id: String,
     receiver: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let receiver = receiver
-        .map(|a| deps.api.addr_validate(&a))
-        .unwrap_or_else(|| Ok(info.sender.clone()))?;
     let config = CONFIG.load(deps.storage)?;
     let voucher: NftInfoResponse<WithdrawalVoucherExtension> = deps.querier.query_wasm_smart(
         config.withdrawal_voucher.clone(),
@@ -175,13 +172,21 @@ fn execute_receive_nft_withdraw(
     let voucher_extension = voucher.extension.ok_or_else(|| ContractError::InvalidNFT {
         reason: "extension is not set".to_string(),
     })?;
+    let receiver = receiver
+        .map(|a| deps.api.addr_validate(&a))
+        .unwrap_or_else(|| {
+            Ok(deps
+                .api
+                .addr_validate(voucher_extension.recepient.as_str())?)
+        })?
+        .to_string();
     let attrs = vec![
         attr("action", "receive_nft"),
         attr("amount", voucher_extension.amount.to_string()),
         attr("to_address", &receiver),
     ];
     let bank_send_msg = CosmosMsg::Bank(BankMsg::Send {
-        to_address: receiver.to_string(),
+        to_address: receiver,
         amount: vec![Coin {
             denom: BASE_DENOM.to_string(),
             amount: voucher_extension.amount,
@@ -231,6 +236,7 @@ fn execute_unbond(
         name: "dNTRN voucher".to_string(),
         amount: amount_to_withdraw,
         release_at: env.block.time.seconds() + config.unbonding_period,
+        recepient: owner.to_string(),
     };
     let unbond_id = UNBOND_ID.update(deps.storage, |a| StdResult::Ok(a + 1))?;
     let attrs = vec![
