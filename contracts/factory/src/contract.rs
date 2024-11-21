@@ -408,9 +408,7 @@ pub fn instantiate(
             label: get_contract_label("lsm-share-bond-provider"),
             msg: to_json_binary(&LsmShareBondProviderInstantiateMsg {
                 owner: env.contract.address.to_string(),
-                core_contract: core_contract.to_string(),
-                puppeteer_contract: puppeteer_contract.to_string(),
-                validators_set_contract: validators_set_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
                 port_id: msg.remote_opts.port_id.to_string(),
                 transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
                 timeout: msg.remote_opts.timeout.local,
@@ -428,9 +426,7 @@ pub fn instantiate(
             msg: to_json_binary(&NativeBondProviderInstantiateMsg {
                 owner: env.contract.address.to_string(),
                 base_denom: msg.base_denom.to_string(),
-                puppeteer_contract: puppeteer_contract.to_string(),
-                core_contract: core_contract.to_string(),
-                strategy_contract: strategy_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
                 min_ibc_transfer: msg.native_bond_params.min_ibc_transfer,
                 min_stake_amount: msg.native_bond_params.min_stake_amount,
                 port_id: msg.remote_opts.port_id.to_string(),
