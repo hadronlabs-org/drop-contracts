@@ -1,8 +1,9 @@
-use crate::msg::Extension;
-use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use cosmwasm_std::Empty;
 use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult};
 pub use cw721_base::{ContractError, MinterResponse};
+use drop_staking_base::msg::ntrn_derivative::withdrawal_voucher::{
+    ExecuteMsg, Extension, InstantiateMsg, MigrateMsg, QueryMsg,
+};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");

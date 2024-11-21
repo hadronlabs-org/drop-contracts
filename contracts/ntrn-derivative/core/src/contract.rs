@@ -1,6 +1,6 @@
 use crate::{
     error::{ContractError, ContractResult},
-    msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
+    msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveNftMsg},
     state::{
         Config, BASE_DENOM, CONFIG, CREATE_DENOM_REPLY_ID, DENOM, EXPONENT, SALT, TOKEN_METADATA,
         UNBOND_ID,
@@ -8,12 +8,15 @@ use crate::{
 };
 use cosmos_sdk_proto::cosmos::bank::v1beta1::{DenomUnit, Metadata};
 use cosmwasm_std::{
-    attr, instantiate2_address, to_json_binary, Attribute, Binary, CosmosMsg, DenomMetadata, Deps,
-    DepsMut, Env, MessageInfo, Reply, Response, StdResult, SubMsg, WasmMsg,
+    attr, ensure, ensure_eq, from_json, instantiate2_address, to_json_binary, Attribute, BankMsg,
+    Binary, Coin, CosmosMsg, DenomMetadata, Deps, DepsMut, Env, MessageInfo, Reply, Response,
+    StdResult, SubMsg, WasmMsg,
 };
+use cw721::NftInfoResponse;
 use drop_helpers::answer::response;
 use drop_staking_base::{
     msg::ntrn_derivative::withdrawal_voucher::ExecuteMsg as WithdrawalVoucherExecuteMsg,
+    msg::ntrn_derivative::withdrawal_voucher::Extension as WithdrawalVoucherExtension,
     msg::ntrn_derivative::withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
     state::ntrn_derivative::withdrawal_voucher::Metadata as VoucherMetadata,
 };
@@ -114,14 +117,72 @@ pub fn execute(
                 [],
             ))
         }
-        ExecuteMsg::Bond { receiver } => execute_bond(deps, env, info, receiver),
+        ExecuteMsg::Bond { receiver } => execute_bond(deps, info, receiver),
         ExecuteMsg::Unbond { receiver } => execute_unbond(deps, env, info, receiver),
+        ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+            sender: _,
+            token_id,
+            msg: raw_msg,
+        }) => {
+            let msg: ReceiveNftMsg = from_json(raw_msg)?;
+            match msg {
+                ReceiveNftMsg::Withdraw { receiver } => {
+                    execute_receive_nft_withdraw(deps, env, info, token_id, receiver)
+                }
+            }
+        }
     }
+}
+
+fn execute_receive_nft_withdraw(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    token_id: String,
+    receiver: Option<String>,
+) -> ContractResult<Response<NeutronMsg>> {
+    let receiver = receiver
+        .map(|a| deps.api.addr_validate(&a))
+        .unwrap_or_else(|| Ok(info.sender.clone()))?;
+    let config = CONFIG.load(deps.storage)?;
+    ensure_eq!(
+        config.withdrawal_voucher,
+        info.sender,
+        ContractError::Unauthorized {}
+    );
+    let voucher: NftInfoResponse<WithdrawalVoucherExtension> = deps.querier.query_wasm_smart(
+        config.withdrawal_voucher,
+        &drop_staking_base::msg::ntrn_derivative::withdrawal_voucher::QueryMsg::NftInfo {
+            token_id,
+        },
+    )?;
+    let voucher_extension = voucher.extension.ok_or_else(|| ContractError::InvalidNFT {
+        reason: "extension is not set".to_string(),
+    })?;
+    ensure!(
+        voucher_extension.release_at <= env.block.time.seconds(),
+        ContractError::NftNotReady {}
+    );
+    Ok(response(
+        "execute-receive_nft",
+        CONTRACT_NAME,
+        vec![
+            attr("action", "receive_nft"),
+            attr("amount", voucher_extension.amount.to_string()),
+            attr("to_address", &receiver),
+        ],
+    )
+    .add_message(CosmosMsg::Bank(BankMsg::Send {
+        to_address: receiver.to_string(),
+        amount: vec![Coin {
+            denom: BASE_DENOM.to_string(),
+            amount: voucher_extension.amount,
+        }],
+    })))
 }
 
 fn execute_bond(
     deps: DepsMut,
-    _env: Env,
     info: MessageInfo,
     receiver: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
@@ -146,7 +207,7 @@ fn execute_unbond(
     let dntrn_denom = DENOM.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
     let amount_to_withdraw = cw_utils::may_pay(&info, &dntrn_denom)?;
-    let receiver = receiver
+    let owner = receiver
         .map(|a| deps.api.addr_validate(&a))
         .unwrap_or_else(|| Ok(info.sender))?;
     let extension = VoucherMetadata {
@@ -154,7 +215,6 @@ fn execute_unbond(
         name: "dNTRN voucher".to_string(),
         amount: amount_to_withdraw,
         release_at: env.block.time.seconds() + config.unbonding_period,
-        receiver: receiver.to_string(),
     };
     let unbond_id = UNBOND_ID.update(deps.storage, |a| StdResult::Ok(a + 1))?;
     Ok(Response::<NeutronMsg>::new()
@@ -162,7 +222,7 @@ fn execute_unbond(
             contract_addr: config.withdrawal_voucher.to_string(),
             msg: to_json_binary(&WithdrawalVoucherExecuteMsg::Mint {
                 token_id: unbond_id.to_string(),
-                owner: receiver.to_string(),
+                owner: owner.to_string(),
                 token_uri: None,
                 extension: Some(extension),
             })?,

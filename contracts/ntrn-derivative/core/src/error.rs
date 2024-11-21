@@ -20,6 +20,12 @@ pub enum ContractError {
     UnknownReplyId { id: u64 },
     #[error("{0}")]
     NeutronError(#[from] NeutronError),
+    #[error("Unauthorized")]
+    Unauthorized {},
+    #[error("Invalid NFT: {reason}")]
+    InvalidNFT { reason: String },
+    #[error("")]
+    NftNotReady {},
 }
 
 impl From<semver::Error> for ContractError {

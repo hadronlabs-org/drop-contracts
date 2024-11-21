@@ -16,6 +16,12 @@ pub enum QueryMsg {
 pub enum ExecuteMsg {
     Bond { receiver: Option<String> },
     Unbond { receiver: Option<String> },
+    ReceiveNft(cw721::Cw721ReceiveMsg),
+}
+
+#[cw_serde]
+pub enum ReceiveNftMsg {
+    Withdraw { receiver: Option<String> },
 }
 
 #[cw_serde]
