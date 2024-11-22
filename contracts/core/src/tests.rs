@@ -5,8 +5,8 @@ use crate::contract::{
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockStorage},
-    to_json_binary, Addr, AllBalanceResponse, Coin, CosmosMsg, Decimal, Decimal256, Event,
-    OwnedDeps, Response, SubMsg, Timestamp, Uint128, WasmMsg,
+    to_json_binary, Addr, Coin, CosmosMsg, Decimal, Decimal256, Event, OwnedDeps, Response, SubMsg,
+    Timestamp, Uint128, WasmMsg,
 };
 use drop_helpers::{
     pause::PauseError,
@@ -203,21 +203,8 @@ fn test_bond_provider_has_any_tokens() {
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
 
-    deps.querier.add_all_balances_query_response(
-        "bond_provider_address".to_string(),
-        AllBalanceResponse {
-            amount: vec![
-                Coin {
-                    denom: "denom".to_string(),
-                    amount: Uint128::from(123u128),
-                },
-                Coin {
-                    denom: "untrn".to_string(),
-                    amount: Uint128::from(123u128),
-                },
-            ],
-        },
-    );
+    deps.querier
+        .add_wasm_query_response("bond_provider_address", |_| to_json_binary(&false).unwrap());
 
     let error = execute(
         deps.as_mut(),
@@ -341,6 +328,9 @@ fn test_add_remove_bond_provider() {
         bond_providers,
         to_json_binary::<Vec<(Addr, bool)>>(&vec![]).unwrap()
     );
+
+    deps.querier
+        .add_wasm_query_response("bond_provider", |_| to_json_binary(&true).unwrap());
 
     let res = execute(
         deps.as_mut(),

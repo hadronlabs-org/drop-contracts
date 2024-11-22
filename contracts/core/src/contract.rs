@@ -26,7 +26,7 @@ use drop_staking_base::{
             UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse, BOND_HOOKS,
             BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM,
             LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM,
-            MAX_BOND_PROVIDERS, PAUSE, UNBOND_BATCH_ID, UNTRN_DENOM,
+            MAX_BOND_PROVIDERS, PAUSE, UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
         withdrawal_voucher::{Metadata, Trait},
@@ -369,14 +369,14 @@ fn execute_remove_bond_provider(
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     let bond_provider_address = deps.api.addr_validate(&bond_provider_address)?;
-    let bond_provider_balances = deps
+    let bond_provider_can_be_removed_response: bool = deps
         .querier
-        .query_all_balances(bond_provider_address.clone())?;
-    let bond_provider_balances_except_untrn = bond_provider_balances
-        .into_iter()
-        .filter(|coin| coin.denom != *UNTRN_DENOM.to_string())
-        .collect::<Vec<Coin>>();
-    if !bond_provider_balances_except_untrn.is_empty() {
+        .query_wasm_smart(
+            bond_provider_address.clone(),
+            &drop_staking_base::msg::bond_provider::QueryMsg::CanBeRemoved {},
+        )
+        .unwrap();
+    if !bond_provider_can_be_removed_response {
         return Err(ContractError::BondProviderBalanceNotEmpty {});
     }
 
