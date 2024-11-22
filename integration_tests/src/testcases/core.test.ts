@@ -1115,6 +1115,9 @@ describe('Core', () => {
   });
 
   it('remove lsm share bond provider from the core', async () => {
+    expect(
+      await context.lsmShareBondProviderContractClient.queryCanBeRemoved(),
+    ).toBe(true);
     const res = await context.factoryContractClient.adminExecute(
       context.neutronUserAddress,
       {
@@ -2053,6 +2056,9 @@ describe('Core', () => {
       let oldBalanceDenoms: string[] = [];
       describe('prepare', () => {
         it('remove native bond provider from the core', async () => {
+          expect(
+            await context.nativeBondProviderContractClient.queryCanBeRemoved(),
+          ).toBe(true);
           const res = await context.factoryContractClient.adminExecute(
             context.neutronUserAddress,
             {
@@ -2901,6 +2907,9 @@ describe('Core', () => {
     describe('fifth cycle (unbond before delegation)', () => {
       describe('prepare', () => {
         it('remove lsm share bond provider from the core', async () => {
+          expect(
+            await context.lsmShareBondProviderContractClient.queryCanBeRemoved(),
+          ).toBe(true);
           const res = await context.factoryContractClient.adminExecute(
             context.neutronUserAddress,
             {

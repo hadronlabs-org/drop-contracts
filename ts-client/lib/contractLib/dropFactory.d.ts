@@ -1141,7 +1141,6 @@ export interface CodeIds {
     withdrawal_voucher_code_id: number;
 }
 export interface CoreParams {
-    bond_limit?: Uint128 | null;
     icq_update_delay: number;
     idle_min_interval: number;
     unbond_batch_switch_time: number;

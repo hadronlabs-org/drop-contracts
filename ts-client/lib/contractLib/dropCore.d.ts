@@ -430,7 +430,6 @@ export interface SetBondHooksArgs {
 }
 export interface InstantiateMsg {
     base_denom: string;
-    bond_limit?: Uint1281 | null;
     emergency_address?: string | null;
     icq_update_delay: number;
     idle_min_interval: number;
