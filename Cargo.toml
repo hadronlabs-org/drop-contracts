@@ -18,7 +18,6 @@ members = [
     "contracts/puppeteer-initia",
     "contracts/ntrn-derivative/core",
     "contracts/ntrn-derivative/withdrawal-voucher",
-    # "contracts/puppeteer-authz",
     "contracts/rewards-manager",
     "contracts/strategy",
     "contracts/token",
