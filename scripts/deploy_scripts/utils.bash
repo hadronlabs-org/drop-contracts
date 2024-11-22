@@ -87,11 +87,18 @@ top_up_address() {
 }
 
 deploy_wasm_code() {
-  for contract in factory core distribution puppeteer rewards_manager strategy token validators_set withdrawal_manager withdrawal_voucher pump splitter lsm_share_bond_provider native_bond_provider; do
+  for contract in factory core distribution rewards_manager strategy token validators_set withdrawal_manager withdrawal_voucher pump splitter lsm_share_bond_provider native_bond_provider; do
       store_code "$contract"
       code_id="${contract}_code_id"
       printf '[OK] %-24s code ID: %s\n' "$contract" "${!code_id}"
   done
+}
+
+deploy_puppeteer_code() {
+  store_code "$PUPPETEER_TYPE"
+  code_id="${PUPPETEER_TYPE}_code_id"
+  puppeteer_code_id="${!code_id}"
+  printf '[OK] puppeteer code ID: %s\n' "${puppeteer_code_id}"
 }
 
 pre_deploy_check_balance() {
