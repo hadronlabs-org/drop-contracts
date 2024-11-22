@@ -1,13 +1,17 @@
 use crate::{
-    contract::{execute, instantiate, query},
+    contract::{execute, instantiate, query, reply},
     msg::{ExecuteMsg, InstantiateMsg, NftStatus, QueryMsg, ReceiveNftMsg},
-    state::{Config, BASE_DENOM, CONFIG, DENOM, SALT, UNBOND_ID},
+    state::{
+        Config, BASE_DENOM, CONFIG, CREATE_DENOM_REPLY_ID, DENOM, EXPONENT, SALT, TOKEN_METADATA,
+        UNBOND_ID,
+    },
 };
+use cosmos_sdk_proto::cosmos::bank::v1beta1::{DenomUnit, Metadata};
 use cosmwasm_std::{
     attr, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, DenomMetadata, Event, ReplyOn,
-    Response, SubMsg, Uint128, WasmMsg,
+    to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, DenomMetadata, Event, Reply, ReplyOn,
+    Response, SubMsg, SubMsgResponse, SubMsgResult, Uint128, WasmMsg,
 };
 use cw721::{Cw721ReceiveMsg, NftInfoResponse};
 use cw_utils::PaymentError;
@@ -17,9 +21,13 @@ use drop_staking_base::{
         ExecuteMsg as WithdrawalVoucherExecuteMsg, Extension as WithdrawalVoucherExtension,
         InstantiateMsg as WithdrawalVoucherInstantiateMsg,
     },
-    state::ntrn_derivative::withdrawal_voucher::Metadata,
+    state::ntrn_derivative::withdrawal_voucher::Metadata as WithdrawalVoucherMetadata,
 };
-use neutron_sdk::bindings::msg::NeutronMsg;
+use neutron_sdk::{
+    bindings::msg::NeutronMsg, query::token_factory::FullDenomResponse,
+    stargate::aux::create_stargate_msg,
+};
+use std::sync::Arc;
 
 #[test]
 fn test_instantiate() {
@@ -131,7 +139,7 @@ fn test_query_nft_status_ready() {
         .add_wasm_query_response("withdrawal_voucher", |_| {
             let resp = &NftInfoResponse::<WithdrawalVoucherExtension> {
                 token_uri: Some("token_uri".to_string()),
-                extension: Some(Metadata {
+                extension: Some(WithdrawalVoucherMetadata {
                     name: "name".to_string(),
                     description: Some("description".to_string()),
                     release_at: 0u64,
@@ -171,7 +179,7 @@ fn test_query_nft_status_not_ready() {
         .add_wasm_query_response("withdrawal_voucher", |_| {
             let resp = &NftInfoResponse::<WithdrawalVoucherExtension> {
                 token_uri: Some("token_uri".to_string()),
-                extension: Some(Metadata {
+                extension: Some(WithdrawalVoucherMetadata {
                     name: "name".to_string(),
                     description: Some("description".to_string()),
                     release_at: u64::MAX,
@@ -393,7 +401,7 @@ fn test_execute_unbond() {
                             token_id: "1".to_string(),
                             owner: "some_sender".to_string(),
                             token_uri: None,
-                            extension: Some(Metadata {
+                            extension: Some(WithdrawalVoucherMetadata {
                                 name: "dNTRN voucher".to_string(),
                                 description: Some("Withdrawal voucher".to_string()),
                                 release_at: 1571798419u64,
@@ -472,7 +480,7 @@ fn test_execute_unbond_custom_receiver() {
                             token_id: "1".to_string(),
                             owner: "custom_receiver".to_string(),
                             token_uri: None,
-                            extension: Some(Metadata {
+                            extension: Some(WithdrawalVoucherMetadata {
                                 name: "dNTRN voucher".to_string(),
                                 description: Some("Withdrawal voucher".to_string()),
                                 release_at: 1571798419u64,
@@ -580,7 +588,7 @@ fn test_execute_receive_nft_withdraw() {
         .add_wasm_query_response("withdrawal_voucher", |_| {
             to_json_binary(&NftInfoResponse::<WithdrawalVoucherExtension> {
                 token_uri: None,
-                extension: Some(Metadata {
+                extension: Some(WithdrawalVoucherMetadata {
                     name: "dNTRN voucher".to_string(),
                     description: Some("Withdrawal voucher".to_string()),
                     release_at: 0u64,
@@ -643,7 +651,7 @@ fn test_execute_receive_nft_withdraw_custom_receiver() {
         .add_wasm_query_response("withdrawal_voucher", |_| {
             to_json_binary(&NftInfoResponse::<WithdrawalVoucherExtension> {
                 token_uri: None,
-                extension: Some(Metadata {
+                extension: Some(WithdrawalVoucherMetadata {
                     name: "dNTRN voucher".to_string(),
                     description: Some("Withdrawal voucher".to_string()),
                     release_at: 0u64,
@@ -747,7 +755,7 @@ fn test_execute_receive_nft_withdraw_not_authorized() {
         .add_wasm_query_response("withdrawal_voucher", |_| {
             to_json_binary(&NftInfoResponse::<WithdrawalVoucherExtension> {
                 token_uri: None,
-                extension: Some(Metadata {
+                extension: Some(WithdrawalVoucherMetadata {
                     name: "dNTRN voucher".to_string(),
                     description: Some("Withdrawal voucher".to_string()),
                     release_at: 0u64,
@@ -822,4 +830,100 @@ fn test_transfer_ownership() {
             pending_owner: None
         }
     );
+}
+
+#[test]
+fn test_reply_create_denom() {
+    let mut deps = mock_dependencies(&[]);
+    let dntrn = "dNTRN";
+    let denom_metadata = DenomMetadata {
+        name: "name".to_string(),
+        description: "description".to_string(),
+        denom_units: vec![],
+        base: "base".to_string(),
+        display: "display".to_string(),
+        symbol: "symbol".to_string(),
+        uri: "uri".to_string(),
+        uri_hash: "uri_hash".to_string(),
+    };
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&FullDenomResponse {
+            denom: dntrn.to_string(),
+        })
+        .unwrap()
+    });
+    DENOM
+        .save(deps.as_mut().storage, &dntrn.to_string())
+        .unwrap();
+    TOKEN_METADATA
+        .save(deps.as_mut().storage, &denom_metadata)
+        .unwrap();
+    EXPONENT.save(deps.as_mut().storage, &6u32).unwrap();
+    let res = reply(
+        deps.as_mut(),
+        mock_env(),
+        Reply {
+            id: CREATE_DENOM_REPLY_ID,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![],
+                data: None,
+            }),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new()
+            .add_submessage(SubMsg {
+                id: 0,
+                msg: create_stargate_msg(
+                    "/osmosis.tokenfactory.v1beta1.MsgSetDenomMetadata",
+                    neutron_sdk::proto_types::osmosis::tokenfactory::v1beta1::MsgSetDenomMetadata {
+                        sender: mock_env().contract.address.to_string(),
+                        metadata: Some(Metadata {
+                            denom_units: vec![
+                                DenomUnit {
+                                    denom: dntrn.to_string(),
+                                    exponent: 0,
+                                    aliases: vec![],
+                                },
+                                DenomUnit {
+                                    denom: denom_metadata.display.to_string(),
+                                    exponent: 6,
+                                    aliases: vec![],
+                                },
+                            ],
+                            base: dntrn.to_string(),
+                            display: denom_metadata.display,
+                            name: denom_metadata.name,
+                            description: denom_metadata.description,
+                            symbol: denom_metadata.symbol,
+                            uri: denom_metadata.uri,
+                            uri_hash: denom_metadata.uri_hash,
+                        }),
+                    },
+                ),
+                gas_limit: None,
+                reply_on: ReplyOn::Never
+            })
+            .add_attribute("full_denom", "dNTRN")
+    )
+}
+
+#[test]
+fn test_reply_unknown_reply_id() {
+    let mut deps = mock_dependencies(&[]);
+    let res = reply(
+        deps.as_mut(),
+        mock_env(),
+        Reply {
+            id: 123,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![],
+                data: None,
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, crate::error::ContractError::UnknownReplyId { id: 123 })
 }
