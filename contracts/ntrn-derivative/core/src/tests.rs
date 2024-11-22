@@ -1,18 +1,22 @@
 use crate::{
     contract::{execute, instantiate, query},
-    msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::{DENOM, SALT},
+    msg::{ExecuteMsg, InstantiateMsg, NftStatus, QueryMsg},
+    state::{Config, CONFIG, DENOM, SALT},
 };
 use cosmwasm_std::{
     attr, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, BankMsg, Binary, CosmosMsg, DenomMetadata, Event, ReplyOn, Response, SubMsg,
-    WasmMsg,
+    to_json_binary, Addr, BankMsg, Binary, CosmosMsg, DenomMetadata, Event, ReplyOn, Response,
+    SubMsg, Uint128, WasmMsg,
 };
+use cw721::NftInfoResponse;
 use drop_helpers::testing::{mock_dependencies, mock_dependencies_with_api};
-use drop_staking_base::msg::ntrn_derivative::withdrawal_voucher::{
-    ExecuteMsg as WithdrawalVoucherExecuteMsg, Extension as WithdrawalVoucherExtension,
-    InstantiateMsg as WithdrawalVoucherInstantiateMsg,
+use drop_staking_base::{
+    msg::ntrn_derivative::withdrawal_voucher::{
+        ExecuteMsg as WithdrawalVoucherExecuteMsg, Extension as WithdrawalVoucherExtension,
+        InstantiateMsg as WithdrawalVoucherInstantiateMsg,
+    },
+    state::ntrn_derivative::withdrawal_voucher::Metadata,
 };
 use neutron_sdk::bindings::msg::NeutronMsg;
 
@@ -95,4 +99,162 @@ fn test_instantiate() {
                     ])
             )
     )
+}
+
+#[test]
+fn test_query_config() {
+    let mut deps = mock_dependencies(&[]);
+    let config = Config {
+        unbonding_period: 123u64,
+        withdrawal_voucher: Addr::unchecked("withdrawal_voucher".to_string()),
+    };
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    let res: Config =
+        from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+    assert_eq!(res, config)
+}
+
+#[test]
+fn test_query_nft_status_ready() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                unbonding_period: 123u64,
+                withdrawal_voucher: Addr::unchecked("withdrawal_voucher".to_string()),
+            },
+        )
+        .unwrap();
+    deps.querier
+        .add_wasm_query_response("withdrawal_voucher", |_| {
+            let resp = &NftInfoResponse::<WithdrawalVoucherExtension> {
+                token_uri: Some("token_uri".to_string()),
+                extension: Some(Metadata {
+                    name: "name".to_string(),
+                    description: Some("description".to_string()),
+                    release_at: 0u64,
+                    amount: Uint128::from(123u128),
+                    recepient: "recepient".to_string(),
+                }),
+            };
+            to_json_binary(resp).unwrap()
+        });
+    let res: NftStatus = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            QueryMsg::NftStatus {
+                token_id: "1".to_string(),
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(res, NftStatus::Ready {})
+}
+
+#[test]
+fn test_query_nft_status_not_ready() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                unbonding_period: 123u64,
+                withdrawal_voucher: Addr::unchecked("withdrawal_voucher".to_string()),
+            },
+        )
+        .unwrap();
+    deps.querier
+        .add_wasm_query_response("withdrawal_voucher", |_| {
+            let resp = &NftInfoResponse::<WithdrawalVoucherExtension> {
+                token_uri: Some("token_uri".to_string()),
+                extension: Some(Metadata {
+                    name: "name".to_string(),
+                    description: Some("description".to_string()),
+                    release_at: u64::MAX,
+                    amount: Uint128::from(123u128),
+                    recepient: "recepient".to_string(),
+                }),
+            };
+            to_json_binary(resp).unwrap()
+        });
+    let res: NftStatus = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            QueryMsg::NftStatus {
+                token_id: "1".to_string(),
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(res, NftStatus::NotReady {})
+}
+
+#[test]
+fn test_query_ownership() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            crate::msg::QueryMsg::Ownership {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        cw_ownable::Ownership {
+            owner: Some(cosmwasm_std::Addr::unchecked("owner".to_string())),
+            pending_expiry: None,
+            pending_owner: None
+        }
+    );
+}
+
+#[test]
+fn test_transfer_ownership() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::UpdateOwnership(cw_ownable::Action::TransferOwnership {
+            new_owner: "new_owner".to_string(),
+            expiry: Some(cw_ownable::Expiration::Never {}),
+        }),
+    )
+    .unwrap();
+    execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("new_owner", &[]),
+        ExecuteMsg::UpdateOwnership(cw_ownable::Action::AcceptOwnership {}),
+    )
+    .unwrap();
+    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            crate::msg::QueryMsg::Ownership {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        cw_ownable::Ownership {
+            owner: Some(cosmwasm_std::Addr::unchecked("new_owner".to_string())),
+            pending_expiry: None,
+            pending_owner: None
+        }
+    );
 }
