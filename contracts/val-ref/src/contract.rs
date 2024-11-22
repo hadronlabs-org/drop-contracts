@@ -188,7 +188,11 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn reply(_deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
     match msg.id {
-        EDIT_ON_TOP_REPLY_ID => Ok(Response::new()),
+        EDIT_ON_TOP_REPLY_ID => Ok(response(
+            "reply",
+            CONTRACT_NAME,
+            [attr("edit_on_top_error", true.to_string())],
+        )),
         id => Err(ContractError::UnknownReplyId { id }),
     }
 }
