@@ -176,7 +176,7 @@ fn execute_receive_nft_withdraw(
     })?;
     let receiver = receiver
         .map(|a| deps.api.addr_validate(&a))
-        .unwrap_or_else(|| deps.api.addr_validate(voucher_extension.recepient.as_str()))?
+        .unwrap_or_else(|| deps.api.addr_validate(voucher_extension.recipient.as_str()))?
         .to_string();
     let attrs = vec![
         attr("action", "receive_nft"),
@@ -238,7 +238,7 @@ fn execute_unbond(
         name: "dNTRN voucher".to_string(),
         amount: amount_to_withdraw,
         release_at: env.block.time.seconds() + config.unbonding_period,
-        recepient: owner.to_string(),
+        recipient: owner.to_string(),
     };
     let unbond_id = UNBOND_ID.update(deps.storage, |a| StdResult::Ok(a + 1))?;
     let attrs = vec![

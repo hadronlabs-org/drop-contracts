@@ -136,7 +136,7 @@ fn test_query_nft_status_ready() {
                     description: Some("description".to_string()),
                     release_at: 0u64,
                     amount: Uint128::from(123u128),
-                    recepient: "recepient".to_string(),
+                    recipient: "recipient".to_string(),
                 }),
             };
             to_json_binary(resp).unwrap()
@@ -176,7 +176,7 @@ fn test_query_nft_status_not_ready() {
                     description: Some("description".to_string()),
                     release_at: u64::MAX,
                     amount: Uint128::from(123u128),
-                    recepient: "recepient".to_string(),
+                    recipient: "recipient".to_string(),
                 }),
             };
             to_json_binary(resp).unwrap()
@@ -398,7 +398,7 @@ fn test_execute_unbond() {
                                 description: Some("Withdrawal voucher".to_string()),
                                 release_at: 1571798419u64,
                                 amount: Uint128::from(100u128),
-                                recepient: "some_sender".to_string()
+                                recipient: "some_sender".to_string()
                             })
                         })
                         .unwrap(),
@@ -477,7 +477,7 @@ fn test_execute_unbond_custom_receiver() {
                                 description: Some("Withdrawal voucher".to_string()),
                                 release_at: 1571798419u64,
                                 amount: Uint128::from(100u128),
-                                recepient: "custom_receiver".to_string()
+                                recipient: "custom_receiver".to_string()
                             })
                         })
                         .unwrap(),
@@ -585,7 +585,7 @@ fn test_execute_receive_nft_withdraw() {
                     description: Some("Withdrawal voucher".to_string()),
                     release_at: 0u64,
                     amount: Uint128::from(100u128),
-                    recepient: "recipient".to_string(),
+                    recipient: "recipient".to_string(),
                 }),
             })
             .unwrap()
@@ -648,7 +648,7 @@ fn test_execute_receive_nft_withdraw_custom_receiver() {
                     description: Some("Withdrawal voucher".to_string()),
                     release_at: 0u64,
                     amount: Uint128::from(100u128),
-                    recepient: "recipient".to_string(),
+                    recipient: "recipient".to_string(),
                 }),
             })
             .unwrap()
@@ -752,7 +752,7 @@ fn test_execute_receive_nft_withdraw_not_authorized() {
                     description: Some("Withdrawal voucher".to_string()),
                     release_at: 0u64,
                     amount: Uint128::from(100u128),
-                    recepient: "recipient".to_string(),
+                    recipient: "recipient".to_string(),
                 }),
             })
             .unwrap()

@@ -8,5 +8,5 @@ pub struct Metadata {
     pub description: Option<String>,
     pub release_at: u64,
     pub amount: Uint128,
-    pub recepient: String,
+    pub recipient: String,
 }
