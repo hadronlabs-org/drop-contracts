@@ -1,15 +1,16 @@
 use crate::{
     contract::{execute, instantiate, query},
     msg::{ExecuteMsg, InstantiateMsg, NftStatus, QueryMsg},
-    state::{Config, CONFIG, DENOM, SALT},
+    state::{Config, BASE_DENOM, CONFIG, DENOM, SALT},
 };
 use cosmwasm_std::{
     attr, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, BankMsg, Binary, CosmosMsg, DenomMetadata, Event, ReplyOn, Response,
-    SubMsg, Uint128, WasmMsg,
+    to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, DenomMetadata, Event, ReplyOn,
+    Response, SubMsg, Uint128, WasmMsg,
 };
 use cw721::NftInfoResponse;
+use cw_utils::PaymentError;
 use drop_helpers::testing::{mock_dependencies, mock_dependencies_with_api};
 use drop_staking_base::{
     msg::ntrn_derivative::withdrawal_voucher::{
@@ -215,6 +216,138 @@ fn test_query_ownership() {
             pending_expiry: None,
             pending_owner: None
         }
+    );
+}
+
+#[test]
+fn test_execute_bond() {
+    let mut deps = mock_dependencies(&[]);
+    DENOM
+        .save(deps.as_mut().storage, &"dNTRN".to_string())
+        .unwrap();
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info(
+            "some_sender",
+            &[Coin {
+                denom: BASE_DENOM.to_string(),
+                amount: Uint128::from(100u128),
+            }],
+        ),
+        ExecuteMsg::Bond { receiver: None },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new()
+            .add_submessage(SubMsg {
+                id: 0,
+                msg: CosmosMsg::Custom(NeutronMsg::submit_mint_tokens(
+                    "dNTRN".to_string(),
+                    Uint128::from(100u128),
+                    "some_sender".to_string()
+                )),
+                gas_limit: None,
+                reply_on: ReplyOn::Never
+            })
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-ntrn-derivative-core-execute-bond")
+                    .add_attributes(vec![
+                        attr("action", "bond"),
+                        attr("amount", "100"),
+                        attr("receiver", "some_sender")
+                    ])
+            )
+    );
+}
+
+#[test]
+fn test_execute_bond_custom_receiver() {
+    let mut deps = mock_dependencies(&[]);
+    DENOM
+        .save(deps.as_mut().storage, &"dNTRN".to_string())
+        .unwrap();
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info(
+            "some_sender",
+            &[Coin {
+                denom: BASE_DENOM.to_string(),
+                amount: Uint128::from(100u128),
+            }],
+        ),
+        ExecuteMsg::Bond {
+            receiver: Some("custom_receiver".to_string()),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new()
+            .add_submessage(SubMsg {
+                id: 0,
+                msg: CosmosMsg::Custom(NeutronMsg::submit_mint_tokens(
+                    "dNTRN".to_string(),
+                    Uint128::from(100u128),
+                    "custom_receiver".to_string()
+                )),
+                gas_limit: None,
+                reply_on: ReplyOn::Never
+            })
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-ntrn-derivative-core-execute-bond")
+                    .add_attributes(vec![
+                        attr("action", "bond"),
+                        attr("amount", "100"),
+                        attr("receiver", "custom_receiver")
+                    ])
+            )
+    );
+}
+
+#[test]
+fn test_execute_bond_wrong_denom() {
+    let mut deps = mock_dependencies(&[]);
+    DENOM
+        .save(deps.as_mut().storage, &"dNTRN".to_string())
+        .unwrap();
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info(
+            "some_sender",
+            &[Coin {
+                denom: "wron_denom".to_string(),
+                amount: Uint128::from(100u128),
+            }],
+        ),
+        ExecuteMsg::Bond { receiver: None },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::PaymentError(PaymentError::MissingDenom("untrn".to_string()))
+    );
+}
+
+#[test]
+fn test_execute_bond_no_funds() {
+    let mut deps = mock_dependencies(&[]);
+    DENOM
+        .save(deps.as_mut().storage, &"dNTRN".to_string())
+        .unwrap();
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("some_sender", &[]),
+        ExecuteMsg::Bond { receiver: None },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::PaymentError(PaymentError::NoFunds {})
     );
 }
 

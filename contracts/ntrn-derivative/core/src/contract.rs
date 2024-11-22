@@ -206,12 +206,16 @@ fn execute_bond(
     info: MessageInfo,
     receiver: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let amount = cw_utils::may_pay(&info, BASE_DENOM)?;
+    let amount = cw_utils::must_pay(&info, BASE_DENOM)?;
     let receiver = receiver
         .map(|a| deps.api.addr_validate(&a))
         .unwrap_or_else(|| Ok(info.sender))?;
     let dntrn_denom = DENOM.load(deps.storage)?;
-    let attrs = vec![attr("action", "bond"), attr("amount", amount.to_string())];
+    let attrs = vec![
+        attr("action", "bond"),
+        attr("amount", amount.to_string()),
+        attr("receiver", receiver.clone()),
+    ];
     let msg = NeutronMsg::submit_mint_tokens(dntrn_denom, amount, receiver);
     Ok(response("execute-bond", CONTRACT_NAME, attrs).add_message(msg))
 }
