@@ -1,5 +1,7 @@
-use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use cosmwasm_schema::write_api;
+use drop_staking_base::msg::ntrn_derivative::withdrawal_voucher::{
+    ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
+};
 
 fn main() {
     write_api! {
