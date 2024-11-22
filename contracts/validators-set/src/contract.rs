@@ -140,12 +140,10 @@ fn execute_update_validators(
 
     let total_count = validators.len();
 
-    let old_validator_set: HashMap<String, ValidatorInfo> = VALIDATORS_SET
+let old_validator_set: HashMap<String, ValidatorInfo> = VALIDATORS_SET
         .range_raw(deps.storage, None, None, Order::Ascending)
         .map(|item| item.map(|(_key, value)| (value.valoper_address.to_string(), value)))
-        .collect::<StdResult<Vec<(String, ValidatorInfo)>>>()?
-        .into_iter()
-        .collect();
+        .collect::<StdResult<_>>()?;
 
     VALIDATORS_SET.clear(deps.storage);
 
