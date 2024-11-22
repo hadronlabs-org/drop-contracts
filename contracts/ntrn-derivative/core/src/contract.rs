@@ -52,7 +52,7 @@ pub fn instantiate(
     let humanized_withdrawal_voucher_addr =
         deps.api.addr_humanize(&canonical_withdrawal_voucher_addr)?;
     let attrs = vec![
-        attr("owner", info.sender),
+        attr("owner", info.sender.clone()),
         attr("denom", msg.subdenom.clone()),
         attr(
             "withdrawal_voucher_contract",
@@ -60,7 +60,7 @@ pub fn instantiate(
         ),
     ];
     let instantiate_withdrawal_voucher_msg = CosmosMsg::Wasm(WasmMsg::Instantiate2 {
-        admin: Some(env.contract.address.to_string()),
+        admin: Some(info.sender.to_string()),
         code_id: msg.withdrawal_voucher_code_id,
         label: get_contract_label("withdrawal-manager"),
         msg: to_json_binary(&WithdrawalVoucherInstantiateMsg {
