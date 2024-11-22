@@ -1,7 +1,7 @@
 use crate::{
     contract::{execute, instantiate, query},
     msg::{ExecuteMsg, InstantiateMsg, NftStatus, QueryMsg},
-    state::{Config, BASE_DENOM, CONFIG, DENOM, SALT},
+    state::{Config, BASE_DENOM, CONFIG, DENOM, SALT, UNBOND_ID},
 };
 use cosmwasm_std::{
     attr, from_json,
@@ -338,6 +338,228 @@ fn test_execute_bond_no_funds() {
     DENOM
         .save(deps.as_mut().storage, &"dNTRN".to_string())
         .unwrap();
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("some_sender", &[]),
+        ExecuteMsg::Bond { receiver: None },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::PaymentError(PaymentError::NoFunds {})
+    );
+}
+
+#[test]
+fn test_execute_unbond() {
+    let mut deps = mock_dependencies(&[]);
+    let denom = "dNTRN";
+    DENOM
+        .save(deps.as_mut().storage, &denom.to_string())
+        .unwrap();
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                unbonding_period: 1000,
+                withdrawal_voucher: Addr::unchecked("withdrawal_voucher"),
+            },
+        )
+        .unwrap();
+    UNBOND_ID.save(deps.as_mut().storage, &0u64).unwrap();
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info(
+            "some_sender",
+            &[Coin {
+                denom: denom.to_string(),
+                amount: Uint128::from(100u128),
+            }],
+        ),
+        ExecuteMsg::Unbond { receiver: None },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new()
+            .add_submessages(vec![
+                SubMsg {
+                    id: 0,
+                    msg: CosmosMsg::Wasm(WasmMsg::Execute {
+                        contract_addr: "withdrawal_voucher".to_string(),
+                        msg: to_json_binary(&WithdrawalVoucherExecuteMsg::Mint {
+                            token_id: "1".to_string(),
+                            owner: "some_sender".to_string(),
+                            token_uri: None,
+                            extension: Some(Metadata {
+                                name: "dNTRN voucher".to_string(),
+                                description: Some("Withdrawal voucher".to_string()),
+                                release_at: 1571798419u64,
+                                amount: Uint128::from(100u128),
+                                recepient: "some_sender".to_string()
+                            })
+                        })
+                        .unwrap(),
+                        funds: vec![]
+                    }),
+                    gas_limit: None,
+                    reply_on: ReplyOn::Never
+                },
+                SubMsg {
+                    id: 0,
+                    msg: CosmosMsg::Custom(NeutronMsg::submit_burn_tokens(
+                        "dNTRN".to_string(),
+                        Uint128::from(100u128)
+                    )),
+                    gas_limit: None,
+                    reply_on: ReplyOn::Never
+                }
+            ])
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-ntrn-derivative-core-execute-unbond")
+                    .add_attributes(vec![
+                        attr("action", "unbond"),
+                        attr("amount", "100"),
+                        attr("receiver", "some_sender")
+                    ])
+            )
+    );
+}
+
+#[test]
+fn test_execute_unbond_custom_receiver() {
+    let mut deps = mock_dependencies(&[]);
+    let denom = "dNTRN";
+    DENOM
+        .save(deps.as_mut().storage, &denom.to_string())
+        .unwrap();
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                unbonding_period: 1000,
+                withdrawal_voucher: Addr::unchecked("withdrawal_voucher"),
+            },
+        )
+        .unwrap();
+    UNBOND_ID.save(deps.as_mut().storage, &0u64).unwrap();
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info(
+            "some_sender",
+            &[Coin {
+                denom: denom.to_string(),
+                amount: Uint128::from(100u128),
+            }],
+        ),
+        ExecuteMsg::Unbond {
+            receiver: Some("custom_receiver".to_string()),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new()
+            .add_submessages(vec![
+                SubMsg {
+                    id: 0,
+                    msg: CosmosMsg::Wasm(WasmMsg::Execute {
+                        contract_addr: "withdrawal_voucher".to_string(),
+                        msg: to_json_binary(&WithdrawalVoucherExecuteMsg::Mint {
+                            token_id: "1".to_string(),
+                            owner: "custom_receiver".to_string(),
+                            token_uri: None,
+                            extension: Some(Metadata {
+                                name: "dNTRN voucher".to_string(),
+                                description: Some("Withdrawal voucher".to_string()),
+                                release_at: 1571798419u64,
+                                amount: Uint128::from(100u128),
+                                recepient: "custom_receiver".to_string()
+                            })
+                        })
+                        .unwrap(),
+                        funds: vec![]
+                    }),
+                    gas_limit: None,
+                    reply_on: ReplyOn::Never
+                },
+                SubMsg {
+                    id: 0,
+                    msg: CosmosMsg::Custom(NeutronMsg::submit_burn_tokens(
+                        "dNTRN".to_string(),
+                        Uint128::from(100u128)
+                    )),
+                    gas_limit: None,
+                    reply_on: ReplyOn::Never
+                }
+            ])
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-ntrn-derivative-core-execute-unbond")
+                    .add_attributes(vec![
+                        attr("action", "unbond"),
+                        attr("amount", "100"),
+                        attr("receiver", "custom_receiver")
+                    ])
+            )
+    );
+}
+
+#[test]
+fn test_execute_unbond_wrong_denom() {
+    let mut deps = mock_dependencies(&[]);
+    let denom = "dNTRN";
+    DENOM
+        .save(deps.as_mut().storage, &denom.to_string())
+        .unwrap();
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                unbonding_period: 1000,
+                withdrawal_voucher: Addr::unchecked("withdrawal_voucher"),
+            },
+        )
+        .unwrap();
+    UNBOND_ID.save(deps.as_mut().storage, &0u64).unwrap();
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info(
+            "some_sender",
+            &[Coin {
+                denom: "wron_denom".to_string(),
+                amount: Uint128::from(100u128),
+            }],
+        ),
+        ExecuteMsg::Unbond { receiver: None },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::PaymentError(PaymentError::MissingDenom("dNTRN".to_string()))
+    );
+}
+
+#[test]
+fn test_execute_unbond_no_funds() {
+    let mut deps = mock_dependencies(&[]);
+    let denom = "dNTRN";
+    DENOM
+        .save(deps.as_mut().storage, &denom.to_string())
+        .unwrap();
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                unbonding_period: 1000,
+                withdrawal_voucher: Addr::unchecked("withdrawal_voucher"),
+            },
+        )
+        .unwrap();
+    UNBOND_ID.save(deps.as_mut().storage, &0u64).unwrap();
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),

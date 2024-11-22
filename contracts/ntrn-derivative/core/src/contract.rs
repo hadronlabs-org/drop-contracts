@@ -228,7 +228,7 @@ fn execute_unbond(
 ) -> ContractResult<Response<NeutronMsg>> {
     let dntrn_denom = DENOM.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
-    let amount_to_withdraw = cw_utils::may_pay(&info, &dntrn_denom)?;
+    let amount_to_withdraw = cw_utils::must_pay(&info, &dntrn_denom)?;
     let owner = receiver
         .map(|a| deps.api.addr_validate(&a))
         .unwrap_or_else(|| Ok(info.sender))?;
@@ -243,6 +243,7 @@ fn execute_unbond(
     let attrs = vec![
         attr("action", "unbond"),
         attr("amount", amount_to_withdraw.to_string()),
+        attr("receiver", owner.clone()),
     ];
     let mint_nft_msg = CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
         contract_addr: config.withdrawal_voucher.to_string(),
@@ -255,10 +256,9 @@ fn execute_unbond(
         funds: vec![],
     });
     let burn_tokens_msg = NeutronMsg::submit_burn_tokens(dntrn_denom, amount_to_withdraw);
-    Ok(Response::<NeutronMsg>::new()
+    Ok(response("execute-unbond", CONTRACT_NAME, attrs)
         .add_message(mint_nft_msg)
-        .add_message(burn_tokens_msg)
-        .add_attributes(attrs))
+        .add_message(burn_tokens_msg))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
