@@ -27,7 +27,6 @@ use neutron_sdk::{
     bindings::msg::NeutronMsg, query::token_factory::FullDenomResponse,
     stargate::aux::create_stargate_msg,
 };
-use std::sync::Arc;
 
 #[test]
 fn test_instantiate() {
