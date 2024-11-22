@@ -163,6 +163,7 @@ fn execute_receive_nft_withdraw(
     token_id: String,
     receiver: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
+    cw_utils::nonpayable(&info)?;
     let config = CONFIG.load(deps.storage)?;
     let voucher: NftInfoResponse<WithdrawalVoucherExtension> = deps.querier.query_wasm_smart(
         config.withdrawal_voucher.clone(),

@@ -1,6 +1,6 @@
 use crate::{
     contract::{execute, instantiate, query},
-    msg::{ExecuteMsg, InstantiateMsg, NftStatus, QueryMsg},
+    msg::{ExecuteMsg, InstantiateMsg, NftStatus, QueryMsg, ReceiveNftMsg},
     state::{Config, BASE_DENOM, CONFIG, DENOM, SALT, UNBOND_ID},
 };
 use cosmwasm_std::{
@@ -9,7 +9,7 @@ use cosmwasm_std::{
     to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, DenomMetadata, Event, ReplyOn,
     Response, SubMsg, Uint128, WasmMsg,
 };
-use cw721::NftInfoResponse;
+use cw721::{Cw721ReceiveMsg, NftInfoResponse};
 use cw_utils::PaymentError;
 use drop_helpers::testing::{mock_dependencies, mock_dependencies_with_api};
 use drop_staking_base::{
@@ -571,6 +571,216 @@ fn test_execute_unbond_no_funds() {
         res,
         crate::error::ContractError::PaymentError(PaymentError::NoFunds {})
     );
+}
+
+#[test]
+fn test_execute_receive_nft_withdraw() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("withdrawal_voucher", |_| {
+            to_json_binary(&NftInfoResponse::<WithdrawalVoucherExtension> {
+                token_uri: None,
+                extension: Some(Metadata {
+                    name: "dNTRN voucher".to_string(),
+                    description: Some("Withdrawal voucher".to_string()),
+                    release_at: 0u64,
+                    amount: Uint128::from(100u128),
+                    recepient: "recipient".to_string(),
+                }),
+            })
+            .unwrap()
+        });
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                unbonding_period: 1000,
+                withdrawal_voucher: Addr::unchecked("withdrawal_voucher"),
+            },
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("withdrawal_voucher", &[]),
+        ExecuteMsg::ReceiveNft(Cw721ReceiveMsg {
+            sender: "recipient".to_string(),
+            token_id: "1".to_string(),
+            msg: to_json_binary(&ReceiveNftMsg::Withdraw { receiver: None }).unwrap(),
+        }),
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new()
+            .add_submessage(SubMsg {
+                id: 0,
+                msg: CosmosMsg::Bank(BankMsg::Send {
+                    to_address: "recipient".to_string(),
+                    amount: vec![Coin {
+                        denom: BASE_DENOM.to_string(),
+                        amount: Uint128::from(100u128)
+                    }]
+                }),
+                gas_limit: None,
+                reply_on: ReplyOn::Never
+            })
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-ntrn-derivative-core-execute-receive_nft")
+                    .add_attributes(vec![
+                        attr("action", "receive_nft"),
+                        attr("amount", "100"),
+                        attr("to_address", "recipient")
+                    ])
+            )
+    )
+}
+
+#[test]
+fn test_execute_receive_nft_withdraw_custom_receiver() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("withdrawal_voucher", |_| {
+            to_json_binary(&NftInfoResponse::<WithdrawalVoucherExtension> {
+                token_uri: None,
+                extension: Some(Metadata {
+                    name: "dNTRN voucher".to_string(),
+                    description: Some("Withdrawal voucher".to_string()),
+                    release_at: 0u64,
+                    amount: Uint128::from(100u128),
+                    recepient: "recipient".to_string(),
+                }),
+            })
+            .unwrap()
+        });
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                unbonding_period: 1000,
+                withdrawal_voucher: Addr::unchecked("withdrawal_voucher"),
+            },
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("withdrawal_voucher", &[]),
+        ExecuteMsg::ReceiveNft(Cw721ReceiveMsg {
+            sender: "recipient".to_string(),
+            token_id: "1".to_string(),
+            msg: to_json_binary(&ReceiveNftMsg::Withdraw {
+                receiver: Some("custom_receiver".to_string()),
+            })
+            .unwrap(),
+        }),
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new()
+            .add_submessage(SubMsg {
+                id: 0,
+                msg: CosmosMsg::Bank(BankMsg::Send {
+                    to_address: "custom_receiver".to_string(),
+                    amount: vec![Coin {
+                        denom: BASE_DENOM.to_string(),
+                        amount: Uint128::from(100u128)
+                    }]
+                }),
+                gas_limit: None,
+                reply_on: ReplyOn::Never
+            })
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-ntrn-derivative-core-execute-receive_nft")
+                    .add_attributes(vec![
+                        attr("action", "receive_nft"),
+                        attr("amount", "100"),
+                        attr("to_address", "custom_receiver")
+                    ])
+            )
+    )
+}
+
+#[test]
+fn test_execute_receive_nft_withdraw_no_funds_required() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                unbonding_period: 1000,
+                withdrawal_voucher: Addr::unchecked("withdrawal_voucher"),
+            },
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info(
+            "withdrawal_voucher",
+            &[Coin {
+                denom: "some_denom".to_string(),
+                amount: Uint128::from(100u128),
+            }],
+        ),
+        ExecuteMsg::ReceiveNft(Cw721ReceiveMsg {
+            sender: "recipient".to_string(),
+            token_id: "1".to_string(),
+            msg: to_json_binary(&ReceiveNftMsg::Withdraw {
+                receiver: Some("custom_receiver".to_string()),
+            })
+            .unwrap(),
+        }),
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::PaymentError(PaymentError::NonPayable {})
+    );
+}
+
+#[test]
+fn test_execute_receive_nft_withdraw_not_authorized() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("withdrawal_voucher", |_| {
+            to_json_binary(&NftInfoResponse::<WithdrawalVoucherExtension> {
+                token_uri: None,
+                extension: Some(Metadata {
+                    name: "dNTRN voucher".to_string(),
+                    description: Some("Withdrawal voucher".to_string()),
+                    release_at: 0u64,
+                    amount: Uint128::from(100u128),
+                    recepient: "recipient".to_string(),
+                }),
+            })
+            .unwrap()
+        });
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                unbonding_period: 1000,
+                withdrawal_voucher: Addr::unchecked("withdrawal_voucher"),
+            },
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        mock_info("somebody", &[]),
+        ExecuteMsg::ReceiveNft(Cw721ReceiveMsg {
+            sender: "recipient".to_string(),
+            token_id: "1".to_string(),
+            msg: to_json_binary(&ReceiveNftMsg::Withdraw {
+                receiver: Some("custom_receiver".to_string()),
+            })
+            .unwrap(),
+        }),
+    )
+    .unwrap_err();
+    assert_eq!(res, crate::error::ContractError::Unauthorized {});
 }
 
 #[test]
