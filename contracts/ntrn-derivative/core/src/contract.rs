@@ -39,10 +39,6 @@ pub fn instantiate(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(info.sender.as_str()))?;
-    let create_denom_msg = SubMsg::reply_on_success(
-        NeutronMsg::submit_create_denom(&msg.subdenom),
-        CREATE_DENOM_REPLY_ID,
-    );
     let cosmwasm_std::CodeInfoResponse { checksum, .. } = deps
         .querier
         .query_wasm_code_info(msg.withdrawal_voucher_code_id)?;
@@ -71,6 +67,10 @@ pub fn instantiate(
         funds: vec![],
         salt: Binary::from(SALT.as_bytes()),
     });
+    let create_denom_msg = SubMsg::reply_on_success(
+        NeutronMsg::submit_create_denom(&msg.subdenom),
+        CREATE_DENOM_REPLY_ID,
+    );
     CONFIG.save(
         deps.storage,
         &Config {
