@@ -5,6 +5,7 @@ import {
 } from 'drop-ts-client';
 
 import { join } from 'path';
+import { sleep } from '../helpers/sleep';
 
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
@@ -217,5 +218,77 @@ describe('Validator set', () => {
         })
       ).tokens,
     ).toHaveLength(1);
+  });
+  it('Try withdraw', async () => {
+    await sleep(60000);
+    const { contracts, account } = context;
+    const { tokens } = await contracts.withdrawalVoucher.queryTokens({
+      owner: account.address,
+    });
+    const { events } = await contracts.withdrawalVoucher.sendNft(
+      account.address,
+      {
+        contract: contracts.core.contractAddress,
+        msg: 'eyJ3aXRoZHJhdyI6e319',
+        token_id: tokens[0],
+      },
+    );
+    expect(
+      events
+        .filter((event) => event.type == 'coin_received')
+        .map((event) => event.attributes)
+        .flat(),
+    ).toEqual(
+      expect.arrayContaining([
+        {
+          key: 'receiver',
+          value: account.address,
+        },
+        {
+          key: 'amount',
+          value: '5000untrn',
+        },
+      ]),
+    );
+  });
+  it('Try withdraw (with receiver)', async () => {
+    const { contracts, account, receiver, client } = context;
+    await contracts.core.bond(account.address, {}, undefined, undefined, [
+      { denom: 'untrn', amount: '1000' },
+    ]);
+    const dntrnDenom: string = await contracts.core.queryDenom();
+    await contracts.core.unbond(account.address, {}, undefined, undefined, [
+      { denom: dntrnDenom, amount: '1000' },
+    ]);
+    await sleep(60000);
+    const { tokens } = await contracts.withdrawalVoucher.queryTokens({
+      owner: account.address,
+    });
+    const { events } = await contracts.withdrawalVoucher.sendNft(
+      account.address,
+      {
+        contract: contracts.core.contractAddress,
+        msg: 'eyJ3aXRoZHJhdyI6eyJyZWNlaXZlciI6Im5ldXRyb24xcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFodWZhYTYifX0=',
+        token_id: tokens[0],
+      },
+    );
+    expect(
+      events
+        .filter((event) => event.type == 'coin_received')
+        .map((event) => event.attributes)
+        .flat(),
+    ).toEqual(
+      expect.arrayContaining([
+        {
+          key: 'receiver',
+          value: receiver,
+        },
+        {
+          key: 'amount',
+          value: '1000untrn',
+        },
+      ]),
+    );
+    expect((await client.getBalance(receiver, 'untrn')).amount).toBe('1000');
   });
 });
