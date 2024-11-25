@@ -1,7 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Addr;
-use cw_storage_plus::Item;
-use std::hash::Hash;
+use cw_storage_plus::Map;
 
 #[cw_serde]
 pub struct CodeIds {
@@ -44,35 +43,4 @@ pub struct PauseInfoResponse {
     pub rewards_manager: drop_helpers::pause::PauseInfoResponse,
 }
 
-#[cw_serde]
-pub struct Phonebook {
-    pub map: std::collections::HashMap<String, Addr>,
-}
-
-pub const STATE: Item<Phonebook> = Item::new("state");
-
-impl Phonebook {
-    pub fn get_as_result<'a>(
-        &'a self,
-        key: &'a str,
-    ) -> Result<&Addr, crate::error::factory::ContractError> {
-        self.map.get(key).ok_or(
-            crate::error::factory::ContractError::ContractAddressNotFound {
-                name: key.to_string(),
-            },
-        )
-    }
-
-    pub fn new<K, const N: usize>(arr: [(K, Addr); N]) -> Self
-    where
-        // Bounds from impl:
-        K: Eq + Hash + Into<String> + Clone + std::fmt::Display,
-    {
-        let map = arr
-            .iter()
-            .clone()
-            .map(|(k, v)| (k.to_string(), v.clone()))
-            .collect();
-        Self { map }
-    }
-}
+pub const STATE: Map<&str, Addr> = Map::new("state");

@@ -10,7 +10,7 @@ macro_rules! get_contracts {
             }
             let contracts = $deps
                                 .querier
-                                .query::<std::collections::HashMap<String, String>>(&QueryRequest::Wasm(WasmQuery::Smart {
+                                .query::<std::collections::HashMap<String, String>>(&cosmwasm_std::QueryRequest::Wasm(cosmwasm_std::WasmQuery::Smart {
                                     contract_addr: $factory_contract.to_string(),
                                     msg: to_json_binary(&drop_staking_base::msg::factory::QueryMsg::Locate {
                                         contracts: vec![$(stringify!($field_name).to_string()),*],
