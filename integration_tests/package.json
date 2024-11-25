@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "test": "vitest --run",
+    "test:ntrn-derivatives-minter": "vitest --run ntrn-derivatives-minter.test.ts --bail 1",
     "test:poc-provider-proposals": "vitest --run poc-provider-proposals.test.ts --bail 1",
     "test:poc-proposal-votes": "vitest --run poc-proposal-votes.test.ts --bail 1",
     "test:core": "REMOTE_CHAIN_OPTS=./dockerfiles/gaia/options.json vitest --run core.test.ts --bail 1",
