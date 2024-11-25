@@ -483,8 +483,8 @@ fn query_state(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let state = STATE.range(deps.storage, None, None, cosmwasm_std::Order::Ascending);
     let out = state
         .collect::<StdResult<Vec<_>>>()?
-        .iter()
-        .map(|(k, v): &(String, cosmwasm_std::Addr)| (k.clone(), v.to_string()))
+        .into_iter()
+        .map(|(k, v)| (k, v.into_string()))
         .collect::<HashMap<String, String>>();
     Ok(to_json_binary(&out)?)
 }
@@ -494,7 +494,7 @@ fn query_locate(deps: Deps<NeutronQuery>, items: Vec<String>) -> ContractResult<
 
     for item in items {
         let addr = STATE.load(deps.storage, &item)?;
-        contracts.insert(item.clone(), addr.to_string());
+        contracts.insert(item, addr.into_string());
     }
     Ok(to_json_binary(&contracts)?)
 }
