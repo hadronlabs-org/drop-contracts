@@ -124,12 +124,7 @@ fn test_query_config() {
     let res: Config =
         from_json(crate::contract::query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap())
             .unwrap();
-    assert_eq!(
-        res,
-        Config {
-            factory_contract: factory_contract,
-        }
-    );
+    assert_eq!(res, Config { factory_contract });
 }
 
 #[test]
@@ -137,12 +132,7 @@ fn test_query_nft_state_ready() {
     let mut deps = mock_dependencies(&[]);
     let factory_contract = deps.api.addr_validate("factory_contract").unwrap();
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &Config {
-                factory_contract: factory_contract,
-            },
-        )
+        .save(deps.as_mut().storage, &Config { factory_contract })
         .unwrap();
     deps.querier
         .add_wasm_query_response("factory_contract", |_| {
@@ -227,12 +217,7 @@ fn test_query_nft_state_unready() {
     let factory_contract = deps.api.addr_validate("factory_contract").unwrap();
 
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &Config {
-                factory_contract: factory_contract,
-            },
-        )
+        .save(deps.as_mut().storage, &Config { factory_contract })
         .unwrap();
     deps.querier
         .add_wasm_query_response("factory_contract", |_| {
@@ -316,12 +301,7 @@ fn test_query_nft_state_unknown_nft_id() {
     let mut deps = mock_dependencies(&[]);
     let factory_contract = deps.api.addr_validate("factory_contract").unwrap();
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &Config {
-                factory_contract: factory_contract,
-            },
-        )
+        .save(deps.as_mut().storage, &Config { factory_contract })
         .unwrap();
     deps.querier
         .add_wasm_query_response("factory_contract", |_| {
