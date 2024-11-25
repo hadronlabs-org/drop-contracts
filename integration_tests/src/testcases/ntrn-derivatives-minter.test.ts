@@ -163,4 +163,59 @@ describe('Validator set', () => {
       '10000',
     );
   });
+  it('Try unbond', async () => {
+    const { contracts, account, client } = context;
+    const dntrnDenom: string = await contracts.core.queryDenom();
+    await contracts.core.unbond(account.address, {}, undefined, undefined, [
+      {
+        denom: dntrnDenom,
+        amount: '5000',
+      },
+    ]);
+    expect((await client.getBalance(account.address, dntrnDenom)).amount).toBe(
+      '5000',
+    );
+    expect(
+      (
+        await contracts.withdrawalVoucher.queryTokens({
+          owner: account.address,
+        })
+      ).tokens,
+    ).toHaveLength(1);
+  });
+  it('Try unbond (with receiver)', async () => {
+    const { contracts, account, client, receiver } = context;
+    const dntrnDenom: string = await contracts.core.queryDenom();
+    await contracts.core.unbond(
+      account.address,
+      {
+        receiver: receiver,
+      },
+      undefined,
+      undefined,
+      [
+        {
+          denom: dntrnDenom,
+          amount: '5000',
+        },
+      ],
+    );
+    expect((await client.getBalance(account.address, dntrnDenom)).amount).toBe(
+      '0',
+    );
+    expect(
+      (
+        await contracts.withdrawalVoucher.queryTokens({
+          owner: account.address,
+        })
+      ).tokens,
+    ).toHaveLength(1);
+    expect(
+      (
+        await contracts.withdrawalVoucher.queryTokens({
+          owner: receiver,
+        })
+      ).tokens,
+    ).toHaveLength(1);
+  });
 });
