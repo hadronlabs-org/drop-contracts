@@ -722,6 +722,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-icq-adapter-kv"
+version = "1.0.0"
+dependencies = [
+ "bech32 0.11.0",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "semver",
+]
+
+[[package]]
+name = "drop-icq-router"
+version = "1.0.0"
+dependencies = [
+ "bech32 0.11.0",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "semver",
+]
+
+[[package]]
 name = "drop-lsm-share-bond-provider"
 version = "1.0.0"
 dependencies = [

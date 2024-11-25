@@ -2,6 +2,8 @@ pub mod astroport_exchange_handler;
 pub mod core;
 pub mod distribution;
 pub mod factory;
+pub mod icq_adapter;
+pub mod icq_router;
 pub mod lsm_share_bond_provider;
 pub mod mirror;
 pub mod native_bond_provider;

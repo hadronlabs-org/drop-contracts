@@ -4,6 +4,8 @@ pub mod core;
 pub mod distribution;
 pub mod factory;
 pub mod hook_tester;
+pub mod icq_adapter;
+pub mod icq_router;
 pub mod lsm_share_bond_provider;
 pub mod mirror;
 pub mod native_bond_provider;
@@ -17,7 +19,6 @@ pub mod reward_handler;
 pub mod rewards_manager;
 pub mod splitter;
 pub mod strategy;
-
 #[cfg(test)]
 mod tests;
 pub mod token;

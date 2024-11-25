@@ -5,7 +5,6 @@ use schemars::JsonSchema;
 #[cw_serde]
 pub enum ExecuteMsg {
     RegisterICA {},
-    RegisterQuery {},
 }
 
 #[cw_serde]

@@ -12,7 +12,6 @@ use cosmwasm_std::{
 use drop_helpers::answer::response;
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
-    interchain_queries::v045::new_register_transfers_query_msg,
     NeutronError, NeutronResult,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -44,7 +43,6 @@ where
     ) -> ContractResult<Response<NeutronMsg>> {
         match msg {
             ExecuteMsg::RegisterICA {} => self.execute_register_ica(deps, info),
-            ExecuteMsg::RegisterQuery {} => self.register_transfers_query(deps),
         }
     }
 
@@ -125,21 +123,5 @@ where
             self.ica
                 .register(deps.storage, config.connection_id(), ICA_ID, register_fee)?;
         Ok(response("register-ica", "puppeteer-base", attrs).add_message(register_msg))
-    }
-
-    fn register_transfers_query(
-        &self,
-        deps: DepsMut<NeutronQuery>,
-    ) -> ContractResult<Response<NeutronMsg>> {
-        let config = self.config.load(deps.storage)?;
-        let ica = self.ica.get_address(deps.storage)?;
-
-        let msg = new_register_transfers_query_msg(
-            config.connection_id(),
-            ica,
-            config.update_period(),
-            None,
-        )?;
-        Ok(Response::new().add_message(msg))
     }
 }

@@ -236,20 +236,15 @@ export interface Config {
     base_denom: string;
     bond_limit?: Uint128 | null;
     emergency_address?: string | null;
+    factory_contract: Addr;
     icq_update_delay: number;
     idle_min_interval: number;
     pump_ica_address?: string | null;
-    puppeteer_contract: Addr;
     remote_denom: string;
-    strategy_contract: Addr;
-    token_contract: Addr;
     transfer_channel_id: string;
     unbond_batch_switch_time: number;
     unbonding_period: number;
     unbonding_safe_period: number;
-    validators_set_contract: Addr;
-    withdrawal_manager_contract: Addr;
-    withdrawal_voucher_contract: Addr;
 }
 export interface FailedBatchResponse {
     response?: number | null;
@@ -395,21 +390,15 @@ export interface ConfigOptional {
     base_denom?: string | null;
     bond_limit?: Uint128 | null;
     emergency_address?: string | null;
+    factory_contract?: string | null;
     idle_min_interval?: number | null;
     pump_ica_address?: string | null;
-    puppeteer_contract?: string | null;
     remote_denom?: string | null;
     rewards_receiver?: string | null;
-    staker_contract?: string | null;
-    strategy_contract?: string | null;
-    token_contract?: string | null;
     transfer_channel_id?: string | null;
     unbond_batch_switch_time?: number | null;
     unbonding_period?: number | null;
     unbonding_safe_period?: number | null;
-    validators_set_contract?: string | null;
-    withdrawal_manager_contract?: string | null;
-    withdrawal_voucher_contract?: string | null;
 }
 export interface UpdateWithdrawnAmountArgs {
     batch_id: number;
@@ -434,21 +423,16 @@ export interface InstantiateMsg {
     base_denom: string;
     bond_limit?: Uint128 | null;
     emergency_address?: string | null;
+    factory_contract: string;
     icq_update_delay: number;
     idle_min_interval: number;
     owner: string;
     pump_ica_address?: string | null;
-    puppeteer_contract: string;
     remote_denom: string;
-    strategy_contract: string;
-    token_contract: string;
     transfer_channel_id: string;
     unbond_batch_switch_time: number;
     unbonding_period: number;
     unbonding_safe_period: number;
-    validators_set_contract: string;
-    withdrawal_manager_contract: string;
-    withdrawal_voucher_contract: string;
 }
 export declare class Client {
     private readonly client;

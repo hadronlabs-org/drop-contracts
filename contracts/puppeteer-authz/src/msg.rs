@@ -56,7 +56,6 @@ impl ExecuteMsg {
     pub fn to_base_enum(&self) -> BaseExecuteMsg {
         match self {
             ExecuteMsg::RegisterICA {} => BaseExecuteMsg::RegisterICA {},
-            ExecuteMsg::RegisterQuery {} => BaseExecuteMsg::RegisterQuery {},
             ExecuteMsg::SetFees {
                 recv_fee,
                 ack_fee,
