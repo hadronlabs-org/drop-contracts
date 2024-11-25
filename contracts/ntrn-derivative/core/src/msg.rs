@@ -16,6 +16,8 @@ pub enum QueryMsg {
     Config {},
     #[returns(NftStatus)]
     NftStatus { token_id: String },
+    #[returns(String)]
+    Denom {},
 }
 
 #[cw_ownable_execute]

@@ -99,6 +99,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> StdResult<Bin
             Ok(to_json_binary(&config)?)
         }
         QueryMsg::NftStatus { token_id } => query_nft_status(deps.into_empty(), env, token_id),
+        QueryMsg::Denom {} => to_json_binary(&DENOM.load(deps.storage)?),
     }
 }
 

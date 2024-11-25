@@ -11,6 +11,7 @@ import { Coin } from "@cosmjs/amino";
  * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
  */
 export type Addr = string;
+export type String = string;
 export type NftStatus = {
     ready: {};
 } | {
@@ -60,7 +61,7 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropNtrnDerivativeCoreSchema {
-    responses: Config | NftStatus | OwnershipForString;
+    responses: Config | String | NftStatus | OwnershipForString;
     query: NftStatusArgs;
     execute: BondArgs | UnbondArgs | ReceiveNftArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
@@ -147,6 +148,7 @@ export declare class Client {
     static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
     queryConfig: () => Promise<Config>;
     queryNftStatus: (args: NftStatusArgs) => Promise<NftStatus>;
+    queryDenom: () => Promise<String>;
     queryOwnership: () => Promise<OwnershipForString>;
     bond: (sender: string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     unbond: (sender: string, args: UnbondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

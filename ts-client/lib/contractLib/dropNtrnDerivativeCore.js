@@ -32,6 +32,9 @@ class Client {
     queryNftStatus = async (args) => {
         return this.client.queryContractSmart(this.contractAddress, { nft_status: args });
     };
+    queryDenom = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { denom: {} });
+    };
     queryOwnership = async () => {
         return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
     };

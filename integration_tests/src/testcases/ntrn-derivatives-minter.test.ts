@@ -28,6 +28,7 @@ describe('Validator set', () => {
     account?: AccountData;
     client?: SigningCosmWasmClient;
     neutronClient?: InstanceType<typeof NeutronClient>;
+    receiver?: string;
   } = {};
 
   beforeAll(async (t) => {
@@ -54,6 +55,7 @@ describe('Validator set', () => {
       },
     );
     context.contracts = {};
+    context.receiver = 'neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6';
   });
 
   afterAll(async () => {
@@ -123,5 +125,42 @@ describe('Validator set', () => {
           (await context.contracts.core.queryConfig()).withdrawal_voucher,
         );
     }
+  });
+  it('Try bond', async () => {
+    const { contracts, account, client } = context;
+    const dntrnDenom: string = await contracts.core.queryDenom();
+    await contracts.core.bond(account.address, {}, undefined, undefined, [
+      {
+        denom: 'untrn',
+        amount: '10000',
+      },
+    ]);
+    expect((await client.getBalance(account.address, dntrnDenom)).amount).toBe(
+      '10000',
+    );
+  });
+  it('Try bond (with receiver)', async () => {
+    const { contracts, account, client, receiver } = context;
+    const dntrnDenom: string = await contracts.core.queryDenom();
+    await contracts.core.bond(
+      account.address,
+      {
+        receiver: receiver,
+      },
+      undefined,
+      undefined,
+      [
+        {
+          denom: 'untrn',
+          amount: '10000',
+        },
+      ],
+    );
+    expect((await client.getBalance(receiver, dntrnDenom)).amount).toBe(
+      '10000',
+    );
+    expect((await client.getBalance(account.address, dntrnDenom)).amount).toBe(
+      '10000',
+    );
   });
 });

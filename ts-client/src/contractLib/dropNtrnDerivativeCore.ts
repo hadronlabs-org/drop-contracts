@@ -11,6 +11,7 @@ import { Coin } from "@cosmjs/amino";
  * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
  */
 export type Addr = string;
+export type String = string;
 export type NftStatus =
   | {
       ready: {};
@@ -69,7 +70,7 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropNtrnDerivativeCoreSchema {
-  responses: Config | NftStatus | OwnershipForString;
+  responses: Config | String | NftStatus | OwnershipForString;
   query: NftStatusArgs;
   execute: BondArgs | UnbondArgs | ReceiveNftArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
@@ -199,6 +200,9 @@ export class Client {
   }
   queryNftStatus = async(args: NftStatusArgs): Promise<NftStatus> => {
     return this.client.queryContractSmart(this.contractAddress, { nft_status: args });
+  }
+  queryDenom = async(): Promise<String> => {
+    return this.client.queryContractSmart(this.contractAddress, { denom: {} });
   }
   queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
