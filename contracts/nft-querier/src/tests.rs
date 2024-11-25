@@ -6,7 +6,7 @@ use crate::{
 use cosmwasm_std::{
     attr, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, Empty, MessageInfo, Response, Uint128,
+    to_json_binary, Api, Empty, Event, Response, Uint128,
 };
 use cw721::{NftInfoResponse, OwnerOfResponse};
 use drop_helpers::testing::mock_dependencies;
@@ -17,17 +17,24 @@ pub type Cw721VoucherContract<'a> = cw721_base::Cw721Contract<'a, Extension, Emp
 #[test]
 fn test_execute_instantiate() {
     let mut deps = mock_dependencies(&[]);
+    let factory_addr = deps.api.addr_validate("factory_contract").unwrap();
     let res = crate::contract::instantiate(
         deps.as_mut().into_empty(),
         mock_env(),
         mock_info("owner", &[]),
         InstantiateMsg {
-            factory_contract: "factory_contract".to_string(),
+            factory_contract: factory_addr,
         },
     )
     .unwrap();
 
-    assert_eq!(Response::default().add_attribute("owner", "owner"), res);
+    assert_eq!(
+        res,
+        Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-nft-querier-instantiate")
+                .add_attribute("owner", "owner")
+        )
+    );
 
     let query_res: cw_ownable::Ownership<String> = from_json(
         crate::contract::query(deps.as_ref(), mock_env(), QueryMsg::Ownership {}).unwrap(),
@@ -39,16 +46,16 @@ fn test_execute_instantiate() {
 #[test]
 fn test_execute_update_config_unauthorized() {
     let mut deps = mock_dependencies(&[]);
+    let new_factory_contract = deps.api.addr_validate("new_factory_contract").unwrap();
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-
     let err = crate::contract::execute(
         deps.as_mut().into_empty(),
         mock_env(),
         mock_info("somebody", &[]),
         ExecuteMsg::UpdateConfig {
             new_config: Config {
-                factory_contract: "new_factory_contract".to_string(),
+                factory_contract: new_factory_contract,
             },
         },
     )
@@ -63,6 +70,8 @@ fn test_execute_update_config_unauthorized() {
 #[test]
 fn test_execute_update_config() {
     let mut deps = mock_dependencies(&[]);
+    let old_factory_contract = deps.api.addr_validate("old_factory_contract").unwrap();
+    let new_factory_contract = deps.api.addr_validate("new_factory_contract").unwrap();
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
 
@@ -70,27 +79,18 @@ fn test_execute_update_config() {
         .save(
             deps_mut.storage,
             &Config {
-                factory_contract: "old_factory_contract".to_string(),
+                factory_contract: old_factory_contract,
             },
         )
         .unwrap();
-    assert_eq!(
-        CONFIG.load(deps_mut.storage).unwrap(),
-        Config {
-            factory_contract: "old_factory_contract".to_string(),
-        }
-    );
 
     let res = crate::contract::execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        MessageInfo {
-            sender: Addr::unchecked("owner"),
-            funds: vec![],
-        },
+        mock_info("owner", &[]),
         ExecuteMsg::UpdateConfig {
             new_config: Config {
-                factory_contract: "new_factory_contract".to_string(),
+                factory_contract: new_factory_contract,
             },
         },
     )
@@ -98,21 +98,25 @@ fn test_execute_update_config() {
 
     assert_eq!(
         res,
-        Response::new().add_attributes(vec![
-            attr("action", "update-config"),
-            attr("factory_contract", "new_factory_contract")
-        ])
+        Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-nft-querier-execute-update-config")
+                .add_attributes(vec![
+                    attr("action", "update-config"),
+                    attr("factory_contract", "new_factory_contract")
+                ])
+        )
     );
 }
 
 #[test]
 fn test_query_config() {
     let mut deps = mock_dependencies(&[]);
+    let factory_contract = deps.api.addr_validate("factory_contract").unwrap();
     CONFIG
         .save(
             deps.as_mut().storage,
             &Config {
-                factory_contract: "factory_contract".to_string(),
+                factory_contract: factory_contract.clone(),
             },
         )
         .unwrap();
@@ -123,7 +127,7 @@ fn test_query_config() {
     assert_eq!(
         res,
         Config {
-            factory_contract: "factory_contract".to_string(),
+            factory_contract: factory_contract,
         }
     );
 }
@@ -131,11 +135,12 @@ fn test_query_config() {
 #[test]
 fn test_query_nft_state_ready() {
     let mut deps = mock_dependencies(&[]);
+    let factory_contract = deps.api.addr_validate("factory_contract").unwrap();
     CONFIG
         .save(
             deps.as_mut().storage,
             &Config {
-                factory_contract: "factory_contract".to_string(),
+                factory_contract: factory_contract,
             },
         )
         .unwrap();
@@ -219,11 +224,13 @@ fn test_query_nft_state_ready() {
 #[test]
 fn test_query_nft_state_unready() {
     let mut deps = mock_dependencies(&[]);
+    let factory_contract = deps.api.addr_validate("factory_contract").unwrap();
+
     CONFIG
         .save(
             deps.as_mut().storage,
             &Config {
-                factory_contract: "factory_contract".to_string(),
+                factory_contract: factory_contract,
             },
         )
         .unwrap();
@@ -307,11 +314,12 @@ fn test_query_nft_state_unready() {
 #[test]
 fn test_query_nft_state_unknown_nft_id() {
     let mut deps = mock_dependencies(&[]);
+    let factory_contract = deps.api.addr_validate("factory_contract").unwrap();
     CONFIG
         .save(
             deps.as_mut().storage,
             &Config {
-                factory_contract: "factory_contract".to_string(),
+                factory_contract: factory_contract,
             },
         )
         .unwrap();

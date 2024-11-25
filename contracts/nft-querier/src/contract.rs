@@ -33,7 +33,11 @@ pub fn instantiate(
             factory_contract: msg.factory_contract,
         },
     )?;
-    Ok(Response::default().add_attribute("owner", info.sender))
+    Ok(response(
+        "instantiate",
+        CONTRACT_NAME,
+        vec![attr("owner", info.sender)],
+    ))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
@@ -53,22 +57,21 @@ fn query_nft_state(deps: Deps<NeutronQuery>, nft_id: String) -> ContractResult<B
         &FactoryQueryMsg::State {},
     )?;
     let nft_details: AllNftInfoResponse<drop_staking_base::msg::withdrawal_voucher::Extension> =
-        match deps.querier.query_wasm_smart(
-            factory_state.withdrawal_voucher_contract,
-            &WithdrawalVoucherQueryMsg::AllNftInfo {
-                token_id: nft_id,
-                include_expired: None,
-            },
-        ) {
-            Ok(res) => res,
-            Err(_) => return Err(crate::error::ContractError::UnknownNftId {}),
-        };
+        deps.querier
+            .query_wasm_smart(
+                factory_state.withdrawal_voucher_contract,
+                &WithdrawalVoucherQueryMsg::AllNftInfo {
+                    token_id: nft_id,
+                    include_expired: None,
+                },
+            )
+            .map_err(|_| crate::error::ContractError::UnknownNftId {})?;
 
-    let batch_id = nft_details.info.extension.unwrap().batch_id;
+    let batch_id = nft_details.info.extension.unwrap().batch_id; // We always have an extension
     let unbond_batch: drop_staking_base::state::core::UnbondBatch = deps.querier.query_wasm_smart(
         factory_state.core_contract,
         &CoreQueryMsg::UnbondBatch {
-            batch_id: cosmwasm_std::Uint128::from(batch_id.parse::<u64>().unwrap()),
+            batch_id: cosmwasm_std::Uint128::from(batch_id.parse::<u64>().unwrap()), // We always add this field by ourselves when creating NFT so we can certain that .unwrap() won't fail
         },
     )?;
     let nft_status = match unbond_batch.status {
@@ -107,8 +110,8 @@ fn execute_update_config(
     let mut attrs = vec![attr("action", "update-config")];
     let mut config = CONFIG.load(deps.storage)?;
 
-    config.factory_contract = deps.api.addr_validate(&msg.factory_contract)?.to_string();
+    config.factory_contract = msg.factory_contract.clone();
     attrs.push(attr("factory_contract", msg.factory_contract));
 
-    ContractResult::Ok(Response::default().add_attributes(attrs))
+    ContractResult::Ok(response("execute-update-config", CONTRACT_NAME, attrs))
 }
