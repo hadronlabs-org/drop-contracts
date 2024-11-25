@@ -1,6 +1,6 @@
 [package]
 authors = ["Vladislav Vasilev <vfaust.thefuture@gmail.com>"]
-description = "Contract to query NFT status"
+description = "Contract to query unbonding NFT status"
 edition = "2021"
 name = "drop-nft-querier"
 version = "1.0.0"
