@@ -23,6 +23,9 @@ pub enum ContractError {
     #[error("Wrong Prefix")]
     WrongPrefix {},
 
+    #[error("Wrong Address")]
+    WrongAddress {},
+
     #[error("Semver parsing error: {0}")]
     SemVer(String),
 }

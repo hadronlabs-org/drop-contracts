@@ -87,6 +87,7 @@ fn execute_link(
     if address.starts_with(&prefix) {
         return Err(ContractError::WrongPrefix {});
     }
+    bech32::decode(&address).map_err(|_| ContractError::WrongAddress {})?;
     ACCOUNTS.save(deps.storage, info.sender.to_string(), &address)?;
     let attrs = vec![
         (attr("sender".to_string(), info.sender.to_string())),

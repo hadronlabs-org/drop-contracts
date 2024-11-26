@@ -30,3 +30,4 @@ semver = { workspace = true }
 cw-storage-plus = { workspace = true }
 cw-ownable = { workspace = true }
 cw2 = { workspace = true }
+bech32 = { workspace = true }
