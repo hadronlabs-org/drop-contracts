@@ -8,8 +8,8 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage};
 use cosmwasm_std::{
     from_json, to_json_binary, AllBalanceResponse, Api, BalanceResponse, BankQuery, Binary, Coin,
-    ContractResult, CustomQuery, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError,
-    SystemResult, Uint128,
+    ContractResult, CustomQuery, OwnedDeps, Querier, QuerierResult, QueryRequest, SupplyResponse,
+    SystemError, SystemResult, Uint128,
 };
 
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -152,6 +152,15 @@ impl WasmMockQuerier {
     pub fn handle_query(&self, request: &QueryRequest<NeutronQuery>) -> QuerierResult {
         match &request {
             QueryRequest::Bank(bank_query) => match bank_query {
+                BankQuery::Supply { denom } => {
+                    let custom_supply = self.bank_query_responses.get(denom);
+
+                    if let Some(resp) = custom_supply {
+                        SystemResult::Ok(ContractResult::Ok(resp.clone()))
+                    } else {
+                        self.base.handle_query(request)
+                    }
+                }
                 BankQuery::Balance { address, .. } => {
                     let custom_balance = self.bank_query_responses.get(address);
 
@@ -307,6 +316,10 @@ impl WasmMockQuerier {
     pub fn add_bank_query_response(&mut self, address: String, response: BalanceResponse) {
         self.bank_query_responses
             .insert(address, to_json_binary(&response).unwrap());
+    }
+    pub fn add_bank_query_supply_response(&mut self, denom: String, response: SupplyResponse) {
+        self.bank_query_responses
+            .insert(denom, to_json_binary(&response).unwrap());
     }
     pub fn add_all_balances_query_response(
         &mut self,

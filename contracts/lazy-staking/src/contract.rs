@@ -6,7 +6,7 @@ use crate::{
 use cosmos_sdk_proto::cosmos::bank::v1beta1::{DenomUnit, Metadata};
 use cosmwasm_std::{
     attr, entry_point, to_json_binary, Attribute, Binary, CosmosMsg, Decimal, DenomMetadata, Deps,
-    DepsMut, Env, MessageInfo, Reply, Response, StdResult, SubMsg,
+    DepsMut, Env, MessageInfo, Reply, Response, StdResult, SubMsg, Uint128,
 };
 use drop_helpers::answer::response;
 use drop_staking_base::{
@@ -52,12 +52,31 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Ownership {} => Ok(to_json_binary(
             &cw_ownable::get_ownership(deps.storage)?.owner,
         )?),
+        QueryMsg::ExchangeRate {} => Ok(to_json_binary(&query_exchange_rate(deps, env)?)?),
     }
+}
+
+fn query_exchange_rate(deps: Deps, env: Env) -> StdResult<Decimal> {
+    let lazy_denom: String = DENOM.load(deps.storage)?;
+    let dasset_contract_balance = deps
+        .querier
+        .query_balance(env.contract.address, lazy_denom.clone())?;
+    let core_exchange_rate = query_core_exchange_rate(deps)?;
+    let asset_contract_balance = core_exchange_rate.checked_mul(Decimal::from_ratio(
+        dasset_contract_balance.amount,
+        Uint128::one(),
+    ))?;
+    let lazy_total_supply = deps.querier.query_supply(lazy_denom)?;
+    let exchange_rate = asset_contract_balance.checked_mul(Decimal::from_ratio(
+        lazy_total_supply.amount,
+        Uint128::one(),
+    ))?;
+    Ok(exchange_rate)
 }
 
 fn query_core_exchange_rate(deps: Deps) -> StdResult<Decimal> {
@@ -96,16 +115,15 @@ pub fn execute(
 
 fn execute_bond(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
-    let lazy_denom = DENOM.load(deps.storage)?;
-
-    let core_exchange_rate = query_core_exchange_rate(deps.as_ref())?;
     let sent_amount = cw_utils::must_pay(&info, &config.base_denom)?;
+    let core_exchange_rate = query_core_exchange_rate(deps.as_ref())?;
     let issue_amount = sent_amount * core_exchange_rate;
+    let lazy_denom = DENOM.load(deps.storage)?;
 
     let attrs = vec![
         attr("action", "bond"),
         attr("sent_amount", sent_amount.to_string()),
-        attr("exchange_rate", core_exchange_rate.to_string()),
+        attr("core_exchange_rate", core_exchange_rate.to_string()),
         attr("issue_amount", issue_amount.to_string()),
         attr("receiver", info.sender.clone()),
     ];
