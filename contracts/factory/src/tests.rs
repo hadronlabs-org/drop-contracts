@@ -119,7 +119,6 @@ fn test_instantiate() {
             unbonding_period: 0,
             unbonding_safe_period: 0,
             unbond_batch_switch_time: 0,
-            bond_limit: Some(Uint128::from(0u64)),
             icq_update_delay: 0,
         },
         native_bond_params: NativeBondParams {
@@ -269,7 +268,6 @@ fn test_instantiate() {
                             unbonding_period: 0,
                             unbonding_safe_period: 0,
                             unbond_batch_switch_time: 0,
-                            bond_limit: Some(Uint128::from(0u64)),
                             pump_ica_address: None,
                             transfer_channel_id: "channel-0".to_string(),
                             owner: "factory_contract".to_string(),
@@ -546,7 +544,6 @@ fn test_update_config_core_unauthorized() {
         unbond_batch_switch_time: None,
         pump_ica_address: None,
         transfer_channel_id: None,
-        bond_limit: None,
         rewards_receiver: None,
         emergency_address: None,
     };
@@ -590,7 +587,6 @@ fn test_update_config_core() {
         unbond_batch_switch_time: Some(1u64),
         pump_ica_address: Some("pump_ica_address1".to_string()),
         transfer_channel_id: Some("channel-1".to_string()),
-        bond_limit: Some(Uint128::from(1u64)),
         rewards_receiver: Some("rewards_receiver1".to_string()),
         emergency_address: Some("emergency_address1".to_string()),
     };

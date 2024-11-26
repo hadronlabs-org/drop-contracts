@@ -16,6 +16,7 @@ import { StdFee } from "@cosmjs/amino";
 export type Uint128 = string;
 export type Boolean = boolean;
 export type Boolean1 = boolean;
+export type Boolean2 = boolean;
 /**
  * A human readable address.
  *
@@ -198,7 +199,7 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropLsmShareBondProviderSchema {
-    responses: Uint128 | Boolean | Boolean1 | Config | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | OwnershipForString | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Decimal | TxState;
+    responses: Uint128 | Boolean | Boolean1 | Boolean2 | Config | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | OwnershipForString | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Decimal | TxState;
     query: CanBondArgs | TokensAmountArgs;
     execute: UpdateConfigArgs | PeripheralHookArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
@@ -361,6 +362,7 @@ export declare class Client {
     queryCanProcessOnIdle: () => Promise<Boolean>;
     queryTokensAmount: (args: TokensAmountArgs) => Promise<Decimal>;
     queryAsyncTokensAmount: () => Promise<Uint128>;
+    queryCanBeRemoved: () => Promise<Boolean>;
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     peripheralHook: (sender: string, args: PeripheralHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

@@ -7,9 +7,9 @@ use std::marker::PhantomData;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage};
 use cosmwasm_std::{
-    from_json, to_json_binary, Api, BalanceResponse, BankQuery, Binary, Coin, ContractResult,
-    CustomQuery, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult,
-    Uint128,
+    from_json, to_json_binary, AllBalanceResponse, Api, BalanceResponse, BankQuery, Binary, Coin,
+    ContractResult, CustomQuery, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError,
+    SystemResult, Uint128,
 };
 
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -127,6 +127,7 @@ pub struct WasmMockQuerier {
     bank_query_responses: HashMap<String, Binary>,
     query_responses: HashMap<u64, Binary>,
     registered_queries: HashMap<u64, Binary>,
+    ibc_query_responses: HashMap<String, Binary>,
     wasm_query_responses: RefCell<HashMap<String, Vec<Box<WasmFn>>>>, // fml
     custom_query_responses: RefCell<Vec<Box<CustomFn>>>,              // fml
     stargate_query_responses: RefCell<HashMap<String, Vec<Box<WasmFn>>>>, // fml
@@ -150,14 +151,48 @@ impl Querier for WasmMockQuerier {
 impl WasmMockQuerier {
     pub fn handle_query(&self, request: &QueryRequest<NeutronQuery>) -> QuerierResult {
         match &request {
-            QueryRequest::Bank(BankQuery::Balance { address, .. }) => {
-                let custom_balance = self.bank_query_responses.get(address);
+            QueryRequest::Bank(bank_query) => match bank_query {
+                BankQuery::Balance { address, .. } => {
+                    let custom_balance = self.bank_query_responses.get(address);
 
-                if let Some(balance) = custom_balance {
-                    SystemResult::Ok(ContractResult::Ok(balance.clone()))
-                } else {
-                    self.base.handle_query(request)
+                    if let Some(balance) = custom_balance {
+                        SystemResult::Ok(ContractResult::Ok(balance.clone()))
+                    } else {
+                        self.base.handle_query(request)
+                    }
                 }
+                BankQuery::AllBalances { address, .. } => {
+                    let custom_balance = self.bank_query_responses.get(address);
+
+                    if let Some(balances) = custom_balance {
+                        SystemResult::Ok(ContractResult::Ok(balances.clone()))
+                    } else {
+                        self.base.handle_query(request)
+                    }
+                }
+                _ => self.base.handle_query(request),
+            },
+            QueryRequest::Ibc(cosmwasm_std::IbcQuery::Channel {
+                channel_id,
+                port_id,
+            }) => {
+                let mut channel_port: String = (*channel_id).clone();
+                if let Some(port_id) = (*port_id).clone() {
+                    channel_port.push('/');
+                    channel_port.push_str(&port_id);
+                } else {
+                    channel_port.push_str("/*");
+                }
+                SystemResult::Ok(
+                    ContractResult::Ok(
+                        (*self.ibc_query_responses.get(&channel_port).unwrap_or(
+                            &to_json_binary(&cosmwasm_std::ChannelResponse { channel: None })
+                                .unwrap(),
+                        ))
+                        .clone(),
+                    )
+                    .clone(),
+                )
             }
             QueryRequest::Stargate { path, data } => {
                 let mut stargate_query_responses = self.stargate_query_responses.borrow_mut();
@@ -273,8 +308,40 @@ impl WasmMockQuerier {
         self.bank_query_responses
             .insert(address, to_json_binary(&response).unwrap());
     }
+    pub fn add_all_balances_query_response(
+        &mut self,
+        address: String,
+        response: AllBalanceResponse,
+    ) {
+        self.bank_query_responses
+            .insert(address, to_json_binary(&response).unwrap());
+    }
     pub fn add_query_response(&mut self, query_id: u64, response: Binary) {
         self.query_responses.insert(query_id, response);
+    }
+    pub fn add_ibc_channel_response(
+        &mut self,
+        channel_id: Option<String>,
+        port_id: Option<String>,
+        response: cosmwasm_std::ChannelResponse,
+    ) {
+        // channel-0/transfer
+        // */transfer
+        // channel-0/*
+        // */*
+        let mut channel_port: String;
+        if let Some(channel_id) = channel_id {
+            channel_port = channel_id.clone() + "/";
+        } else {
+            channel_port = "*/".to_string();
+        }
+        if let Some(port_id) = port_id {
+            channel_port.push_str(port_id.clone().as_str());
+        } else {
+            channel_port.push('*');
+        }
+        self.ibc_query_responses
+            .insert(channel_port, to_json_binary(&response).unwrap());
     }
     pub fn add_registered_queries(&mut self, query_id: u64, response: Binary) {
         self.registered_queries.insert(query_id, response);
@@ -324,6 +391,7 @@ impl WasmMockQuerier {
             bank_query_responses: HashMap::new(),
             query_responses: HashMap::new(),
             registered_queries: HashMap::new(),
+            ibc_query_responses: HashMap::new(),
             wasm_query_responses: HashMap::new().into(),
             stargate_query_responses: HashMap::new().into(),
             custom_query_responses: Vec::new().into(),
