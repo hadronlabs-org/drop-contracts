@@ -84,7 +84,7 @@ fn execute_link(
     address: String,
 ) -> ContractResult<Response> {
     let prefix = PREFIX.load(deps.storage)?;
-    if address.starts_with(&prefix) {
+    if !address.starts_with(&prefix) {
         return Err(ContractError::WrongPrefix {});
     }
     bech32::decode(&address).map_err(|_| ContractError::WrongAddress {})?;
