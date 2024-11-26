@@ -1,17 +1,17 @@
-use crate::{
-    contract::{execute, instantiate, query},
-    msg::{
-        CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, LsmShareBondParams, NativeBondParams,
-        QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
-    },
-    state::{CodeIds, RemoteOpts, State, Timeout, STATE},
-};
+use crate::contract::{execute, instantiate, query};
 use cosmwasm_std::{
     attr, from_json,
     testing::{mock_env, mock_info},
     to_json_binary, BankMsg, Uint128,
 };
 use drop_helpers::testing::{mock_dependencies, mock_dependencies_with_api};
+use drop_staking_base::{
+    msg::factory::{
+        CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, LsmShareBondParams, NativeBondParams,
+        QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
+    },
+    state::factory::{CodeIds, RemoteOpts, State, Timeout, STATE},
+};
 use drop_staking_base::{
     msg::{
         core::{ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg},
@@ -707,7 +707,7 @@ fn test_proxy_validators_set_update_validators_unauthorized() {
         deps.as_mut().into_empty(),
         mock_env(),
         mock_info("not_an_owner", &[]),
-        ExecuteMsg::Proxy(crate::msg::ProxyMsg::ValidatorSet(
+        ExecuteMsg::Proxy(drop_staking_base::msg::factory::ProxyMsg::ValidatorSet(
             ValidatorSetMsg::UpdateValidators {
                 validators: vec![
                     drop_staking_base::msg::validatorset::ValidatorData {
@@ -744,7 +744,7 @@ fn test_proxy_validators_set_update_validators() {
         deps.as_mut().into_empty(),
         mock_env(),
         mock_info("owner", &[]),
-        ExecuteMsg::Proxy(crate::msg::ProxyMsg::ValidatorSet(
+        ExecuteMsg::Proxy(drop_staking_base::msg::factory::ProxyMsg::ValidatorSet(
             ValidatorSetMsg::UpdateValidators {
                 validators: vec![
                     drop_staking_base::msg::validatorset::ValidatorData {
@@ -1091,7 +1091,7 @@ fn test_query_state() {
     STATE
         .save(deps.as_mut().storage, &get_default_factory_state())
         .unwrap();
-    let query_res: crate::state::State =
+    let query_res: drop_staking_base::state::factory::State =
         from_json(query(deps.as_ref(), mock_env(), QueryMsg::State {}).unwrap()).unwrap();
     assert_eq!(query_res, get_default_factory_state());
 }
@@ -1121,11 +1121,11 @@ fn test_query_pause_info() {
     STATE
         .save(deps.as_mut().storage, &get_default_factory_state())
         .unwrap();
-    let query_res: crate::state::PauseInfoResponse =
+    let query_res: drop_staking_base::state::factory::PauseInfoResponse =
         from_json(query(deps.as_ref(), mock_env(), QueryMsg::PauseInfo {}).unwrap()).unwrap();
     assert_eq!(
         query_res,
-        crate::state::PauseInfoResponse {
+        drop_staking_base::state::factory::PauseInfoResponse {
             core: CorePause {
                 tick: true,
                 bond: false,
@@ -1146,7 +1146,7 @@ fn test_query_ownership() {
         query(
             deps.as_ref(),
             mock_env(),
-            crate::msg::QueryMsg::Ownership {},
+            drop_staking_base::msg::factory::QueryMsg::Ownership {},
         )
         .unwrap(),
     )
@@ -1187,7 +1187,7 @@ fn test_transfer_ownership() {
         query(
             deps.as_ref(),
             mock_env(),
-            crate::msg::QueryMsg::Ownership {},
+            drop_staking_base::msg::factory::QueryMsg::Ownership {},
         )
         .unwrap(),
     )

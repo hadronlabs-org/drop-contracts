@@ -1,0 +1,32 @@
+[package]
+authors = ["Vladislav Vasilev <vfaust.thefuture@gmail.com>"]
+description = "Contract to mint lazy token"
+edition = "2021"
+name = "drop-lazy-staking"
+version = "1.0.0"
+
+exclude = [
+    "contract.wasm",
+    "hash.txt",
+]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+backtraces = ["cosmwasm-std/backtraces"]
+library = []
+
+[dependencies]
+cw2 = { workspace = true }
+neutron-sdk = { workspace = true }
+cosmwasm-schema = { workspace = true }
+cosmwasm-std = { workspace = true }
+cw-ownable = { workspace = true }
+thiserror = { workspace = true }
+cw-utils = { workspace = true }
+cw-storage-plus = { workspace = true }
+semver = { workspace = true }
+cosmos-sdk-proto = { workspace = true }
+drop-helpers = { workspace = true }
+drop-staking-base = { workspace = true }
