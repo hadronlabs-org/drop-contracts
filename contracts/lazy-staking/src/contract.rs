@@ -73,10 +73,12 @@ fn query_exchange_rate(deps: Deps, env: Env) -> StdResult<Decimal> {
     ))?;
     let lazy_denom: String = DENOM.load(deps.storage)?;
     let lazy_total_supply = deps.querier.query_supply(lazy_denom)?;
-    let exchange_rate = asset_contract_balance.checked_mul(Decimal::from_ratio(
-        lazy_total_supply.amount,
-        Uint128::one(),
-    ))?;
+    let exchange_rate = asset_contract_balance
+        .checked_div(Decimal::from_ratio(
+            lazy_total_supply.amount,
+            Uint128::one(),
+        ))
+        .unwrap();
     Ok(exchange_rate)
 }
 
