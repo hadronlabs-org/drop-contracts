@@ -542,16 +542,9 @@ fn test_sudo_response_ok() {
                     Box::new(
                         drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(
                             drop_puppeteer_base::peripheral_hook::ResponseHookSuccessMsg {
-                                request_id: 1,
                                 local_height: 12345,
                                 remote_height: 54321,
-                                request,
                                 transaction,
-                                answers: vec![
-                                    drop_puppeteer_base::peripheral_hook::ResponseAnswer::IBCTransfer(
-                                        drop_puppeteer_base::proto::MsgIBCTransfer {}
-                                    )
-                                ]
                             }
                         )
                     )
@@ -633,8 +626,6 @@ fn test_sudo_response_error() {
                     Box::new(
                         drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(
                             drop_puppeteer_base::peripheral_hook::ResponseHookErrorMsg {
-                                request_id: 1,
-                                request,
                                 transaction,
                                 details: "some shit happened".to_string()
                             }
@@ -742,8 +733,6 @@ fn test_sudo_response_timeout() {
                     Box::new(
                         drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(
                             drop_puppeteer_base::peripheral_hook::ResponseHookErrorMsg {
-                                request_id: 1,
-                                request,
                                 transaction,
                                 details: "Timeout".to_string()
                             }
