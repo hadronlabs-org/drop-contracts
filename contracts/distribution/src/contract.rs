@@ -22,8 +22,11 @@ pub fn instantiate(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    let empty_attr: Vec<Attribute> = Vec::new();
-    Ok(response("instantiate", CONTRACT_NAME, empty_attr))
+    Ok(response(
+        "instantiate",
+        CONTRACT_NAME,
+        Vec::<Attribute>::new(),
+    ))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]

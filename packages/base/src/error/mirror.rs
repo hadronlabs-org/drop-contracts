@@ -42,6 +42,12 @@ pub enum ContractError {
 
     #[error("Wrong bond state. Expected {expected:?}, got {got:?}")]
     WrongBondState { expected: String, got: String },
+
+    #[error("Channel on the host chain wasn't found")]
+    SourceChannelNotFound,
+
+    #[error("IBC timeout out of range")]
+    IbcTimeoutOutOfRange,
 }
 
 impl From<semver::Error> for ContractError {

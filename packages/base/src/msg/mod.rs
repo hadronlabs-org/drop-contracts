@@ -2,6 +2,7 @@ pub mod astroport_exchange_handler;
 pub mod bond_provider;
 pub mod core;
 pub mod distribution;
+pub mod factory;
 pub mod hook_tester;
 pub mod lsm_share_bond_provider;
 pub mod mirror;

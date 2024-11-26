@@ -55,7 +55,7 @@ pub struct State {
 #[cw_serde]
 pub struct PauseInfoResponse {
     pub withdrawal_manager: drop_helpers::pause::PauseInfoResponse,
-    pub core: drop_staking_base::state::core::Pause,
+    pub core: crate::state::core::Pause,
     pub rewards_manager: drop_helpers::pause::PauseInfoResponse,
 }
 

@@ -262,10 +262,17 @@ pub fn bond_provider_query(metadata: TokenStream, input: TokenStream) -> TokenSt
             })
             .unwrap();
 
+            let can_be_removed: Variant = syn::parse2(quote! {
+                #[returns(bool)]
+                CanBeRemoved {}
+            })
+            .unwrap();
+
             variants.push(can_bond);
             variants.push(can_process_on_idle);
             variants.push(tokens_amount);
             variants.push(async_tokens_amount);
+            variants.push(can_be_removed);
         }
         _ => {
             return syn::Error::new(

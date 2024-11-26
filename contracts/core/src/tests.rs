@@ -23,9 +23,9 @@ use drop_staking_base::{
     state::{
         core::{
             unbond_batches_map, Config, ConfigOptional, ContractState, Pause, UnbondBatch,
-            UnbondBatchStatus, UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_HOOKS,
-            BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG, FAILED_BATCH_ID, FSM,
-            LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM, PAUSE,
+            UnbondBatchStatus, UnbondBatchStatusTimestamps, BOND_HOOKS, BOND_PROVIDERS,
+            BOND_PROVIDER_REPLY_ID, CONFIG, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT,
+            LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM, MAX_BOND_PROVIDERS, PAUSE,
             UNBOND_BATCH_ID,
         },
         puppeteer::{Delegations, DropDelegation},
@@ -60,7 +60,6 @@ fn get_default_config(
         unbond_batch_switch_time,
         pump_ica_address: Some("pump_address".to_string()),
         transfer_channel_id: "transfer_channel".to_string(),
-        bond_limit: None,
         emergency_address: None,
         icq_update_delay: 5,
     }
@@ -112,7 +111,6 @@ fn test_update_config() {
             unbond_batch_switch_time: 2000,
             pump_ica_address: Some("old_pump_address".to_string()),
             transfer_channel_id: "old_transfer_channel".to_string(),
-            bond_limit: Some(Uint128::new(12)),
             emergency_address: Some("old_emergency_address".to_string()),
             owner: "admin".to_string(),
             icq_update_delay: 5,
@@ -141,7 +139,6 @@ fn test_update_config() {
         pump_ica_address: Some("new_pump_address".to_string()),
         transfer_channel_id: Some("new_transfer_channel".to_string()),
         rewards_receiver: Some("new_rewards_receiver".to_string()),
-        bond_limit: Some(Uint128::new(2)),
         emergency_address: Some("new_emergency_address".to_string()),
     };
     let expected_config = Config {
@@ -159,7 +156,6 @@ fn test_update_config() {
         unbond_batch_switch_time: 12000,
         pump_ica_address: Some("new_pump_address".to_string()),
         transfer_channel_id: "new_transfer_channel".to_string(),
-        bond_limit: Some(Uint128::new(2)),
         emergency_address: Some("new_emergency_address".to_string()),
         icq_update_delay: 5,
     };
@@ -199,6 +195,54 @@ fn query_ownership() {
             .unwrap(),
         String::from("owner"),
     );
+}
+
+#[test]
+fn test_bond_provider_has_any_tokens() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+
+    deps.querier
+        .add_wasm_query_response("bond_provider_address", |_| to_json_binary(&false).unwrap());
+
+    let error = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::RemoveBondProvider {
+            bond_provider_address: "bond_provider_address".to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(error, ContractError::BondProviderBalanceNotEmpty {})
+}
+
+#[test]
+fn test_execute_add_bond_provider_max_limit_reached() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+
+    for i in 0..MAX_BOND_PROVIDERS {
+        let mut provider: String = "provider".to_string();
+        provider.push_str(i.to_string().as_str());
+
+        BOND_PROVIDERS
+            .add(deps_mut.storage, cosmwasm_std::Addr::unchecked(provider))
+            .unwrap();
+    }
+    let res = execute(
+        deps_mut,
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::AddBondProvider {
+            bond_provider_address: "bond_provider_address".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::MaxBondProvidersReached {})
 }
 
 #[test]
@@ -272,31 +316,6 @@ fn test_update_withdrawn_amount() {
 }
 
 #[test]
-fn test_execute_reset_bonded_amount() {
-    let mut deps = mock_dependencies(&[]);
-    let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::one())
-        .unwrap();
-    let res = execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("admin", &[]),
-        ExecuteMsg::ResetBondedAmount {},
-    );
-    assert_eq!(
-        res,
-        Ok(Response::new().add_event(
-            Event::new("crates.io:drop-staking__drop-core-execute-reset_bond_limit")
-                .add_attributes(vec![("action", "reset_bond_limit"),])
-        ))
-    );
-    let amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
-    assert_eq!(amount, Uint128::zero());
-}
-
-#[test]
 fn test_add_remove_bond_provider() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
@@ -309,6 +328,9 @@ fn test_add_remove_bond_provider() {
         bond_providers,
         to_json_binary::<Vec<(Addr, bool)>>(&vec![]).unwrap()
     );
+
+    deps.querier
+        .add_wasm_query_response("bond_provider", |_| to_json_binary(&true).unwrap());
 
     let res = execute(
         deps.as_mut(),
@@ -410,9 +432,6 @@ fn test_execute_tick_idle_process_bondig_provider() {
         .unwrap();
     LAST_IDLE_CALL.save(deps.as_mut().storage, &0).unwrap();
 
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
     PAUSE
         .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
@@ -546,9 +565,6 @@ fn test_tick_idle_claim_wo_unbond() {
     LAST_IDLE_CALL.save(deps.as_mut().storage, &0).unwrap();
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
-        .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::from(1000u128))
         .unwrap();
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &0).unwrap();
     unbond_batches_map()
@@ -708,9 +724,7 @@ fn test_tick_idle_claim_with_unbond_transfer() {
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
         .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::from(1000u128))
-        .unwrap();
+
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &0).unwrap();
     unbond_batches_map()
         .save(
@@ -1615,9 +1629,7 @@ fn test_bond_wo_receiver() {
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
+
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
@@ -1638,8 +1650,6 @@ fn test_bond_wo_receiver() {
         },
     )
     .unwrap();
-    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
-    assert_eq!(bonded_amount, Uint128::from(1000u128));
     assert_eq!(
         res,
         Response::new()
@@ -1692,9 +1702,7 @@ fn test_bond_with_receiver() {
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
+
     BOND_PROVIDERS
         .add(
             deps.as_mut().storage,
@@ -1721,8 +1729,6 @@ fn test_bond_with_receiver() {
         },
     )
     .unwrap();
-    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
-    assert_eq!(bonded_amount, Uint128::from(1000u128));
     assert_eq!(
         res,
         Response::new()
@@ -1860,9 +1866,7 @@ fn test_bond_lsm_share_increase_exchange_rate() {
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
+
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
@@ -1919,9 +1923,7 @@ fn test_unbond() {
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::from(1000u128))
-        .unwrap();
+
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &0u128).unwrap();
     unbond_batches_map()
         .save(
@@ -2015,8 +2017,6 @@ fn test_unbond() {
             status_timestamps: get_default_unbond_batch_status_timestamps(),
         }
     );
-    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
-    assert_eq!(bonded_amount, Uint128::zero());
 }
 
 fn null_request_packet() -> RequestPacket {
@@ -2622,9 +2622,6 @@ mod bond_hooks {
 
         FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
             .unwrap();
-        BONDED_AMOUNT
-            .save(deps.as_mut().storage, &Uint128::zero())
-            .unwrap();
         BOND_PROVIDERS
             .add(
                 deps.as_mut().storage,
@@ -2695,9 +2692,6 @@ mod bond_hooks {
             });
 
         FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
-            .unwrap();
-        BONDED_AMOUNT
-            .save(deps.as_mut().storage, &Uint128::zero())
             .unwrap();
 
         BOND_PROVIDERS
@@ -2772,9 +2766,6 @@ mod bond_hooks {
         let hooks = ["val_ref", "validator_set", "logger", "indexer"];
 
         FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
-            .unwrap();
-        BONDED_AMOUNT
-            .save(deps.as_mut().storage, &Uint128::zero())
             .unwrap();
 
         BOND_PROVIDERS
