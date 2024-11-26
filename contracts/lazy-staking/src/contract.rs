@@ -62,15 +62,16 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 fn query_exchange_rate(deps: Deps, env: Env) -> StdResult<Decimal> {
-    let lazy_denom: String = DENOM.load(deps.storage)?;
+    let base_denom = CONFIG.load(deps.storage)?.base_denom;
     let dasset_contract_balance = deps
         .querier
-        .query_balance(env.contract.address, lazy_denom.clone())?;
+        .query_balance(env.contract.address, base_denom.clone())?;
     let core_exchange_rate = query_core_exchange_rate(deps)?;
     let asset_contract_balance = core_exchange_rate.checked_mul(Decimal::from_ratio(
         dasset_contract_balance.amount,
         Uint128::one(),
     ))?;
+    let lazy_denom: String = DENOM.load(deps.storage)?;
     let lazy_total_supply = deps.querier.query_supply(lazy_denom)?;
     let exchange_rate = asset_contract_balance.checked_mul(Decimal::from_ratio(
         lazy_total_supply.amount,
