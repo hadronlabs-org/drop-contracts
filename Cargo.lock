@@ -788,6 +788,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-network-link"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "semver",
+ "thiserror",
+]
+
+[[package]]
 name = "drop-price-provider"
 version = "1.0.0"
 dependencies = [

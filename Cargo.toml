@@ -22,6 +22,7 @@ members = [
     "contracts/token",
     "contracts/val-ref",
     "contracts/splitter",
+    "contracts/network-link",
     "contracts/mirror",
     "contracts/price-provider",
     "contracts/validators-stats",
