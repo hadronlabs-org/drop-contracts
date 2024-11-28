@@ -66,15 +66,23 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 fn query_rewards(deps: Deps, env: Env) -> StdResult<Uint128> {
-    let exchange_rate = query_exchange_rate(deps, env.clone())?;
-    let config = CONFIG.load(deps.storage)?;
-    let base_denom = config.base_denom;
+    let base_denom = CONFIG.load(deps.storage)?.base_denom;
     let dasset_contract_balance = deps
         .querier
         .query_balance(env.contract.address, base_denom.clone())?;
-    let rewards = dasset_contract_balance.amount
-        - Decimal::one() / exchange_rate * dasset_contract_balance.amount;
-    Ok(rewards)
+    let core_exchange_rate = query_core_exchange_rate(deps)?;
+    let asset_contract_balance = core_exchange_rate.checked_mul(Decimal::from_ratio(
+        dasset_contract_balance.amount,
+        Uint128::one(),
+    ))?;
+    let lazy_denom: String = DENOM.load(deps.storage)?;
+    let lazy_total_supply = deps.querier.query_supply(lazy_denom)?;
+    let backing_excess_asset = lazy_total_supply
+        .amount
+        .abs_diff(asset_contract_balance.to_uint_floor());
+    let backing_excess_dasset =
+        Decimal::from_ratio(backing_excess_asset, Uint128::one()) / core_exchange_rate;
+    Ok(backing_excess_dasset.to_uint_floor())
 }
 
 fn query_exchange_rate(deps: Deps, env: Env) -> StdResult<Decimal> {
