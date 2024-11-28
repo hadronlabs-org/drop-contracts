@@ -739,10 +739,14 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropFactorySchema {
-  responses: OwnershipForString | PauseInfoResponse | State;
+  responses: MapOfString | OwnershipForString | PauseInfoResponse | MapOfString1;
+  query: LocateArgs;
   execute: UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
+}
+export interface MapOfString {
+  [k: string]: string;
 }
 /**
  * The contract's ownership info
@@ -771,20 +775,11 @@ export interface Pause {
   tick: boolean;
   unbond: boolean;
 }
-export interface State {
-  core_contract: string;
-  distribution_contract: string;
-  lsm_share_bond_provider_contract: string;
-  native_bond_provider_contract: string;
-  puppeteer_contract: string;
-  rewards_manager_contract: string;
-  rewards_pump_contract: string;
-  splitter_contract: string;
-  strategy_contract: string;
-  token_contract: string;
-  validators_set_contract: string;
-  withdrawal_manager_contract: string;
-  withdrawal_voucher_contract: string;
+export interface MapOfString1 {
+  [k: string]: string;
+}
+export interface LocateArgs {
+  contracts: string[];
 }
 export interface ConfigOptional {
   base_denom?: string | null;
@@ -1322,8 +1317,11 @@ export class Client {
     });
     return res;
   }
-  queryState = async(): Promise<State> => {
+  queryState = async(): Promise<MapOfString> => {
     return this.client.queryContractSmart(this.contractAddress, { state: {} });
+  }
+  queryLocate = async(args: LocateArgs): Promise<MapOfString> => {
+    return this.client.queryContractSmart(this.contractAddress, { locate: args });
   }
   queryPauseInfo = async(): Promise<PauseInfoResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
