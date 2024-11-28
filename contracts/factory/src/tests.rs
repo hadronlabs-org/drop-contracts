@@ -18,7 +18,7 @@ use drop_staking_base::{
         CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, LsmShareBondParams, NativeBondParams,
         QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
     },
-    state::factory::{CodeIds, Phonebook, RemoteOpts, Timeout, STATE},
+    state::factory::{CodeIds, RemoteOpts, Timeout, STATE},
 };
 use drop_staking_base::{
     msg::{
@@ -52,45 +52,92 @@ fn set_default_factory_state(deps: DepsMut<NeutronQuery>) {
     STATE
         .save(
             deps.storage,
-            &Phonebook::new([
-                (TOKEN_CONTRACT, Addr::unchecked("token_contract")),
-                (CORE_CONTRACT, Addr::unchecked("core_contract")),
-                (PUPPETEER_CONTRACT, Addr::unchecked("puppeteer_contract")),
-                (
-                    WITHDRAWAL_MANAGER_CONTRACT,
-                    Addr::unchecked("withdrawal_manager_contract"),
-                ),
-                (
-                    WITHDRAWAL_VOUCHER_CONTRACT,
-                    Addr::unchecked("withdrawal_voucher_contract"),
-                ),
-                (STRATEGY_CONTRACT, Addr::unchecked("strategy_contract")),
-                (
-                    VALIDATORS_SET_CONTRACT,
-                    Addr::unchecked("validators_set_contract"),
-                ),
-                (
-                    DISTRIBUTION_CONTRACT,
-                    Addr::unchecked("distribution_contract"),
-                ),
-                (
-                    REWARDS_MANAGER_CONTRACT,
-                    Addr::unchecked("rewards_manager_contract"),
-                ),
-                (
-                    REWARDS_PUMP_CONTRACT,
-                    Addr::unchecked("rewards_pump_contract"),
-                ),
-                (SPLITTER_CONTRACT, Addr::unchecked("splitter_contract")),
-                (
-                    LSM_SHARE_BOND_PROVIDER_CONTRACT,
-                    Addr::unchecked("lsm_share_bond_provider_contract"),
-                ),
-                (
-                    NATIVE_BOND_PROVIDER_CONTRACT,
-                    Addr::unchecked("native_bond_provider_contract"),
-                ),
-            ]),
+            TOKEN_CONTRACT,
+            &Addr::unchecked("token_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            CORE_CONTRACT,
+            &Addr::unchecked("core_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            PUPPETEER_CONTRACT,
+            &Addr::unchecked("puppeteer_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            WITHDRAWAL_MANAGER_CONTRACT,
+            &Addr::unchecked("withdrawal_manager_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            WITHDRAWAL_VOUCHER_CONTRACT,
+            &Addr::unchecked("withdrawal_voucher_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            STRATEGY_CONTRACT,
+            &Addr::unchecked("strategy_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            VALIDATORS_SET_CONTRACT,
+            &Addr::unchecked("validators_set_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            DISTRIBUTION_CONTRACT,
+            &Addr::unchecked("distribution_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            REWARDS_MANAGER_CONTRACT,
+            &Addr::unchecked("rewards_manager_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            REWARDS_PUMP_CONTRACT,
+            &Addr::unchecked("rewards_pump_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            SPLITTER_CONTRACT,
+            &Addr::unchecked("splitter_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            LSM_SHARE_BOND_PROVIDER_CONTRACT,
+            &Addr::unchecked("lsm_share_bond_provider_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            NATIVE_BOND_PROVIDER_CONTRACT,
+            &Addr::unchecked("native_bond_provider_contract"),
         )
         .unwrap();
 }

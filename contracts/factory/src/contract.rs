@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use cosmwasm_std::{
     attr, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg, Deps, DepsMut,
-    Env, HexBinary, MessageInfo, Response, Uint128, WasmMsg,
+    Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use drop_helpers::answer::response;
 use drop_helpers::phonebook::{
@@ -12,7 +12,6 @@ use drop_helpers::phonebook::{
     VALIDATORS_SET_CONTRACT, WITHDRAWAL_MANAGER_CONTRACT, WITHDRAWAL_VOUCHER_CONTRACT,
 };
 use drop_staking_base::error::factory::ContractResult;
-use drop_staking_base::state::factory::Phonebook;
 use drop_staking_base::state::splitter::Config as SplitterConfig;
 use drop_staking_base::{
     msg::factory::{
@@ -209,35 +208,54 @@ pub fn instantiate(
         deps.api.addr_humanize(&lsm_share_bond_provider_address)?;
     let native_bond_provider_contract = deps.api.addr_humanize(&native_bond_provider_address)?;
 
+    STATE.save(deps.storage, CORE_CONTRACT, &core_contract.clone())?;
     STATE.save(
         deps.storage,
-        &Phonebook::new([
-            (CORE_CONTRACT, core_contract.clone()),
-            (
-                WITHDRAWAL_MANAGER_CONTRACT,
-                withdrawal_manager_contract.clone(),
-            ),
-            (REWARDS_MANAGER_CONTRACT, rewards_manager_contract.clone()),
-            (TOKEN_CONTRACT, token_contract.clone()),
-            (PUPPETEER_CONTRACT, puppeteer_contract.clone()),
-            (
-                WITHDRAWAL_VOUCHER_CONTRACT,
-                withdrawal_voucher_contract.clone(),
-            ),
-            (STRATEGY_CONTRACT, strategy_contract.clone()),
-            (VALIDATORS_SET_CONTRACT, validators_set_contract.clone()),
-            (DISTRIBUTION_CONTRACT, distribution_contract.clone()),
-            (SPLITTER_CONTRACT, splitter_contract.clone()),
-            (
-                LSM_SHARE_BOND_PROVIDER_CONTRACT,
-                lsm_share_bond_provider_contract.clone(),
-            ),
-            (
-                NATIVE_BOND_PROVIDER_CONTRACT,
-                native_bond_provider_contract.clone(),
-            ),
-            (REWARDS_PUMP_CONTRACT, rewards_pump_contract.clone()),
-        ]),
+        WITHDRAWAL_MANAGER_CONTRACT,
+        &withdrawal_manager_contract.clone(),
+    )?;
+    STATE.save(
+        deps.storage,
+        REWARDS_MANAGER_CONTRACT,
+        &rewards_manager_contract.clone(),
+    )?;
+    STATE.save(deps.storage, TOKEN_CONTRACT, &token_contract.clone())?;
+    STATE.save(
+        deps.storage,
+        PUPPETEER_CONTRACT,
+        &puppeteer_contract.clone(),
+    )?;
+    STATE.save(
+        deps.storage,
+        WITHDRAWAL_VOUCHER_CONTRACT,
+        &withdrawal_voucher_contract.clone(),
+    )?;
+    STATE.save(deps.storage, STRATEGY_CONTRACT, &strategy_contract.clone())?;
+    STATE.save(
+        deps.storage,
+        VALIDATORS_SET_CONTRACT,
+        &validators_set_contract.clone(),
+    )?;
+    STATE.save(
+        deps.storage,
+        DISTRIBUTION_CONTRACT,
+        &distribution_contract.clone(),
+    )?;
+    STATE.save(deps.storage, SPLITTER_CONTRACT, &splitter_contract.clone())?;
+    STATE.save(
+        deps.storage,
+        LSM_SHARE_BOND_PROVIDER_CONTRACT,
+        &lsm_share_bond_provider_contract.clone(),
+    )?;
+    STATE.save(
+        deps.storage,
+        NATIVE_BOND_PROVIDER_CONTRACT,
+        &native_bond_provider_contract.clone(),
+    )?;
+    STATE.save(
+        deps.storage,
+        REWARDS_PUMP_CONTRACT,
+        &rewards_pump_contract.clone(),
     )?;
 
     let msgs = vec![
@@ -455,26 +473,29 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
 }
 
 fn query_state(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let state = STATE.load(deps.storage)?;
-    Ok(to_json_binary(&state.map)?)
+    let state = STATE.range(deps.storage, None, None, cosmwasm_std::Order::Ascending);
+    let out = state
+        .collect::<StdResult<Vec<_>>>()?
+        .into_iter()
+        .map(|(k, v)| (k, v.into_string()))
+        .collect::<HashMap<String, String>>();
+    Ok(to_json_binary(&out)?)
 }
 
 fn query_locate(deps: Deps<NeutronQuery>, items: Vec<String>) -> ContractResult<Binary> {
     let mut contracts: HashMap<String, String> = HashMap::new();
-    let state = STATE.load(deps.storage)?;
+
     for item in items {
-        let item_key = item.clone();
-        let contract = state.get_as_result(&item_key)?;
-        contracts.insert(item.clone(), contract.to_string());
+        let addr = STATE.load(deps.storage, &item)?;
+        contracts.insert(item, addr.into_string());
     }
     Ok(to_json_binary(&contracts)?)
 }
 
 fn query_pause_info(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let state = STATE.load(deps.storage)?;
-    let core_contract = state.get_as_result(CORE_CONTRACT)?;
-    let withdrawal_manager_contract = state.get_as_result(WITHDRAWAL_MANAGER_CONTRACT)?;
-    let rewards_manager_contract = state.get_as_result(REWARDS_MANAGER_CONTRACT)?;
+    let core_contract = STATE.load(deps.storage, CORE_CONTRACT)?;
+    let withdrawal_manager_contract = STATE.load(deps.storage, WITHDRAWAL_MANAGER_CONTRACT)?;
+    let rewards_manager_contract = STATE.load(deps.storage, REWARDS_MANAGER_CONTRACT)?;
 
     to_json_binary(&drop_staking_base::state::factory::PauseInfoResponse {
         core: deps
@@ -517,10 +538,9 @@ pub fn execute(
 
 fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let state = STATE.load(deps.storage)?;
-    let core_contract = state.get_as_result(CORE_CONTRACT)?;
-    let withdrawal_manager_contract = state.get_as_result(WITHDRAWAL_MANAGER_CONTRACT)?;
-    let rewards_manager_contract = state.get_as_result(REWARDS_MANAGER_CONTRACT)?;
+    let core_contract = STATE.load(deps.storage, CORE_CONTRACT)?;
+    let withdrawal_manager_contract = STATE.load(deps.storage, WITHDRAWAL_MANAGER_CONTRACT)?;
+    let rewards_manager_contract = STATE.load(deps.storage, REWARDS_MANAGER_CONTRACT)?;
 
     let attrs = vec![attr("action", "pause")];
     let messages = vec![
@@ -551,10 +571,9 @@ fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Neutr
 
 fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let state = STATE.load(deps.storage)?;
-    let core_contract = state.get_as_result(CORE_CONTRACT)?;
-    let withdrawal_manager_contract = state.get_as_result(WITHDRAWAL_MANAGER_CONTRACT)?;
-    let rewards_manager_contract = state.get_as_result(REWARDS_MANAGER_CONTRACT)?;
+    let core_contract = STATE.load(deps.storage, CORE_CONTRACT)?;
+    let withdrawal_manager_contract = STATE.load(deps.storage, WITHDRAWAL_MANAGER_CONTRACT)?;
+    let rewards_manager_contract = STATE.load(deps.storage, REWARDS_MANAGER_CONTRACT)?;
     let attrs = vec![attr("action", "unpause")];
     let messages = vec![
         get_proxied_message(
@@ -601,9 +620,8 @@ fn execute_update_config(
 ) -> ContractResult<Response<NeutronMsg>> {
     let attrs = vec![attr("action", "update-config")];
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let state = STATE.load(deps.storage)?;
-    let core_contract = state.get_as_result(CORE_CONTRACT)?;
-    let validators_set_contract = state.get_as_result(VALIDATORS_SET_CONTRACT)?;
+    let core_contract = STATE.load(deps.storage, CORE_CONTRACT)?;
+    let validators_set_contract = STATE.load(deps.storage, VALIDATORS_SET_CONTRACT)?;
     let mut messages = vec![];
     match msg {
         UpdateConfigMsg::Core(msg) => messages.push(get_proxied_message(
@@ -628,9 +646,8 @@ fn execute_proxy_msg(
     info: MessageInfo,
     msg: ProxyMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let state = STATE.load(deps.storage)?;
-    let validators_set_contract = state.get_as_result(VALIDATORS_SET_CONTRACT)?;
-    let puppeteer_contract = state.get_as_result(PUPPETEER_CONTRACT)?;
+    let validators_set_contract = STATE.load(deps.storage, VALIDATORS_SET_CONTRACT)?;
+    let puppeteer_contract = STATE.load(deps.storage, PUPPETEER_CONTRACT)?;
     let mut messages = vec![];
     let attrs = vec![attr("action", "proxy-call")];
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
