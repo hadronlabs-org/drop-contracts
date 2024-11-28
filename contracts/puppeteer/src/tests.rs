@@ -2401,18 +2401,15 @@ fn test_sudo_response_ok() {
             .add_message(CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
                 contract_addr: "reply_to_contract".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PeripheralHook(
-                    Box::new(drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(
-                        drop_puppeteer_base::peripheral_hook::ResponseHookSuccessMsg {
-                            request_id: 1,
-                            local_height: 12345,
-                            remote_height: 54321,
-                            request,
-                            transaction,
-                            answers: vec![drop_puppeteer_base::peripheral_hook::ResponseAnswer::IBCTransfer(
-                                drop_puppeteer_base::proto::MsgIBCTransfer {}
-                            )]
-                        }
-                    ))
+                    Box::new(
+                        drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(
+                            drop_puppeteer_base::peripheral_hook::ResponseHookSuccessMsg {
+                                local_height: 12345,
+                                remote_height: 54321,
+                                transaction,
+                            }
+                        )
+                    )
                 ))
                 .unwrap(),
                 funds: vec![]
@@ -2491,8 +2488,6 @@ fn test_sudo_response_error() {
                     Box::new(
                         drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(
                             drop_puppeteer_base::peripheral_hook::ResponseHookErrorMsg {
-                                request_id: 1,
-                                request,
                                 transaction,
                                 details: "some shit happened".to_string()
                             }
@@ -2600,8 +2595,6 @@ fn test_sudo_response_timeout() {
                     Box::new(
                         drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(
                             drop_puppeteer_base::peripheral_hook::ResponseHookErrorMsg {
-                                request_id: 1,
-                                request,
                                 transaction,
                                 details: "Timeout".to_string()
                             }
