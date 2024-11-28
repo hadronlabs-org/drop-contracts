@@ -65,6 +65,7 @@ pub const CREATE_DENOM_REPLY_ID: u64 = 1;
 
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const EXCHANGE_RATE: Item<Decimal> = Item::new("exchange_rate");
+pub const REWARDS_RATE: Item<Decimal> = Item::new("rewards_rate");
 
 pub const TOKEN_METADATA: Item<DenomMetadata> = Item::new("token_metadata");
 pub const DENOM: Item<String> = Item::new("denom");

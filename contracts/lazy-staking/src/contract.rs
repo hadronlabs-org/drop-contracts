@@ -1,12 +1,14 @@
 use crate::{
     error::{ContractError, ContractResult},
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::{CONFIG, CREATE_DENOM_REPLY_ID, DENOM, EXCHANGE_RATE, EXPONENT, TOKEN_METADATA},
+    state::{
+        CONFIG, CREATE_DENOM_REPLY_ID, DENOM, EXCHANGE_RATE, EXPONENT, REWARDS_RATE, TOKEN_METADATA,
+    },
 };
 use cosmos_sdk_proto::cosmos::bank::v1beta1::{DenomUnit, Metadata};
 use cosmwasm_std::{
-    attr, entry_point, to_json_binary, Attribute, Binary, CosmosMsg, Decimal, DenomMetadata, Deps,
-    DepsMut, Env, MessageInfo, Reply, Response, StdResult, SubMsg, Uint128,
+    attr, entry_point, to_json_binary, Attribute, BankMsg, Binary, Coin, CosmosMsg, Decimal,
+    DenomMetadata, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult, SubMsg, Uint128,
 };
 use drop_helpers::answer::response;
 use drop_staking_base::{
@@ -37,6 +39,7 @@ pub fn instantiate(
 
     CONFIG.save(deps.storage, &msg.config)?;
     EXCHANGE_RATE.save(deps.storage, &Decimal::one())?;
+    REWARDS_RATE.save(deps.storage, &Decimal::zero())?;
     DENOM.save(deps.storage, &msg.subdenom)?;
     EXPONENT.save(deps.storage, &msg.exponent)?;
     TOKEN_METADATA.save(deps.storage, &msg.token_metadata)?;
@@ -58,7 +61,20 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             &cw_ownable::get_ownership(deps.storage)?.owner,
         )?),
         QueryMsg::ExchangeRate {} => Ok(to_json_binary(&query_exchange_rate(deps, env)?)?),
+        QueryMsg::Rewards {} => Ok(to_json_binary(&query_rewards(deps, env)?)?),
     }
+}
+
+fn query_rewards(deps: Deps, env: Env) -> StdResult<Uint128> {
+    let exchange_rate = query_exchange_rate(deps, env.clone())?;
+    let config = CONFIG.load(deps.storage)?;
+    let base_denom = config.base_denom;
+    let dasset_contract_balance = deps
+        .querier
+        .query_balance(env.contract.address, base_denom.clone())?;
+    let rewards = dasset_contract_balance.amount
+        - Decimal::one() / exchange_rate * dasset_contract_balance.amount;
+    Ok(rewards)
 }
 
 fn query_exchange_rate(deps: Deps, env: Env) -> StdResult<Decimal> {
@@ -113,7 +129,67 @@ pub fn execute(
             ))
         }
         ExecuteMsg::Bond => execute_bond(deps, info),
+        ExecuteMsg::Unbond => execute_unbond(deps, info),
+        ExecuteMsg::WithdrawRewards => execute_withdaw_rewards(deps, env, info),
     }
+}
+
+fn execute_withdaw_rewards(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+) -> ContractResult<Response<NeutronMsg>> {
+    let config: crate::state::Config = CONFIG.load(deps.storage)?;
+    let rewards = query_rewards(deps.as_ref(), env)?;
+    let attrs = Vec::<Attribute>::new();
+    let splitting_total_weight = config
+        .splitting_targets
+        .clone()
+        .into_iter()
+        .fold(Uint128::zero(), |accum, target| {
+            accum + target.unbonding_weight
+        });
+    let mut msgs = Vec::<CosmosMsg<NeutronMsg>>::new();
+    for splitting_target in config.splitting_targets.into_iter() {
+        let numerator = Decimal::from_ratio(splitting_target.unbonding_weight, Uint128::one());
+        let denominator = Decimal::from_ratio(splitting_total_weight, Uint128::one());
+        let rewards_part = rewards * (numerator / denominator);
+        let bank_send_msg = CosmosMsg::Bank(BankMsg::Send {
+            to_address: info.sender.to_string(),
+            amount: vec![Coin {
+                denom: config.base_denom.clone(),
+                amount: rewards_part,
+            }],
+        });
+        msgs.push(bank_send_msg);
+    }
+    Ok(response("execute-withdraw-rewards", CONTRACT_NAME, attrs).add_messages(msgs))
+}
+
+fn execute_unbond(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
+    let config = CONFIG.load(deps.storage)?;
+    let lazy_denom = DENOM.load(deps.storage)?;
+    let sent_amount = cw_utils::must_pay(&info, &lazy_denom)?;
+    let core_exchange_rate = query_core_exchange_rate(deps.as_ref())?;
+    let return_amount = Decimal::from_ratio(sent_amount, Uint128::one()) / core_exchange_rate;
+    let floor_return_amount = return_amount.to_uint_floor();
+
+    let attrs = vec![
+        attr("sent_amount", sent_amount.to_string()),
+        attr("floor_return_amount", floor_return_amount.to_string()),
+        attr("receiver", info.sender.clone()),
+    ];
+    let burn_msg = NeutronMsg::submit_burn_tokens(lazy_denom, sent_amount);
+    let bank_send_msg: CosmosMsg<NeutronMsg> = CosmosMsg::Bank(BankMsg::Send {
+        to_address: info.sender.to_string(),
+        amount: vec![Coin {
+            denom: config.base_denom,
+            amount: floor_return_amount,
+        }],
+    });
+    Ok(response("execute-unbond", CONTRACT_NAME, attrs)
+        .add_message(burn_msg)
+        .add_message(bank_send_msg))
 }
 
 fn execute_bond(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
@@ -124,7 +200,6 @@ fn execute_bond(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Neu
     let lazy_denom = DENOM.load(deps.storage)?;
 
     let attrs = vec![
-        attr("action", "bond"),
         attr("sent_amount", sent_amount.to_string()),
         attr("core_exchange_rate", core_exchange_rate.to_string()),
         attr("issue_amount", issue_amount.to_string()),

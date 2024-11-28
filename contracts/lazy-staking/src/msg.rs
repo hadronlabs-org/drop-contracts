@@ -16,12 +16,16 @@ pub struct InstantiateMsg {
 pub enum QueryMsg {
     #[returns(Decimal)]
     ExchangeRate,
+    #[returns(Decimal)]
+    Rewards,
 }
 
 #[cw_ownable::cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
     Bond,
+    Unbond,
+    WithdrawRewards,
 }
 
 #[cw_serde]
