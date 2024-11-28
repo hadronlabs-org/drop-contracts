@@ -68,7 +68,7 @@ fn query_all(
     let all = ACCOUNTS
         .range(
             deps.storage,
-            start_after.map(|x| cw_storage_plus::Bound::Inclusive((x, PhantomData))),
+            start_after.map(|x| cw_storage_plus::Bound::Exclusive((x, PhantomData))),
             None,
             cosmwasm_std::Order::Ascending,
         )
