@@ -11,14 +11,14 @@ pub struct SplittingTarget {
 
 #[cw_serde]
 pub struct Config {
-    pub factory_addr: Addr,
+    pub factory_addr: String,
     pub base_denom: String,
     pub splitting_targets: Vec<SplittingTarget>,
 }
 
 impl Config {
     pub fn new(
-        factory_addr: Addr,
+        factory_addr: String,
         base_denom: String,
         splitting_targets: Vec<SplittingTarget>,
     ) -> Self {

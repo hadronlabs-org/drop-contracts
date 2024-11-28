@@ -139,7 +139,7 @@ fn execute_withdaw_rewards(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let config: crate::state::Config = CONFIG.load(deps.storage)?;
+    let config = CONFIG.load(deps.storage)?;
     let rewards = query_rewards(deps.as_ref(), env)?;
     let attrs = Vec::<Attribute>::new();
     let splitting_total_weight = config

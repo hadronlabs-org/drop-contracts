@@ -18,7 +18,7 @@ fn test_query_exchange_rate() {
         .save(
             deps.as_mut().storage,
             &Config {
-                factory_addr,
+                factory_addr: factory_addr.into_string(),
                 base_denom: "base_denom".to_string(),
                 splitting_targets: vec![],
             },
