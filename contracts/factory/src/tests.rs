@@ -713,12 +713,12 @@ fn test_proxy_validators_set_update_validators_unauthorized() {
                     drop_staking_base::msg::validatorset::ValidatorData {
                         valoper_address: "valoper_address1".to_string(),
                         weight: 10u64,
-                        on_top: Uint128::zero(),
+                        on_top: Some(Uint128::zero()),
                     },
                     drop_staking_base::msg::validatorset::ValidatorData {
                         valoper_address: "valoper_address2".to_string(),
                         weight: 10u64,
-                        on_top: Uint128::zero(),
+                        on_top: Some(Uint128::zero()),
                     },
                 ],
             },
@@ -750,12 +750,12 @@ fn test_proxy_validators_set_update_validators() {
                     drop_staking_base::msg::validatorset::ValidatorData {
                         valoper_address: "valoper_address1".to_string(),
                         weight: 10u64,
-                        on_top: Uint128::zero(),
+                        on_top: Some(Uint128::zero()),
                     },
                     drop_staking_base::msg::validatorset::ValidatorData {
                         valoper_address: "valoper_address2".to_string(),
                         weight: 10u64,
-                        on_top: Uint128::zero(),
+                        on_top: Some(Uint128::zero()),
                     },
                 ],
             },
@@ -774,12 +774,12 @@ fn test_proxy_validators_set_update_validators() {
                                 drop_staking_base::msg::validatorset::ValidatorData {
                                     valoper_address: "valoper_address1".to_string(),
                                     weight: 10u64,
-                                    on_top: Uint128::zero(),
+                                    on_top: Some(Uint128::zero()),
                                 },
                                 drop_staking_base::msg::validatorset::ValidatorData {
                                     valoper_address: "valoper_address2".to_string(),
                                     weight: 10u64,
-                                    on_top: Uint128::zero(),
+                                    on_top: Some(Uint128::zero()),
                                 },
                             ],
                         })
