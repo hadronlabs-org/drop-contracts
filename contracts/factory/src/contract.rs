@@ -264,7 +264,7 @@ pub fn instantiate(
             code_id: msg.code_ids.token_code_id,
             label: get_contract_label("token"),
             msg: to_json_binary(&TokenInstantiateMsg {
-                core_address: core_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
                 subdenom: msg.subdenom,
                 token_metadata: msg.token_metadata,
                 owner: env.contract.address.to_string(),
@@ -311,7 +311,7 @@ pub fn instantiate(
                 sdk_version: msg.sdk_version.to_string(),
                 timeout: msg.remote_opts.timeout.local,
                 delegations_queries_chunk_size: None,
-                native_bond_provider: native_bond_provider_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),
@@ -322,9 +322,7 @@ pub fn instantiate(
             label: "strategy".to_string(),
             msg: to_json_binary(&StrategyInstantiateMsg {
                 owner: env.contract.address.to_string(),
-                puppeteer_address: puppeteer_contract.to_string(),
-                validator_set_address: validators_set_contract.to_string(),
-                distribution_address: distribution_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
                 denom: msg.remote_opts.denom.to_string(),
             })?,
             funds: vec![],
@@ -369,8 +367,7 @@ pub fn instantiate(
             code_id: msg.code_ids.withdrawal_manager_code_id,
             label: get_contract_label("withdrawal-manager"),
             msg: to_json_binary(&WithdrawalManagerInstantiateMsg {
-                core_contract: core_contract.to_string(),
-                voucher_contract: withdrawal_voucher_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
                 owner: env.contract.address.to_string(),
                 base_denom: msg.base_denom.to_string(),
             })?,
@@ -429,9 +426,7 @@ pub fn instantiate(
             label: get_contract_label("lsm-share-bond-provider"),
             msg: to_json_binary(&LsmShareBondProviderInstantiateMsg {
                 owner: env.contract.address.to_string(),
-                core_contract: core_contract.to_string(),
-                puppeteer_contract: puppeteer_contract.to_string(),
-                validators_set_contract: validators_set_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
                 port_id: msg.remote_opts.port_id.to_string(),
                 transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
                 timeout: msg.remote_opts.timeout.local,
@@ -449,9 +444,7 @@ pub fn instantiate(
             msg: to_json_binary(&NativeBondProviderInstantiateMsg {
                 owner: env.contract.address.to_string(),
                 base_denom: msg.base_denom.to_string(),
-                puppeteer_contract: puppeteer_contract.to_string(),
-                core_contract: core_contract.to_string(),
-                strategy_contract: strategy_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
                 min_ibc_transfer: msg.native_bond_params.min_ibc_transfer,
                 min_stake_amount: msg.native_bond_params.min_stake_amount,
                 port_id: msg.remote_opts.port_id.to_string(),
@@ -475,7 +468,6 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
             let ownership = cw_ownable::get_ownership(deps.storage)?;
             Ok(to_json_binary(&ownership)?)
         }
-        QueryMsg::Locate { contracts } => query_locate(deps, contracts),
     }
 }
 
@@ -487,16 +479,6 @@ fn query_state(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
         .map(|(k, v)| (k, v.into_string()))
         .collect::<HashMap<String, String>>();
     Ok(to_json_binary(&out)?)
-}
-
-fn query_locate(deps: Deps<NeutronQuery>, items: Vec<String>) -> ContractResult<Binary> {
-    let mut contracts: HashMap<String, String> = HashMap::new();
-
-    for item in items {
-        let addr = STATE.load(deps.storage, &item)?;
-        contracts.insert(item, addr.into_string());
-    }
-    Ok(to_json_binary(&contracts)?)
 }
 
 fn query_pause_info(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {

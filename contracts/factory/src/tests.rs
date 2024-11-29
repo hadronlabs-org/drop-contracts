@@ -249,7 +249,7 @@ fn test_instantiate() {
                         code_id: 1,
                         label: "drop-staking-token".to_string(),
                         msg: to_json_binary(&TokenInstantiateMsg {
-                            core_address: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
                             subdenom: "subdenom".to_string(),
                             token_metadata: DenomMetadata {
                                 exponent: 6,
@@ -313,7 +313,7 @@ fn test_instantiate() {
                             sdk_version: "sdk-version".to_string(),
                             timeout: 0,
                             delegations_queries_chunk_size: None,
-                            native_bond_provider: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
                         })
                         .unwrap(),
                         funds: vec![],
@@ -327,9 +327,7 @@ fn test_instantiate() {
                         label: "strategy".to_string(),
                         msg: to_json_binary(&StrategyInstantiateMsg {
                             owner: "factory_contract".to_string(),
-                            puppeteer_address: "some_humanized_address".to_string(),
-                            validator_set_address: "some_humanized_address".to_string(),
-                            distribution_address: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
                             denom: "denom".to_string()
                         })
                         .unwrap(),
@@ -384,8 +382,7 @@ fn test_instantiate() {
                         code_id: 6,
                         label: "drop-staking-withdrawal-manager".to_string(),
                         msg: to_json_binary(&WithdrawalManagerInstantiateMsg {
-                            core_contract: "some_humanized_address".to_string(),
-                            voucher_contract: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
                             base_denom: "base_denom".to_string(),
                             owner: "factory_contract".to_string()
                         })
@@ -459,9 +456,7 @@ fn test_instantiate() {
                         label: "drop-staking-lsm-share-bond-provider".to_string(),
                         msg: to_json_binary(&LsmShareBondProviderInstantiateMsg {
                             owner: "factory_contract".to_string(),
-                            core_contract: "some_humanized_address".to_string(),
-                            puppeteer_contract: "some_humanized_address".to_string(),
-                            validators_set_contract: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
                             transfer_channel_id: "channel-0".to_string(),
                             lsm_redeem_threshold: 0,
                             lsm_redeem_maximum_interval: 0,
@@ -484,9 +479,7 @@ fn test_instantiate() {
                             base_denom: "base_denom".to_string(),
                             min_stake_amount: Uint128::from(0u64),
                             min_ibc_transfer: Uint128::from(0u64),
-                            puppeteer_contract: "some_humanized_address".to_string(),
-                            core_contract: "some_humanized_address".to_string(),
-                            strategy_contract: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
                             timeout: 0,
                             transfer_channel_id: "channel-0".to_string(),
                             port_id: "transfer".to_string(),
@@ -1209,30 +1202,6 @@ fn test_query_state() {
                 "native_bond_provider_contract".to_string(),
                 "native_bond_provider_contract".to_string()
             )
-        ])
-    );
-}
-
-#[test]
-fn test_query_locate() {
-    let mut deps = mock_dependencies(&[]);
-    set_default_factory_state(deps.as_mut());
-    let query_res: HashMap<String, String> = from_json(
-        query(
-            deps.as_ref(),
-            mock_env(),
-            QueryMsg::Locate {
-                contracts: vec!["core_contract".to_string(), "token_contract".to_string()],
-            },
-        )
-        .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(
-        query_res,
-        HashMap::from([
-            ("core_contract".to_string(), "core_contract".to_string()),
-            ("token_contract".to_string(), "token_contract".to_string()),
         ])
     );
 }

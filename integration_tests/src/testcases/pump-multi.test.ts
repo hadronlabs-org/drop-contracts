@@ -145,7 +145,9 @@ describe('Pump-Multi', () => {
     const { client, account, neutronSecondUserAddress } = context;
     const res = await client.upload(
       account.address,
-      fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+      Uint8Array.from(
+        fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+      ),
       1.5,
     );
     {

@@ -55,10 +55,8 @@ export interface Coin {
     [k: string]: unknown;
 }
 export interface InstantiateMsg {
-    core_address: string;
+    factory_contract: string;
     ld_token: string;
-    withdrawal_manager_address: string;
-    withdrawal_voucher_address: string;
 }
 export interface BondingsArgs {
     /**
@@ -81,10 +79,8 @@ export interface WithdrawArgs {
     token_id: string;
 }
 export interface InstantiateMsg1 {
-    core_address: string;
+    factory_contract: string;
     ld_token: string;
-    withdrawal_manager_address: string;
-    withdrawal_voucher_address: string;
 }
 export declare class Client {
     private readonly client;

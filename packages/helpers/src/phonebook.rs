@@ -1,3 +1,7 @@
+pub static CONTRACTS_CACHE: once_cell::sync::Lazy<
+    std::sync::RwLock<Option<std::collections::HashMap<String, String>>>,
+> = once_cell::sync::Lazy::new(|| std::sync::RwLock::new(None));
+
 #[macro_export]
 macro_rules! get_contracts {
     ($deps:expr, $factory_contract:expr, $($field_name:ident),*) => {
@@ -8,19 +12,27 @@ macro_rules! get_contracts {
                     $field_name: String,
                 )*
             }
-            let contracts = $deps
-                                .querier
-                                .query::<std::collections::HashMap<String, String>>(&cosmwasm_std::QueryRequest::Wasm(cosmwasm_std::WasmQuery::Smart {
-                                    contract_addr: $factory_contract.to_string(),
-                                    msg: to_json_binary(&drop_staking_base::msg::factory::QueryMsg::Locate {
-                                        contracts: vec![$(stringify!($field_name).to_string()),*],
-                                    })?,
-                                }))?;
-
+            use drop_helpers::phonebook::CONTRACTS_CACHE;
+            {
+               let mut cache = CONTRACTS_CACHE.write().unwrap();
+                if cache.is_none() {
+                    let queried_results:std::collections::HashMap<String, String> = $deps
+                    .querier
+                    .query(&cosmwasm_std::QueryRequest::Wasm(cosmwasm_std::WasmQuery::Smart {
+                        contract_addr: $factory_contract.to_string(),
+                        msg: to_json_binary(&drop_staking_base::msg::factory::QueryMsg::State {})?,
+                    }))?;
+                    *cache = Some(queried_results);
+                }
+            }
+            let cache = CONTRACTS_CACHE.read().unwrap();
             Phonebook {
                 $(
-                    $field_name: contracts.get(stringify!($field_name))
-                        .expect(&format!("{} contract not found", stringify!($field_name)))
+                    $field_name: cache
+                        .as_ref()
+                        .unwrap()
+                        .get(stringify!($field_name))
+                        .expect(&format!("{} contract not found in cache", stringify!($field_name)))
                         .to_string(),
                 )*
             }

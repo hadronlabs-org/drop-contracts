@@ -144,8 +144,10 @@ describe('Validators stats', () => {
     const { client, account } = context;
     const res = await client.upload(
       account.address,
-      fs.readFileSync(
-        join(__dirname, '../../../artifacts/drop_validators_stats.wasm'),
+      Uint8Array.from(
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_validators_stats.wasm'),
+        ),
       ),
       1.5,
     );
