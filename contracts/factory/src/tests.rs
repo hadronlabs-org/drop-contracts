@@ -1,17 +1,25 @@
-use crate::{
-    contract::{execute, instantiate, query},
-    msg::{
-        CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, LsmShareBondParams, NativeBondParams,
-        QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
-    },
-    state::{CodeIds, RemoteOpts, State, Timeout, STATE},
-};
+use crate::contract::{execute, instantiate, query};
 use cosmwasm_std::{
     attr, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, BankMsg, Uint128,
+    to_json_binary, Addr, BankMsg, DepsMut, Uint128,
 };
-use drop_helpers::testing::{mock_dependencies, mock_dependencies_with_api};
+use drop_helpers::{
+    phonebook::{
+        CORE_CONTRACT, DISTRIBUTION_CONTRACT, LSM_SHARE_BOND_PROVIDER_CONTRACT,
+        NATIVE_BOND_PROVIDER_CONTRACT, PUPPETEER_CONTRACT, REWARDS_MANAGER_CONTRACT,
+        REWARDS_PUMP_CONTRACT, SPLITTER_CONTRACT, STRATEGY_CONTRACT, TOKEN_CONTRACT,
+        VALIDATORS_SET_CONTRACT, WITHDRAWAL_MANAGER_CONTRACT, WITHDRAWAL_VOUCHER_CONTRACT,
+    },
+    testing::{mock_dependencies, mock_dependencies_with_api},
+};
+use drop_staking_base::{
+    msg::factory::{
+        CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, LsmShareBondParams, NativeBondParams,
+        QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
+    },
+    state::factory::{CodeIds, RemoteOpts, Timeout, STATE},
+};
 use drop_staking_base::{
     msg::{
         core::{ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg},
@@ -37,23 +45,101 @@ use drop_staking_base::{
     },
     state::{core::Pause as CorePause, pump::PumpTimeout, splitter::Config as SplitterConfig},
 };
+use neutron_sdk::bindings::query::NeutronQuery;
+use std::collections::HashMap;
 
-fn get_default_factory_state() -> State {
-    State {
-        token_contract: "token_contract".to_string(),
-        core_contract: "core_contract".to_string(),
-        puppeteer_contract: "puppeteer_contract".to_string(),
-        withdrawal_voucher_contract: "withdrawal_voucher_contract".to_string(),
-        withdrawal_manager_contract: "withdrawal_manager_contract".to_string(),
-        strategy_contract: "strategy_contract".to_string(),
-        validators_set_contract: "validators_set_contract".to_string(),
-        distribution_contract: "distribution_contract".to_string(),
-        rewards_manager_contract: "rewards_manager_contract".to_string(),
-        rewards_pump_contract: "rewards_pump_contract".to_string(),
-        splitter_contract: "splitter_contract".to_string(),
-        lsm_share_bond_provider_contract: "lsm_share_bond_provider_contract".to_string(),
-        native_bond_provider_contract: "native_bond_provider_contract".to_string(),
-    }
+fn set_default_factory_state(deps: DepsMut<NeutronQuery>) {
+    STATE
+        .save(
+            deps.storage,
+            TOKEN_CONTRACT,
+            &Addr::unchecked("token_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            CORE_CONTRACT,
+            &Addr::unchecked("core_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            PUPPETEER_CONTRACT,
+            &Addr::unchecked("puppeteer_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            WITHDRAWAL_MANAGER_CONTRACT,
+            &Addr::unchecked("withdrawal_manager_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            WITHDRAWAL_VOUCHER_CONTRACT,
+            &Addr::unchecked("withdrawal_voucher_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            STRATEGY_CONTRACT,
+            &Addr::unchecked("strategy_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            VALIDATORS_SET_CONTRACT,
+            &Addr::unchecked("validators_set_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            DISTRIBUTION_CONTRACT,
+            &Addr::unchecked("distribution_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            REWARDS_MANAGER_CONTRACT,
+            &Addr::unchecked("rewards_manager_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            REWARDS_PUMP_CONTRACT,
+            &Addr::unchecked("rewards_pump_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            SPLITTER_CONTRACT,
+            &Addr::unchecked("splitter_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            LSM_SHARE_BOND_PROVIDER_CONTRACT,
+            &Addr::unchecked("lsm_share_bond_provider_contract"),
+        )
+        .unwrap();
+    STATE
+        .save(
+            deps.storage,
+            NATIVE_BOND_PROVIDER_CONTRACT,
+            &Addr::unchecked("native_bond_provider_contract"),
+        )
+        .unwrap();
 }
 
 #[test]
@@ -162,7 +248,7 @@ fn test_instantiate() {
                         code_id: 1,
                         label: "drop-staking-token".to_string(),
                         msg: to_json_binary(&TokenInstantiateMsg {
-                            core_address: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
                             subdenom: "subdenom".to_string(),
                             token_metadata: DenomMetadata {
                                 exponent: 6,
@@ -226,7 +312,7 @@ fn test_instantiate() {
                             sdk_version: "sdk-version".to_string(),
                             timeout: 0,
                             delegations_queries_chunk_size: None,
-                            native_bond_provider: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
                         })
                         .unwrap(),
                         funds: vec![],
@@ -240,9 +326,7 @@ fn test_instantiate() {
                         label: "strategy".to_string(),
                         msg: to_json_binary(&StrategyInstantiateMsg {
                             owner: "factory_contract".to_string(),
-                            puppeteer_address: "some_humanized_address".to_string(),
-                            validator_set_address: "some_humanized_address".to_string(),
-                            distribution_address: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
                             denom: "denom".to_string()
                         })
                         .unwrap(),
@@ -256,12 +340,8 @@ fn test_instantiate() {
                         code_id: 2,
                         label: "drop-staking-core".to_string(),
                         msg: to_json_binary(&CoreInstantiateMsg {
-                            token_contract: "some_humanized_address".to_string(),
-                            puppeteer_contract: "some_humanized_address".to_string(),
-                            strategy_contract: "some_humanized_address".to_string(),
-                            withdrawal_voucher_contract: "some_humanized_address".to_string(),
-                            withdrawal_manager_contract: "some_humanized_address".to_string(),
-                            validators_set_contract: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
+
                             base_denom: "base_denom".to_string(),
                             remote_denom: "denom".to_string(),
                             idle_min_interval: 0,
@@ -300,8 +380,7 @@ fn test_instantiate() {
                         code_id: 6,
                         label: "drop-staking-withdrawal-manager".to_string(),
                         msg: to_json_binary(&WithdrawalManagerInstantiateMsg {
-                            core_contract: "some_humanized_address".to_string(),
-                            voucher_contract: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
                             base_denom: "base_denom".to_string(),
                             owner: "factory_contract".to_string()
                         })
@@ -375,9 +454,7 @@ fn test_instantiate() {
                         label: "drop-staking-lsm-share-bond-provider".to_string(),
                         msg: to_json_binary(&LsmShareBondProviderInstantiateMsg {
                             owner: "factory_contract".to_string(),
-                            core_contract: "some_humanized_address".to_string(),
-                            puppeteer_contract: "some_humanized_address".to_string(),
-                            validators_set_contract: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
                             transfer_channel_id: "channel-0".to_string(),
                             lsm_redeem_threshold: 0,
                             lsm_redeem_maximum_interval: 0,
@@ -400,9 +477,7 @@ fn test_instantiate() {
                             base_denom: "base_denom".to_string(),
                             min_stake_amount: Uint128::from(0u64),
                             min_ibc_transfer: Uint128::from(0u64),
-                            puppeteer_contract: "some_humanized_address".to_string(),
-                            core_contract: "some_humanized_address".to_string(),
-                            strategy_contract: "some_humanized_address".to_string(),
+                            factory_contract: "factory_contract".to_string(),
                             timeout: 0,
                             transfer_channel_id: "channel-0".to_string(),
                             port_id: "transfer".to_string(),
@@ -529,13 +604,7 @@ fn test_update_config_core_unauthorized() {
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     let new_core_config = drop_staking_base::state::core::ConfigOptional {
-        token_contract: None,
-        puppeteer_contract: None,
-        strategy_contract: None,
-        staker_contract: None,
-        withdrawal_voucher_contract: None,
-        withdrawal_manager_contract: None,
-        validators_set_contract: None,
+        factory_contract: None,
         base_denom: None,
         remote_denom: None,
         idle_min_interval: None,
@@ -558,7 +627,9 @@ fn test_update_config_core_unauthorized() {
     .unwrap_err();
     assert_eq!(
         res,
-        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+        drop_staking_base::error::factory::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
     );
 }
 
@@ -567,18 +638,9 @@ fn test_update_config_core() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    STATE
-        .save(deps_mut.storage, &get_default_factory_state())
-        .unwrap();
-
+    set_default_factory_state(deps.as_mut());
     let new_core_config = drop_staking_base::state::core::ConfigOptional {
-        token_contract: Some("token_contract1".to_string()),
-        puppeteer_contract: Some("puppeteer_contract1".to_string()),
-        strategy_contract: Some("strategy_contract1".to_string()),
-        staker_contract: Some("staker_contract1".to_string()),
-        withdrawal_voucher_contract: Some("withdrawal_voucher_contract1".to_string()),
-        withdrawal_manager_contract: Some("withdrawal_manager_contract1".to_string()),
-        validators_set_contract: Some("validators_set_contract1".to_string()),
+        factory_contract: Some("factory_contract1".to_string()),
         base_denom: Some("base_denom1".to_string()),
         remote_denom: Some("remote_denom1".to_string()),
         idle_min_interval: Some(1u64),
@@ -642,7 +704,9 @@ fn test_update_config_validators_set_unauthorized() {
     .unwrap_err();
     assert_eq!(
         res,
-        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+        drop_staking_base::error::factory::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
     );
 }
 
@@ -651,9 +715,7 @@ fn test_update_config_validators_set() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    STATE
-        .save(deps_mut.storage, &get_default_factory_state())
-        .unwrap();
+    set_default_factory_state(deps.as_mut());
 
     let new_validator_set_config = drop_staking_base::state::validatorset::ConfigOptional {
         stats_contract: Some("validator_stats_contract".to_string()),
@@ -696,25 +758,23 @@ fn test_proxy_validators_set_update_validators_unauthorized() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    STATE
-        .save(deps_mut.storage, &get_default_factory_state())
-        .unwrap();
+    set_default_factory_state(deps.as_mut());
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
         mock_info("not_an_owner", &[]),
-        ExecuteMsg::Proxy(crate::msg::ProxyMsg::ValidatorSet(
+        ExecuteMsg::Proxy(drop_staking_base::msg::factory::ProxyMsg::ValidatorSet(
             ValidatorSetMsg::UpdateValidators {
                 validators: vec![
                     drop_staking_base::msg::validatorset::ValidatorData {
                         valoper_address: "valoper_address1".to_string(),
                         weight: 10u64,
-                        on_top: Uint128::zero(),
+                        on_top: Some(Uint128::zero()),
                     },
                     drop_staking_base::msg::validatorset::ValidatorData {
                         valoper_address: "valoper_address2".to_string(),
                         weight: 10u64,
-                        on_top: Uint128::zero(),
+                        on_top: Some(Uint128::zero()),
                     },
                 ],
             },
@@ -723,7 +783,9 @@ fn test_proxy_validators_set_update_validators_unauthorized() {
     .unwrap_err();
     assert_eq!(
         res,
-        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+        drop_staking_base::error::factory::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
     );
 }
 
@@ -732,26 +794,24 @@ fn test_proxy_validators_set_update_validators() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    STATE
-        .save(deps_mut.storage, &get_default_factory_state())
-        .unwrap();
+    set_default_factory_state(deps.as_mut());
 
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
         mock_info("owner", &[]),
-        ExecuteMsg::Proxy(crate::msg::ProxyMsg::ValidatorSet(
+        ExecuteMsg::Proxy(drop_staking_base::msg::factory::ProxyMsg::ValidatorSet(
             ValidatorSetMsg::UpdateValidators {
                 validators: vec![
                     drop_staking_base::msg::validatorset::ValidatorData {
                         valoper_address: "valoper_address1".to_string(),
                         weight: 10u64,
-                        on_top: Uint128::zero(),
+                        on_top: Some(Uint128::zero()),
                     },
                     drop_staking_base::msg::validatorset::ValidatorData {
                         valoper_address: "valoper_address2".to_string(),
                         weight: 10u64,
-                        on_top: Uint128::zero(),
+                        on_top: Some(Uint128::zero()),
                     },
                 ],
             },
@@ -770,12 +830,12 @@ fn test_proxy_validators_set_update_validators() {
                                 drop_staking_base::msg::validatorset::ValidatorData {
                                     valoper_address: "valoper_address1".to_string(),
                                     weight: 10u64,
-                                    on_top: Uint128::zero(),
+                                    on_top: Some(Uint128::zero()),
                                 },
                                 drop_staking_base::msg::validatorset::ValidatorData {
                                     valoper_address: "valoper_address2".to_string(),
                                     weight: 10u64,
-                                    on_top: Uint128::zero(),
+                                    on_top: Some(Uint128::zero()),
                                 },
                             ],
                         })
@@ -848,7 +908,9 @@ fn test_admin_execute_unauthorized() {
     .unwrap_err();
     assert_eq!(
         res,
-        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+        drop_staking_base::error::factory::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
     );
 }
 
@@ -943,7 +1005,9 @@ fn test_pause_unauthorized() {
     .unwrap_err();
     assert_eq!(
         res,
-        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+        drop_staking_base::error::factory::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
     );
 }
 
@@ -952,9 +1016,7 @@ fn test_pause() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    STATE
-        .save(deps.as_mut().storage, &get_default_factory_state())
-        .unwrap();
+    set_default_factory_state(deps.as_mut());
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
@@ -1019,7 +1081,9 @@ fn test_unpause_unauthorized() {
     .unwrap_err();
     assert_eq!(
         res,
-        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+        drop_staking_base::error::factory::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
     );
 }
 
@@ -1028,9 +1092,7 @@ fn test_unpause() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    STATE
-        .save(deps.as_mut().storage, &get_default_factory_state())
-        .unwrap();
+    set_default_factory_state(deps.as_mut());
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
@@ -1084,12 +1146,60 @@ fn test_unpause() {
 #[test]
 fn test_query_state() {
     let mut deps = mock_dependencies(&[]);
-    STATE
-        .save(deps.as_mut().storage, &get_default_factory_state())
-        .unwrap();
-    let query_res: crate::state::State =
+    set_default_factory_state(deps.as_mut());
+    let query_res: HashMap<String, String> =
         from_json(query(deps.as_ref(), mock_env(), QueryMsg::State {}).unwrap()).unwrap();
-    assert_eq!(query_res, get_default_factory_state());
+    assert_eq!(
+        query_res,
+        HashMap::from([
+            ("core_contract".to_string(), "core_contract".to_string()),
+            ("token_contract".to_string(), "token_contract".to_string()),
+            (
+                "puppeteer_contract".to_string(),
+                "puppeteer_contract".to_string()
+            ),
+            (
+                "withdrawal_voucher_contract".to_string(),
+                "withdrawal_voucher_contract".to_string()
+            ),
+            (
+                "withdrawal_manager_contract".to_string(),
+                "withdrawal_manager_contract".to_string()
+            ),
+            (
+                "strategy_contract".to_string(),
+                "strategy_contract".to_string()
+            ),
+            (
+                "validators_set_contract".to_string(),
+                "validators_set_contract".to_string()
+            ),
+            (
+                "distribution_contract".to_string(),
+                "distribution_contract".to_string()
+            ),
+            (
+                "rewards_manager_contract".to_string(),
+                "rewards_manager_contract".to_string()
+            ),
+            (
+                "rewards_pump_contract".to_string(),
+                "rewards_pump_contract".to_string()
+            ),
+            (
+                "splitter_contract".to_string(),
+                "splitter_contract".to_string()
+            ),
+            (
+                "lsm_share_bond_provider_contract".to_string(),
+                "lsm_share_bond_provider_contract".to_string()
+            ),
+            (
+                "native_bond_provider_contract".to_string(),
+                "native_bond_provider_contract".to_string()
+            )
+        ])
+    );
 }
 
 #[test]
@@ -1114,14 +1224,12 @@ fn test_query_pause_info() {
         .add_wasm_query_response("rewards_manager_contract", |_| -> cosmwasm_std::Binary {
             to_json_binary(&drop_helpers::pause::PauseInfoResponse::Paused {}).unwrap()
         });
-    STATE
-        .save(deps.as_mut().storage, &get_default_factory_state())
-        .unwrap();
-    let query_res: crate::state::PauseInfoResponse =
+    set_default_factory_state(deps.as_mut());
+    let query_res: drop_staking_base::state::factory::PauseInfoResponse =
         from_json(query(deps.as_ref(), mock_env(), QueryMsg::PauseInfo {}).unwrap()).unwrap();
     assert_eq!(
         query_res,
-        crate::state::PauseInfoResponse {
+        drop_staking_base::state::factory::PauseInfoResponse {
             core: CorePause {
                 tick: true,
                 bond: false,
@@ -1142,7 +1250,7 @@ fn test_query_ownership() {
         query(
             deps.as_ref(),
             mock_env(),
-            crate::msg::QueryMsg::Ownership {},
+            drop_staking_base::msg::factory::QueryMsg::Ownership {},
         )
         .unwrap(),
     )
@@ -1183,7 +1291,7 @@ fn test_transfer_ownership() {
         query(
             deps.as_ref(),
             mock_env(),
-            crate::msg::QueryMsg::Ownership {},
+            drop_staking_base::msg::factory::QueryMsg::Ownership {},
         )
         .unwrap(),
     )

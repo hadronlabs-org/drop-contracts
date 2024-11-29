@@ -1,8 +1,11 @@
-use crate::{contract, error::ContractError};
+use crate::{
+    contract::{self, EDIT_ON_TOP_REPLY_ID},
+    error::ContractError,
+};
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, Decimal, Event, Order, Response, StdResult, Uint128, WasmMsg,
+    to_json_binary, Addr, Decimal, Event, Order, Response, StdResult, SubMsg, Uint128, WasmMsg,
 };
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::{
@@ -262,17 +265,20 @@ fn execute_bond_hook_known_validator() {
     assert_eq!(
         response,
         Response::new()
-            .add_message(WasmMsg::Execute {
-                contract_addr: String::from("validators_set"),
-                msg: to_json_binary(&ValidatorSetExecuteMsg::EditOnTop {
-                    operations: vec![OnTopEditOperation::Add {
-                        validator_address: String::from("valoperX"),
-                        amount: Uint128::new(150),
-                    }]
-                })
-                .unwrap(),
-                funds: vec![]
-            })
+            .add_submessage(SubMsg::reply_on_error(
+                WasmMsg::Execute {
+                    contract_addr: String::from("validators_set"),
+                    msg: to_json_binary(&ValidatorSetExecuteMsg::EditOnTop {
+                        operations: vec![OnTopEditOperation::Add {
+                            validator_address: String::from("valoperX"),
+                            amount: Uint128::new(150),
+                        }]
+                    })
+                    .unwrap(),
+                    funds: vec![]
+                },
+                EDIT_ON_TOP_REPLY_ID
+            ))
             .add_event(
                 Event::new("drop-val-ref-execute-bond-hook").add_attributes([
                     ("ref", "X"),

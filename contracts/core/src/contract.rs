@@ -50,21 +50,20 @@ pub fn instantiate(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let attrs: Vec<Attribute> = vec![
-        attr("token_contract", &msg.token_contract),
-        attr("puppeteer_contract", &msg.puppeteer_contract),
-        attr("strategy_contract", &msg.strategy_contract),
+        attr("factory_contract", &msg.factory_contract),
         attr("base_denom", &msg.base_denom),
         attr("owner", &msg.owner),
     ];
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(&msg.owner))?;
     let config = msg.into_config(deps.as_ref().into_empty())?;
+    let addrs = drop_helpers::get_contracts!(deps, config.factory_contract, token_contract);
     CONFIG.save(deps.storage, &config)?;
     LD_DENOM.save(
         deps.storage,
         &deps
             .querier
             .query_wasm_smart::<TokenConfigResponse>(
-                &config.token_contract,
+                &addrs.token_contract,
                 &TokenQueryMsg::Config {},
             )?
             .denom,
@@ -123,10 +122,11 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
 }
 
 fn query_total_bonded(deps: Deps<NeutronQuery>, config: &Config) -> ContractResult<Uint128> {
+    let addrs = drop_helpers::get_contracts!(deps, config.factory_contract, puppeteer_contract);
     let delegations_response = deps
         .querier
         .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
-        &config.puppeteer_contract,
+        &addrs.puppeteer_contract,
         &drop_puppeteer_base::msg::QueryMsg::Extension {
             msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
         },
@@ -161,6 +161,7 @@ fn query_bond_providers(deps: Deps<NeutronQuery>) -> ContractResult<Vec<Addr>> {
 
 fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractResult<Decimal> {
     let fsm_state = FSM.get_current_state(deps.storage)?;
+    let addrs = drop_helpers::get_contracts!(deps, config.factory_contract, puppeteer_contract);
     if fsm_state != ContractState::Idle {
         return Ok(EXCHANGE_RATE
             .load(deps.storage)
@@ -180,7 +181,7 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
     let delegations_response = deps
         .querier
         .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
-        &config.puppeteer_contract,
+        &addrs.puppeteer_contract,
         &drop_puppeteer_base::msg::QueryMsg::Extension {
             msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
         },
@@ -461,7 +462,9 @@ fn execute_update_withdrawn_amount(
     withdrawn_amount: Uint128,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
-    if info.sender != config.withdrawal_manager_contract {
+    let addrs =
+        drop_helpers::get_contracts!(deps, config.factory_contract, withdrawal_manager_contract);
+    if info.sender != addrs.withdrawal_manager_contract {
         return Err(ContractError::Unauthorized {});
     }
 
@@ -488,8 +491,8 @@ fn execute_puppeteer_hook(
     msg: drop_puppeteer_base::peripheral_hook::ResponseHookMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
-
-    let allowed_senders: Vec<_> = vec![config.puppeteer_contract]
+    let addrs = drop_helpers::get_contracts!(deps, config.factory_contract, puppeteer_contract);
+    let allowed_senders: Vec<_> = vec![deps.api.addr_validate(&addrs.puppeteer_contract)?]
         .into_iter()
         .chain(BOND_PROVIDERS.get_all_providers(deps.as_ref().storage)?)
         .collect();
@@ -541,8 +544,9 @@ fn execute_tick(
 
     let current_state = FSM.get_current_state(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
+    let addrs = drop_helpers::get_contracts!(deps, config.factory_contract, puppeteer_contract);
 
-    check_latest_icq_responses(deps.as_ref(), config.puppeteer_contract.to_string())?;
+    check_latest_icq_responses(deps.as_ref(), addrs.puppeteer_contract)?;
 
     match current_state {
         ContractState::Idle => execute_tick_idle(deps.branch(), env, info, &config),
@@ -565,6 +569,12 @@ fn execute_tick_idle(
     let mut messages = vec![];
     let mut sub_msgs = vec![];
     cache_exchange_rate(deps.branch(), env.clone(), config)?;
+    let addrs = drop_helpers::get_contracts!(
+        deps,
+        config.factory_contract,
+        puppeteer_contract,
+        validators_set_contract
+    );
     attrs.push(attr("knot", "002"));
     attrs.push(attr("knot", "003"));
     if env.block.time.seconds() - last_idle_call < config.idle_min_interval {
@@ -618,7 +628,7 @@ fn execute_tick_idle(
             .ok_or(ContractError::PumpIcaAddressIsNotSet {})?;
         let (ica_balance, _remote_height, ica_balance_local_time) = get_ica_balance_by_denom(
             deps.as_ref(),
-            config.puppeteer_contract.as_ref(),
+            &addrs.puppeteer_contract,
             &config.remote_denom,
             true,
         )?;
@@ -717,14 +727,14 @@ fn execute_tick_idle(
         };
 
         let validators: Vec<ValidatorInfo> = deps.querier.query_wasm_smart(
-            config.validators_set_contract.to_string(),
+            addrs.validators_set_contract.to_string(),
             &drop_staking_base::msg::validatorset::QueryMsg::Validators {},
         )?;
 
         let delegations_response = deps
             .querier
             .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
-            config.puppeteer_contract.to_string(),
+            addrs.puppeteer_contract.to_string(),
             &drop_puppeteer_base::msg::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
             },
@@ -755,7 +765,7 @@ fn execute_tick_idle(
         if !validators_to_claim.is_empty() {
             attrs.push(attr("validators_to_claim", validators_to_claim.join(",")));
             messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: config.puppeteer_contract.to_string(),
+                contract_addr: addrs.puppeteer_contract.to_string(),
                 msg: to_json_binary(
                     &drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
                         validators: validators_to_claim,
@@ -785,7 +795,7 @@ fn execute_tick_peripheral(
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut attrs = vec![attr("action", "tick_peripheral")];
     let res = get_received_puppeteer_response(deps.as_ref())?;
-
+    let addrs = drop_helpers::get_contracts!(deps, config.factory_contract, puppeteer_contract);
     if let drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(msg) = res {
         match msg.transaction {
             drop_puppeteer_base::peripheral_hook::Transaction::RedeemShares { .. } => {
@@ -802,7 +812,7 @@ fn execute_tick_peripheral(
 
         let balances_response: drop_staking_base::msg::puppeteer::BalancesResponse =
             deps.querier.query_wasm_smart(
-                config.puppeteer_contract.to_string(),
+                addrs.puppeteer_contract.to_string(),
                 &drop_puppeteer_base::msg::QueryMsg::Extension {
                     msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
                 },
@@ -970,6 +980,7 @@ fn execute_bond(
 
     let config = CONFIG.load(deps.storage)?;
     let bonded_coin = cw_utils::one_coin(&info)?;
+    let addrs = drop_helpers::get_contracts!(deps, config.factory_contract, token_contract);
     let Coin { amount, denom } = bonded_coin.clone();
     let mut msgs = vec![];
     let mut sub_msgs = vec![];
@@ -1024,7 +1035,7 @@ fn execute_bond(
                 }
             }
             msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: config.token_contract.to_string(),
+                contract_addr: addrs.token_contract.to_string(),
                 msg: to_json_binary(&TokenExecuteMsg::Mint {
                     amount: issue_amount,
                     receiver,
@@ -1076,33 +1087,9 @@ fn execute_update_config(
     let mut config = CONFIG.load(deps.storage)?;
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut attrs = vec![attr("action", "update_config")];
-    if let Some(token_contract) = new_config.token_contract {
-        config.token_contract = deps.api.addr_validate(&token_contract)?;
-        attrs.push(attr("token_contract", token_contract));
-    }
-    if let Some(puppeteer_contract) = new_config.puppeteer_contract {
-        config.puppeteer_contract = deps.api.addr_validate(&puppeteer_contract)?;
-        attrs.push(attr("puppeteer_contract", puppeteer_contract));
-    }
-    if let Some(strategy_contract) = new_config.strategy_contract {
-        config.strategy_contract = deps.api.addr_validate(&strategy_contract)?;
-        attrs.push(attr("strategy_contract", strategy_contract));
-    }
-    if let Some(withdrawal_voucher_contract) = new_config.withdrawal_voucher_contract {
-        config.withdrawal_voucher_contract =
-            deps.api.addr_validate(&withdrawal_voucher_contract)?;
-        attrs.push(attr(
-            "withdrawal_voucher_contract",
-            withdrawal_voucher_contract,
-        ));
-    }
-    if let Some(withdrawal_manager_contract) = new_config.withdrawal_manager_contract {
-        config.withdrawal_manager_contract =
-            deps.api.addr_validate(&withdrawal_manager_contract)?;
-        attrs.push(attr(
-            "withdrawal_manager_contract",
-            withdrawal_manager_contract,
-        ));
+    if let Some(factory_contract) = new_config.factory_contract {
+        config.factory_contract = deps.api.addr_validate(&factory_contract)?;
+        attrs.push(attr("factory_contract", factory_contract));
     }
     if let Some(pump_ica_address) = new_config.pump_ica_address {
         attrs.push(attr("pump_address", &pump_ica_address));
@@ -1115,10 +1102,6 @@ fn execute_update_config(
     if let Some(remote_denom) = new_config.remote_denom {
         attrs.push(attr("remote_denom", &remote_denom));
         config.remote_denom = remote_denom;
-    }
-    if let Some(validators_set_contract) = new_config.validators_set_contract {
-        config.validators_set_contract = deps.api.addr_validate(&validators_set_contract)?;
-        attrs.push(attr("validators_set_contract", validators_set_contract));
     }
     if let Some(base_denom) = new_config.base_denom {
         attrs.push(attr("base_denom", &base_denom));
@@ -1170,6 +1153,12 @@ fn execute_unbond(
     let config = CONFIG.load(deps.storage)?;
     let ld_denom = LD_DENOM.load(deps.storage)?;
     let dasset_amount = cw_utils::must_pay(&info, &ld_denom)?;
+    let addrs = drop_helpers::get_contracts!(
+        deps,
+        config.factory_contract,
+        withdrawal_voucher_contract,
+        token_contract
+    );
     let mut unbond_batch = unbond_batches_map().load(deps.storage, unbond_batch_id)?;
     unbond_batch.total_unbond_items += 1;
     unbond_batch.total_dasset_amount_to_withdraw += dasset_amount;
@@ -1196,7 +1185,7 @@ fn execute_unbond(
 
     let msgs = vec![
         CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.withdrawal_voucher_contract.into_string(),
+            contract_addr: addrs.withdrawal_voucher_contract,
             msg: to_json_binary(&VoucherExecuteMsg::Mint {
                 owner: info.sender.to_string(),
                 token_id: unbond_batch_id.to_string()
@@ -1210,7 +1199,7 @@ fn execute_unbond(
             funds: vec![],
         }),
         CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.token_contract.into_string(),
+            contract_addr: addrs.token_contract,
             msg: to_json_binary(&TokenExecuteMsg::Burn {})?,
             funds: vec![Coin {
                 denom: ld_denom,
@@ -1269,6 +1258,12 @@ fn get_unbonding_msg<T>(
     info: &MessageInfo,
     attrs: &mut Vec<cosmwasm_std::Attribute>,
 ) -> ContractResult<Option<CosmosMsg<T>>> {
+    let addrs = drop_helpers::get_contracts!(
+        deps,
+        config.factory_contract,
+        strategy_contract,
+        puppeteer_contract
+    );
     let funds = info.funds.clone();
     attrs.push(attr("knot", "024"));
     let (batch_id, processing_failed_batch) = match FAILED_BATCH_ID.may_load(deps.storage)? {
@@ -1293,7 +1288,7 @@ fn get_unbonding_msg<T>(
 
         let calc_withdraw_query_result: Result<Vec<(String, Uint128)>, StdError> =
             deps.querier.query_wasm_smart(
-                config.strategy_contract.to_string(),
+                addrs.strategy_contract,
                 &drop_staking_base::msg::strategy::QueryMsg::CalcWithdraw {
                     withdraw: expected_native_asset_amount,
                 },
@@ -1322,7 +1317,7 @@ fn get_unbonding_msg<T>(
             )?;
         }
         Ok(Some(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.puppeteer_contract.to_string(),
+            contract_addr: addrs.puppeteer_contract,
             msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
                 items: undelegations,
                 batch_id,
@@ -1474,6 +1469,8 @@ pub mod check_denom {
         if denom == config.base_denom {
             return Ok(DenomType::Base);
         }
+        let addrs =
+            drop_helpers::get_contracts!(deps, config.factory_contract, validators_set_contract);
 
         let trace = query_denom_trace(deps, denom)?.denom_trace;
         let (port, channel) = trace
@@ -1495,7 +1492,7 @@ pub mod check_denom {
         let validator_info = deps
             .querier
             .query_wasm_smart::<drop_staking_base::msg::validatorset::ValidatorResponse>(
-                &config.validators_set_contract,
+                &addrs.validators_set_contract,
                 &drop_staking_base::msg::validatorset::QueryMsg::Validator {
                     valoper: validator.to_string(),
                 },

@@ -220,6 +220,10 @@ pub fn execute_update_bond(
     Ok(response("update_bond_state", CONTRACT_NAME, attrs))
 }
 
+/// The backup address is an optional address on the Neutron chain where the bond will
+/// be sent if it cannot be successfully delivered to the receiver on the remote chain.
+/// This option is particularly useful in scenarios where deriving a valid receiver
+/// address is challenging, such as with EVM-based chains like Initia, where the derivation path may differ
 pub fn execute_bond(
     deps: DepsMut<NeutronQuery>,
     _env: Env,

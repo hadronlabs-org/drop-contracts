@@ -10,9 +10,7 @@ use optfield::optfield;
 #[cw_serde]
 pub struct Config {
     pub base_denom: String,
-    pub puppeteer_contract: Addr,
-    pub core_contract: Addr,
-    pub strategy_contract: Addr,
+    pub factory_contract: Addr,
     pub min_ibc_transfer: Uint128,
     pub min_stake_amount: Uint128,
     pub port_id: String,

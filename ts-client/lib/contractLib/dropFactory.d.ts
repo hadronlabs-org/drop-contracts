@@ -34,14 +34,6 @@ export type Timestamp = Uint64;
  * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
  */
 export type Uint64 = string;
-/**
- * Information about if the contract is currently paused.
- */
-export type PauseInfoResponse1 = {
-    paused: {};
-} | {
-    unpaused: {};
-};
 export type UpdateConfigArgs = {
     core: ConfigOptional;
 } | {
@@ -669,7 +661,7 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropFactorySchema {
-    responses: OwnershipForString | PauseInfoResponse | State;
+    responses: OwnershipForString | MapOfString | MapOfString1;
     execute: UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
@@ -691,49 +683,24 @@ export interface OwnershipForString {
      */
     pending_owner?: string | null;
 }
-export interface PauseInfoResponse {
-    core: Pause;
-    rewards_manager: PauseInfoResponse1;
-    withdrawal_manager: PauseInfoResponse1;
+export interface MapOfString {
+    [k: string]: string;
 }
-export interface Pause {
-    bond: boolean;
-    tick: boolean;
-    unbond: boolean;
-}
-export interface State {
-    core_contract: string;
-    distribution_contract: string;
-    lsm_share_bond_provider_contract: string;
-    native_bond_provider_contract: string;
-    puppeteer_contract: string;
-    rewards_manager_contract: string;
-    rewards_pump_contract: string;
-    splitter_contract: string;
-    strategy_contract: string;
-    token_contract: string;
-    validators_set_contract: string;
-    withdrawal_manager_contract: string;
-    withdrawal_voucher_contract: string;
+export interface MapOfString1 {
+    [k: string]: string;
 }
 export interface ConfigOptional {
     base_denom?: string | null;
     emergency_address?: string | null;
+    factory_contract?: string | null;
     idle_min_interval?: number | null;
     pump_ica_address?: string | null;
-    puppeteer_contract?: string | null;
     remote_denom?: string | null;
     rewards_receiver?: string | null;
-    staker_contract?: string | null;
-    strategy_contract?: string | null;
-    token_contract?: string | null;
     transfer_channel_id?: string | null;
     unbond_batch_switch_time?: number | null;
     unbonding_period?: number | null;
     unbonding_safe_period?: number | null;
-    validators_set_contract?: string | null;
-    withdrawal_manager_contract?: string | null;
-    withdrawal_voucher_contract?: string | null;
 }
 export interface ConfigOptional2 {
     provider_proposals_contract?: string | null;
@@ -1210,8 +1177,8 @@ export declare class Client {
     mustBeSigningClient(): Error;
     static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
     static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
-    queryState: () => Promise<State>;
-    queryPauseInfo: () => Promise<PauseInfoResponse>;
+    queryState: () => Promise<MapOfString>;
+    queryPauseInfo: () => Promise<MapOfString>;
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     proxy: (sender: string, args: ProxyArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

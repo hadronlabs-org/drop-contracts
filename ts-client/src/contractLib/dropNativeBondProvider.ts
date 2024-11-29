@@ -260,12 +260,10 @@ export interface DropNativeBondProviderSchema {
 }
 export interface Config {
   base_denom: string;
-  core_contract: Addr;
+  factory_contract: Addr;
   min_ibc_transfer: Uint1281;
   min_stake_amount: Uint1281;
   port_id: string;
-  puppeteer_contract: Addr;
-  strategy_contract: Addr;
   timeout: number;
   transfer_channel_id: string;
 }
@@ -374,24 +372,20 @@ export interface UpdateConfigArgs {
 }
 export interface ConfigOptional {
   base_denom?: string | null;
-  core_contract?: Addr | null;
+  factory_contract?: Addr | null;
   min_ibc_transfer?: Uint1281 | null;
   min_stake_amount?: Uint1281 | null;
   port_id?: string | null;
-  puppeteer_contract?: Addr | null;
-  strategy_contract?: Addr | null;
   timeout?: number | null;
   transfer_channel_id?: string | null;
 }
 export interface InstantiateMsg {
   base_denom: string;
-  core_contract: string;
+  factory_contract: string;
   min_ibc_transfer: Uint1281;
   min_stake_amount: Uint1281;
   owner: string;
   port_id: string;
-  puppeteer_contract: string;
-  strategy_contract: string;
   timeout: number;
   transfer_channel_id: string;
 }

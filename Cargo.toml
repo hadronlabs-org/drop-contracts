@@ -16,7 +16,6 @@ members = [
     "contracts/pump",
     "contracts/puppeteer",
     "contracts/puppeteer-initia",
-    # "contracts/puppeteer-authz",
     "contracts/rewards-manager",
     "contracts/strategy",
     "contracts/token",
@@ -64,6 +63,7 @@ schemars = { version = "0.8.16", default-features = false }
 astroport = { version = "3.6.1", default-features = false }
 semver = { version = "1.0.22", default-features = false }
 hex = { version = "0.4.3", default-features = false }
+once_cell = { version = "1.20.2" }
 
 drop-puppeteer-base = { path = "./packages/puppeteer-base", default-features = false }
 drop-staking-base = { path = "./packages/base", default-features = false }
