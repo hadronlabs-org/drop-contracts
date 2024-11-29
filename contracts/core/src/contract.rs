@@ -1,8 +1,8 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankQuery, Binary, Coin,
-    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest, Reply,
-    Response, StdError, StdResult, SubMsg, SubMsgResult, Uint128, Uint64, WasmMsg,
+    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest,
+    Response, StdError, StdResult, SubMsg, Uint128, Uint64, WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
@@ -23,10 +23,10 @@ use drop_staking_base::{
     state::{
         core::{
             unbond_batches_map, Config, ConfigOptional, ContractState, Pause, UnbondBatch,
-            UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse, BONDED_AMOUNT,
-            BOND_HOOKS, BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG, EXCHANGE_RATE,
-            FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE,
-            LD_DENOM, PAUSE, UNBOND_BATCH_ID,
+            UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse, BOND_HOOKS,
+            BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM,
+            LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM,
+            MAX_BOND_PROVIDERS, PAUSE, UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
         withdrawal_voucher::{Metadata, Trait},
@@ -74,7 +74,6 @@ pub fn instantiate(
     FSM.set_initial_state(deps.storage, ContractState::Idle)?;
     LAST_IDLE_CALL.save(deps.storage, &0)?;
     LAST_ICA_CHANGE_HEIGHT.save(deps.storage, &0)?;
-    BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
     BOND_HOOKS.save(deps.storage, &vec![])?;
     BOND_PROVIDERS.init(deps.storage)?;
     PAUSE.save(deps.storage, &Pause::default())?;
@@ -91,7 +90,10 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
                 .unwrap_or(Addr::unchecked(""))
                 .to_string(),
         )?,
-        QueryMsg::TotalBonded {} => to_json_binary(&BONDED_AMOUNT.load(deps.storage)?)?,
+        QueryMsg::TotalBonded {} => {
+            let config = CONFIG.load(deps.storage)?;
+            to_json_binary(&query_total_bonded(deps, &config)?)?
+        }
         QueryMsg::ExchangeRate {} => {
             let config = CONFIG.load(deps.storage)?;
             to_json_binary(&query_exchange_rate(deps, &config)?)?
@@ -119,8 +121,27 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
     })
 }
 
+fn query_total_bonded(deps: Deps<NeutronQuery>, config: &Config) -> ContractResult<Uint128> {
+    let addrs = drop_helpers::get_contracts!(deps, config.factory_contract, puppeteer_contract);
+    let delegations_response = deps
+        .querier
+        .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
+        &addrs.puppeteer_contract,
+        &drop_puppeteer_base::msg::QueryMsg::Extension {
+            msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+        },
+    )?;
+
+    Ok(delegations_response
+        .delegations
+        .delegations
+        .iter()
+        .map(|d| d.amount.amount)
+        .sum())
+}
+
 fn query_total_async_tokens(deps: Deps<NeutronQuery>) -> ContractResult<Uint128> {
-    let mut total_async_shares = Uint128::zero();
+    let mut total_async_tokens = Uint128::zero();
     let bond_providers = BOND_PROVIDERS.get_all_providers(deps.storage)?;
     for provider in bond_providers {
         let async_tokens_amount: Uint128 = deps.querier.query_wasm_smart(
@@ -128,10 +149,10 @@ fn query_total_async_tokens(deps: Deps<NeutronQuery>) -> ContractResult<Uint128>
             &drop_staking_base::msg::bond_provider::QueryMsg::AsyncTokensAmount {},
         )?;
 
-        total_async_shares += async_tokens_amount;
+        total_async_tokens += async_tokens_amount;
     }
 
-    Ok(total_async_shares)
+    Ok(total_async_tokens)
 }
 
 fn query_bond_providers(deps: Deps<NeutronQuery>) -> ContractResult<Vec<Addr>> {
@@ -274,7 +295,6 @@ pub fn execute(
                 [],
             ))
         }
-        ExecuteMsg::ResetBondedAmount {} => execute_reset_bonded_amount(deps, env, info),
         ExecuteMsg::ProcessEmergencyBatch {
             batch_id,
             unbonded_amount,
@@ -327,6 +347,10 @@ fn execute_add_bond_provider(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
+    if BOND_PROVIDERS.get_all_providers(deps.storage)?.len() as u64 >= MAX_BOND_PROVIDERS {
+        return Err(ContractError::MaxBondProvidersReached {});
+    }
+
     let bond_provider_address = deps.api.addr_validate(&bond_provider_address)?;
 
     BOND_PROVIDERS.add(deps.storage, bond_provider_address.clone())?;
@@ -346,6 +370,16 @@ fn execute_remove_bond_provider(
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     let bond_provider_address = deps.api.addr_validate(&bond_provider_address)?;
+    let bond_provider_can_be_removed_response: bool = deps
+        .querier
+        .query_wasm_smart(
+            bond_provider_address.clone(),
+            &drop_staking_base::msg::bond_provider::QueryMsg::CanBeRemoved {},
+        )
+        .unwrap();
+    if !bond_provider_can_be_removed_response {
+        return Err(ContractError::BondProviderBalanceNotEmpty {});
+    }
 
     BOND_PROVIDERS.remove(deps.storage, bond_provider_address.clone())?;
 
@@ -373,20 +407,6 @@ fn execute_set_pause(
             ("unbond", pause.unbond.to_string()),
             ("tick", pause.tick.to_string()),
         ],
-    ))
-}
-
-fn execute_reset_bonded_amount(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    info: MessageInfo,
-) -> ContractResult<Response<NeutronMsg>> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    BONDED_AMOUNT.save(deps.storage, &Uint128::zero())?;
-    Ok(response(
-        "execute-reset_bond_limit",
-        CONTRACT_NAME,
-        vec![attr("action", "reset_bond_limit")],
     ))
 }
 
@@ -962,11 +982,6 @@ fn execute_bond(
     let bonded_coin = cw_utils::one_coin(&info)?;
     let addrs = drop_helpers::get_contracts!(deps, config.factory_contract, token_contract);
     let Coin { amount, denom } = bonded_coin.clone();
-    if let Some(bond_limit) = config.bond_limit {
-        if BONDED_AMOUNT.load(deps.storage)? + amount > bond_limit {
-            return Err(ContractError::BondLimitExceeded {});
-        }
-    }
     let mut msgs = vec![];
     let mut sub_msgs = vec![];
     let mut attrs = vec![attr("action", "bond")];
@@ -1005,8 +1020,6 @@ fn execute_bond(
             );
 
             sub_msgs.push(sub_msg);
-
-            BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total + issue_amount))?;
 
             let receiver = receiver.clone().map_or(
                 Ok::<String, ContractError>(info.sender.to_string()),
@@ -1117,16 +1130,6 @@ fn execute_update_config(
         config.unbond_batch_switch_time = unbond_batch_switch_time;
     }
 
-    if let Some(bond_limit) = new_config.bond_limit {
-        attrs.push(attr("bond_limit", bond_limit.to_string()));
-        config.bond_limit = {
-            if bond_limit.is_zero() {
-                None
-            } else {
-                Some(bond_limit)
-            }
-        };
-    }
     if let Some(emergency_address) = new_config.emergency_address {
         attrs.push(attr("emergency_address", &emergency_address));
         config.emergency_address = Some(emergency_address);
@@ -1156,7 +1159,6 @@ fn execute_unbond(
         withdrawal_voucher_contract,
         token_contract
     );
-    BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total - dasset_amount))?;
     let mut unbond_batch = unbond_batches_map().load(deps.storage, unbond_batch_id)?;
     unbond_batch.total_unbond_items += 1;
     unbond_batch.total_dasset_amount_to_withdraw += dasset_amount;
@@ -1412,22 +1414,6 @@ fn new_unbond(now: u64) -> UnbondBatch {
             withdrawn_emergency: None,
         },
     }
-}
-
-#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
-pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
-    match msg.id {
-        BOND_PROVIDER_REPLY_ID => bond_provider_reply(deps.as_ref(), msg),
-        id => Err(ContractError::UnknownReplyId { id }),
-    }
-}
-
-fn bond_provider_reply(_deps: Deps, msg: Reply) -> ContractResult<Response> {
-    if let SubMsgResult::Err(err) = msg.result {
-        return Err(ContractError::BondProviderError { message: err });
-    }
-
-    Ok(Response::new())
 }
 
 pub mod check_denom {

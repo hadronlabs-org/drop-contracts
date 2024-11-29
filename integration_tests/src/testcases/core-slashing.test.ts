@@ -504,7 +504,6 @@ describe('Core Slashing', () => {
           unbond_batch_switch_time: 60,
           unbonding_safe_period: 10,
           unbonding_period: 360,
-          bond_limit: '0',
           icq_update_delay: 5,
         },
         native_bond_params: {

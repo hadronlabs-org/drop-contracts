@@ -100,14 +100,28 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
             response: LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?,
         })
         .map_err(From::from),
-        QueryMsg::TxState {} => query_tx_state(deps, env),
+        QueryMsg::TxState {} => query_tx_state(deps),
         QueryMsg::AsyncTokensAmount {} => {
             to_json_binary(&TOTAL_LSM_SHARES_REAL_AMOUNT.load(deps.storage)?).map_err(From::from)
         }
+        QueryMsg::CanBeRemoved {} => query_can_be_removed(deps, env),
     }
 }
 
-fn query_tx_state(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Binary> {
+fn query_can_be_removed(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
+    let all_balances = deps.querier.query_all_balances(env.contract.address)?;
+    let all_balances_except_untrn = all_balances
+        .into_iter()
+        .filter(|coin| coin.denom != *LOCAL_DENOM.to_string())
+        .collect::<Vec<Coin>>();
+    let result = all_balances_except_untrn.is_empty()
+        && PENDING_LSM_SHARES.is_empty(deps.storage)
+        && LSM_SHARES_TO_REDEEM.is_empty(deps.storage)
+        && TX_STATE.load(deps.storage)?.status == TxStateStatus::Idle;
+    Ok(to_json_binary(&result)?)
+}
+
+fn query_tx_state(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let tx_state = TX_STATE.load(deps.storage)?;
     Ok(to_json_binary(&tx_state)?)
 }
