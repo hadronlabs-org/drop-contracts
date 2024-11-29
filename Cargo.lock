@@ -937,6 +937,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-puppeteer-native"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-proto",
+ "drop-puppeteer-base",
+ "drop-staking-base",
+ "neutron-sdk",
+ "prost",
+ "prost-types",
+ "semver",
+]
+
+[[package]]
 name = "drop-redemption-rate-adapter"
 version = "1.0.0"
 dependencies = [

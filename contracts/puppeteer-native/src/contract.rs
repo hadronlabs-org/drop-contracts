@@ -66,11 +66,10 @@ use neutron_sdk::{
     NeutronResult,
 };
 use prost::Message;
-use std::{str::FromStr, vec};
+use std::{env, str::FromStr, vec};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-const DEFAULT_DELEGATIONS_QUERIES_CHUNK_SIZE: u32 = 15;
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
@@ -94,9 +93,6 @@ pub fn instantiate(
         remote_denom: msg.remote_denom,
         allowed_senders,
         native_bond_provider: deps.api.addr_validate(&msg.native_bond_provider)?,
-        delegations_queries_chunk_size: msg
-            .delegations_queries_chunk_size
-            .unwrap_or(DEFAULT_DELEGATIONS_QUERIES_CHUNK_SIZE),
     };
 
     let attrs: Vec<Attribute> = vec![
@@ -104,10 +100,6 @@ pub fn instantiate(
         attr("remote_denom", &config.remote_denom),
         attr("allowed_senders", allowed_senders.len().to_string()),
         attr("native_bond_provider", &config.native_bond_provider),
-        attr(
-            "delegations_queries_chunk_size",
-            &config.delegations_queries_chunk_size.to_string(),
-        ),
         attr(
             "allowed_senders",
             allowed_senders
@@ -159,7 +151,11 @@ fn query_transactions(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     Ok(to_json_binary(&transfers)?)
 }
 
-fn query_delegations(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+fn query_delegations(
+    deps: Deps<NeutronQuery>,
+    env: Env,
+    from_denom: String,
+) -> ContractResult<Binary> {
     let puppeteer_base = Puppeteer::default();
     match puppeteer_base
         .last_complete_delegations_and_balances_key
@@ -236,18 +232,14 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::Delegate { items, reply_to } => execute_delegate(deps, info, items, reply_to),
+        ExecuteMsg::Delegate { items, reply_to } => {
+            execute_delegate(deps, env, info, items, reply_to)
+        }
         ExecuteMsg::Undelegate {
             items,
             batch_id,
             reply_to,
         } => execute_undelegate(deps, info, items, batch_id, reply_to),
-        ExecuteMsg::Redelegate {
-            validator_from,
-            validator_to,
-            amount,
-            reply_to,
-        } => execute_redelegate(deps, info, validator_from, validator_to, amount, reply_to),
         ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
             validators,
             transfer,

@@ -20,7 +20,6 @@ pub struct ConfigOptional {
 pub struct Config {
     pub remote_denom: String,
     pub allowed_senders: Vec<Addr>,
-    pub delegations_queries_chunk_size: u32,
     pub native_bond_provider: Addr,
 }
 
