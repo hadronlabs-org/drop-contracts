@@ -776,7 +776,7 @@ export interface ConfigOptional2 {
   val_ref_contract?: string | null;
 }
 export interface ValidatorData {
-  on_top: Uint128;
+  on_top?: Uint128 | null;
   valoper_address: string;
   weight: number;
 }
