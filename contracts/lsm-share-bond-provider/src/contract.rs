@@ -119,7 +119,10 @@ fn query_can_be_removed(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Bi
         .into_iter()
         .filter(|coin| coin.denom != *LOCAL_DENOM.to_string())
         .collect::<Vec<Coin>>();
-    Ok(to_json_binary(&all_balances_except_untrn.is_empty())?)
+    let result = all_balances_except_untrn.is_empty()
+        && PENDING_LSM_SHARES.is_empty(deps.storage)
+        && LSM_SHARES_TO_REDEEM.is_empty(deps.storage);
+    Ok(to_json_binary(&result)?)
 }
 
 fn query_tx_state(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
