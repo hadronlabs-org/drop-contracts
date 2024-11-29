@@ -9,7 +9,7 @@ use cosmwasm_std::{
     testing::{mock_env, mock_info},
     Event,
 };
-use drop_helpers::testing::{mock_dependencies, mock_locator_query};
+use drop_helpers::testing::{mock_dependencies, mock_state_query};
 
 #[test]
 fn instantiate() {
@@ -45,7 +45,7 @@ fn instantiate() {
 #[test]
 fn bond_missing_ld_assets() {
     let mut deps = mock_dependencies(&[]);
-    mock_locator_query(&mut deps);
+    mock_state_query(&mut deps);
     FACTORY_CONTRACT
         .save(
             deps.as_mut().storage,
@@ -67,14 +67,14 @@ fn bond_missing_ld_assets() {
 }
 
 mod bond_missing_deposit {
-    use drop_helpers::testing::{mock_dependencies, mock_locator_query};
+    use drop_helpers::testing::{mock_dependencies, mock_state_query};
 
     use super::*;
 
     #[test]
     fn with_ld_assets() {
         let mut deps = mock_dependencies(&[]);
-        mock_locator_query(&mut deps);
+        mock_state_query(&mut deps);
         FACTORY_CONTRACT
             .save(
                 deps.as_mut().storage,

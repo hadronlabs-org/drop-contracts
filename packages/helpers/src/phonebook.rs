@@ -1,6 +1,6 @@
 pub static CONTRACTS_CACHE: once_cell::sync::Lazy<
-    std::sync::RwLock<std::collections::HashMap<String, String>>,
-> = once_cell::sync::Lazy::new(|| std::sync::RwLock::new(std::collections::HashMap::new()));
+    std::sync::RwLock<Option<std::collections::HashMap<String, String>>>,
+> = once_cell::sync::Lazy::new(|| std::sync::RwLock::new(None));
 
 #[macro_export]
 macro_rules! get_contracts {
@@ -13,44 +13,24 @@ macro_rules! get_contracts {
                 )*
             }
             use drop_helpers::phonebook::CONTRACTS_CACHE;
-
-             // Collect all requested contract names
-            let requested_contracts = vec![$(stringify!($field_name).to_string()),*];
-            // List for contracts that need to be queried
-            let mut not_cached_contracts = vec![];
-
             {
-                let cache = CONTRACTS_CACHE.read().unwrap();
-                for contract_name in &requested_contracts {
-                    if !cache.contains_key(contract_name) {
-                        not_cached_contracts.push(contract_name.clone());
-                    }
-                }
-            }
-
-            // Query for the missing contracts if needed
-            if !not_cached_contracts.is_empty() {
-                let queried_results:std::collections::HashMap<String, String> = $deps
+               let mut cache = CONTRACTS_CACHE.write().unwrap();
+                if cache.is_none() {
+                    let queried_results:std::collections::HashMap<String, String> = $deps
                     .querier
                     .query(&cosmwasm_std::QueryRequest::Wasm(cosmwasm_std::WasmQuery::Smart {
                         contract_addr: $factory_contract.to_string(),
-                        msg: to_json_binary(&drop_staking_base::msg::factory::QueryMsg::Locate {
-                            contracts: not_cached_contracts.clone(),
-                        })?,
+                        msg: to_json_binary(&drop_staking_base::msg::factory::QueryMsg::State {})?,
                     }))?;
-
-                // Update the cache with newly queried results
-                let mut cache = CONTRACTS_CACHE.write().unwrap();
-                for (key, value) in queried_results.iter() {
-                    cache.insert(key.clone(), value.clone());
+                    *cache = Some(queried_results);
                 }
             }
-
-            // Build the Phonebook struct using the updated cache
             let cache = CONTRACTS_CACHE.read().unwrap();
             Phonebook {
                 $(
                     $field_name: cache
+                        .as_ref()
+                        .unwrap()
                         .get(stringify!($field_name))
                         .expect(&format!("{} contract not found in cache", stringify!($field_name)))
                         .to_string(),

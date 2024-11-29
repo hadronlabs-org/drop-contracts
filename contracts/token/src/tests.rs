@@ -12,7 +12,7 @@ use cosmwasm_std::{
     to_json_binary, Addr, Binary, CosmosMsg, Event, QueryRequest, Reply, ReplyOn, SubMsgResult,
     Uint128,
 };
-use drop_helpers::testing::{mock_dependencies, mock_locator_query};
+use drop_helpers::testing::{mock_dependencies, mock_state_query};
 use drop_staking_base::{
     msg::token::{ConfigResponse, DenomMetadata, ExecuteMsg, InstantiateMsg, QueryMsg},
     state::token::{DENOM, FACTORY_CONTRACT, TOKEN_METADATA},
@@ -189,7 +189,7 @@ fn mint_zero() {
     FACTORY_CONTRACT
         .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
-    mock_locator_query(&mut deps);
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
@@ -213,7 +213,7 @@ fn mint() {
     FACTORY_CONTRACT
         .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
-    mock_locator_query(&mut deps);
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
@@ -252,7 +252,7 @@ fn mint_stranger() {
     FACTORY_CONTRACT
         .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
-    mock_locator_query(&mut deps);
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
@@ -277,7 +277,7 @@ fn burn_zero() {
     FACTORY_CONTRACT
         .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
-    mock_locator_query(&mut deps);
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
@@ -301,7 +301,7 @@ fn burn_multiple_coins() {
     FACTORY_CONTRACT
         .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
-    mock_locator_query(&mut deps);
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
@@ -325,7 +325,7 @@ fn burn_invalid_coin() {
     FACTORY_CONTRACT
         .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
-    mock_locator_query(&mut deps);
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
@@ -349,7 +349,7 @@ fn burn() {
     FACTORY_CONTRACT
         .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
-    mock_locator_query(&mut deps);
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
@@ -384,7 +384,7 @@ fn burn_stranger() {
     FACTORY_CONTRACT
         .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
-    mock_locator_query(&mut deps);
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
@@ -406,7 +406,7 @@ fn query_config() {
     FACTORY_CONTRACT
         .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
-    mock_locator_query(&mut deps);
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();

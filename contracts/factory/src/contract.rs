@@ -468,7 +468,6 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
             let ownership = cw_ownable::get_ownership(deps.storage)?;
             Ok(to_json_binary(&ownership)?)
         }
-        QueryMsg::Locate { contracts } => query_locate(deps, contracts),
     }
 }
 
@@ -480,16 +479,6 @@ fn query_state(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
         .map(|(k, v)| (k, v.into_string()))
         .collect::<HashMap<String, String>>();
     Ok(to_json_binary(&out)?)
-}
-
-fn query_locate(deps: Deps<NeutronQuery>, items: Vec<String>) -> ContractResult<Binary> {
-    let mut contracts: HashMap<String, String> = HashMap::new();
-
-    for item in items {
-        let addr = STATE.load(deps.storage, &item)?;
-        contracts.insert(item, addr.into_string());
-    }
-    Ok(to_json_binary(&contracts)?)
 }
 
 fn query_pause_info(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {

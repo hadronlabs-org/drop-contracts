@@ -37,16 +37,6 @@ export type Timestamp = Uint64;
  * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
  */
 export type Uint64 = string;
-/**
- * Information about if the contract is currently paused.
- */
-export type PauseInfoResponse1 =
-  | {
-      paused: {};
-    }
-  | {
-      unpaused: {};
-    };
 export type UpdateConfigArgs =
   | {
       core: ConfigOptional;
@@ -739,14 +729,10 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropFactorySchema {
-  responses: MapOfString | OwnershipForString | PauseInfoResponse | MapOfString1;
-  query: LocateArgs;
+  responses: OwnershipForString | MapOfString | MapOfString1;
   execute: UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
-}
-export interface MapOfString {
-  [k: string]: string;
 }
 /**
  * The contract's ownership info
@@ -765,21 +751,11 @@ export interface OwnershipForString {
    */
   pending_owner?: string | null;
 }
-export interface PauseInfoResponse {
-  core: Pause;
-  rewards_manager: PauseInfoResponse1;
-  withdrawal_manager: PauseInfoResponse1;
-}
-export interface Pause {
-  bond: boolean;
-  tick: boolean;
-  unbond: boolean;
+export interface MapOfString {
+  [k: string]: string;
 }
 export interface MapOfString1 {
   [k: string]: string;
-}
-export interface LocateArgs {
-  contracts: string[];
 }
 export interface ConfigOptional {
   base_denom?: string | null;
@@ -1314,10 +1290,7 @@ export class Client {
   queryState = async(): Promise<MapOfString> => {
     return this.client.queryContractSmart(this.contractAddress, { state: {} });
   }
-  queryLocate = async(args: LocateArgs): Promise<MapOfString> => {
-    return this.client.queryContractSmart(this.contractAddress, { locate: args });
-  }
-  queryPauseInfo = async(): Promise<PauseInfoResponse> => {
+  queryPauseInfo = async(): Promise<MapOfString> => {
     return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
   }
   queryOwnership = async(): Promise<OwnershipForString> => {

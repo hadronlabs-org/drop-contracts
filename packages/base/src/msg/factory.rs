@@ -87,7 +87,5 @@ pub enum QueryMsg {
     #[returns(std::collections::HashMap<String, String>)]
     State {},
     #[returns(std::collections::HashMap<String, String>)]
-    Locate { contracts: Vec<String> },
-    #[returns(crate::state::factory::PauseInfoResponse)]
     PauseInfo {},
 }

@@ -141,8 +141,7 @@ fn instantiate_puppeteer_contract(app: &mut App) -> Addr {
 
 fn factory_query(_deps: Deps, _env: Env, msg: FactoryQueryMsg) -> StdResult<Binary> {
     match msg {
-        FactoryQueryMsg::State {} => todo!(),
-        FactoryQueryMsg::Locate { contracts: _ } => {
+        FactoryQueryMsg::State {} => {
             let out = HashMap::from([
                 (
                     VALIDATOR_SET_CONTRACT_ADDR.to_string(),

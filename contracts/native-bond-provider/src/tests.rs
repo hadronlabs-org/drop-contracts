@@ -8,7 +8,7 @@ use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
 use drop_helpers::{
     ica::IcaState,
-    testing::{mock_dependencies, mock_locator_query},
+    testing::{mock_dependencies, mock_state_query},
 };
 use drop_staking_base::state::native_bond_provider::{
     Config, ConfigOptional, ReplyMsg, TxState, CONFIG, NON_STAKED_BALANCE, TX_STATE,
@@ -569,7 +569,7 @@ fn update_ownership() {
 #[test]
 fn process_on_idle_not_in_idle_state() {
     let mut deps = mock_dependencies(&[]);
-    mock_locator_query(&mut deps);
+    mock_state_query(&mut deps);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -610,7 +610,7 @@ fn process_on_idle_not_in_idle_state() {
 #[test]
 fn process_on_idle_not_core_contract() {
     let mut deps = mock_dependencies(&[]);
-    mock_locator_query(&mut deps);
+    mock_state_query(&mut deps);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -633,8 +633,7 @@ fn process_on_idle_not_core_contract() {
 #[test]
 fn process_on_idle_delegation() {
     let mut deps = mock_dependencies(&[]);
-    mock_locator_query(&mut deps);
-    mock_locator_query(&mut deps);
+    mock_state_query(&mut deps);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -690,8 +689,7 @@ fn process_on_idle_delegation() {
 #[test]
 fn process_on_idle_ibc_transfer() {
     let mut deps = mock_dependencies(&[]);
-    mock_locator_query(&mut deps);
-    mock_locator_query(&mut deps);
+    mock_state_query(&mut deps);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -777,7 +775,7 @@ fn process_on_idle_ibc_transfer() {
 #[test]
 fn process_on_idle_not_allowed_if_no_funds() {
     let mut deps = mock_dependencies(&[]);
-    mock_locator_query(&mut deps);
+    mock_state_query(&mut deps);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())

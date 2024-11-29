@@ -1207,30 +1207,6 @@ fn test_query_state() {
 }
 
 #[test]
-fn test_query_locate() {
-    let mut deps = mock_dependencies(&[]);
-    set_default_factory_state(deps.as_mut());
-    let query_res: HashMap<String, String> = from_json(
-        query(
-            deps.as_ref(),
-            mock_env(),
-            QueryMsg::Locate {
-                contracts: vec!["core_contract".to_string(), "token_contract".to_string()],
-            },
-        )
-        .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(
-        query_res,
-        HashMap::from([
-            ("core_contract".to_string(), "core_contract".to_string()),
-            ("token_contract".to_string(), "token_contract".to_string()),
-        ])
-    );
-}
-
-#[test]
 fn test_query_pause_info() {
     let mut deps = mock_dependencies(&[]);
     deps.querier

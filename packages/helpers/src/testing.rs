@@ -331,22 +331,57 @@ impl WasmMockQuerier {
     }
 }
 
-#[cw_serde]
-enum FactoryQueryMsg {
-    Locate { contracts: Vec<String> },
-}
-pub fn mock_locator_query(
-    deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier, NeutronQuery>,
-) {
+pub fn mock_state_query(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier, NeutronQuery>) {
     deps.querier
-        .add_wasm_query_response("factory_contract", |req| {
-            let q: FactoryQueryMsg = cosmwasm_std::from_json(req).unwrap();
-            let contracts = match q {
-                FactoryQueryMsg::Locate { contracts } => contracts
-                    .iter()
-                    .map(|c| (c.to_string(), c.to_string()))
-                    .collect::<HashMap<_, _>>(),
-            };
+        .add_wasm_query_response("factory_contract", |_| {
+            let contracts = HashMap::from([
+                ("core_contract".to_string(), "core_contract".to_string()),
+                ("token_contract".to_string(), "token_contract".to_string()),
+                (
+                    "withdrawal_voucher_contract".to_string(),
+                    "withdrawal_voucher_contract".to_string(),
+                ),
+                (
+                    "withdrawal_manager_contract".to_string(),
+                    "withdrawal_manager_contract".to_string(),
+                ),
+                (
+                    "strategy_contract".to_string(),
+                    "strategy_contract".to_string(),
+                ),
+                (
+                    "validators_set_contract".to_string(),
+                    "validators_set_contract".to_string(),
+                ),
+                (
+                    "distribution_contract".to_string(),
+                    "distribution_contract".to_string(),
+                ),
+                (
+                    "puppeteer_contract".to_string(),
+                    "puppeteer_contract".to_string(),
+                ),
+                (
+                    "rewards_manager_contract".to_string(),
+                    "rewards_manager_contract".to_string(),
+                ),
+                (
+                    "rewards_pump_contract".to_string(),
+                    "rewards_pump_contract".to_string(),
+                ),
+                (
+                    "splitter_contract".to_string(),
+                    "splitter_contract".to_string(),
+                ),
+                (
+                    "lsm_share_bond_provider_contract".to_string(),
+                    "lsm_share_bond_provider_contract".to_string(),
+                ),
+                (
+                    "native_bond_provider_contract".to_string(),
+                    "native_bond_provider_contract".to_string(),
+                ),
+            ]);
             to_json_binary(&contracts).unwrap()
         });
 }
