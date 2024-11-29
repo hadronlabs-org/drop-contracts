@@ -116,7 +116,8 @@ fn query_can_be_removed(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Bi
         .collect::<Vec<Coin>>();
     let result = all_balances_except_untrn.is_empty()
         && PENDING_LSM_SHARES.is_empty(deps.storage)
-        && LSM_SHARES_TO_REDEEM.is_empty(deps.storage);
+        && LSM_SHARES_TO_REDEEM.is_empty(deps.storage)
+        && TX_STATE.load(deps.storage)?.status == TxStateStatus::Idle;
     Ok(to_json_binary(&result)?)
 }
 

@@ -106,7 +106,9 @@ fn query_can_be_removed(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Bi
         .filter(|coin| coin.denom != *LOCAL_DENOM.to_string())
         .collect::<Vec<Coin>>();
     let non_staked_balance = NON_STAKED_BALANCE.load(deps.storage)?;
-    let result = all_balances_except_untrn.is_empty() && (non_staked_balance.is_zero());
+    let result = all_balances_except_untrn.is_empty()
+        && (non_staked_balance.is_zero())
+        && TX_STATE.load(deps.storage)?.status == TxStateStatus::Idle;
     Ok(to_json_binary(&result)?)
 }
 
