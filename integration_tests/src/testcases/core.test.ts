@@ -2501,6 +2501,17 @@ describe('Core', () => {
           const pending =
             await context.lsmShareBondProviderContractClient.queryLSMSharesToRedeem();
           expect(pending).toHaveLength(2);
+
+          console.log('verify pending lsm shares to unbond');
+          console.log(
+            await context.lsmShareBondProviderContractClient.queryTxState(),
+          );
+          console.log(
+            await context.lsmShareBondProviderContractClient.queryPendingLSMShares(),
+          );
+          console.log(
+            await context.lsmShareBondProviderContractClient.queryLSMSharesToRedeem(),
+          );
         });
         it('tick to idle', async () => {
           const {
@@ -2950,7 +2961,6 @@ describe('Core', () => {
     describe('fifth cycle (unbond before delegation)', () => {
       describe('prepare', () => {
         it('remove lsm share bond provider from the core', async () => {
-          await sleep(30_000); // wait until LSM share response turn up, so TX_STATE changes to Idle
           expect(
             await context.lsmShareBondProviderContractClient.queryCanBeRemoved(),
           ).toBe(true);

@@ -163,11 +163,7 @@ fn query_can_process_on_idle(deps: Deps<NeutronQuery>, env: &Env) -> ContractRes
 
     let config = CONFIG.load(deps.storage)?;
 
-    let pending_lsm_shares_count = PENDING_LSM_SHARES
-        .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .count();
-
-    if pending_lsm_shares_count > 0 {
+    if !PENDING_LSM_SHARES.is_empty(deps.storage) {
         return Ok(true);
     }
 
@@ -406,6 +402,8 @@ fn execute_puppeteer_hook(
             }
             TOTAL_LSM_SHARES_REAL_AMOUNT.update(deps.storage, |one| StdResult::Ok(one - sum))?;
             LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
+
+            TX_STATE.save(deps.storage, &TxState::default())?;
         }
     }
 
@@ -431,11 +429,17 @@ pub fn get_pending_redeem_msg(
     env: &Env,
 ) -> ContractResult<Option<SubMsg<NeutronMsg>>> {
     let addrs = get_contracts!(deps, config.factory_contract, puppeteer_contract);
-    let pending_lsm_shares_count = LSM_SHARES_TO_REDEEM
-        .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .count();
-    let last_lsm_redeem = LAST_LSM_REDEEM.load(deps.storage)?;
+
     let lsm_redeem_threshold = config.lsm_redeem_threshold as usize;
+
+    let shares_to_redeeem = LSM_SHARES_TO_REDEEM
+        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+        .take(lsm_redeem_threshold)
+        .collect::<StdResult<Vec<_>>>()?;
+
+    let pending_lsm_shares_count = shares_to_redeeem.len();
+
+    let last_lsm_redeem = LAST_LSM_REDEEM.load(deps.storage)?;
 
     if pending_lsm_shares_count == 0
         || ((pending_lsm_shares_count < lsm_redeem_threshold)
@@ -443,10 +447,6 @@ pub fn get_pending_redeem_msg(
     {
         return Ok(None);
     }
-    let shares_to_redeeem = LSM_SHARES_TO_REDEEM
-        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .take(lsm_redeem_threshold)
-        .collect::<StdResult<Vec<_>>>()?;
 
     let items: Vec<RedeemShareItem> = shares_to_redeeem
         .iter()
