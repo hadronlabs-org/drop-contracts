@@ -2501,17 +2501,6 @@ describe('Core', () => {
           const pending =
             await context.lsmShareBondProviderContractClient.queryLSMSharesToRedeem();
           expect(pending).toHaveLength(2);
-
-          console.log('verify pending lsm shares to unbond');
-          console.log(
-            await context.lsmShareBondProviderContractClient.queryTxState(),
-          );
-          console.log(
-            await context.lsmShareBondProviderContractClient.queryPendingLSMShares(),
-          );
-          console.log(
-            await context.lsmShareBondProviderContractClient.queryLSMSharesToRedeem(),
-          );
         });
         it('tick to idle', async () => {
           const {
