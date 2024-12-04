@@ -1608,6 +1608,8 @@ describe('Core', () => {
                     delegate: true,
                     undelegate: true,
                     claim_rewards_and_optionally_transfer: true,
+                    tokenize_share: true,
+                    redeem_shares: true,
                   },
                 }),
               ).toString('base64'),
@@ -1623,6 +1625,27 @@ describe('Core', () => {
     const { puppeteerContractClient } = context;
     await expect(
       puppeteerContractClient.delegate(context.account.address, {
+        reply_to: puppeteerContractClient.contractAddress,
+        items: [],
+      }),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
+  it('Call tokenize_share', async () => {
+    const { puppeteerContractClient } = context;
+    await expect(
+      puppeteerContractClient.tokenizeShare(context.account.address, {
+        reply_to: puppeteerContractClient.contractAddress,
+        amount: '1',
+        validator: 'valoper1',
+      }),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
+  it('Call redeem_shares', async () => {
+    const { puppeteerContractClient } = context;
+    await expect(
+      puppeteerContractClient.redeemShares(context.account.address, {
         reply_to: puppeteerContractClient.contractAddress,
         items: [],
       }),
@@ -1676,9 +1699,7 @@ describe('Core', () => {
                 context.nativeBondProviderContractClient.contractAddress,
               msg: Buffer.from(
                 JSON.stringify({
-                  set_pause: {
-                    process_on_idle: true,
-                  },
+                  set_pause: true,
                 }),
               ).toString('base64'),
               funds: [],
@@ -1706,9 +1727,7 @@ describe('Core', () => {
                 context.nativeBondProviderContractClient.contractAddress,
               msg: Buffer.from(
                 JSON.stringify({
-                  set_pause: {
-                    process_on_idle: false,
-                  },
+                  set_pause: false,
                 }),
               ).toString('base64'),
               funds: [],
@@ -1729,9 +1748,7 @@ describe('Core', () => {
                 context.lsmShareBondProviderContractClient.contractAddress,
               msg: Buffer.from(
                 JSON.stringify({
-                  set_pause: {
-                    process_on_idle: true,
-                  },
+                  set_pause: true,
                 }),
               ).toString('base64'),
               funds: [],
@@ -1759,9 +1776,7 @@ describe('Core', () => {
                 context.lsmShareBondProviderContractClient.contractAddress,
               msg: Buffer.from(
                 JSON.stringify({
-                  set_pause: {
-                    process_on_idle: false,
-                  },
+                  set_pause: false,
                 }),
               ).toString('base64'),
               funds: [],

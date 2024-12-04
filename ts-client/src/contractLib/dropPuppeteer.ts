@@ -294,7 +294,7 @@ export interface ConfigOptional {
 }
 export interface SetPauseArgs {
   type?: "object";
-  required?: ["claim_rewards_and_optionally_transfer", "delegate", "undelegate"];
+  required?: ["claim_rewards_and_optionally_transfer", "delegate", "redeem_shares", "tokenize_share", "undelegate"];
   properties?: {
     [k: string]: unknown;
   };

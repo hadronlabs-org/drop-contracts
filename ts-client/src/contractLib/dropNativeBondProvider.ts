@@ -207,6 +207,7 @@ export type Timestamp2 = Uint64;
  * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
  */
 export type Uint64 = string;
+export type Boolean2 = boolean;
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
@@ -249,11 +250,11 @@ export interface DropNativeBondProviderSchema {
     | LastPuppeteerResponse
     | Uint1282
     | OwnershipForString
-    | Pause
+    | Boolean2
     | Decimal
     | TxState;
   query: CanBondArgs | TokensAmountArgs;
-  execute: UpdateConfigArgs | PeripheralHookArgs | SetPauseArgs | UpdateOwnershipArgs;
+  execute: UpdateConfigArgs | PeripheralHookArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
@@ -357,9 +358,6 @@ export interface OwnershipForString {
    */
   pending_owner?: string | null;
 }
-export interface Pause {
-  process_on_idle: boolean;
-}
 export interface TxState {
   status: TxStateStatus;
   transaction?: Transaction | null;
@@ -384,14 +382,6 @@ export interface ConfigOptional {
   strategy_contract?: Addr | null;
   timeout?: number | null;
   transfer_channel_id?: string | null;
-}
-export interface SetPauseArgs {
-  type?: "object";
-  required?: ["process_on_idle"];
-  properties?: {
-    [k: string]: unknown;
-  };
-  additionalProperties?: never;
 }
 export interface InstantiateMsg {
   base_denom: string;
@@ -464,7 +454,7 @@ export class Client {
   queryLastPuppeteerResponse = async(): Promise<LastPuppeteerResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { last_puppeteer_response: {} });
   }
-  queryPause = async(): Promise<Pause> => {
+  queryPause = async(): Promise<Boolean> => {
     return this.client.queryContractSmart(this.contractAddress, { pause: {} });
   }
   queryCanBond = async(args: CanBondArgs): Promise<Boolean> => {
@@ -490,9 +480,9 @@ export class Client {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { peripheral_hook: args }, fee || "auto", memo, funds);
   }
-  setPause = async(sender:string, args: SetPauseArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  setPause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { set_pause: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { set_pause: {} }, fee || "auto", memo, funds);
   }
   bond = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

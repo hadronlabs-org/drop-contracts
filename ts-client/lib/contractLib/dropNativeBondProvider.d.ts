@@ -182,6 +182,7 @@ export type Timestamp2 = Uint64;
  * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
  */
 export type Uint64 = string;
+export type Boolean2 = boolean;
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
@@ -210,9 +211,9 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropNativeBondProviderSchema {
-    responses: Uint128 | Boolean | Boolean1 | Config | LastPuppeteerResponse | Uint1282 | OwnershipForString | Pause | Decimal | TxState;
+    responses: Uint128 | Boolean | Boolean1 | Config | LastPuppeteerResponse | Uint1282 | OwnershipForString | Boolean2 | Decimal | TxState;
     query: CanBondArgs | TokensAmountArgs;
-    execute: UpdateConfigArgs | PeripheralHookArgs | SetPauseArgs | UpdateOwnershipArgs;
+    execute: UpdateConfigArgs | PeripheralHookArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -320,9 +321,6 @@ export interface OwnershipForString {
      */
     pending_owner?: string | null;
 }
-export interface Pause {
-    process_on_idle: boolean;
-}
 export interface TxState {
     status: TxStateStatus;
     transaction?: Transaction | null;
@@ -348,14 +346,6 @@ export interface ConfigOptional {
     timeout?: number | null;
     transfer_channel_id?: string | null;
 }
-export interface SetPauseArgs {
-    type?: "object";
-    required?: ["process_on_idle"];
-    properties?: {
-        [k: string]: unknown;
-    };
-    additionalProperties?: never;
-}
 export interface InstantiateMsg {
     base_denom: string;
     core_contract: string;
@@ -379,7 +369,7 @@ export declare class Client {
     queryNonStakedBalance: () => Promise<Uint128>;
     queryTxState: () => Promise<TxState>;
     queryLastPuppeteerResponse: () => Promise<LastPuppeteerResponse>;
-    queryPause: () => Promise<Pause>;
+    queryPause: () => Promise<Boolean>;
     queryCanBond: (args: CanBondArgs) => Promise<Boolean>;
     queryCanProcessOnIdle: () => Promise<Boolean>;
     queryTokensAmount: (args: TokensAmountArgs) => Promise<Decimal>;
@@ -387,7 +377,7 @@ export declare class Client {
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     peripheralHook: (sender: string, args: PeripheralHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    setPause: (sender: string, args: SetPauseArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    setPause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     bond: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     processOnIdle: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
