@@ -842,6 +842,10 @@ fn execute_tokenize_share(
     amount: Uint128,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
+    if PAUSE.load(deps.as_ref().storage)?.tokenize_share {
+        Err(ContractError::PauseError(PauseError::Paused {}))?
+    }
+
     let puppeteer_base = Puppeteer::default();
     deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
@@ -883,6 +887,10 @@ fn execute_redeem_shares(
     items: Vec<RedeemShareItem>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
+    if PAUSE.load(deps.as_ref().storage)?.redeem_shares {
+        Err(ContractError::PauseError(PauseError::Paused {}))?
+    }
+
     let attrs = vec![
         attr("action", "redeem_share"),
         attr("items", format!("{:?}", items)),

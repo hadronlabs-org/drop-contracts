@@ -20,8 +20,8 @@ use drop_staking_base::msg::native_bond_provider::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
 use drop_staking_base::state::native_bond_provider::{
-    Config, ConfigOptional, Pause, ReplyMsg, TxState, TxStateStatus, CONFIG,
-    LAST_PUPPETEER_RESPONSE, NON_STAKED_BALANCE, PAUSE, TX_STATE,
+    Config, ConfigOptional, ReplyMsg, TxState, TxStateStatus, CONFIG, LAST_PUPPETEER_RESPONSE,
+    NON_STAKED_BALANCE, PAUSE, TX_STATE,
 };
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -58,7 +58,7 @@ pub fn instantiate(
         timeout: msg.timeout,
     };
     CONFIG.save(deps.storage, config)?;
-    PAUSE.save(deps.storage, &Pause::default())?;
+    PAUSE.save(deps.storage, &false)?;
     NON_STAKED_BALANCE.save(deps.storage, &Uint128::zero())?;
     TX_STATE.save(deps.storage, &TxState::default())?;
 
@@ -211,7 +211,7 @@ pub fn execute(
 fn execute_set_pause(
     deps: DepsMut,
     info: MessageInfo,
-    pause: Pause,
+    pause: bool,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
@@ -220,7 +220,7 @@ fn execute_set_pause(
     Ok(response(
         "execute-set-pause",
         CONTRACT_NAME,
-        [("process_on_idle", pause.process_on_idle.to_string())],
+        [("process_on_idle", pause.to_string())],
     ))
 }
 
@@ -307,7 +307,7 @@ fn execute_process_on_idle(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    if PAUSE.load(deps.as_ref().storage)?.process_on_idle {
+    if PAUSE.load(deps.as_ref().storage)? {
         Err(ContractError::PauseError(PauseError::Paused {}))?
     }
 

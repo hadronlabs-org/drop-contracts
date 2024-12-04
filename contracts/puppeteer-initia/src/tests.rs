@@ -250,6 +250,8 @@ fn test_execute_undelegate_paused() {
                 delegate: false,
                 undelegate: true,
                 claim_rewards_and_optionally_transfer: false,
+                tokenize_share: false,
+                redeem_shares: false,
             },
         )
         .unwrap();
@@ -277,6 +279,8 @@ fn test_execute_delegate_paused() {
                 delegate: true,
                 undelegate: false,
                 claim_rewards_and_optionally_transfer: false,
+                tokenize_share: false,
+                redeem_shares: false,
             },
         )
         .unwrap();
@@ -303,6 +307,8 @@ fn test_execute_claim_rewards_and_optionally_transfer_paused() {
                 delegate: false,
                 undelegate: false,
                 claim_rewards_and_optionally_transfer: true,
+                tokenize_share: false,
+                redeem_shares: false,
             },
         )
         .unwrap();

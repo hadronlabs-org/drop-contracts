@@ -8,7 +8,7 @@ use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
 use drop_helpers::{ica::IcaState, pause::PauseError, testing::mock_dependencies};
 use drop_staking_base::state::native_bond_provider::{
-    Config, ConfigOptional, Pause, ReplyMsg, TxState, CONFIG, NON_STAKED_BALANCE, PAUSE, TX_STATE,
+    Config, ConfigOptional, ReplyMsg, TxState, CONFIG, NON_STAKED_BALANCE, PAUSE, TX_STATE,
 };
 use neutron_sdk::{
     bindings::msg::{IbcFee, NeutronMsg},
@@ -289,14 +289,7 @@ fn query_can_bond_false() {
 fn query_can_not_process_on_idle_not_in_idle_state() {
     let mut deps = mock_dependencies(&[]);
 
-    PAUSE
-        .save(
-            deps.as_mut().storage,
-            &Pause {
-                process_on_idle: false,
-            },
-        )
-        .unwrap();
+    PAUSE.save(deps.as_mut().storage, &false).unwrap();
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -592,22 +585,13 @@ fn execute_set_pause() {
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
 
-    PAUSE
-        .save(
-            deps.as_mut().storage,
-            &Pause {
-                process_on_idle: false,
-            },
-        )
-        .unwrap();
+    PAUSE.save(deps.as_mut().storage, &false).unwrap();
 
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("owner", &[]),
-        drop_staking_base::msg::native_bond_provider::ExecuteMsg::SetPause(Pause {
-            process_on_idle: true,
-        }),
+        drop_staking_base::msg::native_bond_provider::ExecuteMsg::SetPause(true),
     )
     .unwrap();
 
@@ -618,25 +602,13 @@ fn execute_set_pause() {
                 .add_attributes(vec![attr("process_on_idle", "true")])
         )
     );
-    assert_eq!(
-        PAUSE.load(deps.as_ref().storage).unwrap(),
-        Pause {
-            process_on_idle: true
-        }
-    )
+    assert!(PAUSE.load(deps.as_ref().storage).unwrap())
 }
 
 #[test]
 fn execute_process_on_idle_paused() {
     let mut deps = mock_dependencies(&[]);
-    PAUSE
-        .save(
-            deps.as_mut().storage,
-            &Pause {
-                process_on_idle: true,
-            },
-        )
-        .unwrap();
+    PAUSE.save(deps.as_mut().storage, &true).unwrap();
 
     let error = crate::contract::execute(
         deps.as_mut(),
@@ -658,14 +630,7 @@ fn execute_process_on_idle_paused() {
 fn process_on_idle_not_in_idle_state() {
     let mut deps = mock_dependencies(&[]);
 
-    PAUSE
-        .save(
-            deps.as_mut().storage,
-            &Pause {
-                process_on_idle: false,
-            },
-        )
-        .unwrap();
+    PAUSE.save(deps.as_mut().storage, &false).unwrap();
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -707,14 +672,7 @@ fn process_on_idle_not_in_idle_state() {
 fn process_on_idle_not_core_contract() {
     let mut deps = mock_dependencies(&[]);
 
-    PAUSE
-        .save(
-            deps.as_mut().storage,
-            &Pause {
-                process_on_idle: false,
-            },
-        )
-        .unwrap();
+    PAUSE.save(deps.as_mut().storage, &false).unwrap();
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -738,14 +696,7 @@ fn process_on_idle_not_core_contract() {
 fn process_on_idle_delegation() {
     let mut deps = mock_dependencies(&[]);
 
-    PAUSE
-        .save(
-            deps.as_mut().storage,
-            &Pause {
-                process_on_idle: false,
-            },
-        )
-        .unwrap();
+    PAUSE.save(deps.as_mut().storage, &false).unwrap();
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -802,14 +753,7 @@ fn process_on_idle_delegation() {
 fn process_on_idle_ibc_transfer() {
     let mut deps = mock_dependencies(&[]);
 
-    PAUSE
-        .save(
-            deps.as_mut().storage,
-            &Pause {
-                process_on_idle: false,
-            },
-        )
-        .unwrap();
+    PAUSE.save(deps.as_mut().storage, &false).unwrap();
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -896,14 +840,7 @@ fn process_on_idle_ibc_transfer() {
 fn process_on_idle_not_allowed_if_no_funds() {
     let mut deps = mock_dependencies(&[]);
 
-    PAUSE
-        .save(
-            deps.as_mut().storage,
-            &Pause {
-                process_on_idle: false,
-            },
-        )
-        .unwrap();
+    PAUSE.save(deps.as_mut().storage, &false).unwrap();
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())

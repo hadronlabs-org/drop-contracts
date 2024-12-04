@@ -41,6 +41,7 @@ pub const CONFIG: Item<Config> = Item::new("config");
 pub const NON_STAKED_BALANCE: Item<Uint128> = Item::new("non_staked_balance");
 pub const LAST_PUPPETEER_RESPONSE: Item<PuppeteerResponseHookMsg> =
     Item::new("last_puppeteer_response");
+pub const PAUSE: Item<bool> = Item::new("pause");
 
 #[cw_serde]
 #[derive(Default)]
@@ -115,10 +116,3 @@ pub mod reply_msg {
         }
     }
 }
-
-#[cw_serde]
-#[derive(Default)]
-pub struct Pause {
-    pub process_on_idle: bool,
-}
-pub const PAUSE: Item<Pause> = Item::new("pause");

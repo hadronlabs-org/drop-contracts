@@ -602,6 +602,8 @@ fn test_execute_set_pause() {
                 delegate: false,
                 undelegate: false,
                 claim_rewards_and_optionally_transfer: false,
+                tokenize_share: false,
+                redeem_shares: false,
             },
         )
         .unwrap();
@@ -613,6 +615,8 @@ fn test_execute_set_pause() {
             delegate: true,
             undelegate: true,
             claim_rewards_and_optionally_transfer: true,
+            tokenize_share: true,
+            redeem_shares: true,
         }),
     )
     .unwrap();
@@ -634,6 +638,8 @@ fn test_execute_set_pause() {
             delegate: true,
             undelegate: true,
             claim_rewards_and_optionally_transfer: true,
+            tokenize_share: true,
+            redeem_shares: true,
         }
     )
 }
@@ -648,6 +654,8 @@ fn test_execute_undelegate_paused() {
                 delegate: false,
                 undelegate: true,
                 claim_rewards_and_optionally_transfer: false,
+                tokenize_share: false,
+                redeem_shares: false,
             },
         )
         .unwrap();
@@ -678,6 +686,8 @@ fn test_execute_delegate_paused() {
                 delegate: true,
                 undelegate: false,
                 claim_rewards_and_optionally_transfer: false,
+                tokenize_share: false,
+                redeem_shares: false,
             },
         )
         .unwrap();
@@ -707,6 +717,8 @@ fn test_execute_claim_rewards_and_optionally_transfer_paused() {
                 delegate: false,
                 undelegate: false,
                 claim_rewards_and_optionally_transfer: true,
+                tokenize_share: false,
+                redeem_shares: false,
             },
         )
         .unwrap();
@@ -717,6 +729,69 @@ fn test_execute_claim_rewards_and_optionally_transfer_paused() {
         drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
             validators: vec![],
             transfer: None,
+            reply_to: "reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::PauseError(PauseError::Paused {})
+    )
+}
+
+#[test]
+fn test_execute_redeem_shares_paused() {
+    let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                delegate: false,
+                undelegate: false,
+                claim_rewards_and_optionally_transfer: false,
+                tokenize_share: false,
+                redeem_shares: true,
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
+            items: vec![],
+            reply_to: "reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::PauseError(PauseError::Paused {})
+    )
+}
+
+#[test]
+fn test_execute_tokenize_shares_paused() {
+    let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                delegate: false,
+                undelegate: false,
+                claim_rewards_and_optionally_transfer: false,
+                tokenize_share: true,
+                redeem_shares: false,
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::TokenizeShare {
+            validator: "validator".to_string(),
+            amount: Uint128::one(),
             reply_to: "reply_to".to_string(),
         },
     )
@@ -1034,6 +1109,9 @@ fn test_execute_redelegate() {
 #[test]
 fn test_execute_tokenize_share_sender_is_not_allowed() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
+        .unwrap();
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
@@ -1063,6 +1141,10 @@ fn test_execute_tokenize_share_sender_is_not_allowed() {
 #[test]
 fn test_execute_tokenize_share_sender_not_idle() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
+        .unwrap();
+
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
@@ -1111,6 +1193,10 @@ fn test_execute_tokenize_share_sender_not_idle() {
 #[test]
 fn test_execute_tokenize_share() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
+        .unwrap();
+
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
@@ -1181,6 +1267,10 @@ fn test_execute_tokenize_share() {
 #[test]
 fn test_execute_redeem_shares_sender_is_not_allowed() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
+        .unwrap();
+
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
@@ -1213,6 +1303,10 @@ fn test_execute_redeem_shares_sender_is_not_allowed() {
 #[test]
 fn test_execute_redeeem_shares_sender_not_idle() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
+        .unwrap();
+
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
@@ -1264,6 +1358,10 @@ fn test_execute_redeeem_shares_sender_not_idle() {
 #[test]
 fn test_execute_redeem_share() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
+        .unwrap();
+
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),

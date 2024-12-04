@@ -1,5 +1,4 @@
 use crate::state::lsm_share_bond_provider::ConfigOptional;
-use crate::state::lsm_share_bond_provider::Pause;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 #[allow(unused_imports)]
 use cosmwasm_std::{Coin, Decimal, Uint128};
@@ -30,7 +29,7 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     UpdateConfig { new_config: ConfigOptional },
     PeripheralHook(Box<PuppeteerResponseHookMsg>),
-    SetPause(Pause),
+    SetPause(bool),
 }
 
 #[bond_provider_query]
@@ -48,7 +47,7 @@ pub enum QueryMsg {
     LastPuppeteerResponse {},
     #[returns(crate::state::lsm_share_bond_provider::TxState)]
     TxState {},
-    #[returns(Pause)]
+    #[returns(bool)]
     Pause {},
 }
 

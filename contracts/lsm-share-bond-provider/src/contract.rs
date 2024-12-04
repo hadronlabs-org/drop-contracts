@@ -23,7 +23,7 @@ use drop_staking_base::msg::lsm_share_bond_provider::{
 };
 use drop_staking_base::state::core::LAST_PUPPETEER_RESPONSE;
 use drop_staking_base::state::lsm_share_bond_provider::{
-    Config, ConfigOptional, Pause, ReplyMsg, TxState, TxStateStatus, CONFIG, LAST_LSM_REDEEM,
+    Config, ConfigOptional, ReplyMsg, TxState, TxStateStatus, CONFIG, LAST_LSM_REDEEM,
     LSM_SHARES_TO_REDEEM, PAUSE, PENDING_LSM_SHARES, TOTAL_LSM_SHARES_REAL_AMOUNT, TX_STATE,
 };
 use neutron_sdk::bindings::msg::NeutronMsg;
@@ -62,7 +62,7 @@ pub fn instantiate(
         lsm_redeem_maximum_interval: msg.lsm_redeem_maximum_interval,
     };
     CONFIG.save(deps.storage, config)?;
-    PAUSE.save(deps.storage, &Pause::default())?;
+    PAUSE.save(deps.storage, &false)?;
     TOTAL_LSM_SHARES_REAL_AMOUNT.save(deps.storage, &0)?;
     LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
     TX_STATE.save(deps.storage, &TxState::default())?;
@@ -228,7 +228,7 @@ pub fn execute(
 fn execute_set_pause(
     deps: DepsMut,
     info: MessageInfo,
-    pause: Pause,
+    pause: bool,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
@@ -237,7 +237,7 @@ fn execute_set_pause(
     Ok(response(
         "execute-set-pause",
         CONTRACT_NAME,
-        [("process_on_idle", pause.process_on_idle.to_string())],
+        [("process_on_idle", pause.to_string())],
     ))
 }
 
@@ -246,7 +246,7 @@ fn execute_process_on_idle(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    if PAUSE.load(deps.as_ref().storage)?.process_on_idle {
+    if PAUSE.load(deps.as_ref().storage)? {
         Err(ContractError::PauseError(PauseError::Paused {}))?
     }
 
