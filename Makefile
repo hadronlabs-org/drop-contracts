@@ -1,7 +1,14 @@
 .PHONY: schema test clippy build fmt compile check_contracts
 
 schema:
-	@find contracts/* -maxdepth 2 -type f -name Cargo.toml -execdir cargo schema \;
+	@for cargo_path in $(shell find contracts/* -maxdepth 10 -type f -name Cargo.toml); do \
+		dir=$$(dirname $$cargo_path); \
+		( \
+			cd $$dir && \
+			cargo build && \
+			cargo run \
+		); \
+	done
 test:
 	@cargo test
 
