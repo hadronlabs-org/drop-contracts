@@ -1678,6 +1678,8 @@ describe('Core', () => {
                     delegate: false,
                     undelegate: false,
                     claim_rewards_and_optionally_transfer: false,
+                    tokenize_share: false,
+                    redeem_shares: false,
                   },
                 }),
               ).toString('base64'),
