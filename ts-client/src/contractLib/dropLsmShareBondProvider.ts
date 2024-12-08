@@ -16,6 +16,7 @@ import { StdFee } from "@cosmjs/amino";
 export type Uint128 = string;
 export type Boolean = boolean;
 export type Boolean1 = boolean;
+export type Boolean2 = boolean;
 /**
  * A human readable address.
  *
@@ -194,7 +195,7 @@ export type Timestamp2 = Uint64;
  * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
  */
 export type Uint64 = string;
-export type Boolean2 = boolean;
+export type Boolean3 = boolean;
 export type ArrayOfTupleOfStringAndTupleOfStringAndUint1281 = [string, [string, Uint1281]][];
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
@@ -234,11 +235,12 @@ export interface DropLsmShareBondProviderSchema {
     | Uint128
     | Boolean
     | Boolean1
+    | Boolean2
     | Config
     | ArrayOfTupleOfStringAndTupleOfStringAndUint128
     | LastPuppeteerResponse
     | OwnershipForString
-    | Boolean2
+    | Boolean3
     | ArrayOfTupleOfStringAndTupleOfStringAndUint1281
     | Decimal
     | TxState;
@@ -454,6 +456,9 @@ export class Client {
   }
   queryAsyncTokensAmount = async(): Promise<Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { async_tokens_amount: {} });
+  }
+  queryCanBeRemoved = async(): Promise<Boolean> => {
+    return this.client.queryContractSmart(this.contractAddress, { can_be_removed: {} });
   }
   queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });

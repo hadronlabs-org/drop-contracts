@@ -44,6 +44,14 @@ export type UpdateConfigArgs =
   | {
       validators_set: ConfigOptional2;
     };
+export type ProxyArgs = {
+  validator_set: ValidatorSetMsg;
+};
+export type ValidatorSetMsg = {
+  update_validators: {
+    validators: ValidatorData[];
+  };
+};
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -58,14 +66,6 @@ export type UpdateConfigArgs =
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type ProxyArgs = {
-  validator_set: ValidatorSetMsg;
-};
-export type ValidatorSetMsg = {
-  update_validators: {
-    validators: ValidatorData[];
-  };
-};
 export type CosmosMsgFor_NeutronMsg =
   | {
       bank: BankMsg;
@@ -759,7 +759,6 @@ export interface MapOfString1 {
 }
 export interface ConfigOptional {
   base_denom?: string | null;
-  bond_limit?: Uint128 | null;
   emergency_address?: string | null;
   factory_contract?: string | null;
   idle_min_interval?: number | null;
@@ -777,7 +776,7 @@ export interface ConfigOptional2 {
   val_ref_contract?: string | null;
 }
 export interface ValidatorData {
-  on_top: Uint128;
+  on_top?: Uint128 | null;
   valoper_address: string;
   weight: number;
 }
@@ -1177,7 +1176,6 @@ export interface CodeIds {
   withdrawal_voucher_code_id: number;
 }
 export interface CoreParams {
-  bond_limit?: Uint128 | null;
   icq_update_delay: number;
   idle_min_interval: number;
   unbond_batch_switch_time: number;

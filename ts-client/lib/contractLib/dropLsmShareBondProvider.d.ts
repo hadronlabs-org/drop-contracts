@@ -16,6 +16,7 @@ import { StdFee } from "@cosmjs/amino";
 export type Uint128 = string;
 export type Boolean = boolean;
 export type Boolean1 = boolean;
+export type Boolean2 = boolean;
 /**
  * A human readable address.
  *
@@ -169,7 +170,7 @@ export type Timestamp2 = Uint64;
  * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
  */
 export type Uint64 = string;
-export type Boolean2 = boolean;
+export type Boolean3 = boolean;
 export type ArrayOfTupleOfStringAndTupleOfStringAndUint1281 = [string, [string, Uint1281]][];
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
@@ -199,7 +200,7 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropLsmShareBondProviderSchema {
-    responses: Uint128 | Boolean | Boolean1 | Config | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | OwnershipForString | Boolean2 | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Decimal | TxState;
+    responses: Uint128 | Boolean | Boolean1 | Boolean2 | Config | ArrayOfTupleOfStringAndTupleOfStringAndUint128 | LastPuppeteerResponse | OwnershipForString | Boolean3 | ArrayOfTupleOfStringAndTupleOfStringAndUint1281 | Decimal | TxState;
     query: CanBondArgs | TokensAmountArgs;
     execute: UpdateConfigArgs | PeripheralHookArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
@@ -357,6 +358,7 @@ export declare class Client {
     queryCanProcessOnIdle: () => Promise<Boolean>;
     queryTokensAmount: (args: TokensAmountArgs) => Promise<Decimal>;
     queryAsyncTokensAmount: () => Promise<Uint128>;
+    queryCanBeRemoved: () => Promise<Boolean>;
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     peripheralHook: (sender: string, args: PeripheralHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

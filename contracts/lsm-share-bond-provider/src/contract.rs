@@ -101,15 +101,29 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
             response: LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?,
         })
         .map_err(From::from),
-        QueryMsg::TxState {} => query_tx_state(deps, env),
+        QueryMsg::TxState {} => query_tx_state(deps),
         QueryMsg::AsyncTokensAmount {} => {
             to_json_binary(&TOTAL_LSM_SHARES_REAL_AMOUNT.load(deps.storage)?).map_err(From::from)
         }
         QueryMsg::Pause {} => Ok(to_json_binary(&PAUSE.load(deps.storage)?)?),
+        QueryMsg::CanBeRemoved {} => query_can_be_removed(deps, env),
     }
 }
 
-fn query_tx_state(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Binary> {
+fn query_can_be_removed(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
+    let all_balances = deps.querier.query_all_balances(env.contract.address)?;
+    let all_balances_except_untrn = all_balances
+        .into_iter()
+        .filter(|coin| coin.denom != *LOCAL_DENOM.to_string())
+        .collect::<Vec<Coin>>();
+    let result = all_balances_except_untrn.is_empty()
+        && PENDING_LSM_SHARES.is_empty(deps.storage)
+        && LSM_SHARES_TO_REDEEM.is_empty(deps.storage)
+        && TX_STATE.load(deps.storage)?.status == TxStateStatus::Idle;
+    Ok(to_json_binary(&result)?)
+}
+
+fn query_tx_state(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let tx_state = TX_STATE.load(deps.storage)?;
     Ok(to_json_binary(&tx_state)?)
 }
@@ -151,11 +165,7 @@ fn query_can_process_on_idle(deps: Deps<NeutronQuery>, env: &Env) -> ContractRes
 
     let config = CONFIG.load(deps.storage)?;
 
-    let pending_lsm_shares_count = PENDING_LSM_SHARES
-        .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .count();
-
-    if pending_lsm_shares_count > 0 {
+    if !PENDING_LSM_SHARES.is_empty(deps.storage) {
         return Ok(true);
     }
 
@@ -415,6 +425,8 @@ fn execute_puppeteer_hook(
             }
             TOTAL_LSM_SHARES_REAL_AMOUNT.update(deps.storage, |one| StdResult::Ok(one - sum))?;
             LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
+
+            TX_STATE.save(deps.storage, &TxState::default())?;
         }
     }
 
@@ -440,11 +452,17 @@ pub fn get_pending_redeem_msg(
     env: &Env,
 ) -> ContractResult<Option<SubMsg<NeutronMsg>>> {
     let addrs = get_contracts!(deps, config.factory_contract, puppeteer_contract);
-    let pending_lsm_shares_count = LSM_SHARES_TO_REDEEM
-        .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .count();
-    let last_lsm_redeem = LAST_LSM_REDEEM.load(deps.storage)?;
+
     let lsm_redeem_threshold = config.lsm_redeem_threshold as usize;
+
+    let shares_to_redeeem = LSM_SHARES_TO_REDEEM
+        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+        .take(lsm_redeem_threshold)
+        .collect::<StdResult<Vec<_>>>()?;
+
+    let pending_lsm_shares_count = shares_to_redeeem.len();
+
+    let last_lsm_redeem = LAST_LSM_REDEEM.load(deps.storage)?;
 
     if pending_lsm_shares_count == 0
         || ((pending_lsm_shares_count < lsm_redeem_threshold)
@@ -452,10 +470,6 @@ pub fn get_pending_redeem_msg(
     {
         return Ok(None);
     }
-    let shares_to_redeeem = LSM_SHARES_TO_REDEEM
-        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .take(lsm_redeem_threshold)
-        .collect::<StdResult<Vec<_>>>()?;
 
     let items: Vec<RedeemShareItem> = shares_to_redeeem
         .iter()

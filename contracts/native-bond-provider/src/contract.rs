@@ -97,7 +97,21 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
             response: LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?,
         })?),
         QueryMsg::Pause {} => Ok(to_json_binary(&PAUSE.load(deps.storage)?)?),
+        QueryMsg::CanBeRemoved {} => query_can_be_removed(deps, env),
     }
+}
+
+fn query_can_be_removed(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
+    let all_balances = deps.querier.query_all_balances(env.contract.address)?;
+    let all_balances_except_untrn = all_balances
+        .into_iter()
+        .filter(|coin| coin.denom != *LOCAL_DENOM.to_string())
+        .collect::<Vec<Coin>>();
+    let non_staked_balance = NON_STAKED_BALANCE.load(deps.storage)?;
+    let result = all_balances_except_untrn.is_empty()
+        && (non_staked_balance.is_zero())
+        && TX_STATE.load(deps.storage)?.status == TxStateStatus::Idle;
+    Ok(to_json_binary(&result)?)
 }
 
 fn query_tx_state(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Binary> {

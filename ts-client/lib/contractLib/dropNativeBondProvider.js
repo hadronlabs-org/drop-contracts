@@ -53,6 +53,9 @@ class Client {
     queryAsyncTokensAmount = async () => {
         return this.client.queryContractSmart(this.contractAddress, { async_tokens_amount: {} });
     };
+    queryCanBeRemoved = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { can_be_removed: {} });
+    };
     queryOwnership = async () => {
         return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
     };

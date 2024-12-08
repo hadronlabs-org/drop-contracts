@@ -18,7 +18,6 @@ pub struct InstantiateMsg {
     pub unbonding_period: u64,         //seconds
     pub unbonding_safe_period: u64,    //seconds
     pub unbond_batch_switch_time: u64, //seconds
-    pub bond_limit: Option<Uint128>,
     pub pump_ica_address: Option<String>,
     pub transfer_channel_id: String,
     pub owner: String,
@@ -37,11 +36,6 @@ impl InstantiateMsg {
             unbonding_period: self.unbonding_period,
             pump_ica_address: self.pump_ica_address,
             transfer_channel_id: self.transfer_channel_id,
-            bond_limit: match self.bond_limit {
-                None => None,
-                Some(limit) if limit.is_zero() => None,
-                Some(limit) => Some(limit),
-            },
             unbond_batch_switch_time: self.unbond_batch_switch_time,
             emergency_address: self.emergency_address,
             icq_update_delay: self.icq_update_delay,
@@ -119,7 +113,6 @@ pub enum ExecuteMsg {
         withdrawn_amount: Uint128,
     },
     PeripheralHook(Box<PuppeteerResponseHookMsg>),
-    ResetBondedAmount {},
     ProcessEmergencyBatch {
         batch_id: u128,
         unbonded_amount: Uint128,
