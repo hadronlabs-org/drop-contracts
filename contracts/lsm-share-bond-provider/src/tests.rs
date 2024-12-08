@@ -12,7 +12,7 @@ use cw_utils::PaymentError;
 use drop_helpers::{
     ica::IcaState,
     pause::PauseError,
-    testing::{mock_dependencies, WasmMockQuerier},
+    testing::{mock_dependencies, mock_state_query, WasmMockQuerier},
 };
 use drop_staking_base::{
     error::lsm_share_bond_provider::ContractError,
@@ -40,9 +40,7 @@ use prost::Message;
 
 fn get_default_config(lsm_redeem_threshold: u64, lsm_redeem_maximum_interval: u64) -> Config {
     Config {
-        puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-        core_contract: Addr::unchecked("core_contract"),
-        validators_set_contract: Addr::unchecked("validators_set_contract"),
+        factory_contract: Addr::unchecked("factory_contract"),
         port_id: "port_id".to_string(),
         transfer_channel_id: "transfer_channel_id".to_string(),
         timeout: 100u64,
@@ -153,9 +151,7 @@ fn test_instantiate() {
         mock_info("admin", &[]),
         drop_staking_base::msg::lsm_share_bond_provider::InstantiateMsg {
             owner: "owner".to_string(),
-            puppeteer_contract: "puppeteer_contract".to_string(),
-            core_contract: "core_contract".to_string(),
-            validators_set_contract: "validators_set_contract".to_string(),
+            factory_contract: "factory_contract".to_string(),
             port_id: "port_id".to_string(),
             transfer_channel_id: "transfer_channel_id".to_string(),
             timeout: 100u64,
@@ -178,9 +174,7 @@ fn test_instantiate() {
         vec![
             Event::new("crates.io:drop-staking__drop-lsm-share-bond-provider-instantiate")
                 .add_attributes([
-                    ("puppeteer_contract", "puppeteer_contract"),
-                    ("core_contract", "core_contract"),
-                    ("validators_set_contract", "validators_set_contract"),
+                    ("factory_contract", "factory_contract"),
                     ("port_id", "port_id"),
                     ("transfer_channel_id", "transfer_channel_id"),
                     ("timeout", "100"),
@@ -215,9 +209,7 @@ fn test_update_config_wrong_owner() {
         mock_info("core1", &[]),
         drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
-                puppeteer_contract: Some(Addr::unchecked("puppeteer_contract_1")),
-                core_contract: Some(Addr::unchecked("core_contract_1")),
-                validators_set_contract: Some(Addr::unchecked("validators_set_contract_1")),
+                factory_contract: Some(Addr::unchecked("factory_contract_1")),
                 port_id: Some("port_id_1".to_string()),
                 transfer_channel_id: Some("transfer_channel_id_1".to_string()),
                 timeout: Some(200u64),
@@ -258,9 +250,7 @@ fn test_update_config_ok() {
         mock_info("core", &[]),
         drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
-                puppeteer_contract: Some(Addr::unchecked("puppeteer_contract_1")),
-                core_contract: Some(Addr::unchecked("core_contract_1")),
-                validators_set_contract: Some(Addr::unchecked("validators_set_contract_1")),
+                factory_contract: Some(Addr::unchecked("factory_contract_1")),
                 port_id: Some("port_id_1".to_string()),
                 transfer_channel_id: Some("transfer_channel_id_1".to_string()),
                 timeout: Some(200u64),
@@ -278,9 +268,7 @@ fn test_update_config_ok() {
         vec![
             Event::new("crates.io:drop-staking__drop-lsm-share-bond-provider-update_config")
                 .add_attributes([
-                    ("puppeteer_contract", "puppeteer_contract_1"),
-                    ("core_contract", "core_contract_1"),
-                    ("validators_set_contract", "validators_set_contract_1"),
+                    ("factory_contract", "factory_contract_1"),
                     ("port_id", "port_id_1"),
                     ("transfer_channel_id", "transfer_channel_id_1"),
                     ("timeout", "200"),
@@ -302,9 +290,7 @@ fn test_update_config_ok() {
     assert_eq!(
         config,
         to_json_binary(&drop_staking_base::state::lsm_share_bond_provider::Config {
-            puppeteer_contract: Addr::unchecked("puppeteer_contract_1"),
-            core_contract: Addr::unchecked("core_contract_1"),
-            validators_set_contract: Addr::unchecked("validators_set_contract_1"),
+            factory_contract: Addr::unchecked("factory_contract_1"),
             port_id: "port_id_1".to_string(),
             transfer_channel_id: "transfer_channel_id_1".to_string(),
             timeout: 200u64,
@@ -408,6 +394,8 @@ fn process_on_idle_paused() {
 fn process_on_idle_not_core_contract() {
     let mut deps = mock_dependencies(&[]);
     PAUSE.save(deps.as_mut().storage, &false).unwrap();
+    mock_state_query(&mut deps);
+
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(100u64, 200u64))
         .unwrap();
@@ -429,6 +417,7 @@ fn process_on_idle_not_core_contract() {
 #[test]
 fn test_process_on_idle_lsm_share_not_ready() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     let deps_mut = deps.as_mut();
     PAUSE.save(deps_mut.storage, &false).unwrap();
     CONFIG
@@ -459,6 +448,7 @@ fn test_process_on_idle_lsm_share_not_ready() {
 fn test_process_on_idle_supported() {
     let mut deps = mock_dependencies(&[]);
     PAUSE.save(deps.as_mut().storage, &false).unwrap();
+    mock_state_query(&mut deps);
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: IbcFee {
@@ -543,6 +533,7 @@ fn test_process_on_idle_supported() {
 #[test]
 fn test_execute_bond() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     lsm_denom_query_config(deps.borrow_mut(), false);
 
     let deps_mut = deps.as_mut();
@@ -617,6 +608,7 @@ fn test_execute_bond() {
 #[test]
 fn test_execute_bond_wrong_denom() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     lsm_denom_query_config(deps.borrow_mut(), false);
 
     drop_staking_base::state::lsm_share_bond_provider::CONFIG
@@ -640,6 +632,7 @@ fn test_execute_bond_wrong_denom() {
 #[test]
 fn test_execute_bond_no_funds() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
 
     drop_staking_base::state::lsm_share_bond_provider::CONFIG
         .save(deps.as_mut().storage, &get_default_config(100u64, 200u64))
@@ -664,6 +657,7 @@ fn test_execute_bond_no_funds() {
 #[test]
 fn test_bond_lsm_share_wrong_validator() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     lsm_denom_query_config(deps.borrow_mut(), true);
 
     drop_staking_base::state::lsm_share_bond_provider::CONFIG
@@ -684,14 +678,13 @@ fn test_bond_lsm_share_wrong_validator() {
 #[test]
 fn test_execute_bond_multiple_denoms() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
 
     drop_staking_base::state::lsm_share_bond_provider::CONFIG
         .save(
             deps.as_mut().storage,
             &drop_staking_base::state::lsm_share_bond_provider::Config {
-                puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-                core_contract: Addr::unchecked("core_contract"),
-                validators_set_contract: Addr::unchecked("validators_set_contract"),
+                factory_contract: Addr::unchecked("factory_contract"),
                 port_id: "port_id".to_string(),
                 transfer_channel_id: "transfer_channel_id".to_string(),
                 timeout: 100u64,
@@ -751,15 +744,14 @@ mod query {
     #[test]
     fn test_token_amount_wrong_denom() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         lsm_denom_query_config(deps.borrow_mut(), false);
 
         drop_staking_base::state::lsm_share_bond_provider::CONFIG
             .save(
                 deps.as_mut().storage,
                 &drop_staking_base::state::lsm_share_bond_provider::Config {
-                    puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-                    core_contract: Addr::unchecked("core_contract"),
-                    validators_set_contract: Addr::unchecked("validators_set_contract"),
+                    factory_contract: Addr::unchecked("factory_contract"),
                     port_id: "port_id".to_string(),
                     transfer_channel_id: "transfer_channel_id".to_string(),
                     timeout: 100u64,
@@ -792,6 +784,7 @@ mod query {
     #[test]
     fn test_can_process_idle_with_enough_interval() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         let deps_mut = deps.as_mut();
 
         let env = mock_env();
@@ -834,6 +827,7 @@ mod query {
     #[test]
     fn test_can_process_false_below_threshold() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         let deps_mut = deps.as_mut();
 
         let env = mock_env();
@@ -906,9 +900,7 @@ mod query {
             .save(
                 deps.as_mut().storage,
                 &drop_staking_base::state::lsm_share_bond_provider::Config {
-                    puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-                    core_contract: Addr::unchecked("core_contract"),
-                    validators_set_contract: Addr::unchecked("validators_set_contract"),
+                    factory_contract: Addr::unchecked("factory_contract"),
                     port_id: "port_id".to_string(),
                     transfer_channel_id: "transfer_channel_id".to_string(),
                     timeout: 100u64,
@@ -940,9 +932,7 @@ mod query {
             .save(
                 deps.as_mut().storage,
                 &drop_staking_base::state::lsm_share_bond_provider::Config {
-                    puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-                    core_contract: Addr::unchecked("core_contract"),
-                    validators_set_contract: Addr::unchecked("validators_set_contract"),
+                    factory_contract: Addr::unchecked("factory_contract"),
                     port_id: "port_id".to_string(),
                     transfer_channel_id: "transfer_channel_id".to_string(),
                     timeout: 100u64,
@@ -1166,6 +1156,7 @@ mod query {
     #[test]
     fn test_token_amount_half() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         lsm_denom_query_config(deps.borrow_mut(), false);
 
         CONFIG
@@ -1191,6 +1182,7 @@ mod query {
     #[test]
     fn test_token_amount_above_one() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         lsm_denom_query_config(deps.borrow_mut(), false);
 
         CONFIG
@@ -1225,6 +1217,7 @@ mod check_denom {
     #[test]
     fn test_invalid_port() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -1249,6 +1242,7 @@ mod check_denom {
     #[test]
     fn test_invalid_channel() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -1273,6 +1267,7 @@ mod check_denom {
     #[test]
     fn test_invalid_port_and_channel() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -1297,6 +1292,7 @@ mod check_denom {
     #[test]
     fn test_not_an_lsm_share() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -1321,6 +1317,7 @@ mod check_denom {
     #[test]
     fn test_unknown_validator() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -1366,6 +1363,7 @@ mod check_denom {
     #[test]
     fn test_invalid_validator_index() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -1390,6 +1388,7 @@ mod check_denom {
     #[test]
     fn test_known_validator() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -1463,6 +1462,7 @@ mod pending_redeem_shares {
     #[test]
     fn no_pending_lsm_shares() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
 
         let config = &get_default_config(100u64, 200u64);
 
@@ -1477,6 +1477,7 @@ mod pending_redeem_shares {
     #[test]
     fn lsm_shares_below_threshold() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
 
         let config = &get_default_config(100u64, 200u64);
 
@@ -1507,6 +1508,7 @@ mod pending_redeem_shares {
     #[test]
     fn lsm_shares_pass_threshold() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
 
         let lsm_redeem_maximum_interval = 100;
 
@@ -1562,6 +1564,7 @@ mod pending_redeem_shares {
     #[test]
     fn lsm_shares_limit_redeem() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
 
         let config = &get_default_config(2u64, 200u64);
 

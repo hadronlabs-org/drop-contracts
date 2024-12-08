@@ -9,6 +9,9 @@ KEYRING_BACKEND="${KEYRING_BACKEND:-test}"
 DEPLOY_WALLET="${DEPLOY_WALLET:-demowallet1}"
 MIN_NTRN_REQUIRED="${MIN_NTRN_REQUIRED:-10}"
 
+PUPPETEER_TYPE="${PUPPETEER_TYPE:-puppeteer}"
+LSM_SHARE_PROVIDER_ENABLED="${LSM_SHARE_PROVIDER_ENABLED:-true}"
+
 TARGET_SDK_VERSION="${TARGET_SDK_VERSION:?Variable should be explicitly specified}"
 TARGET_BASE_DENOM="${TARGET_BASE_DENOM:?Variable should be explicitly specified}"
 NEUTRON_SIDE_TRANSFER_CHANNEL_ID="${NEUTRON_SIDE_TRANSFER_CHANNEL_ID:?Variable should be explicitly specified}"
@@ -84,25 +87,26 @@ main() {
   factory_admin_execute "$factory_address" "$msg" 250000untrn
   echo "[OK] Add Native bond provider to the Core contract"
 
-  update_msg='{
-    "add_bond_provider":{
-      "bond_provider_address": "'"$lsm_share_bond_provider_address"'"
-    }
-  }'
-
-  msg='{
-    "wasm":{
-      "execute":{
-        "contract_addr":"'"$core_address"'",
-        "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64 | tr -d "\n")"'",
-        "funds": []
+  if [ "$LSM_SHARE_PROVIDER_ENABLED" == "true" ]; then
+    update_msg='{
+      "add_bond_provider":{
+        "bond_provider_address": "'"$lsm_share_bond_provider_address"'"
       }
-    }
-  }'
+    }'
 
-  factory_admin_execute "$factory_address" "$msg" 250000untrn
-  echo "[OK] Add LSM share bond provider to the Core contract"
+    msg='{
+      "wasm":{
+        "execute":{
+          "contract_addr":"'"$core_address"'",
+          "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64 | tr -d "\n")"'",
+          "funds": []
+        }
+      }
+    }'
 
+    factory_admin_execute "$factory_address" "$msg" 250000untrn
+    echo "[OK] Add LSM share bond provider to the Core contract"
+  fi
 
   REWARDS_ADDRESS=${REWARDS_ADDRESS:-$rewards_pump_ica_address}
   update_msg='{
@@ -167,6 +171,7 @@ main() {
   echo   "[chains.packet_filter]"
   echo   "list = ["
   echo   "  ['$puppeteer_ica_port', '$puppeteer_ica_channel'],"
+  echo   "  ['$rewards_pump_ica_port', '$rewards_pump_ica_channel'],"
   echo   "  ['$pump_ica_port', '$pump_ica_channel'],"
   echo   "]"
   echo
@@ -175,6 +180,7 @@ main() {
   echo   "[chains.packet_filter]"
   echo   "list = ["
   echo   "  ['icahost', '$puppeteer_counterparty_channel_id'],"
+  echo   "  ['icahost', '$rewards_pump_counterparty_channel_id'],"
   echo   "  ['icahost', '$pump_counterparty_channel_id'],"
   echo   "]"
   

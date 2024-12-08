@@ -12,9 +12,7 @@ use super::core::LastPuppeteerResponse;
 #[cw_serde]
 pub struct InstantiateMsg {
     pub owner: String,
-    pub puppeteer_contract: String,
-    pub core_contract: String,
-    pub validators_set_contract: String,
+    pub factory_contract: String,
     pub port_id: String,
     pub transfer_channel_id: String,
     pub timeout: u64, // timeout for interchain transactions in seconds

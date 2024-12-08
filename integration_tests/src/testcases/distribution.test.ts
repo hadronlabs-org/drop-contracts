@@ -58,8 +58,10 @@ describe('Distribution', () => {
     const { client, account } = context;
     const res = await client.upload(
       account.address,
-      fs.readFileSync(
-        join(__dirname, '../../../artifacts/drop_distribution.wasm'),
+      Uint8Array.from(
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_distribution.wasm'),
+        ),
       ),
       1.5,
     );

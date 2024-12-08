@@ -100,8 +100,13 @@ describe('POC Provider Proposals', () => {
     const { client, account } = context;
     const res = await client.upload(
       account.address,
-      fs.readFileSync(
-        join(__dirname, '../../../artifacts/drop_provider_proposals_poc.wasm'),
+      Uint8Array.from(
+        fs.readFileSync(
+          join(
+            __dirname,
+            '../../../artifacts/drop_provider_proposals_poc.wasm',
+          ),
+        ),
       ),
       1.5,
     );

@@ -10,7 +10,7 @@ pub struct Pause {
     pub burn: bool,
 }
 
+pub const FACTORY_CONTRACT: Item<Addr> = Item::new("factory");
 pub const PAUSE: Item<Pause> = Item::new("pause");
-pub const CORE_ADDRESS: Item<Addr> = Item::new("core");
 pub const DENOM: Item<String> = Item::new("denom");
 pub const TOKEN_METADATA: Item<DenomMetadata> = Item::new("denom_metadata");

@@ -30,7 +30,7 @@ pub struct InstantiateMsg {
     pub transfer_channel_id: String,
     pub sdk_version: String,
     pub timeout: u64,
-    pub native_bond_provider: String,
+    pub factory_contract: String,
     pub delegations_queries_chunk_size: Option<u32>,
 }
 

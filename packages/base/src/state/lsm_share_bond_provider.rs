@@ -7,9 +7,7 @@ use optfield::optfield;
 #[optfield(pub ConfigOptional, attrs)]
 #[cw_serde]
 pub struct Config {
-    pub puppeteer_contract: Addr,
-    pub core_contract: Addr,
-    pub validators_set_contract: Addr,
+    pub factory_contract: Addr,
     pub port_id: String,
     pub transfer_channel_id: String,
     pub timeout: u64, // timeout for interchain transactions in seconds

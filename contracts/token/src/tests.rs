@@ -13,10 +13,10 @@ use cosmwasm_std::{
     Uint128,
 };
 use drop_helpers::pause::PauseError;
-use drop_helpers::testing::mock_dependencies;
+use drop_helpers::testing::{mock_dependencies, mock_state_query};
 use drop_staking_base::{
     msg::token::{ConfigResponse, DenomMetadata, ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::token::{Pause, CORE_ADDRESS, DENOM, PAUSE, TOKEN_METADATA},
+    state::token::{Pause, DENOM, FACTORY_CONTRACT, PAUSE, TOKEN_METADATA},
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -44,7 +44,7 @@ fn instantiate() {
         mock_env(),
         mock_info("admin", &[]),
         InstantiateMsg {
-            core_address: "core".to_string(),
+            factory_contract: "factory_contract".to_string(),
             subdenom: "subdenom".to_string(),
             token_metadata: sample_metadata(),
             owner: "admin".to_string(),
@@ -53,8 +53,8 @@ fn instantiate() {
     .unwrap();
 
     assert_eq!(
-        CORE_ADDRESS.load(deps.as_ref().storage).unwrap(),
-        Addr::unchecked("core")
+        FACTORY_CONTRACT.load(deps.as_ref().storage).unwrap(),
+        Addr::unchecked("factory_contract")
     );
     assert_eq!(
         TOKEN_METADATA.load(deps.as_ref().storage).unwrap(),
@@ -75,8 +75,10 @@ fn instantiate() {
     );
     assert_eq!(
         response.events,
-        vec![Event::new("drop-token-instantiate")
-            .add_attributes([attr("core_address", "core"), attr("subdenom", "subdenom")])]
+        vec![Event::new("drop-token-instantiate").add_attributes([
+            attr("factory_contract", "factory_contract"),
+            attr("subdenom", "subdenom")
+        ])]
     );
     assert!(response.attributes.is_empty());
 }
@@ -235,9 +237,10 @@ fn mint_zero() {
             },
         )
         .unwrap();
-    CORE_ADDRESS
-        .save(deps.as_mut().storage, &Addr::unchecked("core"))
+    FACTORY_CONTRACT
+        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
@@ -245,7 +248,7 @@ fn mint_zero() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        mock_info("core_contract", &[]),
         ExecuteMsg::Mint {
             amount: Uint128::zero(),
             receiver: "receiver".to_string(),
@@ -267,9 +270,10 @@ fn mint() {
             },
         )
         .unwrap();
-    CORE_ADDRESS
-        .save(deps.as_mut().storage, &Addr::unchecked("core"))
+    FACTORY_CONTRACT
+        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
@@ -277,7 +281,7 @@ fn mint() {
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        mock_info("core_contract", &[]),
         ExecuteMsg::Mint {
             amount: Uint128::new(220),
             receiver: "receiver".to_string(),
@@ -339,9 +343,10 @@ fn mint_stranger() {
             },
         )
         .unwrap();
-    CORE_ADDRESS
-        .save(deps.as_mut().storage, &Addr::unchecked("core"))
+    FACTORY_CONTRACT
+        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
@@ -395,9 +400,10 @@ fn burn_zero_unpaused() {
             },
         )
         .unwrap();
-    CORE_ADDRESS
-        .save(deps.as_mut().storage, &Addr::unchecked("core"))
+    FACTORY_CONTRACT
+        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
@@ -405,7 +411,7 @@ fn burn_zero_unpaused() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        mock_info("core_contract", &[]),
         ExecuteMsg::Burn {},
     )
     .unwrap_err();
@@ -427,9 +433,10 @@ fn burn_multiple_coins() {
             },
         )
         .unwrap();
-    CORE_ADDRESS
-        .save(deps.as_mut().storage, &Addr::unchecked("core"))
+    FACTORY_CONTRACT
+        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
@@ -437,7 +444,7 @@ fn burn_multiple_coins() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[coin(20, "coin1"), coin(10, "denom")]),
+        mock_info("core_contract", &[coin(20, "coin1"), coin(10, "denom")]),
         ExecuteMsg::Burn {},
     )
     .unwrap_err();
@@ -459,9 +466,10 @@ fn burn_invalid_coin_unpaused() {
             },
         )
         .unwrap();
-    CORE_ADDRESS
-        .save(deps.as_mut().storage, &Addr::unchecked("core"))
+    FACTORY_CONTRACT
+        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
@@ -469,7 +477,7 @@ fn burn_invalid_coin_unpaused() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[coin(20, "coin1")]),
+        mock_info("core_contract", &[coin(20, "coin1")]),
         ExecuteMsg::Burn {},
     )
     .unwrap_err();
@@ -491,9 +499,10 @@ fn burn() {
             },
         )
         .unwrap();
-    CORE_ADDRESS
-        .save(deps.as_mut().storage, &Addr::unchecked("core"))
+    FACTORY_CONTRACT
+        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
@@ -501,7 +510,7 @@ fn burn() {
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[coin(140, "denom")]),
+        mock_info("core_contract", &[coin(140, "denom")]),
         ExecuteMsg::Burn {},
     )
     .unwrap();
@@ -534,9 +543,10 @@ fn burn_stranger_paused() {
             },
         )
         .unwrap();
-    CORE_ADDRESS
-        .save(deps.as_mut().storage, &Addr::unchecked("core"))
+    FACTORY_CONTRACT
+        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
@@ -555,9 +565,10 @@ fn burn_stranger_paused() {
 #[test]
 fn query_config() {
     let mut deps = mock_dependencies(&[]);
-    CORE_ADDRESS
-        .save(deps.as_mut().storage, &Addr::unchecked("core"))
+    FACTORY_CONTRACT
+        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
+    mock_state_query(&mut deps);
     DENOM
         .save(deps.as_mut().storage, &String::from("denom"))
         .unwrap();
@@ -566,7 +577,7 @@ fn query_config() {
     assert_eq!(
         response,
         to_json_binary(&ConfigResponse {
-            core_address: "core".to_string(),
+            factory_contract: "factory_contract".to_string(),
             denom: "denom".to_string()
         })
         .unwrap()

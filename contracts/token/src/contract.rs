@@ -4,10 +4,13 @@ use cosmwasm_std::{
     attr, ensure_eq, ensure_ne, entry_point, to_json_binary, Binary, CosmosMsg, Deps, DepsMut, Env,
     MessageInfo, Reply, Response, SubMsg, Uint128,
 };
-use drop_helpers::answer::{attr_coin, response};
+use drop_helpers::{
+    answer::{attr_coin, response},
+    get_contracts,
+};
 use drop_staking_base::{
     msg::token::{ConfigResponse, DenomMetadata, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
-    state::token::{Pause, CORE_ADDRESS, DENOM, PAUSE, TOKEN_METADATA},
+    state::token::{Pause, DENOM, FACTORY_CONTRACT, PAUSE, TOKEN_METADATA},
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -30,8 +33,8 @@ pub fn instantiate(
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(&msg.owner))?;
 
-    let core = deps.api.addr_validate(&msg.core_address)?;
-    CORE_ADDRESS.save(deps.storage, &core)?;
+    let factory_contract = deps.api.addr_validate(&msg.factory_contract)?;
+    FACTORY_CONTRACT.save(deps.storage, &factory_contract)?;
 
     PAUSE.save(deps.storage, &Pause::default())?;
 
@@ -46,7 +49,10 @@ pub fn instantiate(
     Ok(response(
         "instantiate",
         CONTRACT_NAME,
-        [attr("core_address", core), attr("subdenom", msg.subdenom)],
+        [
+            attr("factory_contract", factory_contract),
+            attr("subdenom", msg.subdenom),
+        ],
     )
     .add_submessage(create_denom_msg))
 }
@@ -106,8 +112,14 @@ fn execute_mint(
     }
     ensure_ne!(amount, Uint128::zero(), ContractError::NothingToMint);
 
-    let core = CORE_ADDRESS.load(deps.storage)?;
-    ensure_eq!(info.sender, core, ContractError::Unauthorized);
+    let factory_contract = FACTORY_CONTRACT.load(deps.storage)?;
+    let addrs = get_contracts!(deps, factory_contract, core_contract);
+
+    ensure_eq!(
+        info.sender,
+        addrs.core_contract,
+        ContractError::Unauthorized
+    );
 
     let denom = DENOM.load(deps.storage)?;
     let mint_msg = NeutronMsg::submit_mint_tokens(&denom, amount, &receiver);
@@ -131,8 +143,13 @@ fn execute_burn(
         return Err(drop_helpers::pause::PauseError::Paused {}.into());
     }
 
-    let core = CORE_ADDRESS.load(deps.storage)?;
-    ensure_eq!(info.sender, core, ContractError::Unauthorized);
+    let factory_contract = FACTORY_CONTRACT.load(deps.storage)?;
+    let addrs = get_contracts!(deps, factory_contract, core_contract);
+    ensure_eq!(
+        info.sender,
+        addrs.core_contract,
+        ContractError::Unauthorized
+    );
 
     let denom = DENOM.load(deps.storage)?;
     let amount = cw_utils::must_pay(&info, &denom)?;
@@ -176,10 +193,10 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
     match msg {
         QueryMsg::Ownership {} => Ok(to_json_binary(&cw_ownable::get_ownership(deps.storage)?)?),
         QueryMsg::Config {} => {
-            let core_address = CORE_ADDRESS.load(deps.storage)?.into_string();
+            let factory_contract = FACTORY_CONTRACT.load(deps.storage)?;
             let denom = DENOM.load(deps.storage)?;
             Ok(to_json_binary(&ConfigResponse {
-                core_address,
+                factory_contract: factory_contract.to_string(),
                 denom,
             })?)
         }

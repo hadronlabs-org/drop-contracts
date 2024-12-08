@@ -319,7 +319,7 @@ fn test_instantiate() {
         delegations_queries_chunk_size: Some(2u32),
         owner: Some("owner".to_string()),
         connection_id: "connection_id".to_string(),
-        native_bond_provider: "native_bond_provider".to_string(),
+        factory_contract: "factory_contract".to_string(),
         port_id: "port_id".to_string(),
         update_period: 60u64,
         remote_denom: "remote_denom".to_string(),
@@ -359,7 +359,7 @@ fn test_execute_update_config_unauthorized() {
         new_config: ConfigOptional {
             update_period: Some(121u64),
             remote_denom: Some("new_remote_denom".to_string()),
-            native_bond_provider: Some(Addr::unchecked("native_bond_provider")),
+            factory_contract: Some(Addr::unchecked("factory_contract")),
             allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
             transfer_channel_id: Some("new_transfer_channel_id".to_string()),
             connection_id: Some("new_connection_id".to_string()),
@@ -408,7 +408,7 @@ fn test_execute_update_config() {
             new_config: ConfigOptional {
                 update_period: Some(121u64),
                 remote_denom: Some("new_remote_denom".to_string()),
-                native_bond_provider: Some(Addr::unchecked("native_bond_provider")),
+                factory_contract: Some(Addr::unchecked("factory_contract")),
                 allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
                 transfer_channel_id: Some("new_transfer_channel_id".to_string()),
                 connection_id: Some("new_connection_id".to_string()),
@@ -432,7 +432,7 @@ fn test_execute_update_config() {
                     ("transfer_channel_id", "new_transfer_channel_id"),
                     ("sdk_version", "0.47.0"),
                     ("timeout", "101"),
-                    ("native_bond_provider", "native_bond_provider"),
+                    ("factory_contract", "factory_contract"),
                 ])
         )
     );
@@ -444,7 +444,7 @@ fn test_execute_update_config() {
             delegations_queries_chunk_size: 2u32,
             port_id: "new_port_id".to_string(),
             connection_id: "new_connection_id".to_string(),
-            native_bond_provider: Addr::unchecked("native_bond_provider"),
+            factory_contract: Addr::unchecked("factory_contract"),
             update_period: 121u64,
             remote_denom: "new_remote_denom".to_string(),
             allowed_senders: vec![Addr::unchecked("new_allowed_sender")],
@@ -3663,7 +3663,7 @@ fn get_base_config(sdk_version: String) -> Config {
         delegations_queries_chunk_size: 2u32,
         port_id: "port_id".to_string(),
         connection_id: "connection_id".to_string(),
-        native_bond_provider: Addr::unchecked("native_bond_provider"),
+        factory_contract: Addr::unchecked("factory_contract"),
         update_period: 60u64,
         remote_denom: "remote_denom".to_string(),
         allowed_senders: vec![Addr::unchecked("allowed_sender")],

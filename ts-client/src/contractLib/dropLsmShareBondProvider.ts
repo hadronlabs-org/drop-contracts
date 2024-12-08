@@ -248,15 +248,13 @@ export interface DropLsmShareBondProviderSchema {
   [k: string]: unknown;
 }
 export interface Config {
-  core_contract: Addr;
+  factory_contract: Addr;
   lsm_min_bond_amount: Uint1281;
   lsm_redeem_maximum_interval: number;
   lsm_redeem_threshold: number;
   port_id: string;
-  puppeteer_contract: Addr;
   timeout: number;
   transfer_channel_id: string;
-  validators_set_contract: Addr;
 }
 export interface LastPuppeteerResponse {
   response?: ResponseHookMsg | null;
@@ -362,27 +360,23 @@ export interface UpdateConfigArgs {
   new_config: ConfigOptional;
 }
 export interface ConfigOptional {
-  core_contract?: Addr | null;
+  factory_contract?: Addr | null;
   lsm_min_bond_amount?: Uint1281 | null;
   lsm_redeem_maximum_interval?: number | null;
   lsm_redeem_threshold?: number | null;
   port_id?: string | null;
-  puppeteer_contract?: Addr | null;
   timeout?: number | null;
   transfer_channel_id?: string | null;
-  validators_set_contract?: Addr | null;
 }
 export interface InstantiateMsg {
-  core_contract: string;
+  factory_contract: string;
   lsm_min_bond_amount: Uint1281;
   lsm_redeem_maximum_interval: number;
   lsm_redeem_threshold: number;
   owner: string;
   port_id: string;
-  puppeteer_contract: string;
   timeout: number;
   transfer_channel_id: string;
-  validators_set_contract: string;
 }
 
 

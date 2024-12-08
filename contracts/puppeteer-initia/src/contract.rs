@@ -12,7 +12,7 @@ use cosmwasm_std::{
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{
-    answer::response, ibc_client_state::query_client_state, ibc_fee::query_ibc_fee,
+    answer::response, get_contracts, ibc_client_state::query_client_state, ibc_fee::query_ibc_fee,
     icq_initia::new_delegations_and_balance_query_msg, interchain::prepare_any_msg,
     pause::PauseError, validation::validate_addresses,
 };
@@ -97,7 +97,7 @@ pub fn instantiate(
         transfer_channel_id: msg.transfer_channel_id,
         sdk_version: msg.sdk_version,
         timeout: msg.timeout,
-        native_bond_provider: deps.api.addr_validate(&msg.native_bond_provider)?,
+        factory_contract: deps.api.addr_validate(&msg.factory_contract)?,
         delegations_queries_chunk_size: msg
             .delegations_queries_chunk_size
             .unwrap_or(DEFAULT_DELEGATIONS_QUERIES_CHUNK_SIZE),
@@ -350,11 +350,12 @@ fn execute_delegate(
 
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.storage)?;
+    let addrs = get_contracts!(deps, config.factory_contract, native_bond_provider_contract);
     validate_sender(&config, &info.sender)?;
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
 
     let non_staked_balance = deps.querier.query_wasm_smart::<Uint128>(
-        &config.native_bond_provider,
+        &addrs.native_bond_provider_contract,
         &drop_staking_base::msg::native_bond_provider::QueryMsg::NonStakedBalance {},
     )?;
 

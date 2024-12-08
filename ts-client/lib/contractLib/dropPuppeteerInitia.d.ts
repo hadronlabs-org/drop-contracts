@@ -245,7 +245,7 @@ export interface UpdateConfigArgs {
 export interface ConfigOptional {
     allowed_senders?: string[] | null;
     connection_id?: string | null;
-    native_bond_provider?: Addr | null;
+    factory_contract?: Addr | null;
     port_id?: string | null;
     remote_denom?: string | null;
     sdk_version?: string | null;
@@ -265,7 +265,7 @@ export interface InstantiateMsg {
     allowed_senders: string[];
     connection_id: string;
     delegations_queries_chunk_size?: number | null;
-    native_bond_provider: string;
+    factory_contract: string;
     owner?: string | null;
     port_id: string;
     remote_denom: string;
