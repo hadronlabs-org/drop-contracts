@@ -1,6 +1,8 @@
+use crate::state::puppeteer::Pause;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Addr;
 use cosmwasm_std::{Decimal256, StdError, Uint128, Uint256};
+use cw_storage_plus::Item;
 use drop_proto::proto::initia::mstaking::v1::{Delegation, Validator as InitiaValidator};
 use drop_puppeteer_base::r#trait::PuppeteerReconstruct;
 use neutron_sdk::{interchain_queries::v045::types::Balances, NeutronError, NeutronResult};
@@ -151,3 +153,5 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
         })
     }
 }
+
+pub const PAUSE: Item<Pause> = Item::new("pause");

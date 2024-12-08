@@ -42,6 +42,7 @@ pub const PENDING_LSM_SHARES: Map<String, (String, Uint128, Uint128)> =
 pub const LSM_SHARES_TO_REDEEM: Map<String, (String, Uint128, Uint128)> =
     Map::new("lsm_shares_to_redeem_v0");
 pub const LAST_LSM_REDEEM: Item<u64> = Item::new("last_lsm_redeem_v0");
+pub const PAUSE: Item<bool> = Item::new("pause");
 
 pub use reply_msg::ReplyMsg;
 pub mod reply_msg {

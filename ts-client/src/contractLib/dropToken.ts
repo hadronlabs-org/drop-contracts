@@ -66,8 +66,8 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropTokenSchema {
-  responses: ConfigResponse | OwnershipForString;
-  execute: MintArgs | SetTokenMetadataArgs | UpdateOwnershipArgs;
+  responses: ConfigResponse | OwnershipForString | Pause;
+  execute: MintArgs | SetTokenMetadataArgs | SetPauseArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
@@ -91,6 +91,10 @@ export interface OwnershipForString {
    * The account who has been proposed to take over the ownership. `None` if there isn't a pending ownership transfer.
    */
   pending_owner?: string | null;
+}
+export interface Pause {
+  burn: boolean;
+  mint: boolean;
 }
 export interface MintArgs {
   amount: Uint128;
@@ -128,6 +132,14 @@ export interface DenomMetadata {
    * SHA256 hash of a document pointed by URI
    */
   uri_hash?: string | null;
+}
+export interface SetPauseArgs {
+  type?: "object";
+  required?: ["burn", "mint"];
+  properties?: {
+    [k: string]: unknown;
+  };
+  additionalProperties?: never;
 }
 export interface InstantiateMsg {
   factory_contract: string;
@@ -185,6 +197,9 @@ export class Client {
   queryConfig = async(): Promise<ConfigResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
+  queryPause = async(): Promise<Pause> => {
+    return this.client.queryContractSmart(this.contractAddress, { pause: {} });
+  }
   queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
   }
@@ -199,6 +214,10 @@ export class Client {
   setTokenMetadata = async(sender:string, args: SetTokenMetadataArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { set_token_metadata: args }, fee || "auto", memo, funds);
+  }
+  setPause = async(sender:string, args: SetPauseArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { set_pause: args }, fee || "auto", memo, funds);
   }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
