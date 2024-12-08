@@ -1236,6 +1236,36 @@ describe('Core', () => {
     );
   });
 
+  it('Unpause token mint', async () => {
+    const { factoryContractClient, tokenContractClient } = context;
+    await factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: tokenContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    set_pause: {
+                      mint: false,
+                      burn: true,
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      'auto',
+      '',
+      [],
+    );
+  });
+
   it('bond w/o receiver', async () => {
     const {
       coreContractClient,
