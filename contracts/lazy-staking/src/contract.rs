@@ -33,9 +33,6 @@ pub fn instantiate(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(info.sender.as_str()))?;
-    msg.config.validate_base_denom(deps.as_ref())?;
-    msg.config.validate_splitting_targets(deps.as_ref())?;
-    msg.config.validate_factory_addr(deps.as_ref())?;
 
     CONFIG.save(deps.storage, &msg.config)?;
     EXCHANGE_RATE.save(deps.storage, &Decimal::one())?;
@@ -136,42 +133,28 @@ pub fn execute(
                 [],
             ))
         }
-        ExecuteMsg::Bond => execute_bond(deps, info),
-        ExecuteMsg::Unbond => execute_unbond(deps, info),
-        ExecuteMsg::WithdrawRewards => execute_withdaw_rewards(deps, env, info),
+        ExecuteMsg::Bond {} => execute_bond(deps, info),
+        ExecuteMsg::Unbond {} => execute_unbond(deps, info),
+        ExecuteMsg::WithdrawRewards {} => execute_withdaw_rewards(deps, env, info),
     }
 }
 
 fn execute_withdaw_rewards(
     deps: DepsMut,
     env: Env,
-    info: MessageInfo,
+    _info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     let rewards = query_rewards(deps.as_ref(), env)?;
     let attrs = Vec::<Attribute>::new();
-    let splitting_total_weight = config
-        .splitting_targets
-        .clone()
-        .into_iter()
-        .fold(Uint128::zero(), |accum, target| {
-            accum + target.unbonding_weight
-        });
-    let mut msgs = Vec::<CosmosMsg<NeutronMsg>>::new();
-    for splitting_target in config.splitting_targets.into_iter() {
-        let numerator = Decimal::from_ratio(splitting_target.unbonding_weight, Uint128::one());
-        let denominator = Decimal::from_ratio(splitting_total_weight, Uint128::one());
-        let rewards_part = rewards * (numerator / denominator);
-        let bank_send_msg = CosmosMsg::Bank(BankMsg::Send {
-            to_address: info.sender.to_string(),
-            amount: vec![Coin {
-                denom: config.base_denom.clone(),
-                amount: rewards_part,
-            }],
-        });
-        msgs.push(bank_send_msg);
-    }
-    Ok(response("execute-withdraw-rewards", CONTRACT_NAME, attrs).add_messages(msgs))
+    let bank_msg = CosmosMsg::Bank(BankMsg::Send {
+        to_address: config.rewards_receiver.to_string(),
+        amount: vec![Coin {
+            denom: config.base_denom.clone(),
+            amount: rewards,
+        }],
+    });
+    Ok(response("execute-withdraw-rewards", CONTRACT_NAME, attrs).add_message(bank_msg))
 }
 
 fn execute_unbond(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {

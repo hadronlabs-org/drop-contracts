@@ -15,17 +15,17 @@ pub struct InstantiateMsg {
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     #[returns(cosmwasm_std::Decimal)]
-    ExchangeRate,
+    ExchangeRate {},
     #[returns(cosmwasm_std::Decimal)]
-    Rewards,
+    Rewards {},
 }
 
 #[cw_ownable::cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
-    Bond,
-    Unbond,
-    WithdrawRewards,
+    Bond {},
+    Unbond {},
+    WithdrawRewards {},
 }
 
 #[cw_serde]
