@@ -34,30 +34,27 @@ impl Config {
         if total_supply.is_err() || total_supply.unwrap().amount.is_zero() {
             return Ok(());
         }
-        return Err(ContractError::BaseDenomError {});
+        Err(ContractError::BaseDenomError {})
     }
 
     pub fn validate_splitting_targets(&self, deps: Deps) -> Result<(), ContractError> {
         let mut accum: Uint128 = Uint128::zero();
-        for target in self.splitting_targets.iter() {
-            let checked_add = accum.checked_add(target.unbonding_weight);
-            if checked_add.is_err() {
-                return Err(ContractError::OverflowError(checked_add.unwrap_err()));
-            }
-            accum = checked_add.unwrap();
-
-            if deps.api.addr_validate(target.addr.as_str()).is_err() {
-                return Err(ContractError::InvalidAddressProvided {});
-            }
+        for target in &self.splitting_targets {
+            accum = accum
+                .checked_add(target.unbonding_weight)
+                .map_err(ContractError::OverflowError)?;
+            deps.api
+                .addr_validate(target.addr.as_str())
+                .map_err(|_| ContractError::InvalidAddressProvided {})?;
         }
-        return Ok(());
+        Ok(())
     }
 
     pub fn validate_factory_addr(&self, deps: Deps) -> Result<(), ContractError> {
         if deps.api.addr_validate(self.factory_addr.as_str()).is_err() {
             return Err(ContractError::InvalidAddressProvided {});
         }
-        return Ok(());
+        Ok(())
     }
 }
 

@@ -4,32 +4,12 @@ version = "0.1.0"
 authors = ["Vladislav Vasilev <81014877+faust403@users.noreply.github.com>"]
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [lib]
 crate-type = ["cdylib", "rlib"]
-
-[profile.release]
-opt-level = 3
-debug = false
-rpath = false
-lto = true
-debug-assertions = false
-codegen-units = 1
-panic = 'abort'
-incremental = false
-overflow-checks = true
 
 [features]
 # use library feature to disable all instantiate/execute/query exports
 library = []
-
-[package.metadata.scripts]
-optimize = """docker run --rm -v "$(pwd)":/code \
-  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target \
-  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  cosmwasm/optimizer:0.15.0
-"""
 
 [dependencies]
 cosmwasm-schema = "2.1.0"

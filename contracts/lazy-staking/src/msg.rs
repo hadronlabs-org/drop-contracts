@@ -1,6 +1,6 @@
 use crate::state::Config;
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Decimal, DenomMetadata};
+use cosmwasm_std::DenomMetadata;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -14,9 +14,9 @@ pub struct InstantiateMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(Decimal)]
+    #[returns(cosmwasm_std::Decimal)]
     ExchangeRate,
-    #[returns(Decimal)]
+    #[returns(cosmwasm_std::Decimal)]
     Rewards,
 }
 
