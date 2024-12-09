@@ -10,11 +10,12 @@ use crate::state::EXCHANGE_RATE;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
     _msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
+    EXCHANGE_RATE.save(deps.storage, &Decimal::zero())?;
     Ok(Response::new())
 }
 
