@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
+    "contracts/template/core",
+    "contracts/template/factory",
     "contracts/astroport-exchange-handler",
     "contracts/auto-withdrawer",
     "contracts/core",

@@ -61,7 +61,7 @@ fn test_execute_lazy_denom() {
         ))
         .unwrap()
     });
-    let res = execute(
+    let _res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
         mock_info(
@@ -100,7 +100,7 @@ fn test_execute_lazy_denom() {
         ))
         .unwrap()
     });
-    let res = execute(
+    let _res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
         mock_info(
