@@ -32,6 +32,9 @@ class Client {
     queryRewards = async () => {
         return this.client.queryContractSmart(this.contractAddress, { rewards: {} });
     };
+    queryDenom = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { denom: {} });
+    };
     queryOwnership = async () => {
         return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
     };

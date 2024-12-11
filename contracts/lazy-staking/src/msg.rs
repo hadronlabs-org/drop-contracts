@@ -18,6 +18,8 @@ pub enum QueryMsg {
     ExchangeRate {},
     #[returns(cosmwasm_std::Decimal)]
     Rewards {},
+    #[returns(String)]
+    Denom {},
 }
 
 #[cw_ownable::cw_ownable_execute]

@@ -1,6 +1,7 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
 import { Coin } from "@cosmjs/amino";
+export type String = string;
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
@@ -64,7 +65,7 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropLazyStakingSchema {
-  responses: Decimal | OwnershipForString | Decimal1;
+  responses: String | Decimal | OwnershipForString | Decimal1;
   execute: UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
@@ -172,6 +173,9 @@ export class Client {
   }
   queryRewards = async(): Promise<Decimal> => {
     return this.client.queryContractSmart(this.contractAddress, { rewards: {} });
+  }
+  queryDenom = async(): Promise<String> => {
+    return this.client.queryContractSmart(this.contractAddress, { denom: {} });
   }
   queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });

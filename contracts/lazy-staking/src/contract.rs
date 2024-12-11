@@ -59,6 +59,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         )?),
         QueryMsg::ExchangeRate {} => Ok(to_json_binary(&query_exchange_rate(deps, env)?)?),
         QueryMsg::Rewards {} => Ok(to_json_binary(&query_rewards(deps, env)?)?),
+        QueryMsg::Denom {} => Ok(to_json_binary(&DENOM.load(deps.storage)?)?),
     }
 }
 

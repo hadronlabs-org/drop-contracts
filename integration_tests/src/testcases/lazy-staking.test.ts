@@ -33,6 +33,7 @@ describe('Lazy Staking', () => {
     factoryContractClient?: InstanceType<typeof DropTemplateFactoryClient>;
 
     dntrnDenom?: string;
+    ldntrnDenom?: string;
   } = {};
 
   beforeAll(async (t) => {
@@ -171,7 +172,7 @@ describe('Lazy Staking', () => {
       );
       context.dntrnDenom = await context.tokenContractClient.queryDenom();
       await context.tokenContractClient.mint(account.address, {
-        amount: '1000000',
+        amount: '1000000000',
       });
     }
     {
@@ -213,6 +214,20 @@ describe('Lazy Staking', () => {
         client,
         contractAddress,
       );
+      context.ldntrnDenom = await context.lazyStakingClient.queryDenom();
     }
+  });
+
+  it('Send 10 dNTRN and get 10 ldNTRN back', async () => {
+    const { lazyStakingClient, client, account, dntrnDenom, ldntrnDenom } =
+      context;
+    await lazyStakingClient.bond(account.address, undefined, undefined, [
+      {
+        denom: dntrnDenom,
+        amount: '10000000',
+      },
+    ]);
+    const { amount } = await client.getBalance(account.address, ldntrnDenom);
+    expect(amount).toEqual('10000000');
   });
 });
