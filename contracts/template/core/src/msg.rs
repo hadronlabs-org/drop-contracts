@@ -15,3 +15,6 @@ pub enum QueryMsg {
     #[returns(Decimal)]
     ExchangeRate {},
 }
+
+#[cw_serde]
+pub struct MigrateMsg {}

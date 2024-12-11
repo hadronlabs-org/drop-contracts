@@ -15,3 +15,6 @@ pub enum QueryMsg {
     #[returns(FactoryState)]
     State {},
 }
+
+#[cw_serde]
+pub struct MigrateMsg {}

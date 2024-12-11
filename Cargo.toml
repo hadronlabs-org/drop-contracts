@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "contracts/template/core",
     "contracts/template/factory",
+    "contracts/template/token",
     "contracts/astroport-exchange-handler",
     "contracts/auto-withdrawer",
     "contracts/core",

@@ -1046,7 +1046,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "drop-template-core-contract"
+name = "drop-template-core"
 version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
@@ -1060,7 +1060,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "drop-template-factory-contract"
+name = "drop-template-factory"
 version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
@@ -1069,6 +1069,26 @@ dependencies = [
  "cw2 1.1.2",
  "drop-staking-base",
  "schemars",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "drop-template-token"
+version = "0.1.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "schemars",
+ "semver",
  "serde",
  "thiserror",
 ]

@@ -1,5 +1,5 @@
 [package]
-name = "drop-template-core-contract"
+name = "drop-template-core"
 version = "0.1.0"
 authors = ["Vladislav Vasilev <81014877+faust403@users.noreply.github.com>"]
 edition = "2021"
