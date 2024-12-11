@@ -257,4 +257,51 @@ describe('Lazy Staking', () => {
     const { amount } = await client.getBalance(account.address, ldntrnDenom);
     expect(amount).toEqual('1010000000');
   });
+
+  it('Exchange rate now 100', async () => {
+    const { coreContractClient, account } = context;
+    await coreContractClient.updateExchangeRate(account.address, {
+      exchange_rate: '100',
+    });
+    expect(await coreContractClient.queryExchangeRate()).toEqual('100');
+  });
+
+  it("If we have 1010 ldNTRN, they're now equal to 10.1 dNTRN (because 1 dNTRN equals 100 NTRN)", async () => {
+    const { lazyStakingClient } = context;
+    const rewards = await lazyStakingClient.queryRewards();
+    expect(rewards).toEqual('99900000');
+  });
+
+  it('Unbond tokens back and make sure we have 10.1 dNTRN back', async () => {
+    const {
+      lazyStakingClient,
+      coreContractClient,
+      account,
+      ldntrnDenom,
+      dntrnDenom,
+    } = context;
+    const { events } = await lazyStakingClient.unbond(
+      account.address,
+      undefined,
+      undefined,
+      [
+        {
+          denom: ldntrnDenom,
+          amount: '1010000000',
+        },
+      ],
+    );
+    const attrs = events
+      .filter((e) => e.type == 'coin_received')
+      .map((e) => e.attributes)
+      .flat();
+    expect(attrs).toContainEqual({
+      key: 'amount',
+      value: '10100000' + dntrnDenom,
+    });
+    const core_exchange_rate = Number(
+      await coreContractClient.queryExchangeRate(),
+    );
+    expect(10100000 * core_exchange_rate).toEqual(1010000000);
+  });
 });
