@@ -58,26 +58,29 @@ export const DropSplitter = _18;
 import * as _19 from './dropStrategy';
 export const DropStrategy = _19;
 
-import * as _20 from './dropTemplateCoreContract';
-export const DropTemplateCoreContract = _20;
+import * as _20 from './dropTemplateCore';
+export const DropTemplateCore = _20;
 
-import * as _21 from './dropTemplateFactoryContract';
-export const DropTemplateFactoryContract = _21;
+import * as _21 from './dropTemplateFactory';
+export const DropTemplateFactory = _21;
 
-import * as _22 from './dropToken';
-export const DropToken = _22;
+import * as _22 from './dropTemplateToken';
+export const DropTemplateToken = _22;
 
-import * as _23 from './dropValRef';
-export const DropValRef = _23;
+import * as _23 from './dropToken';
+export const DropToken = _23;
 
-import * as _24 from './dropValidatorsSet';
-export const DropValidatorsSet = _24;
+import * as _24 from './dropValRef';
+export const DropValRef = _24;
 
-import * as _25 from './dropValidatorsStats';
-export const DropValidatorsStats = _25;
+import * as _25 from './dropValidatorsSet';
+export const DropValidatorsSet = _25;
 
-import * as _26 from './dropWithdrawalManager';
-export const DropWithdrawalManager = _26;
+import * as _26 from './dropValidatorsStats';
+export const DropValidatorsStats = _26;
 
-import * as _27 from './dropWithdrawalVoucher';
-export const DropWithdrawalVoucher = _27;
+import * as _27 from './dropWithdrawalManager';
+export const DropWithdrawalManager = _27;
+
+import * as _28 from './dropWithdrawalVoucher';
+export const DropWithdrawalVoucher = _28;
