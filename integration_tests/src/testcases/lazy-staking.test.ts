@@ -9,15 +9,17 @@ import { join } from 'path';
 import fs from 'fs';
 import {
   DropLazyStaking,
-  DropTemplateCoreContract,
-  DropTemplateFactoryContract,
+  DropTemplateCore,
+  DropTemplateToken,
+  DropTemplateFactory,
 } from 'drop-ts-client';
 
 const DropLazyStakingClient = DropLazyStaking.Client;
-const DropTemplateCoreClient = DropTemplateCoreContract.Client;
-const DropTemplateFactoryClient = DropTemplateFactoryContract.Client;
+const DropTemplateCoreClient = DropTemplateCore.Client;
+const DropTemplateTokenClient = DropTemplateToken.Client;
+const DropTemplateFactoryClient = DropTemplateFactory.Client;
 
-describe('Splitter', () => {
+describe('Lazy Staking', () => {
   const context: {
     park?: Cosmopark;
     wallet?: DirectSecp256k1HdWallet;
@@ -27,7 +29,10 @@ describe('Splitter', () => {
 
     lazyStakingClient?: InstanceType<typeof DropLazyStakingClient>;
     coreContractClient?: InstanceType<typeof DropTemplateCoreClient>;
+    tokenContractClient?: InstanceType<typeof DropTemplateTokenClient>;
     factoryContractClient?: InstanceType<typeof DropTemplateFactoryClient>;
+
+    dntrnDenom?: string;
   } = {};
 
   beforeAll(async (t) => {
@@ -70,10 +75,7 @@ describe('Splitter', () => {
       const { codeId } = await client.upload(
         account.address,
         fs.readFileSync(
-          join(
-            __dirname,
-            '../../../artifacts/drop_template_core_contract.wasm',
-          ),
+          join(__dirname, '../../../artifacts/drop_template_core.wasm'),
         ),
         1.5,
       );
@@ -90,15 +92,15 @@ describe('Splitter', () => {
         client,
         contractAddress,
       );
+      await context.coreContractClient.updateExchangeRate(account.address, {
+        exchange_rate: '1',
+      });
     }
     {
       const { codeId } = await client.upload(
         account.address,
         fs.readFileSync(
-          join(
-            __dirname,
-            '../../../artifacts/drop_template_factory_contract.wasm',
-          ),
+          join(__dirname, '../../../artifacts/drop_template_factory.wasm'),
         ),
         1.5,
       );
@@ -115,6 +117,62 @@ describe('Splitter', () => {
         client,
         contractAddress,
       );
+      await context.factoryContractClient.updateState(account.address, {
+        state: {
+          core_contract: context.coreContractClient.contractAddress,
+          distribution_contract: 'distribution_contract',
+          lsm_share_bond_provider_contract: 'lsm_share_bond_provider_contract',
+          native_bond_provider_contract: 'native_bond_provider_contract',
+          puppeteer_contract: 'puppeteer_contract',
+          rewards_manager_contract: 'rewards_manager_contract',
+          rewards_pump_contract: 'rewards_pump_contract',
+          splitter_contract: 'splitter_contract',
+          strategy_contract: 'strategy_contract',
+          token_contract: 'token_contract',
+          validators_set_contract: 'validators_set_contract',
+          withdrawal_manager_contract: 'withdrawal_manager_contract',
+          withdrawal_voucher_contract: 'withdrawal_voucher_contract',
+        },
+      });
+    }
+    {
+      const { codeId } = await client.upload(
+        account.address,
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_template_token.wasm'),
+        ),
+        1.5,
+      );
+      const { contractAddress } = await DropTemplateTokenClient.instantiate(
+        client,
+        account.address,
+        codeId,
+        {
+          exponent: 6,
+          subdenom: 'dNTRN',
+          token_metadata: {
+            description: 'description',
+            denom_units: [],
+            base: '6',
+            display: 'dNTRN',
+            name: 'dNTRN',
+            symbol: 'dNTRN',
+            uri: '',
+            uri_hash: '',
+          },
+        },
+        'label',
+        'auto',
+        [],
+      );
+      context.tokenContractClient = new DropTemplateTokenClient(
+        client,
+        contractAddress,
+      );
+      context.dntrnDenom = await context.tokenContractClient.queryDenom();
+      await context.tokenContractClient.mint(account.address, {
+        amount: '1000000',
+      });
     }
     {
       const { codeId } = await client.upload(
@@ -132,7 +190,7 @@ describe('Splitter', () => {
           exponent: 6,
           subdenom: 'ldNTRN',
           token_metadata: {
-            description: 'lazy derivative for Drop Neutron',
+            description: 'lazy derivative for Drop derivative for Neutron',
             denom_units: [],
             base: '6',
             display: 'ldNTRN',
@@ -143,7 +201,7 @@ describe('Splitter', () => {
           },
           config: {
             factory_addr: context.factoryContractClient.contractAddress,
-            base_denom: 'untrn',
+            base_denom: context.dntrnDenom,
             rewards_receiver: account.address,
           },
         },

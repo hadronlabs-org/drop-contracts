@@ -29,8 +29,6 @@ export interface InstantiateMsg {
     exponent: number;
     subdenom: string;
     token_metadata: DenomMetadata;
-    unbonding_period: number;
-    withdrawal_voucher_code_id: number;
 }
 /**
  * Replicates the cosmos-sdk bank module Metadata type
