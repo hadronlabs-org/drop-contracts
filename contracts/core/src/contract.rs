@@ -2,7 +2,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankQuery, Binary, Coin,
     CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest,
-    Response, StdError, StdResult, SubMsg, Uint128, Uint64, WasmMsg,
+    Response, StdError, StdResult, Uint128, Uint64, WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
@@ -24,9 +24,9 @@ use drop_staking_base::{
         core::{
             unbond_batches_map, Config, ConfigOptional, ContractState, Pause, UnbondBatch,
             UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse, BOND_HOOKS,
-            BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM,
-            LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM,
-            MAX_BOND_PROVIDERS, PAUSE, UNBOND_BATCH_ID,
+            BOND_PROVIDERS, CONFIG, EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT,
+            LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM, MAX_BOND_PROVIDERS, PAUSE,
+            UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
         withdrawal_voucher::{Metadata, Trait},
@@ -567,7 +567,6 @@ fn execute_tick_idle(
     let mut attrs = vec![attr("action", "tick_idle"), attr("knot", "000")];
     let last_idle_call = LAST_IDLE_CALL.load(deps.storage)?;
     let mut messages = vec![];
-    let mut sub_msgs = vec![];
     cache_exchange_rate(deps.branch(), env.clone(), config)?;
     let addrs = drop_helpers::get_contracts!(
         deps,
@@ -588,18 +587,15 @@ fn execute_tick_idle(
         if can_process_on_idle.unwrap_or(false) {
             attrs.push(attr("knot", "036")); // provider can process on idle
             attrs.push(attr("used_bond_provider", provider.to_string()));
-            let sub_msg = SubMsg::reply_on_error(
-                CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: provider.to_string(),
-                    msg: to_json_binary(
-                        &drop_staking_base::msg::bond_provider::ExecuteMsg::ProcessOnIdle {},
-                    )?,
-                    funds: info.funds.clone(),
-                }),
-                BOND_PROVIDER_REPLY_ID,
-            );
+            let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: provider.to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::bond_provider::ExecuteMsg::ProcessOnIdle {},
+                )?,
+                funds: info.funds.clone(),
+            });
 
-            sub_msgs.push(sub_msg);
+            messages.push(msg);
 
             FSM.go_to(deps.storage, ContractState::Peripheral)?;
         }
@@ -782,9 +778,7 @@ fn execute_tick_idle(
         }
     }
 
-    Ok(response("execute-tick_idle", CONTRACT_NAME, attrs)
-        .add_messages(messages)
-        .add_submessages(sub_msgs))
+    Ok(response("execute-tick_idle", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 fn execute_tick_peripheral(
@@ -983,7 +977,6 @@ fn execute_bond(
     let addrs = drop_helpers::get_contracts!(deps, config.factory_contract, token_contract);
     let Coin { amount, denom } = bonded_coin.clone();
     let mut msgs = vec![];
-    let mut sub_msgs = vec![];
     let mut attrs = vec![attr("action", "bond")];
     let exchange_rate = query_exchange_rate(deps.as_ref(), &config)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
@@ -1008,18 +1001,13 @@ fn execute_bond(
             )?;
             attrs.push(attr("issue_amount", issue_amount.to_string()));
 
-            let sub_msg = SubMsg::reply_on_error(
-                CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: provider.to_string(),
-                    msg: to_json_binary(
-                        &drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {},
-                    )?,
-                    funds: vec![Coin::new(amount.u128(), denom.clone())],
-                }),
-                BOND_PROVIDER_REPLY_ID,
-            );
+            let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: provider.to_string(),
+                msg: to_json_binary(&drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {})?,
+                funds: vec![Coin::new(amount.u128(), denom.clone())],
+            });
 
-            sub_msgs.push(sub_msg);
+            msgs.push(msg);
 
             let receiver = receiver.clone().map_or(
                 Ok::<String, ContractError>(info.sender.to_string()),
@@ -1074,9 +1062,7 @@ fn execute_bond(
         }
     );
 
-    Ok(response("execute-bond", CONTRACT_NAME, attrs)
-        .add_submessages(sub_msgs)
-        .add_messages(msgs))
+    Ok(response("execute-bond", CONTRACT_NAME, attrs).add_messages(msgs))
 }
 
 fn execute_update_config(
