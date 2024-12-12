@@ -649,11 +649,13 @@ fn process_on_idle_delegation() {
 
     deps.querier
         .add_wasm_query_response("strategy_contract", |_| {
-            to_json_binary(&vec![(
-                "valoper_address".to_string(),
-                Uint128::from(1000u128),
-            )])
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&vec![(
+                    "valoper_address".to_string(),
+                    Uint128::from(1000u128),
+                )])
+                .unwrap(),
+            )
         });
 
     let res = crate::contract::execute(
@@ -723,12 +725,14 @@ fn process_on_idle_ibc_transfer() {
 
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&IcaState::Registered {
-                ica_address: "ica_address".to_string(),
-                port_id: "port_id".to_string(),
-                channel_id: "channel_id".to_string(),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&IcaState::Registered {
+                    ica_address: "ica_address".to_string(),
+                    port_id: "port_id".to_string(),
+                    channel_id: "channel_id".to_string(),
+                })
+                .unwrap(),
+            )
         });
 
     let mocked_env = mock_env();
