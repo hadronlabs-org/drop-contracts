@@ -690,6 +690,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-factory-native"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-multi-test",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-macros",
+ "drop-puppeteer-base",
+ "drop-staking-base",
+ "neutron-sdk",
+ "semver",
+ "thiserror",
+]
+
+[[package]]
 name = "drop-helpers"
 version = "1.0.0"
 dependencies = [
@@ -772,6 +791,23 @@ dependencies = [
 
 [[package]]
 name = "drop-native-bond-provider"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-puppeteer-base",
+ "drop-staking-base",
+ "neutron-sdk",
+ "semver",
+ "serde-json-wasm 1.0.1",
+]
+
+[[package]]
+name = "drop-native-simple-bond-provider"
 version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
@@ -937,6 +973,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-puppeteer-native"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-puppeteer-base",
+ "drop-staking-base",
+ "neutron-sdk",
+ "prost",
+ "semver",
+]
+
+[[package]]
 name = "drop-redemption-rate-adapter"
 version = "1.0.0"
 dependencies = [
@@ -1007,6 +1060,7 @@ dependencies = [
  "semver",
  "serde",
  "thiserror",
+ "time",
 ]
 
 [[package]]
@@ -1461,9 +1515,9 @@ dependencies = [
 
 [[package]]
 name = "protobuf"
-version = "3.7.1"
+version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3a7c64d9bf75b1b8d981124c14c179074e8caa7dfe7b6a12e6222ddcd0c8f72"
+checksum = "b65f4a8ec18723a734e5dc09c173e0abf9690432da5340285d536edcb4dac190"
 dependencies = [
  "once_cell",
  "protobuf-support",
@@ -1472,9 +1526,9 @@ dependencies = [
 
 [[package]]
 name = "protobuf-support"
-version = "3.7.1"
+version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b088fd20b938a875ea00843b6faf48579462630015c3788d397ad6a786663252"
+checksum = "6872f4d4f4b98303239a2b5838f5bbbb77b01ffc892d627957f37a22d7cfe69c"
 dependencies = [
  "thiserror",
 ]
@@ -1808,13 +1862,14 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.36"
+version = "0.3.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5dfd88e563464686c916c7e46e623e520ddc6d79fa6641390f2e3fa86e83e885"
+checksum = "35e7868883861bd0e56d9ac6efcaaca0d6d5d82a2a7ec8209ff492c07cf37b21"
 dependencies = [
  "deranged",
  "num-conv",
  "powerfmt",
+ "serde",
  "time-core",
  "time-macros",
 ]
@@ -1827,9 +1882,9 @@ checksum = "ef927ca75afb808a4d64dd374f00a2adf8d0fcff8e7b184af886c3c87ec4a3f3"
 
 [[package]]
 name = "time-macros"
-version = "0.2.18"
+version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f252a68540fde3a3877aeea552b832b40ab9a69e318efd078774a01ddee1ccf"
+checksum = "2834e6017e3e5e4b9834939793b282bc03b37a3336245fa820e35e233e2a85de"
 dependencies = [
  "num-conv",
  "time-core",

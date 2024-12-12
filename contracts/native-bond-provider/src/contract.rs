@@ -9,10 +9,9 @@ use drop_helpers::answer::{attr_coin, response};
 use drop_helpers::ibc_client_state::query_client_state;
 use drop_helpers::ibc_fee::query_ibc_fee;
 use drop_puppeteer_base::peripheral_hook::{
-    IBCTransferReason, ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg, ResponseHookMsg,
+    IBCTransferReason, ReceiverExecuteMsg, ResponseHookErrorMsg, ResponseHookMsg,
     ResponseHookSuccessMsg, Transaction,
 };
-use drop_puppeteer_base::proto::MsgIBCTransfer;
 use drop_staking_base::error::native_bond_provider::{ContractError, ContractResult};
 use drop_staking_base::msg::core::LastPuppeteerResponse;
 use drop_staking_base::msg::native_bond_provider::{
@@ -570,8 +569,6 @@ fn sudo_error(
         contract_addr: config.core_contract.to_string(),
         msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(ResponseHookMsg::Error(
             ResponseHookErrorMsg {
-                request_id: seq_id,
-                request,
                 transaction,
                 details,
             },
@@ -637,10 +634,7 @@ fn sudo_response(
         "WASMDEBUG: json: {request:?}",
         request = to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
-                request_id: seq_id,
-                request: request.clone(),
                 transaction: transaction.clone(),
-                answers: vec![ResponseAnswer::IBCTransfer(MsgIBCTransfer {})],
                 local_height: env.block.height,
                 remote_height: remote_height.u64(),
             },)
@@ -650,10 +644,7 @@ fn sudo_response(
         contract_addr: config.core_contract.to_string(),
         msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
-                request_id: seq_id,
-                request: request.clone(),
                 transaction: transaction.clone(),
-                answers: vec![ResponseAnswer::IBCTransfer(MsgIBCTransfer {})],
                 local_height: env.block.height,
                 remote_height: remote_height.u64(),
             }),

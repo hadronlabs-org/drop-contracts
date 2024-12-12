@@ -38,7 +38,6 @@ use drop_puppeteer_base::{
         ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg, ResponseHookMsg,
         ResponseHookSuccessMsg, Transaction,
     },
-    proto::MsgIBCTransfer,
     r#trait::PuppeteerReconstruct,
     state::{
         BalancesAndDelegationsState, PuppeteerBase, RedeemShareItem, ReplyMsg, TxState,
@@ -64,7 +63,6 @@ use neutron_sdk::{
     sudo::msg::{RequestPacket, SudoMsg},
     NeutronResult,
 };
-use prost::Message;
 use std::{str::FromStr, vec};
 
 pub type Puppeteer<'a> = PuppeteerBase<'a, Config, KVQueryType, BalancesAndDelegations>;
@@ -968,7 +966,7 @@ fn sudo_response(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     request: RequestPacket,
-    data: Binary,
+    _data: Binary,
 ) -> NeutronResult<Response<NeutronMsg>> {
     deps.api.debug("WASMDEBUG: sudo response");
     let seq_id = request
@@ -1010,13 +1008,6 @@ fn sudo_response(
             reply_to: None,
         },
     )?;
-    let answers = match transaction {
-        Transaction::IBCTransfer { .. } => vec![ResponseAnswer::IBCTransfer(MsgIBCTransfer {})],
-        _ => {
-            let msg_data: TxMsgData = TxMsgData::decode(data.as_slice())?;
-            get_answers_from_msg_data(deps.as_ref(), msg_data)?
-        }
-    };
 
     let client_state = query_client_state(&deps.as_ref(), channel_id, port_id)?;
     let remote_height = client_state
@@ -1031,10 +1022,7 @@ fn sudo_response(
         "WASMDEBUG: json: {request:?}",
         request = to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
-                request_id: seq_id,
-                request: request.clone(),
                 transaction: transaction.clone(),
-                answers: answers.clone(),
                 local_height: env.block.height,
                 remote_height: remote_height.u64(),
             },)
@@ -1046,10 +1034,7 @@ fn sudo_response(
             contract_addr: reply_to.clone(),
             msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
                 ResponseHookMsg::Success(ResponseHookSuccessMsg {
-                    request_id: seq_id,
-                    request: request.clone(),
                     transaction: transaction.clone(),
-                    answers,
                     local_height: env.block.height,
                     remote_height: remote_height.u64(),
                 }),
@@ -1150,9 +1135,6 @@ fn sudo_error(
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
     puppeteer_base.validate_tx_waiting_state(deps.as_ref())?;
 
-    let seq_id = request
-        .sequence
-        .ok_or_else(|| StdError::generic_err("sequence not found"))?;
     let transaction = tx_state
         .transaction
         .ok_or_else(|| StdError::generic_err("transaction not found"))?;
@@ -1168,8 +1150,6 @@ fn sudo_error(
             .ok_or_else(|| StdError::generic_err("reply_to not found"))?,
         msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(ResponseHookMsg::Error(
             ResponseHookErrorMsg {
-                request_id: seq_id,
-                request,
                 transaction,
                 details,
             },
@@ -1202,9 +1182,7 @@ fn sudo_timeout(
         attr("request_id", request.sequence.unwrap_or(0).to_string()),
     ];
     let puppeteer_base = Puppeteer::default();
-    let seq_id = request
-        .sequence
-        .ok_or_else(|| StdError::generic_err("sequence not found"))?;
+
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
     let transaction = tx_state
         .transaction
@@ -1234,8 +1212,6 @@ fn sudo_timeout(
             .ok_or_else(|| StdError::generic_err("reply_to not found"))?,
         msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(ResponseHookMsg::Error(
             ResponseHookErrorMsg {
-                request_id: seq_id,
-                request,
                 transaction,
                 details: "Timeout".to_string(),
             },

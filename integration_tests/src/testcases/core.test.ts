@@ -290,174 +290,208 @@ describe('Core', () => {
     context.codeIds = {};
 
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_core.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_core.wasm')),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.core = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_token.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_token.wasm')),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.token = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.withdrawalVoucher = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_withdrawal_manager.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_withdrawal_manager.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.withdrawalManager = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_pump.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.pump = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_strategy.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_strategy.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.strategy = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_distribution.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_distribution.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.distribution = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.validatorsSet = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_puppeteer.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_puppeteer.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.puppeteer = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.rewardsManager = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_splitter.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.splitter = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_redemption_rate_adapter.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../../artifacts/drop_redemption_rate_adapter.wasm',
-          ),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.redemptionRateAdapter = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_lsm_share_bond_provider.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../../artifacts/drop_lsm_share_bond_provider.wasm',
-          ),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.lsmShareBondProvider = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_native_bond_provider.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_native_bond_provider.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.nativeBondProvider = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_val_ref.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_val_ref.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.valRef = res.codeId;
     }
 
+    const buffer = fs.readFileSync(
+      join(__dirname, '../../../artifacts/drop_factory.wasm'),
+    );
+
     const res = await client.upload(
       account.address,
-      fs.readFileSync(join(__dirname, '../../../artifacts/drop_factory.wasm')),
+      new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);

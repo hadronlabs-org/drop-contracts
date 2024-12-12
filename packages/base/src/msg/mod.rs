@@ -11,6 +11,7 @@ pub mod proposal_votes;
 pub mod provider_proposals;
 pub mod pump;
 pub mod puppeteer;
+pub mod puppeteer_native;
 pub mod redemption_rate_adapter;
 pub mod reward_handler;
 pub mod rewards_manager;
