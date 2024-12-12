@@ -1,39 +1,32 @@
-use cosmwasm_schema::schemars;
 use cosmwasm_std::{
-    coin, coins, from_json,
+    coins, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, Binary, Coin, CosmosMsg, Decimal256, DepsMut, Event, Response, StdError,
-    SubMsg, Timestamp, Uint128, Uint64,
+    to_json_binary, Addr, BankMsg, CosmosMsg, Decimal256, DepsMut, DistributionMsg, Event,
+    Response, StakingMsg, StdError, Timestamp, Uint128, Uint64, WasmMsg,
 };
-use drop_helpers::{
-    ibc_client_state::{
-        ChannelClientStateResponse, ClientState, Fraction, Height, IdentifiedClientState,
-    },
-    testing::mock_dependencies,
-};
+use drop_helpers::testing::mock_dependencies;
 
-use drop_puppeteer_base::state::{BalancesAndDelegationsState, PuppeteerBase, ReplyMsg};
-use drop_staking_base::state::{
-    puppeteer::{BalancesAndDelegations, Delegations, DropDelegation, KVQueryType},
-    puppeteer_native::{Config, ConfigOptional, CONFIG},
+use drop_puppeteer_base::peripheral_hook::{
+    ReceiverExecuteMsg, ResponseHookMsg, ResponseHookSuccessMsg, Transaction,
 };
-use drop_staking_base::{
-    msg::puppeteer_native::InstantiateMsg, state::puppeteer::NON_NATIVE_REWARD_BALANCES,
+use drop_staking_base::msg::puppeteer_native::InstantiateMsg;
+use drop_staking_base::state::{
+    puppeteer::{Delegations, DropDelegation},
+    puppeteer_native::{
+        unbonding_delegations::{
+            QueryDelegatorUnbondingDelegationsResponse, UnbondingDelegationEntry,
+            UnbondingDelegationNative,
+        },
+        Config, ConfigOptional, PageResponse, CONFIG,
+    },
 };
 use neutron_sdk::{
-    bindings::{
-        msg::{IbcFee, NeutronMsg},
-        query::{NeutronQuery, QueryRegisteredQueryResultResponse},
-        types::{InterchainQueryResult, StorageValue},
-    },
+    bindings::{msg::IbcFee, query::NeutronQuery},
     interchain_queries::v045::types::Balances,
     query::min_ibc_fee::MinIbcFeeResponse,
-    sudo::msg::SudoMsg,
-    NeutronError,
 };
-use prost::Message;
-use schemars::_serde_json::to_string;
 
+use core::panic;
 use std::vec;
 
 #[test]
@@ -43,12 +36,23 @@ fn test_instantiate() {
         owner: Some("owner".to_string()),
         native_bond_provider: "native_bond_provider".to_string(),
         remote_denom: "remote_denom".to_string(),
-        allowed_senders: vec!["allowed_sender".to_string()],
+        allowed_senders: vec!["allowed_sender1".to_string(), "allowed_sender2".to_string()],
     };
     let env = mock_env();
     let res =
         crate::contract::instantiate(deps.as_mut(), env, mock_info("sender", &[]), msg).unwrap();
-    assert_eq!(res, Response::new());
+    assert_eq!(
+        res,
+        Response::new().add_event(
+            Event::new("crates.io:drop-neutron-contracts__drop-puppeteer-native-instantiate")
+                .add_attributes(vec![
+                    ("owner", "owner"),
+                    ("remote_denom", "remote_denom"),
+                    ("native_bond_provider", "native_bond_provider"),
+                    ("allowed_senders", "allowed_sender1,allowed_sender2"),
+                ])
+        )
+    );
     let config = CONFIG.load(deps.as_ref().storage).unwrap();
     assert_eq!(config, get_base_config());
     assert_eq!(
@@ -116,7 +120,7 @@ fn test_execute_update_config() {
     assert_eq!(
         res,
         Response::new().add_event(
-            Event::new("crates.io:drop-neutron-contracts__drop-puppeteer-config_update")
+            Event::new("crates.io:drop-neutron-contracts__drop-puppeteer-native-config_update")
                 .add_attributes(vec![
                     ("remote_denom", "new_remote_denom"),
                     ("allowed_senders", "1"),
@@ -164,38 +168,18 @@ fn test_execute_setup_protocol() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("allowed_sender", &[]),
+        mock_info("allowed_sender1", &[]),
         drop_staking_base::msg::puppeteer_native::ExecuteMsg::SetupProtocol {
             rewards_withdraw_address: "rewards_withdraw_address".to_string(),
         },
     )
     .unwrap();
 
-    let distribution_msg = {
-        neutron_sdk::bindings::types::ProtobufAny {
-            type_url: "/cosmos.distribution.v1beta1.MsgSetWithdrawAddress".to_string(),
-            value: Binary::from(
-                cosmos_sdk_proto::cosmos::distribution::v1beta1::MsgSetWithdrawAddress {
-                    delegator_address: "ica_address".to_string(),
-                    withdraw_address: "rewards_withdraw_address".to_string(),
-                }
-                .encode_to_vec(),
-            ),
-        }
-    };
     assert_eq!(
         res,
-        Response::new().add_submessage(SubMsg::reply_on_success(
-            CosmosMsg::Custom(NeutronMsg::submit_tx(
-                "connection_id".to_string(),
-                "DROP".to_string(),
-                vec![distribution_msg],
-                "".to_string(),
-                100u64,
-                get_standard_fees()
-            )),
-            ReplyMsg::SudoPayload.to_reply_id()
-        ))
+        Response::new().add_message(DistributionMsg::SetWithdrawAddress {
+            address: "rewards_withdraw_address".to_string(),
+        })
     );
 }
 
@@ -239,10 +223,12 @@ fn test_execute_undelegate() {
     });
     base_init(&mut deps.as_mut());
 
+    let env: cosmwasm_std::Env = mock_env();
+
     let res = crate::contract::execute(
         deps.as_mut(),
-        mock_env(),
-        mock_info("allowed_sender", &[]),
+        env.clone(),
+        mock_info("allowed_sender1", &[]),
         drop_staking_base::msg::puppeteer_native::ExecuteMsg::Undelegate {
             batch_id: 0u128,
             items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
@@ -251,32 +237,31 @@ fn test_execute_undelegate() {
     )
     .unwrap();
 
-    let undelegate_msg = drop_helpers::interchain::prepare_any_msg(
-        cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
-            delegator_address: "ica_address".to_string(),
-            validator_address: "valoper1".to_string(),
-            amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-                denom: "remote_denom".to_string(),
-                amount: "1000".to_string(),
-            }),
-        },
-        "/cosmos.staking.v1beta1.MsgUndelegate",
-    )
-    .unwrap();
-
     assert_eq!(
         res,
-        Response::new().add_submessage(SubMsg::reply_on_success(
-            CosmosMsg::Custom(NeutronMsg::submit_tx(
-                "connection_id".to_string(),
-                "DROP".to_string(),
-                vec![undelegate_msg],
-                "".to_string(),
-                100u64,
-                get_standard_fees()
-            )),
-            ReplyMsg::SudoPayload.to_reply_id()
-        ))
+        Response::new().add_messages(vec![
+            CosmosMsg::Staking(StakingMsg::Undelegate {
+                validator: "valoper1".to_string(),
+                amount: cosmwasm_std::Coin::new(1000u128, "remote_denom".to_string()),
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "some_reply_to".to_string(),
+                msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
+                    ResponseHookMsg::Success(ResponseHookSuccessMsg {
+                        transaction: Transaction::Undelegate {
+                            interchain_account_id: env.contract.address.to_string(),
+                            items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
+                            denom: "remote_denom".to_string(),
+                            batch_id: 0u128,
+                        },
+                        local_height: env.block.height,
+                        remote_height: env.block.height,
+                    }),
+                ))
+                .unwrap(),
+                funds: vec![],
+            })
+        ])
     );
 }
 
@@ -323,86 +308,60 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
         })
         .unwrap()
     });
-    let puppeteer_base = base_init(&mut deps.as_mut());
+    base_init(&mut deps.as_mut());
+
+    let env = mock_env();
+
+    let transfer = Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg {
+        batch_ids: vec![0u128, 1u128, 2u128],
+        emergency: true,
+        amount: Uint128::from(123u64),
+        recipient: "some_recipient".to_string(),
+    });
 
     let res = crate::contract::execute(
         deps.as_mut(),
-        mock_env(),
-        mock_info("allowed_sender", &[]),
+        env.clone(),
+        mock_info("allowed_sender1", &[]),
         drop_staking_base::msg::puppeteer_native::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
             validators: vec!["validator1".to_string(), "validator2".to_string()],
-            transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg {
-                batch_ids: vec![0u128, 1u128, 2u128],
-                emergency: true,
-                amount: Uint128::from(123u64),
-                recipient: "some_recipient".to_string(),
-            }),
+            transfer: transfer.clone(),
             reply_to: "some_reply_to".to_string(),
         },
     )
     .unwrap();
-    let ica_address = puppeteer_base
-        .ica
-        .get_address(deps.as_mut().storage)
-        .unwrap();
+
     assert_eq!(
         res,
-        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
-            id: 65536u64,
-            msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::submit_tx(
-                "connection_id".to_string(),
-                "DROP".to_string(),
-                vec![
-                    drop_helpers::interchain::prepare_any_msg(
-                        cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSend {
-                            from_address: ica_address.clone(),
-                            to_address: "some_recipient".to_string(),
-                            amount: vec![cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
-                                amount: "123".to_string(),
-                                denom: puppeteer_base
-                                    .config
-                                    .load(deps.as_mut().storage)
-                                    .unwrap()
-                                    .remote_denom
-                            }]
+        cosmwasm_std::Response::new().add_messages(vec![
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: "some_recipient".to_string(),
+                amount: vec![cosmwasm_std::Coin::new(123u128, "remote_denom".to_string())],
+            }),
+            CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward {
+                validator: "validator1".to_string()
+            }),
+            CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward {
+                validator: "validator2".to_string()
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "some_reply_to".to_string(),
+                msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
+                    ResponseHookMsg::Success(ResponseHookSuccessMsg {
+                        transaction: Transaction::ClaimRewardsAndOptionalyTransfer {
+                            interchain_account_id: env.contract.address.to_string(),
+                            validators: vec!["validator1".to_string(), "validator2".to_string()],
+                            denom: "remote_denom".to_string(),
+                            transfer,
                         },
-                        "/cosmos.bank.v1beta1.MsgSend",
-                    )
-                    .unwrap(),
-                    drop_helpers::interchain::prepare_any_msg(
-                        drop_proto::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
-                            delegator_address: ica_address.clone(),
-                            validator_address: "validator1".to_string(),
-                        },
-                        "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
-                    )
-                    .unwrap(),
-                    drop_helpers::interchain::prepare_any_msg(
-                        drop_proto::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
-                            delegator_address: ica_address.clone(),
-                            validator_address: "validator2".to_string(),
-                        },
-                        "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
-                    )
-                    .unwrap()
-                ],
-                "".to_string(),
-                100u64,
-                IbcFee {
-                    recv_fee: vec![],
-                    ack_fee: vec![cosmwasm_std::Coin {
-                        denom: "untrn".to_string(),
-                        amount: Uint128::from(100u64),
-                    }],
-                    timeout_fee: vec![cosmwasm_std::Coin {
-                        denom: "untrn".to_string(),
-                        amount: Uint128::from(200u64),
-                    }],
-                },
-            )),
-            gas_limit: None,
-            reply_on: cosmwasm_std::ReplyOn::Success
-        }),
+                        local_height: env.block.height,
+                        remote_height: env.block.height,
+                    }),
+                ))
+                .unwrap(),
+                funds: vec![],
+            })
+        ]),
     );
 }
 
@@ -410,7 +369,10 @@ fn get_base_config() -> Config {
     Config {
         native_bond_provider: Addr::unchecked("native_bond_provider"),
         remote_denom: "remote_denom".to_string(),
-        allowed_senders: vec![Addr::unchecked("allowed_sender")],
+        allowed_senders: vec![
+            Addr::unchecked("allowed_sender1"),
+            Addr::unchecked("allowed_sender2"),
+        ],
     }
 }
 
@@ -476,7 +438,15 @@ fn test_transfer_ownership() {
 
 #[test]
 fn test_query_extension_delegations_none() {
-    let deps = mock_dependencies(&[]);
+    let mut deps = mock_dependencies(&[]);
+
+    deps.querier.add_stargate_query_response(
+        "/cosmos.staking.v1beta1.Query/DelegatorDelegations",
+        |_| {
+            panic!("DelegatorDelegations should not be called");
+        },
+    );
+
     let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
         crate::contract::query(
             deps.as_ref(),
@@ -505,10 +475,7 @@ fn test_query_extension_delegations_none() {
 fn test_query_extension_delegations_some() {
     let mut deps = mock_dependencies(&[]);
     base_init(&mut deps.as_mut());
-    puppeteer_base
-        .last_complete_delegations_and_balances_key
-        .save(deps.as_mut().storage, &0u64)
-        .unwrap();
+
     let delegations = vec![
         DropDelegation {
             delegator: Addr::unchecked("delegator1"),
@@ -529,31 +496,13 @@ fn test_query_extension_delegations_some() {
             ),
         },
     ];
-    puppeteer_base
-        .delegations_and_balances
-        .save(
-            deps.as_mut().storage,
-            &0u64,
-            &BalancesAndDelegationsState {
-                data: BalancesAndDelegations {
-                    balances: Balances { coins: vec![] },
-                    delegations: Delegations {
-                        delegations: delegations.clone(),
-                    },
-                },
-                remote_height: 123u64,
-                local_height: 123u64,
-                timestamp: Timestamp::default(),
-                collected_chunks: vec![],
-            },
-        )
-        .unwrap();
+
     let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
         crate::contract::query(
             deps.as_ref(),
             mock_env(),
-            drop_puppeteer_base::msg::QueryMsg::Extension {
-                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
+            drop_staking_base::msg::puppeteer_native::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer_native::QueryExtMsg::Delegations {},
             },
         )
         .unwrap(),
@@ -572,11 +521,16 @@ fn test_query_extension_delegations_some() {
 
 #[test]
 fn test_query_extension_balances_none() {
-    let deps = mock_dependencies(&[]);
+    let mut deps = mock_dependencies(&[]);
+
+    base_init(&mut deps.as_mut());
+
+    let env = mock_env();
+
     let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
         crate::contract::query(
             deps.as_ref(),
-            mock_env(),
+            env.clone(),
             drop_staking_base::msg::puppeteer_native::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer_native::QueryExtMsg::Balances {},
             },
@@ -588,95 +542,31 @@ fn test_query_extension_balances_none() {
         query_res,
         drop_staking_base::msg::puppeteer::BalancesResponse {
             balances: Balances { coins: vec![] },
-            remote_height: 0,
-            local_height: 0,
-            timestamp: Timestamp::default(),
+            remote_height: env.block.height,
+            local_height: env.block.height,
+            timestamp: env.block.time,
         }
     );
 }
 
 #[test]
 fn test_query_extension_balances_some() {
-    let mut deps = mock_dependencies(&[]);
-    base_init(&mut deps.as_mut());
-    puppeteer_base
-        .last_complete_delegations_and_balances_key
-        .save(deps.as_mut().storage, &0u64)
-        .unwrap();
     let coins = vec![
         cosmwasm_std::Coin::new(123u128, "denom1".to_string()),
         cosmwasm_std::Coin::new(123u128, "denom2".to_string()),
     ];
-    puppeteer_base
-        .delegations_and_balances
-        .save(
-            deps.as_mut().storage,
-            &0u64,
-            &BalancesAndDelegationsState {
-                data: BalancesAndDelegations {
-                    balances: Balances {
-                        coins: coins.clone(),
-                    },
-                    delegations: Delegations {
-                        delegations: vec![],
-                    },
-                },
-                remote_height: 123u64,
-                local_height: 123u64,
-                timestamp: Timestamp::default(),
-                collected_chunks: vec![],
-            },
-        )
-        .unwrap();
-    let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
-        crate::contract::query(
-            deps.as_ref(),
-            mock_env(),
-            drop_puppeteer_base::msg::QueryMsg::Extension {
-                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Balances {},
-            },
-        )
-        .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(
-        query_res,
-        drop_staking_base::msg::puppeteer::BalancesResponse {
-            balances: Balances { coins },
-            remote_height: 123u64,
-            local_height: 123u64,
-            timestamp: Timestamp::default(),
-        }
-    );
-}
 
-#[test]
-fn test_query_non_native_rewards_balances() {
-    let mut deps = mock_dependencies(&[]);
-    let coins = vec![
-        cosmwasm_std::Coin::new(123u128, "denom1".to_string()),
-        cosmwasm_std::Coin::new(123u128, "denom2".to_string()),
-    ];
-    NON_NATIVE_REWARD_BALANCES
-        .save(
-            deps.as_mut().storage,
-            &BalancesAndDelegationsState {
-                data: drop_staking_base::msg::puppeteer::MultiBalances {
-                    coins: coins.clone(),
-                },
-                remote_height: 1u64,
-                local_height: 2u64,
-                timestamp: Timestamp::default(),
-                collected_chunks: vec![],
-            },
-        )
-        .unwrap();
+    let mut deps = mock_dependencies(&coins);
+    base_init(&mut deps.as_mut());
+
+    let env = mock_env();
+
     let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
         crate::contract::query(
             deps.as_ref(),
-            mock_env(),
+            env.clone(),
             drop_staking_base::msg::puppeteer_native::QueryMsg::Extension {
-                msg: drop_staking_base::msg::puppeteer_native::QueryExtMsg::NonNativeRewardsBalances {},
+                msg: drop_staking_base::msg::puppeteer_native::QueryExtMsg::Balances {},
             },
         )
         .unwrap(),
@@ -686,46 +576,98 @@ fn test_query_non_native_rewards_balances() {
         query_res,
         drop_staking_base::msg::puppeteer::BalancesResponse {
             balances: Balances { coins },
-            remote_height: 1u64,
-            local_height: 2u64,
-            timestamp: Timestamp::default(),
+            remote_height: env.block.height,
+            local_height: env.block.height,
+            timestamp: env.block.time,
         }
     );
 }
 
+// #[test]
+// fn test_query_non_native_rewards_balances() {
+//     let coins = vec![
+//         cosmwasm_std::Coin::new(123u128, "denom1".to_string()),
+//         cosmwasm_std::Coin::new(123u128, "denom2".to_string()),
+//     ];
+
+//     let mut deps = mock_dependencies(&coins);
+//     base_init(&mut deps.as_mut());
+
+//     NON_NATIVE_REWARD_BALANCES
+//         .save(
+//             deps.as_mut().storage,
+//             &BalancesAndDelegationsState {
+//                 data: drop_staking_base::msg::puppeteer::MultiBalances {
+//                     coins: coins.clone(),
+//                 },
+//                 remote_height: 1u64,
+//                 local_height: 2u64,
+//                 timestamp: Timestamp::default(),
+//                 collected_chunks: vec![],
+//             },
+//         )
+//         .unwrap();
+//     let env = mock_env();
+
+//     let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
+//         crate::contract::query(
+//             deps.as_ref(),
+//             env.clone(),
+//             drop_staking_base::msg::puppeteer_native::QueryMsg::Extension {
+//                 msg: drop_staking_base::msg::puppeteer_native::QueryExtMsg::NonNativeRewardsBalances {},
+//             },
+//         )
+//         .unwrap(),
+//     )
+//     .unwrap();
+//     assert_eq!(
+//         query_res,
+//         drop_staking_base::msg::puppeteer::BalancesResponse {
+//             balances: Balances { coins },
+//             remote_height: env.block.height,
+//             local_height: env.block.height,
+//             timestamp: env.block.time,
+//         }
+//     );
+// }
+
 #[test]
-fn test_unbonding_delegations() {
+fn test_unbonding_delegations_one_page() {
     let mut deps = mock_dependencies(&[]);
     base_init(&mut deps.as_mut());
-    let unbonding_delegations = vec![
-        drop_puppeteer_base::state::UnbondingDelegation {
-            validator_address: "validator_address1".to_string(),
-            query_id: 1u64,
-            unbonding_delegations: vec![
-                neutron_sdk::interchain_queries::v047::types::UnbondingEntry {
-                    balance: Uint128::from(0u64),
-                    completion_time: None,
-                    creation_height: 0u64,
-                    initial_balance: Uint128::from(0u64),
+
+    deps.querier.add_stargate_query_response(
+        "/cosmos.staking.v1beta1.Query/DelegatorUnbondingDelegations",
+        |_| {
+            to_json_binary(&QueryDelegatorUnbondingDelegationsResponse {
+                unbonding_responses: vec![
+                    UnbondingDelegationNative {
+                        delegator_address: "delegator_address".to_string(),
+                        validator_address: "validator_address1".to_string(),
+                        entries: vec![UnbondingDelegationEntry {
+                            balance: Uint128::zero(),
+                            completion_time: Some("2024-12-12T13:00:42Z".to_string()),
+                            creation_height: Uint64::zero(),
+                            initial_balance: Uint128::zero(),
+                            unbonding_id: Uint128::zero(),
+                            unbonding_on_hold_ref_count: Uint128::zero(),
+                        }],
+                    },
+                    UnbondingDelegationNative {
+                        delegator_address: "delegator_address".to_string(),
+                        validator_address: "validator_address2".to_string(),
+                        entries: vec![],
+                    },
+                ],
+                pagination: PageResponse {
+                    next_key: None,
+                    total: Uint128::from(2u64),
                 },
-            ],
-            last_updated_height: 0u64,
+            })
+            .unwrap()
         },
-        drop_puppeteer_base::state::UnbondingDelegation {
-            validator_address: "validator_address2".to_string(),
-            query_id: 2u64,
-            unbonding_delegations: vec![],
-            last_updated_height: 0u64,
-        },
-    ];
-    puppeteer_base
-        .unbonding_delegations
-        .save(deps.as_mut().storage, "key1", &unbonding_delegations[0])
-        .unwrap();
-    puppeteer_base
-        .unbonding_delegations
-        .save(deps.as_mut().storage, "key2", &unbonding_delegations[1])
-        .unwrap();
+    );
+
     let query_res: Vec<drop_puppeteer_base::state::UnbondingDelegation> = from_json(
         crate::contract::query(
             deps.as_ref(),
@@ -737,5 +679,140 @@ fn test_unbonding_delegations() {
         .unwrap(),
     )
     .unwrap();
-    assert_eq!(query_res, unbonding_delegations);
+    assert_eq!(
+        query_res,
+        vec![
+            drop_puppeteer_base::state::UnbondingDelegation {
+                validator_address: "validator_address1".to_string(),
+                query_id: 0u64,
+                unbonding_delegations: vec![
+                    neutron_sdk::interchain_queries::v047::types::UnbondingEntry {
+                        balance: Uint128::from(0u64),
+                        completion_time: Some(Timestamp::from_seconds(1734008442)),
+                        creation_height: 0u64,
+                        initial_balance: Uint128::from(0u64),
+                    },
+                ],
+                last_updated_height: 0u64,
+            },
+            drop_puppeteer_base::state::UnbondingDelegation {
+                validator_address: "validator_address2".to_string(),
+                query_id: 0u64,
+                unbonding_delegations: vec![],
+                last_updated_height: 0u64,
+            }
+        ]
+    );
+}
+
+#[test]
+fn test_unbonding_delegations_two_pages() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut());
+
+    deps.querier.add_stargate_query_response(
+        "/cosmos.staking.v1beta1.Query/DelegatorUnbondingDelegations",
+        |_| {
+            to_json_binary(&QueryDelegatorUnbondingDelegationsResponse {
+                unbonding_responses: vec![
+                    UnbondingDelegationNative {
+                        delegator_address: "delegator_address".to_string(),
+                        validator_address: "validator_address1".to_string(),
+                        entries: vec![UnbondingDelegationEntry {
+                            balance: Uint128::zero(),
+                            completion_time: Some("2024-12-12T13:00:42Z".to_string()),
+                            creation_height: Uint64::zero(),
+                            initial_balance: Uint128::zero(),
+                            unbonding_id: Uint128::zero(),
+                            unbonding_on_hold_ref_count: Uint128::zero(),
+                        }],
+                    },
+                    UnbondingDelegationNative {
+                        delegator_address: "delegator_address".to_string(),
+                        validator_address: "validator_address2".to_string(),
+                        entries: vec![],
+                    },
+                ],
+                pagination: PageResponse {
+                    next_key: Some(vec![0u8]),
+                    total: Uint128::from(2u64),
+                },
+            })
+            .unwrap()
+        },
+    );
+
+    deps.querier.add_stargate_query_response(
+        "/cosmos.staking.v1beta1.Query/DelegatorUnbondingDelegations",
+        |_| {
+            to_json_binary(&QueryDelegatorUnbondingDelegationsResponse {
+                unbonding_responses: vec![UnbondingDelegationNative {
+                    delegator_address: "delegator_address".to_string(),
+                    validator_address: "validator_address3".to_string(),
+                    entries: vec![UnbondingDelegationEntry {
+                        balance: Uint128::zero(),
+                        completion_time: Some("2024-12-12T13:00:42Z".to_string()),
+                        creation_height: Uint64::zero(),
+                        initial_balance: Uint128::zero(),
+                        unbonding_id: Uint128::zero(),
+                        unbonding_on_hold_ref_count: Uint128::zero(),
+                    }],
+                }],
+                pagination: PageResponse {
+                    next_key: None,
+                    total: Uint128::from(2u64),
+                },
+            })
+            .unwrap()
+        },
+    );
+
+    let query_res: Vec<drop_puppeteer_base::state::UnbondingDelegation> = from_json(
+        crate::contract::query(
+            deps.as_ref(),
+            mock_env(),
+            drop_staking_base::msg::puppeteer_native::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer_native::QueryExtMsg::UnbondingDelegations {},
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        vec![
+            drop_puppeteer_base::state::UnbondingDelegation {
+                validator_address: "validator_address1".to_string(),
+                query_id: 0u64,
+                unbonding_delegations: vec![
+                    neutron_sdk::interchain_queries::v047::types::UnbondingEntry {
+                        balance: Uint128::from(0u64),
+                        completion_time: Some(Timestamp::from_seconds(1734008442)),
+                        creation_height: 0u64,
+                        initial_balance: Uint128::from(0u64),
+                    },
+                ],
+                last_updated_height: 0u64,
+            },
+            drop_puppeteer_base::state::UnbondingDelegation {
+                validator_address: "validator_address2".to_string(),
+                query_id: 0u64,
+                unbonding_delegations: vec![],
+                last_updated_height: 0u64,
+            },
+            drop_puppeteer_base::state::UnbondingDelegation {
+                validator_address: "validator_address3".to_string(),
+                query_id: 0u64,
+                unbonding_delegations: vec![
+                    neutron_sdk::interchain_queries::v047::types::UnbondingEntry {
+                        balance: Uint128::from(0u64),
+                        completion_time: Some(Timestamp::from_seconds(1734008442)),
+                        creation_height: 0u64,
+                        initial_balance: Uint128::from(0u64),
+                    },
+                ],
+                last_updated_height: 0u64,
+            },
+        ]
+    );
 }

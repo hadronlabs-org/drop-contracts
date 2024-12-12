@@ -69,8 +69,8 @@ pub enum QueryExtMsg {
     Delegations {},
     #[returns(BalancesResponse)]
     Balances {},
-    #[returns(BalancesResponse)]
-    NonNativeRewardsBalances {},
+    // #[returns(BalancesResponse)]
+    // NonNativeRewardsBalances {},
     #[returns(Vec<drop_puppeteer_base::state::UnbondingDelegation>)]
     UnbondingDelegations {},
 }

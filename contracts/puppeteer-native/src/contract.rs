@@ -85,9 +85,9 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::Extension { msg } => match msg {
             QueryExtMsg::Delegations {} => query_delegations(deps, env),
             QueryExtMsg::Balances {} => query_balances(deps, env),
-            QueryExtMsg::NonNativeRewardsBalances {} => {
-                query_non_native_rewards_balances(deps, env)
-            }
+            // QueryExtMsg::NonNativeRewardsBalances {} => {
+            //     query_non_native_rewards_balances(deps, env)
+            // }
             QueryExtMsg::UnbondingDelegations {} => query_unbonding_delegations(deps, env),
             QueryExtMsg::Ownership {} => {
                 let owner = cw_ownable::get_ownership(deps.storage)?;
@@ -169,15 +169,11 @@ fn query_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binar
 }
 
 fn query_balances(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
-    let config: Config = CONFIG.load(deps.storage)?;
-
     let balances = deps
         .querier
-        .query_balance(env.contract.address.to_string(), config.remote_denom)?;
+        .query_all_balances(env.contract.address.to_string())?;
     Ok(to_json_binary(&BalancesResponse {
-        balances: Balances {
-            coins: vec![balances],
-        },
+        balances: Balances { coins: balances },
         remote_height: env.block.height,
         local_height: env.block.height,
         timestamp: env.block.time,
@@ -219,28 +215,28 @@ fn query_unbonding_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractRe
     to_json_binary(&total_undelegations).map_err(ContractError::Std)
 }
 
-fn query_non_native_rewards_balances(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
-    let config: Config = CONFIG.load(deps.storage)?;
+// fn query_non_native_rewards_balances(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
+//     let config: Config = CONFIG.load(deps.storage)?;
 
-    let balances = deps
-        .querier
-        .query_all_balances(env.contract.address.to_string())?;
+//     let balances = deps
+//         .querier
+//         .query_all_balances(env.contract.address.to_string())?;
 
-    let balances_without_native = balances
-        .into_iter()
-        .filter(|b| b.denom != config.remote_denom)
-        .collect::<Vec<_>>();
+//     let balances_without_native = balances
+//         .into_iter()
+//         .filter(|b| b.denom != config.remote_denom)
+//         .collect::<Vec<_>>();
 
-    to_json_binary(&BalancesResponse {
-        balances: Balances {
-            coins: balances_without_native,
-        },
-        remote_height: env.block.height,
-        local_height: env.block.height,
-        timestamp: env.block.time,
-    })
-    .map_err(ContractError::Std)
-}
+//     to_json_binary(&BalancesResponse {
+//         balances: Balances {
+//             coins: balances_without_native,
+//         },
+//         remote_height: env.block.height,
+//         local_height: env.block.height,
+//         timestamp: env.block.time,
+//     })
+//     .map_err(ContractError::Std)
+// }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
@@ -462,7 +458,7 @@ fn execute_claim_rewards_and_optionaly_transfer(
 }
 
 fn execute_undelegate(
-    mut deps: DepsMut<NeutronQuery>,
+    deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
     items: Vec<(String, Uint128)>,

@@ -1,6 +1,7 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Addr;
 use cosmwasm_std::Decimal256;
+use cosmwasm_std::Uint128;
 use cw_storage_plus::Item;
 
 use drop_puppeteer_base::state::BalancesAndDelegationsState;
@@ -36,7 +37,7 @@ pub const DECIMAL_PLACES: u32 = 18;
 #[cw_serde]
 pub struct PageResponse {
     pub next_key: Option<Vec<u8>>,
-    pub total: Decimal256,
+    pub total: Uint128,
 }
 
 #[cw_serde]
