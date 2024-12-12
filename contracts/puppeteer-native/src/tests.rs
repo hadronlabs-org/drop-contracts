@@ -9,7 +9,6 @@ use drop_helpers::testing::mock_dependencies;
 use drop_puppeteer_base::peripheral_hook::{
     ReceiverExecuteMsg, ResponseHookMsg, ResponseHookSuccessMsg, Transaction,
 };
-use drop_staking_base::msg::puppeteer_native::InstantiateMsg;
 use drop_staking_base::state::{
     puppeteer::{Delegations, DropDelegation},
     puppeteer_native::{
@@ -17,8 +16,12 @@ use drop_staking_base::state::{
             QueryDelegatorUnbondingDelegationsResponse, UnbondingDelegationEntry,
             UnbondingDelegationNative,
         },
-        Config, ConfigOptional, PageResponse, CONFIG,
+        Config, ConfigOptional, Delegation, DelegationResponseNative, PageResponse, CONFIG,
     },
+};
+use drop_staking_base::{
+    msg::puppeteer_native::InstantiateMsg,
+    state::puppeteer_native::QueryDelegatorDelegationsResponse,
 };
 use neutron_sdk::{
     bindings::{msg::IbcFee, query::NeutronQuery},
@@ -26,7 +29,6 @@ use neutron_sdk::{
     query::min_ibc_fee::MinIbcFeeResponse,
 };
 
-use core::panic;
 use std::vec;
 
 #[test]
@@ -440,12 +442,10 @@ fn test_transfer_ownership() {
 fn test_query_extension_delegations_none() {
     let mut deps = mock_dependencies(&[]);
 
-    deps.querier.add_stargate_query_response(
-        "/cosmos.staking.v1beta1.Query/DelegatorDelegations",
-        |_| {
-            panic!("DelegatorDelegations should not be called");
-        },
-    );
+    deps.querier
+        .add_stargate_query_response("/cosmos.staking.v1beta1.Query/DelegatorDelegations", |_| {
+            cosmwasm_std::ContractResult::Err("No data".to_string())
+        });
 
     let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
         crate::contract::query(
@@ -472,35 +472,55 @@ fn test_query_extension_delegations_none() {
 }
 
 #[test]
-fn test_query_extension_delegations_some() {
+fn test_query_extension_delegations_some_one_page() {
     let mut deps = mock_dependencies(&[]);
     base_init(&mut deps.as_mut());
 
-    let delegations = vec![
-        DropDelegation {
-            delegator: Addr::unchecked("delegator1"),
-            validator: "validator1".to_string(),
-            amount: cosmwasm_std::Coin::new(100, "denom1"),
-            share_ratio: Decimal256::from_ratio(
-                cosmwasm_std::Uint256::from(0u64),
-                cosmwasm_std::Uint256::from(1u64),
-            ),
+    deps.querier.add_stargate_query_response(
+        "/cosmos.staking.v1beta1.Query/DelegatorDelegations",
+        |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&QueryDelegatorDelegationsResponse {
+                    delegation_responses: vec![
+                        DelegationResponseNative {
+                            delegation: Delegation {
+                                delegator_address: Addr::unchecked("delegator1"),
+                                validator_address: "validator1".to_string(),
+                                shares: Decimal256::from_ratio(
+                                    cosmwasm_std::Uint256::from(0u64),
+                                    cosmwasm_std::Uint256::from(1u64),
+                                ),
+                            },
+                            balance: cosmwasm_std::Coin::new(100, "denom1"),
+                        },
+                        DelegationResponseNative {
+                            delegation: Delegation {
+                                delegator_address: Addr::unchecked("delegator2"),
+                                validator_address: "validator2".to_string(),
+                                shares: Decimal256::from_ratio(
+                                    cosmwasm_std::Uint256::from(0u64),
+                                    cosmwasm_std::Uint256::from(1u64),
+                                ),
+                            },
+                            balance: cosmwasm_std::Coin::new(100, "denom2"),
+                        },
+                    ],
+                    pagination: PageResponse {
+                        next_key: None,
+                        total: Uint128::from(2u64),
+                    },
+                })
+                .unwrap(),
+            )
         },
-        DropDelegation {
-            delegator: Addr::unchecked("delegator2"),
-            validator: "validator2".to_string(),
-            amount: cosmwasm_std::Coin::new(100, "denom2"),
-            share_ratio: Decimal256::from_ratio(
-                cosmwasm_std::Uint256::from(0u64),
-                cosmwasm_std::Uint256::from(1u64),
-            ),
-        },
-    ];
+    );
+
+    let env = mock_env();
 
     let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
         crate::contract::query(
             deps.as_ref(),
-            mock_env(),
+            env.clone(),
             drop_staking_base::msg::puppeteer_native::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer_native::QueryExtMsg::Delegations {},
             },
@@ -511,10 +531,155 @@ fn test_query_extension_delegations_some() {
     assert_eq!(
         query_res,
         drop_staking_base::msg::puppeteer::DelegationsResponse {
-            delegations: Delegations { delegations },
-            remote_height: 123u64,
-            local_height: 123u64,
-            timestamp: Timestamp::default(),
+            delegations: Delegations {
+                delegations: vec![
+                    DropDelegation {
+                        delegator: Addr::unchecked("delegator1"),
+                        validator: "validator1".to_string(),
+                        amount: cosmwasm_std::Coin::new(100, "denom1"),
+                        share_ratio: Decimal256::from_ratio(
+                            cosmwasm_std::Uint256::from(0u64),
+                            cosmwasm_std::Uint256::from(1u64),
+                        ),
+                    },
+                    DropDelegation {
+                        delegator: Addr::unchecked("delegator2"),
+                        validator: "validator2".to_string(),
+                        amount: cosmwasm_std::Coin::new(100, "denom2"),
+                        share_ratio: Decimal256::from_ratio(
+                            cosmwasm_std::Uint256::from(0u64),
+                            cosmwasm_std::Uint256::from(1u64),
+                        ),
+                    },
+                ]
+            },
+            remote_height: env.block.height,
+            local_height: env.block.height,
+            timestamp: env.block.time,
+        }
+    );
+}
+
+#[test]
+fn test_query_extension_delegations_some_two_pages() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut());
+
+    deps.querier.add_stargate_query_response(
+        "/cosmos.staking.v1beta1.Query/DelegatorDelegations",
+        |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&QueryDelegatorDelegationsResponse {
+                    delegation_responses: vec![
+                        DelegationResponseNative {
+                            delegation: Delegation {
+                                delegator_address: Addr::unchecked("delegator1"),
+                                validator_address: "validator1".to_string(),
+                                shares: Decimal256::from_ratio(
+                                    cosmwasm_std::Uint256::from(0u64),
+                                    cosmwasm_std::Uint256::from(1u64),
+                                ),
+                            },
+                            balance: cosmwasm_std::Coin::new(100, "denom1"),
+                        },
+                        DelegationResponseNative {
+                            delegation: Delegation {
+                                delegator_address: Addr::unchecked("delegator2"),
+                                validator_address: "validator2".to_string(),
+                                shares: Decimal256::from_ratio(
+                                    cosmwasm_std::Uint256::from(0u64),
+                                    cosmwasm_std::Uint256::from(1u64),
+                                ),
+                            },
+                            balance: cosmwasm_std::Coin::new(100, "denom2"),
+                        },
+                    ],
+                    pagination: PageResponse {
+                        next_key: Some(vec![0u8]),
+                        total: Uint128::from(2u64),
+                    },
+                })
+                .unwrap(),
+            )
+        },
+    );
+
+    deps.querier.add_stargate_query_response(
+        "/cosmos.staking.v1beta1.Query/DelegatorDelegations",
+        |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&QueryDelegatorDelegationsResponse {
+                    delegation_responses: vec![DelegationResponseNative {
+                        delegation: Delegation {
+                            delegator_address: Addr::unchecked("delegator3"),
+                            validator_address: "validator3".to_string(),
+                            shares: Decimal256::from_ratio(
+                                cosmwasm_std::Uint256::from(0u64),
+                                cosmwasm_std::Uint256::from(1u64),
+                            ),
+                        },
+                        balance: cosmwasm_std::Coin::new(100, "denom3"),
+                    }],
+                    pagination: PageResponse {
+                        next_key: None,
+                        total: Uint128::from(2u64),
+                    },
+                })
+                .unwrap(),
+            )
+        },
+    );
+
+    let env = mock_env();
+
+    let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
+        crate::contract::query(
+            deps.as_ref(),
+            env.clone(),
+            drop_staking_base::msg::puppeteer_native::QueryMsg::Extension {
+                msg: drop_staking_base::msg::puppeteer_native::QueryExtMsg::Delegations {},
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        drop_staking_base::msg::puppeteer::DelegationsResponse {
+            delegations: Delegations {
+                delegations: vec![
+                    DropDelegation {
+                        delegator: Addr::unchecked("delegator1"),
+                        validator: "validator1".to_string(),
+                        amount: cosmwasm_std::Coin::new(100, "denom1"),
+                        share_ratio: Decimal256::from_ratio(
+                            cosmwasm_std::Uint256::from(0u64),
+                            cosmwasm_std::Uint256::from(1u64),
+                        ),
+                    },
+                    DropDelegation {
+                        delegator: Addr::unchecked("delegator2"),
+                        validator: "validator2".to_string(),
+                        amount: cosmwasm_std::Coin::new(100, "denom2"),
+                        share_ratio: Decimal256::from_ratio(
+                            cosmwasm_std::Uint256::from(0u64),
+                            cosmwasm_std::Uint256::from(1u64),
+                        ),
+                    },
+                    DropDelegation {
+                        delegator: Addr::unchecked("delegator3"),
+                        validator: "validator3".to_string(),
+                        amount: cosmwasm_std::Coin::new(100, "denom3"),
+                        share_ratio: Decimal256::from_ratio(
+                            cosmwasm_std::Uint256::from(0u64),
+                            cosmwasm_std::Uint256::from(1u64),
+                        ),
+                    },
+                ]
+            },
+            remote_height: env.block.height,
+            local_height: env.block.height,
+            timestamp: env.block.time,
         }
     );
 }
@@ -639,32 +804,34 @@ fn test_unbonding_delegations_one_page() {
     deps.querier.add_stargate_query_response(
         "/cosmos.staking.v1beta1.Query/DelegatorUnbondingDelegations",
         |_| {
-            to_json_binary(&QueryDelegatorUnbondingDelegationsResponse {
-                unbonding_responses: vec![
-                    UnbondingDelegationNative {
-                        delegator_address: "delegator_address".to_string(),
-                        validator_address: "validator_address1".to_string(),
-                        entries: vec![UnbondingDelegationEntry {
-                            balance: Uint128::zero(),
-                            completion_time: Some("2024-12-12T13:00:42Z".to_string()),
-                            creation_height: Uint64::zero(),
-                            initial_balance: Uint128::zero(),
-                            unbonding_id: Uint128::zero(),
-                            unbonding_on_hold_ref_count: Uint128::zero(),
-                        }],
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&QueryDelegatorUnbondingDelegationsResponse {
+                    unbonding_responses: vec![
+                        UnbondingDelegationNative {
+                            delegator_address: "delegator_address".to_string(),
+                            validator_address: "validator_address1".to_string(),
+                            entries: vec![UnbondingDelegationEntry {
+                                balance: Uint128::zero(),
+                                completion_time: Some("2024-12-12T13:00:42Z".to_string()),
+                                creation_height: Uint64::zero(),
+                                initial_balance: Uint128::zero(),
+                                unbonding_id: Uint128::zero(),
+                                unbonding_on_hold_ref_count: Uint128::zero(),
+                            }],
+                        },
+                        UnbondingDelegationNative {
+                            delegator_address: "delegator_address".to_string(),
+                            validator_address: "validator_address2".to_string(),
+                            entries: vec![],
+                        },
+                    ],
+                    pagination: PageResponse {
+                        next_key: None,
+                        total: Uint128::from(2u64),
                     },
-                    UnbondingDelegationNative {
-                        delegator_address: "delegator_address".to_string(),
-                        validator_address: "validator_address2".to_string(),
-                        entries: vec![],
-                    },
-                ],
-                pagination: PageResponse {
-                    next_key: None,
-                    total: Uint128::from(2u64),
-                },
-            })
-            .unwrap()
+                })
+                .unwrap(),
+            )
         },
     );
 
@@ -713,11 +880,45 @@ fn test_unbonding_delegations_two_pages() {
     deps.querier.add_stargate_query_response(
         "/cosmos.staking.v1beta1.Query/DelegatorUnbondingDelegations",
         |_| {
-            to_json_binary(&QueryDelegatorUnbondingDelegationsResponse {
-                unbonding_responses: vec![
-                    UnbondingDelegationNative {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&QueryDelegatorUnbondingDelegationsResponse {
+                    unbonding_responses: vec![
+                        UnbondingDelegationNative {
+                            delegator_address: "delegator_address".to_string(),
+                            validator_address: "validator_address1".to_string(),
+                            entries: vec![UnbondingDelegationEntry {
+                                balance: Uint128::zero(),
+                                completion_time: Some("2024-12-12T13:00:42Z".to_string()),
+                                creation_height: Uint64::zero(),
+                                initial_balance: Uint128::zero(),
+                                unbonding_id: Uint128::zero(),
+                                unbonding_on_hold_ref_count: Uint128::zero(),
+                            }],
+                        },
+                        UnbondingDelegationNative {
+                            delegator_address: "delegator_address".to_string(),
+                            validator_address: "validator_address2".to_string(),
+                            entries: vec![],
+                        },
+                    ],
+                    pagination: PageResponse {
+                        next_key: Some(vec![0u8]),
+                        total: Uint128::from(2u64),
+                    },
+                })
+                .unwrap(),
+            )
+        },
+    );
+
+    deps.querier.add_stargate_query_response(
+        "/cosmos.staking.v1beta1.Query/DelegatorUnbondingDelegations",
+        |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&QueryDelegatorUnbondingDelegationsResponse {
+                    unbonding_responses: vec![UnbondingDelegationNative {
                         delegator_address: "delegator_address".to_string(),
-                        validator_address: "validator_address1".to_string(),
+                        validator_address: "validator_address3".to_string(),
                         entries: vec![UnbondingDelegationEntry {
                             balance: Uint128::zero(),
                             completion_time: Some("2024-12-12T13:00:42Z".to_string()),
@@ -726,44 +927,14 @@ fn test_unbonding_delegations_two_pages() {
                             unbonding_id: Uint128::zero(),
                             unbonding_on_hold_ref_count: Uint128::zero(),
                         }],
-                    },
-                    UnbondingDelegationNative {
-                        delegator_address: "delegator_address".to_string(),
-                        validator_address: "validator_address2".to_string(),
-                        entries: vec![],
-                    },
-                ],
-                pagination: PageResponse {
-                    next_key: Some(vec![0u8]),
-                    total: Uint128::from(2u64),
-                },
-            })
-            .unwrap()
-        },
-    );
-
-    deps.querier.add_stargate_query_response(
-        "/cosmos.staking.v1beta1.Query/DelegatorUnbondingDelegations",
-        |_| {
-            to_json_binary(&QueryDelegatorUnbondingDelegationsResponse {
-                unbonding_responses: vec![UnbondingDelegationNative {
-                    delegator_address: "delegator_address".to_string(),
-                    validator_address: "validator_address3".to_string(),
-                    entries: vec![UnbondingDelegationEntry {
-                        balance: Uint128::zero(),
-                        completion_time: Some("2024-12-12T13:00:42Z".to_string()),
-                        creation_height: Uint64::zero(),
-                        initial_balance: Uint128::zero(),
-                        unbonding_id: Uint128::zero(),
-                        unbonding_on_hold_ref_count: Uint128::zero(),
                     }],
-                }],
-                pagination: PageResponse {
-                    next_key: None,
-                    total: Uint128::from(2u64),
-                },
-            })
-            .unwrap()
+                    pagination: PageResponse {
+                        next_key: None,
+                        total: Uint128::from(2u64),
+                    },
+                })
+                .unwrap(),
+            )
         },
     );
 

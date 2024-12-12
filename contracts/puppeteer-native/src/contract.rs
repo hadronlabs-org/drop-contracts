@@ -112,6 +112,7 @@ fn query_transactions(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
 fn query_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
     let mut key = vec![];
     let mut total_delegations = vec![];
+
     loop {
         let res: StdResult<QueryDelegatorDelegationsResponse> =
             deps.querier.query(&QueryRequest::Stargate {
@@ -140,6 +141,7 @@ fn query_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binar
             })?);
         } else {
             let delegations_response = res.unwrap(); // unwrap is safe bc we know that it's not an error
+
             let delegations: Vec<DropDelegation> = delegations_response
                 .delegation_responses
                 .into_iter()
