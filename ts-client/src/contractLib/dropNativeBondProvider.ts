@@ -208,6 +208,7 @@ export type Timestamp2 = Uint64;
  * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
  */
 export type Uint64 = string;
+export type Boolean3 = boolean;
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
@@ -251,6 +252,7 @@ export interface DropNativeBondProviderSchema {
     | LastPuppeteerResponse
     | Uint1282
     | OwnershipForString
+    | Boolean3
     | Decimal
     | TxState;
   query: CanBondArgs | TokensAmountArgs;
@@ -448,6 +450,9 @@ export class Client {
   queryLastPuppeteerResponse = async(): Promise<LastPuppeteerResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { last_puppeteer_response: {} });
   }
+  queryPause = async(): Promise<Boolean> => {
+    return this.client.queryContractSmart(this.contractAddress, { pause: {} });
+  }
   queryCanBond = async(args: CanBondArgs): Promise<Boolean> => {
     return this.client.queryContractSmart(this.contractAddress, { can_bond: args });
   }
@@ -473,6 +478,10 @@ export class Client {
   peripheralHook = async(sender:string, args: PeripheralHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { peripheral_hook: args }, fee || "auto", memo, funds);
+  }
+  setPause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { set_pause: {} }, fee || "auto", memo, funds);
   }
   bond = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

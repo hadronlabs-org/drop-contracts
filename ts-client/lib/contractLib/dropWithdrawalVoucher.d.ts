@@ -35,6 +35,7 @@ export type Timestamp = Uint64;
  * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
  */
 export type Uint64 = string;
+export type ExtensionQueryMsg = "pause";
 export type Null = null;
 /**
  * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
@@ -56,6 +57,9 @@ export type Binary = string;
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
+export type ExtensionExecuteMsg = {
+    set_pause: Pause;
+};
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -66,13 +70,13 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropWithdrawalVoucherSchema {
-    responses: AllNftInfoResponseForEmpty | OperatorsResponse | TokensResponse | ApprovalResponse | ApprovalsResponse | ContractInfoResponse | Null | MinterResponse | NftInfoResponseForEmpty | NumTokensResponse | OperatorResponse | OwnerOfResponse1 | OwnershipForString | TokensResponse1;
+    responses: AllNftInfoResponseForExtensionQueryMsg | OperatorsResponse | TokensResponse | ApprovalResponse | ApprovalsResponse | ContractInfoResponse | Null | MinterResponse | NftInfoResponseForExtensionQueryMsg | NumTokensResponse | OperatorResponse | OwnerOfResponse1 | OwnershipForString | TokensResponse1;
     query: OwnerOfArgs | ApprovalArgs | ApprovalsArgs | OperatorArgs | AllOperatorsArgs | NftInfoArgs | AllNftInfoArgs | TokensArgs | AllTokensArgs | ExtensionArgs;
     execute: TransferNftArgs | SendNftArgs | ApproveArgs | RevokeArgs | ApproveAllArgs | RevokeAllArgs | MintArgs | BurnArgs | ExtensionArgs1 | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
-export interface AllNftInfoResponseForEmpty {
+export interface AllNftInfoResponseForExtensionQueryMsg {
     /**
      * Who can transfer the token
      */
@@ -80,7 +84,7 @@ export interface AllNftInfoResponseForEmpty {
     /**
      * Data on the token itself,
      */
-    info: NftInfoResponseFor_Empty;
+    info: NftInfoResponseFor_ExtensionQueryMsg;
 }
 export interface OwnerOfResponse {
     /**
@@ -102,23 +106,15 @@ export interface Approval {
      */
     spender: string;
 }
-export interface NftInfoResponseFor_Empty {
+export interface NftInfoResponseFor_ExtensionQueryMsg {
     /**
      * You can add any custom metadata here when you extend cw721-base
      */
-    extension: Empty;
+    extension: ExtensionQueryMsg;
     /**
      * Universal resource identifier for this NFT Should point to a JSON file that conforms to the ERC721 Metadata JSON Schema
      */
     token_uri?: string | null;
-}
-/**
- * An empty struct that serves as a placeholder in different places, such as contracts that don't set a custom message.
- *
- * It is designed to be expressable in correct JSON and JSON Schema but contains no meaningful data. Previously we used enums without cases, but those cannot represented as valid JSON Schema (https://github.com/CosmWasm/cosmwasm/issues/451)
- */
-export interface Empty {
-    [k: string]: unknown;
 }
 export interface OperatorsResponse {
     operators: Approval[];
@@ -145,11 +141,11 @@ export interface ContractInfoResponse {
 export interface MinterResponse {
     minter?: string | null;
 }
-export interface NftInfoResponseForEmpty {
+export interface NftInfoResponseForExtensionQueryMsg {
     /**
      * You can add any custom metadata here when you extend cw721-base
      */
-    extension: Empty;
+    extension: ExtensionQueryMsg;
     /**
      * Universal resource identifier for this NFT Should point to a JSON file that conforms to the ERC721 Metadata JSON Schema
      */
@@ -244,7 +240,7 @@ export interface AllTokensArgs {
     start_after?: string | null;
 }
 export interface ExtensionArgs {
-    msg: Empty;
+    msg: ExtensionQueryMsg;
 }
 export interface TransferNftArgs {
     recipient: string;
@@ -305,7 +301,10 @@ export interface BurnArgs {
     token_id: string;
 }
 export interface ExtensionArgs1 {
-    msg: Empty;
+    msg: ExtensionExecuteMsg;
+}
+export interface Pause {
+    mint: boolean;
 }
 export interface InstantiateMsg {
     /**
@@ -335,8 +334,8 @@ export declare class Client {
     queryAllOperators: (args: AllOperatorsArgs) => Promise<OperatorsResponse>;
     queryNumTokens: () => Promise<NumTokensResponse>;
     queryContractInfo: () => Promise<ContractInfoResponse>;
-    queryNftInfo: (args: NftInfoArgs) => Promise<NftInfoResponseForEmpty>;
-    queryAllNftInfo: (args: AllNftInfoArgs) => Promise<AllNftInfoResponseForEmpty>;
+    queryNftInfo: (args: NftInfoArgs) => Promise<NftInfoResponseForExtensionQueryMsg>;
+    queryAllNftInfo: (args: AllNftInfoArgs) => Promise<AllNftInfoResponseForExtensionQueryMsg>;
     queryTokens: (args: TokensArgs) => Promise<TokensResponse>;
     queryAllTokens: (args: AllTokensArgs) => Promise<TokensResponse>;
     queryMinter: () => Promise<MinterResponse>;
