@@ -15,7 +15,7 @@ jobs:
           fetch-depth: 1
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.75.0
+          toolchain: 1.81.0
           components: clippy
           profile: minimal
           override: true
@@ -89,7 +89,7 @@ jobs:
           fetch-depth: 1
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.75.0
+          toolchain: 1.81.0
           components: rustfmt
           profile: minimal
           override: true
@@ -104,7 +104,7 @@ jobs:
           fetch-depth: 1
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.75.0
+          toolchain: 1.81.0
           profile: minimal
       - run: cargo fetch --verbose
       - run: cargo build
@@ -164,7 +164,7 @@ jobs:
           fetch-depth: 1
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.75.0
+          toolchain: 1.81.0
           profile: minimal
           override: true  
       - run: make compile

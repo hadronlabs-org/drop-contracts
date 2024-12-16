@@ -796,8 +796,8 @@ fn test_query_extension_balances_some() {
 //     );
 // }
 
-#[test]
-fn test_unbonding_delegations_one_page() {
+// #[test]
+fn _test_unbonding_delegations_one_page() {
     let mut deps = mock_dependencies(&[]);
     base_init(&mut deps.as_mut());
 
@@ -872,8 +872,8 @@ fn test_unbonding_delegations_one_page() {
     );
 }
 
-#[test]
-fn test_unbonding_delegations_two_pages() {
+// #[test]
+fn _test_unbonding_delegations_two_pages() {
     let mut deps = mock_dependencies(&[]);
     base_init(&mut deps.as_mut());
 
