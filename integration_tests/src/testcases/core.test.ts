@@ -309,7 +309,7 @@ describe('Core', () => {
 
       const res = await client.upload(
         account.address,
-        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -322,7 +322,7 @@ describe('Core', () => {
 
       const res = await client.upload(
         account.address,
-        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -335,7 +335,7 @@ describe('Core', () => {
 
       const res = await client.upload(
         account.address,
-        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -348,7 +348,7 @@ describe('Core', () => {
 
       const res = await client.upload(
         account.address,
-        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -361,7 +361,7 @@ describe('Core', () => {
 
       const res = await client.upload(
         account.address,
-        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -374,7 +374,7 @@ describe('Core', () => {
 
       const res = await client.upload(
         account.address,
-        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -387,7 +387,7 @@ describe('Core', () => {
 
       const res = await client.upload(
         account.address,
-        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -400,7 +400,7 @@ describe('Core', () => {
 
       const res = await client.upload(
         account.address,
-        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -413,7 +413,7 @@ describe('Core', () => {
 
       const res = await client.upload(
         account.address,
-        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -426,7 +426,7 @@ describe('Core', () => {
 
       const res = await client.upload(
         account.address,
-        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -439,7 +439,7 @@ describe('Core', () => {
 
       const res = await client.upload(
         account.address,
-        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -452,7 +452,7 @@ describe('Core', () => {
 
       const res = await client.upload(
         account.address,
-        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -465,7 +465,7 @@ describe('Core', () => {
 
       const res = await client.upload(
         account.address,
-        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -478,7 +478,7 @@ describe('Core', () => {
 
       const res = await client.upload(
         account.address,
-        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -491,7 +491,7 @@ describe('Core', () => {
 
     const res = await client.upload(
       account.address,
-      new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
+      new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
