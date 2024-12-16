@@ -71,10 +71,10 @@ pub struct QueryDelegatorDelegationsResponse {
 }
 
 pub mod unbonding_delegations {
-    // use chrono::{DateTime, Utc};
     use cosmwasm_std::{StdError, StdResult, Timestamp, Uint128, Uint64};
     use drop_puppeteer_base::state::UnbondingDelegation;
     use neutron_sdk::interchain_queries::v047::types::UnbondingEntry;
+    use time::{format_description::well_known::Rfc3339, PrimitiveDateTime};
 
     use super::PageResponse;
 
@@ -95,7 +95,7 @@ pub mod unbonding_delegations {
             if res.completion_time.is_none() {
                 return Err(StdError::generic_err("completion_time is not set"));
             }
-            let completion_time = convert_datetime_str_to_timestamp()?;
+            let completion_time = convert_datetime_str_to_timestamp(&res.completion_time.unwrap())?;
 
             Ok(UnbondingEntry {
                 creation_height: res.creation_height.u64(),
@@ -146,8 +146,13 @@ pub mod unbonding_delegations {
         }
     }
 
-    fn convert_datetime_str_to_timestamp() -> StdResult<Timestamp> {
-        Ok(Timestamp::from_seconds(100000000u64))
+    fn convert_datetime_str_to_timestamp(datetime_str: &str) -> StdResult<Timestamp> {
+        let primitive_datetime = PrimitiveDateTime::parse(datetime_str, &Rfc3339)
+            .map_err(|_| StdError::generic_err("Unable to parse format description"))?;
+
+        let datetime = primitive_datetime.assume_utc();
+
+        Ok(Timestamp::from_seconds(datetime.unix_timestamp() as u64))
     }
 }
 pub mod reply_msg {
