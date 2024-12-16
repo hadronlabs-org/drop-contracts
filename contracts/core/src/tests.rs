@@ -23,10 +23,9 @@ use drop_staking_base::{
     state::{
         core::{
             unbond_batches_map, Config, ConfigOptional, ContractState, Pause, UnbondBatch,
-            UnbondBatchStatus, UnbondBatchStatusTimestamps, BOND_HOOKS, BOND_PROVIDERS,
-            BOND_PROVIDER_REPLY_ID, CONFIG, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT,
-            LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM, MAX_BOND_PROVIDERS, PAUSE,
-            UNBOND_BATCH_ID,
+            UnbondBatchStatus, UnbondBatchStatusTimestamps, BOND_HOOKS, BOND_PROVIDERS, CONFIG,
+            FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE,
+            LD_DENOM, MAX_BOND_PROVIDERS, PAUSE, UNBOND_BATCH_ID,
         },
         puppeteer::{Delegations, DropDelegation},
     },
@@ -445,17 +444,14 @@ fn test_execute_tick_idle_process_bondig_provider() {
                     ]
                 )
             )
-            .add_submessage(SubMsg::reply_on_error(
-                CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: "lsm_provider_address".to_string(),
-                    msg: to_json_binary(
-                        &drop_staking_base::msg::bond_provider::ExecuteMsg::ProcessOnIdle {}
-                    )
-                    .unwrap(),
-                    funds: vec![],
-                }),
-                BOND_PROVIDER_REPLY_ID
-            ))
+            .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "lsm_provider_address".to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::bond_provider::ExecuteMsg::ProcessOnIdle {}
+                )
+                .unwrap(),
+                funds: vec![],
+            }))
     );
 }
 
@@ -1659,18 +1655,13 @@ fn test_bond_wo_receiver() {
                     .add_attribute("issue_amount", "1000")
                     .add_attribute("receiver", "some")
             )
-            .add_submessage(SubMsg::reply_on_error(
-                CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: "native_provider_address".to_string(),
-                    msg: to_json_binary(
-                        &drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {}
-                    )
+            .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "native_provider_address".to_string(),
+                msg: to_json_binary(&drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {})
                     .unwrap(),
-                    funds: vec![Coin::new(1000, "base_denom")],
-                }),
-                BOND_PROVIDER_REPLY_ID
-            ))
-            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                funds: vec![Coin::new(1000, "base_denom")],
+            }))
+            .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token_contract".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::token::ExecuteMsg::Mint {
                     amount: Uint128::from(1000u128),
@@ -1678,7 +1669,7 @@ fn test_bond_wo_receiver() {
                 })
                 .unwrap(),
                 funds: vec![],
-            })))
+            }))
     );
 }
 
@@ -1740,18 +1731,13 @@ fn test_bond_with_receiver() {
                     .add_attribute("receiver", "receiver")
                     .add_attribute("ref", "ref")
             )
-            .add_submessage(SubMsg::reply_on_error(
-                CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: "native_provider_address".to_string(),
-                    msg: to_json_binary(
-                        &drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {}
-                    )
+            .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "native_provider_address".to_string(),
+                msg: to_json_binary(&drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {})
                     .unwrap(),
-                    funds: vec![Coin::new(1000, "base_denom")],
-                }),
-                BOND_PROVIDER_REPLY_ID
-            ))
-            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                funds: vec![Coin::new(1000, "base_denom")],
+            }))
+            .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token_contract".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::token::ExecuteMsg::Mint {
                     amount: Uint128::from(1000u128),
@@ -1759,7 +1745,7 @@ fn test_bond_with_receiver() {
                 })
                 .unwrap(),
                 funds: vec![],
-            })))
+            }))
     );
 }
 
