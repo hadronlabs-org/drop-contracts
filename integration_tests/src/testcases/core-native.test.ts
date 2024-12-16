@@ -31,7 +31,7 @@ import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
-import { awaitBlocks, awaitTargetChannels, setupPark } from '../testSuite';
+import { awaitBlocks, setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
@@ -69,8 +69,6 @@ describe('Core', () => {
   const context: {
     park?: Cosmopark;
     wallet?: DirectSecp256k1HdWallet;
-    gaiaWallet?: DirectSecp256k1HdWallet;
-    gaiaWallet2?: DirectSecp256k1HdWallet;
     factoryContractClient?: InstanceType<typeof DropFactoryClass>;
     coreContractClient?: InstanceType<typeof DropCoreClass>;
     strategyContractClient?: InstanceType<typeof DropStrategyClass>;
@@ -99,17 +97,12 @@ describe('Core', () => {
     puppeteerIcaAddress?: string;
     rewardsPumpIcaAddress?: string;
     client?: SigningCosmWasmClient;
-    gaiaClient?: SigningStargateClient;
-    gaiaUserAddress?: string;
-    gaiaUserAddress2?: string;
-    gaiaQueryClient?: QueryClient & StakingExtension & BankExtension;
-    neutronRPCEndpoint?: string;
-    neutronClient?: InstanceType<typeof NeutronClient>;
-    neutronUserAddress?: string;
-    neutronSecondUserAddress?: string;
+    queryClient?: QueryClient & StakingExtension & BankExtension;
+    junoRPCEndpoint?: string;
+    junoUserAddress?: string;
+    junoSecondUserAddress?: string;
     validatorAddress?: string;
     secondValidatorAddress?: string;
-    tokenizedDenomOnNeutron?: string;
     codeIds: {
       core?: number;
       token?: number;
@@ -128,76 +121,38 @@ describe('Core', () => {
       valRef?: number;
     };
     exchangeRate?: number;
-    neutronIBCDenom?: string;
-    ldDenom?: string;
   } = { codeIds: {} };
 
   beforeAll(async (t) => {
-    context.park = await setupPark(
-      t,
-      ['neutron', 'gaia'],
-      {
-        gaia: {
-          genesis_opts: {
-            'app_state.staking.params.unbonding_time': `${UNBONDING_TIME}s`,
-          },
+    context.park = await setupPark(t, ['juno'], {
+      juno: {
+        genesis_opts: {
+          'app_state.staking.params.unbonding_time': `${UNBONDING_TIME}s`,
         },
       },
-      {
-        neutron: true,
-        hermes: {
-          config: {
-            'chains.1.trusting_period': '2m0s',
-          },
-        },
-      },
-    );
-    await awaitTargetChannels(
-      `http://127.0.0.1:${context.park.ports.gaia.rpc}`,
-    );
+    });
+
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
       {
-        prefix: 'neutron',
+        prefix: 'juno',
       },
     );
-    context.gaiaWallet = await DirectSecp256k1HdWallet.fromMnemonic(
-      context.park.config.wallets.demowallet1.mnemonic,
-      {
-        prefix: 'cosmos',
-      },
-    );
-    context.gaiaWallet2 = await DirectSecp256k1HdWallet.fromMnemonic(
-      context.park.config.wallets.demo1.mnemonic,
-      {
-        prefix: 'cosmos',
-      },
-    );
+
     context.account = (await context.wallet.getAccounts())[0];
-    context.neutronClient = new NeutronClient({
-      apiURL: `http://127.0.0.1:${context.park.ports.neutron.rest}`,
-      rpcURL: `127.0.0.1:${context.park.ports.neutron.rpc}`,
-      prefix: 'neutron',
-    });
-    context.neutronRPCEndpoint = `http://127.0.0.1:${context.park.ports.neutron.rpc}`;
+
+    context.junoRPCEndpoint = `http://127.0.0.1:${context.park.ports.juno.rpc}`;
     context.client = await SigningCosmWasmClient.connectWithSigner(
-      context.neutronRPCEndpoint,
+      context.junoRPCEndpoint,
       context.wallet,
       {
         gasPrice: GasPrice.fromString('0.025untrn'),
       },
     );
-    context.gaiaClient = await SigningStargateClient.connectWithSigner(
-      `http://127.0.0.1:${context.park.ports.gaia.rpc}`,
-      context.gaiaWallet,
-      {
-        gasPrice: GasPrice.fromString('0.025stake'),
-      },
-    );
     const tmClient = await Tendermint34Client.connect(
-      `http://127.0.0.1:${context.park.ports.gaia.rpc}`,
+      `http://127.0.0.1:${context.park.ports.juno.rpc}`,
     );
-    context.gaiaQueryClient = QueryClient.withExtensions(
+    context.queryClient = QueryClient.withExtensions(
       tmClient,
       setupStakingExtension,
       setupBankExtension,
@@ -205,10 +160,10 @@ describe('Core', () => {
     const secondWallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demo2.mnemonic,
       {
-        prefix: 'neutron',
+        prefix: 'juno',
       },
     );
-    context.neutronSecondUserAddress = (
+    context.junoSecondUserAddress = (
       await secondWallet.getAccounts()
     )[0].address;
   });
@@ -217,247 +172,213 @@ describe('Core', () => {
     await context.park.stop();
   });
 
-  it('transfer tokens to neutron', async () => {
-    context.gaiaUserAddress = (
-      await context.gaiaWallet.getAccounts()
-    )[0].address;
-    context.gaiaUserAddress2 = (
-      await context.gaiaWallet2.getAccounts()
-    )[0].address;
-    context.neutronUserAddress = (
-      await context.wallet.getAccounts()
-    )[0].address;
-    {
-      const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
-        context.park.config.master_mnemonic,
-        {
-          prefix: 'cosmosvaloper',
-          hdPaths: [stringToPath("m/44'/118'/1'/0/0") as any],
-        },
-      );
-      context.validatorAddress = (await wallet.getAccounts())[0].address;
-    }
-    {
-      const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
-        context.park.config.master_mnemonic,
-        {
-          prefix: 'cosmosvaloper',
-          hdPaths: [stringToPath("m/44'/118'/2'/0/0") as any],
-        },
-      );
-      context.secondValidatorAddress = (await wallet.getAccounts())[0].address;
-    }
-
-    const { gaiaClient, gaiaUserAddress, neutronUserAddress, neutronClient } =
-      context;
-    const res = await gaiaClient.signAndBroadcast(
-      gaiaUserAddress,
-      [
-        {
-          typeUrl: '/ibc.applications.transfer.v1.MsgTransfer',
-          value: MsgTransfer.fromPartial({
-            sender: gaiaUserAddress,
-            sourceChannel: 'channel-0',
-            sourcePort: 'transfer',
-            receiver: neutronUserAddress,
-            token: { denom: 'stake', amount: '2000000' },
-            timeoutTimestamp: BigInt((Date.now() + 10 * 60 * 1000) * 1e6),
-            timeoutHeight: {
-              revisionHeight: BigInt(0),
-              revisionNumber: BigInt(0),
-            },
-          }),
-        },
-      ],
-      2,
-    );
-    expect(res.transactionHash).toHaveLength(64);
-    await waitFor(async () => {
-      const balances =
-        await neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
-          neutronUserAddress,
-        );
-      context.neutronIBCDenom = balances.data.balances.find((b) =>
-        b.denom.startsWith('ibc/'),
-      )?.denom;
-      return balances.data.balances.length > 1;
-    }, 60_000);
-    expect(context.neutronIBCDenom).toBeTruthy();
-  });
-
   it('instantiate', async () => {
     const { client, account } = context;
     context.codeIds = {};
 
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_core.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_core.wasm')),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.core = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_token.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_token.wasm')),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.token = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.withdrawalVoucher = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_withdrawal_manager.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_withdrawal_manager.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.withdrawalManager = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_pump.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.pump = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_strategy.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_strategy.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.strategy = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_distribution.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_distribution.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.distribution = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.validatorsSet = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_puppeteer_native.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_puppeteer.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.puppeteer = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.rewardsManager = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_splitter.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.splitter = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_redemption_rate_adapter.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../../artifacts/drop_redemption_rate_adapter.wasm',
-          ),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.redemptionRateAdapter = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_lsm_share_bond_provider.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../../artifacts/drop_lsm_share_bond_provider.wasm',
-          ),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.lsmShareBondProvider = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_native_bond_provider.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_native_bond_provider.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.nativeBondProvider = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_val_ref.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_val_ref.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.valRef = res.codeId;
     }
 
+    const buffer = fs.readFileSync(
+      join(__dirname, '../../../artifacts/drop_factory.wasm'),
+    );
+
     const res = await client.upload(
       account.address,
-      fs.readFileSync(join(__dirname, '../../../artifacts/drop_factory.wasm')),
+      new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),,
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
@@ -467,7 +388,7 @@ describe('Core', () => {
       res.codeId,
       {
         sdk_version: process.env.SDK_VERSION || '0.47.10',
-        local_denom: 'untrn',
+        local_denom: 'ujunox',
         code_ids: {
           core_code_id: context.codeIds.core,
           token_code_id: context.codeIds.token,
@@ -506,7 +427,7 @@ describe('Core', () => {
           uri: null,
           uri_hash: null,
         },
-        base_denom: context.neutronIBCDenom,
+        base_denom: 'ujunox',
         core_params: {
           idle_min_interval: 120,
           unbond_batch_switch_time: 60,
@@ -537,7 +458,8 @@ describe('Core', () => {
   });
 
   it('query factory state', async () => {
-    const { factoryContractClient: contractClient, neutronClient } = context;
+    const { factoryContractClient: contractClient, junoClient: neutronClient } =
+      context;
     const res = await contractClient.queryState();
     expect(res).toBeTruthy();
     const tokenContractInfo =
@@ -728,7 +650,8 @@ describe('Core', () => {
   });
 
   it('setup ICA for rewards pump', async () => {
-    const { rewardsPumpContractClient, neutronUserAddress } = context;
+    const { rewardsPumpContractClient, junoUserAddress: neutronUserAddress } =
+      context;
     const res = await rewardsPumpContractClient.registerICA(
       neutronUserAddress,
       1.5,
@@ -755,7 +678,8 @@ describe('Core', () => {
   });
 
   it('register puppeteer ICA', async () => {
-    const { puppeteerContractClient, neutronUserAddress } = context;
+    const { puppeteerContractClient, junoUserAddress: neutronUserAddress } =
+      context;
     const res = await puppeteerContractClient.registerICA(
       neutronUserAddress,
       1.5,
@@ -782,7 +706,7 @@ describe('Core', () => {
   });
 
   it('set up rewards receiver', async () => {
-    const { neutronUserAddress } = context;
+    const { junoUserAddress: neutronUserAddress } = context;
     const res = await context.factoryContractClient.adminExecute(
       neutronUserAddress,
       {
@@ -880,7 +804,7 @@ describe('Core', () => {
   it('transfer tokenized share to neutron', async () => {
     const res = await context.park.executeInNetwork(
       'gaia',
-      `gaiad tx ibc-transfer transfer transfer channel-0 ${context.neutronUserAddress} 600000${context.validatorAddress}/1 --from ${context.gaiaUserAddress}  --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
+      `gaiad tx ibc-transfer transfer transfer channel-0 ${context.junoUserAddress} 600000${context.validatorAddress}/1 --from ${context.gaiaUserAddress}  --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
     );
     expect(res.exitCode).toBe(0);
     const out = JSON.parse(res.out);
@@ -889,7 +813,8 @@ describe('Core', () => {
     await waitForTx(context.gaiaClient, out.txhash);
   });
   it('wait for neutron to receive tokenized share', async () => {
-    const { neutronClient, neutronUserAddress } = context;
+    const { junoClient: neutronClient, junoUserAddress: neutronUserAddress } =
+      context;
     let balances;
     await waitFor(async () => {
       balances =
@@ -906,7 +831,7 @@ describe('Core', () => {
     context.tokenizedDenomOnNeutron = shareOnNeutron?.denom;
   });
   it('bond tokenized share from unregistered validator', async () => {
-    const { coreContractClient, neutronUserAddress } = context;
+    const { coreContractClient, junoUserAddress: neutronUserAddress } = context;
 
     await expect(
       coreContractClient.bond(neutronUserAddress, {}, 1.6, undefined, [
@@ -977,7 +902,7 @@ describe('Core', () => {
   });
   it('add validators into validators set', async () => {
     const {
-      neutronUserAddress,
+      junoUserAddress: neutronUserAddress,
       factoryContractClient,
       validatorAddress,
       secondValidatorAddress,
@@ -1041,7 +966,7 @@ describe('Core', () => {
 
   it('register native bond provider in the core', async () => {
     const res = await context.factoryContractClient.adminExecute(
-      context.neutronUserAddress,
+      context.junoUserAddress,
       {
         msgs: [
           {
@@ -1071,7 +996,7 @@ describe('Core', () => {
   });
   it('register lsm share bond provider in the core', async () => {
     const res = await context.factoryContractClient.adminExecute(
-      context.neutronUserAddress,
+      context.junoUserAddress,
       {
         msgs: [
           {
@@ -1117,7 +1042,7 @@ describe('Core', () => {
 
   it('remove lsm share bond provider from the core', async () => {
     const res = await context.factoryContractClient.adminExecute(
-      context.neutronUserAddress,
+      context.junoUserAddress,
       {
         msgs: [
           {
@@ -1157,7 +1082,11 @@ describe('Core', () => {
   });
 
   it('bond failed as over limit', async () => {
-    const { coreContractClient, neutronUserAddress, neutronIBCDenom } = context;
+    const {
+      coreContractClient,
+      junoUserAddress: neutronUserAddress,
+      neutronIBCDenom,
+    } = context;
     await expect(
       coreContractClient.bond(neutronUserAddress, {}, 1.6, undefined, [
         {
@@ -1170,7 +1099,8 @@ describe('Core', () => {
   });
 
   it('update limit', async () => {
-    const { factoryContractClient, neutronUserAddress } = context;
+    const { factoryContractClient, junoUserAddress: neutronUserAddress } =
+      context;
     const res = await factoryContractClient.adminExecute(
       neutronUserAddress,
       {
@@ -1204,8 +1134,8 @@ describe('Core', () => {
   it('bond w/o receiver', async () => {
     const {
       coreContractClient,
-      neutronClient,
-      neutronUserAddress,
+      junoClient: neutronClient,
+      junoUserAddress: neutronUserAddress,
       neutronIBCDenom,
     } = context;
     const res = await coreContractClient.bond(
@@ -1254,7 +1184,7 @@ describe('Core', () => {
     expect(bonded).toEqual('500000');
   });
   it('reset bonded amount', async () => {
-    const { coreContractClient, neutronUserAddress } = context;
+    const { coreContractClient, junoUserAddress: neutronUserAddress } = context;
     const res = await context.factoryContractClient.adminExecute(
       neutronUserAddress,
       {
@@ -1283,10 +1213,10 @@ describe('Core', () => {
   it('bond with receiver', async () => {
     const {
       coreContractClient,
-      neutronClient,
-      neutronUserAddress,
+      junoClient: neutronClient,
+      junoUserAddress: neutronUserAddress,
       neutronIBCDenom,
-      neutronSecondUserAddress,
+      junoSecondUserAddress: neutronSecondUserAddress,
     } = context;
     const res = await coreContractClient.bond(
       neutronUserAddress,
@@ -1320,10 +1250,10 @@ describe('Core', () => {
   it('bond with ref', async () => {
     const {
       coreContractClient,
-      neutronClient,
-      neutronUserAddress,
+      junoClient: neutronClient,
+      junoUserAddress: neutronUserAddress,
       neutronIBCDenom,
-      neutronSecondUserAddress,
+      junoSecondUserAddress: neutronSecondUserAddress,
     } = context;
     const res = await coreContractClient.bond(
       neutronUserAddress,
@@ -1407,7 +1337,11 @@ describe('Core', () => {
   });
 
   it('unbond', async () => {
-    const { coreContractClient, neutronUserAddress, ldDenom } = context;
+    const {
+      coreContractClient,
+      junoUserAddress: neutronUserAddress,
+      ldDenom,
+    } = context;
     let res = await coreContractClient.unbond(
       neutronUserAddress,
       1.6,
@@ -1461,7 +1395,11 @@ describe('Core', () => {
         expect(ica.balance).toEqual(0);
       });
       it('deploy pump', async () => {
-        const { client, account, neutronUserAddress } = context;
+        const {
+          client,
+          account,
+          junoUserAddress: neutronUserAddress,
+        } = context;
         const resUpload = await client.upload(
           account.address,
           fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
@@ -1542,7 +1480,7 @@ describe('Core', () => {
         const {
           account,
           factoryContractClient: contractClient,
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
         } = context;
 
         await contractClient.pause(account.address);
@@ -1563,7 +1501,7 @@ describe('Core', () => {
       it('first tick did nothing and stays in idle', async () => {
         const {
           gaiaClient,
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
           coreContractClient,
           puppeteerContractClient,
         } = context;
@@ -1593,7 +1531,7 @@ describe('Core', () => {
       it('tick', async () => {
         const {
           gaiaClient,
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
           coreContractClient,
           puppeteerContractClient,
           neutronIBCDenom,
@@ -1666,7 +1604,7 @@ describe('Core', () => {
       it('next tick should go to idle', async () => {
         const {
           gaiaClient,
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
           coreContractClient,
           puppeteerContractClient,
         } = context;
@@ -1696,7 +1634,7 @@ describe('Core', () => {
       it('next tick should call delegation method on the bond provider', async () => {
         const {
           gaiaClient,
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
           coreContractClient,
           puppeteerContractClient,
         } = context;
@@ -1773,7 +1711,7 @@ describe('Core', () => {
       });
       it('tick goes to idle', async () => {
         const {
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
           gaiaClient,
           coreContractClient,
           puppeteerContractClient,
@@ -1797,7 +1735,8 @@ describe('Core', () => {
         await checkExchangeRate(context);
       });
       it('decrease idle interval', async () => {
-        const { factoryContractClient, neutronUserAddress } = context;
+        const { factoryContractClient, junoUserAddress: neutronUserAddress } =
+          context;
         const res = await factoryContractClient.updateConfig(
           neutronUserAddress,
           {
@@ -1810,7 +1749,7 @@ describe('Core', () => {
       });
       it('tick goes to claiming', async () => {
         const {
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
           gaiaClient,
           coreContractClient,
           puppeteerContractClient,
@@ -1834,7 +1773,7 @@ describe('Core', () => {
         await checkExchangeRate(context);
       });
       it('tick is failed bc no response from puppeteer yet', async () => {
-        const { neutronUserAddress } = context;
+        const { junoUserAddress: neutronUserAddress } = context;
         await expect(
           context.coreContractClient.tick(
             neutronUserAddress,
@@ -1846,7 +1785,7 @@ describe('Core', () => {
       });
       it('tick goes to unbonding', async () => {
         const {
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
           gaiaClient,
           coreContractClient,
           puppeteerContractClient,
@@ -1994,7 +1933,7 @@ describe('Core', () => {
       });
       it('next tick goes to idle', async () => {
         const {
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
           gaiaClient,
           coreContractClient,
           puppeteerContractClient,
@@ -2039,7 +1978,7 @@ describe('Core', () => {
       const balance = 0;
       it('idle tick', async () => {
         const {
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
           gaiaClient,
           coreContractClient,
           puppeteerContractClient,
@@ -2103,7 +2042,7 @@ describe('Core', () => {
       });
       it('next tick goes to idle', async () => {
         const {
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
           gaiaClient,
           coreContractClient,
           puppeteerContractClient,
@@ -2133,7 +2072,7 @@ describe('Core', () => {
       describe('prepare', () => {
         it('remove native bond provider from the core', async () => {
           const res = await context.factoryContractClient.adminExecute(
-            context.neutronUserAddress,
+            context.junoUserAddress,
             {
               msgs: [
                 {
@@ -2164,7 +2103,7 @@ describe('Core', () => {
 
         it('register lsm share bond provider in the core', async () => {
           const res = await context.factoryContractClient.adminExecute(
-            context.neutronUserAddress,
+            context.junoUserAddress,
             {
               msgs: [
                 {
@@ -2196,13 +2135,16 @@ describe('Core', () => {
         describe('create LSM shares and send them to neutron', () => {
           it('get balances', async () => {
             const oldBalances =
-              await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
-                context.neutronUserAddress,
+              await context.junoClient.CosmosBankV1Beta1.query.queryAllBalances(
+                context.junoUserAddress,
               );
             oldBalanceDenoms = oldBalances.data.balances.map((b) => b.denom);
           });
           it('update idle interval', async () => {
-            const { factoryContractClient, neutronUserAddress } = context;
+            const {
+              factoryContractClient,
+              junoUserAddress: neutronUserAddress,
+            } = context;
             const res = await factoryContractClient.updateConfig(
               neutronUserAddress,
               {
@@ -2287,7 +2229,7 @@ describe('Core', () => {
             {
               const res = await context.park.executeInNetwork(
                 'gaia',
-                `gaiad tx ibc-transfer transfer transfer channel-0 ${context.neutronUserAddress} 60000${context.validatorAddress}/2 --from ${context.gaiaUserAddress}  --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
+                `gaiad tx ibc-transfer transfer transfer channel-0 ${context.junoUserAddress} 60000${context.validatorAddress}/2 --from ${context.gaiaUserAddress}  --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
               );
               expect(res.exitCode).toBe(0);
               const out = JSON.parse(res.out);
@@ -2299,7 +2241,7 @@ describe('Core', () => {
             {
               const res = await context.park.executeInNetwork(
                 'gaia',
-                `gaiad tx ibc-transfer transfer transfer channel-0 ${context.neutronUserAddress} 60000${context.secondValidatorAddress}/3 --from ${context.gaiaUserAddress}  --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
+                `gaiad tx ibc-transfer transfer transfer channel-0 ${context.junoUserAddress} 60000${context.secondValidatorAddress}/3 --from ${context.gaiaUserAddress}  --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
               );
               expect(res.exitCode).toBe(0);
               const out = JSON.parse(res.out);
@@ -2311,8 +2253,8 @@ describe('Core', () => {
           it('wait for balances to come', async () => {
             await waitFor(async () => {
               const newbalances =
-                await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
-                  context.neutronUserAddress,
+                await context.junoClient.CosmosBankV1Beta1.query.queryAllBalances(
+                  context.junoUserAddress,
                 );
               const newDenoms = newbalances.data.balances.map((b) => b.denom);
               const diff = newDenoms.filter(
@@ -2326,7 +2268,8 @@ describe('Core', () => {
 
         it('bond LSM shares', async () => {
           {
-            const { coreContractClient, neutronUserAddress } = context;
+            const { coreContractClient, junoUserAddress: neutronUserAddress } =
+              context;
             const res = await coreContractClient.bond(
               neutronUserAddress,
               {},
@@ -2343,7 +2286,8 @@ describe('Core', () => {
             await checkExchangeRate(context);
           }
           {
-            const { coreContractClient, neutronUserAddress } = context;
+            const { coreContractClient, junoUserAddress: neutronUserAddress } =
+              context;
             const res = await coreContractClient.bond(
               neutronUserAddress,
               {},
@@ -2369,7 +2313,7 @@ describe('Core', () => {
       describe('transfering', () => {
         it('tick', async () => {
           const {
-            neutronUserAddress,
+            junoUserAddress: neutronUserAddress,
             gaiaClient,
             coreContractClient,
             puppeteerContractClient,
@@ -2421,7 +2365,7 @@ describe('Core', () => {
         });
         it('one lsm share is gone from the contract balance', async () => {
           const balances =
-            await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+            await context.junoClient.CosmosBankV1Beta1.query.queryAllBalances(
               context.coreContractClient.contractAddress,
             );
           expect(
@@ -2442,7 +2386,7 @@ describe('Core', () => {
           }, 60_000);
         });
         it('tick to idle', async () => {
-          const { neutronUserAddress } = context;
+          const { junoUserAddress: neutronUserAddress } = context;
           const res = await context.coreContractClient.tick(
             neutronUserAddress,
             1.5,
@@ -2455,7 +2399,7 @@ describe('Core', () => {
           await checkExchangeRate(context);
         });
         it('tick to peripheral', async () => {
-          const { neutronUserAddress } = context;
+          const { junoUserAddress: neutronUserAddress } = context;
           const res = await context.coreContractClient.tick(
             neutronUserAddress,
             1.5,
@@ -2491,7 +2435,7 @@ describe('Core', () => {
         });
         it('second lsm share is gone from the contract balance', async () => {
           const balances =
-            await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+            await context.junoClient.CosmosBankV1Beta1.query.queryAllBalances(
               context.coreContractClient.contractAddress,
             );
           expect(
@@ -2535,7 +2479,7 @@ describe('Core', () => {
         it('tick to idle', async () => {
           const {
             gaiaClient,
-            neutronUserAddress,
+            junoUserAddress: neutronUserAddress,
             coreContractClient,
             puppeteerContractClient,
           } = context;
@@ -2556,7 +2500,7 @@ describe('Core', () => {
           await checkExchangeRate(context);
         });
         it('tick to peripheral', async () => {
-          const { neutronUserAddress } = context;
+          const { junoUserAddress: neutronUserAddress } = context;
           const res = await context.coreContractClient.tick(
             neutronUserAddress,
             1.5,
@@ -2569,7 +2513,7 @@ describe('Core', () => {
           await checkExchangeRate(context);
         });
         it('imeediately tick again fails', async () => {
-          const { neutronUserAddress } = context;
+          const { junoUserAddress: neutronUserAddress } = context;
           await expect(
             context.coreContractClient.tick(
               neutronUserAddress,
@@ -2628,9 +2572,12 @@ describe('Core', () => {
 
     describe('forth cycle', () => {
       it('validate NFT', async () => {
-        const { withdrawalVoucherContractClient, neutronUserAddress } = context;
+        const {
+          withdrawalVoucherContractClient,
+          junoUserAddress: neutronUserAddress,
+        } = context;
         const vouchers = await withdrawalVoucherContractClient.queryTokens({
-          owner: context.neutronUserAddress,
+          owner: context.junoUserAddress,
         });
         expect(vouchers.tokens.length).toBe(2);
         expect(vouchers.tokens[0]).toBe(`0_${neutronUserAddress}_1`);
@@ -2689,7 +2636,8 @@ describe('Core', () => {
         });
       });
       it('bond tokenized share from registered validator', async () => {
-        const { coreContractClient, neutronUserAddress } = context;
+        const { coreContractClient, junoUserAddress: neutronUserAddress } =
+          context;
         const res = await coreContractClient.bond(
           neutronUserAddress,
           {},
@@ -2708,7 +2656,7 @@ describe('Core', () => {
       it('try to withdraw from paused manager', async () => {
         const {
           withdrawalVoucherContractClient,
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
           factoryContractClient: contractClient,
           account,
         } = context;
@@ -2731,7 +2679,10 @@ describe('Core', () => {
         await contractClient.unpause(account.address);
       });
       it('try to withdraw before withdrawn', async () => {
-        const { withdrawalVoucherContractClient, neutronUserAddress } = context;
+        const {
+          withdrawalVoucherContractClient,
+          junoUserAddress: neutronUserAddress,
+        } = context;
         const tokenId = `0_${neutronUserAddress}_1`;
         await expect(
           withdrawalVoucherContractClient.sendNft(neutronUserAddress, {
@@ -2746,7 +2697,8 @@ describe('Core', () => {
         ).rejects.toThrowError(/is not withdrawn yet/);
       });
       it('update idle interval', async () => {
-        const { factoryContractClient, neutronUserAddress } = context;
+        const { factoryContractClient, junoUserAddress: neutronUserAddress } =
+          context;
         const res = await factoryContractClient.updateConfig(
           neutronUserAddress,
           {
@@ -2787,7 +2739,8 @@ describe('Core', () => {
         }, 50_000);
       });
       it('tick to idle', async () => {
-        const { coreContractClient, neutronUserAddress } = context;
+        const { coreContractClient, junoUserAddress: neutronUserAddress } =
+          context;
         await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
@@ -2796,7 +2749,7 @@ describe('Core', () => {
       it('tick to claiming', async () => {
         const {
           coreContractClient,
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
           puppeteerContractClient,
         } = context;
         await waitForPuppeteerICQ(
@@ -2844,7 +2797,7 @@ describe('Core', () => {
         const {
           gaiaClient,
           coreContractClient,
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
           puppeteerContractClient,
         } = context;
 
@@ -2884,7 +2837,7 @@ describe('Core', () => {
       it('withdraw with non funded withdrawal manager', async () => {
         const {
           withdrawalVoucherContractClient: voucherContractClient,
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
         } = context;
         const tokenId = `0_${neutronUserAddress}_1`;
         await expect(
@@ -2900,7 +2853,8 @@ describe('Core', () => {
         ).rejects.toThrowError(/spendable balance [\w/]+ is smaller than/);
       });
       it('fund withdrawal manager', async () => {
-        const { pumpContractClient, neutronUserAddress } = context;
+        const { pumpContractClient, junoUserAddress: neutronUserAddress } =
+          context;
         await pumpContractClient.push(
           neutronUserAddress,
           {
@@ -2912,7 +2866,7 @@ describe('Core', () => {
         );
         await waitFor(async () => {
           const balances =
-            await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+            await context.junoClient.CosmosBankV1Beta1.query.queryAllBalances(
               context.withdrawalManagerContractClient.contractAddress,
             );
           return balances.data.balances.length > 0;
@@ -2922,8 +2876,8 @@ describe('Core', () => {
       it('withdraw', async () => {
         const {
           withdrawalVoucherContractClient: voucherContractClient,
-          neutronUserAddress,
-          neutronClient,
+          junoUserAddress: neutronUserAddress,
+          junoClient: neutronClient,
           neutronIBCDenom,
         } = context;
         const balanceBefore = parseInt(
@@ -2958,9 +2912,9 @@ describe('Core', () => {
       it('withdraw to custom receiver', async () => {
         const {
           withdrawalVoucherContractClient: voucherContractClient,
-          neutronUserAddress,
-          neutronSecondUserAddress,
-          neutronClient,
+          junoUserAddress: neutronUserAddress,
+          junoSecondUserAddress: neutronSecondUserAddress,
+          junoClient: neutronClient,
           neutronIBCDenom,
         } = context;
         const balanceBefore = parseInt(
@@ -2998,7 +2952,7 @@ describe('Core', () => {
       describe('prepare', () => {
         it('remove lsm share bond provider from the core', async () => {
           const res = await context.factoryContractClient.adminExecute(
-            context.neutronUserAddress,
+            context.junoUserAddress,
             {
               msgs: [
                 {
@@ -3029,7 +2983,7 @@ describe('Core', () => {
 
         it('register native bond provider in the core', async () => {
           const res = await context.factoryContractClient.adminExecute(
-            context.neutronUserAddress,
+            context.junoUserAddress,
             {
               msgs: [
                 {
@@ -3062,7 +3016,7 @@ describe('Core', () => {
       it('tick to claiming', async () => {
         const {
           coreContractClient,
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
           puppeteerContractClient,
         } = context;
         await waitForPuppeteerICQ(
@@ -3093,7 +3047,7 @@ describe('Core', () => {
         const {
           gaiaClient,
           coreContractClient,
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
           puppeteerContractClient,
         } = context;
 
@@ -3109,7 +3063,8 @@ describe('Core', () => {
         await checkExchangeRate(context);
       });
       it('increase idle interval', async () => {
-        const { factoryContractClient, neutronUserAddress } = context;
+        const { factoryContractClient, junoUserAddress: neutronUserAddress } =
+          context;
         const res = await factoryContractClient.updateConfig(
           neutronUserAddress,
           {
@@ -3124,7 +3079,7 @@ describe('Core', () => {
         const {
           coreContractClient,
           ldDenom,
-          neutronUserAddress,
+          junoUserAddress: neutronUserAddress,
           neutronIBCDenom,
         } = context;
         let res = await coreContractClient.bond(
@@ -3175,8 +3130,11 @@ describe('Core', () => {
     describe('sixth stake rewards', () => {
       let rewardsPumpIcaBalance = 0;
       it('pump rewards', async () => {
-        const { rewardsPumpContractClient, neutronUserAddress, gaiaClient } =
-          context;
+        const {
+          rewardsPumpContractClient,
+          junoUserAddress: neutronUserAddress,
+          gaiaClient,
+        } = context;
         rewardsPumpIcaBalance = parseInt(
           (await gaiaClient.getBalance(context.rewardsPumpIcaAddress, 'stake'))
             .amount,
@@ -3195,7 +3153,7 @@ describe('Core', () => {
         );
         await waitFor(async () => {
           const balances =
-            await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+            await context.junoClient.CosmosBankV1Beta1.query.queryAllBalances(
               context.splitterContractClient.contractAddress,
             );
           return balances.data.balances.length > 0;
@@ -3203,7 +3161,7 @@ describe('Core', () => {
       });
       it('top up splitter', async () => {
         const res = await context.client.sendTokens(
-          context.neutronUserAddress,
+          context.junoUserAddress,
           context.splitterContractClient.contractAddress,
           [
             {
@@ -3217,7 +3175,7 @@ describe('Core', () => {
       });
       it('split it', async () => {
         const nativeBondProviderBalanceBefore = (
-          await context.neutronClient.CosmosBankV1Beta1.query.queryBalance(
+          await context.junoClient.CosmosBankV1Beta1.query.queryBalance(
             context.nativeBondProviderContractClient.contractAddress,
             { denom: context.neutronIBCDenom },
           )
@@ -3225,13 +3183,13 @@ describe('Core', () => {
         expect(parseInt(nativeBondProviderBalanceBefore, 10)).toEqual(0);
 
         const res = await context.splitterContractClient.distribute(
-          context.neutronUserAddress,
+          context.junoUserAddress,
           1.5,
           undefined,
         );
         expect(res.transactionHash).toHaveLength(64);
         const nativeBondProviderBalanceAfter = (
-          await context.neutronClient.CosmosBankV1Beta1.query.queryBalance(
+          await context.junoClient.CosmosBankV1Beta1.query.queryBalance(
             context.nativeBondProviderContractClient.contractAddress,
             { denom: context.neutronIBCDenom },
           )
@@ -3260,7 +3218,7 @@ describe('Core', () => {
 
   it('update validators set and check kv queries id', async () => {
     const {
-      neutronUserAddress,
+      junoUserAddress: neutronUserAddress,
       factoryContractClient,
       validatorAddress,
       secondValidatorAddress,
