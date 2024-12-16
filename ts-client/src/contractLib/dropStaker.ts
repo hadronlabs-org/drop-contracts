@@ -206,7 +206,7 @@ export class Client {
     this.client = client;
     this.contractAddress = contractAddress;
   }
-  mustBeSigningClient() {
+  mustBeSigningClient(): Error {
     return new Error("This client is not a SigningCosmWasmClient");
   }
   static async instantiate(
@@ -258,22 +258,27 @@ export class Client {
   }
   registerICA = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { register_i_c_a: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.registerICAMsg(), fee || "auto", memo, funds);
   }
+  registerICAMsg = (): { register_i_c_a: {} } => { return { register_i_c_a: {} } }
   stake = async(sender:string, args: StakeArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { stake: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.stakeMsg(args), fee || "auto", memo, funds);
   }
+  stakeMsg = (args: StakeArgs): { stake: StakeArgs } => { return { stake: args }; }
   iBCTransfer = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { i_b_c_transfer: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.iBCTransferMsg(), fee || "auto", memo, funds);
   }
+  iBCTransferMsg = (): { i_b_c_transfer: {} } => { return { i_b_c_transfer: {} } }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.updateConfigMsg(args), fee || "auto", memo, funds);
   }
+  updateConfigMsg = (args: UpdateConfigArgs): { update_config: UpdateConfigArgs } => { return { update_config: args }; }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.updateOwnershipMsg(args), fee || "auto", memo, funds);
   }
+  updateOwnershipMsg = (args: UpdateOwnershipArgs): { update_ownership: UpdateOwnershipArgs } => { return { update_ownership: args }; }
 }

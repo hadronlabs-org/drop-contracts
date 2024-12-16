@@ -42,13 +42,15 @@ class Client {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.updateConfigMsg(args), fee || "auto", memo, funds);
     };
+    updateConfigMsg = (args) => { return { update_config: args }; };
     updateProposalVotes = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { update_proposal_votes: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.updateProposalVotesMsg(args), fee || "auto", memo, funds);
     };
+    updateProposalVotesMsg = (args) => { return { update_proposal_votes: args }; };
 }
 exports.Client = Client;

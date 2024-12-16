@@ -1198,9 +1198,27 @@ export declare class Client {
     queryState: () => Promise<State>;
     queryPauseInfo: () => Promise<PauseInfoResponse>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateConfigMsg: (args: UpdateConfigArgs) => {
+        update_config: UpdateConfigArgs;
+    };
     proxy: (sender: string, args: ProxyArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    proxyMsg: (args: ProxyArgs) => {
+        proxy: ProxyArgs;
+    };
     adminExecute: (sender: string, args: AdminExecuteArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    adminExecuteMsg: (args: AdminExecuteArgs) => {
+        admin_execute: AdminExecuteArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
     pause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    pauseMsg: () => {
+        pause: {};
+    };
     unpause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    unpauseMsg: () => {
+        unpause: {};
+    };
 }

@@ -1,0 +1,5 @@
+{
+  "name": "@drop/contracts",
+  "version": "1.0.1",
+  "exports": "./src/contractLib/index.ts"
+}

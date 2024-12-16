@@ -154,8 +154,23 @@ export declare class Client {
     queryIca: () => Promise<IcaState>;
     queryOwnership: () => Promise<OwnershipForString>;
     registerICA: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    registerICAMsg: () => {
+        register_i_c_a: {};
+    };
     push: (sender: string, args: PushArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    pushMsg: (args: PushArgs) => {
+        push: PushArgs;
+    };
     refund: (sender: string, args: RefundArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    refundMsg: (args: RefundArgs) => {
+        refund: RefundArgs;
+    };
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateConfigMsg: (args: UpdateConfigArgs) => {
+        update_config: UpdateConfigArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
 }

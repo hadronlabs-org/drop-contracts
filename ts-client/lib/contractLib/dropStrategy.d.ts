@@ -124,5 +124,11 @@ export declare class Client {
     queryCalcWithdraw: (args: CalcWithdrawArgs) => Promise<ArrayOfTupleOfStringAndUint128>;
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateConfigMsg: (args: UpdateConfigArgs) => {
+        update_config: UpdateConfigArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
 }

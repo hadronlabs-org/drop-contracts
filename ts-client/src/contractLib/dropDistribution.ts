@@ -58,7 +58,7 @@ export class Client {
     this.client = client;
     this.contractAddress = contractAddress;
   }
-  mustBeSigningClient() {
+  mustBeSigningClient(): Error {
     return new Error("This client is not a SigningCosmWasmClient");
   }
   static async instantiate(
