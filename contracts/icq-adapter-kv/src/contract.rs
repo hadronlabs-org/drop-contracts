@@ -188,3 +188,63 @@ pub fn register_delegations_and_balance_query_reply(
     DELEGATIONS_AND_BALANCES_QUERY_ID_CHUNK.save(deps.storage, query_id, &msg.id)?;
     Ok(Response::new())
 }
+
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn sudo(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    msg: SudoMsg,
+) -> NeutronResult<Response<NeutronMsg>> {
+    let puppeteer_base = Puppeteer::default();
+    deps.api.debug(&format!(
+        "WASMDEBUG: sudo call: {:?} block: {:?}",
+        msg, env.block
+    ));
+    match msg {
+        SudoMsg::Response { request, data } => sudo_response(deps, env, request, data),
+        SudoMsg::Error { request, details } => sudo_error(deps, env, request, details),
+        SudoMsg::Timeout { request } => sudo_timeout(deps, env, request),
+        SudoMsg::TxQueryResult {
+            query_id,
+            height,
+            data,
+        } => puppeteer_base.sudo_tx_query_result(deps, env, query_id, height, data),
+        SudoMsg::KVQueryResult { query_id } => {
+            let query_type = puppeteer_base.kv_queries.load(deps.storage, query_id)?;
+            let config = puppeteer_base.config.load(deps.storage)?;
+            deps.api
+                .debug(&format!("WASMDEBUG: KVQueryResult type {:?}", query_type));
+            match query_type {
+                KVQueryType::DelegationsAndBalance => sudo_delegations_and_balance_kv_query_result(
+                    deps,
+                    env,
+                    query_id,
+                    &config.sdk_version,
+                ),
+                KVQueryType::NonNativeRewardsBalances => puppeteer_base.sudo_kv_query_result(
+                    deps,
+                    env,
+                    query_id,
+                    &config.sdk_version,
+                    NON_NATIVE_REWARD_BALANCES,
+                ),
+                KVQueryType::UnbondingDelegations => {
+                    puppeteer_base.sudo_unbonding_delegations_kv_query_result(deps, env, query_id)
+                }
+            }
+        }
+        SudoMsg::OpenAck {
+            port_id,
+            channel_id,
+            counterparty_channel_id,
+            counterparty_version,
+        } => puppeteer_base.sudo_open_ack(
+            deps,
+            env,
+            port_id,
+            channel_id,
+            counterparty_channel_id,
+            counterparty_version,
+        ),
+    }
+}
