@@ -1,10 +1,11 @@
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, to_json_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
-    Response, WasmMsg,
+    attr, ensure, ensure_eq, to_json_binary, Binary, CosmosMsg, Deps, DepsMut, Empty, Env,
+    MessageInfo, Order, Reply, Response, StdError, StdResult, SubMsg, WasmMsg,
 };
 use drop_helpers::answer::response;
-use drop_staking_base::msg::icq_router::{BalancesData, DelegationsData};
-use drop_staking_base::state::icq_adapter::{Config, ConfigOptional, CONFIG};
+use drop_helpers::icq::new_delegations_and_balance_query_msg;
+use drop_helpers::query_id::get_query_id;
+use drop_staking_base::state::icq_adapter::{Config, ConfigOptional, IcqAdapter};
 use drop_staking_base::{
     error::icq_adapter::{ContractError, ContractResult},
     msg::icq_adapter::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
@@ -14,6 +15,7 @@ use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 use std::{env, vec};
 
 use crate::msg::Options;
+use crate::store::DELEGATIONS_AND_BALANCES_QUERY_ID_CHUNK;
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -25,27 +27,37 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg<Options>,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let adapter: IcqAdapter<Options> = IcqAdapter::new();
     let owner = msg.owner.unwrap_or(info.sender.to_string());
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(owner.as_str()))?;
     let router = deps.api.addr_validate(&msg.router)?;
+    bech32::decode(&msg.ica).map_err(|_| ContractError::InvalidIca)?;
     let attrs = vec![
         attr("action", "instantiate"),
         attr("router", router.to_string()),
         attr("owner", owner),
+        attr("ica", msg.ica.to_string()),
     ];
-    CONFIG.save(deps.storage, &Config { router })?;
+    let config: Config<Options> = Config {
+        router,
+        remote_denom: msg.remote_denom,
+        ica: msg.ica,
+        options: msg.options,
+    };
+    adapter.config.save(deps.storage, &config)?;
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
-pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
+pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg<Empty>) -> ContractResult<Binary> {
     match msg {
-        QueryMsg::Balances {} => query_balance(deps),
-        QueryMsg::Delegations {} => query_delegations(deps),
-        QueryMsg::NonNativeRewardsBalances {} => query_non_native_rewards_balances(deps),
         QueryMsg::Ownership {} => Ok(to_json_binary(&cw_ownable::get_ownership(deps.storage)?)?),
-        QueryMsg::Config {} => Ok(to_json_binary(&CONFIG.load(deps.storage)?)?),
+        QueryMsg::Config {} => {
+            let adapter: IcqAdapter<Options> = IcqAdapter::new();
+            Ok(to_json_binary(&adapter.config.load(deps.storage)?)?)
+        }
+        QueryMsg::Extention(_) => todo!(),
     }
 }
 
@@ -54,21 +66,17 @@ pub fn execute(
     deps: DepsMut<NeutronQuery>,
     env: Env,
     info: MessageInfo,
-    msg: ExecuteMsg,
+    msg: ExecuteMsg<Options>,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::UpdateValidators { validators } => {
-            update_validators(deps, info, env, validators)
+        ExecuteMsg::UpdateValidatorSet { validators } => {
+            register_delegations_and_balance_query(deps, info, validators)
         }
         ExecuteMsg::UpdateConfig { new_config } => update_config(deps, info, new_config),
         ExecuteMsg::UpdateOwnership(action) => {
             let attrs = vec![attr("action", "update_ownership")];
             cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
             Ok(response("update_ownership", CONTRACT_NAME, attrs))
-        }
-        ExecuteMsg::UpdateBalances { balances } => update_balances(deps, info, env, balances),
-        ExecuteMsg::UpdateDelegations { delegations } => {
-            update_delegations(deps, info, env, delegations)
         }
     }
 }
@@ -88,86 +96,95 @@ pub fn migrate(
     Ok(Response::new())
 }
 
-fn query_balance(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let balance = BALANCES.load(deps.storage)?;
-    Ok(to_json_binary(&balance)?)
-}
-
-fn query_delegations(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let delegations = DELEGATIONS.load(deps.storage)?;
-    Ok(to_json_binary(&delegations)?)
-}
-
-fn query_non_native_rewards_balances(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let balances = NON_NATIVE_REWARD_BALANCES.load(deps.storage)?;
-    Ok(to_json_binary(&balances)?)
-}
-
-fn update_balances(
+pub fn update_config(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
-    _env: Env,
-    balances: BalancesData,
+    new_config: ConfigOptional<Options>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let config = CONFIG.load(deps.storage)?;
-    ensure_eq!(info.sender, config.adapter, ContractError::Unauthorized {});
-    let old_data = BALANCES.load(deps.storage)?;
-    ensure!(
-        balances.remote_height > old_data.remote_height,
-        ContractError::OutdatedData
-    );
-    BALANCES.save(deps.storage, &balances)?;
-    Ok(Response::new())
-}
-
-fn update_config(
-    deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
-    new_config: ConfigOptional,
-) -> ContractResult<Response<NeutronMsg>> {
+    let adapter: IcqAdapter<Options> = IcqAdapter::new();
+    let config = adapter.config.load(deps.storage)?;
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let mut config = CONFIG.load(deps.storage)?;
-    if let Some(adapter) = new_config.adapter {
-        config.adapter = deps.api.addr_validate(&adapter)?;
+    let mut updated_config = Config {
+        remote_denom: config.remote_denom,
+        router: config.router,
+        ica: config.ica,
+        options: new_config.options.unwrap_or(config.options),
+    };
+    let mut attrs = vec![attr("action", "update_config")];
+    if let Some(ica) = new_config.ica {
+        bech32::decode(&ica).map_err(|_| ContractError::InvalidIca)?;
+        attrs.push(attr("ica", ica.clone()));
+        updated_config.ica = ica;
     }
-    CONFIG.save(deps.storage, &config)?;
-    Ok(Response::new())
+    if let Some(router) = new_config.router {
+        let router = deps.api.addr_validate(&router)?;
+        attrs.push(attr("router", router.to_string()));
+        updated_config.router = router;
+    }
+    if let Some(remote_denom) = new_config.remote_denom {
+        attrs.push(attr("remote_denom", remote_denom.clone()));
+        updated_config.remote_denom = remote_denom;
+    }
+    adapter.config.save(deps.storage, &updated_config)?;
+    Ok(response("update_config", CONTRACT_NAME, attrs))
 }
 
-fn update_delegations(
+fn register_delegations_and_balance_query(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
-    _env: Env,
-    delegations: DelegationsData,
-) -> ContractResult<Response<NeutronMsg>> {
-    let config = CONFIG.load(deps.storage)?;
-    ensure_eq!(info.sender, config.adapter, ContractError::Unauthorized {});
-    let old_data = DELEGATIONS.load(deps.storage)?;
-    ensure!(
-        delegations.remote_height > old_data.remote_height,
-        ContractError::OutdatedData
-    );
-    DELEGATIONS.save(deps.storage, &delegations)?;
-    Ok(Response::new())
-}
-
-fn update_validators(
-    deps: DepsMut<NeutronQuery>,
-    _info: MessageInfo,
-    _env: Env,
     validators: Vec<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let config = CONFIG.load(deps.storage)?;
-    let res = response(
-        "update_validators",
-        CONTRACT_NAME,
-        [attr("validators", format!("{:?}", validators))],
+    let adapter: IcqAdapter<Options> = IcqAdapter::new();
+    let config = adapter.config.load(deps.storage)?;
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+    cosmwasm_std::ensure!(
+        validators.len() < u16::MAX as usize,
+        StdError::generic_err("Too many validators provided")
     );
-    Ok(res.add_message(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.adapter.to_string(),
-        msg: to_json_binary(
-            &drop_staking_base::msg::icq_adapter::ExecuteMsg::UpdateValidatorSet { validators },
-        )?,
-        funds: vec![],
-    })))
+    let current_queries: Vec<u64> = DELEGATIONS_AND_BALANCES_QUERY_ID_CHUNK
+        .keys(deps.storage, None, None, Order::Ascending)
+        .collect::<StdResult<Vec<_>>>()?;
+    let messages = current_queries
+        .iter()
+        .map(|query_id| {
+            DELEGATIONS_AND_BALANCES_QUERY_ID_CHUNK.remove(deps.storage, *query_id);
+            NeutronMsg::remove_interchain_query(*query_id)
+        })
+        .collect::<Vec<_>>();
+
+    let mut submessages = vec![];
+
+    for (i, chunk) in validators
+        .chunks(config.options.delegations_queries_chunk_size as usize)
+        .enumerate()
+    {
+        submessages.push(SubMsg::reply_on_success(
+            new_delegations_and_balance_query_msg(
+                config.options.connection_id.clone(),
+                config.ica.clone(),
+                config.remote_denom.clone(),
+                chunk.to_vec(),
+                config.options.update_period,
+                config.options.sdk_version.as_str(),
+            )?,
+            i as u64,
+        ));
+    }
+
+    Ok(Response::new()
+        .add_messages(messages)
+        .add_submessages(submessages))
+}
+
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
+    register_delegations_and_balance_query_reply(deps, msg)
+}
+
+pub fn register_delegations_and_balance_query_reply(
+    deps: DepsMut,
+    msg: Reply,
+) -> StdResult<Response> {
+    let query_id = get_query_id(msg.result)?;
+    DELEGATIONS_AND_BALANCES_QUERY_ID_CHUNK.save(deps.storage, query_id, &msg.id)?;
+    Ok(Response::new())
 }

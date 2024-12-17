@@ -1,3 +1,4 @@
+use crate::state::icq_adapter::ConfigOptional;
 use cosmwasm_schema::cw_serde;
 
 #[cw_ownable::cw_ownable_query]
@@ -10,19 +11,20 @@ pub enum QueryMsg<E> {
     Extention(E),
 }
 
+#[cw_ownable::cw_ownable_execute]
 #[cw_serde]
-pub enum ExecuteMsg {
+pub enum ExecuteMsg<E> {
     UpdateValidatorSet { validators: Vec<String> },
-    UpdateBalances {},
-    UpdateDelegations {},
-    UpdateConfig {},
+    UpdateConfig { new_config: ConfigOptional<E> },
 }
 
 #[cw_serde]
 pub struct InstantiateMsg<O> {
     pub router: String,
+    pub ica: String,
+    pub remote_denom: String,
     pub owner: Option<String>,
-    pub opts: O,
+    pub options: O,
 }
 
 #[cw_serde]
