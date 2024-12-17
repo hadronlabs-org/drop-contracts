@@ -22,13 +22,10 @@ import {
   BankExtension,
   setupStakingExtension,
   setupBankExtension,
-  SigningStargateClient,
 } from '@cosmjs/stargate';
-import { MsgTransfer } from 'cosmjs-types/ibc/applications/transfer/v1/tx';
 import { join } from 'path';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
-import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
 import { awaitBlocks, setupPark } from '../testSuite';
@@ -458,7 +455,7 @@ describe('Core', () => {
   });
 
   it('query factory state', async () => {
-    const { factoryContractClient: contractClient, junoClient: neutronClient } =
+    const { factoryContractClient: contractClient, client: neutronClient } =
       context;
     const res = await contractClient.queryState();
     expect(res).toBeTruthy();

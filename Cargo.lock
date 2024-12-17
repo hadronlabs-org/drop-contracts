@@ -690,6 +690,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-factory-native"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-multi-test",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-macros",
+ "drop-puppeteer-base",
+ "drop-staking-base",
+ "neutron-sdk",
+ "semver",
+ "thiserror",
+]
+
+[[package]]
 name = "drop-helpers"
 version = "1.0.0"
 dependencies = [
@@ -772,6 +791,23 @@ dependencies = [
 
 [[package]]
 name = "drop-native-bond-provider"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-puppeteer-base",
+ "drop-staking-base",
+ "neutron-sdk",
+ "semver",
+ "serde-json-wasm 1.0.1",
+]
+
+[[package]]
+name = "drop-native-simple-bond-provider"
 version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
