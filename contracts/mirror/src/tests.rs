@@ -14,7 +14,6 @@ use neutron_sdk::{
     query::min_ibc_fee::MinIbcFeeResponse,
     sudo::msg::RequestPacketTimeoutHeight,
 };
-use std::u64;
 
 fn base_init<T>(deps: DepsMut<T>)
 where

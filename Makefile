@@ -21,7 +21,7 @@ compile:
 		--mount type=volume,source="$(notdir $(CURDIR))_cache",target=/target \
 		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
 		--platform linux/amd64 \
-		cosmwasm/workspace-optimizer:0.15.1
+		cosmwasm/optimizer:0.16.1
 	@sudo chown -R $(shell id -u):$(shell id -g) artifacts
 
 compile_arm64:
@@ -29,8 +29,7 @@ compile_arm64:
 		--mount type=volume,source="$(notdir $(CURDIR))_cache",target=/target \
 		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
 		--platform linux/arm64 \
-		cosmwasm/workspace-optimizer-arm64:0.15.1
-	@cd artifacts && for file in *-aarch64.wasm; do cp -f "$$file" "$${file%-aarch64.wasm}.wasm"; done
+		cosmwasm/optimizer-arm64:0.16.1
 
 check_contracts:
 	@cargo install cosmwasm-check --locked
