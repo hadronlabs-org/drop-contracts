@@ -1,2 +1,2 @@
 [alias]
-schema = "run --bin drop-mirror-schema"
+schema = "run --bin drop-adapter-kv-schema"

@@ -11,11 +11,18 @@ use drop_staking_base::{
     msg::icq_adapter::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
+use neutron_sdk::interchain_queries::queries::get_raw_interchain_query_result;
+use neutron_sdk::sudo::msg::SudoMsg;
+use neutron_sdk::NeutronResult;
 
 use std::{env, vec};
 
 use crate::msg::Options;
-use crate::store::DELEGATIONS_AND_BALANCES_QUERY_ID_CHUNK;
+use crate::store::{
+    BalancesAndDelegations, BalancesAndDelegationsState, ResultReconstruct,
+    DELEGATIONS_AND_BALANCES, DELEGATIONS_AND_BALANCES_QUERY_ID_CHUNK,
+    LAST_COMPLETE_DELEGATIONS_AND_BALANCES_KEY,
+};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -195,56 +202,64 @@ pub fn sudo(
     env: Env,
     msg: SudoMsg,
 ) -> NeutronResult<Response<NeutronMsg>> {
-    let puppeteer_base = Puppeteer::default();
-    deps.api.debug(&format!(
-        "WASMDEBUG: sudo call: {:?} block: {:?}",
-        msg, env.block
-    ));
     match msg {
-        SudoMsg::Response { request, data } => sudo_response(deps, env, request, data),
-        SudoMsg::Error { request, details } => sudo_error(deps, env, request, details),
-        SudoMsg::Timeout { request } => sudo_timeout(deps, env, request),
-        SudoMsg::TxQueryResult {
-            query_id,
-            height,
-            data,
-        } => puppeteer_base.sudo_tx_query_result(deps, env, query_id, height, data),
         SudoMsg::KVQueryResult { query_id } => {
-            let query_type = puppeteer_base.kv_queries.load(deps.storage, query_id)?;
-            let config = puppeteer_base.config.load(deps.storage)?;
-            deps.api
-                .debug(&format!("WASMDEBUG: KVQueryResult type {:?}", query_type));
-            match query_type {
-                KVQueryType::DelegationsAndBalance => sudo_delegations_and_balance_kv_query_result(
-                    deps,
-                    env,
-                    query_id,
-                    &config.sdk_version,
-                ),
-                KVQueryType::NonNativeRewardsBalances => puppeteer_base.sudo_kv_query_result(
-                    deps,
-                    env,
-                    query_id,
-                    &config.sdk_version,
-                    NON_NATIVE_REWARD_BALANCES,
-                ),
-                KVQueryType::UnbondingDelegations => {
-                    puppeteer_base.sudo_unbonding_delegations_kv_query_result(deps, env, query_id)
-                }
-            }
+            sudo_delegations_and_balance_kv_query_result(deps, env, query_id)
         }
-        SudoMsg::OpenAck {
-            port_id,
-            channel_id,
-            counterparty_channel_id,
-            counterparty_version,
-        } => puppeteer_base.sudo_open_ack(
-            deps,
-            env,
-            port_id,
-            channel_id,
-            counterparty_channel_id,
-            counterparty_version,
-        ),
+        _ => unreachable!(),
     }
+}
+
+fn sudo_delegations_and_balance_kv_query_result(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    query_id: u64,
+) -> NeutronResult<Response<NeutronMsg>> {
+    let adapter: IcqAdapter<Options> = IcqAdapter::new();
+    let config = adapter.config.load(deps.storage)?;
+    let chunks_len = DELEGATIONS_AND_BALANCES_QUERY_ID_CHUNK
+        .keys(deps.storage, None, None, Order::Ascending)
+        .count();
+    let chunk_id = DELEGATIONS_AND_BALANCES_QUERY_ID_CHUNK.load(deps.storage, query_id)?;
+    let (remote_height, kv_results) = {
+        let registered_query_result = get_raw_interchain_query_result(deps.as_ref(), query_id)?;
+        (
+            registered_query_result.result.height,
+            registered_query_result.result.kv_results,
+        )
+    };
+    let data: BalancesAndDelegations =
+        ResultReconstruct::reconstruct(&kv_results, &config.options.sdk_version, None)?;
+
+    let new_state = match DELEGATIONS_AND_BALANCES.may_load(deps.storage, &remote_height)? {
+        Some(mut state) => {
+            if !state.collected_chunks.contains(&chunk_id) {
+                state
+                    .data
+                    .delegations
+                    .delegations
+                    .extend(data.delegations.delegations);
+                state.collected_chunks.push(chunk_id);
+            }
+            state
+        }
+        None => BalancesAndDelegationsState {
+            data,
+            remote_height,
+            local_height: env.block.height,
+            timestamp: env.block.time,
+            collected_chunks: vec![chunk_id],
+        },
+    };
+    if new_state.collected_chunks.len() == chunks_len {
+        let prev_key = LAST_COMPLETE_DELEGATIONS_AND_BALANCES_KEY
+            .load(deps.storage)
+            .unwrap_or_default();
+        if prev_key < remote_height {
+            LAST_COMPLETE_DELEGATIONS_AND_BALANCES_KEY.save(deps.storage, &remote_height)?;
+        }
+    }
+
+    DELEGATIONS_AND_BALANCES.save(deps.storage, &remote_height, &new_state)?;
+    Ok(Response::default())
 }

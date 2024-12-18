@@ -23,6 +23,8 @@ backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
+cosmos-sdk-proto = { workspace = true }
+prost = { workspace = true }
 cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
 cw-ownable = { workspace = true }
