@@ -11,10 +11,9 @@ use drop_helpers::get_contracts;
 use drop_helpers::ibc_client_state::query_client_state;
 use drop_helpers::ibc_fee::query_ibc_fee;
 use drop_puppeteer_base::peripheral_hook::{
-    IBCTransferReason, ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg, ResponseHookMsg,
+    IBCTransferReason, ReceiverExecuteMsg, ResponseHookErrorMsg, ResponseHookMsg,
     ResponseHookSuccessMsg, Transaction,
 };
-use drop_puppeteer_base::proto::MsgIBCTransfer;
 use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::error::lsm_share_bond_provider::{ContractError, ContractResult};
 use drop_staking_base::msg::core::LastPuppeteerResponse;
@@ -656,8 +655,6 @@ fn sudo_error(
         contract_addr: addrs.core_contract.to_string(),
         msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(ResponseHookMsg::Error(
             ResponseHookErrorMsg {
-                request_id: seq_id,
-                request,
                 transaction,
                 details,
             },
@@ -682,10 +679,6 @@ fn sudo_response(
         }
     );
 
-    let seq_id = request
-        .sequence
-        .ok_or_else(|| StdError::generic_err("sequence not found"))?;
-
     let transaction = tx_state
         .transaction
         .ok_or_else(|| StdError::generic_err("transaction not found"))?;
@@ -709,10 +702,7 @@ fn sudo_response(
         .ok_or_else(|| StdError::generic_err("IBC client state latest_height not found"))?
         .revision_height;
 
-    let attrs = vec![
-        attr("action", "sudo_response"),
-        attr("request_id", request.sequence.unwrap_or(0).to_string()),
-    ];
+    let attrs = vec![attr("action", "sudo_response")];
 
     if let Transaction::IBCTransfer {
         amount,
@@ -757,10 +747,7 @@ fn sudo_response(
         "WASMDEBUG: json: {request:?}",
         request = to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
-                request_id: seq_id,
-                request: request.clone(),
                 transaction: transaction.clone(),
-                answers: vec![ResponseAnswer::IBCTransfer(MsgIBCTransfer {})],
                 local_height: env.block.height,
                 remote_height: remote_height.u64(),
             },)
@@ -770,10 +757,7 @@ fn sudo_response(
         contract_addr: addrs.core_contract.to_string(),
         msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
-                request_id: seq_id,
-                request: request.clone(),
                 transaction: transaction.clone(),
-                answers: vec![ResponseAnswer::IBCTransfer(MsgIBCTransfer {})],
                 local_height: env.block.height,
                 remote_height: remote_height.u64(),
             }),
