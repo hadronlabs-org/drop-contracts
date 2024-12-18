@@ -231,7 +231,7 @@ fn sudo_delegations_and_balance_kv_query_result(
     let data: BalancesAndDelegations =
         ResultReconstruct::reconstruct(&kv_results, &config.options.sdk_version, None)?;
 
-    let new_state = match DELEGATIONS_AND_BALANCES.may_load(deps.storage, &remote_height)? {
+    let new_state = match DELEGATIONS_AND_BALANCES.may_load(deps.storage, remote_height)? {
         Some(mut state) => {
             if !state.collected_chunks.contains(&chunk_id) {
                 state
@@ -260,6 +260,6 @@ fn sudo_delegations_and_balance_kv_query_result(
         }
     }
 
-    DELEGATIONS_AND_BALANCES.save(deps.storage, &remote_height, &new_state)?;
+    DELEGATIONS_AND_BALANCES.save(deps.storage, remote_height, &new_state)?;
     Ok(Response::default())
 }

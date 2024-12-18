@@ -268,17 +268,17 @@ fn execute_update_config(
         if !remote_denom.starts_with("move/") {
             return Err(ContractError::InvalidRemoteDenom);
         }
-        config.remote_denom = remote_denom.clone();
+        config.remote_denom.clone_from(&remote_denom);
         attrs.push(attr("remote_denom", remote_denom))
     }
 
     if let Some(connection_id) = new_config.connection_id {
-        config.connection_id = connection_id.clone();
+        config.connection_id.clone_from(&connection_id);
         attrs.push(attr("connection_id", connection_id))
     }
 
     if let Some(port_id) = new_config.port_id {
-        config.port_id = port_id.clone();
+        config.port_id.clone_from(&port_id);
         attrs.push(attr("port_id", port_id))
     }
 
@@ -295,12 +295,12 @@ fn execute_update_config(
     }
 
     if let Some(transfer_channel_id) = new_config.transfer_channel_id {
-        config.transfer_channel_id = transfer_channel_id.clone();
+        config.transfer_channel_id.clone_from(&transfer_channel_id);
         attrs.push(attr("transfer_channel_id", transfer_channel_id))
     }
 
     if let Some(sdk_version) = new_config.sdk_version {
-        config.sdk_version = sdk_version.clone();
+        config.sdk_version.clone_from(&sdk_version);
         attrs.push(attr("sdk_version", sdk_version))
     }
     if let Some(timeout) = new_config.timeout {

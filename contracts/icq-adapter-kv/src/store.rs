@@ -1,8 +1,9 @@
+use cosmos_sdk_proto::cosmos::base::v1beta1::Coin as CosmosCoin;
 use cosmos_sdk_proto::cosmos::staking::v1beta1::{
     Delegation, Params, Validator as CosmosValidator,
 };
 use cosmwasm_schema::{cw_serde, serde::Serialize};
-use cosmwasm_std::{Addr, Decimal256, Timestamp, Uint128};
+use cosmwasm_std::{from_json, Addr, Decimal256, StdError, Timestamp, Uint128, Uint256};
 use cw_storage_plus::{Item, Map};
 use drop_helpers::version::version_to_u32;
 use neutron_sdk::bindings::types::StorageValue;
@@ -14,13 +15,16 @@ use prost::Message;
 use std::ops::Div;
 use std::str::FromStr;
 
+pub const DECIMAL_PLACES: u32 = 18;
+const DECIMAL_FRACTIONAL: u128 = 10u128.pow(DECIMAL_PLACES);
+
 pub const DELEGATIONS_AND_BALANCES_QUERY_ID_CHUNK: Map<u64, u64> =
     Map::new("delegations_and_balances_query_id_chunk");
 
 pub const LAST_COMPLETE_DELEGATIONS_AND_BALANCES_KEY: Item<u64> =
     Item::new("last_complete_delegations_and_balances_key");
 
-pub const DELEGATIONS_AND_BALANCES: Map<u64, BalancesAndDelegationsState<Z>> =
+pub const DELEGATIONS_AND_BALANCES: Map<u64, BalancesAndDelegationsState<BalancesAndDelegations>> =
     Map::new("delegations_and_balances");
 
 #[cw_serde]
@@ -165,5 +169,36 @@ impl ResultReconstruct for BalancesAndDelegations {
             delegations: Delegations { delegations },
             balances: Balances { coins },
         })
+    }
+}
+
+impl ResultReconstruct for MultiBalances {
+    //TODO: fix in sdk and remove this
+    fn reconstruct(
+        storage_values: &[StorageValue],
+        version: &str,
+        _: Option<&str>,
+    ) -> NeutronResult<MultiBalances> {
+        let mut coins: Vec<cosmwasm_std::Coin> = Vec::with_capacity(storage_values.len());
+        for kv in storage_values {
+            if kv.value.len() > 0 {
+                let (_, denom) = deconstruct_account_denom_balance_key(kv.key.to_vec())?;
+                let amount: Uint128 = match version_to_u32(version)? {
+                    ver if ver >= version_to_u32("0.47.0")? => {
+                        // Directly parse Uint128 from the string obtained from kv.value
+                        Uint128::from_str(&String::from_utf8(kv.value.to_vec()).map_err(|_| {
+                            NeutronError::InvalidQueryResultFormat("Invalid utf8".to_string())
+                        })?)
+                    }
+                    // For versions below "0.47.0", use the existing balance.amount
+                    _ => {
+                        let balance: CosmosCoin = CosmosCoin::decode(kv.value.as_slice())?;
+                        Uint128::from_str(balance.amount.as_str())
+                    }
+                }?;
+                coins.push(cosmwasm_std::Coin::new(amount.u128(), denom));
+            }
+        }
+        Ok(MultiBalances { coins })
     }
 }

@@ -246,12 +246,12 @@ fn execute_update_config(
     }
 
     if let Some(port_id) = new_config.port_id {
-        state.port_id = port_id.clone();
+        state.port_id.clone_from(&port_id);
         attrs.push(attr("port_id", port_id));
     }
 
     if let Some(transfer_channel_id) = new_config.transfer_channel_id {
-        state.transfer_channel_id = transfer_channel_id.clone();
+        state.transfer_channel_id.clone_from(&transfer_channel_id);
         attrs.push(attr("transfer_channel_id", transfer_channel_id));
     }
 

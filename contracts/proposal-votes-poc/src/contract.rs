@@ -125,12 +125,12 @@ fn execute_update_config(
     }
 
     if let Some(connection_id) = new_config.connection_id {
-        config.connection_id = connection_id.clone();
+        config.connection_id.clone_from(&connection_id);
         attrs.push(attr("connection_id", connection_id))
     }
 
     if let Some(port_id) = new_config.port_id {
-        config.port_id = port_id.clone();
+        config.port_id.clone_from(&port_id);
         attrs.push(attr("port_id", port_id))
     }
 
