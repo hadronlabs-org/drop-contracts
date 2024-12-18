@@ -814,8 +814,8 @@ fn test_tick_no_puppeteer_response() {
     assert_eq!(res, Err(ContractError::PuppeteerResponseIsNotReceived {}));
 }
 
-// #[test]
-fn _test_tick_claiming_error_wo_transfer() {
+#[test]
+fn test_tick_claiming_error_wo_transfer() {
     // no unbonded batch, no pending transfer for stake, some balance in ICA to stake
     let mut deps = mock_dependencies(&[]);
     mock_state_query(&mut deps);
@@ -914,7 +914,7 @@ fn _test_tick_claiming_error_wo_transfer() {
                 vec![
                     ("action", "tick_claiming"),
                     ("knot", "012"),
-                    ("error_on_claiming", "ResponseHookErrorMsg { request_id: 0, transaction: ClaimRewardsAndOptionalyTransfer { interchain_account_id: \"ica\", validators: [\"valoper_address\"], denom: \"remote_denom\", transfer: None }, request: RequestPacket { sequence: None, source_port: None, source_channel: None, destination_port: None, destination_channel: None, data: None, timeout_height: None, timeout_timestamp: None }, details: \"Some error\" }"),
+                    ("error_on_claiming", "ResponseHookErrorMsg { transaction: ClaimRewardsAndOptionalyTransfer { interchain_account_id: \"ica\", validators: [\"valoper_address\"], denom: \"remote_denom\", transfer: None }, details: \"Some error\" }"),
                     ("knot", "050"),
                     ("knot", "000"),
                 ]
@@ -923,8 +923,8 @@ fn _test_tick_claiming_error_wo_transfer() {
     );
 }
 
-// #[test]
-fn _test_tick_claiming_error_with_transfer() {
+#[test]
+fn test_tick_claiming_error_with_transfer() {
     // no unbonded batch, no pending transfer for stake, some balance in ICA to stake
     let mut deps = mock_dependencies(&[]);
     mock_state_query(&mut deps);
@@ -1053,7 +1053,7 @@ fn _test_tick_claiming_error_with_transfer() {
                 vec![
                     ("action", "tick_claiming"),
                     ("knot", "012"),
-                    ("error_on_claiming", "ResponseHookErrorMsg { request_id: 0, transaction: ClaimRewardsAndOptionalyTransfer { interchain_account_id: \"ica\", validators: [\"valoper_address\"], denom: \"remote_denom\", transfer: Some(TransferReadyBatchesMsg { batch_ids: [0], emergency: false, amount: Uint128(123123), recipient: \"recipient\" }) }, request: RequestPacket { sequence: None, source_port: None, source_channel: None, destination_port: None, destination_channel: None, data: None, timeout_height: None, timeout_timestamp: None }, details: \"Some error\" }"),
+                    ("error_on_claiming", "ResponseHookErrorMsg { transaction: ClaimRewardsAndOptionalyTransfer { interchain_account_id: \"ica\", validators: [\"valoper_address\"], denom: \"remote_denom\", transfer: Some(TransferReadyBatchesMsg { batch_ids: [0], emergency: false, amount: Uint128(123123), recipient: \"recipient\" }) }, details: \"Some error\" }"),
                     ("knot", "050"),
                     ("knot", "000"),
                 ]
