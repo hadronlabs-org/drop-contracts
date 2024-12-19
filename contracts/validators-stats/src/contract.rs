@@ -272,7 +272,7 @@ fn sudo_signing_info(
         if let Some(address) = valoper_address {
             let mut validator_state = get_validator_state(&deps, address.clone())?;
 
-            validator_state.valcons_address = info.address.clone();
+            validator_state.valcons_address.clone_from(&info.address);
             validator_state.tombstone = if info.tombstoned {
                 true
             } else {
@@ -301,7 +301,7 @@ fn sudo_signing_info(
 
 // TODO: Implement tests
 fn calucalate_missed_blocks_percent(
-    all_missed_blocks: &Vec<MissedBlocks>,
+    all_missed_blocks: &[MissedBlocks],
     missed_blocks: &mut MissedBlocks,
     address: String,
     missed_blocks_counter: u64,

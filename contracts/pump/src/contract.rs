@@ -149,7 +149,7 @@ fn execute_update_config(
         attrs.push(cosmwasm_std::attr("dest_port".to_string(), dest_port));
     }
     if let Some(connection_id) = new_config.connection_id {
-        config.connection_id = connection_id.clone();
+        config.connection_id.clone_from(&connection_id);
         attrs.push(cosmwasm_std::attr(
             "connection_id".to_string(),
             connection_id,
@@ -167,7 +167,7 @@ fn execute_update_config(
         ));
     }
     if let Some(local_denom) = new_config.local_denom {
-        config.local_denom = local_denom.clone();
+        config.local_denom.clone_from(&local_denom);
         attrs.push(cosmwasm_std::attr("local_denom".to_string(), local_denom));
     }
     CONFIG.save(deps.storage, &config)?;

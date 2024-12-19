@@ -8,13 +8,7 @@ use super::bond_providers::BondProviders;
 
 #[cw_serde]
 pub struct ConfigOptional {
-    pub token_contract: Option<String>,
-    pub puppeteer_contract: Option<String>,
-    pub strategy_contract: Option<String>,
-    pub staker_contract: Option<String>,
-    pub withdrawal_voucher_contract: Option<String>,
-    pub withdrawal_manager_contract: Option<String>,
-    pub validators_set_contract: Option<String>,
+    pub factory_contract: Option<String>,
     pub base_denom: Option<String>,
     pub remote_denom: Option<String>,
     pub idle_min_interval: Option<u64>,
@@ -30,12 +24,7 @@ pub struct ConfigOptional {
 
 #[cw_serde]
 pub struct Config {
-    pub token_contract: Addr,
-    pub puppeteer_contract: Addr,
-    pub strategy_contract: Addr,
-    pub withdrawal_voucher_contract: Addr,
-    pub withdrawal_manager_contract: Addr,
-    pub validators_set_contract: Addr,
+    pub factory_contract: Addr,
     pub base_denom: String,
     pub remote_denom: String,
     pub idle_min_interval: u64,        //seconds

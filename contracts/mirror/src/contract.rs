@@ -187,7 +187,7 @@ pub fn execute_update_bond(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut bond = BONDS.load(deps.storage, id)?;
-    bond.receiver = receiver.clone();
+    bond.receiver.clone_from(&receiver);
     bond.backup = backup
         .clone()
         .map(|a| deps.api.addr_validate(&a))

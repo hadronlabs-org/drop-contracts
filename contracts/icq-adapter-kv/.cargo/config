@@ -1,0 +1,2 @@
+[alias]
+schema = "run --bin drop-adapter-kv-schema"

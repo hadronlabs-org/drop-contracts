@@ -35,10 +35,7 @@ use neutron_sdk::{
     bindings::query::NeutronQuery, interchain_queries::v045::types::Balances,
     sudo::msg::RequestPacket,
 };
-use std::vec;
-
-pub const MOCK_PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
-pub const MOCK_STRATEGY_CONTRACT_ADDR: &str = "strategy_contract";
+use std::{collections::HashMap, vec};
 
 fn get_default_config(
     idle_min_interval: u64,
@@ -46,12 +43,7 @@ fn get_default_config(
     unbond_batch_switch_time: u64,
 ) -> Config {
     Config {
-        token_contract: Addr::unchecked("token_contract"),
-        puppeteer_contract: Addr::unchecked(MOCK_PUPPETEER_CONTRACT_ADDR),
-        strategy_contract: Addr::unchecked(MOCK_STRATEGY_CONTRACT_ADDR),
-        withdrawal_voucher_contract: Addr::unchecked("withdrawal_voucher_contract"),
-        withdrawal_manager_contract: Addr::unchecked("withdrawal_manager_contract"),
-        validators_set_contract: Addr::unchecked("validators_set_contract"),
+        factory_contract: Addr::unchecked("factory_contract"),
         base_denom: "base_denom".to_string(),
         remote_denom: "remote_denom".to_string(),
         idle_min_interval,
@@ -82,6 +74,13 @@ fn get_default_unbond_batch_status_timestamps() -> UnbondBatchStatusTimestamps {
 #[test]
 fn test_update_config() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier.add_wasm_query_response("token_contract", |_| {
+        to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
+            core_address: "core_contract".to_string(),
+            denom: "ld_denom".to_string(),
+        })
+        .unwrap()
+    });
     deps.querier
         .add_wasm_query_response("old_token_contract", |_| {
             to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
@@ -89,6 +88,10 @@ fn test_update_config() {
                 denom: "ld_denom".to_string(),
             })
             .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([("token_contract", "token_contract")])).unwrap()
         });
     let env = mock_env();
     let info = mock_info("admin", &[]);
@@ -98,12 +101,7 @@ fn test_update_config() {
         env.clone(),
         info.clone(),
         InstantiateMsg {
-            token_contract: "old_token_contract".to_string(),
-            puppeteer_contract: "old_puppeteer_contract".to_string(),
-            strategy_contract: "old_strategy_contract".to_string(),
-            withdrawal_voucher_contract: "old_withdrawal_voucher_contract".to_string(),
-            withdrawal_manager_contract: "old_withdrawal_manager_contract".to_string(),
-            validators_set_contract: "old_validators_set_contract".to_string(),
+            factory_contract: "factory_contract".to_string(),
             base_denom: "old_base_denom".to_string(),
             remote_denom: "old_remote_denom".to_string(),
             idle_min_interval: 12,
@@ -125,13 +123,7 @@ fn test_update_config() {
     );
 
     let new_config = ConfigOptional {
-        token_contract: Some("new_token_contract".to_string()),
-        puppeteer_contract: Some("new_puppeteer_contract".to_string()),
-        strategy_contract: Some("new_strategy_contract".to_string()),
-        staker_contract: Some("new_staker_contract".to_string()),
-        withdrawal_voucher_contract: Some("new_withdrawal_voucher_contract".to_string()),
-        withdrawal_manager_contract: Some("new_withdrawal_manager_contract".to_string()),
-        validators_set_contract: Some("new_validators_set_contract".to_string()),
+        factory_contract: Some("new_factory_contract".to_string()),
         base_denom: Some("new_base_denom".to_string()),
         remote_denom: Some("new_remote_denom".to_string()),
         idle_min_interval: Some(2),
@@ -145,12 +137,7 @@ fn test_update_config() {
         emergency_address: Some("new_emergency_address".to_string()),
     };
     let expected_config = Config {
-        token_contract: Addr::unchecked("new_token_contract"),
-        puppeteer_contract: Addr::unchecked("new_puppeteer_contract"),
-        strategy_contract: Addr::unchecked("new_strategy_contract"),
-        withdrawal_voucher_contract: Addr::unchecked("new_withdrawal_voucher_contract"),
-        withdrawal_manager_contract: Addr::unchecked("new_withdrawal_manager_contract"),
-        validators_set_contract: Addr::unchecked("new_validators_set_contract"),
+        factory_contract: Addr::unchecked("new_factory_contract"),
         base_denom: "new_base_denom".to_string(),
         remote_denom: "new_remote_denom".to_string(),
         idle_min_interval: 2,
@@ -208,7 +195,22 @@ fn test_update_withdrawn_amount() {
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(1000, 10, 6000))
         .unwrap();
-
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([(
+                "withdrawal_manager_contract",
+                "withdrawal_manager_contract",
+            )]))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([(
+                "withdrawal_manager_contract",
+                "withdrawal_manager_contract",
+            )]))
+            .unwrap()
+        });
     let withdrawn_batch = &UnbondBatch {
         total_dasset_amount_to_withdraw: Uint128::from(1001u128),
         expected_native_asset_amount: Uint128::from(1001u128),
@@ -274,6 +276,22 @@ fn test_update_withdrawn_amount() {
 #[test]
 fn test_execute_reset_bonded_amount() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("validators_set_contract", "validators_set_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("strategy_contract", "strategy_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap();
     BONDED_AMOUNT
@@ -299,6 +317,22 @@ fn test_execute_reset_bonded_amount() {
 #[test]
 fn test_add_remove_bond_provider() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("validators_set_contract", "validators_set_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("strategy_contract", "strategy_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap();
 
@@ -362,6 +396,30 @@ fn test_add_remove_bond_provider() {
 #[test]
 fn test_execute_tick_idle_process_bondig_provider() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("validators_set_contract", "validators_set_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("strategy_contract", "strategy_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("validators_set_contract", "validators_set_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
     BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
     deps.querier
@@ -457,6 +515,30 @@ fn test_execute_tick_idle_process_bondig_provider() {
 #[test]
 fn test_tick_idle_claim_wo_unbond() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("validators_set_contract", "validators_set_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("strategy_contract", "strategy_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("validators_set_contract", "validators_set_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&BalancesResponse {
@@ -618,6 +700,30 @@ fn test_tick_idle_claim_wo_unbond() {
 fn test_tick_idle_claim_with_unbond_transfer() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("validators_set_contract", "validators_set_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("strategy_contract", "strategy_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("validators_set_contract", "validators_set_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
+    deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&BalancesResponse {
                 balances: Balances { coins: vec![] },
@@ -773,6 +879,22 @@ fn test_tick_idle_claim_with_unbond_transfer() {
 #[test]
 fn test_tick_no_puppeteer_response() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("validators_set_contract", "validators_set_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("strategy_contract", "strategy_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
@@ -822,6 +944,22 @@ fn test_tick_no_puppeteer_response() {
 fn test_tick_claiming_error_wo_transfer() {
     // no unbonded batch, no pending transfer for stake, some balance in ICA to stake
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("validators_set_contract", "validators_set_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("strategy_contract", "strategy_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&BalancesResponse {
@@ -932,6 +1070,22 @@ fn test_tick_claiming_error_wo_transfer() {
 fn test_tick_claiming_error_with_transfer() {
     // no unbonded batch, no pending transfer for stake, some balance in ICA to stake
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("validators_set_contract", "validators_set_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("strategy_contract", "strategy_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&BalancesResponse {
@@ -1074,6 +1228,30 @@ fn test_tick_claiming_error_with_transfer() {
 fn test_tick_claiming_wo_transfer_unbonding() {
     // no unbonded batch, no pending transfer for stake, no balance on ICA, but we have unbond batch to switch
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("validators_set_contract", "validators_set_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("strategy_contract", "strategy_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([(
+                "puppeteer_contract",
+                "puppeteer_contract",
+            )]))
+            .unwrap()
+        });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             to_json_binary(&BalancesResponse {
@@ -1258,6 +1436,22 @@ fn test_tick_claiming_wo_idle() {
     // no unbonded batch, no pending transfer for stake, no balance on ICA,
     // and no unbond batch to switch, so we go to idle
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("validators_set_contract", "validators_set_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("strategy_contract", "strategy_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
         .unwrap();
@@ -1408,6 +1602,14 @@ fn test_tick_claiming_wo_idle() {
 #[test]
 fn test_execute_tick_guard_balance_outdated() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("validators_set_contract", "validators_set_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
@@ -1448,6 +1650,14 @@ fn test_execute_tick_guard_balance_outdated() {
 #[test]
 fn test_execute_tick_guard_delegations_outdated() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("validators_set_contract", "validators_set_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
@@ -1500,6 +1710,14 @@ fn test_execute_tick_guard_delegations_outdated() {
 #[test]
 fn test_execute_tick_staking_no_puppeteer_response() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("validators_set_contract", "validators_set_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
@@ -1546,6 +1764,14 @@ fn test_execute_tick_staking_no_puppeteer_response() {
 #[test]
 fn test_execute_tick_unbonding_no_puppeteer_response() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("validators_set_contract", "validators_set_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .unwrap()
+        });
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
@@ -1593,6 +1819,18 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
 #[test]
 fn test_bond_wo_receiver() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([("token_contract", "token_contract")])).unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([(
+                "puppeteer_contract",
+                "puppeteer_contract",
+            )]))
+            .unwrap()
+        });
     BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
     deps.querier
@@ -1677,6 +1915,18 @@ fn test_bond_wo_receiver() {
 #[test]
 fn test_bond_with_receiver() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([("token_contract", "token_contract")])).unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([(
+                "puppeteer_contract",
+                "puppeteer_contract",
+            )]))
+            .unwrap()
+        });
     BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
     deps.querier
@@ -1800,6 +2050,18 @@ fn test_bond_lsm_share_increase_exchange_rate() {
         denom: "ld_denom".to_string(),
         amount: Uint128::new(1001),
     }]);
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([("token_contract", "token_contract")])).unwrap()
+        });
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([(
+                "puppeteer_contract",
+                "puppeteer_contract",
+            )]))
+            .unwrap()
+        });
     BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
     deps.querier
@@ -1916,6 +2178,14 @@ fn test_bond_lsm_share_increase_exchange_rate() {
 fn test_unbond() {
     let mut deps = mock_dependencies(&[]);
     let mut env = mock_env();
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("token_contract", "token_contract"),
+                ("withdrawal_voucher_contract", "withdrawal_voucher_contract"),
+            ]))
+            .unwrap()
+        });
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -2236,6 +2506,30 @@ mod check_denom {
     #[test]
     fn invalid_port() {
         let mut deps = mock_dependencies(&[]);
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([
+                    ("validators_set_contract", "validators_set_contract"),
+                    ("puppeteer_contract", "puppeteer_contract"),
+                ]))
+                .unwrap()
+            });
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([
+                    ("strategy_contract", "strategy_contract"),
+                    ("puppeteer_contract", "puppeteer_contract"),
+                ]))
+                .unwrap()
+            });
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([(
+                    "validators_set_contract",
+                    "validators_set_contract",
+                )]))
+                .unwrap()
+            });
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -2260,6 +2554,22 @@ mod check_denom {
     #[test]
     fn invalid_channel() {
         let mut deps = mock_dependencies(&[]);
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([
+                    ("validators_set_contract", "validators_set_contract"),
+                    ("puppeteer_contract", "puppeteer_contract"),
+                ]))
+                .unwrap()
+            });
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([
+                    ("strategy_contract", "strategy_contract"),
+                    ("puppeteer_contract", "puppeteer_contract"),
+                ]))
+                .unwrap()
+            });
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -2284,6 +2594,22 @@ mod check_denom {
     #[test]
     fn invalid_port_and_channel() {
         let mut deps = mock_dependencies(&[]);
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([
+                    ("validators_set_contract", "validators_set_contract"),
+                    ("puppeteer_contract", "puppeteer_contract"),
+                ]))
+                .unwrap()
+            });
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([
+                    ("strategy_contract", "strategy_contract"),
+                    ("puppeteer_contract", "puppeteer_contract"),
+                ]))
+                .unwrap()
+            });
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -2308,6 +2634,22 @@ mod check_denom {
     #[test]
     fn not_an_lsm_share() {
         let mut deps = mock_dependencies(&[]);
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([
+                    ("validators_set_contract", "validators_set_contract"),
+                    ("puppeteer_contract", "puppeteer_contract"),
+                ]))
+                .unwrap()
+            });
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([
+                    ("strategy_contract", "strategy_contract"),
+                    ("puppeteer_contract", "puppeteer_contract"),
+                ]))
+                .unwrap()
+            });
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -2332,6 +2674,22 @@ mod check_denom {
     #[test]
     fn unknown_validator() {
         let mut deps = mock_dependencies(&[]);
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([
+                    ("validators_set_contract", "validators_set_contract"),
+                    ("puppeteer_contract", "puppeteer_contract"),
+                ]))
+                .unwrap()
+            });
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([
+                    ("strategy_contract", "strategy_contract"),
+                    ("puppeteer_contract", "puppeteer_contract"),
+                ]))
+                .unwrap()
+            });
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -2376,6 +2734,22 @@ mod check_denom {
     #[test]
     fn invalid_validator_index() {
         let mut deps = mock_dependencies(&[]);
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([
+                    ("validators_set_contract", "validators_set_contract"),
+                    ("puppeteer_contract", "puppeteer_contract"),
+                ]))
+                .unwrap()
+            });
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([
+                    ("strategy_contract", "strategy_contract"),
+                    ("puppeteer_contract", "puppeteer_contract"),
+                ]))
+                .unwrap()
+            });
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -2400,6 +2774,22 @@ mod check_denom {
     #[test]
     fn known_validator() {
         let mut deps = mock_dependencies(&[]);
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([
+                    ("validators_set_contract", "validators_set_contract"),
+                    ("puppeteer_contract", "puppeteer_contract"),
+                ]))
+                .unwrap()
+            });
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([
+                    ("strategy_contract", "strategy_contract"),
+                    ("puppeteer_contract", "puppeteer_contract"),
+                ]))
+                .unwrap()
+            });
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -2456,6 +2846,8 @@ mod check_denom {
 }
 
 mod bond_hooks {
+    use std::collections::HashMap;
+
     use super::*;
     use cosmwasm_std::ReplyOn;
     use drop_staking_base::msg::core::{BondCallback, BondHook};
@@ -2608,6 +3000,18 @@ mod bond_hooks {
     #[test]
     fn execute_bond_with_active_bond_hook_no_ref() {
         let mut deps = mock_dependencies(&[]);
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([("token_contract", "token_contract")])).unwrap()
+            });
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([(
+                    "puppeteer_contract",
+                    "puppeteer_contract",
+                )]))
+                .unwrap()
+            });
         BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
         deps.querier
@@ -2682,6 +3086,18 @@ mod bond_hooks {
     #[test]
     fn execute_bond_with_active_bond_hook() {
         let mut deps = mock_dependencies(&[]);
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([("token_contract", "token_contract")])).unwrap()
+            });
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([(
+                    "puppeteer_contract",
+                    "puppeteer_contract",
+                )]))
+                .unwrap()
+            });
         BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
         deps.querier
@@ -2763,7 +3179,18 @@ mod bond_hooks {
             .add_wasm_query_response("native_provider_address", |_| {
                 to_json_binary(&true).unwrap()
             });
-
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([("token_contract", "token_contract")])).unwrap()
+            });
+        deps.querier
+            .add_wasm_query_response("factory_contract", |_| {
+                to_json_binary(&HashMap::from([(
+                    "puppeteer_contract",
+                    "puppeteer_contract",
+                )]))
+                .unwrap()
+            });
         deps.querier
             .add_wasm_query_response("native_provider_address", |_| {
                 to_json_binary(&Uint128::from(1000u128)).unwrap()

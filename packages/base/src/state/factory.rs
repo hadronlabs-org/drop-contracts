@@ -1,5 +1,7 @@
 use cosmwasm_schema::cw_serde;
+use cosmwasm_std::Addr;
 use cw_storage_plus::Item;
+use std::hash::Hash;
 
 #[cw_serde]
 pub struct CodeIds {
@@ -36,27 +38,41 @@ pub struct Timeout {
 }
 
 #[cw_serde]
-pub struct State {
-    pub token_contract: String,
-    pub core_contract: String,
-    pub puppeteer_contract: String,
-    pub withdrawal_voucher_contract: String,
-    pub withdrawal_manager_contract: String,
-    pub strategy_contract: String,
-    pub validators_set_contract: String,
-    pub distribution_contract: String,
-    pub rewards_manager_contract: String,
-    pub rewards_pump_contract: String,
-    pub splitter_contract: String,
-    pub lsm_share_bond_provider_contract: String,
-    pub native_bond_provider_contract: String,
-}
-
-#[cw_serde]
 pub struct PauseInfoResponse {
     pub withdrawal_manager: drop_helpers::pause::PauseInfoResponse,
-    pub core: drop_staking_base::state::core::Pause,
+    pub core: crate::state::core::Pause,
     pub rewards_manager: drop_helpers::pause::PauseInfoResponse,
 }
 
-pub const STATE: Item<State> = Item::new("state");
+#[cw_serde]
+pub struct Phonebook {
+    pub map: std::collections::HashMap<String, Addr>,
+}
+
+pub const STATE: Item<Phonebook> = Item::new("state");
+
+impl Phonebook {
+    pub fn get_as_result<'a>(
+        &'a self,
+        key: &'a str,
+    ) -> Result<&Addr, crate::error::factory::ContractError> {
+        self.map.get(key).ok_or(
+            crate::error::factory::ContractError::ContractAddressNotFound {
+                name: key.to_string(),
+            },
+        )
+    }
+
+    pub fn new<K, const N: usize>(arr: [(K, Addr); N]) -> Self
+    where
+        // Bounds from impl:
+        K: Eq + Hash + Into<String> + Clone + std::fmt::Display,
+    {
+        let map = arr
+            .iter()
+            .clone()
+            .map(|(k, v)| (k.to_string(), v.clone()))
+            .collect();
+        Self { map }
+    }
+}
