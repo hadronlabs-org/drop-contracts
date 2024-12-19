@@ -1,6 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Decimal256, Timestamp};
-use neutron_sdk::interchain_queries::v047::types::Balances;
+use neutron_sdk::interchain_queries::v045::types::Balances;
 
 use crate::state::icq_router::ConfigOptional;
 

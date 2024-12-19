@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    attr, to_json_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Order, Reply, Response,
-    StdError, StdResult, SubMsg,
+    attr, to_json_binary, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Order, Reply,
+    Response, StdError, StdResult, SubMsg, WasmMsg,
 };
 use drop_helpers::answer::response;
 use drop_helpers::icq::new_delegations_and_balance_query_msg;
@@ -251,15 +251,46 @@ fn sudo_delegations_and_balance_kv_query_result(
             collected_chunks: vec![chunk_id],
         },
     };
+    let mut msgs = vec![];
     if new_state.collected_chunks.len() == chunks_len {
         let prev_key = LAST_COMPLETE_DELEGATIONS_AND_BALANCES_KEY
             .load(deps.storage)
             .unwrap_or_default();
         if prev_key < remote_height {
             LAST_COMPLETE_DELEGATIONS_AND_BALANCES_KEY.save(deps.storage, &remote_height)?;
+            msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: config.router.to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::icq_router::ExecuteMsg::UpdateBalances {
+                        balances: drop_staking_base::msg::icq_router::BalancesData {
+                            balances: new_state.data.balances.clone(),
+                            remote_height,
+                            local_height: env.block.height,
+                            timestamp: env.block.time,
+                        },
+                    },
+                )?,
+                funds: vec![],
+            }));
+            msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: config.router.to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::icq_router::ExecuteMsg::UpdateDelegations {
+                        delegations: drop_staking_base::msg::icq_router::DelegationsData {
+                            delegations: drop_staking_base::msg::icq_router::Delegations {
+                                delegations: new_state.data.delegations.delegations.clone(),
+                            },
+                            remote_height,
+                            local_height: env.block.height,
+                            timestamp: env.block.time,
+                        },
+                    },
+                )?,
+                funds: vec![],
+            }));
         }
     }
 
     DELEGATIONS_AND_BALANCES.save(deps.storage, remote_height, &new_state)?;
-    Ok(Response::default())
+    Ok(Response::default().add_messages(msgs))
 }

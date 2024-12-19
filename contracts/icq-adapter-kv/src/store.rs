@@ -59,18 +59,7 @@ pub struct BalancesAndDelegations {
 
 #[cw_serde]
 pub struct Delegations {
-    pub delegations: Vec<DropDelegation>,
-}
-
-#[cw_serde]
-pub struct DropDelegation {
-    pub delegator: Addr,
-    /// A validator address (e.g. cosmosvaloper1...)
-    pub validator: String,
-    /// How much we have locked in the delegation
-    pub amount: cosmwasm_std::Coin,
-    /// How many shares the delegator has in the validator
-    pub share_ratio: Decimal256,
+    pub delegations: Vec<drop_staking_base::msg::icq_router::DropDelegation>,
 }
 
 impl ResultReconstruct for BalancesAndDelegations {
@@ -96,7 +85,7 @@ impl ResultReconstruct for BalancesAndDelegations {
 
             coins.push(cosmwasm_std::Coin::new(amount.u128(), denom));
         }
-        let mut delegations: Vec<DropDelegation> =
+        let mut delegations: Vec<drop_staking_base::msg::icq_router::DropDelegation> =
             Vec::with_capacity((storage_values.len() - 2) / 2);
         // first StorageValue is denom
         if !storage_values[1].value.is_empty() {
@@ -117,7 +106,7 @@ impl ResultReconstruct for BalancesAndDelegations {
                 }
                 let delegation_sdk: Delegation = Delegation::decode(chunk[0].value.as_slice())?;
 
-                let mut delegation_std = DropDelegation {
+                let mut delegation_std = drop_staking_base::msg::icq_router::DropDelegation {
                     delegator: Addr::unchecked(delegation_sdk.delegator_address.as_str()),
                     validator: delegation_sdk.validator_address,
                     amount: Default::default(),
