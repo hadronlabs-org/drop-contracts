@@ -262,7 +262,7 @@ fn execute_bond(
         to_address: config.puppeteer_contract.to_string(),
         amount: vec![Coin {
             denom: config.base_denom,
-            amount: amount.clone(),
+            amount,
         }],
     });
 
