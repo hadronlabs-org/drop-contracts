@@ -59,19 +59,19 @@ fn get_default_factory_state() -> State {
 #[test]
 fn test_instantiate() {
     let mut deps = mock_dependencies_with_api(&[]);
-    deps.querier.add_stargate_query_response(
-        "/cosmos.wasm.v1.Query/QueryCodeRequest",
-        |data| -> cosmwasm_std::Binary {
+    deps.querier
+        .add_stargate_query_response("/cosmos.wasm.v1.Query/QueryCodeRequest", |data| {
             let mut y = vec![0; 32];
             y[..data.len()].copy_from_slice(data);
-            to_json_binary(&cosmwasm_std::CodeInfoResponse::new(
-                from_json(data).unwrap(),
-                "creator".to_string(),
-                cosmwasm_std::HexBinary::from(y.as_slice()),
-            ))
-            .unwrap()
-        },
-    );
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&cosmwasm_std::CodeInfoResponse::new(
+                    from_json(data).unwrap(),
+                    "creator".to_string(),
+                    cosmwasm_std::HexBinary::from(y.as_slice()),
+                ))
+                .unwrap(),
+            )
+        });
     let instantiate_msg = InstantiateMsg {
         code_ids: CodeIds {
             token_code_id: 1,
@@ -1099,24 +1099,27 @@ fn test_query_state() {
 #[test]
 fn test_query_pause_info() {
     let mut deps = mock_dependencies(&[]);
-    deps.querier
-        .add_wasm_query_response("core_contract", |_| -> cosmwasm_std::Binary {
+    deps.querier.add_wasm_query_response("core_contract", |_| {
+        cosmwasm_std::ContractResult::Ok(
             to_json_binary(&CorePause {
                 tick: true,
                 bond: false,
                 unbond: false,
             })
-            .unwrap()
-        });
-    deps.querier.add_wasm_query_response(
-        "withdrawal_manager_contract",
-        |_| -> cosmwasm_std::Binary {
-            to_json_binary(&drop_helpers::pause::PauseInfoResponse::Unpaused {}).unwrap()
-        },
-    );
+            .unwrap(),
+        )
+    });
     deps.querier
-        .add_wasm_query_response("rewards_manager_contract", |_| -> cosmwasm_std::Binary {
-            to_json_binary(&drop_helpers::pause::PauseInfoResponse::Paused {}).unwrap()
+        .add_wasm_query_response("withdrawal_manager_contract", |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&drop_helpers::pause::PauseInfoResponse::Unpaused {}).unwrap(),
+            )
+        });
+    deps.querier
+        .add_wasm_query_response("rewards_manager_contract", |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&drop_helpers::pause::PauseInfoResponse::Paused {}).unwrap(),
+            )
         });
     STATE
         .save(deps.as_mut().storage, &get_default_factory_state())

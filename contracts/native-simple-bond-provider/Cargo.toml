@@ -1,0 +1,36 @@
+[package]
+authors = ["Albert Andrejev <albert.andrejev@gmail.com>"]
+description = "Contract to provide native bond support"
+edition = "2021"
+name = "drop-native-simple-bond-provider"
+version = "1.0.0"
+
+exclude = [
+    # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
+    "contract.wasm",
+    "hash.txt",
+]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# for more explicit tests, cargo test --features=backtraces
+backtraces = ["cosmwasm-std/backtraces"]
+# use library feature to disable all instantiate/execute/query exports
+library = []
+
+[dependencies]
+cosmwasm-schema = { workspace = true }
+cosmwasm-std = { workspace = true }
+cw-ownable = { workspace = true }
+cw-utils = { workspace = true }
+cw2 = { workspace = true }
+neutron-sdk = { workspace = true }
+drop-staking-base = { workspace = true }
+drop-puppeteer-base = { workspace = true }
+drop-helpers = { workspace = true }
+serde-json-wasm = { workspace = true }
+semver = { workspace = true }

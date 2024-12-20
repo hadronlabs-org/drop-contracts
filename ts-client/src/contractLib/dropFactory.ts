@@ -84,6 +84,12 @@ export type CosmosMsgFor_NeutronMsg =
       custom: NeutronMsg;
     }
   | {
+      staking: StakingMsg;
+    }
+  | {
+      distribution: DistributionMsg;
+    }
+  | {
       stargate: {
         type_url: string;
         value: Binary;
@@ -556,6 +562,58 @@ export type LimitOrderType =
   | "IMMEDIATE_OR_CANCEL"
   | "JUST_IN_TIME"
   | "GOOD_TIL_TIME";
+/**
+ * The message types of the staking module.
+ *
+ * See https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/tx.proto
+ */
+export type StakingMsg =
+  | {
+      delegate: {
+        amount: Coin;
+        validator: string;
+        [k: string]: unknown;
+      };
+    }
+  | {
+      undelegate: {
+        amount: Coin;
+        validator: string;
+        [k: string]: unknown;
+      };
+    }
+  | {
+      redelegate: {
+        amount: Coin;
+        dst_validator: string;
+        src_validator: string;
+        [k: string]: unknown;
+      };
+    };
+/**
+ * The message types of the distribution module.
+ *
+ * See https://github.com/cosmos/cosmos-sdk/blob/v0.42.4/proto/cosmos/distribution/v1beta1/tx.proto
+ */
+export type DistributionMsg =
+  | {
+      set_withdraw_address: {
+        /**
+         * The `withdraw_address`
+         */
+        address: string;
+        [k: string]: unknown;
+      };
+    }
+  | {
+      withdraw_delegator_reward: {
+        /**
+         * The `validator_address`
+         */
+        validator: string;
+        [k: string]: unknown;
+      };
+    };
 /**
  * These are messages in the IBC lifecycle. Only usable by IBC-enabled contracts (contracts that directly speak the IBC protocol via 6 entry points)
  */
