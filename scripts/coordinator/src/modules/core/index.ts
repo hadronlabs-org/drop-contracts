@@ -1,6 +1,11 @@
 import { ManagerModule } from '../../types/Module';
-import { DropPuppeteer, DropCore } from 'drop-ts-client';
-import { PuppeteerConfig } from './types/config';
+import {
+  DropPuppeteer,
+  DropCore,
+  DropNativeBondProvider,
+  DropLsmShareBondProvider,
+} from 'drop-ts-client';
+import { CoreConfig } from './types/config';
 import { Context } from '../../types/Context';
 import pino from 'pino';
 import JSONBig from 'json-bigint';
@@ -10,6 +15,8 @@ import { fromAscii, toAscii } from '@cosmjs/encoding';
 
 const PuppeteerContractClient = DropPuppeteer.Client;
 const CoreContractClient = DropCore.Client;
+const NativeBondProviderContractClient = DropNativeBondProvider.Client;
+const LSMShareBondProviderContractClient = DropLsmShareBondProvider.Client;
 
 const IDLE_ADDITIONAL_INTERVAL = 120; // Seconds. Coordinator idle timeout calculation is a little frontrunning before actual idle timeout
 
@@ -18,6 +25,12 @@ export class CoreModule extends ManagerModule {
     typeof PuppeteerContractClient
   >;
   private coreContractClient?: InstanceType<typeof CoreContractClient>;
+  private nativeBondProviderContractClient?: InstanceType<
+    typeof NativeBondProviderContractClient
+  >;
+  private lsmShareBondProviderContractClient?: InstanceType<
+    typeof LSMShareBondProviderContractClient
+  >;
 
   constructor(
     private context: Context,
@@ -26,8 +39,8 @@ export class CoreModule extends ManagerModule {
     super();
   }
 
-  private _config: PuppeteerConfig;
-  get config(): PuppeteerConfig {
+  private _config: CoreConfig;
+  get config(): CoreConfig {
     return this._config;
   }
 
@@ -47,6 +60,22 @@ export class CoreModule extends ManagerModule {
         this.config.coreContractAddress,
       );
     }
+
+    if (this.config.nativeBondProviderAddress) {
+      this.nativeBondProviderContractClient =
+        new NativeBondProviderContractClient(
+          this.context.neutronSigningClient,
+          this.config.nativeBondProviderAddress,
+        );
+    }
+
+    if (this.config.lsmShareBondProviderAddress) {
+      this.lsmShareBondProviderContractClient =
+        new LSMShareBondProviderContractClient(
+          this.context.neutronSigningClient,
+          this.config.lsmShareBondProviderAddress,
+        );
+    }
   }
 
   async run(): Promise<void> {
@@ -64,17 +93,28 @@ export class CoreModule extends ManagerModule {
         toAscii('last_tick'),
       );
     const lastTick = Number.parseInt(fromAscii(lastTickRaw), 10);
+
     const config = await this.coreContractClient.queryConfig();
+
+    const lsmShareCanProcessOnIdle =
+      this.lsmShareBondProviderContractClient &&
+      (await this.lsmShareBondProviderContractClient.queryCanProcessOnIdle());
+
+    const nativeBondCanProcessOnIdle =
+      this.nativeBondProviderContractClient &&
+      (await this.nativeBondProviderContractClient.queryCanProcessOnIdle());
 
     if (
       this.lastRun / 1000 <
         lastTick + config.idle_min_interval + IDLE_ADDITIONAL_INTERVAL &&
       coreContractState === 'idle'
     ) {
-      this.log.info(
-        'Skipping idle tick because idle min interval is not reached',
-      );
-      return;
+      if (!lsmShareCanProcessOnIdle && !nativeBondCanProcessOnIdle) {
+        this.log.info(
+          'Skipping idle tick because idle min interval is not reached',
+        );
+        return;
+      }
     }
 
     const lastPuppeteerResponse =
@@ -82,20 +122,11 @@ export class CoreModule extends ManagerModule {
 
     const puppeteerResponseReceived = !!lastPuppeteerResponse.response;
 
-    const lastStakerResponse =
-      await this.coreContractClient.queryLastStakerResponse();
-
-    const stakerResponseReceived = !!lastStakerResponse.response;
-
     this.log.debug(
-      `Core contract state: ${coreContractState}, puppeteer response received: ${puppeteerResponseReceived}, staker response received: ${stakerResponseReceived}`,
+      `Core contract state: ${coreContractState}, puppeteer response received: ${puppeteerResponseReceived}`,
     );
 
-    if (
-      puppeteerResponseReceived ||
-      coreContractState === 'idle' ||
-      (stakerResponseReceived && coreContractState === 'staking_bond')
-    ) {
+    if (puppeteerResponseReceived || coreContractState === 'idle') {
       const queryIds = await this.puppeteerContractClient.queryKVQueryIds();
 
       this.log.info(`Puppeteer query ids: ${JSON.stringify(queryIds)}`);
@@ -131,6 +162,14 @@ export class CoreModule extends ManagerModule {
       coreContractAddress:
         process.env.CORE_CONTRACT_ADDRESS ||
         this.context.factoryContractHandler.factoryState.core_contract,
+      nativeBondProviderAddress:
+        process.env.NATIVE_BOND_PROVIDER_ADDRESS ||
+        this.context.factoryContractHandler.factoryState
+          .native_bond_provider_contract,
+      lsmShareBondProviderAddress:
+        process.env.LSM_SHARE_BOND_PROVIDER_ADDRESS ||
+        this.context.factoryContractHandler.factoryState
+          .lsm_share_bond_provider_contract,
     };
   }
 

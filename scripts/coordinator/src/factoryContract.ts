@@ -2,7 +2,7 @@ import pino from 'pino';
 import { logger } from './logger';
 import { DropFactory } from 'drop-ts-client';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
-import { State } from 'drop-ts-client/lib/contractLib/dropFactory';
+import { MapOfString } from 'drop-ts-client/lib/contractLib/dropFactory';
 
 export class FactoryContractHandler {
   private log: pino.Logger;
@@ -24,8 +24,8 @@ export class FactoryContractHandler {
     return this._connected;
   }
 
-  private _factoryState: State;
-  get factoryState(): State {
+  private _factoryState: MapOfString;
+  get factoryState(): MapOfString {
     return this._factoryState;
   }
 

@@ -1,1 +1,0 @@
-# DROP Interchain puppeteer with Authz support

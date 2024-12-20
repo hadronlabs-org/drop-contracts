@@ -76,9 +76,7 @@ export interface DropStrategySchema {
 }
 export interface Config {
   denom: string;
-  distribution_address: string;
-  puppeteer_address: string;
-  validator_set_address: string;
+  factory_contract: string;
 }
 /**
  * The contract's ownership info
@@ -108,16 +106,12 @@ export interface UpdateConfigArgs {
 }
 export interface ConfigOptional {
   denom?: string | null;
-  distribution_address?: string | null;
-  puppeteer_address?: string | null;
-  validator_set_address?: string | null;
+  factory_contract?: string | null;
 }
 export interface InstantiateMsg {
   denom: string;
-  distribution_address: string;
+  factory_contract: string;
   owner: string;
-  puppeteer_address: string;
-  validator_set_address: string;
 }
 
 

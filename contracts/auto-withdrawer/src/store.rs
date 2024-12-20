@@ -2,9 +2,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Coin};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, MultiIndex};
 
-pub const CORE_ADDRESS: Item<Addr> = Item::new("core");
-pub const WITHDRAWAL_VOUCHER_ADDRESS: Item<Addr> = Item::new("withdrawal_voucher");
-pub const WITHDRAWAL_MANAGER_ADDRESS: Item<Addr> = Item::new("withdrawal_manager");
+pub const FACTORY_CONTRACT: Item<Addr> = Item::new("factory_contract");
 pub const LD_TOKEN: Item<String> = Item::new("ld_token");
 
 pub use bondings::{map as bondings_map, BondingRecord};

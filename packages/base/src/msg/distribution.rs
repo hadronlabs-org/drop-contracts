@@ -3,23 +3,17 @@ use cosmwasm_std::Uint128;
 
 #[cw_serde]
 pub struct Delegations {
-    pub total: Uint128,
+    pub total_stake: Uint128,
+    pub total_on_top: Uint128,
     pub total_weight: u64,
     pub delegations: Vec<Delegation>,
 }
+
 #[cw_serde]
 pub struct Delegation {
     pub valoper_address: String,
     pub stake: Uint128,
-    pub weight: u64,
-}
-
-#[cw_serde]
-pub struct IdealDelegation {
-    pub valoper_address: String,
-    pub ideal_stake: Uint128,
-    pub current_stake: Uint128,
-    pub stake_change: Uint128,
+    pub on_top: Uint128,
     pub weight: u64,
 }
 

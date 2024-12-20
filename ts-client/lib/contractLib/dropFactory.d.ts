@@ -1,17 +1,51 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
 /**
- * Information about if the contract is currently paused.
+ * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
-export type PauseInfoResponse1 = {
-    paused: {};
+export type Expiration = {
+    at_height: number;
 } | {
-    unpaused: {};
+    at_time: Timestamp;
+} | {
+    never: {};
 };
+/**
+ * A point in time in nanosecond precision.
+ *
+ * This type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.
+ *
+ * ## Examples
+ *
+ * ``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);
+ *
+ * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
+ */
+export type Timestamp = Uint64;
+/**
+ * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u64` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
+ *
+ * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
+ */
+export type Uint64 = string;
 export type UpdateConfigArgs = {
     core: ConfigOptional;
 } | {
     validators_set: ConfigOptional2;
+};
+export type ProxyArgs = {
+    validator_set: ValidatorSetMsg;
+};
+export type ValidatorSetMsg = {
+    update_validators: {
+        validators: ValidatorData[];
+    };
 };
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
@@ -27,21 +61,6 @@ export type UpdateConfigArgs = {
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type ProxyArgs = {
-    validator_set: ValidatorSetMsg;
-} | {
-    core: CoreMsg;
-};
-export type ValidatorSetMsg = {
-    update_validators: {
-        validators: ValidatorData[];
-    };
-};
-export type CoreMsg = {
-    pause: {};
-} | {
-    unpause: {};
-};
 export type CosmosMsgFor_NeutronMsg = {
     bank: BankMsg;
 } | {
@@ -514,30 +533,6 @@ export type IbcMsg = {
     };
 };
 /**
- * A point in time in nanosecond precision.
- *
- * This type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.
- *
- * ## Examples
- *
- * ``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);
- *
- * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
- */
-export type Timestamp = Uint64;
-/**
- * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u64` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
- *
- * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
- */
-export type Uint64 = string;
-/**
  * The message types of the wasm module.
  *
  * See https://github.com/CosmWasm/wasmd/blob/v0.14.0/x/wasm/internal/types/tx.proto
@@ -665,70 +660,55 @@ export type UpdateOwnershipArgs = {
         new_owner: string;
     };
 } | "accept_ownership" | "renounce_ownership";
-/**
- * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
- */
-export type Expiration = {
-    at_height: number;
-} | {
-    at_time: Timestamp;
-} | {
-    never: {};
-};
 export interface DropFactorySchema {
-    responses: PauseInfoResponse | State;
+    responses: OwnershipForString | MapOfString | MapOfString1;
     execute: UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
-export interface PauseInfoResponse {
-    core: PauseInfoResponse1;
-    rewards_manager: PauseInfoResponse1;
-    withdrawal_manager: PauseInfoResponse1;
+/**
+ * The contract's ownership info
+ */
+export interface OwnershipForString {
+    /**
+     * The contract's current owner. `None` if the ownership has been renounced.
+     */
+    owner?: string | null;
+    /**
+     * The deadline for the pending owner to accept the ownership. `None` if there isn't a pending ownership transfer, or if a transfer exists and it doesn't have a deadline.
+     */
+    pending_expiry?: Expiration | null;
+    /**
+     * The account who has been proposed to take over the ownership. `None` if there isn't a pending ownership transfer.
+     */
+    pending_owner?: string | null;
 }
-export interface State {
-    core_contract: string;
-    distribution_contract: string;
-    puppeteer_contract: string;
-    rewards_manager_contract: string;
-    rewards_pump_contract: string;
-    splitter_contract: string;
-    staker_contract: string;
-    strategy_contract: string;
-    token_contract: string;
-    validators_set_contract: string;
-    withdrawal_manager_contract: string;
-    withdrawal_voucher_contract: string;
+export interface MapOfString {
+    [k: string]: string;
+}
+export interface MapOfString1 {
+    [k: string]: string;
 }
 export interface ConfigOptional {
     base_denom?: string | null;
-    bond_limit?: Uint128 | null;
     emergency_address?: string | null;
+    factory_contract?: string | null;
     idle_min_interval?: number | null;
-    lsm_min_bond_amount?: Uint128 | null;
-    lsm_redeem_maximum_interval?: number | null;
-    lsm_redeem_threshold?: number | null;
-    min_stake_amount?: Uint128 | null;
     pump_ica_address?: string | null;
-    puppeteer_contract?: string | null;
     remote_denom?: string | null;
     rewards_receiver?: string | null;
-    staker_contract?: string | null;
-    strategy_contract?: string | null;
-    token_contract?: string | null;
     transfer_channel_id?: string | null;
     unbond_batch_switch_time?: number | null;
     unbonding_period?: number | null;
     unbonding_safe_period?: number | null;
-    validators_set_contract?: string | null;
-    withdrawal_manager_contract?: string | null;
-    withdrawal_voucher_contract?: string | null;
 }
 export interface ConfigOptional2 {
     provider_proposals_contract?: string | null;
     stats_contract?: string | null;
+    val_ref_contract?: string | null;
 }
 export interface ValidatorData {
+    on_top?: Uint128 | null;
     valoper_address: string;
     weight: number;
 }
@@ -1104,21 +1084,23 @@ export interface InstantiateMsg {
     core_params: CoreParams;
     fee_params?: FeeParams | null;
     local_denom: string;
+    lsm_share_bond_params: LsmShareBondParams;
+    native_bond_params: NativeBondParams;
     remote_opts: RemoteOpts;
     salt: string;
     sdk_version: string;
-    staker_params: StakerParams;
     subdenom: string;
     token_metadata: DenomMetadata;
 }
 export interface CodeIds {
     core_code_id: number;
     distribution_code_id: number;
+    lsm_share_bond_provider_code_id: number;
+    native_bond_provider_code_id: number;
     puppeteer_code_id: number;
     rewards_manager_code_id: number;
     rewards_pump_code_id: number;
     splitter_code_id: number;
-    staker_code_id: number;
     strategy_code_id: number;
     token_code_id: number;
     validators_set_code_id: number;
@@ -1126,13 +1108,8 @@ export interface CodeIds {
     withdrawal_voucher_code_id: number;
 }
 export interface CoreParams {
-    bond_limit?: Uint128 | null;
     icq_update_delay: number;
     idle_min_interval: number;
-    lsm_min_bond_amount: Uint128;
-    lsm_redeem_max_interval: number;
-    lsm_redeem_threshold: number;
-    min_stake_amount: Uint128;
     unbond_batch_switch_time: number;
     unbonding_period: number;
     unbonding_safe_period: number;
@@ -1140,6 +1117,15 @@ export interface CoreParams {
 export interface FeeParams {
     fee: Decimal;
     fee_address: string;
+}
+export interface LsmShareBondParams {
+    lsm_min_bond_amount: Uint128;
+    lsm_redeem_max_interval: number;
+    lsm_redeem_threshold: number;
+}
+export interface NativeBondParams {
+    min_ibc_transfer: Uint128;
+    min_stake_amount: Uint128;
 }
 export interface RemoteOpts {
     connection_id: string;
@@ -1153,10 +1139,6 @@ export interface RemoteOpts {
 export interface Timeout {
     local: number;
     remote: number;
-}
-export interface StakerParams {
-    min_ibc_transfer: Uint128;
-    min_stake_amount: Uint128;
 }
 export interface DenomMetadata {
     /**
@@ -1195,8 +1177,9 @@ export declare class Client {
     mustBeSigningClient(): Error;
     static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
     static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
-    queryState: () => Promise<State>;
-    queryPauseInfo: () => Promise<PauseInfoResponse>;
+    queryState: () => Promise<MapOfString>;
+    queryPauseInfo: () => Promise<MapOfString>;
+    queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     proxy: (sender: string, args: ProxyArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     adminExecute: (sender: string, args: AdminExecuteArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

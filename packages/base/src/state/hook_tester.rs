@@ -1,6 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cw_storage_plus::Item;
-use drop_puppeteer_base::msg::{ResponseHookErrorMsg, ResponseHookSuccessMsg};
+use drop_puppeteer_base::peripheral_hook::{ResponseHookErrorMsg, ResponseHookSuccessMsg};
 
 #[cw_serde]
 pub struct Config {

@@ -3,9 +3,7 @@ use cosmwasm_std::{Coin, Uint64};
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub core_address: String,
-    pub withdrawal_voucher_address: String,
-    pub withdrawal_manager_address: String,
+    pub factory_contract: String,
     pub ld_token: String,
 }
 

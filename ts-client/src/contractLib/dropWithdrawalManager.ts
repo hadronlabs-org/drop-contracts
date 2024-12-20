@@ -79,8 +79,7 @@ export interface DropWithdrawalManagerSchema {
 }
 export interface Config {
   base_denom: string;
-  core_contract: Addr;
-  withdrawal_voucher_contract: Addr;
+  factory_contract: Addr;
 }
 /**
  * The contract's ownership info
@@ -101,8 +100,7 @@ export interface OwnershipForString {
 }
 export interface UpdateConfigArgs {
   base_denom?: string | null;
-  core_contract?: string | null;
-  voucher_contract?: string | null;
+  factory_contract?: string | null;
 }
 /**
  * Cw721ReceiveMsg should be de/serialized under `Receive()` variant in a ExecuteMsg
@@ -118,9 +116,8 @@ export interface ReceiveNftArgs {
 }
 export interface InstantiateMsg {
   base_denom: string;
-  core_contract: string;
+  factory_contract: string;
   owner: string;
-  voucher_contract: string;
 }
 
 

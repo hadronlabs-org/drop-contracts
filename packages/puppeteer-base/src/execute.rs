@@ -1,6 +1,8 @@
 use crate::{
     error::{ContractError, ContractResult},
-    msg::{ExecuteMsg, Transaction},
+    msg::ExecuteMsg,
+    peripheral_hook::Transaction,
+    r#trait::PuppeteerReconstruct,
     state::{BaseConfig, PuppeteerBase, TxState, TxStateStatus, ICA_ID, LOCAL_DENOM},
 };
 use cosmwasm_std::{
@@ -15,17 +17,18 @@ use neutron_sdk::{
 };
 use serde::{de::DeserializeOwned, Serialize};
 
-impl<'a, T, U> PuppeteerBase<'a, T, U>
+impl<'a, T, U, P> PuppeteerBase<'a, T, U, P>
 where
     T: BaseConfig + Serialize + DeserializeOwned + Clone,
     U: Serialize + DeserializeOwned + Clone,
+    P: PuppeteerReconstruct + std::fmt::Debug + Serialize + Clone,
 {
     pub fn instantiate<X: CustomQuery, Z>(
         &self,
         deps: DepsMut<X>,
         config: &T,
         owner: String,
-    ) -> NeutronResult<Response<Z>> {
+    ) -> ContractResult<Response<Z>> {
         cw_ownable::initialize_owner(deps.storage, deps.api, Some(&owner))?;
         self.config.save(deps.storage, config)?;
         self.recipient_transfers.save(deps.storage, &vec![])?;

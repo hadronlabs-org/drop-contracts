@@ -106,8 +106,13 @@ describe('POC Proposal Votes', () => {
     const { client, account } = context;
     const propsRes = await client.upload(
       account.address,
-      fs.readFileSync(
-        join(__dirname, '../../../artifacts/drop_provider_proposals_poc.wasm'),
+      Uint8Array.from(
+        fs.readFileSync(
+          join(
+            __dirname,
+            '../../../artifacts/drop_provider_proposals_poc.wasm',
+          ),
+        ),
       ),
       1.5,
     );
@@ -146,8 +151,10 @@ describe('POC Proposal Votes', () => {
 
     const votesRes = await client.upload(
       account.address,
-      fs.readFileSync(
-        join(__dirname, '../../../artifacts/drop_proposal_votes_poc.wasm'),
+      Uint8Array.from(
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_proposal_votes_poc.wasm'),
+        ),
       ),
       1.5,
     );

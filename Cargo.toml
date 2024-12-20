@@ -9,23 +9,28 @@ members = [
     "contracts/hook-tester",
     "contracts/withdrawal-voucher",
     "contracts/withdrawal-manager",
+    "contracts/native-bond-provider",
+    "contracts/lsm-share-bond-provider",
     "contracts/proposal-votes-poc",
     "contracts/provider-proposals-poc",
     "contracts/pump",
     "contracts/puppeteer",
-    # "contracts/puppeteer-authz",
+    "contracts/puppeteer-initia",
     "contracts/rewards-manager",
-    "contracts/staker",
     "contracts/strategy",
     "contracts/token",
+    "contracts/val-ref",
     "contracts/splitter",
+    "contracts/mirror",
     "contracts/price-provider",
     "contracts/validators-stats",
     "contracts/validators-set",
+    "contracts/redemption-rate-adapter",
     "packages/base",
     "packages/helpers",
     "packages/macros",
     "packages/puppeteer-base",
+    "packages/proto",
 ]
 
 [workspace.dependencies]
@@ -50,17 +55,21 @@ cw-utils = { version = "1.0.3", default-features = false }
 serde = { version = "1.0.195", default-features = false }
 serde-json-wasm = { version = "1.0.0", default-features = false }
 sha2 = { version = "0.10.8", default-features = false }
+sha3 = { version = "0.10.8", default-features = false }
 bech32 = { version = "0.11.0", default-features = false, features = ["alloc"] }
 thiserror = { version = "1.0.56", default-features = false }
 optfield = { version = "0.3.0", default-features = false }
 schemars = { version = "0.8.16", default-features = false }
 astroport = { version = "3.6.1", default-features = false }
 semver = { version = "1.0.22", default-features = false }
+hex = { version = "0.4.3", default-features = false }
+once_cell = { version = "1.20.2" }
 
 drop-puppeteer-base = { path = "./packages/puppeteer-base", default-features = false }
 drop-staking-base = { path = "./packages/base", default-features = false }
 drop-helpers = { path = "./packages/helpers", default-features = false }
 drop-macros = { path = "./packages/macros", default-features = false }
+drop-proto = { path = "./packages/proto", default-features = false }
 
 [profile.release]
 opt-level = 3

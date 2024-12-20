@@ -9,6 +9,8 @@ DEPLOY_WALLET="${DEPLOY_WALLET:-demowallet1}"
 MIN_NTRN_REQUIRED="${MIN_NTRN_REQUIRED:-10}"
 ARTIFACTS_DIR="${ARTIFACTS_DIR:-../../artifacts}"
 
+PUPPETEER_TYPE="${PUPPETEER_TYPE:-puppeteer}"
+
 source ./utils.bash
 
 echo "DEPLOY_WALLET: $DEPLOY_WALLET"
@@ -22,6 +24,7 @@ main() {
 
   pre_deploy_check_balance
   deploy_wasm_code
+  deploy_puppeteer_code
 
   echo
   echo   "CONTRACTS UPLOAD SUCCEDED"
