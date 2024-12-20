@@ -789,6 +789,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-ntrn-derivative-core"
+version = "1.0.0"
+dependencies = [
+ "cosmos-sdk-proto",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "cw721 0.18.0",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "semver",
+ "serde-json-wasm 1.0.1",
+ "sha2 0.10.8",
+ "thiserror",
+]
+
+[[package]]
+name = "drop-ntrn-derivative-withdrawal-voucher"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "cw721 0.18.0",
+ "cw721-base 0.18.0",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "semver",
+ "serde-json-wasm 1.0.1",
+ "sha2 0.10.8",
+ "thiserror",
+]
+
+[[package]]
 name = "drop-price-provider"
 version = "1.0.0"
 dependencies = [
