@@ -570,20 +570,13 @@ fn execute_proxy_msg(
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     match msg {
         ProxyMsg::ValidatorSet(msg) => match msg {
-            ValidatorSetMsg::UpdateValidators { validators } => {
-                messages.push(get_proxied_message(
-                    state.validators_set_contract,
-                    drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
-                        validators: validators.clone(),
-                    },
-                    vec![],
-                )?);
-                messages.push(get_proxied_message(
-                    state.puppeteer_contract,
-                    drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: validators.iter().map(|v| {v.valoper_address.to_string()}).collect() },
-                    info.funds,
-                )?)
-            }
+            ValidatorSetMsg::UpdateValidators { validators } => messages.push(get_proxied_message(
+                state.validators_set_contract,
+                drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
+                    validators: validators.clone(),
+                },
+                vec![],
+            )?),
         },
     }
     Ok(response("execute-proxy-call", CONTRACT_NAME, attrs).add_messages(messages))

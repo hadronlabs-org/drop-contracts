@@ -1,8 +1,8 @@
 use crate::{
     contract::{execute, instantiate, query},
     msg::{
-        CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, LsmShareBondParams, NativeBondParams,
-        QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
+        CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, NativeBondParams, QueryMsg,
+        UpdateConfigMsg, ValidatorSetMsg,
     },
     state::{CodeIds, RemoteOpts, State, Timeout, STATE},
 };
@@ -16,10 +16,9 @@ use drop_staking_base::{
     msg::{
         core::{ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg},
         distribution::InstantiateMsg as DistributionInstantiateMsg,
-        lsm_share_bond_provider::InstantiateMsg as LsmShareBondProviderInstantiateMsg,
         native_bond_provider::InstantiateMsg as NativeBondProviderInstantiateMsg,
         pump::InstantiateMsg as RewardsPumpInstantiateMsg,
-        puppeteer::{ExecuteMsg as PuppeteerExecuteMsg, InstantiateMsg as PuppeteerInstantiateMsg},
+        puppeteer_native::InstantiateMsg as PuppeteerInstantiateMsg,
         rewards_manager::{
             ExecuteMsg as RewardsManagerExecuteMsg, InstantiateMsg as RewardsManagerInstantiateMsg,
         },
@@ -51,7 +50,6 @@ fn get_default_factory_state() -> State {
         rewards_manager_contract: "rewards_manager_contract".to_string(),
         rewards_pump_contract: "rewards_pump_contract".to_string(),
         splitter_contract: "splitter_contract".to_string(),
-        lsm_share_bond_provider_contract: "lsm_share_bond_provider_contract".to_string(),
         native_bond_provider_contract: "native_bond_provider_contract".to_string(),
     }
 }
@@ -85,12 +83,10 @@ fn test_instantiate() {
             rewards_manager_code_id: 10,
             rewards_pump_code_id: 11,
             splitter_code_id: 12,
-            lsm_share_bond_provider_code_id: 13,
-            native_bond_provider_code_id: 14,
+            native_bond_provider_code_id: 13,
         },
         remote_opts: RemoteOpts {
             denom: "denom".to_string(),
-            update_period: 0,
             connection_id: "connection-0".to_string(),
             port_id: "transfer".to_string(),
             transfer_channel_id: "channel-0".to_string(),
@@ -111,7 +107,6 @@ fn test_instantiate() {
             uri: None,
             uri_hash: None,
         },
-        sdk_version: "sdk-version".to_string(),
         base_denom: "base_denom".to_string(),
         local_denom: "local-denom".to_string(),
         core_params: CoreParams {
@@ -130,11 +125,6 @@ fn test_instantiate() {
             fee: cosmwasm_std::Decimal::new(Uint128::from(0u64)),
             fee_address: "fee_address".to_string(),
         }),
-        lsm_share_bond_params: LsmShareBondParams {
-            lsm_redeem_threshold: 0,
-            lsm_min_bond_amount: Uint128::from(0u64),
-            lsm_redeem_max_interval: 0,
-        },
     };
     let res = instantiate(
         deps.as_mut().into_empty(),
@@ -212,21 +202,13 @@ fn test_instantiate() {
                         code_id: 3,
                         label: "drop-staking-puppeteer".to_string(),
                         msg: to_json_binary(&PuppeteerInstantiateMsg {
-                            connection_id: "connection-0".to_string(),
-                            port_id: "transfer".to_string(),
-                            update_period: 0,
                             remote_denom: "denom".to_string(),
                             owner: Some("factory_contract".to_string()),
                             allowed_senders: vec![
                                 "some_humanized_address".to_string(),
                                 "some_humanized_address".to_string(),
-                                "some_humanized_address".to_string(),
                                 "factory_contract".to_string()
                             ],
-                            transfer_channel_id: "channel-0".to_string(),
-                            sdk_version: "sdk-version".to_string(),
-                            timeout: 0,
-                            delegations_queries_chunk_size: None,
                             native_bond_provider: "some_humanized_address".to_string(),
                         })
                         .unwrap(),
@@ -271,7 +253,7 @@ fn test_instantiate() {
                             unbond_batch_switch_time: 0,
                             bond_limit: Some(Uint128::from(0u64)),
                             pump_ica_address: None,
-                            transfer_channel_id: "channel-0".to_string(),
+                            transfer_channel_id: "no_channel".to_string(),
                             owner: "factory_contract".to_string(),
                             emergency_address: None,
                             icq_update_delay: 0
@@ -374,28 +356,6 @@ fn test_instantiate() {
                     cosmwasm_std::WasmMsg::Instantiate2 {
                         admin: Some("factory_contract".to_string()),
                         code_id: 13,
-                        label: "drop-staking-lsm-share-bond-provider".to_string(),
-                        msg: to_json_binary(&LsmShareBondProviderInstantiateMsg {
-                            owner: "factory_contract".to_string(),
-                            core_contract: "some_humanized_address".to_string(),
-                            puppeteer_contract: "some_humanized_address".to_string(),
-                            validators_set_contract: "some_humanized_address".to_string(),
-                            transfer_channel_id: "channel-0".to_string(),
-                            lsm_redeem_threshold: 0,
-                            lsm_redeem_maximum_interval: 0,
-                            port_id: "transfer".to_string(),
-                            timeout: 0,
-                            lsm_min_bond_amount: Uint128::from(0u64),
-                        })
-                        .unwrap(),
-                        funds: vec![],
-                        salt: cosmwasm_std::Binary::from("salt".as_bytes()),
-                    }
-                )),
-                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
-                    cosmwasm_std::WasmMsg::Instantiate2 {
-                        admin: Some("factory_contract".to_string()),
-                        code_id: 14,
                         label: "drop-staking-native-bond-provider".to_string(),
                         msg: to_json_binary(&NativeBondProviderInstantiateMsg {
                             owner: "factory_contract".to_string(),
@@ -416,11 +376,10 @@ fn test_instantiate() {
                 ))
             ])
             .add_event(
-                cosmwasm_std::Event::new("crates.io:drop-staking__drop-factory-instantiate")
+                cosmwasm_std::Event::new("crates.io:drop-staking__drop-factory-native-instantiate")
                     .add_attributes(vec![
                         cosmwasm_std::attr("action", "init"),
                         cosmwasm_std::attr("base_denom", "base_denom"),
-                        cosmwasm_std::attr("sdk_version", "sdk-version"),
                         cosmwasm_std::attr("salt", "salt"),
                         cosmwasm_std::attr(
                             "code_ids",
@@ -438,8 +397,7 @@ fn test_instantiate() {
                                     rewards_manager_code_id: 10,
                                     rewards_pump_code_id: 11,
                                     splitter_code_id: 12,
-                                    lsm_share_bond_provider_code_id: 13,
-                                    native_bond_provider_code_id: 14
+                                    native_bond_provider_code_id: 13
                                 }
                             )
                         ),
@@ -449,7 +407,6 @@ fn test_instantiate() {
                                 "{:?}",
                                 RemoteOpts {
                                     denom: "denom".to_string(),
-                                    update_period: 0,
                                     connection_id: "connection-0".to_string(),
                                     port_id: "transfer".to_string(),
                                     transfer_channel_id: "channel-0".to_string(),
@@ -508,12 +465,8 @@ fn test_instantiate() {
                             "6FC09E9FDF411D71139AB50762FB9862D4F519DC21EADB93E93195388E164F25"
                         ),
                         cosmwasm_std::attr(
-                            "lsm_share_bond_provider_address",
-                            "1D482178B63387218844AA22FC89A3D4465BD4CC07A8DC1232C62EFE4838F955"
-                        ),
-                        cosmwasm_std::attr(
                             "native_bond_provider_address",
-                            "4F119F34DBA97DC2D8E9268BC9513D26CF27BA148EF73DDE924F79A97CA47BBF"
+                            "1D482178B63387218844AA22FC89A3D4465BD4CC07A8DC1232C62EFE4838F955"
                         ),
                     ])
             )
@@ -608,7 +561,7 @@ fn test_update_config_core() {
         cosmwasm_std::Response::new()
             .add_event(
                 cosmwasm_std::Event::new(
-                    "crates.io:drop-staking__drop-factory-execute-update-config"
+                    "crates.io:drop-staking__drop-factory-native-execute-update-config"
                 )
                 .add_attributes(vec![attr("action", "update-config")])
             )
@@ -678,7 +631,7 @@ fn test_update_config_validators_set() {
         cosmwasm_std::Response::new()
             .add_event(
                 cosmwasm_std::Event::new(
-                    "crates.io:drop-staking__drop-factory-execute-update-config"
+                    "crates.io:drop-staking__drop-factory-native-execute-update-config"
                 )
                 .add_attributes(vec![attr("action", "update-config")])
             )
@@ -765,47 +718,30 @@ fn test_proxy_validators_set_update_validators() {
     assert_eq!(
         res,
         cosmwasm_std::Response::new()
-            .add_submessages(vec![
-                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
-                    cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "validators_set_contract".to_string(),
-                        msg: to_json_binary(&ValidatorSetExecuteMsg::UpdateValidators {
-                            validators: vec![
-                                drop_staking_base::msg::validatorset::ValidatorData {
-                                    valoper_address: "valoper_address1".to_string(),
-                                    weight: 10u64,
-                                    on_top: Uint128::zero(),
-                                },
-                                drop_staking_base::msg::validatorset::ValidatorData {
-                                    valoper_address: "valoper_address2".to_string(),
-                                    weight: 10u64,
-                                    on_top: Uint128::zero(),
-                                },
-                            ],
-                        })
-                        .unwrap(),
-                        funds: vec![],
-                    }
-                )),
-                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
-                    cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "puppeteer_contract".to_string(),
-                        msg: to_json_binary(
-                            &PuppeteerExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
-                                validators: vec![
-                                    "valoper_address1".to_string(),
-                                    "valoper_address2".to_string()
-                                ]
-                            }
-                        )
-                        .unwrap(),
-                        funds: vec![]
-                    }
-                ))
-            ])
+            .add_submessages(vec![cosmwasm_std::SubMsg::new(
+                cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
+                    contract_addr: "validators_set_contract".to_string(),
+                    msg: to_json_binary(&ValidatorSetExecuteMsg::UpdateValidators {
+                        validators: vec![
+                            drop_staking_base::msg::validatorset::ValidatorData {
+                                valoper_address: "valoper_address1".to_string(),
+                                weight: 10u64,
+                                on_top: Uint128::zero(),
+                            },
+                            drop_staking_base::msg::validatorset::ValidatorData {
+                                valoper_address: "valoper_address2".to_string(),
+                                weight: 10u64,
+                                on_top: Uint128::zero(),
+                            },
+                        ],
+                    })
+                    .unwrap(),
+                    funds: vec![],
+                })
+            )])
             .add_event(
                 cosmwasm_std::Event::new(
-                    "crates.io:drop-staking__drop-factory-execute-proxy-call".to_string()
+                    "crates.io:drop-staking__drop-factory-native-execute-proxy-call".to_string()
                 )
                 .add_attribute("action".to_string(), "proxy-call".to_string())
             )
@@ -926,7 +862,7 @@ fn test_admin_execute() {
             )))
             .add_event(
                 cosmwasm_std::Event::new(
-                    "crates.io:drop-staking__drop-factory-execute-admin".to_string()
+                    "crates.io:drop-staking__drop-factory-native-execute-admin".to_string()
                 )
                 .add_attribute("action".to_string(), "admin-execute".to_string())
             )
@@ -999,7 +935,7 @@ fn test_pause() {
             ])
             .add_event(
                 cosmwasm_std::Event::new(
-                    "crates.io:drop-staking__drop-factory-execute-pause".to_string()
+                    "crates.io:drop-staking__drop-factory-native-execute-pause".to_string()
                 )
                 .add_attributes(vec![cosmwasm_std::attr(
                     "action".to_string(),
@@ -1075,7 +1011,7 @@ fn test_unpause() {
             ])
             .add_event(
                 cosmwasm_std::Event::new(
-                    "crates.io:drop-staking__drop-factory-execute-unpause".to_string()
+                    "crates.io:drop-staking__drop-factory-native-execute-unpause".to_string()
                 )
                 .add_attributes(vec![cosmwasm_std::attr(
                     "action".to_string(),

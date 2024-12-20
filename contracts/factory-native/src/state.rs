@@ -20,6 +20,17 @@ pub struct CodeIds {
 #[cw_serde]
 pub struct RemoteOpts {
     pub denom: String,
+    pub connection_id: String,
+    pub port_id: String,
+    pub transfer_channel_id: String,
+    pub reverse_transfer_channel_id: String,
+    pub timeout: Timeout,
+}
+
+#[cw_serde]
+pub struct Timeout {
+    pub local: u64,
+    pub remote: u64,
 }
 
 #[cw_serde]
