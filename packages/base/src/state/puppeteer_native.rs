@@ -5,7 +5,6 @@ use cosmwasm_std::Uint128;
 use cw_storage_plus::Item;
 
 use drop_puppeteer_base::state::BalancesAndDelegationsState;
-use drop_puppeteer_base::state::Transfer;
 
 use crate::msg::puppeteer::MultiBalances;
 
@@ -30,8 +29,6 @@ pub const CONFIG: Item<Config> = Item::new("config");
 
 pub const NON_NATIVE_REWARD_BALANCES: Item<BalancesAndDelegationsState<MultiBalances>> =
     Item::new("non_native_reward_balances");
-
-pub const RECIPIENT_TRANSFERS: Item<Vec<Transfer>> = Item::new("recipient_transfers");
 
 pub const DECIMAL_PLACES: u32 = 18;
 

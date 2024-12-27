@@ -1,5 +1,5 @@
 [package]
-authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>"]
+authors = ["Sergey Ratiashvili <serg.s.r@gmail.com>", "Albert Andrejev <albert.andrejev@gmail.com>", "Murad Karammaev <muradkarammaev@gmail.com>"]
 description = "Contract to deploy all Drop contracts"
 edition = "2021"
 name = "drop-factory"

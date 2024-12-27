@@ -14,18 +14,19 @@ pub struct CodeIds {
     pub rewards_manager_code_id: u64,
     pub splitter_code_id: u64,
     pub rewards_pump_code_id: u64,
-    pub lsm_share_bond_provider_code_id: u64,
     pub native_bond_provider_code_id: u64,
+}
+
+#[cw_serde]
+pub struct RemoteCodeIds {
+    pub lsm_share_bond_provider_code_id: u64,
 }
 
 #[cw_serde]
 pub struct RemoteOpts {
     pub denom: String,
-    pub update_period: u64, // ICQ
     pub connection_id: String,
     pub port_id: String,
-    pub transfer_channel_id: String,
-    pub reverse_transfer_channel_id: String,
     pub timeout: Timeout,
 }
 
@@ -48,7 +49,7 @@ pub struct State {
     pub rewards_manager_contract: String,
     pub rewards_pump_contract: String,
     pub splitter_contract: String,
-    pub lsm_share_bond_provider_contract: String,
+    pub lsm_share_bond_provider_contract: Option<String>,
     pub native_bond_provider_contract: String,
 }
 
@@ -60,3 +61,11 @@ pub struct PauseInfoResponse {
 }
 
 pub const STATE: Item<State> = Item::new("state");
+
+#[cw_serde]
+pub enum FactoryType {
+    Native {},
+    Remote {},
+}
+
+pub const FACTORY_TYPE: Item<FactoryType> = Item::new("factory_type");
