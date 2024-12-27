@@ -38,10 +38,10 @@ members = [
 ]
 
 [workspace.dependencies]
-cosmwasm-std = { version = "1.5.4", default-features = false, features = [
+cosmwasm-std = { version = "1.5.9", default-features = false, features = [
     "stargate",
     "cosmwasm_1_2",
-    "staking"
+    "staking",
 ] }
 neutron-sdk = { package = "neutron-sdk", git = "https://github.com/neutron-org/neutron-sdk", branch = "feat/proposal-votes" }
 

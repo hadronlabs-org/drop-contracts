@@ -23,6 +23,7 @@ pub struct Config {
     pub remote_denom: String,
     pub allowed_senders: Vec<Addr>,
     pub native_bond_provider: Addr,
+    pub rewards_contract: Option<Addr>,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

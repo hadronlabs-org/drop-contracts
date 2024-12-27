@@ -11,29 +11,22 @@ use cosmwasm_std::{
     Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use drop_helpers::answer::response;
-use drop_staking_base::state::splitter::Config as SplitterConfig;
-use drop_staking_base::{
-    msg::{
-        core::{InstantiateMsg as CoreInstantiateMsg, QueryMsg as CoreQueryMsg},
-        distribution::InstantiateMsg as DistributionInstantiateMsg,
-        native_bond_provider::InstantiateMsg as NativeBondProviderInstantiateMsg,
-        pump::InstantiateMsg as RewardsPumpInstantiateMsg,
-        puppeteer_native::InstantiateMsg as PuppeteerInstantiateMsg,
-        rewards_manager::{
-            InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg,
-        },
-        splitter::InstantiateMsg as SplitterInstantiateMsg,
-        strategy::InstantiateMsg as StrategyInstantiateMsg,
-        token::InstantiateMsg as TokenInstantiateMsg,
-        validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
-        withdrawal_manager::{
-            InstantiateMsg as WithdrawalManagerInstantiateMsg,
-            QueryMsg as WithdrawalManagerQueryMsg,
-        },
-        withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
+use drop_staking_base::msg::{
+    core::{InstantiateMsg as CoreInstantiateMsg, QueryMsg as CoreQueryMsg},
+    distribution::InstantiateMsg as DistributionInstantiateMsg,
+    native_bond_provider::InstantiateMsg as NativeBondProviderInstantiateMsg,
+    puppeteer_native::InstantiateMsg as PuppeteerInstantiateMsg,
+    rewards_manager::{InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg},
+    splitter::InstantiateMsg as SplitterInstantiateMsg,
+    strategy::InstantiateMsg as StrategyInstantiateMsg,
+    token::InstantiateMsg as TokenInstantiateMsg,
+    validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
+    withdrawal_manager::{
+        InstantiateMsg as WithdrawalManagerInstantiateMsg, QueryMsg as WithdrawalManagerQueryMsg,
     },
-    state::pump::PumpTimeout,
+    withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
 };
+use drop_staking_base::state::splitter::Config as SplitterConfig;
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     NeutronResult,
@@ -357,26 +350,6 @@ pub fn instantiate(
                     )?,
                     denom: msg.base_denom.to_string(),
                 },
-            })?,
-            funds: vec![],
-            salt: Binary::from(salt),
-        }),
-        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
-            admin: Some(env.contract.address.to_string()),
-            code_id: msg.code_ids.rewards_pump_code_id,
-            label: get_contract_label("rewards-pump"),
-            msg: to_json_binary(&RewardsPumpInstantiateMsg {
-                dest_address: Some(splitter_contract.to_string()),
-                dest_channel: Some(msg.remote_opts.reverse_transfer_channel_id.to_string()),
-                dest_port: Some(msg.remote_opts.port_id.to_string()),
-                connection_id: msg.remote_opts.connection_id.to_string(),
-                refundee: None,
-                timeout: PumpTimeout {
-                    local: Some(msg.remote_opts.timeout.local),
-                    remote: msg.remote_opts.timeout.remote,
-                },
-                local_denom: msg.local_denom.to_string(),
-                owner: Some(env.contract.address.to_string()),
             })?,
             funds: vec![],
             salt: Binary::from(salt),

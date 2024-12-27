@@ -57,6 +57,7 @@ pub fn instantiate(
         remote_denom: msg.remote_denom,
         allowed_senders: allowed_senders.clone(),
         native_bond_provider: deps.api.addr_validate(&msg.native_bond_provider)?,
+        rewards_contract: None,
     };
 
     let attrs: Vec<Attribute> = vec![
@@ -393,16 +394,13 @@ fn execute_setup_protocol(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     info: MessageInfo,
-    rewards_withdraw_address: String,
+    rewards_contract: String,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let config: Config = CONFIG.load(deps.storage)?;
+    let mut config: Config = CONFIG.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
-
-    let set_withdraw_address_msg = DistributionMsg::SetWithdrawAddress {
-        address: rewards_withdraw_address.clone(),
-    };
-
-    Ok(Response::default().add_message(set_withdraw_address_msg))
+    config.rewards_contract = Some(deps.api.addr_validate(&rewards_contract)?);
+    CONFIG.save(deps.storage, &config)?;
+    Ok(Response::default())
 }
 
 fn execute_claim_rewards_and_optionaly_transfer(

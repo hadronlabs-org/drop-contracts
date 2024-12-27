@@ -23,7 +23,7 @@ pub struct RemoteOpts {
     pub connection_id: String,
     pub port_id: String,
     pub transfer_channel_id: String,
-    pub reverse_transfer_channel_id: String,
+    // pub reverse_transfer_channel_id: String,
     pub timeout: Timeout,
 }
 
