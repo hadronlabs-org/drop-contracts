@@ -23,6 +23,7 @@ pub fn instantiate(
 ) -> ContractResult<Response> {
     let attrs = vec![attr("action", "instantiate"), (attr("prefix", &msg.prefix))];
     initialize_owner(deps.storage, deps.api, Some(info.sender.as_str()))?;
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     PREFIX.save(deps.storage, &msg.prefix)?;
     Ok(response("instantiate", "hook-tester", attrs))
 }
