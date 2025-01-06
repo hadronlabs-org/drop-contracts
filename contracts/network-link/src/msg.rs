@@ -10,6 +10,7 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     Link { address: String },
+    AdminLink { from: String, address: String },
 }
 
 #[cw_ownable_query]
@@ -26,4 +27,6 @@ pub enum QueryMsg {
 }
 
 #[cw_serde]
-pub struct MigrateMsg {}
+pub struct MigrateMsg {
+    pub admin: String,
+}

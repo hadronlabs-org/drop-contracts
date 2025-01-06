@@ -8,6 +8,7 @@ use crate::{
 use cosmwasm_std::{
     attr, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
 };
+use cw_ownable::{assert_owner, initialize_owner};
 
 const DEFAULT_LIMIT: u32 = 10;
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
@@ -17,10 +18,11 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: InstantiateMsg,
 ) -> ContractResult<Response> {
     let attrs = vec![attr("action", "instantiate"), (attr("prefix", &msg.prefix))];
+    initialize_owner(deps.storage, deps.api, Some(info.sender.as_str()))?;
     PREFIX.save(deps.storage, &msg.prefix)?;
     Ok(response("instantiate", "hook-tester", attrs))
 }
@@ -51,6 +53,9 @@ pub fn execute(
                 [],
             ))
         }
+        ExecuteMsg::AdminLink { from, address } => {
+            execute_admin_link(deps, env, info, from, address)
+        }
     }
 }
 
@@ -77,6 +82,28 @@ fn query_all(
     Ok(to_json_binary(&all)?)
 }
 
+fn execute_admin_link(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    from: String,
+    address: String,
+) -> ContractResult<Response> {
+    assert_owner(deps.storage, &info.sender)?;
+    let prefix = PREFIX.load(deps.storage)?;
+    if !address.starts_with(&prefix) {
+        return Err(ContractError::WrongPrefix {});
+    }
+    deps.api.addr_validate(&from)?;
+    bech32::decode(&address).map_err(|_| ContractError::WrongAddress {})?;
+    ACCOUNTS.save(deps.storage, from, &address)?;
+    let attrs = vec![
+        (attr("sender".to_string(), info.sender.to_string())),
+        (attr("address".to_string(), address.to_string())),
+    ];
+    Ok(response("execute-link", CONTRACT_NAME, attrs))
+}
+
 fn execute_link(
     deps: DepsMut,
     _env: Env,
@@ -97,7 +124,7 @@ fn execute_link(
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> ContractResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> ContractResult<Response> {
     let version: semver::Version = CONTRACT_VERSION.parse()?;
     let storage_version: semver::Version =
         cw2::get_contract_version(deps.storage)?.version.parse()?;
@@ -105,7 +132,7 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> ContractResult<Res
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     }
-
+    initialize_owner(deps.storage, deps.api, Some(&msg.admin))?;
     Ok(Response::new())
 }
 
