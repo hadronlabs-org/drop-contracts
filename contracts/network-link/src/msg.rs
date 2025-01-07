@@ -27,6 +27,4 @@ pub enum QueryMsg {
 }
 
 #[cw_serde]
-pub struct MigrateMsg {
-    pub admin: String,
-}
+pub struct MigrateMsg {}

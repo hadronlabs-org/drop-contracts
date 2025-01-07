@@ -125,7 +125,7 @@ fn execute_link(
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> ContractResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> ContractResult<Response> {
     let version: semver::Version = CONTRACT_VERSION.parse()?;
     let storage_version: semver::Version =
         cw2::get_contract_version(deps.storage)?.version.parse()?;
@@ -133,7 +133,6 @@ pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> ContractResult<Resp
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     }
-    initialize_owner(deps.storage, deps.api, Some(&msg.admin))?;
     Ok(Response::new())
 }
 
