@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import {
   DropCore,
-  DropFactoryNative,
+  DropFactory,
   DropPump,
   DropPuppeteerNative,
   DropStrategy,
@@ -10,7 +10,7 @@ import {
   DropRewardsManager,
   DropSplitter,
   DropToken,
-  DropNativeSimpleBondProvider,
+  DropNativeSyncBondProvider,
   DropValRef,
   DropValidatorsSet,
 } from 'drop-ts-client';
@@ -42,7 +42,7 @@ import { instrumentCoreClass } from '../helpers/knot';
 import { checkExchangeRate } from '../helpers/exchangeRate';
 
 const DropTokenClass = DropToken.Client;
-const DropFactoryNativeClass = DropFactoryNative.Client;
+const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
 const DropPumpClass = DropPump.Client;
 const DropPuppeteerNativeClass = DropPuppeteerNative.Client;
@@ -52,7 +52,7 @@ const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
 const DropRewardsManagerClass = DropRewardsManager.Client;
 const DropRewardsPumpClass = DropPump.Client;
 const DropSplitterClass = DropSplitter.Client;
-const DropNativeSimpleBondProviderClass = DropNativeSimpleBondProvider.Client;
+const DropNativeSyncBondProviderClass = DropNativeSyncBondProvider.Client;
 const DropValRefClass = DropValRef.Client;
 const DropValidatorsSetClass = DropValidatorsSet.Client;
 
@@ -62,7 +62,7 @@ describe('Core', () => {
   const context: {
     park?: Cosmopark;
     wallet?: DirectSecp256k1HdWallet;
-    factoryContractClient?: InstanceType<typeof DropFactoryNativeClass>;
+    factoryContractClient?: InstanceType<typeof DropFactoryClass>;
     coreContractClient?: InstanceType<typeof DropCoreClass>;
     strategyContractClient?: InstanceType<typeof DropStrategyClass>;
     pumpContractClient?: InstanceType<typeof DropPumpClass>;
@@ -78,7 +78,7 @@ describe('Core', () => {
     rewardsManagerContractClient?: InstanceType<typeof DropRewardsManagerClass>;
     rewardsPumpContractClient?: InstanceType<typeof DropRewardsPumpClass>;
     nativeBondProviderContractClient?: InstanceType<
-      typeof DropNativeSimpleBondProviderClass
+      typeof DropNativeSyncBondProviderClass
     >;
     valRefClient?: InstanceType<typeof DropValRefClass>;
     validatorsSetClient?: InstanceType<typeof DropValidatorsSetClass>;
@@ -335,7 +335,7 @@ describe('Core', () => {
       const buffer = fs.readFileSync(
         join(
           __dirname,
-          '../../../artifacts/drop_native_simple_bond_provider.wasm',
+          '../../../artifacts/drop_native_sync_bond_provider.wasm',
         ),
       );
 
@@ -362,7 +362,7 @@ describe('Core', () => {
     }
 
     const buffer = fs.readFileSync(
-      join(__dirname, '../../../artifacts/drop_factory_native.wasm'),
+      join(__dirname, '../../../artifacts/drop_factory.wasm'),
     );
 
     const res = await client.upload(
@@ -371,7 +371,7 @@ describe('Core', () => {
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
-    const instantiateRes = await DropFactoryNative.Client.instantiate(
+    const instantiateRes = await DropFactory.Client.instantiate(
       client,
       account.address,
       res.codeId,
@@ -393,7 +393,6 @@ describe('Core', () => {
         },
         remote_opts: {
           connection_id: 'connection-0',
-          transfer_channel_id: 'channel-0',
           port_id: 'transfer',
           denom: 'stake',
           timeout: {
@@ -425,6 +424,9 @@ describe('Core', () => {
           min_stake_amount: '10000',
           min_ibc_transfer: '10000',
         },
+        factory: {
+          native: {},
+        },
       },
       'drop-staking-factory',
       'auto',
@@ -436,7 +438,7 @@ describe('Core', () => {
       ],
     );
     expect(instantiateRes.contractAddress).toHaveLength(66);
-    context.factoryContractClient = new DropFactoryNative.Client(
+    context.factoryContractClient = new DropFactory.Client(
       client,
       instantiateRes.contractAddress,
     );
@@ -483,7 +485,7 @@ describe('Core', () => {
       res.splitter_contract,
     );
     context.nativeBondProviderContractClient =
-      new DropNativeSimpleBondProvider.Client(
+      new DropNativeSyncBondProvider.Client(
         context.client,
         res.native_bond_provider_contract,
       );
