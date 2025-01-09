@@ -795,6 +795,20 @@ export type UpdateOwnershipArgs =
     }
   | "accept_ownership"
   | "renounce_ownership";
+export type Factory =
+  | {
+      native: {};
+    }
+  | {
+      remote: {
+        code_ids: RemoteCodeIds;
+        icq_update_period: number;
+        lsm_share_bond_params: LsmShareBondParams;
+        reverse_transfer_channel_id: string;
+        sdk_version: string;
+        transfer_channel_id: string;
+      };
+    };
 
 export interface DropFactorySchema {
   responses: OwnershipForString | PauseInfoResponse | State;
@@ -832,7 +846,7 @@ export interface Pause {
 export interface State {
   core_contract: string;
   distribution_contract: string;
-  lsm_share_bond_provider_contract: string;
+  lsm_share_bond_provider_contract?: string | null;
   native_bond_provider_contract: string;
   puppeteer_contract: string;
   rewards_manager_contract: string;
@@ -1244,20 +1258,18 @@ export interface InstantiateMsg {
   base_denom: string;
   code_ids: CodeIds;
   core_params: CoreParams;
+  factory: Factory;
   fee_params?: FeeParams | null;
   local_denom: string;
-  lsm_share_bond_params: LsmShareBondParams;
   native_bond_params: NativeBondParams;
   remote_opts: RemoteOpts;
   salt: string;
-  sdk_version: string;
   subdenom: string;
   token_metadata: DenomMetadata;
 }
 export interface CodeIds {
   core_code_id: number;
   distribution_code_id: number;
-  lsm_share_bond_provider_code_id: number;
   native_bond_provider_code_id: number;
   puppeteer_code_id: number;
   rewards_manager_code_id: number;
@@ -1277,14 +1289,17 @@ export interface CoreParams {
   unbonding_period: number;
   unbonding_safe_period: number;
 }
-export interface FeeParams {
-  fee: Decimal;
-  fee_address: string;
+export interface RemoteCodeIds {
+  lsm_share_bond_provider_code_id: number;
 }
 export interface LsmShareBondParams {
   lsm_min_bond_amount: Uint128;
   lsm_redeem_max_interval: number;
   lsm_redeem_threshold: number;
+}
+export interface FeeParams {
+  fee: Decimal;
+  fee_address: string;
 }
 export interface NativeBondParams {
   min_ibc_transfer: Uint128;
@@ -1294,10 +1309,7 @@ export interface RemoteOpts {
   connection_id: string;
   denom: string;
   port_id: string;
-  reverse_transfer_channel_id: string;
   timeout: Timeout;
-  transfer_channel_id: string;
-  update_period: number;
 }
 export interface Timeout {
   local: number;

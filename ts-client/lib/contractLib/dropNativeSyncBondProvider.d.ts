@@ -1,6 +1,5 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { Coin } from "@cosmjs/amino";
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -15,6 +14,8 @@ import { Coin } from "@cosmjs/amino";
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
+export type Boolean = boolean;
+export type Boolean1 = boolean;
 /**
  * A human readable address.
  *
@@ -25,13 +26,6 @@ export type Uint128 = string;
  * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
  */
 export type Addr = string;
-export type IcaState = ("none" | "in_progress" | "timeout") | {
-    registered: {
-        channel_id: string;
-        ica_address: string;
-        port_id: string;
-    };
-};
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -46,6 +40,87 @@ export type IcaState = ("none" | "in_progress" | "timeout") | {
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint1281 = string;
+export type ResponseHookMsg = {
+    success: ResponseHookSuccessMsg;
+} | {
+    error: ResponseHookErrorMsg;
+};
+export type Transaction = {
+    undelegate: {
+        batch_id: number;
+        denom: string;
+        interchain_account_id: string;
+        items: [string, Uint1281][];
+    };
+} | {
+    redelegate: {
+        amount: number;
+        denom: string;
+        interchain_account_id: string;
+        validator_from: string;
+        validator_to: string;
+    };
+} | {
+    withdraw_reward: {
+        interchain_account_id: string;
+        validator: string;
+    };
+} | {
+    tokenize_share: {
+        amount: number;
+        denom: string;
+        interchain_account_id: string;
+        validator: string;
+    };
+} | {
+    redeem_shares: {
+        items: RedeemShareItem[];
+    };
+} | {
+    claim_rewards_and_optionaly_transfer: {
+        denom: string;
+        interchain_account_id: string;
+        transfer?: TransferReadyBatchesMsg | null;
+        validators: string[];
+    };
+} | {
+    i_b_c_transfer: {
+        amount: number;
+        denom: string;
+        real_amount: number;
+        reason: IBCTransferReason;
+        recipient: string;
+    };
+} | {
+    stake: {
+        amount: Uint1281;
+    };
+} | {
+    transfer: {
+        interchain_account_id: string;
+        items: [string, Coin][];
+    };
+} | {
+    setup_protocol: {
+        interchain_account_id: string;
+        rewards_withdraw_address: string;
+    };
+};
+export type IBCTransferReason = "l_s_m_share" | "delegate";
+/**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint1282 = string;
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -80,30 +155,24 @@ export type Timestamp = Uint64;
  * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
  */
 export type Uint64 = string;
-export type TxStateStatus = "idle" | "in_progress" | "waiting_for_ack";
-export type Transaction = {
-    stake: {
-        amount: Uint1282;
-    };
-} | {
-    i_b_c_transfer: {
-        amount: Uint1282;
-    };
-};
 /**
- * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
- * # Examples
- *
- * Use `from` to create instances of this and `u128` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
- *
- * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
- *
- * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
  */
-export type Uint1282 = string;
+export type Decimal = string;
+export type TxStateStatus = "idle" | "in_progress" | "waiting_for_ack";
+/**
+ * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
+ *
+ * The greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)
+ */
+export type Decimal1 = string;
+export type PeripheralHookArgs = {
+    success: ResponseHookSuccessMsg;
+} | {
+    error: ResponseHookErrorMsg;
+};
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -113,25 +182,51 @@ export type UpdateOwnershipArgs = {
         new_owner: string;
     };
 } | "accept_ownership" | "renounce_ownership";
-export type ChainType = "basic_cosmos" | "initia";
-export interface DropStakerSchema {
-    responses: Uint128 | Config | IcaState | Uint1281 | OwnershipForString | TxState;
-    execute: StakeArgs | UpdateConfigArgs | UpdateOwnershipArgs;
+export interface DropNativeSyncBondProviderSchema {
+    responses: Uint128 | Boolean | Boolean1 | Config | LastPuppeteerResponse | Uint1282 | OwnershipForString | Decimal | TxState;
+    query: CanBondArgs | TokensAmountArgs;
+    execute: UpdateConfigArgs | PeripheralHookArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
 export interface Config {
-    connection_id: string;
-    dest_address?: Addr | null;
-    dest_channel?: string | null;
-    dest_port?: string | null;
-    local_denom: string;
-    refundee?: Addr | null;
-    timeout: PumpTimeout;
+    base_denom: string;
+    core_contract: Addr;
+    min_ibc_transfer: Uint1281;
+    min_stake_amount: Uint1281;
+    port_id: string;
+    puppeteer_contract: Addr;
+    strategy_contract: Addr;
+    timeout: number;
+    transfer_channel_id: string;
 }
-export interface PumpTimeout {
-    local?: number | null;
-    remote: number;
+export interface LastPuppeteerResponse {
+    response?: ResponseHookMsg | null;
+}
+export interface ResponseHookSuccessMsg {
+    local_height: number;
+    remote_height: number;
+    transaction: Transaction;
+}
+export interface RedeemShareItem {
+    amount: Uint1281;
+    local_denom: string;
+    remote_denom: string;
+}
+export interface TransferReadyBatchesMsg {
+    amount: Uint1281;
+    batch_ids: number[];
+    emergency: boolean;
+    recipient: string;
+}
+export interface Coin {
+    amount: Uint1281;
+    denom: string;
+    [k: string]: unknown;
+}
+export interface ResponseHookErrorMsg {
+    details: string;
+    transaction: Transaction;
 }
 /**
  * The contract's ownership info
@@ -151,34 +246,39 @@ export interface OwnershipForString {
     pending_owner?: string | null;
 }
 export interface TxState {
-    reply_to?: string | null;
-    seq_id?: number | null;
     status: TxStateStatus;
     transaction?: Transaction | null;
 }
-export interface StakeArgs {
-    items: [string, Uint1282][];
+export interface CanBondArgs {
+    denom: string;
+}
+export interface TokensAmountArgs {
+    coin: Coin;
+    exchange_rate: Decimal1;
 }
 export interface UpdateConfigArgs {
     new_config: ConfigOptional;
 }
 export interface ConfigOptional {
-    allowed_senders?: string[] | null;
-    min_ibc_transfer?: Uint1282 | null;
-    min_staking_amount?: Uint1282 | null;
-    puppeteer_ica?: string | null;
+    base_denom?: string | null;
+    core_contract?: Addr | null;
+    min_ibc_transfer?: Uint1281 | null;
+    min_stake_amount?: Uint1281 | null;
+    port_id?: string | null;
+    puppeteer_contract?: Addr | null;
+    strategy_contract?: Addr | null;
     timeout?: number | null;
+    transfer_channel_id?: string | null;
 }
 export interface InstantiateMsg {
-    allowed_senders: string[];
     base_denom: string;
-    chain_type?: ChainType | null;
-    connection_id: string;
-    min_ibc_transfer: Uint1282;
-    min_staking_amount: Uint1282;
-    owner?: string | null;
+    core_contract: string;
+    min_ibc_transfer: Uint1281;
+    min_stake_amount: Uint1281;
+    owner: string;
     port_id: string;
-    remote_denom: string;
+    puppeteer_contract: string;
+    strategy_contract: string;
     timeout: number;
     transfer_channel_id: string;
 }
@@ -191,13 +291,16 @@ export declare class Client {
     static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
     queryConfig: () => Promise<Config>;
     queryNonStakedBalance: () => Promise<Uint128>;
-    queryAllBalance: () => Promise<Uint128>;
-    queryIca: () => Promise<IcaState>;
     queryTxState: () => Promise<TxState>;
+    queryLastPuppeteerResponse: () => Promise<LastPuppeteerResponse>;
+    queryCanBond: (args: CanBondArgs) => Promise<Boolean>;
+    queryCanProcessOnIdle: () => Promise<Boolean>;
+    queryTokensAmount: (args: TokensAmountArgs) => Promise<Decimal>;
+    queryAsyncTokensAmount: () => Promise<Uint128>;
     queryOwnership: () => Promise<OwnershipForString>;
-    registerICA: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    stake: (sender: string, args: StakeArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    iBCTransfer: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    peripheralHook: (sender: string, args: PeripheralHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    bond: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    processOnIdle: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
 }

@@ -10,7 +10,6 @@ use drop_puppeteer_base::{
     error::{ContractError, ContractResult},
     msg::TransferReadyBatchesMsg,
     peripheral_hook::{ReceiverExecuteMsg, ResponseHookMsg, ResponseHookSuccessMsg, Transaction},
-    state::Transfer,
 };
 use drop_staking_base::{
     msg::puppeteer_native::{
@@ -21,7 +20,7 @@ use drop_staking_base::{
         puppeteer::{Delegations, DropDelegation},
         puppeteer_native::{
             unbonding_delegations::QueryDelegatorUnbondingDelegationsResponse, Config,
-            ConfigOptional, QueryDelegatorDelegationsResponse, CONFIG, RECIPIENT_TRANSFERS,
+            ConfigOptional, QueryDelegatorDelegationsResponse, CONFIG,
         },
     },
 };
@@ -96,7 +95,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
             }
         },
         QueryMsg::Config {} => query_config(deps),
-        QueryMsg::Transactions {} => query_transactions(deps),
+        QueryMsg::Transactions {} => query_transactions(),
     }
 }
 
@@ -105,9 +104,8 @@ fn query_config(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     Ok(to_json_binary(&config)?)
 }
 
-fn query_transactions(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let transfers: Vec<Transfer> = RECIPIENT_TRANSFERS.load(deps.storage)?;
-    Ok(to_json_binary(&transfers)?)
+fn query_transactions() -> ContractResult<Binary> {
+    Ok(to_json_binary::<[(); 0]>(&[])?)
 }
 
 fn query_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
@@ -122,7 +120,7 @@ fn query_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binar
                     cosmos_sdk_proto::cosmos::staking::v1beta1::QueryDelegatorDelegationsRequest {
                         delegator_addr: env.contract.address.to_string(),
                         pagination: Some(PageRequest {
-                            key: key.clone(),
+                            key,
                             limit: 500,
                             ..Default::default()
                         }),
@@ -172,11 +170,14 @@ fn query_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binar
 }
 
 fn query_balances(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
-    let balances = deps
+    let config = CONFIG.load(deps.storage)?;
+    let balance = deps
         .querier
-        .query_all_balances(env.contract.address.to_string())?;
+        .query_balance(env.contract.address, config.remote_denom)?;
     Ok(to_json_binary(&BalancesResponse {
-        balances: Balances { coins: balances },
+        balances: Balances {
+            coins: vec![balance],
+        },
         remote_height: env.block.height,
         local_height: env.block.height,
         timestamp: env.block.time,

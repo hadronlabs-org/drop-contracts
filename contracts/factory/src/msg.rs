@@ -1,4 +1,4 @@
-use crate::state::{CodeIds, RemoteOpts};
+use crate::state::{CodeIds, FactoryType, RemoteCodeIds, RemoteOpts};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{CosmosMsg, Decimal, Uint128};
 use cw_ownable::cw_ownable_execute;
@@ -13,13 +13,34 @@ pub struct InstantiateMsg {
     pub salt: String,
     pub subdenom: String,
     pub token_metadata: DenomMetadata,
-    pub sdk_version: String,
     pub base_denom: String,
     pub local_denom: String,
     pub core_params: CoreParams,
     pub native_bond_params: NativeBondParams,
-    pub lsm_share_bond_params: LsmShareBondParams,
     pub fee_params: Option<FeeParams>,
+    pub factory: Factory,
+}
+
+#[cw_serde]
+pub enum Factory {
+    Native {},
+    Remote {
+        sdk_version: String,
+        code_ids: RemoteCodeIds,
+        lsm_share_bond_params: LsmShareBondParams,
+        icq_update_period: u64,
+        transfer_channel_id: String,
+        reverse_transfer_channel_id: String,
+    },
+}
+
+impl Factory {
+    pub fn to_factory_type(&self) -> FactoryType {
+        match self {
+            Factory::Native {} => FactoryType::Native {},
+            Factory::Remote { .. } => FactoryType::Remote {},
+        }
+    }
 }
 
 #[cw_serde]

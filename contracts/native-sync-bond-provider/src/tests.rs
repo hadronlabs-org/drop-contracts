@@ -55,7 +55,7 @@ fn instantiate() {
     assert_eq!(
         response.events,
         vec![
-            Event::new("crates.io:drop-staking__drop-native-simple-bond-provider-instantiate")
+            Event::new("crates.io:drop-staking__drop-native-sync-bond-provider-instantiate")
                 .add_attributes([
                     attr("puppeteer_contract", "puppeteer_contract"),
                     attr("core_contract", "core_contract"),
@@ -170,7 +170,7 @@ fn update_config_ok() {
     assert_eq!(
         response.events,
         vec![
-            Event::new("crates.io:drop-staking__drop-native-simple-bond-provider-update_config")
+            Event::new("crates.io:drop-staking__drop-native-sync-bond-provider-update_config")
                 .add_attributes([
                     attr("puppeteer_contract", "puppeteer_contract_1"),
                     attr("core_contract", "core_contract_1"),
@@ -584,7 +584,7 @@ fn process_on_idle_delegation() {
         Response::new()
             .add_attributes(vec![attr("action", "process_on_idle"),])
             .add_event(Event::new(
-                "crates.io:drop-staking__drop-native-simple-bond-provider-process_on_idle"
+                "crates.io:drop-staking__drop-native-sync-bond-provider-process_on_idle"
             ))
             .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "puppeteer_contract".to_string(),
@@ -668,7 +668,7 @@ fn execute_bond() {
         response,
         Response::new()
             .add_event(
-                Event::new("crates.io:drop-staking__drop-native-simple-bond-provider-bond")
+                Event::new("crates.io:drop-staking__drop-native-sync-bond-provider-bond")
                     .add_attributes(vec![("received_funds", "100base_denom"),])
             )
             .add_message(CosmosMsg::Bank(BankMsg::Send {

@@ -203,7 +203,7 @@ export type UpdateOwnershipArgs =
   | "accept_ownership"
   | "renounce_ownership";
 
-export interface DropNativeSimpleBondProviderSchema {
+export interface DropNativeSyncBondProviderSchema {
   responses:
     | Uint128
     | Boolean
