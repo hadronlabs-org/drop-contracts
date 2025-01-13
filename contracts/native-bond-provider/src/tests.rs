@@ -916,3 +916,26 @@ fn execute_bond_multiple_denoms() {
         )
     );
 }
+
+#[test]
+fn test_migrate_wrong_contract() {
+    let mut deps = mock_dependencies(&[]);
+
+    let deps_mut = deps.as_mut();
+
+    cw2::set_contract_version(deps_mut.storage, "Test_contract", "0.0.1").unwrap();
+
+    let res = crate::contract::migrate(
+        deps.as_mut(),
+        mock_env(),
+        drop_staking_base::msg::native_bond_provider::MigrateMsg {},
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_staking_base::error::native_bond_provider::ContractError::MigrationError {
+            storage_contract_name: "Test_contract".to_string(),
+            contract_name: crate::contract::CONTRACT_NAME.to_string()
+        }
+    )
+}

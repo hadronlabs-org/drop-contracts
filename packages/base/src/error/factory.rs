@@ -28,6 +28,12 @@ pub enum ContractError {
     SemVer(String),
     #[error("Contract address not found: {name}")]
     ContractAddressNotFound { name: String },
+
+    #[error("Can't migrate from {storage_contract_name} to {contract_name}")]
+    MigrationError {
+        storage_contract_name: String,
+        contract_name: String,
+    },
 }
 
 impl From<semver::Error> for ContractError {

@@ -1,4 +1,4 @@
-use crate::contract::instantiate;
+use crate::contract::{instantiate, CONTRACT_NAME};
 
 use astroport::asset::AssetInfo;
 use astroport::pair::ExecuteMsg as PairExecuteMsg;
@@ -789,4 +789,27 @@ fn test_swap_operations_update() {
             swap_operations: None,
         }
     );
+}
+
+#[test]
+fn test_migrate_wrong_contract() {
+    let mut deps = mock_dependencies();
+
+    let deps_mut = deps.as_mut();
+
+    cw2::set_contract_version(deps_mut.storage, "Test_contract", "0.0.1").unwrap();
+
+    let res = crate::contract::migrate(
+        deps.as_mut(),
+        mock_env(),
+        drop_staking_base::msg::astroport_exchange_handler::MigrateMsg {},
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_staking_base::error::astroport_exchange_handler::ContractError::MigrationError {
+            storage_contract_name: "Test_contract".to_string(),
+            contract_name: CONTRACT_NAME.to_string()
+        }
+    )
 }

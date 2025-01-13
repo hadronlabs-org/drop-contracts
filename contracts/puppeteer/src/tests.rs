@@ -1,4 +1,4 @@
-use crate::contract::Puppeteer;
+use crate::contract::{Puppeteer, CONTRACT_NAME};
 use cosmwasm_schema::schemars;
 use cosmwasm_std::{
     coin, coins, from_json,
@@ -3674,4 +3674,27 @@ fn test_unbonding_delegations() {
     )
     .unwrap();
     assert_eq!(query_res, unbonding_delegations);
+}
+
+#[test]
+fn test_migrate_wrong_contract() {
+    let mut deps = mock_dependencies(&[]);
+
+    let deps_mut = deps.as_mut();
+
+    cw2::set_contract_version(deps_mut.storage, "Test_contract", "0.0.1").unwrap();
+
+    let res = crate::contract::migrate(
+        deps.as_mut(),
+        mock_env(),
+        drop_staking_base::msg::puppeteer::MigrateMsg {},
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::MigrationError {
+            storage_contract_name: "Test_contract".to_string(),
+            contract_name: CONTRACT_NAME.to_string()
+        }
+    )
 }
