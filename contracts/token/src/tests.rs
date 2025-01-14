@@ -12,10 +12,11 @@ use cosmwasm_std::{
     to_json_binary, Addr, Binary, CosmosMsg, Event, QueryRequest, Reply, ReplyOn, SubMsgResult,
     Uint128,
 };
+use drop_helpers::pause::PauseError;
 use drop_helpers::testing::{mock_dependencies, mock_state_query};
 use drop_staking_base::{
     msg::token::{ConfigResponse, DenomMetadata, ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::token::{DENOM, FACTORY_CONTRACT, TOKEN_METADATA},
+    state::token::{Pause, DENOM, FACTORY_CONTRACT, PAUSE, TOKEN_METADATA},
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -184,8 +185,58 @@ fn reply() {
 }
 
 #[test]
+fn execute_set_pause() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("core")).unwrap();
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: false,
+                burn: false,
+            },
+        )
+        .unwrap();
+
+    let res = contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &[]),
+        ExecuteMsg::SetPause(Pause {
+            mint: true,
+            burn: true,
+        }),
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_event(
+            Event::new("drop-token-execute-set-pause")
+                .add_attributes(vec![attr("burn", "true"), attr("mint", "true")])
+        )
+    );
+    assert_eq!(
+        PAUSE.load(deps.as_ref().storage).unwrap(),
+        Pause {
+            mint: true,
+            burn: true,
+        }
+    );
+}
+
+#[test]
 fn mint_zero() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: false,
+                burn: true,
+            },
+        )
+        .unwrap();
     FACTORY_CONTRACT
         .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
@@ -210,6 +261,15 @@ fn mint_zero() {
 #[test]
 fn mint() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: false,
+                burn: true,
+            },
+        )
+        .unwrap();
     FACTORY_CONTRACT
         .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
@@ -247,8 +307,42 @@ fn mint() {
 }
 
 #[test]
+fn mint_paused() {
+    let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: true,
+                burn: true,
+            },
+        )
+        .unwrap();
+    let error = contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &[]),
+        ExecuteMsg::Mint {
+            amount: Uint128::zero(),
+            receiver: "".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(error, ContractError::PauseError(PauseError::Paused {}));
+}
+
+#[test]
 fn mint_stranger() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: false,
+                burn: true,
+            },
+        )
+        .unwrap();
     FACTORY_CONTRACT
         .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
@@ -272,8 +366,40 @@ fn mint_stranger() {
 }
 
 #[test]
-fn burn_zero() {
+fn burn_paused() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: true,
+                burn: true,
+            },
+        )
+        .unwrap();
+
+    let error = contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &[]),
+        ExecuteMsg::Burn {},
+    )
+    .unwrap_err();
+    assert_eq!(error, ContractError::PauseError(PauseError::Paused {}));
+}
+
+#[test]
+fn burn_zero_unpaused() {
+    let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: true,
+                burn: false,
+            },
+        )
+        .unwrap();
     FACTORY_CONTRACT
         .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
@@ -298,6 +424,15 @@ fn burn_zero() {
 #[test]
 fn burn_multiple_coins() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: true,
+                burn: false,
+            },
+        )
+        .unwrap();
     FACTORY_CONTRACT
         .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
@@ -320,8 +455,17 @@ fn burn_multiple_coins() {
 }
 
 #[test]
-fn burn_invalid_coin() {
+fn burn_invalid_coin_unpaused() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: true,
+                burn: false,
+            },
+        )
+        .unwrap();
     FACTORY_CONTRACT
         .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
@@ -346,6 +490,15 @@ fn burn_invalid_coin() {
 #[test]
 fn burn() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: true,
+                burn: false,
+            },
+        )
+        .unwrap();
     FACTORY_CONTRACT
         .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();
@@ -379,8 +532,17 @@ fn burn() {
 }
 
 #[test]
-fn burn_stranger() {
+fn burn_stranger_paused() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                mint: true,
+                burn: false,
+            },
+        )
+        .unwrap();
     FACTORY_CONTRACT
         .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
         .unwrap();

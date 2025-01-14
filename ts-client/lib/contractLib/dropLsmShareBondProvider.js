@@ -41,6 +41,9 @@ class Client {
     queryTxState = async () => {
         return this.client.queryContractSmart(this.contractAddress, { tx_state: {} });
     };
+    queryPause = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { pause: {} });
+    };
     queryCanBond = async (args) => {
         return this.client.queryContractSmart(this.contractAddress, { can_bond: args });
     };
@@ -70,6 +73,12 @@ class Client {
             throw this.mustBeSigningClient();
         }
         return this.client.execute(sender, this.contractAddress, { peripheral_hook: args }, fee || "auto", memo, funds);
+    };
+    setPause = async (sender, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { set_pause: {} }, fee || "auto", memo, funds);
     };
     bond = async (sender, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {

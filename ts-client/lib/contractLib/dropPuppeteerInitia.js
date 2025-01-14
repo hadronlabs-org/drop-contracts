@@ -128,6 +128,12 @@ class Client {
         }
         return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
     };
+    setPause = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { set_pause: args }, fee || "auto", memo, funds);
+    };
     updateOwnership = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
