@@ -805,6 +805,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-neutron-distribution-mock"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw2 1.1.2",
+ "drop-staking-base",
+ "neutron-sdk",
+]
+
+[[package]]
 name = "drop-price-provider"
 version = "1.0.0"
 dependencies = [

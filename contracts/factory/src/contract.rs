@@ -166,7 +166,7 @@ pub fn instantiate(
             transfer_channel_id,
             ..
         } => transfer_channel_id.as_str(),
-        Factory::Native {} => "N/A",
+        Factory::Native { .. } => "N/A",
     };
 
     let (puppeteer_instantiate_msg_binary, lsm_share_bond_provider_contract) = match &msg.factory {
@@ -211,7 +211,9 @@ pub fn instantiate(
                 Some(lsm_share_bond_provider_contract),
             )
         }
-        Factory::Native {} => {
+        Factory::Native {
+            distribution_module_contract,
+        } => {
             let msg = drop_staking_base::msg::puppeteer_native::InstantiateMsg {
                 allowed_senders: vec![
                     native_bond_provider_contract.to_string(),
@@ -221,6 +223,7 @@ pub fn instantiate(
                 owner: Some(env.contract.address.to_string()),
                 remote_denom: msg.remote_opts.denom.to_string(),
                 native_bond_provider: native_bond_provider_contract.to_string(),
+                distribution_module_contract: distribution_module_contract.to_string(),
             };
 
             (to_json_binary(&msg)?, None)

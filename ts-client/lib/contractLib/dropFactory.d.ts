@@ -720,7 +720,9 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export type Factory = {
-    native: {};
+    native: {
+        distribution_module_contract: string;
+    };
 } | {
     remote: {
         code_ids: RemoteCodeIds;

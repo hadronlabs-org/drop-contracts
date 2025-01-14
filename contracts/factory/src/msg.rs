@@ -23,7 +23,9 @@ pub struct InstantiateMsg {
 
 #[cw_serde]
 pub enum Factory {
-    Native {},
+    Native {
+        distribution_module_contract: String,
+    },
     Remote {
         sdk_version: String,
         code_ids: RemoteCodeIds,
@@ -37,7 +39,7 @@ pub enum Factory {
 impl Factory {
     pub fn to_factory_type(&self) -> FactoryType {
         match self {
-            Factory::Native {} => FactoryType::Native {},
+            Factory::Native { .. } => FactoryType::Native {},
             Factory::Remote { .. } => FactoryType::Remote {},
         }
     }

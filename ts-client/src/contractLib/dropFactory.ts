@@ -797,7 +797,9 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 export type Factory =
   | {
-      native: {};
+      native: {
+        distribution_module_contract: string;
+      };
     }
   | {
       remote: {

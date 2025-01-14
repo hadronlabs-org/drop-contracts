@@ -39,6 +39,7 @@ fn test_instantiate() {
         native_bond_provider: "native_bond_provider".to_string(),
         remote_denom: "remote_denom".to_string(),
         allowed_senders: vec!["allowed_sender1".to_string(), "allowed_sender2".to_string()],
+        distribution_module_contract: "distribution_module".to_string(),
     };
     let env = mock_env();
     let res =
@@ -75,8 +76,9 @@ fn test_execute_update_config_unauthorized() {
     let msg = drop_staking_base::msg::puppeteer_native::ExecuteMsg::UpdateConfig {
         new_config: ConfigOptional {
             remote_denom: Some("new_remote_denom".to_string()),
-            native_bond_provider: Some(Addr::unchecked("native_bond_provider")),
+            native_bond_provider: Some("native_bond_provider".to_string()),
             allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
+            distribution_module_contract: Some("distribution_module".to_string()),
         },
     };
     let deps_mut = deps.as_mut();
@@ -113,8 +115,9 @@ fn test_execute_update_config() {
         drop_staking_base::msg::puppeteer_native::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 remote_denom: Some("new_remote_denom".to_string()),
-                native_bond_provider: Some(Addr::unchecked("native_bond_provider")),
+                native_bond_provider: Some("native_bond_provider".to_string()),
                 allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
+                distribution_module_contract: Some("distribution_module".to_string()),
             },
         },
     )
@@ -127,6 +130,7 @@ fn test_execute_update_config() {
                     ("remote_denom", "new_remote_denom"),
                     ("allowed_senders", "1"),
                     ("native_bond_provider", "native_bond_provider"),
+                    ("distribution_module_contract", "distribution_module"),
                 ])
         )
     );
@@ -138,7 +142,7 @@ fn test_execute_update_config() {
             native_bond_provider: Addr::unchecked("native_bond_provider"),
             remote_denom: "new_remote_denom".to_string(),
             allowed_senders: vec![Addr::unchecked("new_allowed_sender")],
-            rewards_contract: None,
+            distribution_module_contract: Addr::unchecked("distribution_module"),
         }
     );
 }
@@ -374,12 +378,12 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
 fn get_base_config() -> Config {
     Config {
         native_bond_provider: Addr::unchecked("native_bond_provider"),
-        rewards_contract: None,
         remote_denom: "remote_denom".to_string(),
         allowed_senders: vec![
             Addr::unchecked("allowed_sender1"),
             Addr::unchecked("allowed_sender2"),
         ],
+        distribution_module_contract: Addr::unchecked("distribution_module"),
     }
 }
 

@@ -128,7 +128,9 @@ fn test_instantiate_native() {
             fee: cosmwasm_std::Decimal::new(Uint128::from(0u64)),
             fee_address: "fee_address".to_string(),
         }),
-        factory: Factory::Native {},
+        factory: Factory::Native {
+            distribution_module_contract: String::from("distribution_module"),
+        },
     };
     let res = instantiate(
         deps.as_mut().into_empty(),
@@ -214,6 +216,7 @@ fn test_instantiate_native() {
                                 "factory_contract".to_string()
                             ],
                             native_bond_provider: "some_humanized_address".to_string(),
+                            distribution_module_contract: String::from("distribution_module"),
                         })
                         .unwrap(),
                         funds: vec![],
