@@ -81,7 +81,6 @@ describe('Core', () => {
     valRefClient?: InstanceType<typeof DropValRefClass>;
     validatorsSetClient?: InstanceType<typeof DropValidatorsSetClass>;
     account?: AccountData;
-    puppeteerIcaAddress?: string;
     rewardsPumpIcaAddress?: string;
     client?: SigningCosmWasmClient;
     queryClient?: QueryClient & StakingExtension & BankExtension;
@@ -537,6 +536,18 @@ describe('Core', () => {
     );
   });
 
+  it('set up withdrawal manager address', async () => {
+    const res = await context.factoryContractClient.updateConfig(
+      context.neutronUserAddress,
+      {
+        core: {
+          pump_ica_address:
+            context.rewardsManagerContractClient.contractAddress,
+        },
+      },
+    );
+    expect(res.transactionHash).toHaveLength(64);
+  });
   it('set up rewards receiver', async () => {
     const { neutronUserAddress } = context;
     const res = await context.factoryContractClient.adminExecute(
@@ -828,18 +839,11 @@ describe('Core', () => {
     });
     describe('first cycle', () => {
       it('first tick did nothing and stays in idle', async () => {
-        const { neutronUserAddress } = context;
-
         const res = await context.coreContractClient.tick(
-          neutronUserAddress,
+          context.neutronUserAddress,
           1.5,
           undefined,
-          [
-            {
-              amount: '1000000',
-              denom: 'untrn',
-            },
-          ],
+          [],
         );
         expect(res.transactionHash).toHaveLength(64);
 
@@ -847,18 +851,11 @@ describe('Core', () => {
         expect(state).toEqual('idle');
       });
       it('tick', async () => {
-        const { neutronUserAddress, puppeteerIcaAddress } = context;
-
         const res = await context.coreContractClient.tick(
-          neutronUserAddress,
+          context.neutronUserAddress,
           1.5,
           undefined,
-          [
-            {
-              amount: '1000000',
-              denom: 'untrn',
-            },
-          ],
+          [],
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
