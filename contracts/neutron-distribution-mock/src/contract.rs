@@ -31,7 +31,7 @@ pub fn execute(
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut response = Response::new();
     match msg {
-        ExecuteMsg::SetRewardsAddress { address } => {
+        ExecuteMsg::SetWithdrawAddress { address } => {
             let address = deps.api.addr_validate(&address)?;
             USERS.update(deps.storage, &info.sender, |user| {
                 let mut user = user.unwrap_or_default();
@@ -39,7 +39,7 @@ pub fn execute(
                 ContractResult::Ok(user)
             })?;
         }
-        ExecuteMsg::ClaimRewards {} => {
+        ExecuteMsg::WithdrawRewards {} => {
             let mut user = USERS.load(deps.storage, &info.sender)?;
             ensure!(!user.rewards.is_empty(), StdError::not_found("no rewards"));
             let rewards = user.rewards;

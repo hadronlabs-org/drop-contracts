@@ -18,7 +18,7 @@ export type ArrayOfCoin = Coin[];
 export interface DropNeutronDistributionMockSchema {
     responses: ArrayOfCoin;
     query: PendingRewardsArgs;
-    execute: SetRewardsAddressArgs;
+    execute: SetWithdrawAddressArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -30,7 +30,7 @@ export interface Coin {
 export interface PendingRewardsArgs {
     address: string;
 }
-export interface SetRewardsAddressArgs {
+export interface SetWithdrawAddressArgs {
     address: string;
 }
 export interface InstantiateMsg {
@@ -43,6 +43,6 @@ export declare class Client {
     static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
     static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
     queryPendingRewards: (args: PendingRewardsArgs) => Promise<ArrayOfCoin>;
-    setRewardsAddress: (sender: string, args: SetRewardsAddressArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    claimRewards: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    setWithdrawAddress: (sender: string, args: SetWithdrawAddressArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    withdrawRewards: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
 }

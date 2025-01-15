@@ -31,6 +31,7 @@ import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
+import { instrumentCoreClass } from '../helpers/knot';
 import {
   ResponseHookMsg,
   UnbondBatch,
@@ -493,9 +494,8 @@ describe('Core', () => {
     const res = await contractClient.queryState();
     expect(res).toBeTruthy();
 
-    context.coreContractClient = new DropCore.Client(
-      context.client,
-      res.core_contract,
+    context.coreContractClient = instrumentCoreClass(
+      new DropCore.Client(context.client, res.core_contract),
     );
     context.withdrawalVoucherContractClient = new DropWithdrawalVoucher.Client(
       context.client,

@@ -5,8 +5,8 @@ pub struct InstantiateMsg {}
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    SetRewardsAddress { address: String },
-    ClaimRewards {},
+    SetWithdrawAddress { address: String },
+    WithdrawRewards {},
 }
 
 #[cw_serde]

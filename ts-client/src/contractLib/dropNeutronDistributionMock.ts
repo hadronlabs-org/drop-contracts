@@ -19,7 +19,7 @@ export type ArrayOfCoin = Coin[];
 export interface DropNeutronDistributionMockSchema {
   responses: ArrayOfCoin;
   query: PendingRewardsArgs;
-  execute: SetRewardsAddressArgs;
+  execute: SetWithdrawAddressArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
@@ -31,7 +31,7 @@ export interface Coin {
 export interface PendingRewardsArgs {
   address: string;
 }
-export interface SetRewardsAddressArgs {
+export interface SetWithdrawAddressArgs {
   address: string;
 }
 export interface InstantiateMsg {}
@@ -85,12 +85,12 @@ export class Client {
   queryPendingRewards = async(args: PendingRewardsArgs): Promise<ArrayOfCoin> => {
     return this.client.queryContractSmart(this.contractAddress, { pending_rewards: args });
   }
-  setRewardsAddress = async(sender:string, args: SetRewardsAddressArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  setWithdrawAddress = async(sender:string, args: SetWithdrawAddressArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { set_rewards_address: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { set_withdraw_address: args }, fee || "auto", memo, funds);
   }
-  claimRewards = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  withdrawRewards = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { claim_rewards: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { withdraw_rewards: {} }, fee || "auto", memo, funds);
   }
 }

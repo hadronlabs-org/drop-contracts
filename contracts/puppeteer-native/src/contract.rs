@@ -414,7 +414,7 @@ fn execute_setup_protocol(
         contract_addr: config.distribution_module_contract.into_string(),
         funds: vec![],
         msg: to_json_binary(
-            &drop_staking_base::msg::neutron_distribution_mock::ExecuteMsg::SetRewardsAddress {
+            &drop_staking_base::msg::neutron_distribution_mock::ExecuteMsg::SetWithdrawAddress {
                 address: rewards_withdraw_addr.into_string(),
             },
         )?,
