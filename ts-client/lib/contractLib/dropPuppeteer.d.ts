@@ -43,7 +43,6 @@ export type Transaction = {
     };
 } | {
     redeem_shares: {
-        interchain_account_id: string;
         items: RedeemShareItem[];
     };
 } | {
@@ -57,8 +56,13 @@ export type Transaction = {
     i_b_c_transfer: {
         amount: number;
         denom: string;
+        real_amount: number;
         reason: IBCTransferReason;
         recipient: string;
+    };
+} | {
+    stake: {
+        amount: Uint128;
     };
 } | {
     transfer: {
@@ -67,7 +71,6 @@ export type Transaction = {
     };
 } | {
     setup_protocol: {
-        delegate_grantee: string;
         interchain_account_id: string;
         rewards_withdraw_address: string;
     };
@@ -86,7 +89,7 @@ export type Transaction = {
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type IBCTransferReason = "l_s_m_share" | "stake";
+export type IBCTransferReason = "l_s_m_share" | "delegate";
 export type ArrayOfTransaction = Transaction[];
 export type TxStateStatus = "idle" | "in_progress" | "waiting_for_ack";
 export type QueryExtMsg = {
@@ -100,6 +103,16 @@ export type QueryExtMsg = {
 } | {
     ownership: {};
 };
+/**
+ * A human readable address.
+ *
+ * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
+ *
+ * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
+ *
+ * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
+ */
+export type Addr = string;
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -146,7 +159,7 @@ export type Uint64 = string;
 export interface DropPuppeteerSchema {
     responses: ConfigResponse | Binary | IcaState | ArrayOfTupleOfUint64AndString | ArrayOfTransaction | TxState;
     query: ExtensionArgs;
-    execute: RegisterBalanceAndDelegatorDelegationsQueryArgs | RegisterDelegatorUnbondingDelegationsQueryArgs | RegisterNonNativeRewardsBalancesQueryArgs | SetupProtocolArgs | UndelegateArgs | RedelegateArgs | TokenizeShareArgs | RedeemSharesArgs | IBCTransferArgs | TransferArgs | ClaimRewardsAndOptionalyTransferArgs | UpdateConfigArgs | UpdateOwnershipArgs;
+    execute: RegisterBalanceAndDelegatorDelegationsQueryArgs | RegisterDelegatorUnbondingDelegationsQueryArgs | RegisterNonNativeRewardsBalancesQueryArgs | SetupProtocolArgs | DelegateArgs | UndelegateArgs | RedelegateArgs | TokenizeShareArgs | RedeemSharesArgs | TransferArgs | ClaimRewardsAndOptionalyTransferArgs | UpdateConfigArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -189,8 +202,11 @@ export interface RegisterNonNativeRewardsBalancesQueryArgs {
     denoms: string[];
 }
 export interface SetupProtocolArgs {
-    delegate_grantee: string;
     rewards_withdraw_address: string;
+}
+export interface DelegateArgs {
+    items: [string, Uint128][];
+    reply_to: string;
 }
 export interface UndelegateArgs {
     batch_id: number;
@@ -212,10 +228,6 @@ export interface RedeemSharesArgs {
     items: RedeemShareItem[];
     reply_to: string;
 }
-export interface IBCTransferArgs {
-    reason: IBCTransferReason;
-    reply_to: string;
-}
 export interface TransferArgs {
     items: [string, Coin][];
     reply_to: string;
@@ -231,6 +243,7 @@ export interface UpdateConfigArgs {
 export interface ConfigOptional {
     allowed_senders?: string[] | null;
     connection_id?: string | null;
+    factory_contract?: Addr | null;
     port_id?: string | null;
     remote_denom?: string | null;
     sdk_version?: string | null;
@@ -242,6 +255,7 @@ export interface InstantiateMsg {
     allowed_senders: string[];
     connection_id: string;
     delegations_queries_chunk_size?: number | null;
+    factory_contract: string;
     owner?: string | null;
     port_id: string;
     remote_denom: string;
@@ -269,11 +283,11 @@ export declare class Client {
     registerDelegatorUnbondingDelegationsQuery: (sender: string, args: RegisterDelegatorUnbondingDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     registerNonNativeRewardsBalancesQuery: (sender: string, args: RegisterNonNativeRewardsBalancesQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     setupProtocol: (sender: string, args: SetupProtocolArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    delegate: (sender: string, args: DelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     undelegate: (sender: string, args: UndelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     redelegate: (sender: string, args: RedelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     tokenizeShare: (sender: string, args: TokenizeShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     redeemShares: (sender: string, args: RedeemSharesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    iBCTransfer: (sender: string, args: IBCTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     transfer: (sender: string, args: TransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     claimRewardsAndOptionalyTransfer: (sender: string, args: ClaimRewardsAndOptionalyTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

@@ -32,6 +32,9 @@ class Client {
     queryPauseInfo = async () => {
         return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
     };
+    queryOwnership = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
+    };
     updateConfig = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();

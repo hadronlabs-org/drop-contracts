@@ -1,6 +1,5 @@
 use cosmwasm_std::{
     ConversionOverflowError, Decimal256RangeExceeded, DivideByZeroError, OverflowError, StdError,
-    Uint128,
 };
 use cw_ownable::OwnershipError;
 use drop_helpers::pause::PauseError;
@@ -53,6 +52,7 @@ pub enum ContractError {
 
     #[error("Invalid denom")]
     InvalidDenom {},
+
     #[error("No delegations")]
     NoDelegations {},
 
@@ -73,12 +73,6 @@ pub enum ContractError {
 
     #[error("ICA balance is zero")]
     ICABalanceZero {},
-
-    #[error("Bond amount is less than minimum LSM bond amount: {min_stake_amount}. Provided: {bond_amount}")]
-    LSMBondAmountIsBelowMinimum {
-        min_stake_amount: Uint128,
-        bond_amount: Uint128,
-    },
 
     #[error("Puppeteer response is not received")]
     PuppeteerResponseIsNotReceived {},
@@ -136,8 +130,26 @@ pub enum ContractError {
     #[error("Fee must be in range [0.0, 1.0]")]
     InvalidFee {},
 
+    #[error("Bond provider already exists")]
+    BondProviderAlreadyExists {},
+
+    #[error("Empty list of providers")]
+    BondProvidersListAreEmpty {},
+
+    #[error("Bond provider error: {message}")]
+    BondProviderError { message: String },
+
+    #[error("unknown reply id: {id}")]
+    UnknownReplyId { id: u64 },
+
     #[error("Semver parsing error: {0}")]
     SemVer(String),
+
+    #[error("Max amount of bond providers reached")]
+    MaxBondProvidersReached {},
+
+    #[error("Bond provider balance isn't empty")]
+    BondProviderBalanceNotEmpty {},
 }
 
 impl From<semver::Error> for ContractError {

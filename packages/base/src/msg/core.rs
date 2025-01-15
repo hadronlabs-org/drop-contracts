@@ -1,56 +1,34 @@
 use crate::{
     error::core::ContractResult,
-    msg::staker::ResponseHookMsg as StakerResponseHookMsg,
-    state::core::{Config, ConfigOptional},
+    state::core::{Config, ConfigOptional, Pause},
 };
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Deps, Uint128, Uint64};
-use cw_ownable::cw_ownable_execute;
+
 #[allow(unused_imports)]
-use drop_helpers::pause::PauseInfoResponse;
-use drop_macros::{pausable, pausable_query};
-use drop_puppeteer_base::msg::ResponseHookMsg as PuppeteerResponseHookMsg;
+use cosmwasm_std::{Addr, Deps, Uint128, Uint64};
+use cw_ownable::cw_ownable_execute;
+use drop_puppeteer_base::peripheral_hook::ResponseHookMsg as PuppeteerResponseHookMsg;
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub token_contract: String,
-    pub puppeteer_contract: String,
-    pub strategy_contract: String,
-    pub staker_contract: String,
-    pub withdrawal_voucher_contract: String,
-    pub withdrawal_manager_contract: String,
-    pub validators_set_contract: String,
+    pub factory_contract: String,
     pub base_denom: String,
     pub remote_denom: String,
-    pub lsm_min_bond_amount: Uint128,
-    pub lsm_redeem_threshold: u64,     //amount of lsm denoms
-    pub lsm_redeem_max_interval: u64,  //seconds
     pub idle_min_interval: u64,        //seconds
     pub unbonding_period: u64,         //seconds
     pub unbonding_safe_period: u64,    //seconds
     pub unbond_batch_switch_time: u64, //seconds
-    pub bond_limit: Option<Uint128>,
     pub pump_ica_address: Option<String>,
     pub transfer_channel_id: String,
     pub owner: String,
     pub emergency_address: Option<String>,
-    pub min_stake_amount: Uint128,
     pub icq_update_delay: u64, // blocks
 }
 
 impl InstantiateMsg {
     pub fn into_config(self, deps: Deps) -> ContractResult<Config> {
         Ok(Config {
-            token_contract: deps.api.addr_validate(&self.token_contract)?,
-            puppeteer_contract: deps.api.addr_validate(&self.puppeteer_contract)?,
-            strategy_contract: deps.api.addr_validate(&self.strategy_contract)?,
-            staker_contract: deps.api.addr_validate(&self.staker_contract)?,
-            withdrawal_voucher_contract: deps
-                .api
-                .addr_validate(&self.withdrawal_voucher_contract)?,
-            withdrawal_manager_contract: deps
-                .api
-                .addr_validate(&self.withdrawal_manager_contract)?,
+            factory_contract: deps.api.addr_validate(&self.factory_contract)?,
             base_denom: self.base_denom,
             remote_denom: self.remote_denom,
             idle_min_interval: self.idle_min_interval,
@@ -58,18 +36,8 @@ impl InstantiateMsg {
             unbonding_period: self.unbonding_period,
             pump_ica_address: self.pump_ica_address,
             transfer_channel_id: self.transfer_channel_id,
-            lsm_redeem_threshold: self.lsm_redeem_threshold,
-            lsm_redeem_maximum_interval: self.lsm_redeem_max_interval,
-            lsm_min_bond_amount: self.lsm_min_bond_amount,
-            validators_set_contract: deps.api.addr_validate(&self.validators_set_contract)?,
-            bond_limit: match self.bond_limit {
-                None => None,
-                Some(limit) if limit.is_zero() => None,
-                Some(limit) => Some(limit),
-            },
             unbond_batch_switch_time: self.unbond_batch_switch_time,
             emergency_address: self.emergency_address,
-            min_stake_amount: self.min_stake_amount,
             icq_update_delay: self.icq_update_delay,
         })
     }
@@ -79,17 +47,12 @@ impl InstantiateMsg {
 pub struct LastPuppeteerResponse {
     pub response: Option<PuppeteerResponseHookMsg>,
 }
-#[cw_serde]
-pub struct LastStakerResponse {
-    pub response: Option<StakerResponseHookMsg>,
-}
 
 #[cw_serde]
 pub struct FailedBatchResponse {
     pub response: Option<u128>,
 }
 
-#[pausable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
@@ -112,21 +75,20 @@ pub enum QueryMsg {
     ContractState {},
     #[returns(LastPuppeteerResponse)]
     LastPuppeteerResponse {},
-    #[returns(LastStakerResponse)]
-    LastStakerResponse {},
-    #[returns(Vec<(String,(String, Uint128))>)]
-    PendingLSMShares {},
-    #[returns(Vec<(String,(String, Uint128))>)]
-    LSMSharesToRedeem {},
     #[returns(Uint128)]
     TotalBonded {},
+    #[returns(Vec<Addr>)]
+    BondProviders {},
     #[returns(Uint128)]
-    TotalLSMShares {},
+    TotalAsyncTokens {},
     #[returns(FailedBatchResponse)]
     FailedBatch {},
+    #[returns(Pause)]
+    Pause {},
+    #[returns(Vec<String>)]
+    BondHooks {},
 }
 
-#[pausable]
 #[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
@@ -135,7 +97,14 @@ pub enum ExecuteMsg {
         r#ref: Option<String>,
     },
     Unbond {},
+    Tick {},
     //permissioned
+    AddBondProvider {
+        bond_provider_address: String,
+    },
+    RemoveBondProvider {
+        bond_provider_address: String,
+    },
     UpdateConfig {
         new_config: Box<ConfigOptional>,
     },
@@ -143,15 +112,32 @@ pub enum ExecuteMsg {
         batch_id: u128,
         withdrawn_amount: Uint128,
     },
-    Tick {},
-    PuppeteerHook(Box<PuppeteerResponseHookMsg>),
-    StakerHook(Box<StakerResponseHookMsg>),
-    ResetBondedAmount {},
+    PeripheralHook(Box<PuppeteerResponseHookMsg>),
     ProcessEmergencyBatch {
         batch_id: u128,
         unbonded_amount: Uint128,
+    },
+    SetPause(Pause),
+    SetBondHooks {
+        hooks: Vec<String>,
     },
 }
 
 #[cw_serde]
 pub struct MigrateMsg {}
+
+#[cw_serde]
+pub struct BondHook {
+    pub sender: Addr,
+    pub denom: String,
+    pub amount: Uint128,
+    pub dasset_minted: Uint128,
+    pub r#ref: Option<String>,
+}
+
+// Contracts receiving bond hooks are expected to have
+// `BondCallback(BondHook)` in their `ExecuteMsg`
+#[cw_serde]
+pub enum BondCallback {
+    BondCallback(BondHook),
+}

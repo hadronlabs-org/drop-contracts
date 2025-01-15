@@ -1,0 +1,1 @@
+# DROP Interchain Initia puppeteer

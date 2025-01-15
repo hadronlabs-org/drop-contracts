@@ -5,11 +5,11 @@ import {
   DropPump,
   DropPuppeteer,
   DropStrategy,
-  DropStaker,
   DropWithdrawalManager,
   DropWithdrawalVoucher,
   DropSplitter,
   DropToken,
+  DropNativeBondProvider,
 } from 'drop-ts-client';
 import {
   QueryClient,
@@ -27,7 +27,7 @@ import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
-import { setupPark } from '../testSuite';
+import { awaitTargetChannels, setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
@@ -45,12 +45,12 @@ const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
 const DropPumpClass = DropPump.Client;
 const DropPuppeteerClass = DropPuppeteer.Client;
-const DropStakerClass = DropStaker.Client;
 const DropStrategyClass = DropStrategy.Client;
 const DropWithdrawalVoucherClass = DropWithdrawalVoucher.Client;
 const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
 const DropRewardsPumpClass = DropPump.Client;
 const DropSplitterClass = DropSplitter.Client;
+const DropNativeBondProviderClass = DropNativeBondProvider.Client;
 
 const UNBONDING_TIME = 360;
 
@@ -66,7 +66,6 @@ describe('Core Slashing', () => {
     rewardsPumpContractClient?: InstanceType<typeof DropRewardsPumpClass>;
     coreContractClient?: InstanceType<typeof DropCoreClass>;
     strategyContractClient?: InstanceType<typeof DropStrategyClass>;
-    stakerContractClient?: InstanceType<typeof DropStakerClass>;
     pumpContractClient?: InstanceType<typeof DropPumpClass>;
     puppeteerContractClient?: InstanceType<typeof DropPuppeteerClass>;
     tokenContractClient?: InstanceType<typeof DropTokenClass>;
@@ -76,10 +75,12 @@ describe('Core Slashing', () => {
     withdrawalManagerContractClient?: InstanceType<
       typeof DropWithdrawalManagerClass
     >;
+    nativeBondProviderContractClient?: InstanceType<
+      typeof DropNativeBondProviderClass
+    >;
     account?: AccountData;
     icaAddress?: string;
     rewardsPumpIcaAddress?: string;
-    stakerIcaAddress?: string;
     client?: SigningCosmWasmClient;
     gaiaClient?: SigningStargateClient;
     gaiaUserAddress?: string;
@@ -101,13 +102,14 @@ describe('Core Slashing', () => {
       withdrawalVoucher?: number;
       withdrawalManager?: number;
       strategy?: number;
-      staker?: number;
       puppeteer?: number;
       validatorsSet?: number;
       distribution?: number;
       rewardsManager?: number;
       splitter?: number;
       pump?: number;
+      lsmShareBondProvider?: number;
+      nativeBondProvider?: number;
     };
     neutronIBCDenom?: string;
   } = { codeIds: {} };
@@ -131,6 +133,9 @@ describe('Core Slashing', () => {
           },
         },
       },
+    );
+    await awaitTargetChannels(
+      `http://127.0.0.1:${context.park.ports.gaia.rpc}`,
     );
     context.wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.wallets.demowallet1.mnemonic,
@@ -269,7 +274,9 @@ describe('Core Slashing', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_core.wasm')),
+        Uint8Array.from(
+          fs.readFileSync(join(__dirname, '../../../artifacts/drop_core.wasm')),
+        ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -278,7 +285,11 @@ describe('Core Slashing', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_token.wasm')),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_token.wasm'),
+          ),
+        ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -287,8 +298,10 @@ describe('Core Slashing', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
+          ),
         ),
         1.5,
       );
@@ -298,8 +311,10 @@ describe('Core Slashing', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_withdrawal_manager.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_withdrawal_manager.wasm'),
+          ),
         ),
         1.5,
       );
@@ -309,8 +324,10 @@ describe('Core Slashing', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_strategy.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_strategy.wasm'),
+          ),
         ),
         1.5,
       );
@@ -320,8 +337,10 @@ describe('Core Slashing', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_distribution.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_distribution.wasm'),
+          ),
         ),
         1.5,
       );
@@ -331,8 +350,10 @@ describe('Core Slashing', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
+          ),
         ),
         1.5,
       );
@@ -342,8 +363,10 @@ describe('Core Slashing', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_puppeteer.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_puppeteer.wasm'),
+          ),
         ),
         1.5,
       );
@@ -353,8 +376,10 @@ describe('Core Slashing', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
+          ),
         ),
         1.5,
       );
@@ -364,17 +389,10 @@ describe('Core Slashing', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_staker.wasm')),
-        1.5,
-      );
-      expect(res.codeId).toBeGreaterThan(0);
-      context.codeIds.staker = res.codeId;
-    }
-    {
-      const res = await client.upload(
-        account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+          ),
         ),
         1.5,
       );
@@ -384,16 +402,54 @@ describe('Core Slashing', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+        Uint8Array.from(
+          fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+        ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.pump = res.codeId;
     }
+    {
+      const res = await client.upload(
+        account.address,
+        Uint8Array.from(
+          fs.readFileSync(
+            join(
+              __dirname,
+              '../../../artifacts/drop_lsm_share_bond_provider.wasm',
+            ),
+          ),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.lsmShareBondProvider = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        Uint8Array.from(
+          fs.readFileSync(
+            join(
+              __dirname,
+              '../../../artifacts/drop_native_bond_provider.wasm',
+            ),
+          ),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.nativeBondProvider = res.codeId;
+    }
 
     const res = await client.upload(
       account.address,
-      fs.readFileSync(join(__dirname, '../../../artifacts/drop_factory.wasm')),
+      Uint8Array.from(
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_factory.wasm'),
+        ),
+      ),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
@@ -402,7 +458,7 @@ describe('Core Slashing', () => {
       account.address,
       res.codeId,
       {
-        sdk_version: process.env.SDK_VERSION || '0.46.0',
+        sdk_version: process.env.SDK_VERSION || '0.47.10',
         local_denom: 'untrn',
         code_ids: {
           core_code_id: context.codeIds.core,
@@ -414,9 +470,10 @@ describe('Core Slashing', () => {
           validators_set_code_id: context.codeIds.validatorsSet,
           puppeteer_code_id: context.codeIds.puppeteer,
           rewards_manager_code_id: context.codeIds.rewardsManager,
-          staker_code_id: context.codeIds.staker,
           splitter_code_id: context.codeIds.splitter,
           rewards_pump_code_id: context.codeIds.pump,
+          lsm_share_bond_provider_code_id: context.codeIds.lsmShareBondProvider,
+          native_bond_provider_code_id: context.codeIds.nativeBondProvider,
         },
         remote_opts: {
           connection_id: 'connection-0',
@@ -443,20 +500,20 @@ describe('Core Slashing', () => {
         },
         base_denom: context.neutronIBCDenom,
         core_params: {
-          idle_min_interval: 10,
+          idle_min_interval: 120,
           unbond_batch_switch_time: 60,
           unbonding_safe_period: 10,
           unbonding_period: 360,
-          lsm_redeem_threshold: 2,
-          lsm_min_bond_amount: '1',
-          lsm_redeem_max_interval: 60_000,
-          bond_limit: '0',
-          min_stake_amount: '2',
           icq_update_delay: 5,
         },
-        staker_params: {
+        native_bond_params: {
           min_stake_amount: '100',
           min_ibc_transfer: '100',
+        },
+        lsm_share_bond_params: {
+          lsm_redeem_threshold: 2,
+          lsm_min_bond_amount: '1000',
+          lsm_redeem_max_interval: 60_000,
         },
       },
       'drop-staking-factory',
@@ -492,10 +549,6 @@ describe('Core Slashing', () => {
       context.client,
       res.puppeteer_contract,
     );
-    context.stakerContractClient = new DropStaker.Client(
-      context.client,
-      res.staker_contract,
-    );
     context.splitterContractClient = new DropSplitter.Client(
       context.client,
       res.splitter_contract,
@@ -508,32 +561,11 @@ describe('Core Slashing', () => {
       context.client,
       res.token_contract,
     );
-  });
-  it('register staker ICA', async () => {
-    const { stakerContractClient, neutronUserAddress } = context;
-    const res = await stakerContractClient.registerICA(
-      neutronUserAddress,
-      1.5,
-      undefined,
-      [{ amount: '1000000', denom: 'untrn' }],
-    );
-    expect(res.transactionHash).toHaveLength(64);
-    let ica = '';
-    await waitFor(async () => {
-      const res = await stakerContractClient.queryIca();
-      switch (res) {
-        case 'none':
-        case 'in_progress':
-        case 'timeout':
-          return false;
-        default:
-          ica = res.registered.ica_address;
-          return true;
-      }
-    }, 100_000);
-    expect(ica).toHaveLength(65);
-    expect(ica.startsWith('cosmos')).toBeTruthy();
-    context.stakerIcaAddress = ica;
+    context.nativeBondProviderContractClient =
+      new DropNativeBondProvider.Client(
+        context.client,
+        res.native_bond_provider_contract,
+      );
   });
   it('setup ICA for rewards pump', async () => {
     const { rewardsPumpContractClient, neutronUserAddress } = context;
@@ -587,37 +619,7 @@ describe('Core Slashing', () => {
     expect(ica.startsWith('cosmos')).toBeTruthy();
     context.icaAddress = ica;
   });
-  it('set puppeteer ICA to the staker', async () => {
-    const res = await context.factoryContractClient.adminExecute(
-      context.neutronUserAddress,
-      {
-        msgs: [
-          {
-            wasm: {
-              execute: {
-                contract_addr: context.stakerContractClient.contractAddress,
-                msg: Buffer.from(
-                  JSON.stringify({
-                    update_config: {
-                      new_config: {
-                        puppeteer_ica: context.icaAddress,
-                      },
-                    },
-                  }),
-                ).toString('base64'),
-                funds: [],
-              },
-            },
-          },
-        ],
-      },
-      1.5,
-      undefined,
-      [],
-    );
-    expect(res.transactionHash).toHaveLength(64);
-  });
-  it('grant staker to delegate funds from puppeteer ICA and set up rewards receiver', async () => {
+  it('set up rewards receiver', async () => {
     const { neutronUserAddress } = context;
     const res = await context.factoryContractClient.adminExecute(
       neutronUserAddress,
@@ -630,7 +632,6 @@ describe('Core Slashing', () => {
                 msg: Buffer.from(
                   JSON.stringify({
                     setup_protocol: {
-                      delegate_grantee: context.stakerIcaAddress,
                       rewards_withdraw_address: context.rewardsPumpIcaAddress,
                     },
                   }),
@@ -659,23 +660,42 @@ describe('Core Slashing', () => {
     const pupRes = await context.puppeteerContractClient.queryTxState();
     expect(pupRes.status).toBe('waiting_for_ack');
   });
+  it('register native bond provider in the core', async () => {
+    const res = await context.factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.coreContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    add_bond_provider: {
+                      bond_provider_address:
+                        context.nativeBondProviderContractClient
+                          .contractAddress,
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      1.5,
+      undefined,
+      [],
+    );
+    expect(res.transactionHash).toHaveLength(64);
+  });
   it('wait puppeteer response', async () => {
     const { puppeteerContractClient } = context;
     await waitFor(async () => {
       const res = await puppeteerContractClient.queryTxState();
       return res.status === 'idle';
     }, 100_000);
-  });
-  it('verify grant', async () => {
-    const res = await context.park.executeInNetwork(
-      'gaia',
-      `${context.park.config.networks['gaia'].binary} query authz grants-by-grantee ${context.stakerIcaAddress} --output json`,
-    );
-    const out = JSON.parse(res.out);
-    expect(out.grants).toHaveLength(1);
-    const grant = out.grants[0];
-    expect(grant.granter).toEqual(context.icaAddress);
-    expect(grant.grantee).toEqual(context.stakerIcaAddress);
   });
   it('add validators into validators set', async () => {
     const {
@@ -693,10 +713,12 @@ describe('Core Slashing', () => {
               {
                 valoper_address: validatorAddress,
                 weight: 1,
+                on_top: '0',
               },
               {
                 valoper_address: secondValidatorAddress,
                 weight: 1,
+                on_top: '0',
               },
             ],
           },
@@ -735,7 +757,9 @@ describe('Core Slashing', () => {
     const { client, account, neutronUserAddress } = context;
     const resUpload = await client.upload(
       account.address,
-      fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+      Uint8Array.from(
+        fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+      ),
       1.5,
     );
     expect(resUpload.codeId).toBeGreaterThan(0);
@@ -827,31 +851,32 @@ describe('Core Slashing', () => {
       ]);
       await checkExchangeRate(context);
     });
-    it('staker ibc transfer', async () => {
-      const { neutronUserAddress } = context;
-      const res = await context.stakerContractClient.iBCTransfer(
+    it('first tick did nothing and stays in idle', async () => {
+      const {
+        gaiaClient,
+        neutronUserAddress,
+        coreContractClient,
+        puppeteerContractClient,
+      } = context;
+
+      await waitForPuppeteerICQ(
+        gaiaClient,
+        coreContractClient,
+        puppeteerContractClient,
+      );
+
+      const res = await context.coreContractClient.tick(
         neutronUserAddress,
         1.5,
         undefined,
-        [{ amount: '20000', denom: 'untrn' }],
+        [],
       );
       expect(res.transactionHash).toHaveLength(64);
-      await waitFor(async () => {
-        const res = await context.stakerContractClient.queryTxState();
-        return res.status === 'idle';
-      }, 200_000);
-      const balances = await context.gaiaClient.getAllBalances(
-        context.stakerIcaAddress,
-      );
-      expect(balances).toEqual([
-        {
-          amount: '1000',
-          denom: context.park.config.networks.gaia.denom,
-        },
-      ]);
-      await checkExchangeRate(context);
+
+      const state = await context.coreContractClient.queryContractState();
+      expect(state).toEqual('idle');
     });
-    it('tick 1 (staking_bond)', async () => {
+    it('tick 1 (peripheral) transfer coins from neutron to target chain', async () => {
       const {
         neutronUserAddress,
         gaiaClient,
@@ -877,18 +902,60 @@ describe('Core Slashing', () => {
         ],
       );
       const state = await context.coreContractClient.queryContractState();
-      expect(state).toEqual('staking_bond');
-      let response;
-      await waitFor(async () => {
-        try {
-          response = (
-            await context.coreContractClient.queryLastStakerResponse()
-          ).response;
-        } catch (e) {
-          //
-        }
-        return !!response;
-      }, 100_000);
+      expect(state).toEqual('peripheral');
+    });
+    it('tick 2 (idle)', async () => {
+      const {
+        gaiaClient,
+        neutronUserAddress,
+        coreContractClient,
+        puppeteerContractClient,
+      } = context;
+
+      await waitForPuppeteerICQ(
+        gaiaClient,
+        coreContractClient,
+        puppeteerContractClient,
+      );
+
+      const res = await context.coreContractClient.tick(
+        neutronUserAddress,
+        1.5,
+        undefined,
+        [],
+      );
+      expect(res.transactionHash).toHaveLength(64);
+
+      const state = await context.coreContractClient.queryContractState();
+      expect(state).toEqual('idle');
+    });
+    it('tick 3 (peripheral) stake collected coins on remote chain', async () => {
+      const {
+        neutronUserAddress,
+        gaiaClient,
+        coreContractClient,
+        puppeteerContractClient,
+      } = context;
+
+      await waitForPuppeteerICQ(
+        gaiaClient,
+        coreContractClient,
+        puppeteerContractClient,
+      );
+
+      await context.coreContractClient.tick(
+        neutronUserAddress,
+        1.5,
+        undefined,
+        [
+          {
+            amount: '1000000',
+            denom: 'untrn',
+          },
+        ],
+      );
+      const state = await context.coreContractClient.queryContractState();
+      expect(state).toEqual('peripheral');
       let res;
       await waitFor(async () => {
         try {
@@ -901,19 +968,61 @@ describe('Core Slashing', () => {
           //
         }
         return res && res.delegations.delegations.length !== 0;
-      }, 100_000);
+      }, 200_000);
+      const delegations = (await context.puppeteerContractClient.queryExtension(
+        {
+          msg: {
+            delegations: {},
+          },
+        },
+      )) as any;
+
+      expect(delegations.delegations.delegations).toHaveLength(2);
+
+      expect(
+        parseInt(delegations.delegations.delegations[0].amount.amount, 10),
+      ).toEqual(500);
+      expect(
+        parseInt(delegations.delegations.delegations[1].amount.amount, 10),
+      ).toEqual(500);
+
       await checkExchangeRate(context);
     });
-    it('get staker ICA zeroed balance', async () => {
-      const { gaiaClient } = context;
-      const res = await gaiaClient.getBalance(
-        context.stakerIcaAddress,
-        context.park.config.networks.gaia.denom,
+    it('tick 4 (idle)', async () => {
+      const {
+        gaiaClient,
+        neutronUserAddress,
+        coreContractClient,
+        puppeteerContractClient,
+      } = context;
+
+      await waitForPuppeteerICQ(
+        gaiaClient,
+        coreContractClient,
+        puppeteerContractClient,
       );
-      const balance = parseInt(res.amount);
-      expect(balance).toEqual(0);
+
+      const res = await context.coreContractClient.tick(
+        neutronUserAddress,
+        1.5,
+        undefined,
+        [],
+      );
+      expect(res.transactionHash).toHaveLength(64);
+
+      const state = await context.coreContractClient.queryContractState();
+      expect(state).toEqual('idle');
     });
-    it('tick 2 (unbonding)', async () => {
+    it('decrease idle interval', async () => {
+      const { factoryContractClient, neutronUserAddress } = context;
+      const res = await factoryContractClient.updateConfig(neutronUserAddress, {
+        core: {
+          idle_min_interval: 30,
+        },
+      });
+      expect(res.transactionHash).toHaveLength(64);
+    });
+    it('tick 5 (claiming)', async () => {
       const {
         neutronUserAddress,
         gaiaClient,
@@ -939,7 +1048,7 @@ describe('Core Slashing', () => {
         ],
       );
       const state = await context.coreContractClient.queryContractState();
-      expect(state).toEqual('unbonding');
+      expect(state).toEqual('claiming');
       let response;
       await waitFor(async () => {
         try {
@@ -953,7 +1062,30 @@ describe('Core Slashing', () => {
       }, 100_000);
       await checkExchangeRate(context);
     });
-    it('tick 3 (idle)', async () => {
+    it('tick 6 (unbonding)', async () => {
+      const {
+        neutronUserAddress,
+        gaiaClient,
+        coreContractClient,
+        puppeteerContractClient,
+      } = context;
+
+      await waitForPuppeteerICQ(
+        gaiaClient,
+        coreContractClient,
+        puppeteerContractClient,
+      );
+
+      await context.coreContractClient.tick(
+        neutronUserAddress,
+        1.5,
+        undefined,
+        [],
+      );
+      const state = await context.coreContractClient.queryContractState();
+      expect(state).toEqual('unbonding');
+    });
+    it('tick 7 (idle)', async () => {
       const {
         neutronUserAddress,
         gaiaClient,
@@ -1001,6 +1133,26 @@ describe('Core Slashing', () => {
     it('bond', async () => {
       const { coreContractClient, neutronUserAddress, neutronIBCDenom } =
         context;
+
+      const delegations = (await context.puppeteerContractClient.queryExtension(
+        {
+          msg: {
+            delegations: {},
+          },
+        },
+      )) as any;
+
+      expect(delegations.delegations.delegations).toHaveLength(2);
+
+      expect(
+        parseInt(delegations.delegations.delegations[0].amount.amount, 10),
+      ).toEqual(250);
+      expect(
+        parseInt(delegations.delegations.delegations[1].amount.amount, 10),
+      ).toEqual(250);
+
+      await checkExchangeRate(context);
+
       await coreContractClient.bond(neutronUserAddress, {}, 1.6, undefined, [
         {
           amount: '3000',
@@ -1015,30 +1167,6 @@ describe('Core Slashing', () => {
         {
           amount: '3000',
           denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
-        },
-      ]);
-      await checkExchangeRate(context);
-    });
-    it('staker ibc transfer', async () => {
-      const { neutronUserAddress } = context;
-      const res = await context.stakerContractClient.iBCTransfer(
-        neutronUserAddress,
-        1.5,
-        undefined,
-        [{ amount: '20000', denom: 'untrn' }],
-      );
-      expect(res.transactionHash).toHaveLength(64);
-      await waitFor(async () => {
-        const res = await context.stakerContractClient.queryTxState();
-        return res.status === 'idle';
-      }, 200_000);
-      const balances = await context.gaiaClient.getAllBalances(
-        context.stakerIcaAddress,
-      );
-      expect(balances).toEqual([
-        {
-          amount: '3000',
-          denom: context.park.config.networks.gaia.denom,
         },
       ]);
       await checkExchangeRate(context);
@@ -1093,7 +1221,7 @@ describe('Core Slashing', () => {
       }, 30_000);
       await checkExchangeRate(context);
     });
-    it('tick 2 (staking_bond)', async () => {
+    it('tick 2 (idle)', async () => {
       const {
         neutronUserAddress,
         gaiaClient,
@@ -1111,26 +1239,11 @@ describe('Core Slashing', () => {
         neutronUserAddress,
         1.5,
         undefined,
-        [
-          {
-            amount: '1000000',
-            denom: 'untrn',
-          },
-        ],
+        [],
       );
       const state = await context.coreContractClient.queryContractState();
-      expect(state).toEqual('staking_bond');
-      let response;
-      await waitFor(async () => {
-        try {
-          response = (
-            await context.coreContractClient.queryLastStakerResponse()
-          ).response;
-        } catch (e) {
-          //
-        }
-        return !!response;
-      }, 100_000);
+      expect(state).toEqual('idle');
+
       const { remote_height: currentHeight } =
         (await context.puppeteerContractClient.queryExtension({
           msg: {
@@ -1148,7 +1261,16 @@ describe('Core Slashing', () => {
       });
       await checkExchangeRate(context);
     });
-    it('tick 3 (unbonding)', async () => {
+    it('increase idle interval', async () => {
+      const { factoryContractClient, neutronUserAddress } = context;
+      const res = await factoryContractClient.updateConfig(neutronUserAddress, {
+        core: {
+          idle_min_interval: 120,
+        },
+      });
+      expect(res.transactionHash).toHaveLength(64);
+    });
+    it('tick 1 (peripheral) transfer coins from neutron to target chain', async () => {
       const {
         neutronUserAddress,
         gaiaClient,
@@ -1174,7 +1296,153 @@ describe('Core Slashing', () => {
         ],
       );
       const state = await context.coreContractClient.queryContractState();
-      expect(state).toEqual('unbonding');
+      expect(state).toEqual('peripheral');
+    });
+    it('tick 2 (idle)', async () => {
+      const {
+        gaiaClient,
+        neutronUserAddress,
+        coreContractClient,
+        puppeteerContractClient,
+      } = context;
+
+      await waitForPuppeteerICQ(
+        gaiaClient,
+        coreContractClient,
+        puppeteerContractClient,
+      );
+
+      const res = await context.coreContractClient.tick(
+        neutronUserAddress,
+        1.5,
+        undefined,
+        [],
+      );
+      expect(res.transactionHash).toHaveLength(64);
+
+      const state = await context.coreContractClient.queryContractState();
+      expect(state).toEqual('idle');
+    });
+    it('tick 3 (peripheral) stake collected coins on remote chain', async () => {
+      const {
+        neutronUserAddress,
+        gaiaClient,
+        coreContractClient,
+        puppeteerContractClient,
+      } = context;
+
+      await waitForPuppeteerICQ(
+        gaiaClient,
+        coreContractClient,
+        puppeteerContractClient,
+      );
+
+      await context.coreContractClient.tick(
+        neutronUserAddress,
+        1.5,
+        undefined,
+        [
+          {
+            amount: '1000000',
+            denom: 'untrn',
+          },
+        ],
+      );
+      const state = await context.coreContractClient.queryContractState();
+      expect(state).toEqual('peripheral');
+      let res;
+      await waitFor(async () => {
+        try {
+          res = await context.puppeteerContractClient.queryExtension({
+            msg: {
+              delegations: {},
+            },
+          });
+        } catch (e) {
+          //
+        }
+        return res && res.delegations.delegations.length !== 0;
+      }, 300_000);
+      const delegations = (await context.puppeteerContractClient.queryExtension(
+        {
+          msg: {
+            delegations: {},
+          },
+        },
+      )) as any;
+
+      expect(delegations.delegations.delegations).toHaveLength(2);
+
+      expect(
+        parseInt(delegations.delegations.delegations[0].amount.amount, 10),
+      ).toEqual(250);
+      expect(
+        parseInt(delegations.delegations.delegations[1].amount.amount, 10),
+      ).toEqual(250);
+
+      await checkExchangeRate(context);
+    });
+    it('tick 4 (idle)', async () => {
+      const {
+        gaiaClient,
+        neutronUserAddress,
+        coreContractClient,
+        puppeteerContractClient,
+      } = context;
+
+      await waitForPuppeteerICQ(
+        gaiaClient,
+        coreContractClient,
+        puppeteerContractClient,
+      );
+
+      const res = await context.coreContractClient.tick(
+        neutronUserAddress,
+        1.5,
+        undefined,
+        [],
+      );
+      expect(res.transactionHash).toHaveLength(64);
+
+      const state = await context.coreContractClient.queryContractState();
+      expect(state).toEqual('idle');
+    });
+    it('decrease idle interval', async () => {
+      const { factoryContractClient, neutronUserAddress } = context;
+      const res = await factoryContractClient.updateConfig(neutronUserAddress, {
+        core: {
+          idle_min_interval: 30,
+        },
+      });
+      expect(res.transactionHash).toHaveLength(64);
+    });
+    it('tick 3 (claiming)', async () => {
+      const {
+        neutronUserAddress,
+        gaiaClient,
+        coreContractClient,
+        puppeteerContractClient,
+      } = context;
+
+      await waitForPuppeteerICQ(
+        gaiaClient,
+        coreContractClient,
+        puppeteerContractClient,
+      );
+
+      await context.coreContractClient.tick(
+        neutronUserAddress,
+        1.5,
+        undefined,
+        [
+          {
+            amount: '1000000',
+            denom: 'untrn',
+          },
+        ],
+      );
+      const state = await context.coreContractClient.queryContractState();
+      expect(state).toEqual('claiming');
       let response;
       await waitFor(async () => {
         try {
@@ -1186,6 +1454,31 @@ describe('Core Slashing', () => {
         }
         return !!response;
       }, 100_000);
+      await checkExchangeRate(context);
+    });
+    it('tick 4 (unbonding)', async () => {
+      const {
+        neutronUserAddress,
+        gaiaClient,
+        coreContractClient,
+        puppeteerContractClient,
+      } = context;
+
+      await waitForPuppeteerICQ(
+        gaiaClient,
+        coreContractClient,
+        puppeteerContractClient,
+      );
+
+      await context.coreContractClient.tick(
+        neutronUserAddress,
+        1.5,
+        undefined,
+        [],
+      );
+      const state = await context.coreContractClient.queryContractState();
+      expect(state).toEqual('unbonding');
+      await sleep(10_000); // wait for idle min interval
       await checkExchangeRate(context);
     });
     it('tick 4 (idle)', async () => {

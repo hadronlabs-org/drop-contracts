@@ -50,26 +50,23 @@ class Client {
     queryLastPuppeteerResponse = async () => {
         return this.client.queryContractSmart(this.contractAddress, { last_puppeteer_response: {} });
     };
-    queryLastStakerResponse = async () => {
-        return this.client.queryContractSmart(this.contractAddress, { last_staker_response: {} });
-    };
-    queryPendingLSMShares = async () => {
-        return this.client.queryContractSmart(this.contractAddress, { pending_l_s_m_shares: {} });
-    };
-    queryLSMSharesToRedeem = async () => {
-        return this.client.queryContractSmart(this.contractAddress, { l_s_m_shares_to_redeem: {} });
-    };
     queryTotalBonded = async () => {
         return this.client.queryContractSmart(this.contractAddress, { total_bonded: {} });
     };
-    queryTotalLSMShares = async () => {
-        return this.client.queryContractSmart(this.contractAddress, { total_l_s_m_shares: {} });
+    queryBondProviders = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { bond_providers: {} });
+    };
+    queryTotalAsyncTokens = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { total_async_tokens: {} });
     };
     queryFailedBatch = async () => {
         return this.client.queryContractSmart(this.contractAddress, { failed_batch: {} });
     };
-    queryPauseInfo = async () => {
-        return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
+    queryPause = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { pause: {} });
+    };
+    queryBondHooks = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { bond_hooks: {} });
     };
     bond = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
@@ -83,6 +80,24 @@ class Client {
         }
         return this.client.execute(sender, this.contractAddress, { unbond: {} }, fee || "auto", memo, funds);
     };
+    tick = async (sender, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { tick: {} }, fee || "auto", memo, funds);
+    };
+    addBondProvider = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { add_bond_provider: args }, fee || "auto", memo, funds);
+    };
+    removeBondProvider = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { remove_bond_provider: args }, fee || "auto", memo, funds);
+    };
     updateConfig = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
@@ -95,29 +110,11 @@ class Client {
         }
         return this.client.execute(sender, this.contractAddress, { update_withdrawn_amount: args }, fee || "auto", memo, funds);
     };
-    tick = async (sender, fee, memo, funds) => {
+    peripheralHook = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { tick: {} }, fee || "auto", memo, funds);
-    };
-    puppeteerHook = async (sender, args, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
-    };
-    stakerHook = async (sender, args, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, { staker_hook: args }, fee || "auto", memo, funds);
-    };
-    resetBondedAmount = async (sender, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, { reset_bonded_amount: {} }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, { peripheral_hook: args }, fee || "auto", memo, funds);
     };
     processEmergencyBatch = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
@@ -125,17 +122,17 @@ class Client {
         }
         return this.client.execute(sender, this.contractAddress, { process_emergency_batch: args }, fee || "auto", memo, funds);
     };
-    pause = async (sender, fee, memo, funds) => {
+    setPause = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { pause: {} }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, { set_pause: args }, fee || "auto", memo, funds);
     };
-    unpause = async (sender, fee, memo, funds) => {
+    setBondHooks = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { unpause: {} }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, { set_bond_hooks: args }, fee || "auto", memo, funds);
     };
     updateOwnership = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
