@@ -1611,7 +1611,54 @@ fn test_validate_contract_metadata() {
         deps.as_ref().into_empty(),
         mocked_env,
         &cosmwasm_std::Addr::unchecked(contract_addr),
-        "contract_name".to_string(),
+        vec!["contract_name".to_string()],
+    )
+    .unwrap();
+    assert_eq!(response, ());
+}
+
+#[test]
+fn test_validate_contract_metadata_two_names() {
+    let mut deps = mock_dependencies(&[]);
+
+    let contract_addr = "cosmos2contract";
+    let mocked_env = mock_env();
+
+    deps.querier
+        .add_wasm_query_response(contract_addr, move |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&cw2::ContractVersion {
+                    contract: "contract_name".to_string(),
+                    version: "1.0.0".to_string(),
+                })
+                .unwrap(),
+            )
+        });
+
+    let contract_address = mocked_env.contract.address.to_string();
+    let contract_admin = contract_address.clone();
+
+    deps.querier
+        .add_wasm_query_response(contract_addr, move |_| {
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&contract_address).unwrap())
+        });
+
+    deps.querier
+        .add_wasm_query_response(contract_addr, move |_| {
+            let mut response = cosmwasm_std::ContractInfoResponse::default();
+            response.admin = Some(contract_admin.clone());
+
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&response).unwrap())
+        });
+
+    let response = validate_contract_metadata(
+        deps.as_ref().into_empty(),
+        mocked_env,
+        &cosmwasm_std::Addr::unchecked(contract_addr),
+        vec![
+            "another_valid_name".to_string(),
+            "contract_name".to_string(),
+        ],
     )
     .unwrap();
     assert_eq!(response, ());
@@ -1639,7 +1686,7 @@ fn test_validate_contract_metadata_wrong_contract_name() {
         deps.as_ref().into_empty(),
         mocked_env,
         &cosmwasm_std::Addr::unchecked(contract_addr),
-        "contract_name".to_string(),
+        vec!["contract_name".to_string()],
     )
     .unwrap_err();
     assert_eq!(
@@ -1678,7 +1725,7 @@ fn test_validate_contract_metadata_wrong_owner() {
         deps.as_ref().into_empty(),
         mocked_env,
         &cosmwasm_std::Addr::unchecked(contract_addr),
-        "contract_name".to_string(),
+        vec!["contract_name".to_string()],
     )
     .unwrap_err();
     assert_eq!(
@@ -1727,7 +1774,7 @@ fn test_validate_contract_metadata_wrong_admin() {
         deps.as_ref().into_empty(),
         mocked_env,
         &cosmwasm_std::Addr::unchecked(contract_addr),
-        "contract_name".to_string(),
+        vec!["contract_name".to_string()],
     )
     .unwrap_err();
     assert_eq!(
@@ -1775,7 +1822,7 @@ fn test_validate_contract_metadata_empty_admin() {
         deps.as_ref().into_empty(),
         mocked_env,
         &cosmwasm_std::Addr::unchecked(contract_addr),
-        "contract_name".to_string(),
+        vec!["contract_name".to_string()],
     )
     .unwrap_err();
     assert_eq!(

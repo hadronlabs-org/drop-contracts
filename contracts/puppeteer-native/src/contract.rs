@@ -408,7 +408,7 @@ fn execute_setup_protocol(
 ) -> ContractResult<Response<NeutronMsg>> {
     let config: Config = CONFIG.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
-    let rewards_withdraw_addr = deps.api.addr_validate(&rewards_withdraw_address)?;
+    let rewards_withdraw_addr = deps.api.addr_validate(&rewards_withdraw_address)?; // Splitter contract
 
     let msg = WasmMsg::Execute {
         contract_addr: config.distribution_module_contract.into_string(),
@@ -443,7 +443,7 @@ fn execute_claim_rewards_and_optionaly_transfer(
     let mut messages = vec![];
     if let Some(transfer) = transfer.clone() {
         let send_msg = CosmosMsg::Bank(BankMsg::Send {
-            to_address: transfer.recipient,
+            to_address: transfer.recipient, // Should send to withdrawal manager
             amount: vec![StdCoin {
                 amount: transfer.amount,
                 denom: config.remote_denom.to_string(),

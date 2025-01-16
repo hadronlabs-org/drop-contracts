@@ -682,6 +682,8 @@ dependencies = [
  "cw2 1.1.2",
  "drop-helpers",
  "drop-macros",
+ "drop-native-bond-provider",
+ "drop-native-sync-bond-provider",
  "drop-puppeteer-base",
  "drop-staking-base",
  "neutron-sdk",

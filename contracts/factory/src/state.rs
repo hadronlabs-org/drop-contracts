@@ -1,4 +1,5 @@
 use cosmwasm_schema::cw_serde;
+use cosmwasm_std::Addr;
 use cw_storage_plus::Item;
 
 #[cw_serde]
@@ -14,7 +15,12 @@ pub struct CodeIds {
     pub rewards_manager_code_id: u64,
     pub splitter_code_id: u64,
     pub rewards_pump_code_id: u64,
-    pub native_bond_provider_code_id: u64,
+    // pub native_bond_provider_code_id: u64,
+}
+
+#[cw_serde]
+pub struct PreInstantiatedContracts {
+    pub native_bond_provider_address: Addr,
 }
 
 #[cw_serde]
@@ -48,8 +54,13 @@ pub struct State {
     pub rewards_manager_contract: String,
     pub rewards_pump_contract: String,
     pub splitter_contract: String,
-    pub lsm_share_bond_provider_contract: Option<String>,
-    pub native_bond_provider_contract: String,
+    pub bond_providers: Vec<BondProvider>,
+}
+
+#[cw_serde]
+pub struct BondProvider {
+    pub name: String,
+    pub contract_address: String,
 }
 
 #[cw_serde]

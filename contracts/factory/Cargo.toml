@@ -36,5 +36,8 @@ neutron-sdk = { workspace = true }
 cw-ownable = { workspace = true }
 semver = { workspace = true }
 
+drop-native-bond-provider = { path = "../native-bond-provider" }
+drop-native-sync-bond-provider = { path = "../native-sync-bond-provider" }
+
 [dev-dependencies]
 cw-multi-test = { workspace = true }
