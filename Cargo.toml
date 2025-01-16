@@ -38,8 +38,7 @@ cosmwasm-std = { version = "1.5.4", default-features = false, features = [
     "stargate",
     "cosmwasm_1_2",
 ] }
-neutron-sdk = { package = "neutron-sdk", git = "https://github.com/neutron-org/neutron-sdk", branch = "feat/proposal-votes" }
-
+neutron-sdk = { version = "0.11.0", default-features = false }
 cosmos-sdk-proto = { version = "0.20.0", default-features = false }
 cw-ownable = { version = "0.5.1", default-features = false }
 prost = { version = "0.12.3", default-features = false }
