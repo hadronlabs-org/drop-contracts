@@ -16,6 +16,7 @@ import { StdFee } from "@cosmjs/amino";
 export type Uint128 = string;
 export type Boolean = boolean;
 export type Boolean1 = boolean;
+export type Boolean2 = boolean;
 /**
  * A human readable address.
  *
@@ -245,6 +246,7 @@ export interface DropNativeBondProviderSchema {
     | Uint128
     | Boolean
     | Boolean1
+    | Boolean2
     | Config
     | LastPuppeteerResponse
     | Uint1282
@@ -258,12 +260,10 @@ export interface DropNativeBondProviderSchema {
 }
 export interface Config {
   base_denom: string;
-  core_contract: Addr;
+  factory_contract: Addr;
   min_ibc_transfer: Uint1281;
   min_stake_amount: Uint1281;
   port_id: string;
-  puppeteer_contract: Addr;
-  strategy_contract: Addr;
   timeout: number;
   transfer_channel_id: string;
 }
@@ -372,24 +372,20 @@ export interface UpdateConfigArgs {
 }
 export interface ConfigOptional {
   base_denom?: string | null;
-  core_contract?: Addr | null;
+  factory_contract?: Addr | null;
   min_ibc_transfer?: Uint1281 | null;
   min_stake_amount?: Uint1281 | null;
   port_id?: string | null;
-  puppeteer_contract?: Addr | null;
-  strategy_contract?: Addr | null;
   timeout?: number | null;
   transfer_channel_id?: string | null;
 }
 export interface InstantiateMsg {
   base_denom: string;
-  core_contract: string;
+  factory_contract: string;
   min_ibc_transfer: Uint1281;
   min_stake_amount: Uint1281;
   owner: string;
   port_id: string;
-  puppeteer_contract: string;
-  strategy_contract: string;
   timeout: number;
   transfer_channel_id: string;
 }
@@ -463,6 +459,9 @@ export class Client {
   }
   queryAsyncTokensAmount = async(): Promise<Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { async_tokens_amount: {} });
+  }
+  queryCanBeRemoved = async(): Promise<Boolean> => {
+    return this.client.queryContractSmart(this.contractAddress, { can_be_removed: {} });
   }
   queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });

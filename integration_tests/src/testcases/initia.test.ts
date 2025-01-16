@@ -448,7 +448,9 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_core.wasm')),
+        Uint8Array.from(
+          fs.readFileSync(join(__dirname, '../../../artifacts/drop_core.wasm')),
+        ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -457,7 +459,11 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_token.wasm')),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_token.wasm'),
+          ),
+        ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -466,8 +472,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
+          ),
         ),
         1.5,
       );
@@ -477,8 +485,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_withdrawal_manager.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_withdrawal_manager.wasm'),
+          ),
         ),
         1.5,
       );
@@ -488,7 +498,9 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+        Uint8Array.from(
+          fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+        ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -497,8 +509,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_strategy.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_strategy.wasm'),
+          ),
         ),
         1.5,
       );
@@ -508,8 +522,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_distribution.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_distribution.wasm'),
+          ),
         ),
         1.5,
       );
@@ -519,8 +535,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
+          ),
         ),
         1.5,
       );
@@ -530,8 +548,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_puppeteer_initia.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_puppeteer_initia.wasm'),
+          ),
         ),
         1.5,
       );
@@ -541,8 +561,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
+          ),
         ),
         1.5,
       );
@@ -552,8 +574,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+          ),
         ),
         1.5,
       );
@@ -563,10 +587,12 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../../artifacts/drop_lsm_share_bond_provider.wasm',
+        Uint8Array.from(
+          fs.readFileSync(
+            join(
+              __dirname,
+              '../../../artifacts/drop_lsm_share_bond_provider.wasm',
+            ),
           ),
         ),
         1.5,
@@ -577,8 +603,13 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_native_bond_provider.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(
+              __dirname,
+              '../../../artifacts/drop_native_bond_provider.wasm',
+            ),
+          ),
         ),
         1.5,
       );
@@ -588,7 +619,11 @@ describe('Core', () => {
 
     const res = await client.upload(
       account.address,
-      fs.readFileSync(join(__dirname, '../../../artifacts/drop_factory.wasm')),
+      Uint8Array.from(
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_factory.wasm'),
+        ),
+      ),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
@@ -643,7 +678,6 @@ describe('Core', () => {
           unbond_batch_switch_time: 60,
           unbonding_safe_period: 10,
           unbonding_period: 360,
-          bond_limit: '0',
           icq_update_delay: 5,
         },
         native_bond_params: {
@@ -947,39 +981,6 @@ describe('Core', () => {
     await checkExchangeRate(context);
   });
 
-  it('verify bonded amount', async () => {
-    const { coreContractClient } = context;
-    const bonded = await coreContractClient.queryTotalBonded();
-    expect(bonded).toEqual('500000');
-  });
-
-  it('reset bonded amount', async () => {
-    const { coreContractClient, neutronUserAddress } = context;
-    const res = await context.factoryContractClient.adminExecute(
-      neutronUserAddress,
-      {
-        msgs: [
-          {
-            wasm: {
-              execute: {
-                contract_addr: context.coreContractClient.contractAddress,
-                msg: Buffer.from(
-                  JSON.stringify({
-                    reset_bonded_amount: {},
-                  }),
-                ).toString('base64'),
-                funds: [],
-              },
-            },
-          },
-        ],
-      },
-      1.5,
-    );
-    expect(res.transactionHash).toHaveLength(64);
-    const bonded = await coreContractClient.queryTotalBonded();
-    expect(bonded).toEqual('0');
-  });
   it('bond with receiver', async () => {
     const {
       coreContractClient,
@@ -1123,7 +1124,11 @@ describe('Core', () => {
         const { client, account, neutronUserAddress } = context;
         const resUpload = await client.upload(
           account.address,
-          fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+          Uint8Array.from(
+            fs.readFileSync(
+              join(__dirname, '../../../artifacts/drop_pump.wasm'),
+            ),
+          ),
           1.5,
         );
         expect(resUpload.codeId).toBeGreaterThan(0);
@@ -1875,10 +1880,12 @@ describe('Core', () => {
               {
                 valoper_address: validatorAddress,
                 weight: 1,
+                on_top: null,
               },
               {
                 valoper_address: secondValidatorAddress,
                 weight: 1,
+                on_top: null,
               },
             ],
           },

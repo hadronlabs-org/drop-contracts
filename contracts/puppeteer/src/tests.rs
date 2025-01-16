@@ -317,7 +317,7 @@ fn test_instantiate() {
         delegations_queries_chunk_size: Some(2u32),
         owner: Some("owner".to_string()),
         connection_id: "connection_id".to_string(),
-        native_bond_provider: "native_bond_provider".to_string(),
+        factory_contract: "factory_contract".to_string(),
         port_id: "port_id".to_string(),
         update_period: 60u64,
         remote_denom: "remote_denom".to_string(),
@@ -357,7 +357,7 @@ fn test_execute_update_config_unauthorized() {
         new_config: ConfigOptional {
             update_period: Some(121u64),
             remote_denom: Some("new_remote_denom".to_string()),
-            native_bond_provider: Some(Addr::unchecked("native_bond_provider")),
+            factory_contract: Some(Addr::unchecked("factory_contract")),
             allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
             transfer_channel_id: Some("new_transfer_channel_id".to_string()),
             connection_id: Some("new_connection_id".to_string()),
@@ -406,7 +406,7 @@ fn test_execute_update_config() {
             new_config: ConfigOptional {
                 update_period: Some(121u64),
                 remote_denom: Some("new_remote_denom".to_string()),
-                native_bond_provider: Some(Addr::unchecked("native_bond_provider")),
+                factory_contract: Some(Addr::unchecked("factory_contract")),
                 allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
                 transfer_channel_id: Some("new_transfer_channel_id".to_string()),
                 connection_id: Some("new_connection_id".to_string()),
@@ -430,7 +430,7 @@ fn test_execute_update_config() {
                     ("transfer_channel_id", "new_transfer_channel_id"),
                     ("sdk_version", "0.47.0"),
                     ("timeout", "101"),
-                    ("native_bond_provider", "native_bond_provider"),
+                    ("factory_contract", "factory_contract"),
                 ])
         )
     );
@@ -442,7 +442,7 @@ fn test_execute_update_config() {
             delegations_queries_chunk_size: 2u32,
             port_id: "new_port_id".to_string(),
             connection_id: "new_connection_id".to_string(),
-            native_bond_provider: Addr::unchecked("native_bond_provider"),
+            factory_contract: Addr::unchecked("factory_contract"),
             update_period: 121u64,
             remote_denom: "new_remote_denom".to_string(),
             allowed_senders: vec![Addr::unchecked("new_allowed_sender")],
@@ -2401,25 +2401,22 @@ fn test_sudo_response_ok() {
             .add_message(CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
                 contract_addr: "reply_to_contract".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PeripheralHook(
-                    Box::new(drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(
-                        drop_puppeteer_base::peripheral_hook::ResponseHookSuccessMsg {
-                            request_id: 1,
-                            local_height: 12345,
-                            remote_height: 54321,
-                            request,
-                            transaction,
-                            answers: vec![drop_puppeteer_base::peripheral_hook::ResponseAnswer::IBCTransfer(
-                                drop_puppeteer_base::proto::MsgIBCTransfer {}
-                            )]
-                        }
-                    ))
+                    Box::new(
+                        drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(
+                            drop_puppeteer_base::peripheral_hook::ResponseHookSuccessMsg {
+                                local_height: 12345,
+                                remote_height: 54321,
+                                transaction,
+                            }
+                        )
+                    )
                 ))
                 .unwrap(),
                 funds: vec![]
             }))
             .add_event(
                 Event::new("puppeteer-sudo-response")
-                    .add_attributes(vec![("action", "sudo_response"), ("request_id", "1")])
+                    .add_attributes(vec![("action", "sudo_response")])
             )
     );
     let ica = puppeteer_base.ica.load(deps.as_ref().storage).unwrap();
@@ -2491,8 +2488,6 @@ fn test_sudo_response_error() {
                     Box::new(
                         drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(
                             drop_puppeteer_base::peripheral_hook::ResponseHookErrorMsg {
-                                request_id: 1,
-                                request,
                                 transaction,
                                 details: "some shit happened".to_string()
                             }
@@ -2600,8 +2595,6 @@ fn test_sudo_response_timeout() {
                     Box::new(
                         drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(
                             drop_puppeteer_base::peripheral_hook::ResponseHookErrorMsg {
-                                request_id: 1,
-                                request,
                                 transaction,
                                 details: "Timeout".to_string()
                             }
@@ -3108,103 +3101,6 @@ fn test_reply_kv_unbonding_delegations() {
     }
 }
 
-#[test]
-#[allow(deprecated)]
-fn test_get_answers_from_msg_data() {
-    let deps = mock_dependencies(&[]);
-    {
-        let res = crate::contract::get_answers_from_msg_data(
-            deps.as_ref(),
-            cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxMsgData {
-                msg_responses: vec![],
-                data: vec![cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
-                    msg_type: "incorrect_cosmos_msg_type".to_string(),
-                    data: vec![],
-                }],
-            },
-        )
-        .unwrap();
-        assert_eq!(
-            res,
-            vec![drop_puppeteer_base::peripheral_hook::ResponseAnswer::UnknownResponse {}]
-        );
-    }
-    {
-        let res = crate::contract::get_answers_from_msg_data(
-            deps.as_ref(),
-            cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxMsgData {
-                msg_responses: vec![],
-                data: vec![
-                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
-                        msg_type: "/cosmos.staking.v1beta1.MsgDelegate".to_string(),
-                        data: (drop_proto::proto::liquidstaking::staking::v1beta1::MsgDelegateResponse {})
-                            .encode_to_vec(),
-                    },
-                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
-                        msg_type: "/cosmos.staking.v1beta1.MsgUndelegate".to_string(),
-                        data: (drop_proto::proto::liquidstaking::staking::v1beta1::MsgUndelegateResponse {
-                            completion_time: None,
-                        })
-                        .encode_to_vec(),
-                    },
-                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
-                        msg_type: "/cosmos.staking.v1beta1.MsgTokenizeShares".to_string(),
-                        data:
-                            (drop_proto::proto::liquidstaking::staking::v1beta1::MsgTokenizeSharesResponse {
-                                amount: None,
-                            })
-                            .encode_to_vec(),
-                    },
-                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
-                        msg_type: "/cosmos.staking.v1beta1.MsgBeginRedelegate".to_string(),
-                        data: (drop_proto::proto::liquidstaking::staking::v1beta1::MsgBeginRedelegateResponse {
-                            completion_time: None
-                        })
-                            .encode_to_vec(),
-                    },
-                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
-                        msg_type: "/cosmos.staking.v1beta1.MsgRedeemTokensForShares".to_string(),
-                        data: (drop_proto::proto::liquidstaking::staking::v1beta1::MsgRedeemTokensforSharesResponse {
-                            amount: None
-                        }).encode_to_vec()
-                    },
-                    cosmos_sdk_proto::cosmos::base::abci::v1beta1::MsgData {
-                        msg_type: "/cosmos.bank.v1beta1.MsgSend".to_string(),
-                        data: (cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSendResponse {}).encode_to_vec()
-                    },
-                ],
-            },
-        ).unwrap();
-        assert_eq!(
-            res,
-            vec![
-                drop_puppeteer_base::peripheral_hook::ResponseAnswer::DelegateResponse(
-                    drop_puppeteer_base::proto::MsgDelegateResponse {}
-                ),
-                drop_puppeteer_base::peripheral_hook::ResponseAnswer::UndelegateResponse(
-                    drop_puppeteer_base::proto::MsgUndelegateResponse {
-                        completion_time: None,
-                    }
-                ),
-                drop_puppeteer_base::peripheral_hook::ResponseAnswer::TokenizeSharesResponse(
-                    drop_puppeteer_base::proto::MsgTokenizeSharesResponse { amount: None }
-                ),
-                drop_puppeteer_base::peripheral_hook::ResponseAnswer::BeginRedelegateResponse(
-                    drop_puppeteer_base::proto::MsgBeginRedelegateResponse {
-                        completion_time: None
-                    }
-                ),
-                drop_puppeteer_base::peripheral_hook::ResponseAnswer::RedeemTokensforSharesResponse(
-                    drop_puppeteer_base::proto::MsgRedeemTokensforSharesResponse { amount: None }
-                ),
-                drop_puppeteer_base::peripheral_hook::ResponseAnswer::TransferResponse(
-                    drop_puppeteer_base::proto::MsgSendResponse {}
-                )
-            ]
-        );
-    }
-}
-
 mod register_delegations_and_balance_query {
     use cosmwasm_std::{testing::MockApi, MemoryStorage, OwnedDeps, StdResult};
     use drop_helpers::testing::WasmMockQuerier;
@@ -3408,7 +3304,7 @@ fn get_base_config(sdk_version: String) -> Config {
         delegations_queries_chunk_size: 2u32,
         port_id: "port_id".to_string(),
         connection_id: "connection_id".to_string(),
-        native_bond_provider: Addr::unchecked("native_bond_provider"),
+        factory_contract: Addr::unchecked("factory_contract"),
         update_period: 60u64,
         remote_denom: "remote_denom".to_string(),
         allowed_senders: vec![Addr::unchecked("allowed_sender")],

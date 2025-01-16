@@ -16,6 +16,7 @@ import { StdFee } from "@cosmjs/amino";
 export type Uint128 = string;
 export type Boolean = boolean;
 export type Boolean1 = boolean;
+export type Boolean2 = boolean;
 /**
  * A human readable address.
  *
@@ -233,6 +234,7 @@ export interface DropLsmShareBondProviderSchema {
     | Uint128
     | Boolean
     | Boolean1
+    | Boolean2
     | Config
     | ArrayOfTupleOfStringAndTupleOfStringAndUint128
     | LastPuppeteerResponse
@@ -246,15 +248,13 @@ export interface DropLsmShareBondProviderSchema {
   [k: string]: unknown;
 }
 export interface Config {
-  core_contract: Addr;
+  factory_contract: Addr;
   lsm_min_bond_amount: Uint1281;
   lsm_redeem_maximum_interval: number;
   lsm_redeem_threshold: number;
   port_id: string;
-  puppeteer_contract: Addr;
   timeout: number;
   transfer_channel_id: string;
-  validators_set_contract: Addr;
 }
 export interface LastPuppeteerResponse {
   response?: ResponseHookMsg | null;
@@ -360,27 +360,23 @@ export interface UpdateConfigArgs {
   new_config: ConfigOptional;
 }
 export interface ConfigOptional {
-  core_contract?: Addr | null;
+  factory_contract?: Addr | null;
   lsm_min_bond_amount?: Uint1281 | null;
   lsm_redeem_maximum_interval?: number | null;
   lsm_redeem_threshold?: number | null;
   port_id?: string | null;
-  puppeteer_contract?: Addr | null;
   timeout?: number | null;
   transfer_channel_id?: string | null;
-  validators_set_contract?: Addr | null;
 }
 export interface InstantiateMsg {
-  core_contract: string;
+  factory_contract: string;
   lsm_min_bond_amount: Uint1281;
   lsm_redeem_maximum_interval: number;
   lsm_redeem_threshold: number;
   owner: string;
   port_id: string;
-  puppeteer_contract: string;
   timeout: number;
   transfer_channel_id: string;
-  validators_set_contract: string;
 }
 
 
@@ -455,6 +451,9 @@ export class Client {
   }
   queryAsyncTokensAmount = async(): Promise<Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { async_tokens_amount: {} });
+  }
+  queryCanBeRemoved = async(): Promise<Boolean> => {
+    return this.client.queryContractSmart(this.contractAddress, { can_be_removed: {} });
   }
   queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });

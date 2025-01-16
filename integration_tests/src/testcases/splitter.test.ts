@@ -76,7 +76,11 @@ describe('Splitter', () => {
     const { client, account } = context;
     const { codeId } = await client.upload(
       account.address,
-      fs.readFileSync(join(__dirname, '../../../artifacts/drop_splitter.wasm')),
+      Uint8Array.from(
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+        ),
+      ),
       1.5,
     );
     const { contractAddress } = await DropSplitter.Client.instantiate(

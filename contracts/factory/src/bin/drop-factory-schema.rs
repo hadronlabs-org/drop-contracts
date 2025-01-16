@@ -1,5 +1,5 @@
 use cosmwasm_schema::write_api;
-use drop_factory::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
+use drop_staking_base::msg::factory::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 
 fn main() {
     write_api! {

@@ -292,7 +292,9 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_core.wasm')),
+        Uint8Array.from(
+          fs.readFileSync(join(__dirname, '../../../artifacts/drop_core.wasm')),
+        ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -301,7 +303,11 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_token.wasm')),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_token.wasm'),
+          ),
+        ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -310,8 +316,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
+          ),
         ),
         1.5,
       );
@@ -321,8 +329,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_withdrawal_manager.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_withdrawal_manager.wasm'),
+          ),
         ),
         1.5,
       );
@@ -332,7 +342,9 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+        Uint8Array.from(
+          fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+        ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -341,8 +353,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_strategy.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_strategy.wasm'),
+          ),
         ),
         1.5,
       );
@@ -352,8 +366,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_distribution.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_distribution.wasm'),
+          ),
         ),
         1.5,
       );
@@ -363,8 +379,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
+          ),
         ),
         1.5,
       );
@@ -374,8 +392,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_puppeteer.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_puppeteer.wasm'),
+          ),
         ),
         1.5,
       );
@@ -385,8 +405,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
+          ),
         ),
         1.5,
       );
@@ -396,8 +418,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+          ),
         ),
         1.5,
       );
@@ -407,10 +431,12 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../../artifacts/drop_redemption_rate_adapter.wasm',
+        Uint8Array.from(
+          fs.readFileSync(
+            join(
+              __dirname,
+              '../../../artifacts/drop_redemption_rate_adapter.wasm',
+            ),
           ),
         ),
         1.5,
@@ -421,10 +447,12 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../../artifacts/drop_lsm_share_bond_provider.wasm',
+        Uint8Array.from(
+          fs.readFileSync(
+            join(
+              __dirname,
+              '../../../artifacts/drop_lsm_share_bond_provider.wasm',
+            ),
           ),
         ),
         1.5,
@@ -435,8 +463,13 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_native_bond_provider.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(
+              __dirname,
+              '../../../artifacts/drop_native_bond_provider.wasm',
+            ),
+          ),
         ),
         1.5,
       );
@@ -446,8 +479,10 @@ describe('Core', () => {
     {
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_val_ref.wasm'),
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_val_ref.wasm'),
+          ),
         ),
         1.5,
       );
@@ -457,7 +492,11 @@ describe('Core', () => {
 
     const res = await client.upload(
       account.address,
-      fs.readFileSync(join(__dirname, '../../../artifacts/drop_factory.wasm')),
+      Uint8Array.from(
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_factory.wasm'),
+        ),
+      ),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
@@ -512,7 +551,6 @@ describe('Core', () => {
           unbond_batch_switch_time: 60,
           unbonding_safe_period: 10,
           unbonding_period: 360,
-          bond_limit: '100000',
           icq_update_delay: 5,
         },
         native_bond_params: {
@@ -1116,6 +1154,9 @@ describe('Core', () => {
   });
 
   it('remove lsm share bond provider from the core', async () => {
+    expect(
+      await context.lsmShareBondProviderContractClient.queryCanBeRemoved(),
+    ).toBe(true);
     const res = await context.factoryContractClient.adminExecute(
       context.neutronUserAddress,
       {
@@ -1154,51 +1195,6 @@ describe('Core', () => {
     expect(bondProviders.flat()).toContain(
       context.nativeBondProviderContractClient.contractAddress,
     );
-  });
-
-  it('bond failed as over limit', async () => {
-    const { coreContractClient, neutronUserAddress, neutronIBCDenom } = context;
-    await expect(
-      coreContractClient.bond(neutronUserAddress, {}, 1.6, undefined, [
-        {
-          amount: '500000',
-          denom: neutronIBCDenom,
-        },
-      ]),
-    ).rejects.toThrowError(/Bond limit exceeded/);
-    await checkExchangeRate(context);
-  });
-
-  it('update limit', async () => {
-    const { factoryContractClient, neutronUserAddress } = context;
-    const res = await factoryContractClient.adminExecute(
-      neutronUserAddress,
-      {
-        msgs: [
-          {
-            wasm: {
-              execute: {
-                contract_addr: context.coreContractClient.contractAddress,
-                msg: Buffer.from(
-                  JSON.stringify({
-                    update_config: {
-                      new_config: {
-                        bond_limit: '0',
-                      },
-                    },
-                  }),
-                ).toString('base64'),
-                funds: [],
-              },
-            },
-          },
-        ],
-      },
-      1.5,
-    );
-    expect(res.transactionHash).toHaveLength(64);
-    const config = await context.coreContractClient.queryConfig();
-    expect(config.bond_limit).toBe(null);
   });
 
   it('bond w/o receiver', async () => {
@@ -1247,38 +1243,6 @@ describe('Core', () => {
       amount: String(Math.floor(500_000 / context.exchangeRate)),
     });
     await checkExchangeRate(context);
-  });
-  it('verify bonded amount', async () => {
-    const { coreContractClient } = context;
-    const bonded = await coreContractClient.queryTotalBonded();
-    expect(bonded).toEqual('500000');
-  });
-  it('reset bonded amount', async () => {
-    const { coreContractClient, neutronUserAddress } = context;
-    const res = await context.factoryContractClient.adminExecute(
-      neutronUserAddress,
-      {
-        msgs: [
-          {
-            wasm: {
-              execute: {
-                contract_addr: context.coreContractClient.contractAddress,
-                msg: Buffer.from(
-                  JSON.stringify({
-                    reset_bonded_amount: {},
-                  }),
-                ).toString('base64'),
-                funds: [],
-              },
-            },
-          },
-        ],
-      },
-      1.5,
-    );
-    expect(res.transactionHash).toHaveLength(64);
-    const bonded = await coreContractClient.queryTotalBonded();
-    expect(bonded).toEqual('0');
   });
   it('bond with receiver', async () => {
     const {
@@ -1464,7 +1428,11 @@ describe('Core', () => {
         const { client, account, neutronUserAddress } = context;
         const resUpload = await client.upload(
           account.address,
-          fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+          Uint8Array.from(
+            fs.readFileSync(
+              join(__dirname, '../../../artifacts/drop_pump.wasm'),
+            ),
+          ),
           1.5,
         );
         expect(resUpload.codeId).toBeGreaterThan(0);
@@ -1706,7 +1674,6 @@ describe('Core', () => {
           coreContractClient,
           puppeteerContractClient,
         );
-
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -2132,6 +2099,9 @@ describe('Core', () => {
       let oldBalanceDenoms: string[] = [];
       describe('prepare', () => {
         it('remove native bond provider from the core', async () => {
+          expect(
+            await context.nativeBondProviderContractClient.queryCanBeRemoved(),
+          ).toBe(true);
           const res = await context.factoryContractClient.adminExecute(
             context.neutronUserAddress,
             {
@@ -2688,23 +2658,6 @@ describe('Core', () => {
           token_uri: null,
         });
       });
-      it('bond tokenized share from registered validator', async () => {
-        const { coreContractClient, neutronUserAddress } = context;
-        const res = await coreContractClient.bond(
-          neutronUserAddress,
-          {},
-          1.6,
-          undefined,
-          [
-            {
-              amount: '20000',
-              denom: context.tokenizedDenomOnNeutron,
-            },
-          ],
-        );
-        expect(res.transactionHash).toHaveLength(64);
-        await checkExchangeRate(context);
-      });
       it('try to withdraw from paused manager', async () => {
         const {
           withdrawalVoucherContractClient,
@@ -2997,6 +2950,9 @@ describe('Core', () => {
     describe('fifth cycle (unbond before delegation)', () => {
       describe('prepare', () => {
         it('remove lsm share bond provider from the core', async () => {
+          expect(
+            await context.lsmShareBondProviderContractClient.queryCanBeRemoved(),
+          ).toBe(true);
           const res = await context.factoryContractClient.adminExecute(
             context.neutronUserAddress,
             {

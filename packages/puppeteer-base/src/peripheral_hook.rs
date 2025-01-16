@@ -1,6 +1,5 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Uint128;
-use neutron_sdk::sudo::msg::RequestPacket;
 
 use crate::{
     msg::TransferReadyBatchesMsg,
@@ -25,19 +24,14 @@ pub enum ResponseHookMsg {
 
 #[cw_serde]
 pub struct ResponseHookSuccessMsg {
-    pub request_id: u64,
-    pub request: RequestPacket,
     pub transaction: Transaction,
-    pub answers: Vec<ResponseAnswer>,
     pub local_height: u64,
     pub remote_height: u64,
 }
 
 #[cw_serde]
 pub struct ResponseHookErrorMsg {
-    pub request_id: u64,
     pub transaction: Transaction,
-    pub request: RequestPacket,
     pub details: String,
 }
 

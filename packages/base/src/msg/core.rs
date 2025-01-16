@@ -11,19 +11,13 @@ use drop_puppeteer_base::peripheral_hook::ResponseHookMsg as PuppeteerResponseHo
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub token_contract: String,
-    pub puppeteer_contract: String,
-    pub strategy_contract: String,
-    pub withdrawal_voucher_contract: String,
-    pub withdrawal_manager_contract: String,
-    pub validators_set_contract: String,
+    pub factory_contract: String,
     pub base_denom: String,
     pub remote_denom: String,
     pub idle_min_interval: u64,        //seconds
     pub unbonding_period: u64,         //seconds
     pub unbonding_safe_period: u64,    //seconds
     pub unbond_batch_switch_time: u64, //seconds
-    pub bond_limit: Option<Uint128>,
     pub pump_ica_address: Option<String>,
     pub transfer_channel_id: String,
     pub owner: String,
@@ -34,15 +28,7 @@ pub struct InstantiateMsg {
 impl InstantiateMsg {
     pub fn into_config(self, deps: Deps) -> ContractResult<Config> {
         Ok(Config {
-            token_contract: deps.api.addr_validate(&self.token_contract)?,
-            puppeteer_contract: deps.api.addr_validate(&self.puppeteer_contract)?,
-            strategy_contract: deps.api.addr_validate(&self.strategy_contract)?,
-            withdrawal_voucher_contract: deps
-                .api
-                .addr_validate(&self.withdrawal_voucher_contract)?,
-            withdrawal_manager_contract: deps
-                .api
-                .addr_validate(&self.withdrawal_manager_contract)?,
+            factory_contract: deps.api.addr_validate(&self.factory_contract)?,
             base_denom: self.base_denom,
             remote_denom: self.remote_denom,
             idle_min_interval: self.idle_min_interval,
@@ -50,12 +36,6 @@ impl InstantiateMsg {
             unbonding_period: self.unbonding_period,
             pump_ica_address: self.pump_ica_address,
             transfer_channel_id: self.transfer_channel_id,
-            validators_set_contract: deps.api.addr_validate(&self.validators_set_contract)?,
-            bond_limit: match self.bond_limit {
-                None => None,
-                Some(limit) if limit.is_zero() => None,
-                Some(limit) => Some(limit),
-            },
             unbond_batch_switch_time: self.unbond_batch_switch_time,
             emergency_address: self.emergency_address,
             icq_update_delay: self.icq_update_delay,
@@ -133,7 +113,6 @@ pub enum ExecuteMsg {
         withdrawn_amount: Uint128,
     },
     PeripheralHook(Box<PuppeteerResponseHookMsg>),
-    ResetBondedAmount {},
     ProcessEmergencyBatch {
         batch_id: u128,
         unbonded_amount: Uint128,
