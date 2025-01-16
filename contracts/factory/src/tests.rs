@@ -1,3 +1,6 @@
+use crate::contract::{
+    get_contract_config_owner, get_contract_version, validate_contract_metadata,
+};
 use crate::msg::Factory;
 use crate::state::{FactoryType, RemoteCodeIds, FACTORY_TYPE};
 use crate::{
@@ -8,6 +11,7 @@ use crate::{
     },
     state::{CodeIds, RemoteOpts, State, Timeout, STATE},
 };
+use cosmwasm_std::Binary;
 use cosmwasm_std::{
     attr, from_json,
     testing::{mock_env, mock_info},
@@ -1500,6 +1504,285 @@ fn test_transfer_ownership() {
             owner: Some(cosmwasm_std::Addr::unchecked("new_owner".to_string())),
             pending_expiry: None,
             pending_owner: None
+        }
+    );
+}
+
+#[test]
+fn test_get_contract_version() {
+    let mut deps = mock_dependencies(&[]);
+
+    let contract_addr = "cosmos2contract";
+
+    let expected_data = cw2::ContractVersion {
+        contract: contract_addr.to_string(),
+        version: "1.0.0".to_string(),
+    };
+
+    let query_response = to_json_binary(&expected_data).unwrap();
+    deps.querier
+        .add_wasm_query_response(contract_addr, move |key| {
+            let key_string = std::str::from_utf8(key.as_slice()).unwrap();
+            assert_eq!(key_string, "contract_info");
+            cosmwasm_std::ContractResult::Ok(query_response.clone())
+        });
+
+    let response = get_contract_version(
+        deps.as_ref().into_empty(),
+        &cosmwasm_std::Addr::unchecked(contract_addr),
+    )
+    .unwrap();
+    assert_eq!(response, expected_data);
+}
+
+#[test]
+fn test_get_contract_version_failed() {
+    let mut deps = mock_dependencies(&[]);
+
+    let contract_addr = "cosmos2contract";
+
+    deps.querier.add_wasm_query_response(contract_addr, |_| {
+        cosmwasm_std::ContractResult::Ok(Binary::from(vec![]))
+    });
+
+    let error = get_contract_version(
+        deps.as_ref().into_empty(),
+        &cosmwasm_std::Addr::unchecked(contract_addr),
+    )
+    .unwrap_err();
+    assert_eq!(error, crate::error::ContractError::AbsentContractVersion {});
+}
+
+#[test]
+fn test_get_contract_config_owner() {
+    let mut deps = mock_dependencies(&[]);
+
+    let contract_addr = "cosmos2contract";
+
+    let contract_owner = "owner";
+
+    deps.querier.add_wasm_query_response(contract_addr, |_| {
+        cosmwasm_std::ContractResult::Ok(to_json_binary(&contract_owner.to_string()).unwrap())
+    });
+
+    let response = get_contract_config_owner(
+        deps.as_ref().into_empty(),
+        &cosmwasm_std::Addr::unchecked(contract_addr),
+    )
+    .unwrap();
+    assert_eq!(response, contract_owner);
+}
+
+#[test]
+fn test_validate_contract_metadata() {
+    let mut deps = mock_dependencies(&[]);
+
+    let contract_addr = "cosmos2contract";
+    let mocked_env = mock_env();
+
+    deps.querier
+        .add_wasm_query_response(contract_addr, move |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&cw2::ContractVersion {
+                    contract: "contract_name".to_string(),
+                    version: "1.0.0".to_string(),
+                })
+                .unwrap(),
+            )
+        });
+
+    let contract_address = mocked_env.contract.address.to_string();
+    let contract_admin = contract_address.clone();
+
+    deps.querier
+        .add_wasm_query_response(contract_addr, move |_| {
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&contract_address).unwrap())
+        });
+
+    deps.querier
+        .add_wasm_query_response(contract_addr, move |_| {
+            let mut response = cosmwasm_std::ContractInfoResponse::default();
+            response.admin = Some(contract_admin.clone());
+
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&response).unwrap())
+        });
+
+    let response = validate_contract_metadata(
+        deps.as_ref().into_empty(),
+        mocked_env,
+        &cosmwasm_std::Addr::unchecked(contract_addr),
+        "contract_name".to_string(),
+    )
+    .unwrap();
+    assert_eq!(response, ());
+}
+
+#[test]
+fn test_validate_contract_metadata_wrong_contract_name() {
+    let mut deps = mock_dependencies(&[]);
+
+    let contract_addr = "cosmos2contract";
+    let mocked_env = mock_env();
+
+    deps.querier
+        .add_wasm_query_response(contract_addr, move |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&cw2::ContractVersion {
+                    contract: "wrong_name".to_string(),
+                    version: "1.0.0".to_string(),
+                })
+                .unwrap(),
+            )
+        });
+
+    let error = validate_contract_metadata(
+        deps.as_ref().into_empty(),
+        mocked_env,
+        &cosmwasm_std::Addr::unchecked(contract_addr),
+        "contract_name".to_string(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        error,
+        crate::error::ContractError::InvalidContractName {
+            expected: "contract_name".to_string(),
+            actual: "wrong_name".to_string()
+        }
+    );
+}
+
+#[test]
+fn test_validate_contract_metadata_wrong_owner() {
+    let mut deps = mock_dependencies(&[]);
+
+    let contract_addr = "cosmos2contract";
+    let mocked_env = mock_env();
+
+    deps.querier
+        .add_wasm_query_response(contract_addr, move |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&cw2::ContractVersion {
+                    contract: "contract_name".to_string(),
+                    version: "1.0.0".to_string(),
+                })
+                .unwrap(),
+            )
+        });
+
+    deps.querier
+        .add_wasm_query_response(contract_addr, move |_| {
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&"wrong_owner_address").unwrap())
+        });
+
+    let error = validate_contract_metadata(
+        deps.as_ref().into_empty(),
+        mocked_env,
+        &cosmwasm_std::Addr::unchecked(contract_addr),
+        "contract_name".to_string(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        error,
+        crate::error::ContractError::InvalidContractOwner {
+            expected: "cosmos2contract".to_string(),
+            actual: "wrong_owner_address".to_string()
+        }
+    );
+}
+
+#[test]
+fn test_validate_contract_metadata_wrong_admin() {
+    let mut deps = mock_dependencies(&[]);
+
+    let contract_addr = "cosmos2contract";
+    let mocked_env = mock_env();
+
+    deps.querier
+        .add_wasm_query_response(contract_addr, move |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&cw2::ContractVersion {
+                    contract: "contract_name".to_string(),
+                    version: "1.0.0".to_string(),
+                })
+                .unwrap(),
+            )
+        });
+
+    let contract_address = mocked_env.contract.address.to_string();
+
+    deps.querier
+        .add_wasm_query_response(contract_addr, move |_| {
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&contract_address).unwrap())
+        });
+
+    deps.querier
+        .add_wasm_query_response(contract_addr, move |_| {
+            let mut response = cosmwasm_std::ContractInfoResponse::default();
+            response.admin = Some("wrong_contract_admin".to_string());
+
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&response).unwrap())
+        });
+
+    let error = validate_contract_metadata(
+        deps.as_ref().into_empty(),
+        mocked_env,
+        &cosmwasm_std::Addr::unchecked(contract_addr),
+        "contract_name".to_string(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        error,
+        crate::error::ContractError::InvalidContractAdmin {
+            expected: "cosmos2contract".to_string(),
+            actual: "wrong_contract_admin".to_string()
+        }
+    );
+}
+
+#[test]
+fn test_validate_contract_metadata_empty_admin() {
+    let mut deps = mock_dependencies(&[]);
+
+    let contract_addr = "cosmos2contract";
+    let mocked_env = mock_env();
+
+    deps.querier
+        .add_wasm_query_response(contract_addr, move |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&cw2::ContractVersion {
+                    contract: "contract_name".to_string(),
+                    version: "1.0.0".to_string(),
+                })
+                .unwrap(),
+            )
+        });
+
+    let contract_address = mocked_env.contract.address.to_string();
+
+    deps.querier
+        .add_wasm_query_response(contract_addr, move |_| {
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&contract_address).unwrap())
+        });
+
+    deps.querier
+        .add_wasm_query_response(contract_addr, move |_| {
+            let response = cosmwasm_std::ContractInfoResponse::default();
+
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&response).unwrap())
+        });
+
+    let error = validate_contract_metadata(
+        deps.as_ref().into_empty(),
+        mocked_env,
+        &cosmwasm_std::Addr::unchecked(contract_addr),
+        "contract_name".to_string(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        error,
+        crate::error::ContractError::InvalidContractAdmin {
+            expected: "cosmos2contract".to_string(),
+            actual: "None".to_string()
         }
     );
 }

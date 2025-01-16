@@ -1,3 +1,5 @@
+use crate::error::ContractError;
+use crate::msg::OwnerQueryMsg;
 use crate::state::FactoryType;
 use crate::{
     error::ContractResult,
@@ -8,9 +10,10 @@ use crate::{
     state::{State, FACTORY_TYPE, STATE},
 };
 use cosmwasm_std::{
-    attr, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg, Deps, DepsMut,
-    Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
+    attr, from_json, instantiate2_address, to_json_binary, Addr, Binary, CodeInfoResponse,
+    CosmosMsg, Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
+use cw2::ContractVersion;
 use drop_helpers::answer::response;
 use drop_staking_base::state::splitter::Config as SplitterConfig;
 use drop_staking_base::{
@@ -712,4 +715,66 @@ fn get_splitter_receivers(
         }
         None => Ok(vec![(bond_provider_address, PERCENT_PRECISION)]),
     }
+}
+
+pub fn get_contract_version(deps: Deps, contract_addr: &Addr) -> ContractResult<ContractVersion> {
+    let contract_version = deps
+        .querier
+        .query_wasm_raw(contract_addr, b"contract_info")?;
+
+    if let Some(contract_version) = contract_version {
+        return Ok(from_json(&contract_version)?);
+    }
+
+    Err(ContractError::AbsentContractVersion {})
+}
+
+pub fn get_contract_config_owner(deps: Deps, contract_addr: &Addr) -> ContractResult<String> {
+    let contract_owner: String = deps
+        .querier
+        .query_wasm_smart(contract_addr, &OwnerQueryMsg::Owner {})?;
+
+    Ok(contract_owner)
+}
+
+pub fn validate_contract_metadata(
+    deps: Deps,
+    env: Env,
+    contract_addr: &Addr,
+    contract_name: String,
+) -> ContractResult<()> {
+    let contract_version = get_contract_version(deps, contract_addr)?;
+
+    if contract_version.contract.clone() != contract_name {
+        return Err(ContractError::InvalidContractName {
+            expected: contract_name,
+            actual: contract_version.contract,
+        });
+    }
+
+    let contract_config_owner = get_contract_config_owner(deps, contract_addr)?;
+    if contract_config_owner != env.contract.address.to_string() {
+        return Err(ContractError::InvalidContractOwner {
+            expected: env.contract.address.to_string(),
+            actual: contract_config_owner,
+        });
+    }
+
+    let contract_info = deps.querier.query_wasm_contract_info(contract_addr)?;
+
+    if let Some(contract_admin) = contract_info.admin {
+        if contract_admin != env.contract.address {
+            return Err(ContractError::InvalidContractAdmin {
+                expected: env.contract.address.to_string(),
+                actual: contract_admin.to_string(),
+            });
+        }
+    } else {
+        return Err(ContractError::InvalidContractAdmin {
+            expected: env.contract.address.to_string(),
+            actual: "None".to_string(),
+        });
+    }
+
+    Ok(())
 }

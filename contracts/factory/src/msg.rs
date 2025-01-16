@@ -108,3 +108,8 @@ pub enum QueryMsg {
     #[returns(crate::state::PauseInfoResponse)]
     PauseInfo {},
 }
+
+#[cw_serde]
+pub enum OwnerQueryMsg {
+    Owner {},
+}
