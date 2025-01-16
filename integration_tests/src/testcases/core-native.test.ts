@@ -435,7 +435,6 @@ describe('Core', () => {
         },
         remote_opts: {
           connection_id: 'connection-0',
-          port_id: 'transfer',
           denom: 'stake',
           timeout: {
             local: 60,
@@ -461,10 +460,6 @@ describe('Core', () => {
           unbonding_period: 360,
           bond_limit: null,
           icq_update_delay: 5,
-        },
-        native_bond_params: {
-          min_stake_amount: '10000',
-          min_ibc_transfer: '10000',
         },
         factory: {
           native: {

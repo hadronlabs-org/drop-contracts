@@ -26,7 +26,6 @@ pub struct RemoteCodeIds {
 pub struct RemoteOpts {
     pub denom: String,
     pub connection_id: String,
-    pub port_id: String,
     pub timeout: Timeout,
 }
 

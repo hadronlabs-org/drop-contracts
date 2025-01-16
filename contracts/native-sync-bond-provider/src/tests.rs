@@ -7,8 +7,9 @@ use cosmwasm_std::{
 use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
 use drop_helpers::testing::mock_dependencies;
-use drop_staking_base::state::native_bond_provider::{
-    Config, ConfigOptional, CONFIG, NON_STAKED_BALANCE,
+use drop_staking_base::{
+    msg::native_sync_bond_provider::ConfigOptional,
+    state::native_sync_bond_provider::{Config, CONFIG, NON_STAKED_BALANCE},
 };
 
 fn get_default_config() -> Config {
@@ -17,11 +18,6 @@ fn get_default_config() -> Config {
         core_contract: Addr::unchecked("core_contract"),
         strategy_contract: Addr::unchecked("strategy_contract"),
         base_denom: "base_denom".to_string(),
-        min_ibc_transfer: Uint128::from(100u128),
-        min_stake_amount: Uint128::from(100u128),
-        port_id: "port_id".to_string(),
-        transfer_channel_id: "transfer_channel_id".to_string(),
-        timeout: 100u64,
     }
 }
 
@@ -32,17 +28,12 @@ fn instantiate() {
         deps.as_mut(),
         mock_env(),
         mock_info("admin", &[]),
-        drop_staking_base::msg::native_bond_provider::InstantiateMsg {
+        drop_staking_base::msg::native_sync_bond_provider::InstantiateMsg {
             owner: "owner".to_string(),
             base_denom: "base_denom".to_string(),
             puppeteer_contract: "puppeteer_contract".to_string(),
             core_contract: "core_contract".to_string(),
             strategy_contract: "strategy_contract".to_string(),
-            min_ibc_transfer: Uint128::from(100u128),
-            min_stake_amount: Uint128::from(100u128),
-            port_id: "port_id".to_string(),
-            transfer_channel_id: "transfer_channel_id".to_string(),
-            timeout: 100u64,
         },
     )
     .unwrap();
@@ -60,12 +51,7 @@ fn instantiate() {
                     attr("puppeteer_contract", "puppeteer_contract"),
                     attr("core_contract", "core_contract"),
                     attr("strategy_contract", "strategy_contract"),
-                    attr("min_ibc_transfer", Uint128::from(100u128)),
-                    attr("min_stake_amount", Uint128::from(100u128)),
                     attr("base_denom", "base_denom"),
-                    attr("port_id", "port_id"),
-                    attr("transfer_channel_id", "transfer_channel_id"),
-                    attr("timeout", "100"),
                 ])
         ]
     );
@@ -75,14 +61,14 @@ fn instantiate() {
 #[test]
 fn query_config() {
     let mut deps = mock_dependencies(&[]);
-    drop_staking_base::state::native_bond_provider::CONFIG
+    CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let response = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::Config {},
+        drop_staking_base::msg::native_sync_bond_provider::QueryMsg::Config {},
     )
     .unwrap();
     assert_eq!(response, to_json_binary(&get_default_config()).unwrap());
@@ -94,7 +80,7 @@ fn update_config_wrong_owner() {
 
     let deps_mut = deps.as_mut();
 
-    drop_staking_base::state::native_bond_provider::CONFIG
+    CONFIG
         .save(deps_mut.storage, &get_default_config())
         .unwrap();
 
@@ -108,17 +94,12 @@ fn update_config_wrong_owner() {
         deps.as_mut(),
         mock_env(),
         mock_info("core1", &[]),
-        drop_staking_base::msg::native_bond_provider::ExecuteMsg::UpdateConfig {
+        drop_staking_base::msg::native_sync_bond_provider::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 base_denom: Some("base_denom".to_string()),
-                puppeteer_contract: Some(Addr::unchecked("puppeteer_contract")),
-                core_contract: Some(Addr::unchecked("core_contract")),
-                strategy_contract: Some(Addr::unchecked("strategy_contract")),
-                min_ibc_transfer: Some(Uint128::from(100u128)),
-                min_stake_amount: Some(Uint128::from(100u128)),
-                port_id: Some("port_id".to_string()),
-                transfer_channel_id: Some("transfer_channel_id".to_string()),
-                timeout: Some(100u64),
+                puppeteer_contract: Some(String::from("puppeteer_contract")),
+                core_contract: Some(String::from("core_contract")),
+                strategy_contract: Some(String::from("strategy_contract")),
             },
         },
     )
@@ -143,7 +124,7 @@ fn update_config_ok() {
         Some(Addr::unchecked("core").as_ref()),
     );
 
-    drop_staking_base::state::native_bond_provider::CONFIG
+    CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
@@ -151,17 +132,12 @@ fn update_config_ok() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        drop_staking_base::msg::native_bond_provider::ExecuteMsg::UpdateConfig {
+        drop_staking_base::msg::native_sync_bond_provider::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 base_denom: Some("base_denom_1".to_string()),
-                puppeteer_contract: Some(Addr::unchecked("puppeteer_contract_1")),
-                core_contract: Some(Addr::unchecked("core_contract_1")),
-                strategy_contract: Some(Addr::unchecked("strategy_contract_1")),
-                min_ibc_transfer: Some(Uint128::from(90u128)),
-                min_stake_amount: Some(Uint128::from(90u128)),
-                port_id: Some("port_id_1".to_string()),
-                transfer_channel_id: Some("transfer_channel_id_1".to_string()),
-                timeout: Some(90u64),
+                puppeteer_contract: Some(String::from("puppeteer_contract_1")),
+                core_contract: Some(String::from("core_contract_1")),
+                strategy_contract: Some(String::from("strategy_contract_1")),
             },
         },
     )
@@ -176,11 +152,6 @@ fn update_config_ok() {
                     attr("core_contract", "core_contract_1"),
                     attr("strategy_contract", "strategy_contract_1"),
                     attr("base_denom", "base_denom_1"),
-                    attr("min_ibc_transfer", Uint128::from(90u128)),
-                    attr("min_stake_amount", Uint128::from(90u128)),
-                    attr("port_id", "port_id_1"),
-                    attr("transfer_channel_id", "transfer_channel_id_1"),
-                    attr("timeout", "90"),
                 ])
         ]
     );
@@ -189,21 +160,16 @@ fn update_config_ok() {
     let config = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::Config {},
+        drop_staking_base::msg::native_sync_bond_provider::QueryMsg::Config {},
     )
     .unwrap();
     assert_eq!(
         config,
-        to_json_binary(&drop_staking_base::state::native_bond_provider::Config {
+        to_json_binary(&Config {
             puppeteer_contract: Addr::unchecked("puppeteer_contract_1"),
             core_contract: Addr::unchecked("core_contract_1"),
             strategy_contract: Addr::unchecked("strategy_contract_1"),
             base_denom: "base_denom_1".to_string(),
-            min_ibc_transfer: Uint128::from(90u128),
-            min_stake_amount: Uint128::from(90u128),
-            port_id: "port_id_1".to_string(),
-            transfer_channel_id: "transfer_channel_id_1".to_string(),
-            timeout: 90u64,
         })
         .unwrap()
     );
@@ -225,7 +191,7 @@ fn query_ownership() {
     let response = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::Ownership {},
+        drop_staking_base::msg::native_sync_bond_provider::QueryMsg::Ownership {},
     )
     .unwrap();
 
@@ -244,14 +210,14 @@ fn query_ownership() {
 fn query_can_bond_ok() {
     let mut deps = mock_dependencies(&[]);
 
-    drop_staking_base::state::native_bond_provider::CONFIG
+    CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let can_bond = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::CanBond {
+        drop_staking_base::msg::native_sync_bond_provider::QueryMsg::CanBond {
             denom: "base_denom".to_string(),
         },
     )
@@ -264,14 +230,14 @@ fn query_can_bond_ok() {
 fn query_can_bond_false() {
     let mut deps = mock_dependencies(&[]);
 
-    drop_staking_base::state::native_bond_provider::CONFIG
+    CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let can_bond = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::CanBond {
+        drop_staking_base::msg::native_sync_bond_provider::QueryMsg::CanBond {
             denom: "wrong_denom".to_string(),
         },
     )
@@ -302,16 +268,16 @@ fn query_can_process_on_idle_false_if_no_funds_to_process() {
     let error = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::CanProcessOnIdle {},
+        drop_staking_base::msg::native_sync_bond_provider::QueryMsg::CanProcessOnIdle {},
     )
     .unwrap_err();
 
     assert_eq!(
         error,
         drop_staking_base::error::native_bond_provider::ContractError::NotEnoughToProcessIdle {
-            min_stake_amount: Uint128::from(100u128),
+            min_stake_amount: Uint128::new(1),
             non_staked_balance: Uint128::from(0u128),
-            min_ibc_transfer: Uint128::from(100u128),
+            min_ibc_transfer: Uint128::new(0),
             pending_coins: Uint128::zero()
         }
     );
@@ -332,7 +298,7 @@ fn query_can_process_on_idle_enough_non_staked_balance() {
     let res = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::CanProcessOnIdle {},
+        drop_staking_base::msg::native_sync_bond_provider::QueryMsg::CanProcessOnIdle {},
     )
     .unwrap();
 
@@ -363,7 +329,7 @@ fn query_can_process_on_idle_enough_contract_balance() {
     let res = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::CanProcessOnIdle {},
+        drop_staking_base::msg::native_sync_bond_provider::QueryMsg::CanProcessOnIdle {},
     )
     .unwrap();
 
@@ -383,14 +349,14 @@ fn query_can_process_on_idle_enough_contract_balance() {
 fn query_token_amount() {
     let mut deps = mock_dependencies(&[]);
 
-    drop_staking_base::state::native_bond_provider::CONFIG
+    CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let token_amount = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::TokensAmount {
+        drop_staking_base::msg::native_sync_bond_provider::QueryMsg::TokensAmount {
             coin: Coin {
                 denom: "base_denom".to_string(),
                 amount: 100u128.into(),
@@ -407,14 +373,14 @@ fn query_token_amount() {
 fn query_token_amount_half() {
     let mut deps = mock_dependencies(&[]);
 
-    drop_staking_base::state::native_bond_provider::CONFIG
+    CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let token_amount = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::TokensAmount {
+        drop_staking_base::msg::native_sync_bond_provider::QueryMsg::TokensAmount {
             coin: Coin {
                 denom: "base_denom".to_string(),
                 amount: 100u128.into(),
@@ -431,14 +397,14 @@ fn query_token_amount_half() {
 fn query_token_amount_above_one() {
     let mut deps = mock_dependencies(&[]);
 
-    drop_staking_base::state::native_bond_provider::CONFIG
+    CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let token_amount = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::TokensAmount {
+        drop_staking_base::msg::native_sync_bond_provider::QueryMsg::TokensAmount {
             coin: Coin {
                 denom: "base_denom".to_string(),
                 amount: 100u128.into(),
@@ -455,14 +421,14 @@ fn query_token_amount_above_one() {
 fn query_token_amount_wrong_denom() {
     let mut deps = mock_dependencies(&[]);
 
-    drop_staking_base::state::native_bond_provider::CONFIG
+    CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
     let error = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::TokensAmount {
+        drop_staking_base::msg::native_sync_bond_provider::QueryMsg::TokensAmount {
             coin: Coin {
                 denom: "wrong_denom".to_string(),
                 amount: 100u128.into(),
@@ -494,7 +460,7 @@ fn update_ownership() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        drop_staking_base::msg::native_bond_provider::ExecuteMsg::UpdateOwnership(
+        drop_staking_base::msg::native_sync_bond_provider::ExecuteMsg::UpdateOwnership(
             Action::TransferOwnership {
                 new_owner: "new_owner".to_string(),
                 expiry: None,
@@ -506,7 +472,7 @@ fn update_ownership() {
     let response = crate::contract::query(
         deps.as_ref(),
         mock_env(),
-        drop_staking_base::msg::native_bond_provider::QueryMsg::Ownership {},
+        drop_staking_base::msg::native_sync_bond_provider::QueryMsg::Ownership {},
     )
     .unwrap();
 
@@ -533,7 +499,7 @@ fn process_on_idle_not_core_contract() {
         deps.as_mut(),
         mock_env(),
         mock_info("not_core_contract", &[]),
-        drop_staking_base::msg::native_bond_provider::ExecuteMsg::ProcessOnIdle {},
+        drop_staking_base::msg::native_sync_bond_provider::ExecuteMsg::ProcessOnIdle {},
     )
     .unwrap_err();
 
@@ -570,7 +536,7 @@ fn process_on_idle_delegation() {
         deps.as_mut(),
         mock_env(),
         mock_info("core_contract", &[]),
-        drop_staking_base::msg::native_bond_provider::ExecuteMsg::ProcessOnIdle {},
+        drop_staking_base::msg::native_sync_bond_provider::ExecuteMsg::ProcessOnIdle {},
     )
     .unwrap();
 
@@ -621,16 +587,16 @@ fn process_on_idle_not_allowed_if_no_funds() {
         deps.as_mut(),
         mock_env(),
         mock_info("core_contract", &[]),
-        drop_staking_base::msg::native_bond_provider::ExecuteMsg::ProcessOnIdle {},
+        drop_staking_base::msg::native_sync_bond_provider::ExecuteMsg::ProcessOnIdle {},
     )
     .unwrap_err();
 
     assert_eq!(
         error,
         drop_staking_base::error::native_bond_provider::ContractError::NotEnoughToProcessIdle {
-            min_stake_amount: Uint128::from(100u128),
+            min_stake_amount: Uint128::new(1),
             non_staked_balance: Uint128::zero(),
-            min_ibc_transfer: Uint128::from(100u128),
+            min_ibc_transfer: Uint128::new(0),
             pending_coins: Uint128::zero()
         }
     );
@@ -642,7 +608,7 @@ fn execute_bond() {
 
     let deps_mut = deps.as_mut();
 
-    drop_staking_base::state::native_bond_provider::CONFIG
+    CONFIG
         .save(deps_mut.storage, &get_default_config())
         .unwrap();
 
@@ -654,7 +620,7 @@ fn execute_bond() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[Coin::new(100u128, "base_denom")]),
-        drop_staking_base::msg::native_bond_provider::ExecuteMsg::Bond {},
+        drop_staking_base::msg::native_sync_bond_provider::ExecuteMsg::Bond {},
     )
     .unwrap();
     assert_eq!(response.messages.len(), 1);
@@ -685,7 +651,7 @@ fn execute_bond() {
 fn execute_bond_wrong_denom() {
     let mut deps = mock_dependencies(&[]);
 
-    drop_staking_base::state::native_bond_provider::CONFIG
+    CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
@@ -693,7 +659,7 @@ fn execute_bond_wrong_denom() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[Coin::new(100u128, "wrong_denom")]),
-        drop_staking_base::msg::native_bond_provider::ExecuteMsg::Bond {},
+        drop_staking_base::msg::native_sync_bond_provider::ExecuteMsg::Bond {},
     )
     .unwrap_err();
 
@@ -707,7 +673,7 @@ fn execute_bond_wrong_denom() {
 fn execute_bond_no_funds() {
     let mut deps = mock_dependencies(&[]);
 
-    drop_staking_base::state::native_bond_provider::CONFIG
+    CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
@@ -715,7 +681,7 @@ fn execute_bond_no_funds() {
         deps.as_mut(),
         mock_env(),
         mock_info("core", &[]),
-        drop_staking_base::msg::native_bond_provider::ExecuteMsg::Bond {},
+        drop_staking_base::msg::native_sync_bond_provider::ExecuteMsg::Bond {},
     )
     .unwrap_err();
 
@@ -731,7 +697,7 @@ fn execute_bond_no_funds() {
 fn execute_bond_multiple_denoms() {
     let mut deps = mock_dependencies(&[]);
 
-    drop_staking_base::state::native_bond_provider::CONFIG
+    CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
@@ -745,7 +711,7 @@ fn execute_bond_multiple_denoms() {
                 Coin::new(100u128, "second_denom"),
             ],
         ),
-        drop_staking_base::msg::native_bond_provider::ExecuteMsg::Bond {},
+        drop_staking_base::msg::native_sync_bond_provider::ExecuteMsg::Bond {},
     )
     .unwrap_err();
 

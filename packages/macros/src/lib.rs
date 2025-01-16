@@ -251,13 +251,13 @@ pub fn bond_provider_query(metadata: TokenStream, input: TokenStream) -> TokenSt
             .unwrap();
 
             let tokens_amount: Variant = syn::parse2(quote! {
-                #[returns(Decimal)]
-                TokensAmount { coin: Coin, exchange_rate: Decimal }
+                #[returns(cosmwasm_std::Decimal)]
+                TokensAmount { coin: cosmwasm_std::Coin, exchange_rate: cosmwasm_std::Decimal }
             })
             .unwrap();
 
             let async_tokens_amount: Variant = syn::parse2(quote! {
-                #[returns(Uint128)]
+                #[returns(cosmwasm_std::Uint128)]
                 AsyncTokensAmount {}
             })
             .unwrap();

@@ -728,6 +728,9 @@ export type Factory = {
         code_ids: RemoteCodeIds;
         icq_update_period: number;
         lsm_share_bond_params: LsmShareBondParams;
+        min_ibc_transfer: Uint128;
+        min_stake_amount: Uint128;
+        port_id: string;
         reverse_transfer_channel_id: string;
         sdk_version: string;
         transfer_channel_id: string;
@@ -1184,7 +1187,6 @@ export interface InstantiateMsg {
     factory: Factory;
     fee_params?: FeeParams | null;
     local_denom: string;
-    native_bond_params: NativeBondParams;
     remote_opts: RemoteOpts;
     salt: string;
     subdenom: string;
@@ -1224,14 +1226,9 @@ export interface FeeParams {
     fee: Decimal;
     fee_address: string;
 }
-export interface NativeBondParams {
-    min_ibc_transfer: Uint128;
-    min_stake_amount: Uint128;
-}
 export interface RemoteOpts {
     connection_id: string;
     denom: string;
-    port_id: string;
     timeout: Timeout;
 }
 export interface Timeout {

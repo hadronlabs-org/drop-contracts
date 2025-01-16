@@ -3,8 +3,8 @@ use crate::state::{FactoryType, RemoteCodeIds, FACTORY_TYPE};
 use crate::{
     contract::{execute, instantiate, query},
     msg::{
-        CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, LsmShareBondParams, NativeBondParams,
-        QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
+        CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, LsmShareBondParams, QueryMsg,
+        UpdateConfigMsg, ValidatorSetMsg,
     },
     state::{CodeIds, RemoteOpts, State, Timeout, STATE},
 };
@@ -20,6 +20,7 @@ use drop_staking_base::{
         distribution::InstantiateMsg as DistributionInstantiateMsg,
         lsm_share_bond_provider::InstantiateMsg as LsmShareBondProviderInstantiateMsg,
         native_bond_provider::InstantiateMsg as NativeBondProviderInstantiateMsg,
+        native_sync_bond_provider::InstantiateMsg as NativeSyncBondProviderInstantiateMsg,
         pump::InstantiateMsg as RewardsPumpInstantiateMsg,
         puppeteer::{ExecuteMsg as PuppeteerExecuteMsg, InstantiateMsg as PuppeteerInstantiateMsg},
         puppeteer_native::InstantiateMsg as PuppeteerNativeInstantiateMsg,
@@ -93,7 +94,6 @@ fn test_instantiate_native() {
         remote_opts: RemoteOpts {
             denom: "denom".to_string(),
             connection_id: "connection-0".to_string(),
-            port_id: "transfer".to_string(),
             timeout: Timeout {
                 local: 0,
                 remote: 0,
@@ -119,10 +119,6 @@ fn test_instantiate_native() {
             unbond_batch_switch_time: 0,
             bond_limit: Some(Uint128::from(0u64)),
             icq_update_delay: 0,
-        },
-        native_bond_params: NativeBondParams {
-            min_stake_amount: Uint128::from(0u64),
-            min_ibc_transfer: Uint128::from(0u64),
         },
         fee_params: Some(FeeParams {
             fee: cosmwasm_std::Decimal::new(Uint128::from(0u64)),
@@ -341,17 +337,12 @@ fn test_instantiate_native() {
                         admin: Some("factory_contract".to_string()),
                         code_id: 14,
                         label: "drop-staking-native-bond-provider".to_string(),
-                        msg: to_json_binary(&NativeBondProviderInstantiateMsg {
+                        msg: to_json_binary(&NativeSyncBondProviderInstantiateMsg {
                             owner: "factory_contract".to_string(),
                             base_denom: "base_denom".to_string(),
-                            min_stake_amount: Uint128::from(0u64),
-                            min_ibc_transfer: Uint128::from(0u64),
                             puppeteer_contract: "some_humanized_address".to_string(),
                             core_contract: "some_humanized_address".to_string(),
                             strategy_contract: "some_humanized_address".to_string(),
-                            timeout: 0,
-                            transfer_channel_id: "N/A".to_string(),
-                            port_id: "transfer".to_string(),
                         })
                         .unwrap(),
                         funds: vec![],
@@ -414,7 +405,6 @@ fn test_instantiate_remote() {
         remote_opts: RemoteOpts {
             denom: "denom".to_string(),
             connection_id: "connection-0".to_string(),
-            port_id: "transfer".to_string(),
             timeout: Timeout {
                 local: 0,
                 remote: 0,
@@ -441,10 +431,6 @@ fn test_instantiate_remote() {
             bond_limit: Some(Uint128::from(0u64)),
             icq_update_delay: 0,
         },
-        native_bond_params: NativeBondParams {
-            min_stake_amount: Uint128::from(0u64),
-            min_ibc_transfer: Uint128::from(0u64),
-        },
         fee_params: Some(FeeParams {
             fee: cosmwasm_std::Decimal::new(Uint128::from(0u64)),
             fee_address: "fee_address".to_string(),
@@ -462,6 +448,9 @@ fn test_instantiate_remote() {
                 lsm_share_bond_provider_code_id: 13,
             },
             icq_update_period: 0,
+            port_id: "transfer".to_string(),
+            min_stake_amount: Uint128::from(0u64),
+            min_ibc_transfer: Uint128::from(0u64),
         },
     };
     let res = instantiate(
