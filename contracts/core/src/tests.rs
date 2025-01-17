@@ -70,19 +70,23 @@ fn get_default_unbond_batch_status_timestamps() -> UnbondBatchStatusTimestamps {
 fn test_update_config() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.add_wasm_query_response("token_contract", |_| {
-        to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
-            factory_contract: "factory_contract".to_string(),
-            denom: "ld_denom".to_string(),
-        })
-        .unwrap()
-    });
-    deps.querier
-        .add_wasm_query_response("old_token_contract", |_| {
+        cosmwasm_std::ContractResult::Ok(
             to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
                 factory_contract: "factory_contract".to_string(),
                 denom: "ld_denom".to_string(),
             })
-            .unwrap()
+            .unwrap(),
+        )
+    });
+    deps.querier
+        .add_wasm_query_response("old_token_contract", |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
+                    factory_contract: "factory_contract".to_string(),
+                    denom: "ld_denom".to_string(),
+                })
+                .unwrap(),
+            )
         });
     mock_state_query(&mut deps);
     let env = mock_env();
@@ -184,7 +188,9 @@ fn test_bond_provider_has_any_tokens() {
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
 
     deps.querier
-        .add_wasm_query_response("bond_provider_address", |_| to_json_binary(&false).unwrap());
+        .add_wasm_query_response("bond_provider_address", |_| {
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&false).unwrap())
+        });
 
     let error = execute(
         deps.as_mut(),
@@ -310,8 +316,9 @@ fn test_add_remove_bond_provider() {
         to_json_binary::<Vec<(Addr, bool)>>(&vec![]).unwrap()
     );
 
-    deps.querier
-        .add_wasm_query_response("bond_provider", |_| to_json_binary(&true).unwrap());
+    deps.querier.add_wasm_query_response("bond_provider", |_| {
+        cosmwasm_std::ContractResult::Ok(to_json_binary(&true).unwrap())
+    });
 
     let res = execute(
         deps.as_mut(),
@@ -1969,11 +1976,13 @@ fn test_unbond() {
     let mut env = mock_env();
     deps.querier
         .add_wasm_query_response("factory_contract", |_| {
-            to_json_binary(&HashMap::from([
-                ("token_contract", "token_contract"),
-                ("withdrawal_voucher_contract", "withdrawal_voucher_contract"),
-            ]))
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&HashMap::from([
+                    ("token_contract", "token_contract"),
+                    ("withdrawal_voucher_contract", "withdrawal_voucher_contract"),
+                ]))
+                .unwrap(),
+            )
         });
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)

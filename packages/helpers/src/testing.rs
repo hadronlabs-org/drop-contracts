@@ -448,6 +448,6 @@ pub fn mock_state_query(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQueri
                     "native_bond_provider_contract".to_string(),
                 ),
             ]);
-            to_json_binary(&contracts).unwrap()
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&contracts).unwrap())
         });
 }
