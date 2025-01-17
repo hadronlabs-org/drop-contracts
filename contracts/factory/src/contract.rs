@@ -57,6 +57,9 @@ pub fn instantiate(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(info.sender.as_str()))?;
+
+    validate_pre_instantiated_contracts(deps.as_ref(), &env, &msg.pre_instantiated_contracts)?;
+
     FACTORY_TYPE.save(deps.storage, &msg.factory.to_factory_type())?;
 
     let mut attrs = vec![
@@ -737,13 +740,13 @@ pub fn get_contract_config_owner(deps: Deps, contract_addr: &Addr) -> ContractRe
 
 pub fn validate_contract_metadata(
     deps: Deps,
-    env: Env,
+    env: &Env,
     contract_addr: &Addr,
     valid_names: Vec<String>,
 ) -> ContractResult<()> {
     let contract_version = get_contract_version(deps, contract_addr)?;
 
-    if valid_names.contains(&contract_version.contract) {
+    if !valid_names.contains(&contract_version.contract) {
         return Err(ContractError::InvalidContractName {
             expected: valid_names.join(";"),
             actual: contract_version.contract,
@@ -779,30 +782,19 @@ pub fn validate_contract_metadata(
 
 fn validate_pre_instantiated_contracts(
     deps: Deps,
-    env: Env,
+    env: &Env,
     pre_instantiated_contracts: &PreInstantiatedContracts,
 ) -> Result<(), ContractError> {
-    if pre_instantiated_contracts
-        .native_bond_provider_address
-        .is_empty()
-    {
-        return Err(ContractError::InvalidContractAddress {
-            address: pre_instantiated_contracts
-                .native_bond_provider_address
-                .clone(),
-            contract: "native_bond_provider".to_string(),
-        });
-    } else {
-        validate_contract_metadata(
-            deps,
-            env,
-            &pre_instantiated_contracts.native_bond_provider_address,
-            vec![
-                drop_native_bond_provider::contract::CONTRACT_NAME.to_string(),
-                drop_native_sync_bond_provider::contract::CONTRACT_NAME.to_string(),
-            ],
-        )?;
-    }
+    // Validate native bond provider contract
+    validate_contract_metadata(
+        deps,
+        env,
+        &pre_instantiated_contracts.native_bond_provider_address,
+        vec![
+            drop_native_bond_provider::contract::CONTRACT_NAME.to_string(),
+            drop_native_sync_bond_provider::contract::CONTRACT_NAME.to_string(),
+        ],
+    )?;
 
     Ok(())
 }

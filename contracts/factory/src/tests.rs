@@ -2,7 +2,9 @@ use crate::contract::{
     get_contract_config_owner, get_contract_version, validate_contract_metadata,
 };
 use crate::msg::Factory;
-use crate::state::{FactoryType, RemoteCodeIds, FACTORY_TYPE};
+use crate::state::{
+    BondProvider, FactoryType, PreInstantiatedContracts, RemoteCodeIds, FACTORY_TYPE,
+};
 use crate::{
     contract::{execute, instantiate, query},
     msg::{
@@ -59,8 +61,16 @@ fn get_default_factory_state() -> State {
         rewards_manager_contract: "rewards_manager_contract".to_string(),
         rewards_pump_contract: "rewards_pump_contract".to_string(),
         splitter_contract: "splitter_contract".to_string(),
-        lsm_share_bond_provider_contract: Some("lsm_share_bond_provider_contract".to_string()),
-        native_bond_provider_contract: "native_bond_provider_contract".to_string(),
+        bond_providers: vec![
+            BondProvider {
+                name: "lsm_share_bond_provider".to_string(),
+                contract_address: "lsm_share_bond_provider_contract".to_string(),
+            },
+            BondProvider {
+                name: "native_bond_provider".to_string(),
+                contract_address: "native_bond_provider_contract".to_string(),
+            },
+        ],
     }
 }
 
@@ -93,8 +103,16 @@ fn test_instantiate_native() {
             rewards_manager_code_id: 10,
             rewards_pump_code_id: 11,
             splitter_code_id: 12,
-            native_bond_provider_code_id: 14,
         },
+        pre_instantiated_contracts: PreInstantiatedContracts {
+            native_bond_provider_address: cosmwasm_std::Addr::unchecked(
+                "native_bond_provider_address",
+            ),
+        },
+        bond_providers: vec![BondProvider {
+            name: "native_bond_provider".to_string(),
+            contract_address: "native_bond_provider_contract".to_string(),
+        }],
         remote_opts: RemoteOpts {
             denom: "denom".to_string(),
             connection_id: "connection-0".to_string(),
@@ -404,8 +422,16 @@ fn test_instantiate_remote() {
             rewards_manager_code_id: 10,
             rewards_pump_code_id: 11,
             splitter_code_id: 12,
-            native_bond_provider_code_id: 14,
         },
+        pre_instantiated_contracts: PreInstantiatedContracts {
+            native_bond_provider_address: cosmwasm_std::Addr::unchecked(
+                "native_bond_provider_address",
+            ),
+        },
+        bond_providers: vec![BondProvider {
+            name: "native_bond_provider".to_string(),
+            contract_address: "native_bond_provider_contract".to_string(),
+        }],
         remote_opts: RemoteOpts {
             denom: "denom".to_string(),
             connection_id: "connection-0".to_string(),
@@ -1609,7 +1635,7 @@ fn test_validate_contract_metadata() {
 
     let response = validate_contract_metadata(
         deps.as_ref().into_empty(),
-        mocked_env,
+        &mocked_env,
         &cosmwasm_std::Addr::unchecked(contract_addr),
         vec!["contract_name".to_string()],
     )
@@ -1653,7 +1679,7 @@ fn test_validate_contract_metadata_two_names() {
 
     let response = validate_contract_metadata(
         deps.as_ref().into_empty(),
-        mocked_env,
+        &mocked_env,
         &cosmwasm_std::Addr::unchecked(contract_addr),
         vec![
             "another_valid_name".to_string(),
@@ -1684,7 +1710,7 @@ fn test_validate_contract_metadata_wrong_contract_name() {
 
     let error = validate_contract_metadata(
         deps.as_ref().into_empty(),
-        mocked_env,
+        &mocked_env,
         &cosmwasm_std::Addr::unchecked(contract_addr),
         vec!["contract_name".to_string()],
     )
@@ -1723,7 +1749,7 @@ fn test_validate_contract_metadata_wrong_owner() {
 
     let error = validate_contract_metadata(
         deps.as_ref().into_empty(),
-        mocked_env,
+        &mocked_env,
         &cosmwasm_std::Addr::unchecked(contract_addr),
         vec!["contract_name".to_string()],
     )
@@ -1772,7 +1798,7 @@ fn test_validate_contract_metadata_wrong_admin() {
 
     let error = validate_contract_metadata(
         deps.as_ref().into_empty(),
-        mocked_env,
+        &mocked_env,
         &cosmwasm_std::Addr::unchecked(contract_addr),
         vec!["contract_name".to_string()],
     )
@@ -1820,7 +1846,7 @@ fn test_validate_contract_metadata_empty_admin() {
 
     let error = validate_contract_metadata(
         deps.as_ref().into_empty(),
-        mocked_env,
+        &mocked_env,
         &cosmwasm_std::Addr::unchecked(contract_addr),
         vec!["contract_name".to_string()],
     )

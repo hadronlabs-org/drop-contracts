@@ -34,8 +34,6 @@ pub enum ContractError {
     InvalidContractOwner { expected: String, actual: String },
     #[error("Invalid contract admin. Expected: {expected}, actual: {actual}")]
     InvalidContractAdmin { expected: String, actual: String },
-    #[error("Invalid contract address: {address}. Contract: {contract}")]
-    InvalidContractAddress { address: String, contract: String },
 }
 
 impl From<semver::Error> for ContractError {

@@ -256,6 +256,19 @@ register_pump_ica() {
   echo "[OK] Pump ICA configuration: $pump_ica_port/$pump_ica_channel"
 }
 
+get_contract_address() {
+    local code_id="$1"
+    local creator_address="$2"
+    local salt="$3"
+
+    local code_hash="$(neutrond query wasm code-info $code_id "${nq[@]}" | jq -r '.data_hash')"
+
+    local contract_address="$(neutrond query wasm build-address $code_hash $creator_address $salt "${nq[@]}" --ascii | jq -r '.balance.amount')"
+
+    local contract_address="$(echo "$factory_result" | jq -r "$(select_attr "contract_address" "$contract_name")")"
+    echo "$contract_address"
+}
+
 print_hermes_command() {
     local ICA_PORT="$1"
     local ICA_CHANNEL="$2"
@@ -357,7 +370,6 @@ migrate_contract() {
   local contract_address="$1"
   local code_id="$2"
   local msg="$3"
-
   echo "$msg" | jq '.'
 
   neutrond tx wasm migrate "$contract_address" "$code_id" "$msg" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx | assert_success
