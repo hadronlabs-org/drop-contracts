@@ -2006,7 +2006,7 @@ fn test_migrate_wrong_contract() {
 
     let deps_mut = deps.as_mut();
 
-    cw2::set_contract_version(deps_mut.storage, "Test_contract", "0.0.1").unwrap();
+    cw2::set_contract_version(deps_mut.storage, "wrong_contract_name", "0.0.1").unwrap();
 
     let res = crate::contract::migrate(
         deps.as_mut(),
@@ -2017,7 +2017,7 @@ fn test_migrate_wrong_contract() {
     assert_eq!(
         res,
         ContractError::MigrationError {
-            storage_contract_name: "Test_contract".to_string(),
+            storage_contract_name: "wrong_contract_name".to_string(),
             contract_name: crate::contract::CONTRACT_NAME.to_string()
         }
     )
