@@ -137,7 +137,7 @@ impl PuppeteerReconstruct for BalancesAndDelegations {
                         .atomics()
                         / Uint256::from(DECIMAL_FRACTIONAL),
                 )
-                .map_err(|err| NeutronError::Std(StdError::ConversionOverflow { source: err }))?
+                .map_err(|err| NeutronError::Std(StdError::generic_err(format!("conversion overflow error: {err:?}"))))?
                 .u128();
                 delegation_std.share_ratio = validator_tokens / delegator_shares;
                 delegation_std.amount = cosmwasm_std::Coin::new(delegated_tokens, denom);

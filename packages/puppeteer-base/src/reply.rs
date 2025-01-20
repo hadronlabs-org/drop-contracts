@@ -76,15 +76,25 @@ where
     }
 
     pub fn submit_tx_reply(&self, deps: DepsMut, msg: Reply) -> StdResult<Response> {
-        let resp: MsgSubmitTxResponse = serde_json_wasm::from_slice(
-            msg.result
+        let resp: MsgSubmitTxResponse = {
+            let result = msg
+                .result
                 .into_result()
-                .map_err(StdError::generic_err)?
-                .data
-                .ok_or_else(|| StdError::generic_err("no result"))?
-                .as_slice(),
-        )
-        .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?;
+                .map_err(StdError::generic_err)?;
+
+            if let Some(msg_response) = result.msg_responses.first() {
+                serde_json_wasm::from_slice(msg_response.value.as_slice())
+                    .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?
+            } else {
+                #[allow(deprecated)]
+                let data = result
+                    .data
+                    .ok_or_else(|| StdError::generic_err("no result"))?;
+                serde_json_wasm::from_slice(data.as_slice())
+                    .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?
+            }
+        };
+
         deps.api
             .debug(format!("WASMDEBUG: prepare_sudo_payload received; resp: {resp:?}").as_str());
         let seq_id = resp.sequence_id;
@@ -101,15 +111,25 @@ where
     }
 
     pub fn submit_ibc_transfer_reply(&self, deps: DepsMut, msg: Reply) -> StdResult<Response> {
-        let resp: MsgIbcTransferResponse = serde_json_wasm::from_slice(
-            msg.result
+        let resp: MsgIbcTransferResponse = {
+            let result = msg
+                .result
                 .into_result()
-                .map_err(StdError::generic_err)?
-                .data
-                .ok_or_else(|| StdError::generic_err("no result"))?
-                .as_slice(),
-        )
-        .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?;
+                .map_err(StdError::generic_err)?;
+
+            if let Some(msg_response) = result.msg_responses.first() {
+                serde_json_wasm::from_slice(msg_response.value.as_slice())
+                    .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?
+            } else {
+                #[allow(deprecated)]
+                let data = result
+                    .data
+                    .ok_or_else(|| StdError::generic_err("no result"))?;
+                serde_json_wasm::from_slice(data.as_slice())
+                    .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?
+            }
+        };
+
         deps.api
             .debug(format!("WASMDEBUG: prepare_sudo_payload received; resp: {resp:?}").as_str());
         let seq_id = resp.sequence_id;

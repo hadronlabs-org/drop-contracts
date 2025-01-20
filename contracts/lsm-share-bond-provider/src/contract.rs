@@ -108,6 +108,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
 }
 
 fn query_can_be_removed(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
+    #[allow(deprecated)]
     let all_balances = deps.querier.query_all_balances(env.contract.address)?;
     let all_balances_except_untrn = all_balances
         .into_iter()
@@ -203,7 +204,10 @@ fn query_token_amount(
         check_denom.validator,
     )?;
 
-    let issue_amount = real_amount * (Decimal::one() / exchange_rate);
+    let issue_amount = (Decimal::one() / exchange_rate)
+        .checked_mul(Decimal::from_ratio(real_amount, Uint128::from(1u128)))
+        .unwrap()
+        .atomics();
 
     Ok(to_json_binary(&issue_amount)?)
 }
@@ -236,7 +240,7 @@ fn execute_process_on_idle(
     let addrs = get_contracts!(deps, config.factory_contract, core_contract);
 
     ensure_eq!(
-        info.sender,
+        info.sender.to_string(),
         addrs.core_contract,
         ContractError::Unauthorized {}
     );
@@ -383,7 +387,7 @@ fn execute_puppeteer_hook(
         puppeteer_contract
     );
     ensure_eq!(
-        info.sender,
+        info.sender.to_string(),
         addrs.puppeteer_contract,
         ContractError::Unauthorized {}
     );
@@ -825,6 +829,7 @@ pub mod check_denom {
         denom: impl Into<String>,
     ) -> StdResult<QueryDenomTraceResponse> {
         let denom = denom.into();
+        #[allow(deprecated)]
         deps.querier
             .query(&QueryRequest::Stargate {
                 path: "/ibc.applications.transfer.v1.Query/DenomTrace".to_string(),

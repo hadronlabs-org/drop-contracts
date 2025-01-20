@@ -91,7 +91,7 @@ impl<'a> IndexList<UnbondBatch> for UnbondBatchIndexes<'a> {
     }
 }
 
-pub fn unbond_batches_map<'a>() -> IndexedMap<'a, u128, UnbondBatch, UnbondBatchIndexes<'a>> {
+pub fn unbond_batches_map<'a>() -> IndexedMap<u128, UnbondBatch, UnbondBatchIndexes<'a>> {
     IndexedMap::new(
         "batches",
         UnbondBatchIndexes {

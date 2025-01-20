@@ -2,13 +2,13 @@ use crate::error::core::{ContractError, ContractResult};
 use cosmwasm_std::{Addr, Empty, StdResult, Storage};
 use cw_storage_plus::{Item, Map};
 
-pub struct BondProviders<'a> {
-    pub providers: Map<'a, Addr, Empty>,
-    pub next_provider_ptr: Item<'a, u64>,
+pub struct BondProviders {
+    pub providers: Map<Addr, Empty>,
+    pub next_provider_ptr: Item<u64>,
 }
 
-impl<'a> BondProviders<'a> {
-    pub const fn new(storage_key: &'a str, pointer_storage_key: &'a str) -> Self {
+impl BondProviders {
+    pub const fn new(storage_key: &'static str, pointer_storage_key: &'static str) -> Self {
         Self {
             providers: Map::new(storage_key),
             next_provider_ptr: Item::new(pointer_storage_key),

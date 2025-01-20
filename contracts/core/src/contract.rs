@@ -462,7 +462,7 @@ fn execute_update_withdrawn_amount(
     let config = CONFIG.load(deps.storage)?;
     let addrs =
         drop_helpers::get_contracts!(deps, config.factory_contract, withdrawal_manager_contract);
-    if info.sender != addrs.withdrawal_manager_contract {
+    if info.sender.to_string() != addrs.withdrawal_manager_contract {
         return Err(ContractError::Unauthorized {});
     }
 
@@ -1263,8 +1263,10 @@ fn get_unbonding_msg<T>(
     {
         let current_exchange_rate = query_exchange_rate(deps.as_ref(), config)?;
         attrs.push(attr("exchange_rate", current_exchange_rate.to_string()));
-        let expected_native_asset_amount =
-            unbond.total_dasset_amount_to_withdraw * current_exchange_rate;
+        let expected_native_asset_amount = current_exchange_rate
+            .checked_mul(Decimal::from_ratio(unbond.total_dasset_amount_to_withdraw, Uint128::from(1u128)))
+            .unwrap()
+            .atomics();
 
         let calc_withdraw_query_result: Result<Vec<(String, Uint128)>, StdError> =
             deps.querier.query_wasm_smart(

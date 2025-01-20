@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 
-use cosmwasm_std::{
-    attr, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg, Deps, DepsMut,
-    Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
-};
+use cosmwasm_std::{attr, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg, Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg, Decimal};
 use drop_helpers::answer::response;
 use drop_helpers::phonebook::{
     CORE_CONTRACT, DISTRIBUTION_CONTRACT, LSM_SHARE_BOND_PROVIDER_CONTRACT,
@@ -673,7 +670,7 @@ fn get_proxied_message<T: cosmwasm_schema::serde::Serialize>(
 
 fn get_code_checksum(deps: Deps, code_id: u64) -> NeutronResult<HexBinary> {
     let CodeInfoResponse { checksum, .. } = deps.querier.query_wasm_code_info(code_id)?;
-    Ok(checksum)
+    Ok(HexBinary::from(checksum.as_slice()))
 }
 
 fn get_contract_label(base: &str) -> String {
@@ -711,7 +708,10 @@ fn get_splitter_receivers(
 ) -> ContractResult<Vec<(String, cosmwasm_std::Uint128)>> {
     match fee_params {
         Some(fee_params) => {
-            let fee_weight = PERCENT_PRECISION * fee_params.fee;
+            let fee_weight = fee_params.fee
+                .checked_mul(Decimal::from_ratio(PERCENT_PRECISION, Uint128::from(1u128)))
+                .unwrap()
+                .atomics();
             let bond_provider_weight = PERCENT_PRECISION - fee_weight;
             Ok(vec![
                 (bond_provider_address, bond_provider_weight),

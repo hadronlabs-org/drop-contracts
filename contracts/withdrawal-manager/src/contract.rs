@@ -171,8 +171,8 @@ fn execute_receive_nft_withdraw(
         core_contract
     );
     ensure_eq!(
+        info.sender.to_string(),
         addrs.withdrawal_voucher_contract,
-        info.sender,
         ContractError::Unauthorized {}
     );
     let voucher: NftInfoResponse<Extension> = deps.querier.query_wasm_smart(
@@ -208,7 +208,7 @@ fn execute_receive_nft_withdraw(
         unbond_batch.total_dasset_amount_to_withdraw,
     );
 
-    let payout_amount = user_share * unbond_batch.unbonded_amount.unwrap_or(Uint128::zero());
+    let payout_amount = unbond_batch.unbonded_amount.unwrap_or(Uint128::zero()).mul_floor(user_share);
     let to_address = receiver.unwrap_or(sender);
     attrs.push(attr("batch_id", batch_id.to_string()));
     attrs.push(attr("payout_amount", payout_amount.to_string()));
