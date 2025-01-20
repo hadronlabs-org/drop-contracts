@@ -171,8 +171,8 @@ fn execute_receive_nft_withdraw(
         core_contract
     );
     ensure_eq!(
+        info.sender.to_string(),
         addrs.withdrawal_voucher_contract,
-        info.sender,
         ContractError::Unauthorized {}
     );
     let voucher: NftInfoResponse<Extension> = deps.querier.query_wasm_smart(

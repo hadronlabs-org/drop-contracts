@@ -8,13 +8,13 @@ pub struct Transition<T> {
     pub to: T,
 }
 
-pub struct Fsm<'a, T: 'static> {
-    pub state: Item<'a, T>,
+pub struct Fsm<T: 'static> {
+    pub state: Item<T>,
     pub transitions: &'static [Transition<T>],
 }
 
-impl<'a, T: Serialize + DeserializeOwned + PartialEq> Fsm<'a, T> {
-    pub const fn new(storage_key: &'a str, transitions: &'static [Transition<T>]) -> Self {
+impl<T: Serialize + DeserializeOwned + PartialEq> Fsm<T> {
+    pub const fn new(storage_key: &'static str, transitions: &'static [Transition<T>]) -> Self {
         Self {
             state: Item::new(storage_key),
             transitions,
