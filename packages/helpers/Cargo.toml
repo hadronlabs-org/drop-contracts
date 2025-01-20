@@ -17,13 +17,12 @@ exclude = [
 crate-type = ["cdylib", "rlib"]
 
 [features]
-# for more explicit tests, cargo test --features=backtraces
-backtraces = ["cosmwasm-std/backtraces"]
 # use library feature to disable all instantiate/execute/query exports
 library = []
 
 [dependencies]
-cosmos-sdk-proto = { workspace = true }
+cosmos-sdk-proto = { workspace = true, features = ["cosmwasm"] }
+ibc-proto = { workspace = true }
 cosmwasm-std = { workspace = true }
 serde-json-wasm = { workspace = true }
 neutron-sdk = { workspace = true }

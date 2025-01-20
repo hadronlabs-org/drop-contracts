@@ -13,18 +13,18 @@ where
     U: Serialize + DeserializeOwned + Clone,
     Z: PuppeteerReconstruct + std::fmt::Debug + Serialize + Clone,
 {
-    pub config: Item<'a, T>,
-    pub ica: Ica<'a>,
-    pub recipient_transfers: Item<'a, Vec<Transfer>>,
-    pub transfer_channel_id: Item<'a, String>,
-    pub tx_state: Item<'a, TxState>,
-    pub kv_queries: Map<'a, u64, U>,
-    pub last_complete_delegations_and_balances_key: Item<'a, u64>,
-    pub delegations_and_balances: Map<'a, &'a u64, BalancesAndDelegationsState<Z>>,
-    pub delegations_and_balances_query_id_chunk: Map<'a, u64, u16>, // Map <query_id, chunk_id>
+    pub config: Item<T>,
+    pub ica: Ica<>,
+    pub recipient_transfers: Item<Vec<Transfer>>,
+    pub transfer_channel_id: Item<String>,
+    pub tx_state: Item<TxState>,
+    pub kv_queries: Map<u64, U>,
+    pub last_complete_delegations_and_balances_key: Item<u64>,
+    pub delegations_and_balances: Map<&'a u64, BalancesAndDelegationsState<Z>>,
+    pub delegations_and_balances_query_id_chunk: Map<u64, u16>, // Map <query_id, chunk_id>
     pub unbonding_delegations:
-        IndexedMap<'a, &'a str, UnbondingDelegation, UnbondingDelegationIndexes<'a>>,
-    pub unbonding_delegations_reply_id_storage: Map<'a, u16, UnbondingDelegation>,
+        IndexedMap<&'a str, UnbondingDelegation, UnbondingDelegationIndexes<'a>>,
+    pub unbonding_delegations_reply_id_storage: Map<u16, UnbondingDelegation>,
 }
 
 impl<T, U, Z> Default for PuppeteerBase<'static, T, U, Z>

@@ -36,7 +36,7 @@ pub fn get_balance_and_delegations_keys(
     // // create KV key to get balance of the delegator
     keys.push(KVKey {
         path: "move".to_string(),
-        key: Binary(balance_key.to_vec()),
+        key: Binary::new(balance_key.to_vec()),
     });
 
     for v in validators {
@@ -45,13 +45,13 @@ pub fn get_balance_and_delegations_keys(
         // create delegation key to get delegation structure
         keys.push(KVKey {
             path: store_key.to_string(),
-            key: Binary(create_delegation_key(&delegator_addr, &val_addr)?),
+            key: Binary::new(create_delegation_key(&delegator_addr, &val_addr)?),
         });
 
         // create validator key to get validator structure
         keys.push(KVKey {
             path: store_key.to_string(),
-            key: Binary(create_validator_key(&val_addr)?),
+            key: Binary::new(create_validator_key(&val_addr)?),
         })
     }
 

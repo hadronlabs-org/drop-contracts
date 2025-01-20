@@ -84,10 +84,11 @@ pub fn query_client_state(
     channel_id: String,
     port_id: String,
 ) -> StdResult<ChannelClientStateResponse> {
+    #[allow(deprecated)]
     let state = deps.querier
             .query(&QueryRequest::Stargate {
                 path: "/ibc.core.channel.v1.Query/ChannelClientState".to_string(),
-                data: cosmos_sdk_proto::ibc::core::channel::v1::QueryChannelClientStateRequest {
+                data: ibc_proto::ibc::core::channel::v1::QueryChannelClientStateRequest {
                     port_id: port_id.clone(),
                     channel_id: channel_id.clone(),
                 }
