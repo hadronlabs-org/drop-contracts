@@ -765,7 +765,6 @@ export interface ConfigOptional {
   pump_ica_address?: string | null;
   remote_denom?: string | null;
   rewards_receiver?: string | null;
-  transfer_channel_id?: string | null;
   unbond_batch_switch_time?: number | null;
   unbonding_period?: number | null;
   unbonding_safe_period?: number | null;

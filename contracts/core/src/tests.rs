@@ -44,7 +44,6 @@ fn get_default_config(
         unbonding_safe_period,
         unbond_batch_switch_time,
         pump_ica_address: Some("pump_address".to_string()),
-        transfer_channel_id: "transfer_channel".to_string(),
         emergency_address: None,
         icq_update_delay: 5,
     }
@@ -102,7 +101,6 @@ fn test_update_config() {
             unbonding_safe_period: 120,
             unbond_batch_switch_time: 2000,
             pump_ica_address: Some("old_pump_address".to_string()),
-            transfer_channel_id: "old_transfer_channel".to_string(),
             emergency_address: Some("old_emergency_address".to_string()),
             owner: "admin".to_string(),
             icq_update_delay: 5,
@@ -123,7 +121,6 @@ fn test_update_config() {
         unbonding_safe_period: Some(20),
         unbond_batch_switch_time: Some(12000),
         pump_ica_address: Some("new_pump_address".to_string()),
-        transfer_channel_id: Some("new_transfer_channel".to_string()),
         rewards_receiver: Some("new_rewards_receiver".to_string()),
         emergency_address: Some("new_emergency_address".to_string()),
     };
@@ -136,7 +133,6 @@ fn test_update_config() {
         unbonding_safe_period: 20,
         unbond_batch_switch_time: 12000,
         pump_ica_address: Some("new_pump_address".to_string()),
-        transfer_channel_id: "new_transfer_channel".to_string(),
         emergency_address: Some("new_emergency_address".to_string()),
         icq_update_delay: 5,
     };
