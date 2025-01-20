@@ -168,8 +168,8 @@ fn execute_update_active_proposals(
     let config = CONFIG.load(deps.storage)?;
 
     ensure_eq!(
+        info.sender.to_string(),
         config.provider_proposals_address,
-        info.sender,
         ContractError::Unauthorized {}
     );
 

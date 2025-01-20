@@ -161,6 +161,7 @@ impl WasmMockQuerier {
                         self.base.handle_query(request)
                     }
                 }
+                #[allow(deprecated)]
                 BankQuery::AllBalances { address, .. } => {
                     let custom_balance = self.bank_query_responses.get(address);
 
@@ -186,7 +187,7 @@ impl WasmMockQuerier {
                 SystemResult::Ok(
                     ContractResult::Ok(
                         (*self.ibc_query_responses.get(&channel_port).unwrap_or(
-                            &to_json_binary(&cosmwasm_std::ChannelResponse { channel: None })
+                            &to_json_binary(&cosmwasm_std::ChannelResponse::new(None))
                                 .unwrap(),
                         ))
                         .clone(),
@@ -194,6 +195,7 @@ impl WasmMockQuerier {
                     .clone(),
                 )
             }
+            #[allow(deprecated)]
             QueryRequest::Stargate { path, data } => {
                 let mut stargate_query_responses = self.stargate_query_responses.borrow_mut();
                 let responses = match stargate_query_responses.get_mut(path) {
@@ -201,7 +203,7 @@ impl WasmMockQuerier {
                         kind: format!(
                             "Stargate query is not mocked. Path: {} Data {}",
                             path,
-                            String::from_utf8(data.0.clone()).unwrap()
+                            String::from_utf8(data.as_slice().to_vec()).unwrap()
                         ),
                     }),
                     Some(responses) => Ok(responses),
@@ -212,7 +214,7 @@ impl WasmMockQuerier {
                         kind: format!(
                             "Stargate query is not mocked. Path: {} Data {}",
                             path,
-                            String::from_utf8(data.0.clone()).unwrap()
+                            String::from_utf8(data.as_slice().to_vec()).unwrap()
                         ),
                     });
                 }
@@ -255,7 +257,7 @@ impl WasmMockQuerier {
                             kind: format!(
                                 "Wasm contract {} query is not mocked. Query {}",
                                 contract_addr,
-                                String::from_utf8(msg.0.clone()).unwrap()
+                                String::from_utf8(msg.as_slice().to_vec()).unwrap()
                             ),
                         }),
                         Some(responses) => Ok(responses),
@@ -266,7 +268,7 @@ impl WasmMockQuerier {
                             kind: format!(
                                 "Wasm contract {} query is not mocked. Query {}",
                                 contract_addr,
-                                String::from_utf8(msg.0.clone()).unwrap()
+                                String::from_utf8(msg.as_slice().to_vec()).unwrap()
                             ),
                         });
                     }
