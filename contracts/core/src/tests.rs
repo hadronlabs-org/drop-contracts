@@ -70,19 +70,23 @@ fn get_default_unbond_batch_status_timestamps() -> UnbondBatchStatusTimestamps {
 fn test_update_config() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.add_wasm_query_response("token_contract", |_| {
-        to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
-            factory_contract: "factory_contract".to_string(),
-            denom: "ld_denom".to_string(),
-        })
-        .unwrap()
-    });
-    deps.querier
-        .add_wasm_query_response("old_token_contract", |_| {
+        cosmwasm_std::ContractResult::Ok(
             to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
                 factory_contract: "factory_contract".to_string(),
                 denom: "ld_denom".to_string(),
             })
-            .unwrap()
+            .unwrap(),
+        )
+    });
+    deps.querier
+        .add_wasm_query_response("old_token_contract", |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
+                    factory_contract: "factory_contract".to_string(),
+                    denom: "ld_denom".to_string(),
+                })
+                .unwrap(),
+            )
         });
     mock_state_query(&mut deps);
     let env = mock_env();
@@ -184,7 +188,9 @@ fn test_bond_provider_has_any_tokens() {
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
 
     deps.querier
-        .add_wasm_query_response("bond_provider_address", |_| to_json_binary(&false).unwrap());
+        .add_wasm_query_response("bond_provider_address", |_| {
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&false).unwrap())
+        });
 
     let error = execute(
         deps.as_mut(),
@@ -310,8 +316,9 @@ fn test_add_remove_bond_provider() {
         to_json_binary::<Vec<(Addr, bool)>>(&vec![]).unwrap()
     );
 
-    deps.querier
-        .add_wasm_query_response("bond_provider", |_| to_json_binary(&true).unwrap());
+    deps.querier.add_wasm_query_response("bond_provider", |_| {
+        cosmwasm_std::ContractResult::Ok(to_json_binary(&true).unwrap())
+    });
 
     let res = execute(
         deps.as_mut(),
@@ -369,29 +376,35 @@ fn test_execute_tick_idle_process_bondig_provider() {
     BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
     deps.querier
-        .add_wasm_query_response("lsm_provider_address", |_| to_json_binary(&true).unwrap());
+        .add_wasm_query_response("lsm_provider_address", |_| {
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&true).unwrap())
+        });
 
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances { coins: vec![] },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances { coins: vec![] },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
 
     BOND_PROVIDERS
@@ -458,82 +471,92 @@ fn test_tick_idle_claim_wo_unbond() {
     mock_state_query(&mut deps);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances { coins: vec![] },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances { coins: vec![] },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
 
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances {
-                    coins: vec![Coin {
-                        denom: "remote_denom".to_string(),
-                        amount: Uint128::new(200),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(20),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances {
+                        coins: vec![Coin {
+                            denom: "remote_denom".to_string(),
+                            amount: Uint128::new(200),
+                        }],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(20),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("validators_set_contract", |_| {
-            to_json_binary(&vec![
-                drop_staking_base::state::validatorset::ValidatorInfo {
-                    valoper_address: "valoper_address".to_string(),
-                    weight: 1,
-                    on_top: Uint128::zero(),
-                    last_processed_remote_height: None,
-                    last_processed_local_height: None,
-                    last_validated_height: None,
-                    last_commission_in_range: None,
-                    uptime: Decimal::one(),
-                    tombstone: false,
-                    jailed_number: None,
-                    init_proposal: None,
-                    total_passed_proposals: 0,
-                    total_voted_proposals: 0,
-                },
-            ])
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&vec![
+                    drop_staking_base::state::validatorset::ValidatorInfo {
+                        valoper_address: "valoper_address".to_string(),
+                        weight: 1,
+                        on_top: Uint128::zero(),
+                        last_processed_remote_height: None,
+                        last_processed_local_height: None,
+                        last_validated_height: None,
+                        last_commission_in_range: None,
+                        uptime: Decimal::one(),
+                        tombstone: false,
+                        jailed_number: None,
+                        init_proposal: None,
+                        total_passed_proposals: 0,
+                        total_voted_proposals: 0,
+                    },
+                ])
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![DropDelegation {
-                        delegator: Addr::unchecked("ica_address"),
-                        validator: "valoper_address".to_string(),
-                        amount: Coin {
-                            denom: "remote_denom".to_string(),
-                            amount: Uint128::new(100_000),
-                        },
-                        share_ratio: Decimal256::one(),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 12344u64,
-                timestamp: Timestamp::from_seconds(0),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![DropDelegation {
+                            delegator: Addr::unchecked("ica_address"),
+                            validator: "valoper_address".to_string(),
+                            amount: Coin {
+                                denom: "remote_denom".to_string(),
+                                amount: Uint128::new(100_000),
+                            },
+                            share_ratio: Decimal256::one(),
+                        }],
+                    },
+                    remote_height: 10u64,
+                    local_height: 12344u64,
+                    timestamp: Timestamp::from_seconds(0),
+                })
+                .unwrap(),
+            )
         });
     let config = get_default_config(1000, 100, 6000);
     CONFIG.save(deps.as_mut().storage, &config).unwrap();
@@ -616,82 +639,92 @@ fn test_tick_idle_claim_with_unbond_transfer() {
     mock_state_query(&mut deps);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances { coins: vec![] },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances { coins: vec![] },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
 
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances {
-                    coins: vec![Coin {
-                        denom: "remote_denom".to_string(),
-                        amount: Uint128::new(200),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances {
+                        coins: vec![Coin {
+                            denom: "remote_denom".to_string(),
+                            amount: Uint128::new(200),
+                        }],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("validators_set_contract", |_| {
-            to_json_binary(&vec![
-                drop_staking_base::state::validatorset::ValidatorInfo {
-                    valoper_address: "valoper_address".to_string(),
-                    weight: 1,
-                    on_top: Uint128::zero(),
-                    last_processed_remote_height: None,
-                    last_processed_local_height: None,
-                    last_validated_height: None,
-                    last_commission_in_range: None,
-                    uptime: Decimal::one(),
-                    tombstone: false,
-                    jailed_number: None,
-                    init_proposal: None,
-                    total_passed_proposals: 0,
-                    total_voted_proposals: 0,
-                },
-            ])
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&vec![
+                    drop_staking_base::state::validatorset::ValidatorInfo {
+                        valoper_address: "valoper_address".to_string(),
+                        weight: 1,
+                        on_top: Uint128::zero(),
+                        last_processed_remote_height: None,
+                        last_processed_local_height: None,
+                        last_validated_height: None,
+                        last_commission_in_range: None,
+                        uptime: Decimal::one(),
+                        tombstone: false,
+                        jailed_number: None,
+                        init_proposal: None,
+                        total_passed_proposals: 0,
+                        total_voted_proposals: 0,
+                    },
+                ])
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![DropDelegation {
-                        delegator: Addr::unchecked("ica_address"),
-                        validator: "valoper_address".to_string(),
-                        amount: Coin {
-                            denom: "remote_denom".to_string(),
-                            amount: Uint128::new(100_000),
-                        },
-                        share_ratio: Decimal256::one(),
-                    }],
-                },
-                remote_height: 12344u64,
-                local_height: 12344u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![DropDelegation {
+                            delegator: Addr::unchecked("ica_address"),
+                            validator: "valoper_address".to_string(),
+                            amount: Coin {
+                                denom: "remote_denom".to_string(),
+                                amount: Uint128::new(100_000),
+                            },
+                            share_ratio: Decimal256::one(),
+                        }],
+                    },
+                    remote_height: 12344u64,
+                    local_height: 12344u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(1000, 100, 6000))
@@ -784,25 +817,29 @@ fn test_tick_no_puppeteer_response() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances { coins: vec![] },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances { coins: vec![] },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     let res = execute(
         deps.as_mut(),
@@ -821,52 +858,58 @@ fn test_tick_claiming_error_wo_transfer() {
     mock_state_query(&mut deps);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances { coins: vec![] },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances { coins: vec![] },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances {
-                    coins: vec![Coin {
-                        denom: "remote_denom".to_string(),
-                        amount: Uint128::new(200),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances {
+                        coins: vec![Coin {
+                            denom: "remote_denom".to_string(),
+                            amount: Uint128::new(200),
+                        }],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("staker_contract", |_| {
-            to_json_binary(&Uint128::zero()).unwrap()
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&Uint128::zero()).unwrap())
         });
     deps.querier
         .add_wasm_query_response("strategy_contract", |msg| {
             let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StrategyQueryMsg::CalcDeposit { deposit } => {
-                    to_json_binary(&vec![("valoper_address".to_string(), deposit)]).unwrap()
-                }
+                StrategyQueryMsg::CalcDeposit { deposit } => cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&vec![("valoper_address".to_string(), deposit)]).unwrap(),
+                ),
                 _ => unimplemented!(),
             }
         });
@@ -930,51 +973,57 @@ fn test_tick_claiming_error_with_transfer() {
     mock_state_query(&mut deps);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances { coins: vec![] },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances { coins: vec![] },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&(
-                Balances {
-                    coins: vec![Coin {
-                        denom: "remote_denom".to_string(),
-                        amount: Uint128::new(200),
-                    }],
-                },
-                10u64,
-                Timestamp::from_seconds(90001),
-            ))
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&(
+                    Balances {
+                        coins: vec![Coin {
+                            denom: "remote_denom".to_string(),
+                            amount: Uint128::new(200),
+                        }],
+                    },
+                    10u64,
+                    Timestamp::from_seconds(90001),
+                ))
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("staker_contract", |_| {
-            to_json_binary(&Uint128::zero()).unwrap()
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&Uint128::zero()).unwrap())
         });
     deps.querier
         .add_wasm_query_response("strategy_contract", |msg| {
             let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StrategyQueryMsg::CalcDeposit { deposit } => {
-                    to_json_binary(&vec![("valoper_address".to_string(), deposit)]).unwrap()
-                }
+                StrategyQueryMsg::CalcDeposit { deposit } => cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&vec![("valoper_address".to_string(), deposit)]).unwrap(),
+                ),
                 _ => unimplemented!(),
             }
         });
@@ -1071,67 +1120,75 @@ fn test_tick_claiming_wo_transfer_unbonding() {
     mock_state_query(&mut deps);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances { coins: vec![] },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances { coins: vec![] },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances {
-                    coins: vec![Coin {
-                        denom: "remote_denom".to_string(),
-                        amount: Uint128::zero(),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances {
+                        coins: vec![Coin {
+                            denom: "remote_denom".to_string(),
+                            amount: Uint128::zero(),
+                        }],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("staker_contract", |_| {
-            to_json_binary(&Uint128::zero()).unwrap()
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&Uint128::zero()).unwrap())
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances {
-                    coins: vec![Coin {
-                        denom: "remote_denom".to_string(),
-                        amount: Uint128::zero(),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances {
+                        coins: vec![Coin {
+                            denom: "remote_denom".to_string(),
+                            amount: Uint128::zero(),
+                        }],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("strategy_contract", |msg| {
             let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StrategyQueryMsg::CalcWithdraw { withdraw } => {
-                    to_json_binary(&vec![("valoper_address".to_string(), withdraw)]).unwrap()
-                }
+                StrategyQueryMsg::CalcWithdraw { withdraw } => cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&vec![("valoper_address".to_string(), withdraw)]).unwrap(),
+                ),
                 _ => unimplemented!(),
             }
         });
@@ -1256,52 +1313,58 @@ fn test_tick_claiming_wo_idle() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances { coins: vec![] },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances { coins: vec![] },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances {
-                    coins: vec![Coin {
-                        denom: "remote_denom".to_string(),
-                        amount: Uint128::zero(),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances {
+                        coins: vec![Coin {
+                            denom: "remote_denom".to_string(),
+                            amount: Uint128::zero(),
+                        }],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("staker_contract", |_| {
-            to_json_binary(&Uint128::zero()).unwrap()
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&Uint128::zero()).unwrap())
         });
     deps.querier
         .add_wasm_query_response("strategy_contract", |msg| {
             let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
-                StrategyQueryMsg::CalcWithdraw { withdraw } => {
-                    to_json_binary(&vec![("valoper_address".to_string(), withdraw)]).unwrap()
-                }
+                StrategyQueryMsg::CalcWithdraw { withdraw } => cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&vec![("valoper_address".to_string(), withdraw)]).unwrap(),
+                ),
                 _ => unimplemented!(),
             }
         });
@@ -1412,13 +1475,15 @@ fn test_execute_tick_guard_balance_outdated() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances { coins: vec![] },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances { coins: vec![] },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     let res = execute(
         deps.as_mut(),
@@ -1453,25 +1518,29 @@ fn test_execute_tick_guard_delegations_outdated() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances { coins: vec![] },
-                remote_height: 12u64,
-                local_height: 12u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances { coins: vec![] },
+                    remote_height: 12u64,
+                    local_height: 12u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     let res = execute(
         deps.as_mut(),
@@ -1506,25 +1575,29 @@ fn test_execute_tick_staking_no_puppeteer_response() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances { coins: vec![] },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances { coins: vec![] },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     let res = execute(
         deps.as_mut(),
@@ -1552,25 +1625,29 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
         .unwrap();
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&BalancesResponse {
-                balances: Balances { coins: vec![] },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&BalancesResponse {
+                    balances: Balances { coins: vec![] },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Unbonding)
         .unwrap();
@@ -1592,11 +1669,11 @@ fn test_bond_wo_receiver() {
 
     deps.querier
         .add_wasm_query_response("native_provider_address", |_| {
-            to_json_binary(&true).unwrap()
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&true).unwrap())
         });
     deps.querier
         .add_wasm_query_response("native_provider_address", |_| {
-            to_json_binary(&Uint128::from(1000u128)).unwrap()
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&Uint128::from(1000u128)).unwrap())
         });
 
     BOND_PROVIDERS
@@ -1668,11 +1745,11 @@ fn test_bond_with_receiver() {
 
     deps.querier
         .add_wasm_query_response("native_provider_address", |_| {
-            to_json_binary(&true).unwrap()
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&true).unwrap())
         });
     deps.querier
         .add_wasm_query_response("native_provider_address", |_| {
-            to_json_binary(&Uint128::from(1000u128)).unwrap()
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&Uint128::from(1000u128)).unwrap())
         });
 
     let mut env = mock_env();
@@ -1783,49 +1860,53 @@ fn test_bond_lsm_share_increase_exchange_rate() {
 
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![DropDelegation {
-                        delegator: Addr::unchecked("delegator"),
-                        validator: "valoper1".to_string(),
-                        amount: Coin::new(1000, "remote_denom".to_string()),
-                        share_ratio: Decimal256::one(),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![DropDelegation {
+                            delegator: Addr::unchecked("delegator"),
+                            validator: "valoper1".to_string(),
+                            amount: Coin::new(1000, "remote_denom".to_string()),
+                            share_ratio: Decimal256::one(),
+                        }],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![DropDelegation {
-                        delegator: Addr::unchecked("delegator"),
-                        validator: "valoper1".to_string(),
-                        amount: Coin::new(1000, "remote_denom".to_string()),
-                        share_ratio: Decimal256::one(),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![DropDelegation {
+                            delegator: Addr::unchecked("delegator"),
+                            validator: "valoper1".to_string(),
+                            amount: Coin::new(1000, "remote_denom".to_string()),
+                            share_ratio: Decimal256::one(),
+                        }],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
     deps.querier
         .add_wasm_query_response("native_provider_address", |_| {
-            to_json_binary(&Uint128::from(100u128)).unwrap()
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&Uint128::from(100u128)).unwrap())
         });
     deps.querier
         .add_wasm_query_response("native_provider_address", |_| {
-            to_json_binary(&true).unwrap()
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&true).unwrap())
         });
     deps.querier
         .add_wasm_query_response("native_provider_address", |_| {
-            to_json_binary(&Uint128::from(100500u128)).unwrap()
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&Uint128::from(100500u128)).unwrap())
         });
 
     BOND_PROVIDERS
@@ -1895,11 +1976,13 @@ fn test_unbond() {
     let mut env = mock_env();
     deps.querier
         .add_wasm_query_response("factory_contract", |_| {
-            to_json_binary(&HashMap::from([
-                ("token_contract", "token_contract"),
-                ("withdrawal_voucher_contract", "withdrawal_voucher_contract"),
-            ]))
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&HashMap::from([
+                    ("token_contract", "token_contract"),
+                    ("withdrawal_voucher_contract", "withdrawal_voucher_contract"),
+                ]))
+                .unwrap(),
+            )
         });
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -2208,13 +2291,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                to_json_binary(&QueryDenomTraceResponse {
-                    denom_trace: DenomTrace {
-                        base_denom: "valoper12345/1".to_string(),
-                        path: "icahost/transfer_channel".to_string(),
-                    },
-                })
-                .unwrap()
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&QueryDenomTraceResponse {
+                        denom_trace: DenomTrace {
+                            base_denom: "valoper12345/1".to_string(),
+                            path: "icahost/transfer_channel".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                )
             },
         );
         let err = crate::contract::check_denom::check_denom(
@@ -2233,13 +2318,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                to_json_binary(&QueryDenomTraceResponse {
-                    denom_trace: DenomTrace {
-                        base_denom: "valoper12345/1".to_string(),
-                        path: "transfer/unknown_channel".to_string(),
-                    },
-                })
-                .unwrap()
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&QueryDenomTraceResponse {
+                        denom_trace: DenomTrace {
+                            base_denom: "valoper12345/1".to_string(),
+                            path: "transfer/unknown_channel".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                )
             },
         );
         let err = crate::contract::check_denom::check_denom(
@@ -2258,13 +2345,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                to_json_binary(&QueryDenomTraceResponse {
-                    denom_trace: DenomTrace {
-                        base_denom: "valoper12345/1".to_string(),
-                        path: "icahost/unknown_channel".to_string(),
-                    },
-                })
-                .unwrap()
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&QueryDenomTraceResponse {
+                        denom_trace: DenomTrace {
+                            base_denom: "valoper12345/1".to_string(),
+                            path: "icahost/unknown_channel".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                )
             },
         );
         let err = crate::contract::check_denom::check_denom(
@@ -2283,13 +2372,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                to_json_binary(&QueryDenomTraceResponse {
-                    denom_trace: DenomTrace {
-                        base_denom: "unknown_denom".to_string(),
-                        path: "transfer/transfer_channel".to_string(),
-                    },
-                })
-                .unwrap()
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&QueryDenomTraceResponse {
+                        denom_trace: DenomTrace {
+                            base_denom: "unknown_denom".to_string(),
+                            path: "transfer/transfer_channel".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                )
             },
         );
         let err = crate::contract::check_denom::check_denom(
@@ -2308,13 +2399,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                to_json_binary(&QueryDenomTraceResponse {
-                    denom_trace: DenomTrace {
-                        base_denom: "valoper98765/1".to_string(),
-                        path: "transfer/transfer_channel".to_string(),
-                    },
-                })
-                .unwrap()
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&QueryDenomTraceResponse {
+                        denom_trace: DenomTrace {
+                            base_denom: "valoper98765/1".to_string(),
+                            path: "transfer/transfer_channel".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                )
             },
         );
         let query_called = std::rc::Rc::new(std::cell::RefCell::new(false));
@@ -2328,10 +2421,12 @@ mod check_denom {
                 {
                     assert_eq!(valoper, "valoper98765");
                     query_called_cb.replace(true);
-                    to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
-                        validator: None,
-                    })
-                    .unwrap()
+                    cosmwasm_std::ContractResult::Ok(
+                        to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
+                            validator: None,
+                        })
+                        .unwrap(),
+                    )
                 } else {
                     unimplemented!()
                 }
@@ -2353,13 +2448,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                to_json_binary(&QueryDenomTraceResponse {
-                    denom_trace: DenomTrace {
-                        base_denom: "valoper12345/1/2".to_string(),
-                        path: "transfer/transfer_channel".to_string(),
-                    },
-                })
-                .unwrap()
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&QueryDenomTraceResponse {
+                        denom_trace: DenomTrace {
+                            base_denom: "valoper12345/1/2".to_string(),
+                            path: "transfer/transfer_channel".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                )
             },
         );
         let err = crate::contract::check_denom::check_denom(
@@ -2378,13 +2475,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                to_json_binary(&QueryDenomTraceResponse {
-                    denom_trace: DenomTrace {
-                        base_denom: "valoper12345/1".to_string(),
-                        path: "transfer/transfer_channel".to_string(),
-                    },
-                })
-                .unwrap()
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&QueryDenomTraceResponse {
+                        denom_trace: DenomTrace {
+                            base_denom: "valoper12345/1".to_string(),
+                            path: "transfer/transfer_channel".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                )
             },
         );
         deps.querier
@@ -2395,24 +2494,28 @@ mod check_denom {
                     request
                 {
                     assert_eq!(valoper, "valoper12345");
-                    to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
-                        validator: Some(drop_staking_base::state::validatorset::ValidatorInfo {
-                            valoper_address: "valoper12345".to_string(),
-                            weight: 1u64,
-                            on_top: Uint128::zero(),
-                            last_processed_remote_height: None,
-                            last_processed_local_height: None,
-                            last_validated_height: None,
-                            last_commission_in_range: None,
-                            uptime: Decimal::one(),
-                            tombstone: false,
-                            jailed_number: None,
-                            init_proposal: None,
-                            total_passed_proposals: 0u64,
-                            total_voted_proposals: 0u64,
-                        }),
-                    })
-                    .unwrap()
+                    cosmwasm_std::ContractResult::Ok(
+                        to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
+                            validator: Some(
+                                drop_staking_base::state::validatorset::ValidatorInfo {
+                                    valoper_address: "valoper12345".to_string(),
+                                    weight: 1u64,
+                                    on_top: Uint128::zero(),
+                                    last_processed_remote_height: None,
+                                    last_processed_local_height: None,
+                                    last_validated_height: None,
+                                    last_commission_in_range: None,
+                                    uptime: Decimal::one(),
+                                    tombstone: false,
+                                    jailed_number: None,
+                                    init_proposal: None,
+                                    total_passed_proposals: 0u64,
+                                    total_voted_proposals: 0u64,
+                                },
+                            ),
+                        })
+                        .unwrap(),
+                    )
                 } else {
                     unimplemented!()
                 }
@@ -2589,12 +2692,12 @@ mod bond_hooks {
 
         deps.querier
             .add_wasm_query_response("native_provider_address", |_| {
-                to_json_binary(&true).unwrap()
+                cosmwasm_std::ContractResult::Ok(to_json_binary(&true).unwrap())
             });
 
         deps.querier
             .add_wasm_query_response("native_provider_address", |_| {
-                to_json_binary(&Uint128::from(1000u128)).unwrap()
+                cosmwasm_std::ContractResult::Ok(to_json_binary(&Uint128::from(1000u128)).unwrap())
             });
 
         FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -2661,12 +2764,12 @@ mod bond_hooks {
 
         deps.querier
             .add_wasm_query_response("native_provider_address", |_| {
-                to_json_binary(&true).unwrap()
+                cosmwasm_std::ContractResult::Ok(to_json_binary(&true).unwrap())
             });
 
         deps.querier
             .add_wasm_query_response("native_provider_address", |_| {
-                to_json_binary(&Uint128::from(1000u128)).unwrap()
+                cosmwasm_std::ContractResult::Ok(to_json_binary(&Uint128::from(1000u128)).unwrap())
             });
 
         FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
@@ -2733,12 +2836,12 @@ mod bond_hooks {
 
         deps.querier
             .add_wasm_query_response("native_provider_address", |_| {
-                to_json_binary(&true).unwrap()
+                cosmwasm_std::ContractResult::Ok(to_json_binary(&true).unwrap())
             });
         mock_state_query(&mut deps);
         deps.querier
             .add_wasm_query_response("native_provider_address", |_| {
-                to_json_binary(&Uint128::from(1000u128)).unwrap()
+                cosmwasm_std::ContractResult::Ok(to_json_binary(&Uint128::from(1000u128)).unwrap())
             });
 
         let hooks = ["val_ref", "validator_set", "logger", "indexer"];
