@@ -1,4 +1,3 @@
-use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankQuery, Binary, Coin,
     CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest,
@@ -33,7 +32,6 @@ use drop_staking_base::{
     },
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
-use prost::Message;
 
 pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
 
@@ -1399,99 +1397,6 @@ fn new_unbond(now: u64) -> UnbondBatch {
             withdrawing_emergency: None,
             withdrawn_emergency: None,
         },
-    }
-}
-
-pub mod check_denom {
-    use super::*;
-
-    #[derive(PartialEq, Debug)]
-    pub enum DenomType {
-        Base,
-        LsmShare(String, String),
-    }
-
-    // XXX: cosmos_sdk_proto defines these structures for me,
-    // yet they don't derive serde::de::DeserializeOwned,
-    // so I have to redefine them here manually >:(
-
-    #[cw_serde]
-    pub struct QueryDenomTraceResponse {
-        pub denom_trace: DenomTrace,
-    }
-
-    #[cw_serde]
-    pub struct DenomTrace {
-        pub path: String,
-        pub base_denom: String,
-    }
-
-    fn query_denom_trace(
-        deps: &Deps<NeutronQuery>,
-        denom: impl Into<String>,
-    ) -> StdResult<QueryDenomTraceResponse> {
-        let denom = denom.into();
-        deps.querier
-            .query(&QueryRequest::Stargate {
-                path: "/ibc.applications.transfer.v1.Query/DenomTrace".to_string(),
-                data: cosmos_sdk_proto::ibc::applications::transfer::v1::QueryDenomTraceRequest {
-                    hash: denom.clone(),
-                }
-                    .encode_to_vec()
-                    .into(),
-            })
-            .map_err(|e| {
-                StdError::generic_err(format!(
-                    "Query denom trace for denom {denom} failed: {e}, perhaps, this is not an IBC denom?"
-                ))
-            })
-    }
-
-    pub fn check_denom(
-        deps: &Deps<NeutronQuery>,
-        denom: &str,
-        config: &Config,
-    ) -> ContractResult<DenomType> {
-        if denom == config.base_denom {
-            return Ok(DenomType::Base);
-        }
-        let addrs =
-            drop_helpers::get_contracts!(deps, config.factory_contract, validators_set_contract);
-
-        let trace = query_denom_trace(deps, denom)?.denom_trace;
-        let (port, channel) = trace
-            .path
-            .split_once('/')
-            .ok_or(ContractError::InvalidDenom {})?;
-        if port != "transfer" || channel != config.transfer_channel_id {
-            return Err(ContractError::InvalidDenom {});
-        }
-
-        let (validator, unbonding_index) = trace
-            .base_denom
-            .split_once('/')
-            .ok_or(ContractError::InvalidDenom {})?;
-        unbonding_index
-            .parse::<u64>()
-            .map_err(|_| ContractError::InvalidDenom {})?;
-
-        let validator_info = deps
-            .querier
-            .query_wasm_smart::<drop_staking_base::msg::validatorset::ValidatorResponse>(
-                &addrs.validators_set_contract,
-                &drop_staking_base::msg::validatorset::QueryMsg::Validator {
-                    valoper: validator.to_string(),
-                },
-            )?
-            .validator;
-        if validator_info.is_none() {
-            return Err(ContractError::InvalidDenom {});
-        }
-
-        Ok(DenomType::LsmShare(
-            trace.base_denom.to_string(),
-            validator.to_string(),
-        ))
     }
 }
 
