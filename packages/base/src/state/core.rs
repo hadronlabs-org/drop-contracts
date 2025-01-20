@@ -34,7 +34,7 @@ pub struct Config {
     pub icq_update_delay: u64, // blocks
 }
 
-pub const CONFIG: Item<Config> = Item::new("config");
+pub const CONFIG: Item<Config> = Item::new("config_v2");
 
 #[cw_serde]
 #[derive(Copy)]
