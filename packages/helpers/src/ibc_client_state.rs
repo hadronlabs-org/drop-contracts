@@ -1,5 +1,3 @@
-use prost::Message;
-
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Deps, QueryRequest, StdError, StdResult, Uint64};
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -84,6 +82,7 @@ pub fn query_client_state(
     channel_id: String,
     port_id: String,
 ) -> StdResult<ChannelClientStateResponse> {
+    #[allow(deprecated)]
     let state = deps.querier
             .query(&QueryRequest::Stargate {
                 path: "/ibc.core.channel.v1.Query/ChannelClientState".to_string(),

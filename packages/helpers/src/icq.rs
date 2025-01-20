@@ -71,7 +71,7 @@ pub fn get_multiple_balances_keys(
         let balance_key = create_account_denom_balance_key(&addr, denom)?;
         keys.push(KVKey {
             path: BANK_STORE_KEY.to_string(),
-            key: Binary(balance_key),
+            key: Binary::new(balance_key),
         });
     }
     Ok(keys)
@@ -94,19 +94,19 @@ pub fn get_balance_and_delegations_keys(
     // // create KV key to get balance of the delegator
     keys.push(KVKey {
         path: BANK_STORE_KEY.to_string(),
-        key: Binary(balance_key),
+        key: Binary::new(balance_key),
     });
 
     // create KV key to get BondDenom from staking module params
     if version_to_u32(sdk_version)? < version_to_u32("0.47.0")? {
         keys.push(KVKey {
             path: PARAMS_STORE_KEY.to_string(),
-            key: Binary(create_params_store_key(STAKING_STORE_KEY, KEY_BOND_DENOM)),
+            key: Binary::new(create_params_store_key(STAKING_STORE_KEY, KEY_BOND_DENOM)),
         });
     } else {
         keys.push(KVKey {
             path: STAKING_STORE_KEY.to_string(),
-            key: Binary(vec![STAKING_PARAMS_KEY]),
+            key: Binary::new(vec![STAKING_PARAMS_KEY]),
         });
     }
 
@@ -116,13 +116,13 @@ pub fn get_balance_and_delegations_keys(
         // create delegation key to get delegation structure
         keys.push(KVKey {
             path: STAKING_STORE_KEY.to_string(),
-            key: Binary(create_delegation_key(&delegator_addr, &val_addr)?),
+            key: Binary::new(create_delegation_key(&delegator_addr, &val_addr)?),
         });
 
         // create validator key to get validator structure
         keys.push(KVKey {
             path: STAKING_STORE_KEY.to_string(),
-            key: Binary(create_validator_key(&val_addr)?),
+            key: Binary::new(create_validator_key(&val_addr)?),
         })
     }
 
