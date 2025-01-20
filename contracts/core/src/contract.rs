@@ -3,7 +3,7 @@ use cosmwasm_std::{
     CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest,
     Response, StdError, StdResult, Uint128, Uint64, WasmMsg,
 };
-use cw_storage_plus::Bound;
+use cw_storage_plus::{Bound, Item};
 use drop_helpers::answer::response;
 use drop_puppeteer_base::{msg::TransferReadyBatchesMsg, peripheral_hook::IBCTransferReason};
 use drop_staking_base::{
@@ -1079,10 +1079,6 @@ fn execute_update_config(
         attrs.push(attr("pump_address", &pump_ica_address));
         config.pump_ica_address = Some(pump_ica_address);
     }
-    if let Some(transfer_channel_id) = new_config.transfer_channel_id {
-        attrs.push(attr("transfer_channel_id", &transfer_channel_id));
-        config.transfer_channel_id = transfer_channel_id;
-    }
     if let Some(remote_denom) = new_config.remote_denom {
         attrs.push(attr("remote_denom", &remote_denom));
         config.remote_denom = remote_denom;
@@ -1427,6 +1423,36 @@ pub fn migrate(
             new_pause_state.tick = true;
         }
         PAUSE.save(deps.storage, &new_pause_state)?;
+
+        #[cosmwasm_schema::cw_serde]
+        pub struct OldConfig {
+            pub factory_contract: Addr,
+            pub base_denom: String,
+            pub remote_denom: String,
+            pub idle_min_interval: u64,
+            pub unbonding_period: u64,
+            pub unbonding_safe_period: u64,
+            pub unbond_batch_switch_time: u64,
+            pub pump_ica_address: Option<String>,
+            pub transfer_channel_id: String,
+            pub emergency_address: Option<String>,
+            pub icq_update_delay: u64,
+        }
+
+        let old_config = Item::<OldConfig>::new("config").load(deps.storage)?;
+        let new_config = Config {
+            factory_contract: old_config.factory_contract,
+            remote_denom: old_config.remote_denom,
+            base_denom: old_config.base_denom,
+            emergency_address: old_config.emergency_address,
+            pump_ica_address: old_config.pump_ica_address,
+            idle_min_interval: old_config.idle_min_interval,
+            unbonding_period: old_config.unbonding_period,
+            icq_update_delay: old_config.icq_update_delay,
+            unbond_batch_switch_time: old_config.unbond_batch_switch_time,
+            unbonding_safe_period: old_config.unbonding_safe_period,
+        };
+        CONFIG.save(deps.storage, &new_config)?;
 
         BOND_HOOKS.save(deps.storage, &vec![])?;
     }
