@@ -1,6 +1,6 @@
 use crate::error::ContractError;
 use crate::msg::OwnerQueryMsg;
-use crate::state::{BondProvider, FactoryType, PreInstantiatedContracts};
+use crate::state::{FactoryType, PreInstantiatedContracts};
 use crate::{
     error::ContractResult,
     msg::{
@@ -174,7 +174,7 @@ pub fn instantiate(
         Factory::Native { .. } => "N/A",
     };
 
-    let (puppeteer_instantiate_msg_binary, lsm_share_bond_provider_contract) = match &msg.factory {
+    let (puppeteer_instantiate_msg_binary, _) = match &msg.factory {
         Factory::Remote {
             sdk_version,
             code_ids,
@@ -390,8 +390,8 @@ pub fn instantiate(
         code_ids,
         lsm_share_bond_params,
         reverse_transfer_channel_id,
-        min_ibc_transfer,
-        min_stake_amount,
+        min_ibc_transfer: _,
+        min_stake_amount: _,
         port_id,
         ..
     } = &msg.factory
@@ -754,7 +754,7 @@ pub fn validate_contract_metadata(
     }
 
     let contract_config_owner = get_contract_config_owner(deps, contract_addr)?;
-    if contract_config_owner != env.contract.address.to_string() {
+    if contract_config_owner != env.contract.address {
         return Err(ContractError::InvalidContractOwner {
             expected: env.contract.address.to_string(),
             actual: contract_config_owner,

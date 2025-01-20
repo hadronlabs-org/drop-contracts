@@ -51,8 +51,26 @@ main() {
 
   pre_deploy_check_code_ids
   pre_deploy_check_balance
-  pre_deploy_check_ibc_connection 
-  deploy_factory
+  pre_deploy_check_ibc_connection
+  factory_contract_address=$(get_contract_address $factory_code_id $deploy_wallet $SALT)
+  echo "Factory address: $factory_contract_address"
+  core_contract_contract=$(get_contract_address $core_code_id $factory_contract_address $SALT)
+  echo "Core address: $core_contract_contract"
+  puppeteer_contract_address=$(get_contract_address $puppeteer_code_id $factory_contract_address $SALT)
+  echo "Puppeteer address: $puppeteer_contract_address"
+  strategy_contract_address=$(get_contract_address $strategy_code_id $factory_contract_address $SALT)
+  echo "Strategy address: $strategy_contract_address"
+
+  uatom_on_neutron_denom="ibc/$(printf 'transfer/%s/%s' "$NEUTRON_SIDE_TRANSFER_CHANNEL_ID" "$TARGET_BASE_DENOM" \
+    | sha256sum - | awk '{print $1}' | tr '[:lower:]' '[:upper:]')"
+  echo "[OK] IBC denom of $TARGET_BASE_DENOM on Neutron is $uatom_on_neutron_denom"
+
+  
+  native_bond_provider_contract_address=$(deploy_native_bond_provider "$factory_contract_address" "$core_contract_contract" "$puppeteer_contract_address" "$strategy_contract_address")
+  echo "[OK] Native bond provider address: $native_bond_provider_contract_address"
+
+  deploy_factory "$native_bond_provider_contract_address"
+  exit
   top_up_address "$puppeteer_address"
   
   register_rewards_pump_ica
@@ -67,7 +85,7 @@ main() {
 
   update_msg='{
     "add_bond_provider":{
-      "bond_provider_address": "'"$native_bond_provider_address"'"
+      "bond_provider_address": "'"$native_bond_provider_contract_address"'"
     }
   }'
 

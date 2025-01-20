@@ -140,10 +140,8 @@ pre_deploy_check_code_ids() {
 # code IDs are assigned using dynamic variable names, shellcheck's mind cannot comprehend that
 # shellcheck disable=SC2154
 deploy_factory() {
+  local native_bond_provider_contract_address="$1"
   # TODO: calculate unbond batch switch time and unbonding period using params queried from the network
-  uatom_on_neutron_denom="ibc/$(printf 'transfer/%s/%s' "$NEUTRON_SIDE_TRANSFER_CHANNEL_ID" "$TARGET_BASE_DENOM" \
-    | sha256sum - | awk '{print $1}' | tr '[:lower:]' '[:upper:]')"
-  echo "[OK] IBC denom of $TARGET_BASE_DENOM on Neutron is $uatom_on_neutron_denom"
   msg='{
     "sdk_version":"'"$TARGET_SDK_VERSION"'",
     "local_denom":"untrn",
@@ -162,6 +160,12 @@ deploy_factory() {
       "lsm_share_bond_provider_code_id": '"$lsm_share_bond_provider_code_id"',
       "native_bond_provider_code_id": '"$native_bond_provider_code_id"'
     },
+    "pre_instantiated_contracts": [
+      "'"$native_bond_provider_contract_address"'"
+    ],
+    "bond_providers": [
+      {"name": "native_bond_provider", "contract_address": "'"$native_bond_provider_contract_address"'"}
+    ],
     "remote_opts":{
       "connection_id":"'"$neutron_side_connection_id"'",
       "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
@@ -191,18 +195,18 @@ deploy_factory() {
       "unbonding_period":'"$UNBONDING_PERIOD"',
       "bond_limit":"'"$CORE_PARAMS_BOND_LIMIT"'",
       "icq_update_delay": '$CORE_PARAMS_ICQ_UPDATE_DELAY'
-    },
-    "native_bond_params":{
-      "min_stake_amount":"'"$STAKER_PARAMS_MIN_STAKE_AMOUNT"'",
-      "min_ibc_transfer":"'"$STAKER_PARAMS_MIN_IBC_TRANSFER"'"
-    },
-    "lsm_share_bond_params":{
-      "lsm_redeem_threshold":'$CORE_PARAMS_LSM_REDEEM_THRESHOLD',
-      "lsm_min_bond_amount":"'"$CORE_PARAMS_LSM_MIN_BOND_AMOUNT"'",
-      "lsm_redeem_max_interval":'$CORE_PARAMS_LSM_REDEEM_MAX_INTERVAL'
     }
   }'
-  factory_address="$(neutrond tx wasm instantiate "$factory_code_id" "$msg" \
+
+  #   "lsm_share_bond_params":{
+  #     "lsm_redeem_threshold":'$CORE_PARAMS_LSM_REDEEM_THRESHOLD',
+  #     "lsm_min_bond_amount":"'"$CORE_PARAMS_LSM_MIN_BOND_AMOUNT"'",
+  #     "lsm_redeem_max_interval":'$CORE_PARAMS_LSM_REDEEM_MAX_INTERVAL'
+  #   }
+
+  local salt_hex="$(echo -n "$SALT" | xxd -p)"
+
+  factory_address="$(neutrond tx wasm instantiate2 "$factory_code_id" "$msg" $salt_hex \
     --label "drop-staking-factory"                                          \
     --admin "$deploy_wallet"                                                \
     --from "$DEPLOY_WALLET" "${ntx[@]}"                                     \
@@ -222,8 +226,6 @@ deploy_factory() {
     | jq -r '.data.withdrawal_manager_contract')"
   lsm_share_bond_provider_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.lsm_share_bond_provider_contract')"
-  native_bond_provider_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
-    | jq -r '.data.native_bond_provider_contract')"
   echo "[OK] Puppeteer contract: $puppeteer_address"
   echo "[OK] Withdrawal manager contract: $withdrawal_manager_address"
 }
@@ -261,11 +263,11 @@ get_contract_address() {
     local creator_address="$2"
     local salt="$3"
 
+    local salt_hex="$(echo -n "$salt" | xxd -p)"
     local code_hash="$(neutrond query wasm code-info $code_id "${nq[@]}" | jq -r '.data_hash')"
 
-    local contract_address="$(neutrond query wasm build-address $code_hash $creator_address $salt "${nq[@]}" --ascii | jq -r '.balance.amount')"
+    local contract_address="$(neutrond query wasm build-address $code_hash $creator_address $salt_hex | awk '{print $2}')"
 
-    local contract_address="$(echo "$factory_result" | jq -r "$(select_attr "contract_address" "$contract_name")")"
     echo "$contract_address"
 }
 
@@ -334,6 +336,34 @@ deploy_pump() {
     --label "drop-pump" --admin "$deploy_wallet" --from "$DEPLOY_WALLET" "${ntx[@]}" \
       | wait_ntx | jq -r "$(select_attr "instantiate" "_contract_address")")"
   echo "[OK] Pump address: $pump_address"
+}
+
+deploy_native_bond_provider() {
+  local factory_address="$1"
+  local core_contract="$2"
+  local puppeteer_address="$3"
+  local strategy_address="$4"
+
+
+  msg='{
+    "owner":"'"$factory_address"'",
+    "base_denom":"'"$uatom_on_neutron_denom"'",
+    "puppeteer_contract":"'"$puppeteer_address"'",
+    "core_contract":"'"$core_contract"'",
+    "strategy_contract":"'"$strategy_address"'",
+    "min_stake_amount":"'"$STAKER_PARAMS_MIN_STAKE_AMOUNT"'",
+    "min_ibc_transfer":"'"$STAKER_PARAMS_MIN_IBC_TRANSFER"'",
+    "port_id":"'"$NEUTRON_SIDE_PORT_ID"'",
+    "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
+    "timeout":'$TIMEOUT_LOCAL'
+  }'
+
+  # native bond provider code ID is assigned using dynamic variable name, shellcheck's mind cannot comprehend that
+  # shellcheck disable=SC2154
+  native_bond_provider_address="$(neutrond tx wasm instantiate "$native_bond_provider_code_id" "$msg"                \
+    --label "drop-native-bond-provider" --admin "$factory_address" --from "$DEPLOY_WALLET" "${ntx[@]}" \
+      | wait_ntx | jq -r "$(select_attr "instantiate" "_contract_address")")"
+  echo "$native_bond_provider_address"
 }
 
 factory_admin_execute() {

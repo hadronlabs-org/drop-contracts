@@ -1633,14 +1633,13 @@ fn test_validate_contract_metadata() {
             cosmwasm_std::ContractResult::Ok(to_json_binary(&response).unwrap())
         });
 
-    let response = validate_contract_metadata(
+    validate_contract_metadata(
         deps.as_ref().into_empty(),
         &mocked_env,
         &cosmwasm_std::Addr::unchecked(contract_addr),
         vec!["contract_name".to_string()],
     )
     .unwrap();
-    assert_eq!(response, ());
 }
 
 #[test]
@@ -1677,7 +1676,7 @@ fn test_validate_contract_metadata_two_names() {
             cosmwasm_std::ContractResult::Ok(to_json_binary(&response).unwrap())
         });
 
-    let response = validate_contract_metadata(
+    validate_contract_metadata(
         deps.as_ref().into_empty(),
         &mocked_env,
         &cosmwasm_std::Addr::unchecked(contract_addr),
@@ -1687,7 +1686,6 @@ fn test_validate_contract_metadata_two_names() {
         ],
     )
     .unwrap();
-    assert_eq!(response, ());
 }
 
 #[test]
