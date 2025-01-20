@@ -90,7 +90,7 @@ fn execute_bond_hook(
                 core,
                 &drop_staking_base::msg::core::QueryMsg::ExchangeRate {},
             )?;
-            let on_top_increase = bond_hook.dasset_minted * exchange_rate;
+            let on_top_increase = bond_hook.dasset_minted.mul_floor(exchange_rate);
             messages.push(SubMsg::reply_on_error(
                 WasmMsg::Execute {
                     contract_addr: VALIDATORS_SET_ADDRESS.load(deps.storage)?.into_string(),

@@ -17,10 +17,10 @@ pub enum IcaState {
     },
 }
 
-pub struct Ica<'a>(Item<'a, IcaState>);
+pub struct Ica(Item<IcaState>);
 
-impl<'a> Ica<'a> {
-    pub const fn new(storage_key: &'a str) -> Self {
+impl Ica {
+    pub const fn new(storage_key: &'static str) -> Self {
         Self(Item::new(storage_key))
     }
 
