@@ -14,7 +14,8 @@ use super::puppeteer::DropDelegation;
 pub struct ConfigOptional {
     pub remote_denom: Option<String>,
     pub allowed_senders: Option<Vec<String>>,
-    pub native_bond_provider: Option<Addr>,
+    pub native_bond_provider: Option<String>,
+    pub distribution_module_contract: Option<String>,
 }
 
 #[cw_serde]
@@ -22,7 +23,7 @@ pub struct Config {
     pub remote_denom: String,
     pub allowed_senders: Vec<Addr>,
     pub native_bond_provider: Addr,
-    pub rewards_contract: Option<Addr>,
+    pub distribution_module_contract: Addr,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

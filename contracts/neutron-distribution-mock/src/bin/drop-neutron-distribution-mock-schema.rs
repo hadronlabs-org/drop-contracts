@@ -1,5 +1,5 @@
 use cosmwasm_schema::write_api;
-use drop_staking_base::msg::native_sync_bond_provider::{
+use drop_staking_base::msg::neutron_distribution_mock::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
 

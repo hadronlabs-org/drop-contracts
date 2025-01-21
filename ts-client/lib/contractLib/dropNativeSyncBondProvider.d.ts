@@ -26,20 +26,6 @@ export type Boolean1 = boolean;
  * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
  */
 export type Addr = string;
-/**
- * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u128` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
- *
- * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
- *
- * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
- */
-export type Uint1281 = string;
 export type ResponseHookMsg = {
     success: ResponseHookSuccessMsg;
 } | {
@@ -106,6 +92,20 @@ export type Transaction = {
         rewards_withdraw_address: string;
     };
 };
+/**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint1281 = string;
 export type IBCTransferReason = "l_s_m_share" | "delegate";
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
@@ -192,13 +192,8 @@ export interface DropNativeSyncBondProviderSchema {
 export interface Config {
     base_denom: string;
     core_contract: Addr;
-    min_ibc_transfer: Uint1281;
-    min_stake_amount: Uint1281;
-    port_id: string;
     puppeteer_contract: Addr;
     strategy_contract: Addr;
-    timeout: number;
-    transfer_channel_id: string;
 }
 export interface LastPuppeteerResponse {
     response?: ResponseHookMsg | null;
@@ -261,26 +256,16 @@ export interface UpdateConfigArgs {
 }
 export interface ConfigOptional {
     base_denom?: string | null;
-    core_contract?: Addr | null;
-    min_ibc_transfer?: Uint1281 | null;
-    min_stake_amount?: Uint1281 | null;
-    port_id?: string | null;
-    puppeteer_contract?: Addr | null;
-    strategy_contract?: Addr | null;
-    timeout?: number | null;
-    transfer_channel_id?: string | null;
+    core_contract?: string | null;
+    puppeteer_contract?: string | null;
+    strategy_contract?: string | null;
 }
 export interface InstantiateMsg {
     base_denom: string;
     core_contract: string;
-    min_ibc_transfer: Uint1281;
-    min_stake_amount: Uint1281;
     owner: string;
-    port_id: string;
     puppeteer_contract: string;
     strategy_contract: string;
-    timeout: number;
-    transfer_channel_id: string;
 }
 export declare class Client {
     private readonly client;

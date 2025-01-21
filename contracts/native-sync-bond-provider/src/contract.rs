@@ -5,16 +5,17 @@ use cosmwasm_std::{
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::{attr_coin, response};
+use drop_staking_base::{
+    msg::native_sync_bond_provider::{
+        ConfigOptional, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
+    },
+    state::native_sync_bond_provider::{Config, CONFIG, NON_STAKED_BALANCE},
+};
 
 use drop_puppeteer_base::peripheral_hook::ReceiverExecuteMsg;
 use drop_staking_base::error::native_bond_provider::{ContractError, ContractResult};
 use drop_staking_base::msg::core::LastPuppeteerResponse;
-use drop_staking_base::msg::native_bond_provider::{
-    ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
-};
-use drop_staking_base::state::native_bond_provider::{
-    Config, ConfigOptional, TxState, CONFIG, LAST_PUPPETEER_RESPONSE, NON_STAKED_BALANCE,
-};
+use drop_staking_base::state::native_bond_provider::{TxState, LAST_PUPPETEER_RESPONSE};
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
 
@@ -42,11 +43,6 @@ pub fn instantiate(
         core_contract: core_contract.clone(),
         strategy_contract: strategy_contract.clone(),
         base_denom: msg.base_denom.to_string(),
-        min_ibc_transfer: msg.min_ibc_transfer,
-        min_stake_amount: msg.min_stake_amount,
-        transfer_channel_id: msg.transfer_channel_id.clone(),
-        port_id: msg.port_id.clone(),
-        timeout: msg.timeout,
     };
     CONFIG.save(deps.storage, config)?;
 
@@ -59,12 +55,7 @@ pub fn instantiate(
             attr("puppeteer_contract", puppeteer_contract.into_string()),
             attr("core_contract", core_contract.into_string()),
             attr("strategy_contract", strategy_contract.into_string()),
-            attr("min_ibc_transfer", msg.min_ibc_transfer),
-            attr("min_stake_amount", msg.min_stake_amount),
             attr("base_denom", msg.base_denom),
-            attr("port_id", msg.port_id),
-            attr("transfer_channel_id", msg.transfer_channel_id),
-            attr("timeout", msg.timeout.to_string()),
         ],
     ))
 }
@@ -135,12 +126,11 @@ fn query_can_process_on_idle(
         .query_balance(&env.contract.address, config.base_denom.to_string())?;
 
     ensure!(
-        pending_coin.amount >= config.min_ibc_transfer
-            || non_staked_balance >= config.min_stake_amount,
+        !pending_coin.amount.is_zero() || !non_staked_balance.is_zero(),
         ContractError::NotEnoughToProcessIdle {
-            min_stake_amount: config.min_stake_amount,
+            min_stake_amount: Uint128::new(1),
+            min_ibc_transfer: Uint128::new(0),
             non_staked_balance,
-            min_ibc_transfer: config.min_ibc_transfer,
             pending_coins: pending_coin.amount,
         }
     );
@@ -217,31 +207,6 @@ fn execute_update_config(
         attrs.push(attr("base_denom", base_denom));
     }
 
-    if let Some(min_ibc_transfer) = new_config.min_ibc_transfer {
-        state.min_ibc_transfer = min_ibc_transfer;
-        attrs.push(attr("min_ibc_transfer", min_ibc_transfer));
-    }
-
-    if let Some(min_stake_amount) = new_config.min_stake_amount {
-        state.min_stake_amount = min_stake_amount;
-        attrs.push(attr("min_stake_amount", min_stake_amount));
-    }
-
-    if let Some(port_id) = new_config.port_id {
-        state.port_id = port_id.clone();
-        attrs.push(attr("port_id", port_id));
-    }
-
-    if let Some(transfer_channel_id) = new_config.transfer_channel_id {
-        state.transfer_channel_id = transfer_channel_id.clone();
-        attrs.push(attr("transfer_channel_id", transfer_channel_id));
-    }
-
-    if let Some(timeout) = new_config.timeout {
-        state.timeout = timeout;
-        attrs.push(attr("timeout", timeout.to_string()));
-    }
-
     CONFIG.save(deps.storage, &state)?;
 
     Ok(response("update_config", CONTRACT_NAME, attrs))
@@ -311,7 +276,7 @@ fn get_delegation_msg(
 ) -> ContractResult<Option<CosmosMsg<NeutronMsg>>> {
     let non_staked_balance = NON_STAKED_BALANCE.load(deps.storage)?;
 
-    if non_staked_balance < config.min_stake_amount {
+    if non_staked_balance.is_zero() {
         return Ok(None);
     }
 

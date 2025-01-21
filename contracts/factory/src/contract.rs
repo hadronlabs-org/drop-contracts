@@ -19,6 +19,7 @@ use drop_staking_base::{
         distribution::InstantiateMsg as DistributionInstantiateMsg,
         lsm_share_bond_provider::InstantiateMsg as LsmShareBondProviderInstantiateMsg,
         native_bond_provider::InstantiateMsg as NativeBondProviderInstantiateMsg,
+        native_sync_bond_provider::InstantiateMsg as NativeSyncBondProviderInstantiateMsg,
         pump::InstantiateMsg as RewardsPumpInstantiateMsg,
         rewards_manager::{
             InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg,
@@ -166,7 +167,7 @@ pub fn instantiate(
             transfer_channel_id,
             ..
         } => transfer_channel_id.as_str(),
-        Factory::Native {} => "N/A",
+        Factory::Native { .. } => "N/A",
     };
 
     let (puppeteer_instantiate_msg_binary, lsm_share_bond_provider_contract) = match &msg.factory {
@@ -174,6 +175,7 @@ pub fn instantiate(
             sdk_version,
             code_ids,
             icq_update_period,
+            port_id,
             ..
         } => {
             attrs.push(attr("sdk_version", sdk_version));
@@ -198,7 +200,7 @@ pub fn instantiate(
                 remote_denom: msg.remote_opts.denom.to_string(),
                 update_period: *icq_update_period,
                 connection_id: msg.remote_opts.connection_id.to_string(),
-                port_id: msg.remote_opts.port_id.to_string(),
+                port_id: port_id.clone(),
                 transfer_channel_id: transfer_channel_id.to_string(),
                 sdk_version: sdk_version.clone(),
                 timeout: msg.remote_opts.timeout.local,
@@ -211,7 +213,9 @@ pub fn instantiate(
                 Some(lsm_share_bond_provider_contract),
             )
         }
-        Factory::Native {} => {
+        Factory::Native {
+            distribution_module_contract,
+        } => {
             let msg = drop_staking_base::msg::puppeteer_native::InstantiateMsg {
                 allowed_senders: vec![
                     native_bond_provider_contract.to_string(),
@@ -221,6 +225,7 @@ pub fn instantiate(
                 owner: Some(env.contract.address.to_string()),
                 remote_denom: msg.remote_opts.denom.to_string(),
                 native_bond_provider: native_bond_provider_contract.to_string(),
+                distribution_module_contract: distribution_module_contract.to_string(),
             };
 
             (to_json_binary(&msg)?, None)
@@ -382,6 +387,9 @@ pub fn instantiate(
         code_ids,
         lsm_share_bond_params,
         reverse_transfer_channel_id,
+        min_ibc_transfer,
+        min_stake_amount,
+        port_id,
         ..
     } = &msg.factory
     {
@@ -392,7 +400,7 @@ pub fn instantiate(
             msg: to_json_binary(&RewardsPumpInstantiateMsg {
                 dest_address: Some(splitter_contract.to_string()),
                 dest_channel: Some(reverse_transfer_channel_id.clone()),
-                dest_port: Some(msg.remote_opts.port_id.to_string()),
+                dest_port: Some(port_id.clone()),
                 connection_id: msg.remote_opts.connection_id.to_string(),
                 refundee: None,
                 timeout: PumpTimeout {
@@ -414,7 +422,7 @@ pub fn instantiate(
                 core_contract: core_contract.to_string(),
                 puppeteer_contract: puppeteer_contract.to_string(),
                 validators_set_contract,
-                port_id: msg.remote_opts.port_id.to_string(),
+                port_id: port_id.clone(),
                 transfer_channel_id: transfer_channel_id.to_string(),
                 timeout: msg.remote_opts.timeout.local,
                 lsm_min_bond_amount: lsm_share_bond_params.lsm_min_bond_amount,
@@ -424,26 +432,41 @@ pub fn instantiate(
             funds: vec![],
             salt: Binary::from(salt),
         }));
+        msgs.push(CosmosMsg::Wasm(WasmMsg::Instantiate2 {
+            admin: Some(env.contract.address.to_string()),
+            code_id: msg.code_ids.native_bond_provider_code_id,
+            label: get_contract_label("native-bond-provider"),
+            msg: to_json_binary(&NativeBondProviderInstantiateMsg {
+                owner: env.contract.address.to_string(),
+                base_denom: msg.base_denom.to_string(),
+                puppeteer_contract: puppeteer_contract.to_string(),
+                core_contract: core_contract.to_string(),
+                strategy_contract: strategy_contract.to_string(),
+                min_ibc_transfer: *min_ibc_transfer,
+                min_stake_amount: *min_stake_amount,
+                port_id: port_id.clone(),
+                transfer_channel_id: transfer_channel_id.to_string(),
+                timeout: msg.remote_opts.timeout.local,
+            })?,
+            funds: vec![],
+            salt: Binary::from(salt),
+        }));
+    } else {
+        msgs.push(CosmosMsg::Wasm(WasmMsg::Instantiate2 {
+            admin: Some(env.contract.address.to_string()),
+            code_id: msg.code_ids.native_bond_provider_code_id,
+            label: get_contract_label("native-bond-provider"),
+            msg: to_json_binary(&NativeSyncBondProviderInstantiateMsg {
+                owner: env.contract.address.to_string(),
+                base_denom: msg.base_denom.to_string(),
+                puppeteer_contract: puppeteer_contract.to_string(),
+                core_contract: core_contract.to_string(),
+                strategy_contract: strategy_contract.to_string(),
+            })?,
+            funds: vec![],
+            salt: Binary::from(salt),
+        }));
     }
-    msgs.push(CosmosMsg::Wasm(WasmMsg::Instantiate2 {
-        admin: Some(env.contract.address.to_string()),
-        code_id: msg.code_ids.native_bond_provider_code_id,
-        label: get_contract_label("native-bond-provider"),
-        msg: to_json_binary(&NativeBondProviderInstantiateMsg {
-            owner: env.contract.address.to_string(),
-            base_denom: msg.base_denom.to_string(),
-            puppeteer_contract: puppeteer_contract.to_string(),
-            core_contract: core_contract.to_string(),
-            strategy_contract: strategy_contract.to_string(),
-            min_ibc_transfer: msg.native_bond_params.min_ibc_transfer,
-            min_stake_amount: msg.native_bond_params.min_stake_amount,
-            port_id: msg.remote_opts.port_id.to_string(),
-            transfer_channel_id: transfer_channel_id.to_string(),
-            timeout: msg.remote_opts.timeout.local,
-        })?,
-        funds: vec![],
-        salt: Binary::from(salt),
-    }));
 
     Ok(response("instantiate", CONTRACT_NAME, attrs).add_messages(msgs))
 }

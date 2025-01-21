@@ -56,7 +56,7 @@ pub fn instantiate(
         remote_denom: msg.remote_denom,
         allowed_senders: allowed_senders.clone(),
         native_bond_provider: deps.api.addr_validate(&msg.native_bond_provider)?,
-        rewards_contract: None,
+        distribution_module_contract: deps.api.addr_validate(&msg.distribution_module_contract)?,
     };
 
     let attrs: Vec<Attribute> = vec![
@@ -301,8 +301,17 @@ fn execute_update_config(
     }
 
     if let Some(native_bond_provider) = new_config.native_bond_provider {
-        config.native_bond_provider = native_bond_provider.clone();
-        attrs.push(attr("native_bond_provider", native_bond_provider))
+        config.native_bond_provider = deps.api.addr_validate(&native_bond_provider)?;
+        attrs.push(attr("native_bond_provider", native_bond_provider));
+    }
+
+    if let Some(distribution_module_contract) = new_config.distribution_module_contract {
+        config.distribution_module_contract =
+            deps.api.addr_validate(&distribution_module_contract)?;
+        attrs.push(attr(
+            "distribution_module_contract",
+            distribution_module_contract,
+        ));
     }
 
     CONFIG.save(deps.storage, &config)?;
@@ -395,13 +404,28 @@ fn execute_setup_protocol(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     info: MessageInfo,
-    rewards_contract: String,
+    rewards_withdraw_address: String,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let mut config: Config = CONFIG.load(deps.storage)?;
+    let config: Config = CONFIG.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
-    config.rewards_contract = Some(deps.api.addr_validate(&rewards_contract)?);
-    CONFIG.save(deps.storage, &config)?;
-    Ok(Response::default())
+    let rewards_withdraw_addr = deps.api.addr_validate(&rewards_withdraw_address)?;
+
+    let msg = WasmMsg::Execute {
+        contract_addr: config.distribution_module_contract.into_string(),
+        funds: vec![],
+        msg: to_json_binary(
+            &drop_staking_base::msg::neutron_distribution_mock::ExecuteMsg::SetWithdrawAddress {
+                address: rewards_withdraw_addr.into_string(),
+            },
+        )?,
+    };
+
+    Ok(response(
+        "execute_setup_protocol",
+        CONTRACT_NAME,
+        [("rewards_withdraw_address", rewards_withdraw_address)],
+    )
+    .add_message(msg))
 }
 
 fn execute_claim_rewards_and_optionaly_transfer(

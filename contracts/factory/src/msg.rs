@@ -16,14 +16,15 @@ pub struct InstantiateMsg {
     pub base_denom: String,
     pub local_denom: String,
     pub core_params: CoreParams,
-    pub native_bond_params: NativeBondParams,
     pub fee_params: Option<FeeParams>,
     pub factory: Factory,
 }
 
 #[cw_serde]
 pub enum Factory {
-    Native {},
+    Native {
+        distribution_module_contract: String,
+    },
     Remote {
         sdk_version: String,
         code_ids: RemoteCodeIds,
@@ -31,13 +32,16 @@ pub enum Factory {
         icq_update_period: u64,
         transfer_channel_id: String,
         reverse_transfer_channel_id: String,
+        min_stake_amount: Uint128,
+        min_ibc_transfer: Uint128,
+        port_id: String,
     },
 }
 
 impl Factory {
     pub fn to_factory_type(&self) -> FactoryType {
         match self {
-            Factory::Native {} => FactoryType::Native {},
+            Factory::Native { .. } => FactoryType::Native {},
             Factory::Remote { .. } => FactoryType::Remote {},
         }
     }
@@ -57,12 +61,6 @@ pub struct CoreParams {
     pub unbond_batch_switch_time: u64,
     pub bond_limit: Option<Uint128>,
     pub icq_update_delay: u64, // blocks
-}
-
-#[cw_serde]
-pub struct NativeBondParams {
-    pub min_stake_amount: Uint128,
-    pub min_ibc_transfer: Uint128,
 }
 
 #[cw_serde]
