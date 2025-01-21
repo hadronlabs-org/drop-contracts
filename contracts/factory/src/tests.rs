@@ -341,7 +341,6 @@ fn test_instantiate() {
                         label: "drop-staking-core".to_string(),
                         msg: to_json_binary(&CoreInstantiateMsg {
                             factory_contract: "factory_contract".to_string(),
-
                             base_denom: "base_denom".to_string(),
                             remote_denom: "denom".to_string(),
                             idle_min_interval: 0,
@@ -349,7 +348,6 @@ fn test_instantiate() {
                             unbonding_safe_period: 0,
                             unbond_batch_switch_time: 0,
                             pump_ica_address: None,
-                            transfer_channel_id: "channel-0".to_string(),
                             owner: "factory_contract".to_string(),
                             emergency_address: None,
                             icq_update_delay: 0
@@ -612,7 +610,6 @@ fn test_update_config_core_unauthorized() {
         unbonding_safe_period: None,
         unbond_batch_switch_time: None,
         pump_ica_address: None,
-        transfer_channel_id: None,
         rewards_receiver: None,
         emergency_address: None,
     };
@@ -648,7 +645,6 @@ fn test_update_config_core() {
         unbonding_safe_period: Some(1u64),
         unbond_batch_switch_time: Some(1u64),
         pump_ica_address: Some("pump_ica_address1".to_string()),
-        transfer_channel_id: Some("channel-1".to_string()),
         rewards_receiver: Some("rewards_receiver1".to_string()),
         emergency_address: Some("emergency_address1".to_string()),
     };

@@ -40,57 +40,6 @@ export type ResponseHookMsg =
   | {
       error: ResponseHookErrorMsg;
     };
-export type ResponseAnswer =
-  | {
-      grant_delegate_response: MsgGrantResponse;
-    }
-  | {
-      delegate_response: MsgDelegateResponse;
-    }
-  | {
-      undelegate_response: MsgUndelegateResponse;
-    }
-  | {
-      begin_redelegate_response: MsgBeginRedelegateResponse;
-    }
-  | {
-      tokenize_shares_response: MsgTokenizeSharesResponse;
-    }
-  | {
-      redeem_tokensfor_shares_response: MsgRedeemTokensforSharesResponse;
-    }
-  | {
-      authz_exec_response: MsgExecResponse;
-    }
-  | {
-      i_b_c_transfer: MsgIBCTransfer;
-    }
-  | {
-      transfer_response: MsgSendResponse;
-    }
-  | {
-      unknown_response: {};
-    };
-/**
- * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u128` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
- *
- * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
- *
- * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
- */
-export type Uint1281 = string;
-/**
- * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
- *
- * This is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.
- */
-export type Binary = string;
 export type Transaction =
   | {
       undelegate: {
@@ -162,6 +111,20 @@ export type Transaction =
         rewards_withdraw_address: string;
       };
     };
+/**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint1281 = string;
 export type IBCTransferReason = "l_s_m_share" | "delegate";
 export type String = string;
 /**
@@ -246,7 +209,7 @@ export type Expiration =
       at_height: number;
     }
   | {
-      at_time: Timestamp2;
+      at_time: Timestamp;
     }
   | {
       never: {};
@@ -262,7 +225,7 @@ export type Expiration =
  *
  * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
  */
-export type Timestamp2 = Uint64;
+export type Timestamp = Uint64;
 
 export interface DropCoreSchema {
   responses:
@@ -303,7 +266,6 @@ export interface Config {
   idle_min_interval: number;
   pump_ica_address?: string | null;
   remote_denom: string;
-  transfer_channel_id: string;
   unbond_batch_switch_time: number;
   unbonding_period: number;
   unbonding_safe_period: number;
@@ -315,56 +277,9 @@ export interface LastPuppeteerResponse {
   response?: ResponseHookMsg | null;
 }
 export interface ResponseHookSuccessMsg {
-  answers: ResponseAnswer[];
   local_height: number;
   remote_height: number;
-  request: RequestPacket;
-  request_id: number;
   transaction: Transaction;
-}
-export interface MsgGrantResponse {}
-export interface MsgDelegateResponse {}
-export interface MsgUndelegateResponse {
-  completion_time?: Timestamp | null;
-}
-export interface Timestamp {
-  nanos: number;
-  seconds: number;
-}
-export interface MsgBeginRedelegateResponse {
-  completion_time?: Timestamp | null;
-}
-export interface MsgTokenizeSharesResponse {
-  amount?: Coin | null;
-}
-export interface Coin {
-  amount: Uint1281;
-  denom: string;
-  [k: string]: unknown;
-}
-export interface MsgRedeemTokensforSharesResponse {
-  amount?: Coin | null;
-}
-export interface MsgExecResponse {
-  results: number[][];
-}
-export interface MsgIBCTransfer {}
-export interface MsgSendResponse {}
-export interface RequestPacket {
-  data?: Binary | null;
-  destination_channel?: string | null;
-  destination_port?: string | null;
-  sequence?: number | null;
-  source_channel?: string | null;
-  source_port?: string | null;
-  timeout_height?: RequestPacketTimeoutHeight | null;
-  timeout_timestamp?: number | null;
-  [k: string]: unknown;
-}
-export interface RequestPacketTimeoutHeight {
-  revision_height?: number | null;
-  revision_number?: number | null;
-  [k: string]: unknown;
 }
 export interface RedeemShareItem {
   amount: Uint1281;
@@ -377,10 +292,13 @@ export interface TransferReadyBatchesMsg {
   emergency: boolean;
   recipient: string;
 }
+export interface Coin {
+  amount: Uint1281;
+  denom: string;
+  [k: string]: unknown;
+}
 export interface ResponseHookErrorMsg {
   details: string;
-  request: RequestPacket;
-  request_id: number;
   transaction: Transaction;
 }
 export interface Pause {
@@ -452,7 +370,6 @@ export interface ConfigOptional {
   pump_ica_address?: string | null;
   remote_denom?: string | null;
   rewards_receiver?: string | null;
-  transfer_channel_id?: string | null;
   unbond_batch_switch_time?: number | null;
   unbonding_period?: number | null;
   unbonding_safe_period?: number | null;
@@ -485,7 +402,6 @@ export interface InstantiateMsg {
   owner: string;
   pump_ica_address?: string | null;
   remote_denom: string;
-  transfer_channel_id: string;
   unbond_batch_switch_time: number;
   unbonding_period: number;
   unbonding_safe_period: number;

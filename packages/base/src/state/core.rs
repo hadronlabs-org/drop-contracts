@@ -16,7 +16,6 @@ pub struct ConfigOptional {
     pub unbonding_safe_period: Option<u64>,
     pub unbond_batch_switch_time: Option<u64>,
     pub pump_ica_address: Option<String>,
-    pub transfer_channel_id: Option<String>,
     pub rewards_receiver: Option<String>,
     pub emergency_address: Option<String>,
 }
@@ -31,12 +30,11 @@ pub struct Config {
     pub unbonding_safe_period: u64,    //seconds
     pub unbond_batch_switch_time: u64, //seconds
     pub pump_ica_address: Option<String>,
-    pub transfer_channel_id: String,
     pub emergency_address: Option<String>,
     pub icq_update_delay: u64, // blocks
 }
 
-pub const CONFIG: Item<Config> = Item::new("config");
+pub const CONFIG: Item<Config> = Item::new("config_v2");
 
 #[cw_serde]
 #[derive(Copy)]

@@ -1,7 +1,4 @@
-use crate::contract::{
-    check_denom::{DenomTrace, QueryDenomTraceResponse},
-    execute, query,
-};
+use crate::contract::{execute, query};
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info, MockApi, MockStorage},
@@ -47,7 +44,6 @@ fn get_default_config(
         unbonding_safe_period,
         unbond_batch_switch_time,
         pump_ica_address: Some("pump_address".to_string()),
-        transfer_channel_id: "transfer_channel".to_string(),
         emergency_address: None,
         icq_update_delay: 5,
     }
@@ -105,7 +101,6 @@ fn test_update_config() {
             unbonding_safe_period: 120,
             unbond_batch_switch_time: 2000,
             pump_ica_address: Some("old_pump_address".to_string()),
-            transfer_channel_id: "old_transfer_channel".to_string(),
             emergency_address: Some("old_emergency_address".to_string()),
             owner: "admin".to_string(),
             icq_update_delay: 5,
@@ -126,7 +121,6 @@ fn test_update_config() {
         unbonding_safe_period: Some(20),
         unbond_batch_switch_time: Some(12000),
         pump_ica_address: Some("new_pump_address".to_string()),
-        transfer_channel_id: Some("new_transfer_channel".to_string()),
         rewards_receiver: Some("new_rewards_receiver".to_string()),
         emergency_address: Some("new_emergency_address".to_string()),
     };
@@ -139,7 +133,6 @@ fn test_update_config() {
         unbonding_safe_period: 20,
         unbond_batch_switch_time: 12000,
         pump_ica_address: Some("new_pump_address".to_string()),
-        transfer_channel_id: "new_transfer_channel".to_string(),
         emergency_address: Some("new_emergency_address".to_string()),
         icq_update_delay: 5,
     };
@@ -2286,272 +2279,6 @@ mod process_emergency_batch {
                     withdrawn_emergency: None,
                 },
             }
-        );
-    }
-}
-
-mod check_denom {
-    use crate::contract::check_denom::DenomType;
-
-    use super::*;
-
-    #[test]
-    fn base_denom() {
-        let deps = mock_dependencies(&[]);
-        let denom_type = crate::contract::check_denom::check_denom(
-            &deps.as_ref(),
-            "base_denom",
-            &get_default_config(0, 0, 0),
-        )
-        .unwrap();
-        assert_eq!(denom_type, DenomType::Base);
-    }
-
-    #[test]
-    fn invalid_port() {
-        let mut deps = mock_dependencies(&[]);
-        mock_state_query(&mut deps);
-        deps.querier.add_stargate_query_response(
-            "/ibc.applications.transfer.v1.Query/DenomTrace",
-            |_| {
-                cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&QueryDenomTraceResponse {
-                        denom_trace: DenomTrace {
-                            base_denom: "valoper12345/1".to_string(),
-                            path: "icahost/transfer_channel".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                )
-            },
-        );
-        let err = crate::contract::check_denom::check_denom(
-            &deps.as_ref(),
-            "ibc/12345678",
-            &get_default_config(0, 0, 0),
-        )
-        .unwrap_err();
-        assert_eq!(err, ContractError::InvalidDenom {});
-    }
-
-    #[test]
-    fn invalid_channel() {
-        let mut deps = mock_dependencies(&[]);
-        mock_state_query(&mut deps);
-        deps.querier.add_stargate_query_response(
-            "/ibc.applications.transfer.v1.Query/DenomTrace",
-            |_| {
-                cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&QueryDenomTraceResponse {
-                        denom_trace: DenomTrace {
-                            base_denom: "valoper12345/1".to_string(),
-                            path: "transfer/unknown_channel".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                )
-            },
-        );
-        let err = crate::contract::check_denom::check_denom(
-            &deps.as_ref(),
-            "ibc/12345678",
-            &get_default_config(0, 0, 0),
-        )
-        .unwrap_err();
-        assert_eq!(err, ContractError::InvalidDenom {});
-    }
-
-    #[test]
-    fn invalid_port_and_channel() {
-        let mut deps = mock_dependencies(&[]);
-        mock_state_query(&mut deps);
-        deps.querier.add_stargate_query_response(
-            "/ibc.applications.transfer.v1.Query/DenomTrace",
-            |_| {
-                cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&QueryDenomTraceResponse {
-                        denom_trace: DenomTrace {
-                            base_denom: "valoper12345/1".to_string(),
-                            path: "icahost/unknown_channel".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                )
-            },
-        );
-        let err = crate::contract::check_denom::check_denom(
-            &deps.as_ref(),
-            "ibc/12345678",
-            &get_default_config(0, 0, 0),
-        )
-        .unwrap_err();
-        assert_eq!(err, ContractError::InvalidDenom {});
-    }
-
-    #[test]
-    fn not_an_lsm_share() {
-        let mut deps = mock_dependencies(&[]);
-        mock_state_query(&mut deps);
-        deps.querier.add_stargate_query_response(
-            "/ibc.applications.transfer.v1.Query/DenomTrace",
-            |_| {
-                cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&QueryDenomTraceResponse {
-                        denom_trace: DenomTrace {
-                            base_denom: "unknown_denom".to_string(),
-                            path: "transfer/transfer_channel".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                )
-            },
-        );
-        let err = crate::contract::check_denom::check_denom(
-            &deps.as_ref(),
-            "ibc/12345678",
-            &get_default_config(0, 0, 0),
-        )
-        .unwrap_err();
-        assert_eq!(err, ContractError::InvalidDenom {});
-    }
-
-    #[test]
-    fn unknown_validator() {
-        let mut deps = mock_dependencies(&[]);
-        mock_state_query(&mut deps);
-        deps.querier.add_stargate_query_response(
-            "/ibc.applications.transfer.v1.Query/DenomTrace",
-            |_| {
-                cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&QueryDenomTraceResponse {
-                        denom_trace: DenomTrace {
-                            base_denom: "valoper98765/1".to_string(),
-                            path: "transfer/transfer_channel".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                )
-            },
-        );
-        let query_called = std::rc::Rc::new(std::cell::RefCell::new(false));
-        let query_called_cb = std::rc::Rc::clone(&query_called);
-        deps.querier
-            .add_wasm_query_response("validators_set_contract", move |request| {
-                let request =
-                    from_json::<drop_staking_base::msg::validatorset::QueryMsg>(request).unwrap();
-                if let drop_staking_base::msg::validatorset::QueryMsg::Validator { valoper } =
-                    request
-                {
-                    assert_eq!(valoper, "valoper98765");
-                    query_called_cb.replace(true);
-                    cosmwasm_std::ContractResult::Ok(
-                        to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
-                            validator: None,
-                        })
-                        .unwrap(),
-                    )
-                } else {
-                    unimplemented!()
-                }
-            });
-        let err = crate::contract::check_denom::check_denom(
-            &deps.as_ref(),
-            "ibc/12345678",
-            &get_default_config(0, 0, 0),
-        )
-        .unwrap_err();
-        assert_eq!(err, ContractError::InvalidDenom {});
-        assert!(*query_called.borrow());
-    }
-
-    #[test]
-    fn invalid_validator_index() {
-        let mut deps = mock_dependencies(&[]);
-        mock_state_query(&mut deps);
-        deps.querier.add_stargate_query_response(
-            "/ibc.applications.transfer.v1.Query/DenomTrace",
-            |_| {
-                cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&QueryDenomTraceResponse {
-                        denom_trace: DenomTrace {
-                            base_denom: "valoper12345/1/2".to_string(),
-                            path: "transfer/transfer_channel".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                )
-            },
-        );
-        let err = crate::contract::check_denom::check_denom(
-            &deps.as_ref(),
-            "ibc/12345678",
-            &get_default_config(0, 0, 0),
-        )
-        .unwrap_err();
-        assert_eq!(err, ContractError::InvalidDenom {});
-    }
-
-    #[test]
-    fn known_validator() {
-        let mut deps = mock_dependencies(&[]);
-        mock_state_query(&mut deps);
-        deps.querier.add_stargate_query_response(
-            "/ibc.applications.transfer.v1.Query/DenomTrace",
-            |_| {
-                cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&QueryDenomTraceResponse {
-                        denom_trace: DenomTrace {
-                            base_denom: "valoper12345/1".to_string(),
-                            path: "transfer/transfer_channel".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                )
-            },
-        );
-        deps.querier
-            .add_wasm_query_response("validators_set_contract", |request| {
-                let request =
-                    from_json::<drop_staking_base::msg::validatorset::QueryMsg>(request).unwrap();
-                if let drop_staking_base::msg::validatorset::QueryMsg::Validator { valoper } =
-                    request
-                {
-                    assert_eq!(valoper, "valoper12345");
-                    cosmwasm_std::ContractResult::Ok(
-                        to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
-                            validator: Some(
-                                drop_staking_base::state::validatorset::ValidatorInfo {
-                                    valoper_address: "valoper12345".to_string(),
-                                    weight: 1u64,
-                                    on_top: Uint128::zero(),
-                                    last_processed_remote_height: None,
-                                    last_processed_local_height: None,
-                                    last_validated_height: None,
-                                    last_commission_in_range: None,
-                                    uptime: Decimal::one(),
-                                    tombstone: false,
-                                    jailed_number: None,
-                                    init_proposal: None,
-                                    total_passed_proposals: 0u64,
-                                    total_voted_proposals: 0u64,
-                                },
-                            ),
-                        })
-                        .unwrap(),
-                    )
-                } else {
-                    unimplemented!()
-                }
-            });
-        let denom_type = crate::contract::check_denom::check_denom(
-            &deps.as_ref(),
-            "ibc/12345678",
-            &get_default_config(0, 0, 0),
-        )
-        .unwrap();
-        assert_eq!(
-            denom_type,
-            DenomType::LsmShare("valoper12345/1".to_string(), "valoper12345".to_string())
         );
     }
 }
