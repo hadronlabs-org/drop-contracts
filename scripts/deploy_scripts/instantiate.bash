@@ -56,20 +56,34 @@ main() {
   echo "Factory address: $factory_contract_address"
   core_contract_contract=$(get_contract_address $core_code_id $factory_contract_address $SALT)
   echo "Core address: $core_contract_contract"
-  puppeteer_contract_address=$(get_contract_address $puppeteer_code_id $factory_contract_address $SALT)
+  puppeteer_contract_address=$(get_contract_address $puppeteer_code_id $deploy_wallet $SALT)
   echo "Puppeteer address: $puppeteer_contract_address"
   strategy_contract_address=$(get_contract_address $strategy_code_id $factory_contract_address $SALT)
   echo "Strategy address: $strategy_contract_address"
+  validators_set_contract_address=$(get_contract_address $validators_set_code_id $factory_contract_address $SALT)
+  echo "Validators set address: $validators_set_contract_address"
+  lsm_share_bond_provider_contract_address=$(get_contract_address $lsm_share_bond_provider_code_id $deploy_wallet $SALT)
+  echo "LSM share bond provider address: $lsm_share_bond_provider_contract_address"
+  
 
   uatom_on_neutron_denom="ibc/$(printf 'transfer/%s/%s' "$NEUTRON_SIDE_TRANSFER_CHANNEL_ID" "$TARGET_BASE_DENOM" \
     | sha256sum - | awk '{print $1}' | tr '[:lower:]' '[:upper:]')"
   echo "[OK] IBC denom of $TARGET_BASE_DENOM on Neutron is $uatom_on_neutron_denom"
 
-  
   native_bond_provider_contract_address=$(deploy_native_bond_provider "$factory_contract_address" "$core_contract_contract" "$puppeteer_contract_address" "$strategy_contract_address")
   echo "[OK] Native bond provider address: $native_bond_provider_contract_address"
 
-  deploy_factory "$native_bond_provider_contract_address"
+  deployed_lsm_share_bond_provider_contract_address=$(deploy_lsm_share_bond_provider "$factory_contract_address" "$core_contract_contract" "$puppeteer_contract_address" "$validators_set_contract_address")
+  echo "[OK] Deployed lsm share bond provider address: $deployed_lsm_share_bond_provider_contract_address"
+
+  deployed_puppeteer_contract_address=$(deploy_puppeteer "$factory_contract_address" "$core_contract_contract" "$native_bond_provider_contract_address" "$lsm_share_bond_provider_contract_address")
+  echo "[OK] Deployed puppeteer address: $deployed_puppeteer_contract_address"
+
+  bond_providers='[
+    {"name":"native_bond_provider","contract_address":"'"$native_bond_provider_contract_address"'"},
+    {"name":"lsm_share_bond_provider","contract_address":"'"$lsm_share_bond_provider_contract_address"'"}
+  ]'
+  deploy_factory "$native_bond_provider_contract_address" "$puppeteer_contract_address" "$bond_providers"
   exit
   top_up_address "$puppeteer_address"
   

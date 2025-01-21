@@ -141,9 +141,10 @@ pre_deploy_check_code_ids() {
 # shellcheck disable=SC2154
 deploy_factory() {
   local native_bond_provider_contract_address="$1"
+  local puppeteer_contract_address="$2"
+  local bond_providers="$3"
   # TODO: calculate unbond batch switch time and unbonding period using params queried from the network
   msg='{
-    "sdk_version":"'"$TARGET_SDK_VERSION"'",
     "local_denom":"untrn",
     "code_ids": {
       "core_code_id":'"$core_code_id"',
@@ -161,11 +162,10 @@ deploy_factory() {
       "native_bond_provider_code_id": '"$native_bond_provider_code_id"'
     },
     "pre_instantiated_contracts": [
-      "'"$native_bond_provider_contract_address"'"
+      "native_bond_provider_address":"'"$native_bond_provider_contract_address"'",
+      "puppeteer_address":"'"$puppeteer_contract_address"'"
     ],
-    "bond_providers": [
-      {"name": "native_bond_provider", "contract_address": "'"$native_bond_provider_contract_address"'"}
-    ],
+    "bond_providers": '"$bond_providers"',
     "remote_opts":{
       "connection_id":"'"$neutron_side_connection_id"'",
       "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
@@ -197,6 +197,8 @@ deploy_factory() {
       "icq_update_delay": '$CORE_PARAMS_ICQ_UPDATE_DELAY'
     }
   }'
+
+  echo "$msg"
 
   #   "lsm_share_bond_params":{
   #     "lsm_redeem_threshold":'$CORE_PARAMS_LSM_REDEEM_THRESHOLD',
@@ -364,6 +366,71 @@ deploy_native_bond_provider() {
     --label "drop-native-bond-provider" --admin "$factory_address" --from "$DEPLOY_WALLET" "${ntx[@]}" \
       | wait_ntx | jq -r "$(select_attr "instantiate" "_contract_address")")"
   echo "$native_bond_provider_address"
+}
+
+deploy_lsm_share_bond_provider() {
+  local factory_address="$1"
+  local core_contract="$2"
+  local puppeteer_address="$3"
+  local validators_set_address="$4"
+
+
+  msg='{
+    "owner":"'"$factory_address"'",
+    "puppeteer_contract":"'"$puppeteer_address"'",
+    "core_contract":"'"$core_contract"'",
+    "port_id":"'"$NEUTRON_SIDE_PORT_ID"'",
+    "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
+    "timeout":'$TIMEOUT_LOCAL',
+    "validators_set_contract":"'"$validators_set_address"'",
+    "lsm_min_bond_amount":"'"$CORE_PARAMS_LSM_MIN_BOND_AMOUNT"'",
+    "lsm_redeem_threshold":'$CORE_PARAMS_LSM_REDEEM_THRESHOLD',
+    "lsm_redeem_maximum_interval":'$CORE_PARAMS_LSM_REDEEM_MAX_INTERVAL'
+  }'
+
+  local salt_hex="$(echo -n "$SALT" | xxd -p)"
+
+  # lsm share bond provider code ID is assigned using dynamic variable name, shellcheck's mind cannot comprehend that
+  # shellcheck disable=SC2154
+  lsm_share_bond_provider_address="$(neutrond tx wasm instantiate2 "$lsm_share_bond_provider_code_id" "$msg" "$salt_hex" \
+    --label "drop-lsm-share-bond-provider" --admin "$factory_address" --from "$DEPLOY_WALLET" "${ntx[@]}" \
+      | wait_ntx | jq -r "$(select_attr "instantiate" "_contract_address")")"
+  echo "$lsm_share_bond_provider_address"
+}
+
+deploy_puppeteer() {
+  local factory_address="$1"
+  local core_contract="$2"
+  local native_bond_provider_address="$3"
+  local lsm_share_bond_provider_address="$4"
+
+
+  msg='{
+    "allowed_senders": [
+      "'"$lsm_share_bond_provider_address"'",
+      "'"$native_bond_provider_address"'",
+      "'"$core_contract"'",
+      "'"$factory_address"'"
+    ],
+    "owner":"'"$factory_address"'",
+    "remote_denom":"'"$TARGET_BASE_DENOM"'",
+    "update_period":'$ICQ_UPDATE_PERIOD',
+    "connection_id":"'"$neutron_side_connection_id"'",
+    "port_id":"'"$NEUTRON_SIDE_PORT_ID"'",
+    "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
+    "sdk_version":"'"$TARGET_SDK_VERSION"'",
+    "timeout":'$TIMEOUT_REMOTE',
+    "native_bond_provider":"'"$native_bond_provider_address"'"
+  }'
+
+  local salt_hex="$(echo -n "$SALT" | xxd -p)"
+
+  # native bond provider code ID is assigned using dynamic variable name, shellcheck's mind cannot comprehend that
+  # shellcheck disable=SC2154
+  puppeteer_address="$(neutrond tx wasm instantiate2 "$puppeteer_code_id" "$msg" "$salt_hex"  \
+    --label "drop-puppeteer" --admin "$factory_address" --from "$DEPLOY_WALLET" "${ntx[@]}" \
+      | wait_ntx | jq -r "$(select_attr "instantiate" "_contract_address")")"
+  echo "$puppeteer_address"
 }
 
 factory_admin_execute() {
