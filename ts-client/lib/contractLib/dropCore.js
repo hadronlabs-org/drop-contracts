@@ -29,9 +29,6 @@ class Client {
     queryConfig = async () => {
         return this.client.queryContractSmart(this.contractAddress, { config: {} });
     };
-    queryOwner = async () => {
-        return this.client.queryContractSmart(this.contractAddress, { owner: {} });
-    };
     queryExchangeRate = async () => {
         return this.client.queryContractSmart(this.contractAddress, { exchange_rate: {} });
     };
@@ -67,6 +64,9 @@ class Client {
     };
     queryBondHooks = async () => {
         return this.client.queryContractSmart(this.contractAddress, { bond_hooks: {} });
+    };
+    queryOwnership = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
     };
     bond = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {

@@ -44,6 +44,9 @@ class Client {
     queryTxState = async () => {
         return this.client.queryContractSmart(this.contractAddress, { tx_state: {} });
     };
+    queryOwnership = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
+    };
     registerICA = async (sender, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();

@@ -125,10 +125,6 @@ pub fn query(
                     .collect::<StdResult<Vec<_>>>()?,
             )
             .map_err(ContractError::Std),
-            QueryExtMsg::Ownership {} => {
-                let owner = cw_ownable::get_ownership(deps.storage)?;
-                to_json_binary(&owner).map_err(ContractError::Std)
-            }
         },
         QueryMsg::KVQueryIds {} => query_kv_query_ids(deps),
         _ => Puppeteer::default().query(deps, env, msg),

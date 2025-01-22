@@ -3466,9 +3466,7 @@ fn test_transfer_ownership() {
         crate::contract::query(
             deps.as_ref(),
             mock_env(),
-            drop_puppeteer_base::msg::QueryMsg::Extension {
-                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Ownership {},
-            },
+            drop_puppeteer_base::msg::QueryMsg::Ownership {},
         )
         .unwrap(),
     )

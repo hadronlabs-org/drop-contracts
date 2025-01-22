@@ -64,6 +64,10 @@ main() {
   echo "Validators set address: $validators_set_contract_address"
   lsm_share_bond_provider_contract_address=$(get_contract_address $lsm_share_bond_provider_code_id $deploy_wallet $SALT)
   echo "LSM share bond provider address: $lsm_share_bond_provider_contract_address"
+  withdrawal_manager_contract_address=$(get_contract_address $withdrawal_manager_code_id $factory_contract_address $SALT)
+  echo "Withdrawal manager address: $withdrawal_manager_contract_address"
+  splitter_contract_address=$(get_contract_address $splitter_code_id $factory_contract_address $SALT)
+  echo "Splitter address: $splitter_contract_address"
   
 
   uatom_on_neutron_denom="ibc/$(printf 'transfer/%s/%s' "$NEUTRON_SIDE_TRANSFER_CHANNEL_ID" "$TARGET_BASE_DENOM" \
@@ -79,22 +83,42 @@ main() {
   deployed_puppeteer_contract_address=$(deploy_puppeteer "$factory_contract_address" "$core_contract_contract" "$native_bond_provider_contract_address" "$lsm_share_bond_provider_contract_address")
   echo "[OK] Deployed puppeteer address: $deployed_puppeteer_contract_address"
 
+  unbonding_pump_contract_address=$(deploy_pump "drop-unbonding-pump" "$factory_contract_address" "$withdrawal_manager_contract_address")
+  echo "[OK] Deployed unbonding pump address: $unbonding_pump_contract_address"
+
+  rewards_pump_contract_address=$(deploy_pump "drop-rewards-pump" "$factory_contract_address" "$splitter_contract_address")
+  echo "[OK] Deployed rewards pump address: $rewards_pump_contract_address"
+  
+  pre_instantiated_contracts='{
+    "native_bond_provider_address":"'"$native_bond_provider_contract_address"'",
+    "puppeteer_address":"'"$puppeteer_contract_address"'",
+    "lsm_share_bond_provider_address":"'"$lsm_share_bond_provider_contract_address"'",
+    "unbonding_pump_address":"'"$unbonding_pump_contract_address"'",
+    "rewards_pump_address":"'"$rewards_pump_contract_address"'"
+  }'
+
   bond_providers='[
     {"name":"native_bond_provider","contract_address":"'"$native_bond_provider_contract_address"'"},
     {"name":"lsm_share_bond_provider","contract_address":"'"$lsm_share_bond_provider_contract_address"'"}
   ]'
-  deploy_factory "$native_bond_provider_contract_address" "$puppeteer_contract_address" "$bond_providers"
-  exit
-  top_up_address "$puppeteer_address"
+
+  pumps='[
+    {"name":"unbonding_pump","contract_address":"'"$unbonding_pump_contract_address"'"},
+    {"name":"rewards_pump","contract_address":"'"$rewards_pump_contract_address"'"}
+  ]'
   
-  register_rewards_pump_ica
+  deploy_factory "$pre_instantiated_contracts" "$bond_providers" "$pumps"
+
+  top_up_address "$puppeteer_contract_address"
+  
+  register_ica "rewards_pump" "$rewards_pump_contract_address"
   print_hermes_command $rewards_pump_ica_port $rewards_pump_ica_channel
-  wait_ica_address "rewards_pump" $rewards_pump_address
+  wait_ica_address "rewards_pump" $unbonding_pump_contract_address
   rewards_pump_counterparty_channel_id=$(get_counterparty_channel_id $rewards_pump_ica_port $rewards_pump_ica_channel)
 
-  register_puppeteer_ica
+  register_ica "puppeteer" "$puppeteer_contract_address"
   print_hermes_command $puppeteer_ica_port $puppeteer_ica_channel
-  wait_ica_address "puppeteer" $puppeteer_address
+  wait_ica_address "puppeteer" $puppeteer_contract_address
   puppeteer_counterparty_channel_id=$(get_counterparty_channel_id $puppeteer_ica_port $puppeteer_ica_channel)
 
   update_msg='{
@@ -118,7 +142,7 @@ main() {
 
   update_msg='{
     "add_bond_provider":{
-      "bond_provider_address": "'"$lsm_share_bond_provider_address"'"
+      "bond_provider_address": "'"$lsm_share_bond_provider_contract_address"'"
     }
   }'
 
@@ -146,7 +170,7 @@ main() {
   msg='{
     "wasm":{
       "execute":{
-        "contract_addr":"'"$puppeteer_address"'",
+        "contract_addr":"'"$puppeteer_contract_address"'",
         "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64 | tr -d "\n")"'",
         "funds": [
           {
@@ -172,10 +196,9 @@ main() {
   factory_proxy_execute "$factory_address" "$msg" 3000000untrn
   echo "[OK] Add initial validators to factory"
 
-  deploy_pump
-  register_pump_ica
+  register_ica "pump" "$unbonding_pump_contract_address"
   print_hermes_command $pump_ica_port $pump_ica_channel
-  wait_ica_address "pump" $pump_address
+  wait_ica_address "pump" $unbonding_pump_contract_address
   pump_counterparty_channel_id=$(get_counterparty_channel_id $pump_ica_port $pump_ica_channel)
 
   msg='{

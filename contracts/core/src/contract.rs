@@ -86,12 +86,7 @@ pub fn instantiate(
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     Ok(match msg {
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?)?,
-        QueryMsg::Owner {} => to_json_binary(
-            &cw_ownable::get_ownership(deps.storage)?
-                .owner
-                .unwrap_or(Addr::unchecked(""))
-                .to_string(),
-        )?,
+        QueryMsg::Ownership {} => to_json_binary(&cw_ownable::get_ownership(deps.storage)?)?,
         QueryMsg::TotalBonded {} => to_json_binary(&BONDED_AMOUNT.load(deps.storage)?)?,
         QueryMsg::ExchangeRate {} => {
             let config = CONFIG.load(deps.storage)?;

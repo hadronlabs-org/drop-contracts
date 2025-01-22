@@ -81,6 +81,7 @@ fn puppeteer_query(
         PuppeteerQueryMsg::TxState {} => todo!(),
         PuppeteerQueryMsg::Transactions {} => todo!(),
         PuppeteerQueryMsg::KVQueryIds {} => todo!(),
+        PuppeteerQueryMsg::Ownership {} => todo!(),
         PuppeteerQueryMsg::Extension { msg } => match msg {
             drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {} => {
                 let mut delegations_amount: Vec<DropDelegation> = Vec::new();

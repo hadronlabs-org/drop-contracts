@@ -194,9 +194,15 @@ fn query_ownership() {
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     assert_eq!(
-        from_json::<String>(&query(deps.as_ref(), mock_env(), QueryMsg::Owner {}).unwrap())
-            .unwrap(),
-        String::from("owner"),
+        from_json::<cw_ownable::Ownership<Addr>>(
+            &query(deps.as_ref(), mock_env(), QueryMsg::Ownership {}).unwrap()
+        )
+        .unwrap(),
+        cw_ownable::Ownership::<Addr> {
+            owner: Some(Addr::unchecked("owner")),
+            pending_owner: None,
+            pending_expiry: None,
+        }
     );
 }
 

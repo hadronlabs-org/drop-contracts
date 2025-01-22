@@ -1,6 +1,4 @@
-use crate::state::{
-    BondProvider, CodeIds, FactoryType, PreInstantiatedContracts, RemoteCodeIds, RemoteOpts,
-};
+use crate::state::{AdditionalContract, CodeIds, PreInstantiatedContracts, RemoteOpts};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{CosmosMsg, Decimal, Uint128};
 use cw_ownable::cw_ownable_execute;
@@ -12,7 +10,8 @@ use neutron_sdk::bindings::msg::NeutronMsg;
 pub struct InstantiateMsg {
     pub code_ids: CodeIds,
     pub pre_instantiated_contracts: PreInstantiatedContracts,
-    pub bond_providers: Vec<BondProvider>,
+    pub bond_providers: Vec<AdditionalContract>,
+    pub pumps: Vec<AdditionalContract>,
     pub remote_opts: RemoteOpts,
     pub salt: String,
     pub subdenom: String,
@@ -21,35 +20,35 @@ pub struct InstantiateMsg {
     pub local_denom: String,
     pub core_params: CoreParams,
     pub fee_params: Option<FeeParams>,
-    pub factory: Factory,
+    // pub factory: Factory,
 }
 
-#[cw_serde]
-pub enum Factory {
-    Native {
-        distribution_module_contract: String,
-    },
-    Remote {
-        sdk_version: String,
-        code_ids: RemoteCodeIds,
-        lsm_share_bond_params: LsmShareBondParams,
-        icq_update_period: u64,
-        transfer_channel_id: String,
-        reverse_transfer_channel_id: String,
-        min_stake_amount: Uint128,
-        min_ibc_transfer: Uint128,
-        port_id: String,
-    },
-}
+// #[cw_serde]
+// pub enum Factory {
+//     Native {
+//         distribution_module_contract: String,
+//     },
+//     Remote {
+//         sdk_version: String,
+//         code_ids: RemoteCodeIds,
+//         lsm_share_bond_params: LsmShareBondParams,
+//         icq_update_period: u64,
+//         transfer_channel_id: String,
+//         reverse_transfer_channel_id: String,
+//         min_stake_amount: Uint128,
+//         min_ibc_transfer: Uint128,
+//         port_id: String,
+//     },
+// }
 
-impl Factory {
-    pub fn to_factory_type(&self) -> FactoryType {
-        match self {
-            Factory::Native { .. } => FactoryType::Native {},
-            Factory::Remote { .. } => FactoryType::Remote {},
-        }
-    }
-}
+// impl Factory {
+//     pub fn to_factory_type(&self) -> FactoryType {
+//         match self {
+//             Factory::Native { .. } => FactoryType::Native {},
+//             Factory::Remote { .. } => FactoryType::Remote {},
+//         }
+//     }
+// }
 
 #[cw_serde]
 pub struct FeeParams {
@@ -113,7 +112,7 @@ pub enum QueryMsg {
     PauseInfo {},
 }
 
+#[cw_ownable::cw_ownable_query]
 #[cw_serde]
-pub enum OwnerQueryMsg {
-    Owner {},
-}
+#[derive(QueryResponses)]
+pub enum OwnerQueryMsg {}

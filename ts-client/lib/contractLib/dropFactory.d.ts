@@ -719,23 +719,16 @@ export type UpdateOwnershipArgs = {
         new_owner: string;
     };
 } | "accept_ownership" | "renounce_ownership";
-export type Factory = {
-    native: {
-        distribution_module_contract: string;
-    };
-} | {
-    remote: {
-        code_ids: RemoteCodeIds;
-        icq_update_period: number;
-        lsm_share_bond_params: LsmShareBondParams;
-        min_ibc_transfer: Uint128;
-        min_stake_amount: Uint128;
-        port_id: string;
-        reverse_transfer_channel_id: string;
-        sdk_version: string;
-        transfer_channel_id: string;
-    };
-};
+/**
+ * A human readable address.
+ *
+ * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
+ *
+ * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
+ *
+ * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
+ */
+export type Addr = string;
 export interface DropFactorySchema {
     responses: OwnershipForString | PauseInfoResponse | State;
     execute: UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
@@ -770,19 +763,22 @@ export interface Pause {
     unbond: boolean;
 }
 export interface State {
+    bond_providers: AdditionalContract[];
     core_contract: string;
     distribution_contract: string;
-    lsm_share_bond_provider_contract?: string | null;
-    native_bond_provider_contract: string;
+    pumps: AdditionalContract[];
     puppeteer_contract: string;
     rewards_manager_contract: string;
-    rewards_pump_contract: string;
     splitter_contract: string;
     strategy_contract: string;
     token_contract: string;
     validators_set_contract: string;
     withdrawal_manager_contract: string;
     withdrawal_voucher_contract: string;
+}
+export interface AdditionalContract {
+    contract_address: string;
+    name: string;
 }
 export interface ConfigOptional {
     base_denom?: string | null;
@@ -1182,11 +1178,13 @@ export interface WeightedVoteOption {
 }
 export interface InstantiateMsg {
     base_denom: string;
+    bond_providers: AdditionalContract[];
     code_ids: CodeIds;
     core_params: CoreParams;
-    factory: Factory;
     fee_params?: FeeParams | null;
     local_denom: string;
+    pre_instantiated_contracts: PreInstantiatedContracts;
+    pumps: AdditionalContract[];
     remote_opts: RemoteOpts;
     salt: string;
     subdenom: string;
@@ -1195,10 +1193,7 @@ export interface InstantiateMsg {
 export interface CodeIds {
     core_code_id: number;
     distribution_code_id: number;
-    native_bond_provider_code_id: number;
-    puppeteer_code_id: number;
     rewards_manager_code_id: number;
-    rewards_pump_code_id: number;
     splitter_code_id: number;
     strategy_code_id: number;
     token_code_id: number;
@@ -1214,22 +1209,22 @@ export interface CoreParams {
     unbonding_period: number;
     unbonding_safe_period: number;
 }
-export interface RemoteCodeIds {
-    lsm_share_bond_provider_code_id: number;
-}
-export interface LsmShareBondParams {
-    lsm_min_bond_amount: Uint128;
-    lsm_redeem_max_interval: number;
-    lsm_redeem_threshold: number;
-}
 export interface FeeParams {
     fee: Decimal;
     fee_address: string;
+}
+export interface PreInstantiatedContracts {
+    lsm_share_bond_provider_address: Addr;
+    native_bond_provider_address: Addr;
+    puppeteer_address: Addr;
+    rewards_pump_address: Addr;
+    unbonding_pump_address: Addr;
 }
 export interface RemoteOpts {
     connection_id: string;
     denom: string;
     timeout: Timeout;
+    transfer_channel_id: string;
 }
 export interface Timeout {
     local: number;

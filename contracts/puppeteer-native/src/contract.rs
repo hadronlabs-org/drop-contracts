@@ -89,13 +89,13 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
             //     query_non_native_rewards_balances(deps, env)
             // }
             QueryExtMsg::UnbondingDelegations {} => query_unbonding_delegations(deps, env),
-            QueryExtMsg::Ownership {} => {
-                let owner = cw_ownable::get_ownership(deps.storage)?;
-                to_json_binary(&owner).map_err(ContractError::Std)
-            }
         },
         QueryMsg::Config {} => query_config(deps),
         QueryMsg::Transactions {} => query_transactions(),
+        QueryMsg::Ownership {} => {
+            let owner = cw_ownable::get_ownership(deps.storage)?;
+            to_json_binary(&owner).map_err(ContractError::Std)
+        }
     }
 }
 
@@ -274,6 +274,9 @@ pub fn execute(
         ExecuteMsg::SetupProtocol {
             rewards_withdraw_address,
         } => execute_setup_protocol(deps, env, info, rewards_withdraw_address),
+        ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: _ } => {
+            execute_register_balance_and_delegator_delegations_query()
+        }
     }
 }
 
@@ -526,6 +529,11 @@ fn execute_undelegate(
     }
 
     Ok(Response::default().add_messages(messages))
+}
+
+fn execute_register_balance_and_delegator_delegations_query() -> ContractResult<Response<NeutronMsg>>
+{
+    Ok(Response::default())
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]

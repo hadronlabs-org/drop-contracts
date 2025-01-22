@@ -140,9 +140,10 @@ pre_deploy_check_code_ids() {
 # code IDs are assigned using dynamic variable names, shellcheck's mind cannot comprehend that
 # shellcheck disable=SC2154
 deploy_factory() {
-  local native_bond_provider_contract_address="$1"
-  local puppeteer_contract_address="$2"
-  local bond_providers="$3"
+  local pre_instantiated_contracts="$1"
+  local bond_providers="$2"
+  local pumps="$3"
+
   # TODO: calculate unbond batch switch time and unbonding period using params queried from the network
   msg='{
     "local_denom":"untrn",
@@ -154,25 +155,16 @@ deploy_factory() {
       "strategy_code_id":'"$strategy_code_id"',
       "distribution_code_id":'"$distribution_code_id"',
       "validators_set_code_id":'"$validators_set_code_id"',
-      "puppeteer_code_id":'"$puppeteer_code_id"',
       "rewards_manager_code_id":'"$rewards_manager_code_id"',
-      "splitter_code_id": '"$splitter_code_id"',
-      "rewards_pump_code_id": '"$pump_code_id"',
-      "lsm_share_bond_provider_code_id": '"$lsm_share_bond_provider_code_id"',
-      "native_bond_provider_code_id": '"$native_bond_provider_code_id"'
+      "splitter_code_id": '"$splitter_code_id"'
     },
-    "pre_instantiated_contracts": [
-      "native_bond_provider_address":"'"$native_bond_provider_contract_address"'",
-      "puppeteer_address":"'"$puppeteer_contract_address"'"
-    ],
+    "pre_instantiated_contracts": '"$pre_instantiated_contracts"',
     "bond_providers": '"$bond_providers"',
+    "pumps": '"$pumps"',
     "remote_opts":{
       "connection_id":"'"$neutron_side_connection_id"'",
       "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
-      "reverse_transfer_channel_id":"'"$target_side_transfer_channel_id"'",
-      "port_id":"'"$NEUTRON_SIDE_PORT_ID"'",
       "denom":"'"$TARGET_BASE_DENOM"'",
-      "update_period":'$ICQ_UPDATE_PERIOD',
       "timeout":{
         "local":'$TIMEOUT_LOCAL',
         "remote":'$TIMEOUT_REMOTE'
@@ -199,13 +191,7 @@ deploy_factory() {
   }'
 
   echo "$msg"
-
-  #   "lsm_share_bond_params":{
-  #     "lsm_redeem_threshold":'$CORE_PARAMS_LSM_REDEEM_THRESHOLD',
-  #     "lsm_min_bond_amount":"'"$CORE_PARAMS_LSM_MIN_BOND_AMOUNT"'",
-  #     "lsm_redeem_max_interval":'$CORE_PARAMS_LSM_REDEEM_MAX_INTERVAL'
-  #   }
-
+  
   local salt_hex="$(echo -n "$SALT" | xxd -p)"
 
   factory_address="$(neutrond tx wasm instantiate2 "$factory_code_id" "$msg" $salt_hex \
@@ -218,17 +204,10 @@ deploy_factory() {
     | jq -r '.data.core_contract')"
   splitter_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.splitter_contract')"
-  rewards_pump_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
-    | jq -r '.data.rewards_pump_contract')"
   splitter_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.rewards_pump_contract')"
-  puppeteer_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
-    | jq -r '.data.puppeteer_contract')"
   withdrawal_manager_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
     | jq -r '.data.withdrawal_manager_contract')"
-  lsm_share_bond_provider_address="$(neutrond query wasm contract-state smart "$factory_address" '{"state":{}}' "${nq[@]}" \
-    | jq -r '.data.lsm_share_bond_provider_contract')"
-  echo "[OK] Puppeteer contract: $puppeteer_address"
   echo "[OK] Withdrawal manager contract: $withdrawal_manager_address"
 }
 
@@ -236,28 +215,19 @@ get_ibc_register_fee() {
   neutrond query interchaintxs params "${nq[@]}" | jq -r '.params.register_fee[] | select(.denom=="untrn") | .amount'
 }
 
-register_rewards_pump_ica() {
-  register_ica_result="$(neutrond tx wasm execute "$rewards_pump_address" '{"register_i_c_a":{}}' \
-    --amount "$(get_ibc_register_fee)untrn" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx)"
-  rewards_pump_ica_port="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "port_id")")"
-  rewards_pump_ica_channel="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "channel_id")")"
-  echo "[OK] Rewards pump ICA configuration: $rewards_pump_ica_port/$rewards_pump_ica_channel"
-}
+register_ica() {
+  local name="$1"
+  local contract_address="$2"
 
-register_puppeteer_ica() {
-  register_ica_result="$(neutrond tx wasm execute "$puppeteer_address" '{"register_i_c_a":{}}' \
+  register_ica_result="$(neutrond tx wasm execute "$contract_address" '{"register_i_c_a":{}}' \
     --amount "$(get_ibc_register_fee)untrn" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx)"
-  puppeteer_ica_port="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "port_id")")"
-  puppeteer_ica_channel="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "channel_id")")"
-  echo "[OK] Puppeteer ICA configuration: $puppeteer_ica_port/$puppeteer_ica_channel"
-}
+  ica_port="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "port_id")")"
+  ica_channel="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "channel_id")")"
 
-register_pump_ica() {
-  register_ica_result="$(neutrond tx wasm execute "$pump_address" '{"register_i_c_a":{}}' \
-    --amount "$(get_ibc_register_fee)untrn" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx)"
-  pump_ica_port="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "port_id")")"
-  pump_ica_channel="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "channel_id")")"
-  echo "[OK] Pump ICA configuration: $pump_ica_port/$pump_ica_channel"
+  declare -g "${name}_ica_port=$ica_address"
+  declare -g "${name}_ica_channel=$ica_address"
+
+  echo "[OK] $name ICA configuration: $ica_port/$ica_channel"
 }
 
 get_contract_address() {
@@ -319,6 +289,10 @@ wait_ica_address() {
 }
 
 deploy_pump() {
+  local label="$1"
+  local factory_address="$2"
+  local dest_address="$3"
+
   msg='{
     "connection_id":"'"$neutron_side_connection_id"'",
     "local_denom":"untrn",
@@ -326,18 +300,18 @@ deploy_pump() {
       "local":'$TIMEOUT_LOCAL',
       "remote":'$TIMEOUT_REMOTE'
     },
-    "dest_address":"'"$withdrawal_manager_address"'",
+    "dest_address":"'"$dest_address"'",
     "dest_port":"transfer",
     "dest_channel":"'"$target_side_transfer_channel_id"'",
     "refundee":"'"$deploy_wallet"'",
-    "owner":"'"$deploy_wallet"'"
+    "owner":"'"$factory_address"'"
   }'
   # pump code ID is assigned using dynamic variable name, shellcheck's mind cannot comprehend that
   # shellcheck disable=SC2154
   pump_address="$(neutrond tx wasm instantiate "$pump_code_id" "$msg"                \
-    --label "drop-pump" --admin "$deploy_wallet" --from "$DEPLOY_WALLET" "${ntx[@]}" \
+    --label "$label" --admin "$factory_address" --from "$DEPLOY_WALLET" "${ntx[@]}" \
       | wait_ntx | jq -r "$(select_attr "instantiate" "_contract_address")")"
-  echo "[OK] Pump address: $pump_address"
+  echo "$pump_address"
 }
 
 deploy_native_bond_provider() {

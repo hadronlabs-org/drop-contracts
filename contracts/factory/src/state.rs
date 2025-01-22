@@ -14,7 +14,7 @@ pub struct CodeIds {
     pub distribution_code_id: u64,
     pub rewards_manager_code_id: u64,
     pub splitter_code_id: u64,
-    pub rewards_pump_code_id: u64,
+    // pub rewards_pump_code_id: u64,
     // pub native_bond_provider_code_id: u64,
 }
 
@@ -22,6 +22,9 @@ pub struct CodeIds {
 pub struct PreInstantiatedContracts {
     pub native_bond_provider_address: Addr,
     pub puppeteer_address: Addr,
+    pub lsm_share_bond_provider_address: Addr,
+    pub unbonding_pump_address: Addr,
+    pub rewards_pump_address: Addr,
 }
 
 #[cw_serde]
@@ -33,6 +36,7 @@ pub struct RemoteCodeIds {
 pub struct RemoteOpts {
     pub denom: String,
     pub connection_id: String,
+    pub transfer_channel_id: String,
     pub timeout: Timeout,
 }
 
@@ -53,13 +57,13 @@ pub struct State {
     pub validators_set_contract: String,
     pub distribution_contract: String,
     pub rewards_manager_contract: String,
-    pub rewards_pump_contract: String,
     pub splitter_contract: String,
-    pub bond_providers: Vec<BondProvider>,
+    pub bond_providers: Vec<AdditionalContract>,
+    pub pumps: Vec<AdditionalContract>,
 }
 
 #[cw_serde]
-pub struct BondProvider {
+pub struct AdditionalContract {
     pub name: String,
     pub contract_address: String,
 }
@@ -73,10 +77,10 @@ pub struct PauseInfoResponse {
 
 pub const STATE: Item<State> = Item::new("state");
 
-#[cw_serde]
-pub enum FactoryType {
-    Native {},
-    Remote {},
-}
+// #[cw_serde]
+// pub enum FactoryType {
+//     Native {},
+//     Remote {},
+// }
 
-pub const FACTORY_TYPE: Item<FactoryType> = Item::new("factory_type");
+// pub const FACTORY_TYPE: Item<FactoryType> = Item::new("factory_type");
