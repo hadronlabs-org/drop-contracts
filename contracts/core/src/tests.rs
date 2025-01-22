@@ -22,8 +22,8 @@ use drop_staking_base::{
     },
     state::{
         core::{
-            unbond_batches_map, Config, ConfigOptional, ContractState, Pause, UnbondBatch,
-            UnbondBatchStatus, UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_HOOKS,
+            unbond_batches_map, Config, ConfigOptional, ContractState, Pause, PauseType,
+            UnbondBatch, UnbondBatchStatus, UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_HOOKS,
             BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG, FAILED_BATCH_ID, FSM,
             LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM, PAUSE,
             UNBOND_BATCH_ID,
@@ -2917,24 +2917,32 @@ mod pause {
 
         for pause in [
             Pause {
-                bond: true,
-                unbond: false,
-                tick: false,
+                pause: PauseType::Switch {
+                    bond: true,
+                    unbond: false,
+                    tick: false,
+                },
             },
             Pause {
-                bond: true,
-                unbond: true,
-                tick: false,
+                pause: PauseType::Switch {
+                    bond: true,
+                    unbond: true,
+                    tick: false,
+                },
             },
             Pause {
-                bond: true,
-                unbond: false,
-                tick: true,
+                pause: PauseType::Switch {
+                    bond: true,
+                    unbond: false,
+                    tick: true,
+                },
             },
             Pause {
-                bond: true,
-                unbond: true,
-                tick: true,
+                pause: PauseType::Switch {
+                    bond: true,
+                    unbond: true,
+                    tick: true,
+                },
             },
         ] {
             PAUSE.save(deps.as_mut().storage, &pause).unwrap();
@@ -2958,24 +2966,32 @@ mod pause {
 
         for pause in [
             Pause {
-                bond: false,
-                unbond: true,
-                tick: false,
+                pause: PauseType::Switch {
+                    bond: false,
+                    unbond: true,
+                    tick: false,
+                },
             },
             Pause {
-                bond: true,
-                unbond: true,
-                tick: false,
+                pause: PauseType::Switch {
+                    bond: true,
+                    unbond: true,
+                    tick: false,
+                },
             },
             Pause {
-                bond: false,
-                unbond: true,
-                tick: true,
+                pause: PauseType::Switch {
+                    bond: false,
+                    unbond: true,
+                    tick: true,
+                },
             },
             Pause {
-                bond: true,
-                unbond: true,
-                tick: true,
+                pause: PauseType::Switch {
+                    bond: true,
+                    unbond: true,
+                    tick: true,
+                },
             },
         ] {
             PAUSE.save(deps.as_mut().storage, &pause).unwrap();
@@ -2996,24 +3012,32 @@ mod pause {
 
         for pause in [
             Pause {
-                bond: false,
-                unbond: false,
-                tick: true,
+                pause: PauseType::Switch {
+                    bond: false,
+                    unbond: false,
+                    tick: true,
+                },
             },
             Pause {
-                bond: true,
-                unbond: false,
-                tick: true,
+                pause: PauseType::Switch {
+                    bond: true,
+                    unbond: false,
+                    tick: true,
+                },
             },
             Pause {
-                bond: false,
-                unbond: true,
-                tick: true,
+                pause: PauseType::Switch {
+                    bond: false,
+                    unbond: true,
+                    tick: true,
+                },
             },
             Pause {
-                bond: true,
-                unbond: true,
-                tick: true,
+                pause: PauseType::Switch {
+                    bond: true,
+                    unbond: true,
+                    tick: true,
+                },
             },
         ] {
             PAUSE.save(deps.as_mut().storage, &pause).unwrap();

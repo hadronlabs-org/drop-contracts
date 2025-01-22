@@ -153,11 +153,33 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
 ];
 
 #[cw_serde]
+pub enum PauseType {
+    Switch {
+        bond: bool,
+        unbond: bool,
+        tick: bool,
+    },
+    Height {
+        bond: u64,
+        unbond: u64,
+        tick: u64,
+    },
+}
+
+impl Default for PauseType {
+    fn default() -> Self {
+        PauseType::Switch {
+            bond: false,
+            unbond: false,
+            tick: false,
+        }
+    }
+}
+
+#[cw_serde]
 #[derive(Default)]
 pub struct Pause {
-    pub bond: bool,
-    pub unbond: bool,
-    pub tick: bool,
+    pub pause: PauseType,
 }
 pub const BOND_PROVIDER_REPLY_ID: u64 = 1;
 

@@ -22,11 +22,11 @@ use drop_staking_base::{
     },
     state::{
         core::{
-            unbond_batches_map, Config, ConfigOptional, ContractState, Pause, UnbondBatch,
-            UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse, BONDED_AMOUNT,
-            BOND_HOOKS, BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG, EXCHANGE_RATE,
-            FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE,
-            LD_DENOM, PAUSE, UNBOND_BATCH_ID,
+            unbond_batches_map, Config, ConfigOptional, ContractState, Pause, PauseType,
+            UnbondBatch, UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse,
+            BONDED_AMOUNT, BOND_HOOKS, BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG,
+            EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL,
+            LAST_PUPPETEER_RESPONSE, LD_DENOM, PAUSE, UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
         withdrawal_voucher::{Metadata, Trait},
@@ -40,6 +40,15 @@ pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const UNBOND_BATCHES_PAGINATION_DEFAULT_LIMIT: Uint64 = Uint64::new(100u64);
+
+macro_rules! is_paused {
+    ($pause:expr, $deps:expr, $env:expr, $field:ident) => {
+        match (($pause).load($deps)?).pause {
+            PauseType::Switch { $field, .. } => $field,
+            PauseType::Height { $field, .. } => $field <= ($env).block.height,
+        }
+    };
+}
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
@@ -262,8 +271,8 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::Bond { receiver, r#ref } => execute_bond(deps, info, receiver, r#ref),
-        ExecuteMsg::Unbond {} => execute_unbond(deps, info),
+        ExecuteMsg::Bond { receiver, r#ref } => execute_bond(deps, info, env, receiver, r#ref),
+        ExecuteMsg::Unbond {} => execute_unbond(deps, info, env),
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, *new_config),
         ExecuteMsg::UpdateOwnership(action) => {
@@ -365,15 +374,20 @@ fn execute_set_pause(
 
     PAUSE.save(deps.storage, &pause)?;
 
-    Ok(response(
-        "execute-set-pause",
-        CONTRACT_NAME,
-        [
-            ("bond", pause.bond.to_string()),
-            ("unbond", pause.unbond.to_string()),
-            ("tick", pause.tick.to_string()),
+    let attrs = match pause.pause {
+        PauseType::Switch { bond, unbond, tick } => vec![
+            ("bond", bond.to_string()),
+            ("unbond", unbond.to_string()),
+            ("tick", tick.to_string()),
         ],
-    ))
+        PauseType::Height { bond, unbond, tick } => vec![
+            ("bond", bond.to_string()),
+            ("unbond", unbond.to_string()),
+            ("tick", tick.to_string()),
+        ],
+    };
+
+    Ok(response("execute-set-pause", CONTRACT_NAME, attrs))
 }
 
 fn execute_reset_bonded_amount(
@@ -516,7 +530,7 @@ fn execute_tick(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    if PAUSE.load(deps.storage)?.tick {
+    if is_paused!(PAUSE, deps.storage, env, tick) {
         return Err(drop_helpers::pause::PauseError::Paused {}.into());
     }
 
@@ -942,10 +956,11 @@ fn execute_tick_unbonding(
 fn execute_bond(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
+    env: Env,
     receiver: Option<String>,
     r#ref: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    if PAUSE.load(deps.storage)?.bond {
+    if is_paused!(PAUSE, deps.storage, env, bond) {
         return Err(drop_helpers::pause::PauseError::Paused {}.into());
     }
 
@@ -1158,8 +1173,9 @@ fn execute_update_config(
 fn execute_unbond(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
+    env: Env,
 ) -> ContractResult<Response<NeutronMsg>> {
-    if PAUSE.load(deps.storage)?.unbond {
+    if is_paused!(PAUSE, deps.storage, env, unbond) {
         return Err(drop_helpers::pause::PauseError::Paused {}.into());
     }
 
@@ -1539,13 +1555,6 @@ pub fn migrate(
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-
-        let mut new_pause_state = Pause::default();
-        if drop_helpers::pause::is_paused(deps.storage)? {
-            drop_helpers::pause::unpause(deps.storage);
-            new_pause_state.tick = true;
-        }
-        PAUSE.save(deps.storage, &new_pause_state)?;
 
         BOND_HOOKS.save(deps.storage, &vec![])?;
     }
