@@ -12,6 +12,7 @@ use cosmwasm_std::{
     to_json_binary, BankMsg, Uint128,
 };
 use drop_helpers::testing::{mock_dependencies, mock_dependencies_with_api};
+use drop_staking_base::state::core::PauseType;
 use drop_staking_base::{
     msg::{
         core::{ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg},
@@ -762,9 +763,11 @@ fn test_admin_execute_unauthorized() {
                 cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
                     contract_addr: "core_contract".to_string(),
                     msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
-                        tick: true,
-                        bond: true,
-                        unbond: false,
+                        pause: PauseType::Switch {
+                            tick: true,
+                            bond: true,
+                            unbond: false,
+                        },
                     }))
                     .unwrap(),
                     funds: vec![],
@@ -806,9 +809,11 @@ fn test_admin_execute() {
                 cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
                     contract_addr: "core_contract".to_string(),
                     msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
-                        tick: true,
-                        bond: true,
-                        unbond: false,
+                        pause: PauseType::Switch {
+                            tick: true,
+                            bond: true,
+                            unbond: false,
+                        },
                     }))
                     .unwrap(),
                     funds: vec![],
@@ -837,9 +842,11 @@ fn test_admin_execute() {
                 cosmwasm_std::WasmMsg::Execute {
                     contract_addr: "core_contract".to_string(),
                     msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
-                        tick: true,
-                        bond: true,
-                        unbond: false,
+                        pause: PauseType::Switch {
+                            tick: true,
+                            bond: true,
+                            unbond: false,
+                        }
                     }))
                     .unwrap(),
                     funds: vec![]
@@ -910,9 +917,11 @@ fn test_pause() {
                     cosmwasm_std::WasmMsg::Execute {
                         contract_addr: "core_contract".to_string(),
                         msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
-                            tick: true,
-                            bond: false,
-                            unbond: false,
+                            pause: PauseType::Switch {
+                                tick: true,
+                                bond: false,
+                                unbond: false,
+                            }
                         }))
                         .unwrap(),
                         funds: vec![]
@@ -986,9 +995,11 @@ fn test_unpause() {
                     cosmwasm_std::WasmMsg::Execute {
                         contract_addr: "core_contract".to_string(),
                         msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
-                            tick: false,
-                            bond: false,
-                            unbond: false,
+                            pause: PauseType::Switch {
+                                tick: false,
+                                bond: false,
+                                unbond: false,
+                            }
                         }))
                         .unwrap(),
                         funds: vec![]
@@ -1038,9 +1049,11 @@ fn test_query_pause_info() {
     deps.querier.add_wasm_query_response("core_contract", |_| {
         cosmwasm_std::ContractResult::Ok(
             to_json_binary(&CorePause {
-                tick: true,
-                bond: false,
-                unbond: false,
+                pause: PauseType::Switch {
+                    tick: true,
+                    bond: false,
+                    unbond: false,
+                },
             })
             .unwrap(),
         )
@@ -1066,9 +1079,11 @@ fn test_query_pause_info() {
         query_res,
         crate::state::PauseInfoResponse {
             core: CorePause {
-                tick: true,
-                bond: false,
-                unbond: false,
+                pause: PauseType::Switch {
+                    tick: true,
+                    bond: false,
+                    unbond: false,
+                }
             },
             withdrawal_manager: drop_helpers::pause::PauseInfoResponse::Unpaused {},
             rewards_manager: drop_helpers::pause::PauseInfoResponse::Paused {},

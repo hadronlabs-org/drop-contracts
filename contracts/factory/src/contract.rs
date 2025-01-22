@@ -511,9 +511,11 @@ fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Neutr
             state.core_contract,
             drop_staking_base::msg::core::ExecuteMsg::SetPause(
                 drop_staking_base::state::core::Pause {
-                    tick: true,
-                    bond: false,
-                    unbond: false,
+                    pause: drop_staking_base::state::core::PauseType::Switch {
+                        tick: true,
+                        bond: false,
+                        unbond: false,
+                    },
                 },
             ),
             vec![],
@@ -541,9 +543,11 @@ fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Neu
             state.core_contract,
             drop_staking_base::msg::core::ExecuteMsg::SetPause(
                 drop_staking_base::state::core::Pause {
-                    tick: false,
-                    bond: false,
-                    unbond: false,
+                    pause: drop_staking_base::state::core::PauseType::Switch {
+                        tick: false,
+                        bond: false,
+                        unbond: false,
+                    },
                 },
             ),
             vec![],

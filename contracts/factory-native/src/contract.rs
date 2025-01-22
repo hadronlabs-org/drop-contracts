@@ -11,6 +11,7 @@ use cosmwasm_std::{
     Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use drop_helpers::answer::response;
+use drop_staking_base::state::core::PauseType;
 use drop_staking_base::state::splitter::Config as SplitterConfig;
 use drop_staking_base::{
     msg::{
@@ -469,9 +470,11 @@ fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Neutr
             state.core_contract,
             drop_staking_base::msg::core::ExecuteMsg::SetPause(
                 drop_staking_base::state::core::Pause {
-                    tick: true,
-                    bond: false,
-                    unbond: false,
+                    pause: PauseType::Switch {
+                        tick: true,
+                        bond: false,
+                        unbond: false,
+                    },
                 },
             ),
             vec![],
@@ -499,9 +502,11 @@ fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Neu
             state.core_contract,
             drop_staking_base::msg::core::ExecuteMsg::SetPause(
                 drop_staking_base::state::core::Pause {
-                    tick: false,
-                    bond: false,
-                    unbond: false,
+                    pause: PauseType::Switch {
+                        tick: false,
+                        bond: false,
+                        unbond: false,
+                    },
                 },
             ),
             vec![],
