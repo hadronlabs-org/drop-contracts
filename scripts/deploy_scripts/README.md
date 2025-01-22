@@ -4,7 +4,7 @@ This directory contains several scripts to assist in deployment of Drop protocol
 are those you will need to run.
 
 | Script                    | Purpose                                                                                                             |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+|---------------------------|---------------------------------------------------------------------------------------------------------------------|
 | **upload_contracts.bash** | Stores wasm code of all Drop contracts on Neutron chain                                                             |
 | **instantiate.bash**      | Creates instance of Drop protocol, waits until ICA addresses are registered and sets them in protocol configuration |
 | utils.bash                | Universal library used across deployment scripts. You don't need to execute it by yourself                          |
@@ -22,7 +22,7 @@ uploaded contracts will correspond to commit hash you are currently on.
 Copy `.env.upload.example` to `.env.upload`, then configure it according to this table:
 
 | Parameter           | Suggested testnet value                    | Suggested mainnet value                   | Description                                                                                           |
-| ------------------- | ------------------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+|---------------------|--------------------------------------------|-------------------------------------------|-------------------------------------------------------------------------------------------------------|
 | `NEUTRON_RPC`       | `https://rpc-falcron.pion-1.ntrn.tech:443` | `https://rpc.novel.remedy.tm.p2p.org:443` | Neutron public RPCs taken from chain registry                                                         |
 | `GAS_PRICES`        | `0.02`                                     | `0.01`                                    | In case if deployment is too slow and fails on tx timeout, try increasing this value                  |
 | `NEUTRON_CHAIN_ID`  | `pion-1`                                   | `neutron-1`                               |                                                                                                       |
@@ -49,7 +49,7 @@ Copy `.env.instantiate.example` to `.env.instantiate`, then configure it accordi
 #### Client parameters
 
 | Parameter           | Suggested testnet value                    | Suggested mainnet value                   | Description                                                                                           |
-| ------------------- | ------------------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+|---------------------|--------------------------------------------|-------------------------------------------|-------------------------------------------------------------------------------------------------------|
 | `NEUTRON_RPC`       | `https://rpc-falcron.pion-1.ntrn.tech:443` | `https://rpc.novel.remedy.tm.p2p.org:443` | Neutron public RPCs taken from chain registry                                                         |
 | `GAS_PRICES`        | `0.02`                                     | `0.01`                                    | In case if deployment is too slow and fails on tx timeout, try increasing this value                  |
 | `NEUTRON_CHAIN_ID`  | `pion-1`                                   | `neutron-1`                               |                                                                                                       |
@@ -63,7 +63,7 @@ Copy `.env.instantiate.example` to `.env.instantiate`, then configure it accordi
 #### Core parameters
 
 | Parameter                             | Suggested testnet value | Suggested mainnet value | Description                                                                                                                   |
-| ------------------------------------- | ----------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+|---------------------------------------|-------------------------|-------------------------|-------------------------------------------------------------------------------------------------------------------------------|
 | `INITIAL_VALIDATORS`                  |                         |                         | Set it to validators to stake to, format is as follows: `[{"valoper_address":"cosmosvaloper1...","weight":"10"},...]`         |
 | `TARGET_BASE_DENOM`                   |                         |                         | Denom to be staked with Drop protocol, e.g. "uatom"                                                                           |
 | `TARGET_SDK_VERSION`                  |                         |                         | Cosmos SDK version of target chain, could be obtained from chain registry or from chain itself (refer to documentation below) |
@@ -87,7 +87,6 @@ Copy `.env.instantiate.example` to `.env.instantiate`, then configure it accordi
 | `CORE_PARAMS_LSM_REDEEM_THRESHOLD`    |                         |                         | Min amount of LSM shares to turn back into staking                                                                            |
 | `CORE_PARAMS_LSM_MIN_BOND_AMOUNT`     |                         |                         | Min amount of LSM shares that you can attach as funds in _bond_ call                                                          |
 | `CORE_PARAMS_LSM_REDEEM_MAX_INTERVAL` |                         |                         | Interval between 2 LSM redeems (LSM redeem is when we turn LSM share back into staking)                                       |
-| `CORE_PARAMS_BOND_LIMIT`              |                         |                         | Max amount of LSM shares that you can attach as funds in _bond_ call                                                          |
 | `CORE_PARAMS_MIN_STAKE_AMOUNT`        |                         |                         | Min amount of tokens to transfer to staker contract                                                                           |
 | `CORE_PARAMS_ICQ_UPDATE_DELAY`        | 5                       | 5                       |                                                                                                                               |
 | `STAKER_PARAMS_MIN_STAKE_AMOUNT`      |                         |                         | Min amount of tokens that staker contract can stake from ICA                                                                  |

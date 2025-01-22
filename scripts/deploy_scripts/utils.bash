@@ -196,7 +196,6 @@ deploy_factory() {
       "unbond_batch_switch_time":'"$UNBOND_BATCH_SWITCH_TIME"',
       "unbonding_safe_period":'"$UNBONDING_SAFE_PERIOD"',
       "unbonding_period":'"$UNBONDING_PERIOD"',
-      "bond_limit":"'"$CORE_PARAMS_BOND_LIMIT"'",
       "icq_update_delay": '$CORE_PARAMS_ICQ_UPDATE_DELAY'
     },
     "native_bond_params":{
