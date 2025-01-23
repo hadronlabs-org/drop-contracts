@@ -252,7 +252,6 @@ fn execute_process_on_idle(
         config.core_contract,
         ContractError::Unauthorized {}
     );
-
     query_can_process_on_idle(deps.as_ref(), &env, &config)?;
 
     let attrs = vec![attr("action", "process_on_idle")];
@@ -295,8 +294,6 @@ fn get_delegation_msg(
         funds: vec![],
     });
 
-    NON_STAKED_BALANCE.save(deps.storage, &Uint128::zero())?;
-
     Ok(Some(puppeteer_delegation_msg))
 }
 
@@ -313,8 +310,19 @@ fn execute_puppeteer_hook(
         ContractError::Unauthorized {}
     );
 
-    LAST_PUPPETEER_RESPONSE.save(deps.storage, &msg)?;
+    match msg.clone() {
+        drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(success_msg) => {
+            if let drop_puppeteer_base::peripheral_hook::Transaction::Stake { amount } =
+                success_msg.transaction
+            {
+                NON_STAKED_BALANCE
+                    .update(deps.storage, |balance| StdResult::Ok(balance - amount))?;
+            }
+        }
+        _ => {}
+    }
 
+    LAST_PUPPETEER_RESPONSE.save(deps.storage, &msg)?;
     let hook_message = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.core_contract.to_string(),
         msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(msg))?,
