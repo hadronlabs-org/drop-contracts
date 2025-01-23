@@ -2,7 +2,6 @@ use crate::state::{CodeIds, RemoteOpts};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{CosmosMsg, Decimal, Uint128};
 use cw_ownable::cw_ownable_execute;
-use drop_macros::pausable;
 use drop_staking_base::msg::token::DenomMetadata;
 use neutron_sdk::bindings::msg::NeutronMsg;
 
@@ -61,12 +60,13 @@ pub enum ValidatorSetMsg {
 }
 
 #[cw_ownable_execute]
-#[pausable]
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig(Box<UpdateConfigMsg>),
     Proxy(ProxyMsg),
     AdminExecute { msgs: Vec<CosmosMsg<NeutronMsg>> },
+    Pause {},
+    Unpause {},
 }
 #[cw_serde]
 pub struct MigrateMsg {}
