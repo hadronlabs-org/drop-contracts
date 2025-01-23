@@ -957,7 +957,7 @@ fn test_pause() {
             ])
             .add_event(
                 cosmwasm_std::Event::new(
-                    "crates.io:drop-staking__drop-factory-execute-pause".to_string()
+                    "crates.io:drop-staking__drop-factory-native-execute-pause".to_string()
                 )
                 .add_attributes(vec![cosmwasm_std::attr(
                     "action".to_string(),
@@ -1049,7 +1049,7 @@ fn test_unpause() {
             ])
             .add_event(
                 cosmwasm_std::Event::new(
-                    "crates.io:drop-staking__drop-factory-execute-unpause".to_string()
+                    "crates.io:drop-staking__drop-factory-native-execute-unpause".to_string()
                 )
                 .add_attributes(vec![cosmwasm_std::attr(
                     "action".to_string(),
