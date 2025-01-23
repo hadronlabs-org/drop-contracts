@@ -1,3 +1,4 @@
+use crate::state::withdrawal_manager::Pause;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cw721::Cw721ReceiveMsg;
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
@@ -16,6 +17,8 @@ pub struct InstantiateMsg {
 pub enum QueryMsg {
     #[returns(crate::state::withdrawal_manager::Config)]
     Config {},
+    #[returns(Pause)]
+    Pause {},
 }
 
 #[cw_ownable_execute]
@@ -27,6 +30,9 @@ pub enum ExecuteMsg {
         base_denom: Option<String>,
     },
     ReceiveNft(Cw721ReceiveMsg),
+    SetPause {
+        pause: Pause,
+    },
 }
 
 #[cw_serde]

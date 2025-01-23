@@ -9,6 +9,26 @@ pub struct Config {
     pub base_denom: String,
 }
 
-pub type Cw721ReceiveMsg = cw721::Cw721ReceiveMsg;
+#[cw_serde]
+pub enum PauseType {
+    Switch { receive_nft_withdraw: bool },
+    Height { receive_nft_withdraw: u64 },
+}
 
+impl Default for PauseType {
+    fn default() -> Self {
+        PauseType::Switch {
+            receive_nft_withdraw: false,
+        }
+    }
+}
+
+#[cw_serde]
+#[derive(Default)]
+pub struct Pause {
+    pub pause: PauseType,
+}
+
+pub type Cw721ReceiveMsg = cw721::Cw721ReceiveMsg;
+pub const PAUSE: Item<Pause> = Item::new("pause");
 pub const CONFIG: Item<Config> = Item::new("config");
