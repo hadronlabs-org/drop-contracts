@@ -1,9 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cw721::Cw721ReceiveMsg;
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
-#[allow(unused_imports)]
-use drop_helpers::pause::PauseInfoResponse;
-use drop_macros::{pausable, pausable_query};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -14,7 +11,6 @@ pub struct InstantiateMsg {
 }
 
 #[cw_ownable_query]
-#[pausable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
@@ -23,7 +19,6 @@ pub enum QueryMsg {
 }
 
 #[cw_ownable_execute]
-#[pausable]
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig {

@@ -5,7 +5,7 @@ use cosmwasm_std::{
     Response, StdError, StdResult, SubMsg, SubMsgResult, Uint128, Uint64, WasmMsg,
 };
 use cw_storage_plus::Bound;
-use drop_helpers::answer::response;
+use drop_helpers::{answer::response, is_paused};
 use drop_puppeteer_base::{msg::TransferReadyBatchesMsg, peripheral_hook::IBCTransferReason};
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
@@ -40,16 +40,6 @@ pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const UNBOND_BATCHES_PAGINATION_DEFAULT_LIMIT: Uint64 = Uint64::new(100u64);
-
-macro_rules! is_paused {
-    ($pause:expr, $deps:expr, $env:expr, $field:ident) => {
-        match (($pause).load($deps)?).pause {
-            PauseType::Switch { $field, .. } => $field,
-            PauseType::Height { $field, .. } => $field <= ($env).block.height,
-        }
-    };
-}
-
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut<NeutronQuery>,
@@ -530,7 +520,7 @@ fn execute_tick(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    if is_paused!(PAUSE, deps.storage, env, tick) {
+    if is_paused!(PAUSE, deps, env, tick) {
         return Err(drop_helpers::pause::PauseError::Paused {}.into());
     }
 
@@ -960,7 +950,7 @@ fn execute_bond(
     receiver: Option<String>,
     r#ref: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    if is_paused!(PAUSE, deps.storage, env, bond) {
+    if is_paused!(PAUSE, deps, env, bond) {
         return Err(drop_helpers::pause::PauseError::Paused {}.into());
     }
 
@@ -1175,7 +1165,7 @@ fn execute_unbond(
     info: MessageInfo,
     env: Env,
 ) -> ContractResult<Response<NeutronMsg>> {
-    if is_paused!(PAUSE, deps.storage, env, unbond) {
+    if is_paused!(PAUSE, deps, env, unbond) {
         return Err(drop_helpers::pause::PauseError::Paused {}.into());
     }
 
