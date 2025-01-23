@@ -33,7 +33,13 @@ use drop_staking_base::{
         },
         withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
     },
-    state::pump::PumpTimeout,
+    state::{
+        pump::PumpTimeout,
+        rewards_manager::{Pause as RewardsManagerPause, PauseType as RewardsManagerPauseType},
+        withdrawal_manager::{
+            Pause as WithdrawalManagerPause, PauseType as WithdrawalManagerPauseType,
+        },
+    },
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -468,12 +474,11 @@ fn query_pause_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
             .query_wasm_smart(state.core_contract, &CoreQueryMsg::Pause {})?,
         withdrawal_manager: deps.querier.query_wasm_smart(
             state.withdrawal_manager_contract,
-            &WithdrawalManagerQueryMsg::PauseInfo {},
+            &WithdrawalManagerQueryMsg::Pause {},
         )?,
-        rewards_manager: deps.querier.query_wasm_smart(
-            state.rewards_manager_contract,
-            &RewardsQueryMsg::PauseInfo {},
-        )?,
+        rewards_manager: deps
+            .querier
+            .query_wasm_smart(state.rewards_manager_contract, &RewardsQueryMsg::Pause {})?,
     })
     .map_err(From::from)
 }
@@ -497,12 +502,56 @@ pub fn execute(
         ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, env, info, *msg),
         ExecuteMsg::Proxy(msg) => execute_proxy_msg(deps, env, info, msg),
         ExecuteMsg::AdminExecute { msgs } => execute_admin_execute(deps, env, info, msgs),
-        ExecuteMsg::Pause {} => exec_pause(deps, info),
-        ExecuteMsg::Unpause {} => exec_unpause(deps, info),
+        ExecuteMsg::Pause {} => execute_pause(deps, info),
+        ExecuteMsg::Unpause {} => execute_unpause(deps, info),
     }
 }
 
-fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
+fn execute_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+    let state = STATE.load(deps.storage)?;
+    let attrs = vec![attr("action", "unpause")];
+    let messages = vec![
+        get_proxied_message(
+            state.core_contract,
+            drop_staking_base::msg::core::ExecuteMsg::SetPause(
+                drop_staking_base::state::core::Pause {
+                    pause: drop_staking_base::state::core::PauseType::Switch {
+                        tick: false,
+                        bond: false,
+                        unbond: false,
+                    },
+                },
+            ),
+            vec![],
+        )?,
+        get_proxied_message(
+            state.withdrawal_manager_contract,
+            drop_staking_base::msg::withdrawal_manager::ExecuteMsg::SetPause {
+                pause: WithdrawalManagerPause {
+                    pause: WithdrawalManagerPauseType::Switch {
+                        receive_nft_withdraw: false,
+                    },
+                },
+            },
+            vec![],
+        )?,
+        get_proxied_message(
+            state.rewards_manager_contract,
+            drop_staking_base::msg::rewards_manager::ExecuteMsg::SetPause {
+                pause: RewardsManagerPause {
+                    pause: RewardsManagerPauseType::Switch {
+                        exchange_rewards: false,
+                    },
+                },
+            },
+            vec![],
+        )?,
+    ];
+    Ok(response("execute-unpause", CONTRACT_NAME, attrs).add_messages(messages))
+}
+
+fn execute_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let state = STATE.load(deps.storage)?;
     let attrs = vec![attr("action", "pause")];
@@ -522,48 +571,28 @@ fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Neutr
         )?,
         get_proxied_message(
             state.withdrawal_manager_contract,
-            drop_staking_base::msg::withdrawal_manager::ExecuteMsg::Pause {},
+            drop_staking_base::msg::withdrawal_manager::ExecuteMsg::SetPause {
+                pause: WithdrawalManagerPause {
+                    pause: WithdrawalManagerPauseType::Switch {
+                        receive_nft_withdraw: true,
+                    },
+                },
+            },
             vec![],
         )?,
         get_proxied_message(
             state.rewards_manager_contract,
-            drop_staking_base::msg::rewards_manager::ExecuteMsg::Pause {},
+            drop_staking_base::msg::rewards_manager::ExecuteMsg::SetPause {
+                pause: RewardsManagerPause {
+                    pause: RewardsManagerPauseType::Switch {
+                        exchange_rewards: true,
+                    },
+                },
+            },
             vec![],
         )?,
     ];
     Ok(response("execute-pause", CONTRACT_NAME, attrs).add_messages(messages))
-}
-
-fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let state = STATE.load(deps.storage)?;
-    let attrs = vec![attr("action", "unpause")];
-    let messages = vec![
-        get_proxied_message(
-            state.core_contract,
-            drop_staking_base::msg::core::ExecuteMsg::SetPause(
-                drop_staking_base::state::core::Pause {
-                    pause: drop_staking_base::state::core::PauseType::Switch {
-                        tick: false,
-                        bond: false,
-                        unbond: false,
-                    },
-                },
-            ),
-            vec![],
-        )?,
-        get_proxied_message(
-            state.rewards_manager_contract,
-            drop_staking_base::msg::rewards_manager::ExecuteMsg::Unpause {},
-            vec![],
-        )?,
-        get_proxied_message(
-            state.withdrawal_manager_contract,
-            drop_staking_base::msg::withdrawal_manager::ExecuteMsg::Unpause {},
-            vec![],
-        )?,
-    ];
-    Ok(response("execute-unpause", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 fn execute_admin_execute(
