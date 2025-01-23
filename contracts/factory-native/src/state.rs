@@ -51,9 +51,9 @@ pub struct State {
 
 #[cw_serde]
 pub struct PauseInfoResponse {
-    pub withdrawal_manager: drop_helpers::pause::PauseInfoResponse,
+    pub withdrawal_manager: drop_staking_base::state::withdrawal_manager::Pause,
     pub core: drop_staking_base::state::core::Pause,
-    pub rewards_manager: drop_helpers::pause::PauseInfoResponse,
+    pub rewards_manager: drop_staking_base::state::rewards_manager::Pause,
 }
 
 pub const STATE: Item<State> = Item::new("state");

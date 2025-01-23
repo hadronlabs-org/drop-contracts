@@ -930,21 +930,34 @@ fn test_pause() {
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Execute {
                         contract_addr: "withdrawal_manager_contract".to_string(),
-                        msg: to_json_binary(&WithdrawalManagerExecuteMsg::Pause {}).unwrap(),
+                        msg: to_json_binary(&WithdrawalManagerExecuteMsg::SetPause {
+                            pause: drop_staking_base::state::withdrawal_manager::Pause {
+                                pause: drop_staking_base::state::withdrawal_manager::PauseType::Switch {
+                                    receive_nft_withdraw: true
+                                },
+                            }
+                        })
+                        .unwrap(),
                         funds: vec![]
                     }
                 )),
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Execute {
                         contract_addr: "rewards_manager_contract".to_string(),
-                        msg: to_json_binary(&RewardsManagerExecuteMsg::Pause {}).unwrap(),
+                        msg: to_json_binary(&RewardsManagerExecuteMsg::SetPause {
+                            pause: drop_staking_base::state::rewards_manager::Pause {
+                                pause: drop_staking_base::state::rewards_manager::PauseType::Switch {
+                                    exchange_rewards: true
+                                },
+                            }
+                        }).unwrap(),
                         funds: vec![]
                     }
                 ))
             ])
             .add_event(
                 cosmwasm_std::Event::new(
-                    "crates.io:drop-staking__drop-factory-native-execute-pause".to_string()
+                    "crates.io:drop-staking__drop-factory-execute-pause".to_string()
                 )
                 .add_attributes(vec![cosmwasm_std::attr(
                     "action".to_string(),
@@ -1007,22 +1020,36 @@ fn test_unpause() {
                 )),
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "rewards_manager_contract".to_string(),
-                        msg: to_json_binary(&RewardsManagerExecuteMsg::Unpause {}).unwrap(),
+                        contract_addr: "withdrawal_manager_contract".to_string(),
+                        msg: to_json_binary(&WithdrawalManagerExecuteMsg::SetPause {
+                            pause: drop_staking_base::state::withdrawal_manager::Pause {
+                                pause: drop_staking_base::state::withdrawal_manager::PauseType::Switch {
+                                    receive_nft_withdraw: false
+                                },
+                            }
+                        }).unwrap(),
                         funds: vec![]
                     }
                 )),
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "withdrawal_manager_contract".to_string(),
-                        msg: to_json_binary(&WithdrawalManagerExecuteMsg::Unpause {}).unwrap(),
+                        contract_addr: "rewards_manager_contract".to_string(),
+                        msg: to_json_binary(&RewardsManagerExecuteMsg::SetPause {
+                            pause: drop_staking_base::state::rewards_manager::Pause {
+                                pause:
+                                    drop_staking_base::state::rewards_manager::PauseType::Switch {
+                                        exchange_rewards: false
+                                    },
+                            }
+                        })
+                        .unwrap(),
                         funds: vec![]
                     }
                 ))
             ])
             .add_event(
                 cosmwasm_std::Event::new(
-                    "crates.io:drop-staking__drop-factory-native-execute-unpause".to_string()
+                    "crates.io:drop-staking__drop-factory-execute-unpause".to_string()
                 )
                 .add_attributes(vec![cosmwasm_std::attr(
                     "action".to_string(),
@@ -1061,13 +1088,23 @@ fn test_query_pause_info() {
     deps.querier
         .add_wasm_query_response("withdrawal_manager_contract", |_| {
             cosmwasm_std::ContractResult::Ok(
-                to_json_binary(&drop_helpers::pause::PauseInfoResponse::Unpaused {}).unwrap(),
+                to_json_binary(&drop_staking_base::state::withdrawal_manager::Pause {
+                    pause: drop_staking_base::state::withdrawal_manager::PauseType::Switch {
+                        receive_nft_withdraw: false,
+                    },
+                })
+                .unwrap(),
             )
         });
     deps.querier
         .add_wasm_query_response("rewards_manager_contract", |_| {
             cosmwasm_std::ContractResult::Ok(
-                to_json_binary(&drop_helpers::pause::PauseInfoResponse::Paused {}).unwrap(),
+                to_json_binary(&drop_staking_base::state::rewards_manager::Pause {
+                    pause: drop_staking_base::state::rewards_manager::PauseType::Switch {
+                        exchange_rewards: true,
+                    },
+                })
+                .unwrap(),
             )
         });
     STATE
@@ -1085,8 +1122,16 @@ fn test_query_pause_info() {
                     unbond: false,
                 }
             },
-            withdrawal_manager: drop_helpers::pause::PauseInfoResponse::Unpaused {},
-            rewards_manager: drop_helpers::pause::PauseInfoResponse::Paused {},
+            withdrawal_manager: drop_staking_base::state::withdrawal_manager::Pause {
+                pause: drop_staking_base::state::withdrawal_manager::PauseType::Switch {
+                    receive_nft_withdraw: false,
+                },
+            },
+            rewards_manager: drop_staking_base::state::rewards_manager::Pause {
+                pause: drop_staking_base::state::rewards_manager::PauseType::Switch {
+                    exchange_rewards: true,
+                },
+            },
         }
     );
 }
