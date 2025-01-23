@@ -269,7 +269,7 @@ pub fn instantiate(
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
             code_id: msg.code_ids.validators_set_code_id,
-            label: "validators set".to_string(),
+            label: get_contract_label("validators-set"),
             msg: to_json_binary(&ValidatorsSetInstantiateMsg {
                 stats_contract: "neutron1x69dz0c0emw8m2c6kp5v6c08kgjxmu30f4a8w5".to_string(), //FIXME: mock address, replace with real one
                 owner: env.contract.address.to_string(),
@@ -280,7 +280,7 @@ pub fn instantiate(
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
             code_id: msg.code_ids.distribution_code_id,
-            label: "distribution".to_string(),
+            label: get_contract_label("distribution"),
             msg: to_json_binary(&DistributionInstantiateMsg {})?,
             funds: vec![],
             salt: Binary::from(salt),
@@ -296,7 +296,7 @@ pub fn instantiate(
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
             code_id: msg.code_ids.strategy_code_id,
-            label: "strategy".to_string(),
+            label: get_contract_label("strategy"),
             msg: to_json_binary(&StrategyInstantiateMsg {
                 owner: env.contract.address.to_string(),
                 puppeteer_address: msg.pre_instantiated_contracts.puppeteer_address.to_string(),
@@ -795,12 +795,16 @@ fn validate_pre_instantiated_contracts(
     )?;
 
     // Validate lsm share bond provider contract
-    validate_contract_metadata(
-        deps,
-        env,
-        &pre_instantiated_contracts.lsm_share_bond_provider_address,
-        vec![drop_lsm_share_bond_provider::contract::CONTRACT_NAME.to_string()],
-    )?;
+    if let Some(lsm_share_bond_provider_address) =
+        &pre_instantiated_contracts.lsm_share_bond_provider_address
+    {
+        validate_contract_metadata(
+            deps,
+            env,
+            &lsm_share_bond_provider_address,
+            vec![drop_lsm_share_bond_provider::contract::CONTRACT_NAME.to_string()],
+        )?;
+    }
 
     // Validate puppeteer contract
     validate_contract_metadata(
@@ -815,18 +819,22 @@ fn validate_pre_instantiated_contracts(
     )?;
 
     // Validate unbonding and rewards pump contracts
-    validate_contract_metadata(
-        deps,
-        env,
-        &pre_instantiated_contracts.unbonding_pump_address,
-        vec![drop_pump::contract::CONTRACT_NAME.to_string()],
-    )?;
-    validate_contract_metadata(
-        deps,
-        env,
-        &pre_instantiated_contracts.rewards_pump_address,
-        vec![drop_pump::contract::CONTRACT_NAME.to_string()],
-    )?;
+    if let Some(unbonding_pump_address) = &pre_instantiated_contracts.unbonding_pump_address {
+        validate_contract_metadata(
+            deps,
+            env,
+            &unbonding_pump_address,
+            vec![drop_pump::contract::CONTRACT_NAME.to_string()],
+        )?;
+    }
+    if let Some(rewards_pump_address) = &pre_instantiated_contracts.rewards_pump_address {
+        validate_contract_metadata(
+            deps,
+            env,
+            &rewards_pump_address,
+            vec![drop_pump::contract::CONTRACT_NAME.to_string()],
+        )?;
+    }
 
     Ok(())
 }

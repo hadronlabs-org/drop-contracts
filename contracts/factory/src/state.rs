@@ -22,9 +22,9 @@ pub struct CodeIds {
 pub struct PreInstantiatedContracts {
     pub native_bond_provider_address: Addr,
     pub puppeteer_address: Addr,
-    pub lsm_share_bond_provider_address: Addr,
-    pub unbonding_pump_address: Addr,
-    pub rewards_pump_address: Addr,
+    pub lsm_share_bond_provider_address: Option<Addr>,
+    pub unbonding_pump_address: Option<Addr>,
+    pub rewards_pump_address: Option<Addr>,
 }
 
 #[cw_serde]

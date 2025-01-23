@@ -191,7 +191,7 @@ deploy_factory() {
   }'
 
   echo "$msg"
-  
+
   local salt_hex="$(echo -n "$SALT" | xxd -p)"
 
   factory_address="$(neutrond tx wasm instantiate2 "$factory_code_id" "$msg" $salt_hex \
@@ -374,9 +374,8 @@ deploy_lsm_share_bond_provider() {
 
 deploy_puppeteer() {
   local factory_address="$1"
-  local core_contract="$2"
-  local native_bond_provider_address="$3"
-  local lsm_share_bond_provider_address="$4"
+  local native_bond_provider_address="$2"
+  local allowed_senders="$3"
 
 
   msg='{
@@ -386,6 +385,7 @@ deploy_puppeteer() {
       "'"$core_contract"'",
       "'"$factory_address"'"
     ],
+    "allowed_senders":'"$allowed_senders"',
     "owner":"'"$factory_address"'",
     "remote_denom":"'"$TARGET_BASE_DENOM"'",
     "update_period":'$ICQ_UPDATE_PERIOD',
