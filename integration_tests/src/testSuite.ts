@@ -132,9 +132,9 @@ const networkConfigs = {
         : '0stake',
       'rosetta.enable': true,
     },
-    upload: redefinedParams.upload || ['./artifacts/scripts/init-neutronv2.sh'],
+    upload: redefinedParams.upload || ['./artifacts/scripts/init-gaia.sh'],
     post_start: redefinedParams.postUpload || [
-      `/opt/init-neutronv2.sh > /opt/init-neutronv2.log 2>&1`,
+      `/opt/init-gaia.sh > /opt/init-gaia.log 2>&1`,
     ],
   },
   neutronv2: {
@@ -484,6 +484,7 @@ export const setupPark = async (
       mnemonic: wallets.neutronqueryrelayer,
     } as any);
   }
+
   const instance = await cosmopark.create(config);
   await Promise.all(
     Object.entries(instance.ports).map(([network, ports]) =>

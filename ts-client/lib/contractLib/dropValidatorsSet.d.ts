@@ -231,16 +231,34 @@ export declare class Client {
     contractAddress: string;
     constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string);
     mustBeSigningClient(): Error;
-    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
-    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
+    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
+    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: Uint8Array, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
     queryConfig: () => Promise<Config>;
     queryValidator: (args: ValidatorArgs) => Promise<ValidatorResponse>;
     queryValidators: () => Promise<ArrayOfValidatorInfo>;
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateConfigMsg: (args: UpdateConfigArgs) => {
+        update_config: UpdateConfigArgs;
+    };
     updateValidators: (sender: string, args: UpdateValidatorsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateValidatorsMsg: (args: UpdateValidatorsArgs) => {
+        update_validators: UpdateValidatorsArgs;
+    };
     updateValidatorsInfo: (sender: string, args: UpdateValidatorsInfoArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateValidatorsInfoMsg: (args: UpdateValidatorsInfoArgs) => {
+        update_validators_info: UpdateValidatorsInfoArgs;
+    };
     updateValidatorsVoting: (sender: string, args: UpdateValidatorsVotingArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateValidatorsVotingMsg: (args: UpdateValidatorsVotingArgs) => {
+        update_validators_voting: UpdateValidatorsVotingArgs;
+    };
     editOnTop: (sender: string, args: EditOnTopArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    editOnTopMsg: (args: EditOnTopArgs) => {
+        edit_on_top: EditOnTopArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
 }

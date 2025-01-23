@@ -15,30 +15,20 @@ use cosmwasm_std::{
 };
 use cw2::ContractVersion;
 use drop_helpers::answer::response;
-use drop_staking_base::state::splitter::Config as SplitterConfig;
-use drop_staking_base::{
-    msg::{
-        core::{InstantiateMsg as CoreInstantiateMsg, QueryMsg as CoreQueryMsg},
-        distribution::InstantiateMsg as DistributionInstantiateMsg,
-        // lsm_share_bond_provider::InstantiateMsg as LsmShareBondProviderInstantiateMsg,
-        // native_bond_provider::InstantiateMsg as NativeBondProviderInstantiateMsg,
-        // native_sync_bond_provider::InstantiateMsg as NativeSyncBondProviderInstantiateMsg,
-        // pump::InstantiateMsg as RewardsPumpInstantiateMsg,
-        rewards_manager::{
-            InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg,
-        },
-        splitter::InstantiateMsg as SplitterInstantiateMsg,
-        strategy::InstantiateMsg as StrategyInstantiateMsg,
-        token::InstantiateMsg as TokenInstantiateMsg,
-        validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
-        withdrawal_manager::{
-            InstantiateMsg as WithdrawalManagerInstantiateMsg,
-            QueryMsg as WithdrawalManagerQueryMsg,
-        },
-        withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
+use drop_staking_base::msg::{
+    core::{InstantiateMsg as CoreInstantiateMsg, QueryMsg as CoreQueryMsg},
+    distribution::InstantiateMsg as DistributionInstantiateMsg,
+    rewards_manager::{InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg},
+    splitter::InstantiateMsg as SplitterInstantiateMsg,
+    strategy::InstantiateMsg as StrategyInstantiateMsg,
+    token::InstantiateMsg as TokenInstantiateMsg,
+    validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
+    withdrawal_manager::{
+        InstantiateMsg as WithdrawalManagerInstantiateMsg, QueryMsg as WithdrawalManagerQueryMsg,
     },
-    // state::pump::PumpTimeout,
+    withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
 };
+use drop_staking_base::state::splitter::Config as SplitterConfig;
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     NeutronResult,
@@ -60,8 +50,6 @@ pub fn instantiate(
 
     validate_pre_instantiated_contracts(deps.as_ref(), &env, &msg.pre_instantiated_contracts)?;
 
-    // FACTORY_TYPE.save(deps.storage, &msg.factory.to_factory_type())?;
-
     let attrs = vec![
         attr("base_denom", &msg.base_denom),
         attr("salt", &msg.salt),
@@ -82,24 +70,16 @@ pub fn instantiate(
         get_code_checksum(deps.as_ref(), msg.code_ids.validators_set_code_id)?;
     let distribution_contract_checksum =
         get_code_checksum(deps.as_ref(), msg.code_ids.distribution_code_id)?;
-    // let puppeteer_contract_checksum =
-    //     get_code_checksum(deps.as_ref(), msg.code_ids.puppeteer_code_id)?;
     let rewards_manager_contract_checksum =
         get_code_checksum(deps.as_ref(), msg.code_ids.rewards_manager_code_id)?;
     let splitter_contract_checksum =
         get_code_checksum(deps.as_ref(), msg.code_ids.splitter_code_id)?;
-    // let rewards_pump_contract_checksum =
-    //     get_code_checksum(deps.as_ref(), msg.code_ids.rewards_pump_code_id)?;
-    // let native_bond_contract_checksum =
-    //     get_code_checksum(deps.as_ref(), msg.code_ids.native_bond_provider_code_id)?;
     let salt = msg.salt.as_bytes();
 
     let token_address =
         instantiate2_address(&token_contract_checksum, &canonical_self_address, salt)?;
     let core_address =
         instantiate2_address(&core_contract_checksum, &canonical_self_address, salt)?;
-    // let puppeteer_address =
-    //     instantiate2_address(&puppeteer_contract_checksum, &canonical_self_address, salt)?;
     let withdrawal_voucher_address = instantiate2_address(
         &withdrawal_voucher_contract_checksum,
         &canonical_self_address,
@@ -129,16 +109,6 @@ pub fn instantiate(
     )?;
     let splitter_address =
         instantiate2_address(&splitter_contract_checksum, &canonical_self_address, salt)?;
-    // let rewards_pump_address = instantiate2_address(
-    //     &rewards_pump_contract_checksum,
-    //     &canonical_self_address,
-    //     salt,
-    // )?;
-    // let native_bond_provider_address = instantiate2_address(
-    //     &native_bond_contract_checksum,
-    //     &canonical_self_address,
-    //     salt,
-    // )?;
 
     let core_contract = deps.api.addr_humanize(&core_address)?.to_string();
     let token_contract = deps.api.addr_humanize(&token_address)?.to_string();
@@ -156,85 +126,13 @@ pub fn instantiate(
         .api
         .addr_humanize(&distribution_calculator_address)?
         .to_string();
-    // let puppeteer_contract = deps.api.addr_humanize(&puppeteer_address)?.to_string();
     let rewards_manager_contract = deps
         .api
         .addr_humanize(&rewards_manager_address)?
         .to_string();
-    // let rewards_pump_contract = deps.api.addr_humanize(&rewards_pump_address)?.to_string();
     let splitter_contract = deps.api.addr_humanize(&splitter_address)?.to_string();
 
     let native_bond_provider_contract = msg.pre_instantiated_contracts.native_bond_provider_address;
-
-    // let transfer_channel_id = match &msg.factory {
-    //     Factory::Remote {
-    //         transfer_channel_id,
-    //         ..
-    //     } => transfer_channel_id.as_str(),
-    //     Factory::Native { .. } => "N/A",
-    // };
-
-    // let (puppeteer_instantiate_msg_binary, _) = match &msg.factory {
-    //     Factory::Remote {
-    //         sdk_version,
-    //         code_ids,
-    //         icq_update_period,
-    //         port_id,
-    //         ..
-    //     } => {
-    //         attrs.push(attr("sdk_version", sdk_version));
-
-    //         let lsm_share_contract_checksum =
-    //             get_code_checksum(deps.as_ref(), code_ids.lsm_share_bond_provider_code_id)?;
-    //         let lsm_share_bond_provider_address =
-    //             instantiate2_address(&lsm_share_contract_checksum, &canonical_self_address, salt)?;
-    //         let lsm_share_bond_provider_contract = deps
-    //             .api
-    //             .addr_humanize(&lsm_share_bond_provider_address)?
-    //             .to_string();
-
-    //         let msg = drop_staking_base::msg::puppeteer::InstantiateMsg {
-    //             allowed_senders: vec![
-    //                 lsm_share_bond_provider_contract.to_string(),
-    //                 native_bond_provider_contract.to_string(),
-    //                 core_contract.to_string(),
-    //                 env.contract.address.to_string(),
-    //             ],
-    //             owner: Some(env.contract.address.to_string()),
-    //             remote_denom: msg.remote_opts.denom.to_string(),
-    //             update_period: *icq_update_period,
-    //             connection_id: msg.remote_opts.connection_id.to_string(),
-    //             port_id: port_id.clone(),
-    //             transfer_channel_id: transfer_channel_id.to_string(),
-    //             sdk_version: sdk_version.clone(),
-    //             timeout: msg.remote_opts.timeout.local,
-    //             delegations_queries_chunk_size: None,
-    //             native_bond_provider: native_bond_provider_contract.to_string(),
-    //         };
-
-    //         (
-    //             to_json_binary(&msg)?,
-    //             Some(lsm_share_bond_provider_contract),
-    //         )
-    //     }
-    //     Factory::Native {
-    //         distribution_module_contract,
-    //     } => {
-    //         let msg = drop_staking_base::msg::puppeteer_native::InstantiateMsg {
-    //             allowed_senders: vec![
-    //                 native_bond_provider_contract.to_string(),
-    //                 core_contract.to_string(),
-    //                 env.contract.address.to_string(),
-    //             ],
-    //             owner: Some(env.contract.address.to_string()),
-    //             remote_denom: msg.remote_opts.denom.to_string(),
-    //             native_bond_provider: native_bond_provider_contract.to_string(),
-    //             distribution_module_contract: distribution_module_contract.to_string(),
-    //         };
-
-    //         (to_json_binary(&msg)?, None)
-    //     }
-    // };
 
     let state = State {
         token_contract: token_contract.to_string(),
@@ -285,14 +183,6 @@ pub fn instantiate(
             funds: vec![],
             salt: Binary::from(salt),
         }),
-        // CosmosMsg::Wasm(WasmMsg::Instantiate2 {
-        //     admin: Some(env.contract.address.to_string()),
-        //     code_id: msg.code_ids.puppeteer_code_id,
-        //     label: get_contract_label("puppeteer"),
-        //     msg: puppeteer_instantiate_msg_binary,
-        //     funds: vec![],
-        //     salt: Binary::from(salt),
-        // }),
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
             code_id: msg.code_ids.strategy_code_id,
@@ -386,91 +276,6 @@ pub fn instantiate(
             salt: Binary::from(salt),
         }),
     ];
-    // if let Factory::Remote {
-    //     code_ids,
-    //     lsm_share_bond_params,
-    //     reverse_transfer_channel_id,
-    //     min_ibc_transfer: _,
-    //     min_stake_amount: _,
-    //     port_id,
-    //     ..
-    // } = &msg.factory
-    // {
-    // msgs.push(CosmosMsg::Wasm(WasmMsg::Instantiate2 {
-    //     admin: Some(env.contract.address.to_string()),
-    //     code_id: msg.code_ids.rewards_pump_code_id,
-    //     label: get_contract_label("rewards-pump"),
-    //     msg: to_json_binary(&RewardsPumpInstantiateMsg {
-    //         dest_address: Some(splitter_contract.to_string()),
-    //         dest_channel: Some(reverse_transfer_channel_id.clone()),
-    //         dest_port: Some(port_id.clone()),
-    //         connection_id: msg.remote_opts.connection_id.to_string(),
-    //         refundee: None,
-    //         timeout: PumpTimeout {
-    //             local: Some(msg.remote_opts.timeout.local),
-    //             remote: msg.remote_opts.timeout.remote,
-    //         },
-    //         local_denom: msg.local_denom.to_string(),
-    //         owner: Some(env.contract.address.to_string()),
-    //     })?,
-    //     funds: vec![],
-    //     salt: Binary::from(salt),
-    // }));
-    // msgs.push(CosmosMsg::Wasm(WasmMsg::Instantiate2 {
-    //     admin: Some(env.contract.address.to_string()),
-    //     code_id: code_ids.lsm_share_bond_provider_code_id,
-    //     label: get_contract_label("lsm-share-bond-provider"),
-    //     msg: to_json_binary(&LsmShareBondProviderInstantiateMsg {
-    //         owner: env.contract.address.to_string(),
-    //         core_contract: core_contract.to_string(),
-    //         puppeteer_contract: msg.pre_instantiated_contracts.puppeteer_address.to_string(),
-    //         validators_set_contract,
-    //         port_id: port_id.clone(),
-    //         transfer_channel_id: transfer_channel_id.to_string(),
-    //         timeout: msg.remote_opts.timeout.local,
-    //         lsm_min_bond_amount: lsm_share_bond_params.lsm_min_bond_amount,
-    //         lsm_redeem_threshold: lsm_share_bond_params.lsm_redeem_threshold,
-    //         lsm_redeem_maximum_interval: lsm_share_bond_params.lsm_redeem_max_interval,
-    //     })?,
-    //     funds: vec![],
-    //     salt: Binary::from(salt),
-    // }));
-    // msgs.push(CosmosMsg::Wasm(WasmMsg::Instantiate2 {
-    //     admin: Some(env.contract.address.to_string()),
-    //     code_id: msg.code_ids.native_bond_provider_code_id,
-    //     label: get_contract_label("native-bond-provider"),
-    //     msg: to_json_binary(&NativeBondProviderInstantiateMsg {
-    //         owner: env.contract.address.to_string(),
-    //         base_denom: msg.base_denom.to_string(),
-    //         puppeteer_contract: puppeteer_contract.to_string(),
-    //         core_contract: core_contract.to_string(),
-    //         strategy_contract: strategy_contract.to_string(),
-    //         min_ibc_transfer: *min_ibc_transfer,
-    //         min_stake_amount: *min_stake_amount,
-    //         port_id: port_id.clone(),
-    //         transfer_channel_id: transfer_channel_id.to_string(),
-    //         timeout: msg.remote_opts.timeout.local,
-    //     })?,
-    //     funds: vec![],
-    //     salt: Binary::from(salt),
-    // }));
-    // }
-    // else {
-    //     msgs.push(CosmosMsg::Wasm(WasmMsg::Instantiate2 {
-    //         admin: Some(env.contract.address.to_string()),
-    //         code_id: msg.code_ids.native_bond_provider_code_id,
-    //         label: get_contract_label("native-bond-provider"),
-    //         msg: to_json_binary(&NativeSyncBondProviderInstantiateMsg {
-    //             owner: env.contract.address.to_string(),
-    //             base_denom: msg.base_denom.to_string(),
-    //             puppeteer_contract: puppeteer_contract.to_string(),
-    //             core_contract: core_contract.to_string(),
-    //             strategy_contract: strategy_contract.to_string(),
-    //         })?,
-    //         funds: vec![],
-    //         salt: Binary::from(salt),
-    //     }));
-    // }
 
     Ok(response("instantiate", CONTRACT_NAME, attrs).add_messages(msgs))
 }
@@ -801,7 +606,7 @@ fn validate_pre_instantiated_contracts(
         validate_contract_metadata(
             deps,
             env,
-            &lsm_share_bond_provider_address,
+            lsm_share_bond_provider_address,
             vec![drop_lsm_share_bond_provider::contract::CONTRACT_NAME.to_string()],
         )?;
     }
@@ -823,7 +628,7 @@ fn validate_pre_instantiated_contracts(
         validate_contract_metadata(
             deps,
             env,
-            &unbonding_pump_address,
+            unbonding_pump_address,
             vec![drop_pump::contract::CONTRACT_NAME.to_string()],
         )?;
     }
@@ -831,7 +636,7 @@ fn validate_pre_instantiated_contracts(
         validate_contract_metadata(
             deps,
             env,
-            &rewards_pump_address,
+            rewards_pump_address,
             vec![drop_pump::contract::CONTRACT_NAME.to_string()],
         )?;
     }

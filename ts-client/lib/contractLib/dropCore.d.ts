@@ -396,8 +396,8 @@ export declare class Client {
     contractAddress: string;
     constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string);
     mustBeSigningClient(): Error;
-    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
-    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
+    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
+    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: Uint8Array, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
     queryConfig: () => Promise<Config>;
     queryExchangeRate: () => Promise<Decimal>;
     queryCurrentUnbondBatch: () => Promise<Uint128>;
@@ -413,16 +413,55 @@ export declare class Client {
     queryBondHooks: () => Promise<ArrayOfString>;
     queryOwnership: () => Promise<OwnershipForString>;
     bond: (sender: string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    bondMsg: (args: BondArgs) => {
+        bond: BondArgs;
+    };
     unbond: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    unbondMsg: () => {
+        unbond: {};
+    };
     tick: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    tickMsg: () => {
+        tick: {};
+    };
     addBondProvider: (sender: string, args: AddBondProviderArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    addBondProviderMsg: (args: AddBondProviderArgs) => {
+        add_bond_provider: AddBondProviderArgs;
+    };
     removeBondProvider: (sender: string, args: RemoveBondProviderArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    removeBondProviderMsg: (args: RemoveBondProviderArgs) => {
+        remove_bond_provider: RemoveBondProviderArgs;
+    };
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateConfigMsg: (args: UpdateConfigArgs) => {
+        update_config: UpdateConfigArgs;
+    };
     updateWithdrawnAmount: (sender: string, args: UpdateWithdrawnAmountArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateWithdrawnAmountMsg: (args: UpdateWithdrawnAmountArgs) => {
+        update_withdrawn_amount: UpdateWithdrawnAmountArgs;
+    };
     peripheralHook: (sender: string, args: PeripheralHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    peripheralHookMsg: (args: PeripheralHookArgs) => {
+        peripheral_hook: PeripheralHookArgs;
+    };
     resetBondedAmount: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    resetBondedAmountMsg: () => {
+        reset_bonded_amount: {};
+    };
     processEmergencyBatch: (sender: string, args: ProcessEmergencyBatchArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    processEmergencyBatchMsg: (args: ProcessEmergencyBatchArgs) => {
+        process_emergency_batch: ProcessEmergencyBatchArgs;
+    };
     setPause: (sender: string, args: SetPauseArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    setPauseMsg: (args: SetPauseArgs) => {
+        set_pause: SetPauseArgs;
+    };
     setBondHooks: (sender: string, args: SetBondHooksArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    setBondHooksMsg: (args: SetBondHooksArgs) => {
+        set_bond_hooks: SetBondHooksArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
 }

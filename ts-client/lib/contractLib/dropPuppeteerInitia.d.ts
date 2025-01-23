@@ -284,8 +284,8 @@ export declare class Client {
     contractAddress: string;
     constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string);
     mustBeSigningClient(): Error;
-    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
-    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
+    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
+    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: Uint8Array, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
     queryConfig: () => Promise<ConfigResponse>;
     queryIca: () => Promise<IcaState>;
     queryTransactions: () => Promise<ArrayOfTransaction>;
@@ -294,18 +294,63 @@ export declare class Client {
     queryTxState: () => Promise<TxState>;
     queryOwnership: () => Promise<OwnershipForString>;
     registerICA: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    registerICAMsg: () => {
+        register_i_c_a: {};
+    };
     registerQuery: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    registerQueryMsg: () => {
+        register_query: {};
+    };
     registerBalanceAndDelegatorDelegationsQuery: (sender: string, args: RegisterBalanceAndDelegatorDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    registerBalanceAndDelegatorDelegationsQueryMsg: (args: RegisterBalanceAndDelegatorDelegationsQueryArgs) => {
+        register_balance_and_delegator_delegations_query: RegisterBalanceAndDelegatorDelegationsQueryArgs;
+    };
     registerDelegatorUnbondingDelegationsQuery: (sender: string, args: RegisterDelegatorUnbondingDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    registerDelegatorUnbondingDelegationsQueryMsg: (args: RegisterDelegatorUnbondingDelegationsQueryArgs) => {
+        register_delegator_unbonding_delegations_query: RegisterDelegatorUnbondingDelegationsQueryArgs;
+    };
     registerNonNativeRewardsBalancesQuery: (sender: string, args: RegisterNonNativeRewardsBalancesQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    registerNonNativeRewardsBalancesQueryMsg: (args: RegisterNonNativeRewardsBalancesQueryArgs) => {
+        register_non_native_rewards_balances_query: RegisterNonNativeRewardsBalancesQueryArgs;
+    };
     setupProtocol: (sender: string, args: SetupProtocolArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    setupProtocolMsg: (args: SetupProtocolArgs) => {
+        setup_protocol: SetupProtocolArgs;
+    };
     delegate: (sender: string, args: DelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    delegateMsg: (args: DelegateArgs) => {
+        delegate: DelegateArgs;
+    };
     undelegate: (sender: string, args: UndelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    undelegateMsg: (args: UndelegateArgs) => {
+        undelegate: UndelegateArgs;
+    };
     redelegate: (sender: string, args: RedelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    redelegateMsg: (args: RedelegateArgs) => {
+        redelegate: RedelegateArgs;
+    };
     tokenizeShare: (sender: string, args: TokenizeShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    tokenizeShareMsg: (args: TokenizeShareArgs) => {
+        tokenize_share: TokenizeShareArgs;
+    };
     redeemShares: (sender: string, args: RedeemSharesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    redeemSharesMsg: (args: RedeemSharesArgs) => {
+        redeem_shares: RedeemSharesArgs;
+    };
     transfer: (sender: string, args: TransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    transferMsg: (args: TransferArgs) => {
+        transfer: TransferArgs;
+    };
     claimRewardsAndOptionalyTransfer: (sender: string, args: ClaimRewardsAndOptionalyTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    claimRewardsAndOptionalyTransferMsg: (args: ClaimRewardsAndOptionalyTransferArgs) => {
+        claim_rewards_and_optionaly_transfer: ClaimRewardsAndOptionalyTransferArgs;
+    };
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateConfigMsg: (args: UpdateConfigArgs) => {
+        update_config: UpdateConfigArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
 }

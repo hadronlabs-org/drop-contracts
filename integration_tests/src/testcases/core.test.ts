@@ -27,7 +27,10 @@ import {
 import { MsgTransfer } from 'cosmjs-types/ibc/applications/transfer/v1/tx';
 import { join } from 'path';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
-import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
+import {
+  instantiate2Address,
+  SigningCosmWasmClient,
+} from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
@@ -45,6 +48,7 @@ import { waitForTx } from '../helpers/waitForTx';
 import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 import { instrumentCoreClass } from '../helpers/knot';
 import { checkExchangeRate } from '../helpers/exchangeRate';
+import { fromHex, toAscii } from '@cosmjs/encoding';
 
 const DropTokenClass = DropToken.Client;
 const DropFactoryClass = DropFactory.Client;
@@ -64,6 +68,8 @@ const DropValRefClass = DropValRef.Client;
 const DropValidatorsSetClass = DropValidatorsSet.Client;
 
 const UNBONDING_TIME = 360;
+
+const SALT = 'salt';
 
 describe('Core', () => {
   const context: {
@@ -111,6 +117,7 @@ describe('Core', () => {
     secondValidatorAddress?: string;
     tokenizedDenomOnNeutron?: string;
     codeIds: {
+      factory?: number;
       core?: number;
       token?: number;
       withdrawalVoucher?: number;
@@ -127,10 +134,20 @@ describe('Core', () => {
       nativeBondProvider?: number;
       valRef?: number;
     };
+    predefinedContractAddresses: {
+      factoryAddress?: string;
+      coreAddress?: string;
+      puppteeerAddress?: string;
+      strategyAddress?: string;
+      validatorSetAddress?: string;
+      lsmShareBondProviderAddress?: string;
+      withdrawalManagerAddress?: string;
+      splitterAddress?: string;
+    };
     exchangeRate?: number;
     neutronIBCDenom?: string;
     ldDenom?: string;
-  } = { codeIds: {} };
+  } = { codeIds: {}, predefinedContractAddresses: {} };
 
   beforeAll(async (t) => {
     context.park = await setupPark(
@@ -291,6 +308,27 @@ describe('Core', () => {
 
     {
       const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_factory.wasm'),
+      );
+
+      const res = await client.upload(
+        account.address,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.factory = res.codeId;
+
+      context.predefinedContractAddresses.factoryAddress = instantiate2Address(
+        fromHex(res.checksum),
+        account.address,
+        toAscii(SALT),
+        'neutron',
+      );
+    }
+
+    {
+      const buffer = fs.readFileSync(
         join(__dirname, '../../../artifacts/drop_core.wasm'),
       );
 
@@ -301,7 +339,15 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.core = res.codeId;
+
+      context.predefinedContractAddresses.coreAddress = instantiate2Address(
+        fromHex(res.checksum),
+        context.predefinedContractAddresses.factoryAddress,
+        toAscii(SALT),
+        'neutron',
+      );
     }
+
     {
       const buffer = fs.readFileSync(
         join(__dirname, '../../../artifacts/drop_token.wasm'),
@@ -340,6 +386,14 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.withdrawalManager = res.codeId;
+
+      context.predefinedContractAddresses.withdrawalManagerAddress =
+        instantiate2Address(
+          fromHex(res.checksum),
+          context.predefinedContractAddresses.factoryAddress,
+          toAscii(SALT),
+          'neutron',
+        );
     }
     {
       const buffer = fs.readFileSync(
@@ -392,6 +446,14 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.validatorsSet = res.codeId;
+
+      context.predefinedContractAddresses.validatorSetAddress =
+        instantiate2Address(
+          fromHex(res.checksum),
+          context.predefinedContractAddresses.factoryAddress,
+          toAscii(SALT),
+          'neutron',
+        );
     }
     {
       const buffer = fs.readFileSync(
@@ -405,6 +467,14 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.puppeteer = res.codeId;
+
+      context.predefinedContractAddresses.puppteeerAddress =
+        instantiate2Address(
+          fromHex(res.checksum),
+          account.address,
+          toAscii(SALT),
+          'neutron',
+        );
     }
     {
       const buffer = fs.readFileSync(
@@ -431,6 +501,13 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.splitter = res.codeId;
+
+      context.predefinedContractAddresses.splitterAddress = instantiate2Address(
+        fromHex(res.checksum),
+        context.predefinedContractAddresses.factoryAddress,
+        toAscii(SALT),
+        'neutron',
+      );
     }
     {
       const buffer = fs.readFileSync(
@@ -457,6 +534,14 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.lsmShareBondProvider = res.codeId;
+
+      context.predefinedContractAddresses.lsmShareBondProviderAddress =
+        instantiate2Address(
+          fromHex(res.checksum),
+          account.address,
+          toAscii(SALT),
+          'neutron',
+        );
     }
     {
       const buffer = fs.readFileSync(
@@ -485,20 +570,14 @@ describe('Core', () => {
       context.codeIds.valRef = res.codeId;
     }
 
-    const buffer = fs.readFileSync(
-      join(__dirname, '../../../artifacts/drop_factory.wasm'),
-    );
+    console.log('predefined contracts');
+    console.log(context.predefinedContractAddresses);
 
-    const res = await client.upload(
-      account.address,
-      new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
-      1.5,
-    );
-    expect(res.codeId).toBeGreaterThan(0);
-    const instantiateRes = await DropFactory.Client.instantiate(
+    const instantiateRes = await DropFactory.Client.instantiate2(
       client,
       account.address,
-      res.codeId,
+      context.codeIds.factory,
+      toAscii(SALT),
       {
         sdk_version: process.env.SDK_VERSION || '0.47.10',
         local_denom: 'untrn',
@@ -510,12 +589,8 @@ describe('Core', () => {
           strategy_code_id: context.codeIds.strategy,
           distribution_code_id: context.codeIds.distribution,
           validators_set_code_id: context.codeIds.validatorsSet,
-          puppeteer_code_id: context.codeIds.puppeteer,
           rewards_manager_code_id: context.codeIds.rewardsManager,
           splitter_code_id: context.codeIds.splitter,
-          rewards_pump_code_id: context.codeIds.pump,
-          lsm_share_bond_provider_code_id: context.codeIds.lsmShareBondProvider,
-          native_bond_provider_code_id: context.codeIds.nativeBondProvider,
         },
         remote_opts: {
           connection_id: 'connection-0',
@@ -529,7 +604,7 @@ describe('Core', () => {
             remote: 60,
           },
         },
-        salt: 'salt',
+        salt: SALT,
         subdenom: 'drop',
         token_metadata: {
           description: 'Drop token',

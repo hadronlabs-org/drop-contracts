@@ -459,7 +459,7 @@ export class Client {
     this.client = client;
     this.contractAddress = contractAddress;
   }
-  mustBeSigningClient() {
+  mustBeSigningClient(): Error {
     return new Error("This client is not a SigningCosmWasmClient");
   }
   static async instantiate(
@@ -470,9 +470,10 @@ export class Client {
     label: string,
     fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
+    admin?: string,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
+      ...(initCoins && initCoins.length && { funds: initCoins }), ...(admin && { admin: admin }),
     });
     return res;
   }
@@ -480,14 +481,15 @@ export class Client {
     client: SigningCosmWasmClient,
     sender: string,
     codeId: number,
-    salt: number,
+    salt: Uint8Array,
     initMsg: InstantiateMsg,
     label: string,
     fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
+    admin?: string,
   ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
+    const res = await client.instantiate2(sender, codeId, salt, initMsg, label, fees, {
+      ...(initCoins && initCoins.length && { funds: initCoins }), ...(admin && { admin: admin }),
     });
     return res;
   }
@@ -535,54 +537,67 @@ export class Client {
   }
   bond = async(sender:string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { bond: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.bondMsg(args), fee || "auto", memo, funds);
   }
+  bondMsg = (args: BondArgs): { bond: BondArgs } => { return { bond: args }; }
   unbond = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { unbond: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.unbondMsg(), fee || "auto", memo, funds);
   }
+  unbondMsg = (): { unbond: {} } => { return { unbond: {} } }
   tick = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { tick: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.tickMsg(), fee || "auto", memo, funds);
   }
+  tickMsg = (): { tick: {} } => { return { tick: {} } }
   addBondProvider = async(sender:string, args: AddBondProviderArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { add_bond_provider: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.addBondProviderMsg(args), fee || "auto", memo, funds);
   }
+  addBondProviderMsg = (args: AddBondProviderArgs): { add_bond_provider: AddBondProviderArgs } => { return { add_bond_provider: args }; }
   removeBondProvider = async(sender:string, args: RemoveBondProviderArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { remove_bond_provider: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.removeBondProviderMsg(args), fee || "auto", memo, funds);
   }
+  removeBondProviderMsg = (args: RemoveBondProviderArgs): { remove_bond_provider: RemoveBondProviderArgs } => { return { remove_bond_provider: args }; }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.updateConfigMsg(args), fee || "auto", memo, funds);
   }
+  updateConfigMsg = (args: UpdateConfigArgs): { update_config: UpdateConfigArgs } => { return { update_config: args }; }
   updateWithdrawnAmount = async(sender:string, args: UpdateWithdrawnAmountArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_withdrawn_amount: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.updateWithdrawnAmountMsg(args), fee || "auto", memo, funds);
   }
+  updateWithdrawnAmountMsg = (args: UpdateWithdrawnAmountArgs): { update_withdrawn_amount: UpdateWithdrawnAmountArgs } => { return { update_withdrawn_amount: args }; }
   peripheralHook = async(sender:string, args: PeripheralHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { peripheral_hook: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.peripheralHookMsg(args), fee || "auto", memo, funds);
   }
+  peripheralHookMsg = (args: PeripheralHookArgs): { peripheral_hook: PeripheralHookArgs } => { return { peripheral_hook: args }; }
   resetBondedAmount = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { reset_bonded_amount: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.resetBondedAmountMsg(), fee || "auto", memo, funds);
   }
+  resetBondedAmountMsg = (): { reset_bonded_amount: {} } => { return { reset_bonded_amount: {} } }
   processEmergencyBatch = async(sender:string, args: ProcessEmergencyBatchArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { process_emergency_batch: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.processEmergencyBatchMsg(args), fee || "auto", memo, funds);
   }
+  processEmergencyBatchMsg = (args: ProcessEmergencyBatchArgs): { process_emergency_batch: ProcessEmergencyBatchArgs } => { return { process_emergency_batch: args }; }
   setPause = async(sender:string, args: SetPauseArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { set_pause: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.setPauseMsg(args), fee || "auto", memo, funds);
   }
+  setPauseMsg = (args: SetPauseArgs): { set_pause: SetPauseArgs } => { return { set_pause: args }; }
   setBondHooks = async(sender:string, args: SetBondHooksArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { set_bond_hooks: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.setBondHooksMsg(args), fee || "auto", memo, funds);
   }
+  setBondHooksMsg = (args: SetBondHooksArgs): { set_bond_hooks: SetBondHooksArgs } => { return { set_bond_hooks: args }; }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.updateOwnershipMsg(args), fee || "auto", memo, funds);
   }
+  updateOwnershipMsg = (args: UpdateOwnershipArgs): { update_ownership: UpdateOwnershipArgs } => { return { update_ownership: args }; }
 }
