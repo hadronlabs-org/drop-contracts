@@ -3,11 +3,10 @@ use std::borrow::BorrowMut;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, coins, from_json,
-    testing::{mock_env, MockApi},
+    testing::{mock_env, message_info, MockApi},
     to_json_binary, Addr, Coin, Decimal, Decimal256, Event, MemoryStorage, OwnedDeps, Response,
     SubMsg, Timestamp, Uint128,
 };
-use cosmwasm_std::testing::message_info;
 use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
 use drop_helpers::{

@@ -16,7 +16,7 @@ use drop_puppeteer_base::msg::TransferReadyBatchesMsg;
 use drop_staking_base::{
     error::core::ContractError,
     msg::{
-        core::{ExecuteMsg, FailedBatchResponse, InstantiateMsg, QueryMsg},
+        core::{ExecuteMsg, FailedBatchResponse, InstantiateMsg, QueryMsg, WithdrawalVoucherMintMsg},
         puppeteer::{BalancesResponse, DelegationsResponse},
         strategy::QueryMsg as StrategyQueryMsg,
     },
@@ -32,7 +32,6 @@ use drop_staking_base::{
 };
 use neutron_sdk::{bindings::query::NeutronQuery, interchain_queries::v045::types::Balances};
 use std::{collections::HashMap, vec};
-use drop_staking_base::msg::core::VoucherMintMsg;
 
 fn get_default_config(
     idle_min_interval: u64,
@@ -70,6 +69,11 @@ fn get_default_unbond_batch_status_timestamps() -> UnbondBatchStatusTimestamps {
 #[test]
 fn test_update_config() {
     let mut deps = mock_dependencies(&[]);
+    let factory_address = deps.api.addr_make("factory_contract");
+    let old_pump_address = deps.api.addr_make("old_pump_address");
+    let old_emergency_address = deps.api.addr_make("old_emergency_address");
+    let admin_address = deps.api.addr_make("admin_address");
+
     deps.querier.add_wasm_query_response("token_contract", |_| {
         to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
             factory_contract: "factory_contract".to_string(),
@@ -77,34 +81,36 @@ fn test_update_config() {
         })
         .unwrap()
     });
+
     deps.querier
-        .add_wasm_query_response("old_token_contract", |_| {
+        .add_wasm_query_response("old_token_contract", move |_| {
             to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
                 factory_contract: "factory_contract".to_string(),
                 denom: "ld_denom".to_string(),
             })
             .unwrap()
         });
+
     mock_state_query(&mut deps);
     let env = mock_env();
-    let info = message_info(&Addr::unchecked("admin"), &[]);
+    let info = message_info(&admin_address, &[]);
     let mut deps_mut = deps.as_mut();
     crate::contract::instantiate(
         deps_mut.branch(),
         env.clone(),
         info.clone(),
         InstantiateMsg {
-            factory_contract: "factory_contract".to_string(),
+            factory_contract: factory_address.to_string(),
             base_denom: "old_base_denom".to_string(),
             remote_denom: "old_remote_denom".to_string(),
             idle_min_interval: 12,
             unbonding_period: 20,
             unbonding_safe_period: 120,
             unbond_batch_switch_time: 2000,
-            pump_ica_address: Some("old_pump_address".to_string()),
+            pump_ica_address: Some(old_pump_address.to_string()),
             transfer_channel_id: "old_transfer_channel".to_string(),
-            emergency_address: Some("old_emergency_address".to_string()),
-            owner: "admin".to_string(),
+            emergency_address: Some(old_emergency_address.to_string()),
+            owner: admin_address.to_string(),
             icq_update_delay: 5,
         },
     )
@@ -169,30 +175,34 @@ fn test_query_config() {
 #[test]
 fn query_ownership() {
     let mut deps = mock_dependencies(&[]);
+    let owner_address = deps.api.addr_make("owner");
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str())).unwrap();
     assert_eq!(
         from_json::<String>(&query(deps.as_ref(), mock_env(), QueryMsg::Owner {}).unwrap())
             .unwrap(),
-        String::from("owner"),
+        owner_address.as_str(),
     );
 }
 
 #[test]
 fn test_bond_provider_has_any_tokens() {
     let mut deps = mock_dependencies(&[]);
+    let owner_address = deps.api.addr_make("owner");
+    let bond_provider_address = deps.api.addr_make("bond_provider");
+
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str())).unwrap();
 
     deps.querier
-        .add_wasm_query_response("bond_provider_address", |_| to_json_binary(&false).unwrap());
+        .add_wasm_query_response(bond_provider_address.as_str(), |_| to_json_binary(&false).unwrap());
 
     let error = execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&owner_address, &[]),
         ExecuteMsg::RemoveBondProvider {
-            bond_provider_address: "bond_provider_address".to_string(),
+            bond_provider_address: bond_provider_address.to_string(),
         },
     )
     .unwrap_err();
@@ -203,23 +213,26 @@ fn test_bond_provider_has_any_tokens() {
 #[test]
 fn test_execute_add_bond_provider_max_limit_reached() {
     let mut deps = mock_dependencies(&[]);
+    let owner_address = deps.api.addr_make("owner");
+    let overflow_bond_provider_address = deps.api.addr_make("overflow_bond_provider");
+
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str())).unwrap();
 
     for i in 0..MAX_BOND_PROVIDERS {
         let mut provider: String = "provider".to_string();
         provider.push_str(i.to_string().as_str());
 
         BOND_PROVIDERS
-            .add(deps_mut.storage, cosmwasm_std::Addr::unchecked(provider))
+            .add(deps_mut.storage, Addr::unchecked(provider))
             .unwrap();
     }
     let res = execute(
         deps_mut,
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&owner_address, &[]),
         ExecuteMsg::AddBondProvider {
-            bond_provider_address: "bond_provider_address".to_string(),
+            bond_provider_address: overflow_bond_provider_address.to_string(),
         },
     )
     .unwrap_err();
@@ -299,12 +312,14 @@ fn test_update_withdrawn_amount() {
 #[test]
 fn test_add_remove_bond_provider() {
     let mut deps = mock_dependencies(&[]);
+    let admin_address = deps.api.addr_make("admin");
+    let bond_provider_address = deps.api.addr_make("bond_provider");
+
     mock_state_query(&mut deps);
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(admin_address.as_str())).unwrap();
 
-    let bond_providers =
-        crate::contract::query(deps.as_ref(), mock_env(), QueryMsg::BondProviders {}).unwrap();
+    let bond_providers = query(deps.as_ref(), mock_env(), QueryMsg::BondProviders {}).unwrap();
 
     assert_eq!(
         bond_providers,
@@ -312,50 +327,48 @@ fn test_add_remove_bond_provider() {
     );
 
     deps.querier
-        .add_wasm_query_response("bond_provider", |_| to_json_binary(&true).unwrap());
+        .add_wasm_query_response(bond_provider_address.as_str(), |_| to_json_binary(&true).unwrap());
 
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("admin"), &[]),
+        message_info(&admin_address, &[]),
         ExecuteMsg::AddBondProvider {
-            bond_provider_address: "bond_provider".to_string(),
+            bond_provider_address: bond_provider_address.to_string(),
         },
     );
     assert_eq!(
         res,
         Ok(Response::new().add_event(
             Event::new("crates.io:drop-staking__drop-core-execute-add_bond_provider")
-                .add_attributes(vec![("bond_provider_address", "bond_provider")])
+                .add_attributes(vec![("bond_provider_address", bond_provider_address.clone())])
         ))
     );
 
-    let bond_providers =
-        crate::contract::query(deps.as_ref(), mock_env(), QueryMsg::BondProviders {}).unwrap();
+    let bond_providers = query(deps.as_ref(), mock_env(), QueryMsg::BondProviders {}).unwrap();
 
     assert_eq!(
         bond_providers,
-        to_json_binary(&vec![Addr::unchecked("bond_provider")]).unwrap()
+        to_json_binary(&vec![bond_provider_address.clone()]).unwrap()
     );
 
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("admin"), &[]),
+        message_info(&admin_address, &[]),
         ExecuteMsg::RemoveBondProvider {
-            bond_provider_address: "bond_provider".to_string(),
+            bond_provider_address: bond_provider_address.to_string(),
         },
     );
     assert_eq!(
         res,
         Ok(Response::new().add_event(
             Event::new("crates.io:drop-staking__drop-core-execute-remove_bond_provider")
-                .add_attributes(vec![("bond_provider_address", "bond_provider")])
+                .add_attributes(vec![("bond_provider_address", bond_provider_address.clone())])
         ))
     );
 
-    let bond_providers =
-        crate::contract::query(deps.as_ref(), mock_env(), QueryMsg::BondProviders {}).unwrap();
+    let bond_providers = query(deps.as_ref(), mock_env(), QueryMsg::BondProviders {}).unwrap();
 
     assert_eq!(
         bond_providers,
@@ -614,6 +627,9 @@ fn test_tick_idle_claim_wo_unbond() {
 #[test]
 fn test_tick_idle_claim_with_unbond_transfer() {
     let mut deps = mock_dependencies(&[]);
+    let cosmos2contract = deps.api.addr_make("cosmos2contract");
+    let admin_address = deps.api.addr_make("admin_address");
+
     mock_state_query(&mut deps);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
@@ -733,7 +749,7 @@ fn test_tick_idle_claim_with_unbond_transfer() {
     let res = execute(
         deps.as_mut(),
         env,
-        message_info(&Addr::unchecked("admin"), &[Coin::new(1000u128, "untrn")]),
+        message_info(&admin_address, &[Coin::new(1000u128, "untrn")]),
         ExecuteMsg::Tick {},
     )
     .unwrap();
@@ -761,7 +777,7 @@ fn test_tick_idle_claim_with_unbond_transfer() {
             msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
                 validators: vec!["valoper_address".to_string()], 
                 transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg{ batch_ids: vec![0u128], emergency: false, amount: Uint128::from(200u128), recipient: "pump_address".to_string() }), 
-                reply_to: "cosmos2contract".to_string()                 
+                reply_to: cosmos2contract.to_string()
             }).unwrap(), funds: vec![Coin::new(1000u128, "untrn")] })))
     );
 }
@@ -1069,6 +1085,9 @@ fn test_tick_claiming_error_with_transfer() {
 fn test_tick_claiming_wo_transfer_unbonding() {
     // no unbonded batch, no pending transfer for stake, no balance on ICA, but we have unbond batch to switch
     let mut deps = mock_dependencies(&[]);
+    let admin_address = deps.api.addr_make("admin_address");
+    let cosmos2contract = deps.api.addr_make("cosmos2contract");
+
     mock_state_query(&mut deps);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
@@ -1200,7 +1219,7 @@ fn test_tick_claiming_wo_transfer_unbonding() {
     let res = execute(
         deps.as_mut(),
         env,
-        message_info(&Addr::unchecked("admin"), &[Coin::new(1000u128, "untrn")]),
+        message_info(&admin_address, &[Coin::new(1000u128, "untrn")]),
         ExecuteMsg::Tick {},
     )
     .unwrap();
@@ -1232,7 +1251,7 @@ fn test_tick_claiming_wo_transfer_unbonding() {
                 msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
                     items: vec![("valoper_address".to_string(), Uint128::from(1000u128))],
                     batch_id: 0u128,
-                    reply_to: "cosmos2contract".to_string()
+                    reply_to: cosmos2contract.to_string()
                 })
                 .unwrap(),
                 funds: vec![Coin::new(1000u128, "untrn")],
@@ -1664,15 +1683,20 @@ fn test_bond_wo_receiver() {
 #[test]
 fn test_bond_with_receiver() {
     let mut deps = mock_dependencies(&[]);
+    let some_address = deps.api.addr_make("some");
+    let native_provider_address = deps.api.addr_make("native_provider");
+    let received_address = deps.api.addr_make("receiver");
+    let ref_address = deps.api.addr_make("ref");
+
     mock_state_query(&mut deps);
     BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
     deps.querier
-        .add_wasm_query_response("native_provider_address", |_| {
+        .add_wasm_query_response(native_provider_address.as_str(), |_| {
             to_json_binary(&true).unwrap()
         });
     deps.querier
-        .add_wasm_query_response("native_provider_address", |_| {
+        .add_wasm_query_response(native_provider_address.as_str(), |_| {
             to_json_binary(&Uint128::from(1000u128)).unwrap()
         });
 
@@ -1684,7 +1708,7 @@ fn test_bond_with_receiver() {
     BOND_PROVIDERS
         .add(
             deps.as_mut().storage,
-            Addr::unchecked("native_provider_address"),
+            native_provider_address.clone(),
         )
         .unwrap();
     CONFIG
@@ -1700,10 +1724,10 @@ fn test_bond_with_receiver() {
     let res = execute(
         deps.as_mut(),
         env,
-        message_info(&Addr::unchecked("some"), &[Coin::new(1000u128, "base_denom")]),
+        message_info(&some_address, &[Coin::new(1000u128, "base_denom")]),
         ExecuteMsg::Bond {
-            receiver: Some("receiver".to_string()),
-            r#ref: Some("ref".to_string()),
+            receiver: Some(received_address.to_string()),
+            r#ref: Some(ref_address.to_string()),
         },
     )
     .unwrap();
@@ -1714,13 +1738,13 @@ fn test_bond_with_receiver() {
                 Event::new("crates.io:drop-staking__drop-core-execute-bond")
                     .add_attribute("action", "bond")
                     .add_attribute("exchange_rate", "1")
-                    .add_attribute("used_bond_provider", "native_provider_address")
+                    .add_attribute("used_bond_provider", native_provider_address.clone())
                     .add_attribute("issue_amount", "1000")
-                    .add_attribute("receiver", "receiver")
-                    .add_attribute("ref", "ref")
+                    .add_attribute("receiver", received_address.clone())
+                    .add_attribute("ref", ref_address)
             )
             .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "native_provider_address".to_string(),
+                contract_addr: native_provider_address.to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {})
                     .unwrap(),
                 funds: vec![Coin::new(1000u128, "base_denom")],
@@ -1729,7 +1753,7 @@ fn test_bond_with_receiver() {
                 contract_addr: "token_contract".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::token::ExecuteMsg::Mint {
                     amount: Uint128::from(1000u128),
-                    receiver: "receiver".to_string()
+                    receiver: received_address.to_string()
                 })
                 .unwrap(),
                 funds: vec![],
@@ -1941,18 +1965,18 @@ fn test_unbond() {
     )
     .unwrap();
     let unbond_batch = unbond_batches_map().load(deps.as_ref().storage, 0).unwrap();
-    let extension = Some(drop_staking_base::msg::core::VoucherMetadata {
+    let extension = Some(drop_staking_base::msg::core::WithdrawalVoucherMetadata {
         description: Some("Withdrawal voucher".into()),
         name: "LDV voucher".to_string(),
         batch_id: "0".to_string(),
         amount: Uint128::from(1000u128),
         attributes: Some(vec![
-            drop_staking_base::msg::core::VoucherTrait {
+            drop_staking_base::msg::core::WithdrawalVoucherTrait {
                 display_type: None,
                 trait_type: "unbond_batch_id".to_string(),
                 value: "0".to_string(),
             },
-            drop_staking_base::msg::core::VoucherTrait {
+            drop_staking_base::msg::core::WithdrawalVoucherTrait {
                 display_type: None,
                 trait_type: "received_amount".to_string(),
                 value: "1000".to_string(),
@@ -1965,7 +1989,7 @@ fn test_unbond() {
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "withdrawal_voucher_contract".to_string(),
                 msg: to_json_binary(
-                    &VoucherMintMsg {
+                    &WithdrawalVoucherMintMsg {
                         token_id: "0_some_sender_1".to_string(),
                         owner: "some_sender".to_string(),
                         token_uri: None,
@@ -2008,9 +2032,11 @@ mod process_emergency_batch {
         status: UnbondBatchStatus,
     ) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier, NeutronQuery> {
         let mut deps = mock_dependencies(&[]);
+        let owner_address = deps.api.addr_make("owner");
+
         {
             let deps_as_mut = deps.as_mut();
-            cw_ownable::initialize_owner(deps_as_mut.storage, deps_as_mut.api, Some("owner"))
+            cw_ownable::initialize_owner(deps_as_mut.storage, deps_as_mut.api, Some(owner_address.as_str()))
                 .unwrap();
         }
         {
@@ -2057,10 +2083,11 @@ mod process_emergency_batch {
     #[test]
     fn not_in_withdrawn_emergency_state() {
         let mut deps = setup(UnbondBatchStatus::WithdrawingEmergency);
+        let owner_address = deps.api.addr_make("owner");
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&Addr::unchecked("owner"), &[]),
+            message_info(&owner_address, &[]),
             ExecuteMsg::ProcessEmergencyBatch {
                 batch_id: 2,
                 unbonded_amount: Uint128::new(100),
@@ -2073,10 +2100,11 @@ mod process_emergency_batch {
     #[test]
     fn unbonded_amount_is_zero() {
         let mut deps = setup(UnbondBatchStatus::WithdrawnEmergency);
+        let owner_address = deps.api.addr_make("owner");
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&Addr::unchecked("owner"), &[]),
+            message_info(&owner_address, &[]),
             ExecuteMsg::ProcessEmergencyBatch {
                 batch_id: 2,
                 unbonded_amount: Uint128::new(0),
@@ -2089,10 +2117,11 @@ mod process_emergency_batch {
     #[test]
     fn unbonded_amount_too_high() {
         let mut deps = setup(UnbondBatchStatus::WithdrawnEmergency);
+        let owner_address = deps.api.addr_make("owner");
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&Addr::unchecked("owner"), &[]),
+            message_info(&owner_address, &[]),
             ExecuteMsg::ProcessEmergencyBatch {
                 batch_id: 2,
                 unbonded_amount: Uint128::new(200),
@@ -2105,11 +2134,12 @@ mod process_emergency_batch {
     #[test]
     fn no_slashing() {
         let mut deps = setup(UnbondBatchStatus::WithdrawnEmergency);
+        let owner_address = deps.api.addr_make("owner");
         let shared_mock_env = mock_env();
         execute(
             deps.as_mut(),
             shared_mock_env.clone(),
-            message_info(&Addr::unchecked("owner"), &[]),
+            message_info(&owner_address, &[]),
             ExecuteMsg::ProcessEmergencyBatch {
                 batch_id: 2,
                 unbonded_amount: Uint128::new(100),
@@ -2146,11 +2176,12 @@ mod process_emergency_batch {
     #[test]
     fn some_slashing() {
         let mut deps = setup(UnbondBatchStatus::WithdrawnEmergency);
+        let owner_address = deps.api.addr_make("owner");
         let shared_mock_env = mock_env();
         execute(
             deps.as_mut(),
             shared_mock_env.clone(),
-            message_info(&Addr::unchecked("owner"), &[]),
+            message_info(&owner_address, &[]),
             ExecuteMsg::ProcessEmergencyBatch {
                 batch_id: 2,
                 unbonded_amount: Uint128::new(70),
@@ -2441,10 +2472,11 @@ mod bond_hooks {
     #[test]
     fn set_bond_hooks_unauthorized() {
         let mut deps = mock_dependencies(&[]);
+        let owner_address = deps.api.addr_make("owner");
 
         {
             let deps_mut = deps.as_mut();
-            cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+            cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str())).unwrap();
         }
 
         let error = execute(
@@ -2464,32 +2496,34 @@ mod bond_hooks {
     #[test]
     fn set_bond_hooks() {
         let mut deps = mock_dependencies(&[]);
+        let owner_address = deps.api.addr_make("owner");
+        let val_ref_address = deps.api.addr_make("val_ref");
 
         {
             let deps_mut = deps.as_mut();
-            cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+            cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str())).unwrap();
         }
 
         let response = execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&Addr::unchecked("owner"), &[]),
+            message_info(&owner_address, &[]),
             ExecuteMsg::SetBondHooks {
-                hooks: vec![String::from("val_ref")],
+                hooks: vec![val_ref_address.to_string()],
             },
         )
         .unwrap();
 
         assert_eq!(
             BOND_HOOKS.load(deps.as_ref().storage).unwrap(),
-            vec![Addr::unchecked("val_ref")]
+            vec![val_ref_address.clone()]
         );
 
         assert_eq!(
             response,
             Response::new().add_event(
                 Event::new("crates.io:drop-staking__drop-core-execute-set-bond-hooks")
-                    .add_attribute("contract", "val_ref")
+                    .add_attribute("contract", val_ref_address)
             )
         );
     }
@@ -2497,10 +2531,12 @@ mod bond_hooks {
     #[test]
     fn set_bond_hooks_override() {
         let mut deps = mock_dependencies(&[]);
+        let owner_address = deps.api.addr_make("owner");
+        let validator_set_address = deps.api.addr_make("validator_set");
 
         {
             let deps_mut = deps.as_mut();
-            cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+            cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str())).unwrap();
         }
 
         BOND_HOOKS
@@ -2510,23 +2546,23 @@ mod bond_hooks {
         let response = execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&Addr::unchecked("owner"), &[]),
+            message_info(&owner_address, &[]),
             ExecuteMsg::SetBondHooks {
-                hooks: vec![String::from("validator_set")],
+                hooks: vec![validator_set_address.to_string()],
             },
         )
         .unwrap();
 
         assert_eq!(
             BOND_HOOKS.load(deps.as_ref().storage).unwrap(),
-            vec![Addr::unchecked("validator_set")]
+            vec![validator_set_address.clone()]
         );
 
         assert_eq!(
             response,
             Response::new().add_event(
                 Event::new("crates.io:drop-staking__drop-core-execute-set-bond-hooks")
-                    .add_attribute("contract", "validator_set")
+                    .add_attribute("contract", validator_set_address)
             )
         );
     }
@@ -2534,10 +2570,11 @@ mod bond_hooks {
     #[test]
     fn set_bond_hooks_clear() {
         let mut deps = mock_dependencies(&[]);
+        let owner_address = deps.api.addr_make("owner");
 
         {
             let deps_mut = deps.as_mut();
-            cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+            cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str())).unwrap();
         }
 
         BOND_HOOKS
@@ -2547,7 +2584,7 @@ mod bond_hooks {
         let response = execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&Addr::unchecked("owner"), &[]),
+            message_info(&owner_address, &[]),
             ExecuteMsg::SetBondHooks { hooks: vec![] },
         )
         .unwrap();

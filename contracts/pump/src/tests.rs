@@ -2,8 +2,7 @@ use crate::{
     contract::{execute, instantiate, query, sudo},
     error::ContractError,
 };
-use cosmwasm_std::{coins, from_json, testing::{mock_env}, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Event, Response, SubMsg};
-use cosmwasm_std::testing::message_info;
+use cosmwasm_std::{coins, from_json, testing::{mock_env, message_info}, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Event, Response, SubMsg};
 use drop_helpers::ica::IcaState;
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::state::pump::{Config, CONFIG, ICA};
@@ -66,7 +65,7 @@ fn test_instantiate() {
             .unwrap()
             .owner
             .unwrap()
-            .to_string()
+            .as_str()
     );
     let config = CONFIG.load(deps.as_ref().storage).unwrap();
     assert_eq!(config, get_default_config());

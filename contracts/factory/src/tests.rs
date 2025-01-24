@@ -1,5 +1,5 @@
 use crate::contract::{execute, instantiate, query};
-use cosmwasm_std::{attr, from_json, testing::{mock_env}, to_json_binary, Addr, BankMsg, DepsMut, Uint128, Checksum, HexBinary};
+use cosmwasm_std::{attr, from_json, testing::{mock_env, message_info}, to_json_binary, Addr, BankMsg, DepsMut, Uint128, Checksum, HexBinary};
 use drop_helpers::{
     phonebook::{
         CORE_CONTRACT, DISTRIBUTION_CONTRACT, LSM_SHARE_BOND_PROVIDER_CONTRACT,
@@ -42,7 +42,6 @@ use drop_staking_base::{
 };
 use neutron_sdk::bindings::query::NeutronQuery;
 use std::collections::HashMap;
-use cosmwasm_std::testing::message_info;
 
 fn set_default_factory_state(deps: DepsMut<NeutronQuery>) {
     STATE

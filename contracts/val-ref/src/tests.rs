@@ -4,10 +4,9 @@ use crate::{
 };
 use cosmwasm_std::{
     from_json,
-    testing::{mock_env},
+    testing::{mock_env, message_info},
     to_json_binary, Addr, Decimal, Event, Order, Response, StdResult, SubMsg, Uint128, WasmMsg,
 };
-use cosmwasm_std::testing::message_info;
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::{
     msg::{

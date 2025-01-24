@@ -143,7 +143,7 @@ pub enum BondCallback {
 }
 
 #[cw_serde]
-pub struct VoucherTrait {
+pub struct WithdrawalVoucherTrait {
     pub display_type: Option<String>,
     pub trait_type: String,
     pub value: String,
@@ -151,18 +151,18 @@ pub struct VoucherTrait {
 
 #[cw_serde]
 #[derive(Default)]
-pub struct VoucherMetadata {
+pub struct WithdrawalVoucherMetadata {
     pub name: String,
     pub description: Option<String>,
-    pub attributes: Option<Vec<VoucherTrait>>,
+    pub attributes: Option<Vec<WithdrawalVoucherTrait>>,
     pub batch_id: String,
     pub amount: Uint128,
 }
 
-pub type VoucherExtension = Option<VoucherMetadata>;
+pub type WithdrawalVoucherExtension = Option<WithdrawalVoucherMetadata>;
 
 #[cw_serde]
-pub struct VoucherMintMsg {
+pub struct WithdrawalVoucherMintMsg {
     /// Unique ID of the NFT
     pub token_id: String,
     /// The owner of the newly minter NFT
@@ -172,5 +172,5 @@ pub struct VoucherMintMsg {
     /// Metadata JSON Schema
     pub token_uri: Option<String>,
     /// Any custom extension used by this contract
-    pub extension: VoucherExtension,
+    pub extension: WithdrawalVoucherExtension,
 }

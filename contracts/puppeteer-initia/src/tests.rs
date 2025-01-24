@@ -3,7 +3,7 @@ use cosmos_sdk_proto::traits::MessageExt;
 use cosmwasm_schema::schemars;
 use cosmwasm_std::{
     coin, coins, from_json,
-    testing::{mock_env},
+    testing::{mock_env, message_info},
     to_json_binary, Addr, Binary, CosmosMsg, Decimal256, DepsMut, Event, Response, StdError,
     SubMsg, Timestamp, Uint128, Uint64,
 };
@@ -36,7 +36,6 @@ use prost::Message;
 use schemars::_serde_json::to_string;
 
 use std::vec;
-use cosmwasm_std::testing::message_info;
 
 type PuppeteerBaseType = PuppeteerBase<
     'static,

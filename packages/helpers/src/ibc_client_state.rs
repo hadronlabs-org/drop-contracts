@@ -1,7 +1,7 @@
 use prost::Message;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Deps, QueryRequest, StdError, StdResult, Uint64};
+use cosmwasm_std::{Deps, GrpcQuery, QueryRequest, StdError, StdResult, Uint64};
 use neutron_sdk::bindings::query::NeutronQuery;
 // use schemars::JsonSchema;
 // use serde::{Deserialize, Serialize}; //types::ProtobufAny
@@ -84,9 +84,8 @@ pub fn query_client_state(
     channel_id: String,
     port_id: String,
 ) -> StdResult<ChannelClientStateResponse> {
-    #[allow(deprecated)]
     let state = deps.querier
-            .query(&QueryRequest::Stargate {
+            .query(&QueryRequest::Grpc(GrpcQuery {
                 path: "/ibc.core.channel.v1.Query/ChannelClientState".to_string(),
                 data: cosmos_sdk_proto::ibc::core::channel::v1::QueryChannelClientStateRequest {
                     port_id: port_id.clone(),
@@ -94,7 +93,7 @@ pub fn query_client_state(
                 }
                 .encode_to_vec()
                 .into(),
-            })
+            }))
             .map_err(|e| {
                 StdError::generic_err(format!(
                     "Query channel state for channel {channel_id} and port {port_id} failed: {e}, perhaps, this is wrong channel_id/port_id?"

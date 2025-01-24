@@ -91,7 +91,7 @@ fn mint(
     let addrs = get_contracts!(deps, factory_contract, core_contract);
 
     ensure_eq!(
-        info.sender.to_string(),
+        info.sender.as_str(),
         addrs.core_contract,
         ContractError::Unauthorized
     );

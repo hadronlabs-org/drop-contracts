@@ -1,11 +1,10 @@
 use cosmwasm_std::{
     attr,
-    testing::{mock_env, MockApi, MockQuerier, MockStorage},
+    testing::{mock_env, message_info, MockApi, MockQuerier, MockStorage},
     to_json_binary, Addr, Binary, Decimal, Event, OwnedDeps, Querier, SubMsg,
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery, types::KVKey};
 use std::marker::PhantomData;
-use cosmwasm_std::testing::message_info;
 
 fn mock_dependencies<Q: Querier + Default>() -> OwnedDeps<MockStorage, MockApi, Q, NeutronQuery> {
     OwnedDeps {

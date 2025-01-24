@@ -6,11 +6,7 @@ use std::marker::PhantomData;
 
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage};
-use cosmwasm_std::{
-    from_json, to_json_binary, AllBalanceResponse, Api, BalanceResponse, BankQuery, Binary, Coin,
-    ContractResult, CustomQuery, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError,
-    SystemResult, Uint128,
-};
+use cosmwasm_std::{from_json, to_json_binary, AllBalanceResponse, Api, BalanceResponse, BankQuery, Binary, Coin, ContractResult, CustomQuery, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, GrpcQuery};
 
 use neutron_sdk::bindings::query::NeutronQuery;
 
@@ -195,8 +191,7 @@ impl WasmMockQuerier {
                     .clone(),
                 )
             }
-            #[allow(deprecated)]
-            QueryRequest::Stargate { path, data } => {
+            QueryRequest::Grpc(GrpcQuery { path, data }) => {
                 let mut stargate_query_responses = self.stargate_query_responses.borrow_mut();
                 let responses = match stargate_query_responses.get_mut(path) {
                     None => Err(SystemError::UnsupportedRequest {
