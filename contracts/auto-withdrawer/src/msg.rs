@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Coin, Uint64};
+use cosmwasm_std::{Binary, Coin, Uint64};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -52,3 +52,16 @@ pub struct BondingResponse {
 
 #[cw_serde]
 pub struct MigrateMsg {}
+
+#[cw_serde]
+pub struct WithdrawalVoucherTransferNftMsg {
+    pub recipient: String,
+    pub token_id: String,
+}
+
+#[cw_serde]
+pub struct WithdrawalVoucherSendNftMsg {
+    pub contract: String,
+    pub token_id: String,
+    pub msg: Binary,
+}

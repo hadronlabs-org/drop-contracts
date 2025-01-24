@@ -8,10 +8,11 @@ use cosmos_sdk_proto::{
 };
 use cosmwasm_std::{
     attr, coin,
-    testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR},
+    testing::{mock_env, MOCK_CONTRACT_ADDR},
     to_json_binary, Addr, Binary, CosmosMsg, Event, QueryRequest, Reply, ReplyOn, SubMsgResult,
     Uint128,
 };
+use cosmwasm_std::testing::message_info;
 use drop_helpers::testing::{mock_dependencies, mock_state_query};
 use drop_staking_base::{
     msg::token::{ConfigResponse, DenomMetadata, ExecuteMsg, InstantiateMsg, QueryMsg},
@@ -41,7 +42,7 @@ fn instantiate() {
     let response = contract::instantiate(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[]),
+        message_info(&Addr::unchecked("admin"), &[]),
         InstantiateMsg {
             factory_contract: "factory_contract".to_string(),
             subdenom: "subdenom".to_string(),
@@ -90,6 +91,8 @@ fn reply_unknown_id() {
         mock_env(),
         Reply {
             id: 215,
+            payload: Binary::default(),
+            gas_used: 1000,
             result: SubMsgResult::Err("".to_string()),
         },
     )
@@ -127,6 +130,8 @@ fn reply() {
         mock_env(),
         Reply {
             id: CREATE_DENOM_REPLY_ID,
+            payload: Binary::default(),
+            gas_used: 1000,
             result: SubMsgResult::Err("".to_string()),
         },
     )
@@ -137,13 +142,13 @@ fn reply() {
 
     assert_eq!(response.messages.len(), 1);
     match response.messages[0].msg.clone() {
-        CosmosMsg::Stargate { type_url, value } => {
+        CosmosMsg::Any(msg) => {
             assert_eq!(
-                type_url,
+                msg.type_url,
                 "/osmosis.tokenfactory.v1beta1.MsgSetDenomMetadata"
             );
             assert_eq!(
-                value,
+                msg.value,
                 Binary::from(
                     MsgSetDenomMetadata {
                         sender: MOCK_CONTRACT_ADDR.to_string(),
@@ -197,7 +202,7 @@ fn mint_zero() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core_contract", &[]),
+        message_info(&Addr::unchecked("core_contract"), &[]),
         ExecuteMsg::Mint {
             amount: Uint128::zero(),
             receiver: "receiver".to_string(),
@@ -221,7 +226,7 @@ fn mint() {
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core_contract", &[]),
+        message_info(&Addr::unchecked("core_contract"), &[]),
         ExecuteMsg::Mint {
             amount: Uint128::new(220),
             receiver: "receiver".to_string(),
@@ -260,7 +265,7 @@ fn mint_stranger() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("stranger", &[]),
+        message_info(&Addr::unchecked("stranger"), &[]),
         ExecuteMsg::Mint {
             amount: Uint128::new(220),
             receiver: "receiver".to_string(),
@@ -285,7 +290,7 @@ fn burn_zero() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core_contract", &[]),
+        message_info(&Addr::unchecked("core_contract"), &[]),
         ExecuteMsg::Burn {},
     )
     .unwrap_err();
@@ -309,7 +314,7 @@ fn burn_multiple_coins() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core_contract", &[coin(20, "coin1"), coin(10, "denom")]),
+        message_info(&Addr::unchecked("core_contract"), &[coin(20, "coin1"), coin(10, "denom")]),
         ExecuteMsg::Burn {},
     )
     .unwrap_err();
@@ -333,7 +338,7 @@ fn burn_invalid_coin() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core_contract", &[coin(20, "coin1")]),
+        message_info(&Addr::unchecked("core_contract"), &[coin(20, "coin1")]),
         ExecuteMsg::Burn {},
     )
     .unwrap_err();
@@ -357,7 +362,7 @@ fn burn() {
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core_contract", &[coin(140, "denom")]),
+        message_info(&Addr::unchecked("core_contract"), &[coin(140, "denom")]),
         ExecuteMsg::Burn {},
     )
     .unwrap();
@@ -392,7 +397,7 @@ fn burn_stranger() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("stranger", &[coin(160, "denom")]),
+        message_info(&Addr::unchecked("stranger"), &[coin(160, "denom")]),
         ExecuteMsg::Burn {},
     )
     .unwrap_err();
@@ -447,7 +452,7 @@ fn test_set_token_metadata_unauthorized() {
     let res = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("not_an_owner", &[coin(160, "denom")]),
+        message_info(&Addr::unchecked("not_an_owner"), &[coin(160, "denom")]),
         ExecuteMsg::SetTokenMetadata {
             token_metadata: denom_metadata.clone(),
         },
@@ -484,7 +489,7 @@ fn test_set_token_metadata() {
     let res = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[coin(160, "denom")]),
+        message_info(&Addr::unchecked("owner"), &[coin(160, "denom")]),
         ExecuteMsg::SetTokenMetadata {
             token_metadata: denom_metadata.clone(),
         },
@@ -495,7 +500,8 @@ fn test_set_token_metadata() {
         cosmwasm_std::Response::new()
             .add_submessage(cosmwasm_std::SubMsg {
                 id: 0u64,
-                msg: cosmwasm_std::CosmosMsg::Stargate {
+                payload: Binary::default(),
+                msg: CosmosMsg::Any( cosmwasm_std::AnyMsg {
                     type_url: "/osmosis.tokenfactory.v1beta1.MsgSetDenomMetadata".to_string(),
                     value: cosmwasm_std::Binary::from(
                         MsgSetDenomMetadata {
@@ -524,7 +530,7 @@ fn test_set_token_metadata() {
                         }
                         .encode_to_vec(),
                     ),
-                },
+                }),
                 gas_limit: None,
                 reply_on: cosmwasm_std::ReplyOn::Never
             })

@@ -1,9 +1,5 @@
 use crate::contract::{execute, instantiate, query};
-use cosmwasm_std::{
-    attr, from_json,
-    testing::{mock_env, mock_info},
-    to_json_binary, Addr, BankMsg, DepsMut, Uint128,
-};
+use cosmwasm_std::{attr, from_json, testing::{mock_env}, to_json_binary, Addr, BankMsg, DepsMut, Uint128, Checksum, HexBinary};
 use drop_helpers::{
     phonebook::{
         CORE_CONTRACT, DISTRIBUTION_CONTRACT, LSM_SHARE_BOND_PROVIDER_CONTRACT,
@@ -16,7 +12,7 @@ use drop_helpers::{
 use drop_staking_base::{
     msg::factory::{
         CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, LsmShareBondParams, NativeBondParams,
-        QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
+        QueryMsg, UpdateConfigMsg, ValidatorSetMsg, WithdrawalVoucherInstantiateMsg,
     },
     state::factory::{CodeIds, RemoteOpts, Timeout, STATE},
 };
@@ -41,12 +37,12 @@ use drop_staking_base::{
             ExecuteMsg as WithdrawalManagerExecuteMsg,
             InstantiateMsg as WithdrawalManagerInstantiateMsg,
         },
-        withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
     },
     state::{core::Pause as CorePause, pump::PumpTimeout, splitter::Config as SplitterConfig},
 };
 use neutron_sdk::bindings::query::NeutronQuery;
 use std::collections::HashMap;
+use cosmwasm_std::testing::message_info;
 
 fn set_default_factory_state(deps: DepsMut<NeutronQuery>) {
     STATE
@@ -152,8 +148,8 @@ fn test_instantiate() {
             y[..data.len()].copy_from_slice(data);
             to_json_binary(&cosmwasm_std::CodeInfoResponse::new(
                 from_json(data).unwrap(),
-                "creator".to_string(),
-                cosmwasm_std::HexBinary::from(y.as_slice()),
+                Addr::unchecked("creator".to_string()),
+                Checksum::from_hex(HexBinary::from(y.as_slice()).to_hex().as_str()).unwrap(),
             ))
             .unwrap()
         },
@@ -231,10 +227,10 @@ fn test_instantiate() {
             },
             transaction: Some(cosmwasm_std::TransactionInfo { index: 3 }),
             contract: cosmwasm_std::ContractInfo {
-                address: cosmwasm_std::Addr::unchecked("factory_contract"),
+                address: Addr::unchecked("factory_contract"),
             },
         },
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         instantiate_msg,
     )
     .unwrap();
@@ -619,7 +615,7 @@ fn test_update_config_core_unauthorized() {
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("not_an_owner", &[]),
+        message_info(&Addr::unchecked("not_an_owner"), &[]),
         ExecuteMsg::UpdateConfig(Box::new(UpdateConfigMsg::Core(Box::new(
             new_core_config.clone(),
         )))),
@@ -655,7 +651,7 @@ fn test_update_config_core() {
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         ExecuteMsg::UpdateConfig(Box::new(UpdateConfigMsg::Core(Box::new(
             new_core_config.clone(),
         )))),
@@ -696,7 +692,7 @@ fn test_update_config_validators_set_unauthorized() {
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("not_an_owner", &[]),
+        message_info(&Addr::unchecked("not_an_owner"), &[]),
         ExecuteMsg::UpdateConfig(Box::new(UpdateConfigMsg::ValidatorsSet(
             new_validator_set_config.clone(),
         ))),
@@ -725,7 +721,7 @@ fn test_update_config_validators_set() {
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         ExecuteMsg::UpdateConfig(Box::new(UpdateConfigMsg::ValidatorsSet(
             new_validator_set_config.clone(),
         ))),
@@ -762,7 +758,7 @@ fn test_proxy_validators_set_update_validators_unauthorized() {
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("not_an_owner", &[]),
+        message_info(&Addr::unchecked("not_an_owner"), &[]),
         ExecuteMsg::Proxy(drop_staking_base::msg::factory::ProxyMsg::ValidatorSet(
             ValidatorSetMsg::UpdateValidators {
                 validators: vec![
@@ -799,7 +795,7 @@ fn test_proxy_validators_set_update_validators() {
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         ExecuteMsg::Proxy(drop_staking_base::msg::factory::ProxyMsg::ValidatorSet(
             ValidatorSetMsg::UpdateValidators {
                 validators: vec![
@@ -876,7 +872,7 @@ fn test_admin_execute_unauthorized() {
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("not_an_owner", &[]),
+        message_info(&Addr::unchecked("not_an_owner"), &[]),
         ExecuteMsg::AdminExecute {
             msgs: vec![
                 cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
@@ -922,7 +918,7 @@ fn test_admin_execute() {
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         ExecuteMsg::AdminExecute {
             msgs: vec![
                 cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
@@ -999,7 +995,7 @@ fn test_pause_unauthorized() {
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("not_an_owner", &[]),
+        message_info(&Addr::unchecked("not_an_owner"), &[]),
         ExecuteMsg::Pause {},
     )
     .unwrap_err();
@@ -1020,7 +1016,7 @@ fn test_pause() {
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         ExecuteMsg::Pause {},
     )
     .unwrap();
@@ -1075,7 +1071,7 @@ fn test_unpause_unauthorized() {
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("not_an_owner", &[]),
+        message_info(&Addr::unchecked("not_an_owner"), &[]),
         ExecuteMsg::Unpause {},
     )
     .unwrap_err();
@@ -1096,7 +1092,7 @@ fn test_unpause() {
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         ExecuteMsg::Unpause {},
     )
     .unwrap();
@@ -1273,7 +1269,7 @@ fn test_transfer_ownership() {
     execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         ExecuteMsg::UpdateOwnership(cw_ownable::Action::TransferOwnership {
             new_owner: "new_owner".to_string(),
             expiry: Some(cw_ownable::Expiration::Never {}),
@@ -1283,7 +1279,7 @@ fn test_transfer_ownership() {
     execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("new_owner", &[]),
+        message_info(&Addr::unchecked("new_owner"), &[]),
         ExecuteMsg::UpdateOwnership(cw_ownable::Action::AcceptOwnership {}),
     )
     .unwrap();

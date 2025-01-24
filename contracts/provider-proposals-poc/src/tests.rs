@@ -1,10 +1,11 @@
 use cosmwasm_std::{
     attr,
-    testing::{mock_env, mock_info, MockApi, MockQuerier, MockStorage},
+    testing::{mock_env, MockApi, MockQuerier, MockStorage},
     to_json_binary, Addr, Binary, Decimal, Event, OwnedDeps, Querier, SubMsg,
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery, types::KVKey};
 use std::marker::PhantomData;
+use cosmwasm_std::testing::message_info;
 
 fn mock_dependencies<Q: Querier + Default>() -> OwnedDeps<MockStorage, MockApi, Q, NeutronQuery> {
     OwnedDeps {
@@ -21,7 +22,7 @@ fn instantiate() {
     let response = crate::contract::instantiate(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[]),
+        message_info(&Addr::unchecked("admin"), &[]),
         drop_staking_base::msg::provider_proposals::InstantiateMsg {
             connection_id: "connection-0".to_string(),
             port_id: "transfer".to_string(),
@@ -60,23 +61,23 @@ fn instantiate() {
             keys: vec![
                 KVKey {
                     path: "gov".to_string(),
-                    key: Binary(vec![0, 0, 0, 0, 0, 0, 0, 0, 1]),
+                    key: Binary::new(vec![0, 0, 0, 0, 0, 0, 0, 0, 1]),
                 },
                 KVKey {
                     path: "gov".to_string(),
-                    key: Binary(vec![0, 0, 0, 0, 0, 0, 0, 0, 2]),
+                    key: Binary::new(vec![0, 0, 0, 0, 0, 0, 0, 0, 2]),
                 },
                 KVKey {
                     path: "gov".to_string(),
-                    key: Binary(vec![0, 0, 0, 0, 0, 0, 0, 0, 3]),
+                    key: Binary::new(vec![0, 0, 0, 0, 0, 0, 0, 0, 3]),
                 },
                 KVKey {
                     path: "gov".to_string(),
-                    key: Binary(vec![0, 0, 0, 0, 0, 0, 0, 0, 4]),
+                    key: Binary::new(vec![0, 0, 0, 0, 0, 0, 0, 0, 4]),
                 },
                 KVKey {
                     path: "gov".to_string(),
-                    key: Binary(vec![0, 0, 0, 0, 0, 0, 0, 0, 5]),
+                    key: Binary::new(vec![0, 0, 0, 0, 0, 0, 0, 0, 5]),
                 },
             ],
             transactions_filter: "".to_string(),
@@ -174,7 +175,7 @@ fn update_config_wrong_owner() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core1", &[]),
+        message_info(&Addr::unchecked("core1"), &[]),
         drop_staking_base::msg::provider_proposals::ExecuteMsg::UpdateConfig {
             new_config: drop_staking_base::state::provider_proposals::ConfigOptional {
                 connection_id: Some("connection-0".to_string()),
@@ -193,9 +194,7 @@ fn update_config_wrong_owner() {
     assert_eq!(
         error,
         crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::Std(
-            cosmwasm_std::StdError::NotFound {
-                kind: "type: cw_ownable::Ownership<cosmwasm_std::addresses::Addr>; key: [6F, 77, 6E, 65, 72, 73, 68, 69, 70]".to_string()
-            }
+            cosmwasm_std::StdError::generic_err("type: cw_ownable::Ownership<cosmwasm_std::addresses::Addr>; key: [6F, 77, 6E, 65, 72, 73, 68, 69, 70]".to_string())
         ))
     );
 }
@@ -232,7 +231,7 @@ fn update_config_ok() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        message_info(&Addr::unchecked("core"), &[]),
         drop_staking_base::msg::provider_proposals::ExecuteMsg::UpdateConfig {
             new_config: drop_staking_base::state::provider_proposals::ConfigOptional {
                 connection_id: Some("connection-1".to_string()),
@@ -297,7 +296,7 @@ fn update_votes_wrong_sender_address() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("proposal_votes_1", &[]),
+        message_info(&Addr::unchecked("proposal_votes_1"), &[]),
         drop_staking_base::msg::provider_proposals::ExecuteMsg::UpdateProposalVotes {
             votes: vec![neutron_sdk::interchain_queries::v045::types::ProposalVote {
                 proposal_id: 1,
@@ -335,7 +334,7 @@ fn update_votes_ok() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("proposal_votes", &[]),
+        message_info(&Addr::unchecked("proposal_votes"), &[]),
         drop_staking_base::msg::provider_proposals::ExecuteMsg::UpdateProposalVotes {
             votes: vec![neutron_sdk::interchain_queries::v045::types::ProposalVote {
                 proposal_id: 1,
@@ -405,7 +404,7 @@ fn update_votes_with_data() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("proposal_votes", &[]),
+        message_info(&Addr::unchecked("proposal_votes"), &[]),
         drop_staking_base::msg::provider_proposals::ExecuteMsg::UpdateProposalVotes {
             votes: vec![neutron_sdk::interchain_queries::v045::types::ProposalVote {
                 proposal_id: 1,

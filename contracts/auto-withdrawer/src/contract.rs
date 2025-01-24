@@ -2,7 +2,7 @@ use crate::{
     error::{ContractError, ContractResult},
     msg::{
         BondMsg, BondingResponse, BondingsResponse, ExecuteMsg, InstantiateMsg, MigrateMsg,
-        QueryMsg,
+        QueryMsg, WithdrawalVoucherTransferNftMsg, WithdrawalVoucherSendNftMsg,
     },
     store::{
         bondings_map,
@@ -126,7 +126,7 @@ fn execute_bond_with_nft(
     let msg = WasmMsg::Execute {
         contract_addr: addrs.withdrawal_voucher_contract,
         msg: to_json_binary(
-            &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::TransferNft {
+            &WithdrawalVoucherTransferNftMsg {
                 recipient: env.contract.address.into_string(),
                 token_id,
             },
@@ -153,7 +153,7 @@ fn execute_unbond(
     let nft_msg: CosmosMsg<NeutronMsg> = WasmMsg::Execute {
         contract_addr: addrs.withdrawal_voucher_contract,
         msg: to_json_binary(
-            &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::TransferNft {
+            &WithdrawalVoucherTransferNftMsg {
                 recipient: info.sender.to_string(),
                 token_id,
             },
@@ -190,7 +190,7 @@ fn execute_withdraw(
     let withdraw_msg: CosmosMsg<NeutronMsg> = WasmMsg::Execute {
         contract_addr: addrs.withdrawal_voucher_contract,
         msg: to_json_binary(
-            &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::SendNft {
+            &WithdrawalVoucherSendNftMsg {
                 contract: addrs.withdrawal_manager_contract,
                 token_id,
                 msg: to_json_binary(

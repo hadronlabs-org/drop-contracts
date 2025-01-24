@@ -26,7 +26,7 @@ mod bondings {
         }
     }
 
-    pub fn map() -> IndexedMap<&'static str, BondingRecord, BondingRecordIndexes<'a>> {
+    pub fn map() -> IndexedMap<&'static str, BondingRecord, BondingRecordIndexes<'static>> {
         IndexedMap::new(
             "bondings",
             BondingRecordIndexes {

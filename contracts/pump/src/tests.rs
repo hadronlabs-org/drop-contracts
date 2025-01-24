@@ -2,11 +2,8 @@ use crate::{
     contract::{execute, instantiate, query, sudo},
     error::ContractError,
 };
-use cosmwasm_std::{
-    coins, from_json,
-    testing::{mock_env, mock_info},
-    to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Event, Response, SubMsg,
-};
+use cosmwasm_std::{coins, from_json, testing::{mock_env}, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Event, Response, SubMsg};
+use cosmwasm_std::testing::message_info;
 use drop_helpers::ica::IcaState;
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::state::pump::{Config, CONFIG, ICA};
@@ -51,7 +48,7 @@ fn test_instantiate() {
         local_denom: "local_denom".to_string(),
         owner: Some("owner".to_string()),
     };
-    let res = instantiate(deps.as_mut(), mock_env(), mock_info("owner", &[]), msg).unwrap();
+    let res = instantiate(deps.as_mut(), mock_env(), message_info(&Addr::unchecked("owner"), &[]), msg).unwrap();
     assert_eq!(
         res,
         Response::new().add_event(Event::new(
@@ -69,6 +66,7 @@ fn test_instantiate() {
             .unwrap()
             .owner
             .unwrap()
+            .to_string()
     );
     let config = CONFIG.load(deps.as_ref().storage).unwrap();
     assert_eq!(config, get_default_config());
@@ -90,11 +88,11 @@ fn test_update_config_unauthorized() {
         local_denom: "local_denom".to_string(),
         owner: Some("owner".to_string()),
     };
-    let _ = instantiate(deps.as_mut(), mock_env(), mock_info("owner", &[]), msg).unwrap();
+    let _ = instantiate(deps.as_mut(), mock_env(), message_info(&Addr::unchecked("owner"), &[]), msg).unwrap();
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("not_an_owner", &[]),
+        message_info(&Addr::unchecked("not_an_owner"), &[]),
         drop_staking_base::msg::pump::ExecuteMsg::UpdateConfig {
             new_config: Box::new(drop_staking_base::msg::pump::UpdateConfigMsg {
                 dest_address: Some("new_dest_address".to_string()),
@@ -133,7 +131,7 @@ fn test_update_config() {
         local_denom: "local_denom".to_string(),
         owner: Some("owner".to_string()),
     };
-    let _ = instantiate(deps.as_mut(), mock_env(), mock_info("admin", &[]), msg).unwrap();
+    let _ = instantiate(deps.as_mut(), mock_env(), message_info(&Addr::unchecked("admin"), &[]), msg).unwrap();
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap();
     let msg = drop_staking_base::msg::pump::UpdateConfigMsg {
@@ -151,7 +149,7 @@ fn test_update_config() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[]),
+        message_info(&Addr::unchecked("admin"), &[]),
         drop_staking_base::msg::pump::ExecuteMsg::UpdateConfig {
             new_config: Box::new(msg.clone()),
         },
@@ -203,7 +201,7 @@ fn test_register_ica_no_fee() {
     let err = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("nobody", &[]),
+        message_info(&Addr::unchecked("nobody"), &[]),
         msg.clone(),
     )
     .unwrap_err();
@@ -226,7 +224,7 @@ fn test_register_ica() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("nobody", &coins(1000, "local_denom")),
+        message_info(&Addr::unchecked("nobody"), &coins(1000, "local_denom")),
         msg.clone(),
     )
     .unwrap();
@@ -253,7 +251,7 @@ fn test_register_ica() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("nobody", &coins(1000, "local_denom")),
+        message_info(&Addr::unchecked("nobody"), &coins(1000, "local_denom")),
         msg.clone(),
     );
     assert_eq!(
@@ -267,7 +265,7 @@ fn test_register_ica() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("nobody", &coins(1000, "local_denom")),
+        message_info(&Addr::unchecked("nobody"), &coins(1000, "local_denom")),
         msg.clone(),
     )
     .unwrap();
@@ -305,7 +303,7 @@ fn test_execute_refund_no_refundee() {
     let mut config = get_default_config();
     config.refundee = None;
     CONFIG.save(deps.as_mut().storage, &config).unwrap();
-    let err = execute(deps.as_mut(), mock_env(), mock_info("nobody", &[]), msg).unwrap_err();
+    let err = execute(deps.as_mut(), mock_env(), message_info(&Addr::unchecked("nobody"), &[]), msg).unwrap_err();
     assert_eq!(err, ContractError::RefundeeIsNotSet {});
 }
 
@@ -318,7 +316,7 @@ fn test_execute_refund_success_refundee() {
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
-    let res = execute(deps.as_mut(), mock_env(), mock_info("refundee", &[]), msg).unwrap();
+    let res = execute(deps.as_mut(), mock_env(), message_info(&Addr::unchecked("refundee"), &[]), msg).unwrap();
     assert_eq!(
         res,
         Response::new()
@@ -328,7 +326,7 @@ fn test_execute_refund_success_refundee() {
             )
             .add_message(CosmosMsg::Bank(BankMsg::Send {
                 to_address: "refundee".to_string(),
-                amount: vec![Coin::new(200, "untrn")]
+                amount: vec![Coin::new(200u128, "untrn")]
             }))
     );
 }
@@ -344,7 +342,7 @@ fn test_execute_refund() {
         .unwrap();
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    let res = execute(deps.as_mut(), mock_env(), mock_info("owner", &[]), msg).unwrap();
+    let res = execute(deps.as_mut(), mock_env(), message_info(&Addr::unchecked("owner"), &[]), msg).unwrap();
     assert_eq!(
         res,
         Response::new()
@@ -354,7 +352,7 @@ fn test_execute_refund() {
             )
             .add_message(CosmosMsg::Bank(BankMsg::Send {
                 to_address: "refundee".to_string(),
-                amount: vec![Coin::new(200, "untrn")]
+                amount: vec![Coin::new(200u128, "untrn")]
             }))
     );
 }
@@ -373,7 +371,7 @@ fn test_execute_refund_unauthorized() {
     let err = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("not_an_owner", &[]),
+        message_info(&Addr::unchecked("not_an_owner"), &[]),
         msg,
     )
     .unwrap_err();
@@ -401,7 +399,7 @@ fn test_push_no_destination_port() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("somebody", &[]),
+        message_info(&Addr::unchecked("somebody"), &[]),
         drop_staking_base::msg::pump::ExecuteMsg::Push {
             coins: vec![Coin::new(100u128, "remote_denom")],
         }
@@ -432,7 +430,7 @@ fn test_push_no_destintation_channel() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("somebody", &[]),
+        message_info(&Addr::unchecked("somebody"), &[]),
         drop_staking_base::msg::pump::ExecuteMsg::Push {
             coins: vec![Coin::new(100u128, "remote_denom")],
         }
@@ -463,7 +461,7 @@ fn test_push_no_destintation_address() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("somebody", &[]),
+        message_info(&Addr::unchecked("somebody"), &[]),
         drop_staking_base::msg::pump::ExecuteMsg::Push {
             coins: vec![Coin::new(100u128, "remote_denom")],
         }
@@ -495,7 +493,7 @@ fn test_push() {
     let res = execute(
         deps.as_mut(),
         env.clone(),
-        mock_info("somebody", &[]),
+        message_info(&Addr::unchecked("somebody"), &[]),
         drop_staking_base::msg::pump::ExecuteMsg::Push {
             coins: vec![Coin::new(100u128, "remote_denom")],
         }
@@ -573,9 +571,7 @@ fn test_sudo_response_sequence_not_found() {
     .unwrap_err();
     assert_eq!(
         res,
-        crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-            msg: "sequence not found".to_string()
-        })
+        crate::error::ContractError::Std(cosmwasm_std::StdError::generic_err("sequence not found"))
     );
 }
 
@@ -695,9 +691,7 @@ fn test_sudo_error_sequence_not_found() {
     .unwrap_err();
     assert_eq!(
         res,
-        crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-            msg: "sequence not found".to_string()
-        })
+        ContractError::Std(cosmwasm_std::StdError::generic_err("sequence not found"))
     )
 }
 
@@ -790,9 +784,7 @@ fn test_sudo_kv_query_result_not_supported() {
     .unwrap_err();
     assert_eq!(
         res,
-        crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-            msg: "KVQueryResult and TxQueryResult are not supported".to_string()
-        })
+        ContractError::Std(cosmwasm_std::StdError::generic_err("KVQueryResult and TxQueryResult are not supported"))
     );
 }
 
@@ -814,9 +806,7 @@ fn test_sudo_tx_query_result_not_supported() {
     .unwrap_err();
     assert_eq!(
         res,
-        crate::error::ContractError::Std(cosmwasm_std::StdError::GenericErr {
-            msg: "KVQueryResult and TxQueryResult are not supported".to_string()
-        })
+        ContractError::Std(cosmwasm_std::StdError::generic_err("KVQueryResult and TxQueryResult are not supported".to_string()))
     );
 }
 
@@ -933,7 +923,7 @@ fn test_transfer_ownership() {
     execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         drop_staking_base::msg::pump::ExecuteMsg::UpdateOwnership(
             cw_ownable::Action::TransferOwnership {
                 new_owner: "new_owner".to_string(),
@@ -945,7 +935,7 @@ fn test_transfer_ownership() {
     execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("new_owner", &[]),
+        message_info(&Addr::unchecked("new_owner"), &[]),
         drop_staking_base::msg::pump::ExecuteMsg::UpdateOwnership(
             cw_ownable::Action::AcceptOwnership {},
         ),
@@ -963,7 +953,7 @@ fn test_transfer_ownership() {
     assert_eq!(
         query_res,
         cw_ownable::Ownership {
-            owner: Some(cosmwasm_std::Addr::unchecked("new_owner".to_string())),
+            owner: Some(Addr::unchecked("new_owner".to_string())),
             pending_expiry: None,
             pending_owner: None
         }

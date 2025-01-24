@@ -13,7 +13,7 @@ use drop_staking_base::state::splitter::Config as SplitterConfig;
 use drop_staking_base::{
     msg::factory::{
         ExecuteMsg, InstantiateMsg, MigrateMsg, ProxyMsg, QueryMsg, UpdateConfigMsg,
-        ValidatorSetMsg,
+        ValidatorSetMsg, WithdrawalVoucherInstantiateMsg,
     },
     state::factory::STATE,
 };
@@ -36,7 +36,6 @@ use drop_staking_base::{
             InstantiateMsg as WithdrawalManagerInstantiateMsg,
             QueryMsg as WithdrawalManagerQueryMsg,
         },
-        withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
     },
     state::pump::PumpTimeout,
 };

@@ -1,4 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::Uint128;
 use cw721::Cw721ReceiveMsg;
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 #[allow(unused_imports)]
@@ -39,3 +40,27 @@ pub enum ReceiveNftMsg {
 
 #[cw_serde]
 pub struct MigrateMsg {}
+
+#[cw_serde]
+pub struct WithdrawalVoucherTrait {
+    pub display_type: Option<String>,
+    pub trait_type: String,
+    pub value: String,
+}
+
+#[cw_serde]
+#[derive(Default)]
+pub struct WithdrawalVoucherMetadata {
+    pub name: String,
+    pub description: Option<String>,
+    pub attributes: Option<Vec<WithdrawalVoucherTrait>>,
+    pub batch_id: String,
+    pub amount: Uint128,
+}
+
+pub type WithdrawalVoucherExtension = Option<WithdrawalVoucherMetadata>;
+
+#[cw_serde]
+pub struct WithdrawalVoucherNftInfoMsg {
+    pub token_id: String
+}
