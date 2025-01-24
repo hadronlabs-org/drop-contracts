@@ -31,10 +31,7 @@ import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { instrumentCoreClass } from '../helpers/knot';
-import {
-  ResponseHookMsg,
-  UnbondBatch,
-} from 'drop-ts-client/lib/contractLib/dropCore';
+import { UnbondBatch } from 'drop-ts-client/lib/contractLib/dropCore';
 import { checkExchangeRate } from '../helpers/exchangeRate';
 import { stringToPath } from '@cosmjs/crypto';
 
