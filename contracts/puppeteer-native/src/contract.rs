@@ -329,10 +329,10 @@ fn execute_delegate(
     let config = CONFIG.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
 
-    let non_staked_balance = deps.querier.query_wasm_smart::<Uint128>(
-        &config.native_bond_provider,
-        &drop_staking_base::msg::native_bond_provider::QueryMsg::NonStakedBalance {},
-    )?;
+    let non_staked_balance = deps
+        .querier
+        .query_balance(env.contract.address, &config.remote_denom)?
+        .amount;
 
     ensure!(
         non_staked_balance > Uint128::zero(),

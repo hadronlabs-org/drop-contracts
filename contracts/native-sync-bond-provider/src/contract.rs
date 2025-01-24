@@ -259,6 +259,7 @@ fn execute_process_on_idle(
 
     if let Some(lsm_msg) = get_delegation_msg(deps.branch(), &env, &config)? {
         messages.push(lsm_msg);
+        NON_STAKED_BALANCE.save(deps.storage, &Uint128::zero())?;
     }
 
     Ok(
@@ -309,18 +310,6 @@ fn execute_puppeteer_hook(
         config.puppeteer_contract,
         ContractError::Unauthorized {}
     );
-
-    match msg.clone() {
-        drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(success_msg) => {
-            if let drop_puppeteer_base::peripheral_hook::Transaction::Stake { amount } =
-                success_msg.transaction
-            {
-                NON_STAKED_BALANCE
-                    .update(deps.storage, |balance| StdResult::Ok(balance - amount))?;
-            }
-        }
-        _ => {}
-    }
 
     LAST_PUPPETEER_RESPONSE.save(deps.storage, &msg)?;
     let hook_message = CosmosMsg::Wasm(WasmMsg::Execute {

@@ -177,7 +177,7 @@ describe('Core', () => {
   });
 
   afterAll(async () => {
-    // await context.park.stop();
+    await context.park.stop();
   });
 
   it('instantiate', async () => {
