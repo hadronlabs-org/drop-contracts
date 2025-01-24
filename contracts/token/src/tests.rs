@@ -8,11 +8,10 @@ use cosmos_sdk_proto::{
 };
 use cosmwasm_std::{
     attr, coin,
-    testing::{mock_env, MOCK_CONTRACT_ADDR},
+    testing::{mock_env, message_info, MOCK_CONTRACT_ADDR},
     to_json_binary, Addr, Binary, CosmosMsg, Event, QueryRequest, Reply, ReplyOn, SubMsgResult,
     Uint128,
 };
-use cosmwasm_std::testing::message_info;
 use drop_helpers::testing::{mock_dependencies, mock_state_query};
 use drop_staking_base::{
     msg::token::{ConfigResponse, DenomMetadata, ExecuteMsg, InstantiateMsg, QueryMsg},

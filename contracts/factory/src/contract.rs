@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use cosmwasm_std::{attr, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg, Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg, Decimal};
+use cosmwasm_std::{attr, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg, Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg};
 use drop_helpers::answer::response;
 use drop_helpers::phonebook::{
     CORE_CONTRACT, DISTRIBUTION_CONTRACT, LSM_SHARE_BOND_PROVIDER_CONTRACT,
@@ -707,10 +707,7 @@ fn get_splitter_receivers(
 ) -> ContractResult<Vec<(String, cosmwasm_std::Uint128)>> {
     match fee_params {
         Some(fee_params) => {
-            let fee_weight = fee_params.fee
-                .checked_mul(Decimal::from_ratio(PERCENT_PRECISION, Uint128::from(1u128)))
-                .unwrap()
-                .atomics();
+            let fee_weight = PERCENT_PRECISION.mul_floor(fee_params.fee);
             let bond_provider_weight = PERCENT_PRECISION - fee_weight;
             Ok(vec![
                 (bond_provider_address, bond_provider_weight),

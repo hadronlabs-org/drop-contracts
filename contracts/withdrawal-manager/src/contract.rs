@@ -170,7 +170,7 @@ fn execute_receive_nft_withdraw(
         core_contract
     );
     ensure_eq!(
-        info.sender.to_string(),
+        info.sender.as_str(),
         addrs.withdrawal_voucher_contract,
         ContractError::Unauthorized {}
     );

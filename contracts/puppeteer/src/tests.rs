@@ -1,6 +1,6 @@
 use crate::contract::{Puppeteer, CONTRACT_NAME};
 use cosmwasm_schema::schemars;
-use cosmwasm_std::{coin, coins, from_json, testing::{mock_env}, to_json_binary, Addr, Binary, Coin, CosmosMsg, Decimal256, DepsMut, Event, Response, StdError, SubMsg, Timestamp, Uint128, Uint64, MsgResponse};
+use cosmwasm_std::{coin, coins, from_json, testing::{mock_env, message_info}, to_json_binary, Addr, Binary, Coin, CosmosMsg, Decimal256, DepsMut, Event, Response, StdError, SubMsg, Timestamp, Uint128, Uint64, MsgResponse};
 use drop_helpers::{
     ibc_client_state::{
         ChannelClientStateResponse, ClientState, Fraction, Height, IdentifiedClientState,
@@ -31,7 +31,6 @@ use prost::Message;
 use schemars::_serde_json::to_string;
 
 use std::vec;
-use cosmwasm_std::testing::message_info;
 
 type PuppeteerBaseType = PuppeteerBase<
     'static,
@@ -3176,8 +3175,7 @@ fn test_reply_kv_unbonding_delegations() {
 }
 
 mod register_delegations_and_balance_query {
-    use cosmwasm_std::{testing::MockApi, MemoryStorage, OwnedDeps, StdResult};
-    use cosmwasm_std::testing::message_info;
+    use cosmwasm_std::{testing::{MockApi, message_info}, MemoryStorage, OwnedDeps, StdResult};
     use drop_helpers::testing::WasmMockQuerier;
     use drop_puppeteer_base::error::ContractError;
 

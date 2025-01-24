@@ -4,26 +4,26 @@ use crate::{
     msg::{BondMsg, ExecuteMsg, InstantiateMsg},
     store::{FACTORY_CONTRACT, LD_TOKEN},
 };
-use cosmwasm_std::{attr, coin, testing::{mock_env}, Event, Addr};
-use cosmwasm_std::testing::message_info;
+use cosmwasm_std::{attr, coin, testing::{mock_env, message_info}, Event, Addr};
 use drop_helpers::testing::{mock_dependencies, mock_state_query};
 
 #[test]
 fn instantiate() {
     let mut deps = mock_dependencies(&[]);
+    let factory_contract_address_msg = deps.api.addr_make("factory_contract").to_string();
     let response = contract::instantiate(
         deps.as_mut(),
         mock_env(),
         message_info(&Addr::unchecked("admin"), &[]),
         InstantiateMsg {
-            factory_contract: "factory_contract".to_string(),
+            factory_contract: factory_contract_address_msg.clone(),
             ld_token: "ld_token".to_string(),
         },
     )
     .unwrap();
 
-    let factory_contract = FACTORY_CONTRACT.load(deps.as_ref().storage).unwrap();
-    assert_eq!(factory_contract.as_str(), "factory_contract");
+    let factory_contract_address_storage = FACTORY_CONTRACT.load(deps.as_ref().storage).unwrap();
+    assert_eq!(factory_contract_address_storage.as_str(), factory_contract_address_msg.as_str());
     let ld_token = LD_TOKEN.load(deps.as_ref().storage).unwrap();
     assert_eq!(ld_token, "ld_token");
     assert_eq!(response.messages.len(), 0);
@@ -31,7 +31,7 @@ fn instantiate() {
         response.events,
         vec![
             Event::new("drop-auto-withdrawer-instantiate").add_attributes([
-                attr("factory_contract", "factory_contract"),
+                attr("factory_contract", factory_contract_address_msg),
                 attr("ld_token", "ld_token")
             ])
         ]
@@ -83,10 +83,6 @@ fn test_migrate_wrong_contract() {
 }
 
 mod bond_missing_deposit {
-    use cosmwasm_std::Addr;
-    use cosmwasm_std::testing::message_info;
-    use drop_helpers::testing::{mock_dependencies, mock_state_query};
-
     use super::*;
 
     #[test]

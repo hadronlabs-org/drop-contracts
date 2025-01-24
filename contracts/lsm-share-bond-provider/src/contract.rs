@@ -204,10 +204,7 @@ fn query_token_amount(
         check_denom.validator,
     )?;
 
-    let issue_amount = (Decimal::one() / exchange_rate)
-        .checked_mul(Decimal::from_ratio(real_amount, Uint128::from(1u128)))
-        .unwrap()
-        .atomics();
+    let issue_amount = real_amount.mul_floor(Decimal::one() / exchange_rate);
 
     Ok(to_json_binary(&issue_amount)?)
 }
@@ -240,7 +237,7 @@ fn execute_process_on_idle(
     let addrs = get_contracts!(deps, config.factory_contract, core_contract);
 
     ensure_eq!(
-        info.sender.to_string(),
+        info.sender.as_str(),
         addrs.core_contract,
         ContractError::Unauthorized {}
     );
@@ -387,7 +384,7 @@ fn execute_puppeteer_hook(
         puppeteer_contract
     );
     ensure_eq!(
-        info.sender.to_string(),
+        info.sender.as_str(),
         addrs.puppeteer_contract,
         ContractError::Unauthorized {}
     );
@@ -799,7 +796,7 @@ pub fn migrate(
 
 pub mod check_denom {
     use cosmwasm_schema::cw_serde;
-    use cosmwasm_std::{QueryRequest, StdError, StdResult};
+    use cosmwasm_std::{GrpcQuery, QueryRequest, StdError, StdResult};
 
     use super::*;
 
@@ -829,16 +826,15 @@ pub mod check_denom {
         denom: impl Into<String>,
     ) -> StdResult<QueryDenomTraceResponse> {
         let denom = denom.into();
-        #[allow(deprecated)]
         deps.querier
-            .query(&QueryRequest::Stargate {
+            .query(&QueryRequest::Grpc(GrpcQuery {
                 path: "/ibc.applications.transfer.v1.Query/DenomTrace".to_string(),
                 data: cosmos_sdk_proto::ibc::applications::transfer::v1::QueryDenomTraceRequest {
                     hash: denom.clone(),
                 }
                     .encode_to_vec()
                     .into(),
-            })
+            }))
             .map_err(|e| {
                 StdError::generic_err(format!(
                     "Query denom trace for denom {denom} failed: {e}, perhaps, this is not an IBC denom?"

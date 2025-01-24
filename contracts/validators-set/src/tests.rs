@@ -1,9 +1,8 @@
 use cosmwasm_std::{
     attr, from_json,
-    testing::{mock_env},
+    testing::{mock_env, message_info},
     to_json_binary, Addr, Decimal, Event, Response, Uint128,
 };
-use cosmwasm_std::testing::message_info;
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::state::{provider_proposals::ProposalInfo, validatorset::ConfigOptional};
 

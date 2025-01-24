@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankQuery, Binary, Coin,
-    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest,
+    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, GrpcQuery, MessageInfo, Order, QueryRequest,
     Response, StdError, StdResult, Uint128, Uint64, WasmMsg,
 };
 use cw_storage_plus::{Bound, Item};
@@ -11,7 +11,7 @@ use drop_staking_base::{
     msg::{
         core::{
             BondCallback, BondHook, ExecuteMsg, FailedBatchResponse, InstantiateMsg,
-            LastPuppeteerResponse, MigrateMsg, QueryMsg, VoucherMintMsg, VoucherMetadata, VoucherTrait,
+            LastPuppeteerResponse, MigrateMsg, QueryMsg, WithdrawalVoucherMintMsg, WithdrawalVoucherMetadata, WithdrawalVoucherTrait,
         },
         token::{
             ConfigResponse as TokenConfigResponse, ExecuteMsg as TokenExecuteMsg,
@@ -460,7 +460,7 @@ fn execute_update_withdrawn_amount(
     let config = CONFIG.load(deps.storage)?;
     let addrs =
         drop_helpers::get_contracts!(deps, config.factory_contract, withdrawal_manager_contract);
-    if info.sender.to_string() != addrs.withdrawal_manager_contract {
+    if info.sender.as_str() != addrs.withdrawal_manager_contract {
         return Err(ContractError::Unauthorized {});
     }
 
@@ -1142,18 +1142,18 @@ fn execute_unbond(
     unbond_batch.total_dasset_amount_to_withdraw += dasset_amount;
     unbond_batches_map().save(deps.storage, unbond_batch_id, &unbond_batch)?;
 
-    let extension = Some(VoucherMetadata {
+    let extension = Some(WithdrawalVoucherMetadata {
         description: Some("Withdrawal voucher".into()),
         name: "LDV voucher".to_string(),
         batch_id: unbond_batch_id.to_string(),
         amount: dasset_amount,
         attributes: Some(vec![
-            VoucherTrait {
+            WithdrawalVoucherTrait {
                 display_type: None,
                 trait_type: "unbond_batch_id".to_string(),
                 value: unbond_batch_id.to_string(),
             },
-            VoucherTrait {
+            WithdrawalVoucherTrait {
                 display_type: None,
                 trait_type: "received_amount".to_string(),
                 value: dasset_amount.to_string(),
@@ -1164,7 +1164,7 @@ fn execute_unbond(
     let msgs = vec![
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: addrs.withdrawal_voucher_contract,
-            msg: to_json_binary(&VoucherMintMsg {
+            msg: to_json_binary(&WithdrawalVoucherMintMsg {
                 owner: info.sender.to_string(),
                 token_id: unbond_batch_id.to_string()
                     + "_"
@@ -1261,10 +1261,7 @@ fn get_unbonding_msg<T>(
     {
         let current_exchange_rate = query_exchange_rate(deps.as_ref(), config)?;
         attrs.push(attr("exchange_rate", current_exchange_rate.to_string()));
-        let expected_native_asset_amount = current_exchange_rate
-            .checked_mul(Decimal::from_ratio(unbond.total_dasset_amount_to_withdraw, Uint128::from(1u128)))
-            .unwrap()
-            .atomics();
+        let expected_native_asset_amount = unbond.total_dasset_amount_to_withdraw.mul_floor(current_exchange_rate);
 
         let calc_withdraw_query_result: Result<Vec<(String, Uint128)>, StdError> =
             deps.querier.query_wasm_smart(
