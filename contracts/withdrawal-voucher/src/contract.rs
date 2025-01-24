@@ -1,6 +1,6 @@
 use cosmwasm_std::Empty;
 pub use cw721_base::{ContractError, MinterResponse};
-use drop_staking_base::msg::withdrawal_voucher::Extension;
+use crate::msg::{Extension, ExecuteMsg, InstantiateMsg, QueryMsg, MigrateMsg};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -12,9 +12,6 @@ pub mod entry {
     use super::*;
 
     use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult};
-    use drop_staking_base::msg::withdrawal_voucher::{
-        ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
-    };
 
     // This makes a conscious choice on the various generics used by the contract
     #[cosmwasm_std::entry_point]

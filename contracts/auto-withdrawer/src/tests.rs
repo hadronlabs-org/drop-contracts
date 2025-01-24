@@ -4,11 +4,8 @@ use crate::{
     msg::{BondMsg, ExecuteMsg, InstantiateMsg},
     store::{FACTORY_CONTRACT, LD_TOKEN},
 };
-use cosmwasm_std::{
-    attr, coin,
-    testing::{mock_env, mock_info},
-    Event,
-};
+use cosmwasm_std::{attr, coin, testing::{mock_env}, Event, Addr};
+use cosmwasm_std::testing::message_info;
 use drop_helpers::testing::{mock_dependencies, mock_state_query};
 
 #[test]
@@ -17,7 +14,7 @@ fn instantiate() {
     let response = contract::instantiate(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[]),
+        message_info(&Addr::unchecked("admin"), &[]),
         InstantiateMsg {
             factory_contract: "factory_contract".to_string(),
             ld_token: "ld_token".to_string(),
@@ -26,7 +23,7 @@ fn instantiate() {
     .unwrap();
 
     let factory_contract = FACTORY_CONTRACT.load(deps.as_ref().storage).unwrap();
-    assert_eq!(factory_contract, "factory_contract");
+    assert_eq!(factory_contract.as_str(), "factory_contract");
     let ld_token = LD_TOKEN.load(deps.as_ref().storage).unwrap();
     assert_eq!(ld_token, "ld_token");
     assert_eq!(response.messages.len(), 0);
@@ -58,7 +55,7 @@ fn bond_missing_ld_assets() {
     let err = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[coin(10, "uatom"), coin(20, "untrn")]),
+        message_info(&Addr::unchecked("sender"), &[coin(10, "uatom"), coin(20, "untrn")]),
         ExecuteMsg::Bond(BondMsg::WithLdAssets {}),
     )
     .unwrap_err();
@@ -86,6 +83,8 @@ fn test_migrate_wrong_contract() {
 }
 
 mod bond_missing_deposit {
+    use cosmwasm_std::Addr;
+    use cosmwasm_std::testing::message_info;
     use drop_helpers::testing::{mock_dependencies, mock_state_query};
 
     use super::*;
@@ -106,7 +105,7 @@ mod bond_missing_deposit {
         let err = contract::execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("sender", &[coin(10, "ld_token")]),
+            message_info(&Addr::unchecked("sender"), &[coin(10, "ld_token")]),
             ExecuteMsg::Bond(BondMsg::WithLdAssets {}),
         )
         .unwrap_err();
@@ -120,7 +119,7 @@ mod bond_missing_deposit {
         let err = contract::execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("sender", &[]),
+            message_info(&Addr::unchecked("sender"), &[]),
             ExecuteMsg::Bond(BondMsg::WithNFT {
                 token_id: "token_id".into(),
             }),

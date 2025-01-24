@@ -1,8 +1,5 @@
 use super::contract::{calc_deposit, calc_withdraw};
-use cosmwasm_std::{
-    testing::{mock_env, mock_info, MockApi, MockQuerier, MockStorage},
-    to_json_binary, Empty, OwnedDeps, Querier, Uint128,
-};
+use cosmwasm_std::{testing::{mock_env, message_info, MockApi, MockQuerier, MockStorage}, to_json_binary, Empty, OwnedDeps, Querier, Uint128, Addr};
 use drop_staking_base::{
     error::distribution::ContractError,
     msg::distribution::{Delegation, Delegations, QueryMsg},
@@ -52,7 +49,7 @@ fn test_instantiate() {
     let response = crate::contract::instantiate(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         drop_staking_base::msg::distribution::InstantiateMsg {},
     )
     .unwrap();

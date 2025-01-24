@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::contract::{execute, instantiate, query};
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::testing::{mock_env, mock_info};
+use cosmwasm_std::testing::{message_info, mock_env};
 use cosmwasm_std::{
     from_json, to_json_binary, Addr, Attribute, Binary, Decimal, Decimal256, Deps, Empty, Env,
     Event, Response, StdResult, Timestamp, Uint128,
@@ -268,7 +268,7 @@ fn test_initialization() {
         denom: "uatom".to_string(),
     };
 
-    let info = mock_info(CORE_CONTRACT_ADDR, &[]);
+    let info = message_info(&Addr::unchecked(CORE_CONTRACT_ADDR), &[]);
     let res = instantiate(
         deps.as_mut().into_empty(),
         mock_env(),
@@ -412,7 +412,7 @@ fn test_update_config_unauthorized() {
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("not_owner", &[]),
+        message_info(&Addr::unchecked("not_owner"), &[]),
         drop_staking_base::msg::strategy::ExecuteMsg::UpdateConfig {
             new_config: drop_staking_base::msg::strategy::ConfigOptional {
                 factory_contract: Some("new_factory_contract".to_string()),
@@ -445,7 +445,7 @@ fn test_update_config() {
     let res = execute(
         deps_mut.into_empty(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         drop_staking_base::msg::strategy::ExecuteMsg::UpdateConfig {
             new_config: drop_staking_base::msg::strategy::ConfigOptional {
                 factory_contract: Some("new_factory_contract".to_string()),
@@ -479,7 +479,7 @@ fn test_transfer_ownership() {
     execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         drop_staking_base::msg::strategy::ExecuteMsg::UpdateOwnership(
             cw_ownable::Action::TransferOwnership {
                 new_owner: "new_owner".to_string(),
@@ -491,7 +491,7 @@ fn test_transfer_ownership() {
     execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("new_owner", &[]),
+        message_info(&Addr::unchecked("new_owner"), &[]),
         drop_staking_base::msg::strategy::ExecuteMsg::UpdateOwnership(
             cw_ownable::Action::AcceptOwnership {},
         ),

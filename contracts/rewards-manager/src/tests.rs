@@ -1,6 +1,6 @@
 use crate::contract::{instantiate, CONTRACT_NAME};
 
-use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+use cosmwasm_std::testing::{message_info, mock_dependencies, mock_env};
 use cosmwasm_std::{
     attr, coins, to_json_binary, Addr, Attribute, Coin, Empty, Event, Response, StdError, Uint128,
 };
@@ -117,7 +117,7 @@ fn test_initialization() {
         owner: OWNER_ADDR.to_string(),
     };
 
-    let info = mock_info(OWNER_ADDR, &[]);
+    let info = message_info(&Addr::unchecked(OWNER_ADDR), &[]);
     let res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
 
     assert_eq!(

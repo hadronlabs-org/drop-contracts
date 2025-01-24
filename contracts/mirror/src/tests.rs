@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     attr, coin,
-    testing::{mock_env, mock_info},
+    testing::{mock_env, message_info},
     to_json_binary, Addr, CosmosMsg, CustomQuery, DepsMut, IbcChannel, IbcEndpoint, IbcOrder,
     Uint128, WasmMsg,
 };
@@ -37,7 +37,7 @@ fn test_instantiate() {
     let response = crate::contract::instantiate(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[]),
+        message_info(&Addr::unchecked("sender"), &[]),
         drop_staking_base::msg::mirror::InstantiateMsg {
             core_contract: "core".to_string(),
             source_port: "source_port".to_string(),
@@ -78,7 +78,7 @@ fn test_instantiate_wo_owner() {
     let response = crate::contract::instantiate(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[]),
+        message_info(&Addr::unchecked("sender"), &[]),
         drop_staking_base::msg::mirror::InstantiateMsg {
             core_contract: "core".to_string(),
             source_port: "source_port".to_string(),
@@ -118,7 +118,7 @@ fn update_config_ibc_timeout_out_of_range() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::UpdateConfig {
             new_config: drop_staking_base::state::mirror::ConfigOptional {
                 core_contract: Some("new_core".to_string()),
@@ -140,7 +140,7 @@ fn update_config_source_channel_not_found() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::UpdateConfig {
             new_config: drop_staking_base::state::mirror::ConfigOptional {
                 core_contract: Some("new_core".to_string()),
@@ -162,21 +162,19 @@ fn update_config() {
     deps.querier.add_ibc_channel_response(
         Some("channel-0".to_string()),
         Some("transfer".to_string()),
-        cosmwasm_std::ChannelResponse {
-            channel: Some(IbcChannel::new(
-                IbcEndpoint {
-                    port_id: "port_id".to_string(),
-                    channel_id: "channel_id".to_string(),
-                },
-                IbcEndpoint {
-                    port_id: "port_id".to_string(),
-                    channel_id: "channel_id".to_string(),
-                },
-                IbcOrder::Unordered,
-                "version".to_string(),
-                "connection_id".to_string(),
-            )),
-        },
+        cosmwasm_std::ChannelResponse::new(Some(IbcChannel::new(
+            IbcEndpoint {
+                port_id: "port_id".to_string(),
+                channel_id: "channel_id".to_string(),
+            },
+            IbcEndpoint {
+                port_id: "port_id".to_string(),
+                channel_id: "channel_id".to_string(),
+            },
+            IbcOrder::Unordered,
+            "version".to_string(),
+            "connection_id".to_string(),
+        )))
     );
     CONFIG
         .save(
@@ -193,7 +191,7 @@ fn update_config() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::UpdateConfig {
             new_config: drop_staking_base::state::mirror::ConfigOptional {
                 core_contract: Some("new_core".to_string()),
@@ -241,7 +239,7 @@ fn bond_wrong_receiver() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[coin(1000, "mytoken")]),
+        message_info(&Addr::unchecked("sender"), &[coin(1000, "mytoken")]),
         drop_staking_base::msg::mirror::ExecuteMsg::Bond {
             receiver: "some".to_string(),
             r#ref: Some("reff".to_string()),
@@ -261,7 +259,7 @@ fn bond_no_funds() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[]),
+        message_info(&Addr::unchecked("sender"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::Bond {
             receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                 .to_string(),
@@ -286,7 +284,7 @@ fn bond() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[coin(1000, "mytoken")]),
+        message_info(&Addr::unchecked("sender"), &[coin(1000, "mytoken")]),
         drop_staking_base::msg::mirror::ExecuteMsg::Bond {
             receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                 .to_string(),
@@ -369,7 +367,7 @@ fn complete_remote() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::Complete { items: vec![1] },
     )
     .unwrap();
@@ -448,7 +446,7 @@ fn complete_local() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::Complete { items: vec![1] },
     )
     .unwrap();
@@ -499,7 +497,7 @@ fn change_return_type() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::ChangeReturnType {
             id: 1,
             return_type: drop_staking_base::state::mirror::ReturnType::Local,
@@ -513,7 +511,7 @@ fn change_return_type() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("backup", &[]),
+        message_info(&Addr::unchecked("backup"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::ChangeReturnType {
             id: 1,
             return_type: drop_staking_base::state::mirror::ReturnType::Local,
@@ -570,7 +568,7 @@ fn update_bond() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[]),
+        message_info(&Addr::unchecked("sender"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::UpdateBond {
             id: 1,
             receiver: "new_receiver".to_string(),
@@ -581,7 +579,7 @@ fn update_bond() {
     assert_eq!(
         response,
         Err(
-            drop_staking_base::error::mirror::ContractError::OwnershipError(
+            ContractError::OwnershipError(
                 cw_ownable::OwnershipError::NotOwner
             )
         )
@@ -590,7 +588,7 @@ fn update_bond() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::UpdateBond {
             id: 1,
             receiver: "new_receiver".to_string(),

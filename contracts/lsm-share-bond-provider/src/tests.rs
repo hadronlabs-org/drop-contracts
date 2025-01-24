@@ -3,10 +3,11 @@ use std::borrow::BorrowMut;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, coins, from_json,
-    testing::{mock_env, mock_info, MockApi},
+    testing::{mock_env, MockApi},
     to_json_binary, Addr, Coin, Decimal, Decimal256, Event, MemoryStorage, OwnedDeps, Response,
     SubMsg, Timestamp, Uint128,
 };
+use cosmwasm_std::testing::message_info;
 use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
 use drop_helpers::{
@@ -159,7 +160,7 @@ fn test_instantiate() {
     let response = crate::contract::instantiate(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[]),
+        message_info(&Addr::unchecked("admin"), &[]),
         drop_staking_base::msg::lsm_share_bond_provider::InstantiateMsg {
             owner: "owner".to_string(),
             factory_contract: "factory_contract".to_string(),
@@ -217,7 +218,7 @@ fn test_update_config_wrong_owner() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core1", &[]),
+        message_info(&Addr::unchecked("core1"), &[]),
         drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 factory_contract: Some(Addr::unchecked("factory_contract_1")),
@@ -258,7 +259,7 @@ fn test_update_config_ok() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        message_info(&Addr::unchecked("core"), &[]),
         drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 factory_contract: Some(Addr::unchecked("factory_contract_1")),
@@ -328,7 +329,7 @@ fn test_update_ownership() {
     crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        message_info(&Addr::unchecked("core"), &[]),
         drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::UpdateOwnership(
             Action::TransferOwnership {
                 new_owner: "new_owner".to_string(),
@@ -368,7 +369,7 @@ fn process_on_idle_not_core_contract() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("not_core_contract", &[]),
+        message_info(&Addr::unchecked("not_core_contract"), &[]),
         drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::ProcessOnIdle {},
     )
     .unwrap_err();
@@ -398,7 +399,7 @@ fn test_process_on_idle_lsm_share_not_ready() {
     let error = crate::contract::execute(
         deps_mut,
         mock_env(),
-        mock_info("core_contract", &[]),
+        message_info(&Addr::unchecked("core_contract"), &[]),
         drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::ProcessOnIdle {},
     )
     .unwrap_err();
@@ -460,7 +461,7 @@ fn test_process_on_idle_supported() {
     let response = crate::contract::execute(
         deps_mut,
         mocked_env.clone(),
-        mock_info("core_contract", &[]),
+        message_info(&Addr::unchecked("core_contract"), &[]),
         drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::ProcessOnIdle {},
     )
     .unwrap();
@@ -527,7 +528,7 @@ fn test_execute_bond() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[Coin::new(100u128, "lsm_denom_1")]),
+        message_info(&Addr::unchecked("core"), &[Coin::new(100u128, "lsm_denom_1")]),
         drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::Bond {},
     )
     .unwrap();
@@ -584,7 +585,7 @@ fn test_execute_bond_wrong_denom() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[Coin::new(100u128, "wrong_denom")]),
+        message_info(&Addr::unchecked("core"), &[Coin::new(100u128, "wrong_denom")]),
         drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::Bond {},
     )
     .unwrap_err();
@@ -607,7 +608,7 @@ fn test_execute_bond_no_funds() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        message_info(&Addr::unchecked("core"), &[]),
         drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::Bond {},
     )
     .unwrap_err();
@@ -633,7 +634,7 @@ fn test_bond_lsm_share_wrong_validator() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[Coin::new(1000u128, "wrong_lsm_share")]),
+        message_info(&Addr::unchecked("core"), &[Coin::new(1000u128, "wrong_lsm_share")]),
         drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::Bond {},
     )
     .unwrap_err();
@@ -664,8 +665,8 @@ fn test_execute_bond_multiple_denoms() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info(
-            "core",
+        message_info(
+            &Addr::unchecked("core"),
             &[
                 Coin::new(100u128, "base_denom"),
                 Coin::new(100u128, "second_denom"),

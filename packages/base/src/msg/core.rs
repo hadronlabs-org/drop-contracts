@@ -139,3 +139,36 @@ pub struct BondHook {
 pub enum BondCallback {
     BondCallback(BondHook),
 }
+
+#[cw_serde]
+pub struct VoucherTrait {
+    pub display_type: Option<String>,
+    pub trait_type: String,
+    pub value: String,
+}
+
+#[cw_serde]
+#[derive(Default)]
+pub struct VoucherMetadata {
+    pub name: String,
+    pub description: Option<String>,
+    pub attributes: Option<Vec<VoucherTrait>>,
+    pub batch_id: String,
+    pub amount: Uint128,
+}
+
+pub type VoucherExtension = Option<VoucherMetadata>;
+
+#[cw_serde]
+pub struct VoucherMintMsg {
+    /// Unique ID of the NFT
+    pub token_id: String,
+    /// The owner of the newly minter NFT
+    pub owner: String,
+    /// Universal resource identifier for this NFT
+    /// Should point to a JSON file that conforms to the ERC721
+    /// Metadata JSON Schema
+    pub token_uri: Option<String>,
+    /// Any custom extension used by this contract
+    pub extension: VoucherExtension,
+}

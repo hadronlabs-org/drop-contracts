@@ -33,11 +33,7 @@ members = [
 ]
 
 [workspace.dependencies]
-cosmwasm-std = { version = "2.1.0", default-features = false, features = [
-    "std",
-    "stargate",
-    "cosmwasm_1_2",
-] }
+cosmwasm-std = { version = "2.1.0", default-features = false, features = ["std", "cosmwasm_1_2", "cosmwasm_2_0"] }
 neutron-sdk = { version = "0.11.0" }
 cosmos-sdk-proto = { version = "0.20.0", default-features = false }
 cw-ownable = { version = "2.1.0", default-features = false }

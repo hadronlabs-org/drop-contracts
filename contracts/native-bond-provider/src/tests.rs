@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     attr, coins, from_json,
-    testing::{mock_env, mock_info},
+    testing::{mock_env, message_info},
     to_json_binary, Addr, BalanceResponse, Coin, CosmosMsg, Decimal, Event, Response, SubMsg,
     Uint128, WasmMsg,
 };
@@ -37,7 +37,7 @@ fn instantiate() {
     let response = crate::contract::instantiate(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[]),
+        message_info(&Addr::unchecked("admin"), &[]),
         drop_staking_base::msg::native_bond_provider::InstantiateMsg {
             owner: "owner".to_string(),
             base_denom: "base_denom".to_string(),
@@ -109,7 +109,7 @@ fn update_config_wrong_owner() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core1", &[]),
+        message_info(&Addr::unchecked("core1"), &[]),
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 base_denom: Some("base_denom".to_string()),
@@ -150,7 +150,7 @@ fn update_config_ok() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        message_info(&Addr::unchecked("core"), &[]),
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 base_denom: Some("base_denom_1".to_string()),
@@ -331,9 +331,7 @@ fn query_can_process_on_idle_false_if_no_funds_to_process() {
 
     deps.querier.add_bank_query_response(
         "cosmos2contract".to_string(),
-        BalanceResponse {
-            amount: Coin::new(0u128, "base_denom".to_string()),
-        },
+        BalanceResponse::new(Coin::new(0u128, "base_denom".to_string()))
     );
 
     let error = crate::contract::query(
@@ -379,9 +377,7 @@ fn query_can_process_on_idle_enough_non_staked_balance() {
 
     deps.querier.add_bank_query_response(
         "cosmos2contract".to_string(),
-        BalanceResponse {
-            amount: Coin::new(0u128, "base_denom".to_string()),
-        },
+        BalanceResponse::new(Coin::new(0u128, "base_denom".to_string()))
     );
 
     let res: bool = from_json(res).unwrap();
@@ -414,9 +410,7 @@ fn query_can_process_on_idle_enough_contract_balance() {
 
     deps.querier.add_bank_query_response(
         "cosmos2contract".to_string(),
-        BalanceResponse {
-            amount: Coin::new(100u128, "base_denom".to_string()),
-        },
+        BalanceResponse::new(Coin::new(100u128, "base_denom".to_string()))
     );
 
     let res: bool = from_json(res).unwrap();
@@ -538,7 +532,7 @@ fn update_ownership() {
     crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        message_info(&Addr::unchecked("core"), &[]),
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::UpdateOwnership(
             Action::TransferOwnership {
                 new_owner: "new_owner".to_string(),
@@ -594,7 +588,7 @@ fn process_on_idle_not_in_idle_state() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core_contract", &[]),
+        message_info(&Addr::unchecked("core_contract"), &[]),
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::ProcessOnIdle {},
     )
     .unwrap_err();
@@ -619,7 +613,7 @@ fn process_on_idle_not_core_contract() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("not_core_contract", &[]),
+        message_info(&Addr::unchecked("not_core_contract"), &[]),
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::ProcessOnIdle {},
     )
     .unwrap_err();
@@ -661,7 +655,7 @@ fn process_on_idle_delegation() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core_contract", &[]),
+        message_info(&Addr::unchecked("core_contract"), &[]),
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::ProcessOnIdle {},
     )
     .unwrap();
@@ -707,9 +701,7 @@ fn process_on_idle_ibc_transfer() {
 
     deps.querier.add_bank_query_response(
         "cosmos2contract".to_string(),
-        BalanceResponse {
-            amount: Coin::new(100u128, "base_denom".to_string()),
-        },
+        BalanceResponse::new(Coin::new(100u128, "base_denom".to_string()))
     );
 
     deps.querier.add_custom_query_response(|_| {
@@ -740,7 +732,7 @@ fn process_on_idle_ibc_transfer() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mocked_env.clone(),
-        mock_info("core_contract", &[]),
+        message_info(&Addr::unchecked("core_contract"), &[]),
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::ProcessOnIdle {},
     )
     .unwrap();
@@ -795,15 +787,13 @@ fn process_on_idle_not_allowed_if_no_funds() {
 
     deps.querier.add_bank_query_response(
         "cosmos2contract".to_string(),
-        BalanceResponse {
-            amount: Coin::new(0u128, "base_denom".to_string()),
-        },
+        BalanceResponse::new(Coin::new(0u128, "base_denom".to_string())),
     );
 
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core_contract", &[]),
+        message_info(&Addr::unchecked("core_contract"), &[]),
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::ProcessOnIdle {},
     )
     .unwrap_err();
@@ -830,7 +820,7 @@ fn execute_bond() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[Coin::new(100u128, "base_denom")]),
+        message_info(&Addr::unchecked("core"), &[Coin::new(100u128, "base_denom")]),
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::Bond {},
     )
     .unwrap();
@@ -856,7 +846,7 @@ fn execute_bond_wrong_denom() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[Coin::new(100u128, "wrong_denom")]),
+        message_info(&Addr::unchecked("core"), &[Coin::new(100u128, "wrong_denom")]),
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::Bond {},
     )
     .unwrap_err();
@@ -878,7 +868,7 @@ fn execute_bond_no_funds() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        message_info(&Addr::unchecked("core"), &[]),
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::Bond {},
     )
     .unwrap_err();
@@ -902,8 +892,8 @@ fn execute_bond_multiple_denoms() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info(
-            "core",
+        message_info(
+            &Addr::unchecked("core"),
             &[
                 Coin::new(100u128, "base_denom"),
                 Coin::new(100u128, "second_denom"),

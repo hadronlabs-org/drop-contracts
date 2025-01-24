@@ -1,7 +1,7 @@
 use crate::contract::{execute, query};
 use cosmwasm_std::{
     from_json,
-    testing::{mock_env, mock_info, MockApi, MockStorage},
+    testing::{mock_env, message_info, MockApi, MockStorage},
     to_json_binary, Addr, Coin, CosmosMsg, Decimal, Decimal256, Event, OwnedDeps, Response, SubMsg,
     Timestamp, Uint128, WasmMsg,
 };
@@ -29,6 +29,7 @@ use drop_staking_base::{
 };
 use neutron_sdk::{bindings::query::NeutronQuery, interchain_queries::v045::types::Balances};
 use std::{collections::HashMap, vec};
+use drop_staking_base::msg::core::VoucherMintMsg;
 
 fn get_default_config(
     idle_min_interval: u64,
@@ -86,7 +87,7 @@ fn test_update_config() {
         });
     mock_state_query(&mut deps);
     let env = mock_env();
-    let info = mock_info("admin", &[]);
+    let info = message_info(&Addr::unchecked("admin"), &[]);
     let mut deps_mut = deps.as_mut();
     crate::contract::instantiate(
         deps_mut.branch(),
@@ -188,7 +189,7 @@ fn test_bond_provider_has_any_tokens() {
     let error = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         ExecuteMsg::RemoveBondProvider {
             bond_provider_address: "bond_provider_address".to_string(),
         },
@@ -215,7 +216,7 @@ fn test_execute_add_bond_provider_max_limit_reached() {
     let res = execute(
         deps_mut,
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         ExecuteMsg::AddBondProvider {
             bond_provider_address: "bond_provider_address".to_string(),
         },
@@ -267,7 +268,7 @@ fn test_update_withdrawn_amount() {
     let withdrawn_res = execute(
         deps.as_mut(),
         mock_env().clone(),
-        mock_info("withdrawal_manager_contract", &[]),
+        message_info(&Addr::unchecked("withdrawal_manager_contract"), &[]),
         ExecuteMsg::UpdateWithdrawnAmount {
             batch_id: 1,
             withdrawn_amount: Uint128::from(1001u128),
@@ -284,7 +285,7 @@ fn test_update_withdrawn_amount() {
     let unbonding_err = execute(
         deps.as_mut(),
         mock_env().clone(),
-        mock_info("withdrawal_manager_contract", &[]),
+        message_info(&Addr::unchecked("withdrawal_manager_contract"), &[]),
         ExecuteMsg::UpdateWithdrawnAmount {
             batch_id: 0,
             withdrawn_amount: Uint128::from(2002u128),
@@ -316,7 +317,7 @@ fn test_add_remove_bond_provider() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[]),
+        message_info(&Addr::unchecked("admin"), &[]),
         ExecuteMsg::AddBondProvider {
             bond_provider_address: "bond_provider".to_string(),
         },
@@ -340,7 +341,7 @@ fn test_add_remove_bond_provider() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[]),
+        message_info(&Addr::unchecked("admin"), &[]),
         ExecuteMsg::RemoveBondProvider {
             bond_provider_address: "bond_provider".to_string(),
         },
@@ -428,7 +429,7 @@ fn test_execute_tick_idle_process_bondig_provider() {
     let res = execute(
         deps.as_mut(),
         env,
-        mock_info("admin", &[]),
+        message_info(&Addr::unchecked("admin"), &[]),
         ExecuteMsg::Tick {},
     )
     .unwrap();
@@ -588,7 +589,7 @@ fn test_tick_idle_claim_wo_unbond() {
     let res = execute(
         deps.as_mut(),
         env,
-        mock_info("admin", &[Coin::new(1000, "untrn")]),
+        message_info(&Addr::unchecked("admin"), &[Coin::new(1000u128, "untrn")]),
         ExecuteMsg::Tick {},
     )
     .unwrap();
@@ -621,7 +622,7 @@ fn test_tick_idle_claim_wo_unbond() {
                     transfer: None,
                     reply_to: "cosmos2contract".to_string() 
                 }).unwrap(),
-                funds: vec![Coin::new(1000, "untrn")],
+                funds: vec![Coin::new(1000u128, "untrn")],
             })))
     );
 }
@@ -758,7 +759,7 @@ fn test_tick_idle_claim_with_unbond_transfer() {
     let res = execute(
         deps.as_mut(),
         env,
-        mock_info("admin", &[Coin::new(1000, "untrn")]),
+        message_info(&Addr::unchecked("admin"), &[Coin::new(1000u128, "untrn")]),
         ExecuteMsg::Tick {},
     )
     .unwrap();
@@ -787,7 +788,7 @@ fn test_tick_idle_claim_with_unbond_transfer() {
                 validators: vec!["valoper_address".to_string()], 
                 transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg{ batch_ids: vec![0u128], emergency: false, amount: Uint128::from(200u128), recipient: "pump_address".to_string() }), 
                 reply_to: "cosmos2contract".to_string()                 
-            }).unwrap(), funds: vec![Coin::new(1000, "untrn")] })))
+            }).unwrap(), funds: vec![Coin::new(1000u128, "untrn")] })))
     );
 }
 
@@ -837,7 +838,7 @@ fn test_tick_no_puppeteer_response() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[Coin::new(1000, "untrn")]),
+        message_info(&Addr::unchecked("admin"), &[Coin::new(1000u128, "untrn")]),
         ExecuteMsg::Tick {},
     );
     assert!(res.is_err());
@@ -939,7 +940,7 @@ fn test_tick_claiming_error_wo_transfer() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[Coin::new(1000, "untrn")]),
+        message_info(&Addr::unchecked("admin"), &[Coin::new(1000u128, "untrn")]),
         ExecuteMsg::Tick {},
     )
     .unwrap();
@@ -1084,7 +1085,7 @@ fn test_tick_claiming_error_with_transfer() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[Coin::new(1000, "untrn")]),
+        message_info(&Addr::unchecked("admin"), &[Coin::new(1000u128, "untrn")]),
         ExecuteMsg::Tick {},
     )
     .unwrap();
@@ -1249,7 +1250,7 @@ fn test_tick_claiming_wo_transfer_unbonding() {
     let res = execute(
         deps.as_mut(),
         env,
-        mock_info("admin", &[Coin::new(1000, "untrn")]),
+        message_info(&Addr::unchecked("admin"), &[Coin::new(1000u128, "untrn")]),
         ExecuteMsg::Tick {},
     )
     .unwrap();
@@ -1426,7 +1427,7 @@ fn test_tick_claiming_wo_idle() {
     let res = execute(
         deps.as_mut(),
         env,
-        mock_info("admin", &[Coin::new(1000, "untrn")]),
+        message_info(&Addr::unchecked("admin"), &[Coin::new(1000u128, "untrn")]),
         ExecuteMsg::Tick {},
     )
     .unwrap();
@@ -1481,7 +1482,7 @@ fn test_execute_tick_guard_balance_outdated() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[Coin::new(1000, "untrn")]),
+        message_info(&Addr::unchecked("admin"), &[Coin::new(1000u128, "untrn")]),
         ExecuteMsg::Tick {},
     );
     assert!(res.is_err());
@@ -1538,7 +1539,7 @@ fn test_execute_tick_guard_delegations_outdated() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[Coin::new(1000, "untrn")]),
+        message_info(&Addr::unchecked("admin"), &[Coin::new(1000u128, "untrn")]),
         ExecuteMsg::Tick {},
     );
     assert!(res.is_err());
@@ -1595,7 +1596,7 @@ fn test_execute_tick_staking_no_puppeteer_response() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[Coin::new(1000, "untrn")]),
+        message_info(&Addr::unchecked("admin"), &[Coin::new(1000u128, "untrn")]),
         ExecuteMsg::Tick {},
     );
     assert!(res.is_err());
@@ -1647,7 +1648,7 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[Coin::new(1000, "untrn")]),
+        message_info(&Addr::unchecked("admin"), &[Coin::new(1000u128, "untrn")]),
         ExecuteMsg::Tick {},
     );
     assert!(res.is_err());
@@ -1694,7 +1695,7 @@ fn test_bond_wo_receiver() {
     let res = execute(
         deps.as_mut(),
         env,
-        mock_info("some", &[Coin::new(1000, "base_denom")]),
+        message_info(&Addr::unchecked("some"), &[Coin::new(1000u128, "base_denom")]),
         ExecuteMsg::Bond {
             receiver: None,
             r#ref: None,
@@ -1716,7 +1717,7 @@ fn test_bond_wo_receiver() {
                 contract_addr: "native_provider_address".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {})
                     .unwrap(),
-                funds: vec![Coin::new(1000, "base_denom")],
+                funds: vec![Coin::new(1000u128, "base_denom")],
             }))
             .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token_contract".to_string(),
@@ -1769,7 +1770,7 @@ fn test_bond_with_receiver() {
     let res = execute(
         deps.as_mut(),
         env,
-        mock_info("some", &[Coin::new(1000, "base_denom")]),
+        message_info(&Addr::unchecked("some"), &[Coin::new(1000u128, "base_denom")]),
         ExecuteMsg::Bond {
             receiver: Some("receiver".to_string()),
             r#ref: Some("ref".to_string()),
@@ -1792,7 +1793,7 @@ fn test_bond_with_receiver() {
                 contract_addr: "native_provider_address".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {})
                     .unwrap(),
-                funds: vec![Coin::new(1000, "base_denom")],
+                funds: vec![Coin::new(1000u128, "base_denom")],
             }))
             .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token_contract".to_string(),
@@ -1859,7 +1860,7 @@ fn test_bond_lsm_share_increase_exchange_rate() {
                         delegations: vec![DropDelegation {
                             delegator: Addr::unchecked("delegator"),
                             validator: "valoper1".to_string(),
-                            amount: Coin::new(1000, "remote_denom".to_string()),
+                            amount: Coin::new(1000u128, "remote_denom".to_string()),
                             share_ratio: Decimal256::one(),
                         }],
                     },
@@ -1878,7 +1879,7 @@ fn test_bond_lsm_share_increase_exchange_rate() {
                         delegations: vec![DropDelegation {
                             delegator: Addr::unchecked("delegator"),
                             validator: "valoper1".to_string(),
-                            amount: Coin::new(1000, "remote_denom".to_string()),
+                            amount: Coin::new(1000u128, "remote_denom".to_string()),
                             share_ratio: Decimal256::one(),
                         }],
                     },
@@ -1945,7 +1946,7 @@ fn test_bond_lsm_share_increase_exchange_rate() {
     let res = execute(
         deps.as_mut(),
         env,
-        mock_info("some", &[Coin::new(100500, "lsm_share")]),
+        message_info(&Addr::unchecked("some"), &[Coin::new(100500u128, "lsm_share")]),
         ExecuteMsg::Bond {
             receiver: None,
             r#ref: None,
@@ -2011,23 +2012,23 @@ fn test_unbond() {
     let res = execute(
         deps.as_mut(),
         env,
-        mock_info("some_sender", &[Coin::new(1000, "ld_denom")]),
+        message_info(&Addr::unchecked("some_sender"), &[Coin::new(1000u128, "ld_denom")]),
         ExecuteMsg::Unbond {},
     )
     .unwrap();
     let unbond_batch = unbond_batches_map().load(deps.as_ref().storage, 0).unwrap();
-    let extension = Some(drop_staking_base::state::withdrawal_voucher::Metadata {
+    let extension = Some(drop_staking_base::msg::core::VoucherMetadata {
         description: Some("Withdrawal voucher".into()),
         name: "LDV voucher".to_string(),
         batch_id: "0".to_string(),
         amount: Uint128::from(1000u128),
         attributes: Some(vec![
-            drop_staking_base::state::withdrawal_voucher::Trait {
+            drop_staking_base::msg::core::VoucherTrait {
                 display_type: None,
                 trait_type: "unbond_batch_id".to_string(),
                 value: "0".to_string(),
             },
-            drop_staking_base::state::withdrawal_voucher::Trait {
+            drop_staking_base::msg::core::VoucherTrait {
                 display_type: None,
                 trait_type: "received_amount".to_string(),
                 value: "1000".to_string(),
@@ -2040,7 +2041,7 @@ fn test_unbond() {
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "withdrawal_voucher_contract".to_string(),
                 msg: to_json_binary(
-                    &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::Mint {
+                    &VoucherMintMsg {
                         token_id: "0_some_sender_1".to_string(),
                         owner: "some_sender".to_string(),
                         token_uri: None,
@@ -2139,7 +2140,7 @@ mod process_emergency_batch {
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("stranger", &[]),
+            message_info(&Addr::unchecked("stranger"), &[]),
             ExecuteMsg::ProcessEmergencyBatch {
                 batch_id: 2,
                 unbonded_amount: Uint128::new(100),
@@ -2158,7 +2159,7 @@ mod process_emergency_batch {
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("owner", &[]),
+            message_info(&Addr::unchecked("owner"), &[]),
             ExecuteMsg::ProcessEmergencyBatch {
                 batch_id: 2,
                 unbonded_amount: Uint128::new(100),
@@ -2174,7 +2175,7 @@ mod process_emergency_batch {
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("owner", &[]),
+            message_info(&Addr::unchecked("owner"), &[]),
             ExecuteMsg::ProcessEmergencyBatch {
                 batch_id: 2,
                 unbonded_amount: Uint128::new(0),
@@ -2190,7 +2191,7 @@ mod process_emergency_batch {
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("owner", &[]),
+            message_info(&Addr::unchecked("owner"), &[]),
             ExecuteMsg::ProcessEmergencyBatch {
                 batch_id: 2,
                 unbonded_amount: Uint128::new(200),
@@ -2207,7 +2208,7 @@ mod process_emergency_batch {
         execute(
             deps.as_mut(),
             shared_mock_env.clone(),
-            mock_info("owner", &[]),
+            message_info(&Addr::unchecked("owner"), &[]),
             ExecuteMsg::ProcessEmergencyBatch {
                 batch_id: 2,
                 unbonded_amount: Uint128::new(100),
@@ -2248,7 +2249,7 @@ mod process_emergency_batch {
         execute(
             deps.as_mut(),
             shared_mock_env.clone(),
-            mock_info("owner", &[]),
+            message_info(&Addr::unchecked("owner"), &[]),
             ExecuteMsg::ProcessEmergencyBatch {
                 batch_id: 2,
                 unbonded_amount: Uint128::new(70),
@@ -2285,7 +2286,7 @@ mod process_emergency_batch {
 
 mod bond_hooks {
     use super::*;
-    use cosmwasm_std::ReplyOn;
+    use cosmwasm_std::{Binary, ReplyOn};
     use drop_helpers::testing::mock_state_query;
     use drop_staking_base::msg::core::{BondCallback, BondHook};
     use neutron_sdk::bindings::msg::NeutronMsg;
@@ -2302,7 +2303,7 @@ mod bond_hooks {
         let error = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("stranger", &[]),
+            message_info(&Addr::unchecked("stranger"), &[]),
             ExecuteMsg::SetBondHooks { hooks: vec![] },
         )
         .unwrap_err();
@@ -2325,7 +2326,7 @@ mod bond_hooks {
         let response = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("owner", &[]),
+            message_info(&Addr::unchecked("owner"), &[]),
             ExecuteMsg::SetBondHooks {
                 hooks: vec![String::from("val_ref")],
             },
@@ -2362,7 +2363,7 @@ mod bond_hooks {
         let response = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("owner", &[]),
+            message_info(&Addr::unchecked("owner"), &[]),
             ExecuteMsg::SetBondHooks {
                 hooks: vec![String::from("validator_set")],
             },
@@ -2399,7 +2400,7 @@ mod bond_hooks {
         let response = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("owner", &[]),
+            message_info(&Addr::unchecked("owner"), &[]),
             ExecuteMsg::SetBondHooks { hooks: vec![] },
         )
         .unwrap();
@@ -2474,7 +2475,7 @@ mod bond_hooks {
         let response = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("user", &[Coin::new(1000, "base_denom")]),
+            message_info(&Addr::unchecked("user"), &[Coin::new(1000u128, "base_denom")]),
             ExecuteMsg::Bond {
                 receiver: None,
                 r#ref: None,
@@ -2490,6 +2491,7 @@ mod bond_hooks {
                 id: 0,
                 gas_limit: None,
                 reply_on: ReplyOn::Never,
+                payload: Binary::default(),
                 msg: CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: String::from("val_ref"),
                     funds: vec![],
@@ -2547,7 +2549,7 @@ mod bond_hooks {
         let response = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("user", &[Coin::new(1000, "base_denom")]),
+            message_info(&Addr::unchecked("user"), &[Coin::new(1000u128, "base_denom")]),
             ExecuteMsg::Bond {
                 receiver: None,
                 r#ref: Some(String::from("valoper")),
@@ -2563,6 +2565,7 @@ mod bond_hooks {
                 id: 0,
                 gas_limit: None,
                 reply_on: ReplyOn::Never,
+                payload: Binary::default(),
                 msg: CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: String::from("val_ref"),
                     funds: vec![],
@@ -2624,7 +2627,7 @@ mod bond_hooks {
         let response = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("user", &[Coin::new(1000, "base_denom")]),
+            message_info(&Addr::unchecked("user"), &[Coin::new(1000u128, "base_denom")]),
             ExecuteMsg::Bond {
                 receiver: None,
                 r#ref: Some(String::from("valoper")),
@@ -2642,6 +2645,7 @@ mod bond_hooks {
                     id: 0,
                     gas_limit: None,
                     reply_on: ReplyOn::Never,
+                    payload: Binary::default(),
                     msg: CosmosMsg::<NeutronMsg>::Wasm(WasmMsg::Execute {
                         contract_addr: String::from(*hook),
                         funds: vec![],
@@ -2693,7 +2697,7 @@ mod pause {
             let error = execute(
                 deps.as_mut(),
                 mock_env(),
-                mock_info("someone", &[]),
+                message_info(&Addr::unchecked("someone"), &[]),
                 ExecuteMsg::Bond {
                     receiver: None,
                     r#ref: None,
@@ -2734,7 +2738,7 @@ mod pause {
             let error = execute(
                 deps.as_mut(),
                 mock_env(),
-                mock_info("someone", &[]),
+                message_info(&Addr::unchecked("someone"), &[]),
                 ExecuteMsg::Unbond {},
             )
             .unwrap_err();
@@ -2772,7 +2776,7 @@ mod pause {
             let error = execute(
                 deps.as_mut(),
                 mock_env(),
-                mock_info("someone", &[]),
+                message_info(&Addr::unchecked("someone"), &[]),
                 ExecuteMsg::Tick {},
             )
             .unwrap_err();

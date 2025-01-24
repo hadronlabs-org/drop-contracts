@@ -1,5 +1,5 @@
 use cosmwasm_schema::write_api;
-use drop_staking_base::msg::withdrawal_voucher::{
+use drop_withdrawal_voucher::msg::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
 

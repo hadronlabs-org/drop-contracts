@@ -4,9 +4,10 @@ use crate::{
 };
 use cosmwasm_std::{
     from_json,
-    testing::{mock_env, mock_info},
+    testing::{mock_env},
     to_json_binary, Addr, Decimal, Event, Order, Response, StdResult, SubMsg, Uint128, WasmMsg,
 };
+use cosmwasm_std::testing::message_info;
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::{
     msg::{
@@ -33,7 +34,7 @@ fn instantiate() {
     let response = contract::instantiate(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         InstantiateMsg {
             owner: String::from("owner"),
             core_address: String::from("core"),
@@ -75,7 +76,7 @@ fn execute_update_ownership() {
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner1", &[]),
+        message_info(&Addr::unchecked("owner1"), &[]),
         ExecuteMsg::UpdateOwnership(cw_ownable::Action::TransferOwnership {
             new_owner: String::from("owner2"),
             expiry: None,
@@ -90,7 +91,7 @@ fn execute_update_ownership() {
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner2", &[]),
+        message_info(&Addr::unchecked("owner2"), &[]),
         ExecuteMsg::UpdateOwnership(cw_ownable::Action::AcceptOwnership),
     )
     .unwrap();
@@ -114,7 +115,7 @@ fn execute_update_config_unauthorized() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("stranger", &[]),
+        message_info(&Addr::unchecked("stranger"), &[]),
         ExecuteMsg::UpdateConfig {
             core_address: String::from("core"),
             validators_set_address: String::from("validators_set"),
@@ -140,7 +141,7 @@ fn execute_update_config() {
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         ExecuteMsg::UpdateConfig {
             core_address: String::from("core"),
             validators_set_address: String::from("validators_set"),
@@ -179,7 +180,7 @@ fn execute_bond_hook_unauthorized() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("stranger", &[]),
+        message_info(&Addr::unchecked("stranger"), &[]),
         ExecuteMsg::BondCallback(get_bond_hook_msg(0, None)),
     )
     .unwrap_err();
@@ -198,7 +199,7 @@ fn execute_bond_hook_no_ref() {
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        message_info(&Addr::unchecked("core"), &[]),
         ExecuteMsg::BondCallback(get_bond_hook_msg(0, None)),
     )
     .unwrap();
@@ -220,7 +221,7 @@ fn execute_bond_hook_unknown_validator() {
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        message_info(&Addr::unchecked("core"), &[]),
         ExecuteMsg::BondCallback(get_bond_hook_msg(0, Some("X"))),
     )
     .unwrap();
@@ -259,7 +260,7 @@ fn execute_bond_hook_known_validator() {
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        message_info(&Addr::unchecked("core"), &[]),
         ExecuteMsg::BondCallback(get_bond_hook_msg(100, Some("X"))),
     )
     .unwrap();
@@ -303,7 +304,7 @@ fn execute_set_refs_unauthorized() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("stranger", &[]),
+        message_info(&Addr::unchecked("stranger"), &[]),
         ExecuteMsg::SetRefs { refs: vec![] },
     )
     .unwrap_err();
@@ -329,7 +330,7 @@ fn execute_set_refs_empty() {
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         ExecuteMsg::SetRefs { refs: vec![] },
     )
     .unwrap();
@@ -363,7 +364,7 @@ fn execute_set_refs_override() {
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         ExecuteMsg::SetRefs {
             refs: vec![
                 Ref {

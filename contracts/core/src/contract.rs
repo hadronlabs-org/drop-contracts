@@ -11,13 +11,12 @@ use drop_staking_base::{
     msg::{
         core::{
             BondCallback, BondHook, ExecuteMsg, FailedBatchResponse, InstantiateMsg,
-            LastPuppeteerResponse, MigrateMsg, QueryMsg,
+            LastPuppeteerResponse, MigrateMsg, QueryMsg, VoucherMintMsg, VoucherMetadata, VoucherTrait,
         },
         token::{
             ConfigResponse as TokenConfigResponse, ExecuteMsg as TokenExecuteMsg,
             QueryMsg as TokenQueryMsg,
         },
-        withdrawal_voucher::ExecuteMsg as VoucherExecuteMsg,
     },
     state::{
         core::{
@@ -28,7 +27,6 @@ use drop_staking_base::{
             UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
-        withdrawal_voucher::{Metadata, Trait},
     },
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
@@ -1144,18 +1142,18 @@ fn execute_unbond(
     unbond_batch.total_dasset_amount_to_withdraw += dasset_amount;
     unbond_batches_map().save(deps.storage, unbond_batch_id, &unbond_batch)?;
 
-    let extension = Some(Metadata {
+    let extension = Some(VoucherMetadata {
         description: Some("Withdrawal voucher".into()),
         name: "LDV voucher".to_string(),
         batch_id: unbond_batch_id.to_string(),
         amount: dasset_amount,
         attributes: Some(vec![
-            Trait {
+            VoucherTrait {
                 display_type: None,
                 trait_type: "unbond_batch_id".to_string(),
                 value: unbond_batch_id.to_string(),
             },
-            Trait {
+            VoucherTrait {
                 display_type: None,
                 trait_type: "received_amount".to_string(),
                 value: dasset_amount.to_string(),
@@ -1166,7 +1164,7 @@ fn execute_unbond(
     let msgs = vec![
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: addrs.withdrawal_voucher_contract,
-            msg: to_json_binary(&VoucherExecuteMsg::Mint {
+            msg: to_json_binary(&VoucherMintMsg {
                 owner: info.sender.to_string(),
                 token_id: unbond_batch_id.to_string()
                     + "_"

@@ -3,7 +3,7 @@ use cosmos_sdk_proto::traits::MessageExt;
 use cosmwasm_schema::schemars;
 use cosmwasm_std::{
     coin, coins, from_json,
-    testing::{mock_env, mock_info},
+    testing::{mock_env},
     to_json_binary, Addr, Binary, CosmosMsg, Decimal256, DepsMut, Event, Response, StdError,
     SubMsg, Timestamp, Uint128, Uint64,
 };
@@ -36,6 +36,7 @@ use prost::Message;
 use schemars::_serde_json::to_string;
 
 use std::vec;
+use cosmwasm_std::testing::message_info;
 
 type PuppeteerBaseType = PuppeteerBase<
     'static,
@@ -92,7 +93,7 @@ fn test_instantiate() {
     };
     let env = mock_env();
     let res =
-        crate::contract::instantiate(deps.as_mut(), env, mock_info("sender", &[]), msg).unwrap();
+        crate::contract::instantiate(deps.as_mut(), env, message_info(&Addr::unchecked("sender"), &[]), msg).unwrap();
     assert_eq!(res, Response::new());
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.as_ref().storage).unwrap();
@@ -126,7 +127,7 @@ fn test_update_config() {
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     let env = mock_env();
     let res =
-        crate::contract::execute(deps.as_mut(), env, mock_info("owner", &[]), msg.clone()).unwrap();
+        crate::contract::execute(deps.as_mut(), env, message_info(&Addr::unchecked("owner"), &[]), msg.clone()).unwrap();
     assert_eq!(
         res,
         Response::new().add_event(
@@ -181,7 +182,7 @@ fn test_execute_setup_protocol() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("not_allowed_sender", &[]),
+        message_info(&Addr::unchecked("not_allowed_sender"), &[]),
         msg.clone(),
     );
     assert_eq!(
@@ -191,7 +192,7 @@ fn test_execute_setup_protocol() {
         ))
     );
     let env = mock_env();
-    let res = crate::contract::execute(deps.as_mut(), env, mock_info("allowed_sender", &[]), msg)
+    let res = crate::contract::execute(deps.as_mut(), env, message_info(&Addr::unchecked("allowed_sender"), &[]), msg)
         .unwrap();
     let distribution_msg = {
         neutron_sdk::bindings::types::ProtobufAny {
@@ -255,7 +256,7 @@ fn test_execute_undelegate() {
     let res = crate::contract::execute(
         deps.as_mut(),
         env,
-        mock_info("not_allowed_sender", &[]),
+        message_info(&Addr::unchecked("not_allowed_sender"), &[]),
         msg.clone(),
     );
     assert_eq!(
@@ -267,7 +268,7 @@ fn test_execute_undelegate() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("allowed_sender", &[]),
+        message_info(&Addr::unchecked("allowed_sender"), &[]),
         msg,
     )
     .unwrap();
@@ -788,6 +789,7 @@ fn test_migrate_wrong_contract() {
 
 mod register_delegations_and_balance_query {
     use cosmwasm_std::{testing::MockApi, MemoryStorage, OwnedDeps, StdResult};
+    use cosmwasm_std::testing::message_info;
     use drop_helpers::testing::WasmMockQuerier;
     use drop_puppeteer_base::error::ContractError;
 
@@ -816,7 +818,7 @@ mod register_delegations_and_balance_query {
         let (mut deps, _puppeteer_base) = setup(None);
         let env = mock_env();
         let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: vec![] } ;
-        let res = crate::contract::execute(deps.as_mut(), env, mock_info("not_owner", &[]), msg);
+        let res = crate::contract::execute(deps.as_mut(), env, message_info(&Addr::unchecked("not_owner"), &[]), msg);
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err(),
@@ -836,7 +838,7 @@ mod register_delegations_and_balance_query {
         let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
             validators
         };
-        let res = crate::contract::execute(deps.as_mut(), env, mock_info("owner", &[]), msg);
+        let res = crate::contract::execute(deps.as_mut(), env, message_info(&Addr::unchecked("owner"), &[]), msg);
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err(),
@@ -869,7 +871,7 @@ mod register_delegations_and_balance_query {
         let res = crate::contract::execute(
             deps.as_mut(),
             env,
-            mock_info("neutron1m9l358xunhhwds0568za49mzhvuxx9ux8xafx2", &[]),
+            message_info(&Addr::unchecked("neutron1m9l358xunhhwds0568za49mzhvuxx9ux8xafx2"), &[]),
             msg,
         )
         .unwrap();
@@ -926,7 +928,7 @@ mod register_delegations_and_balance_query {
         let res = crate::contract::execute(
             deps.as_mut(),
             env,
-            mock_info("neutron1m9l358xunhhwds0568za49mzhvuxx9ux8xafx2", &[]),
+            message_info(&Addr::unchecked("neutron1m9l358xunhhwds0568za49mzhvuxx9ux8xafx2"), &[]),
             msg,
         )
         .unwrap();
