@@ -53,10 +53,10 @@ fn get_default_factory_state() -> State {
         rewards_manager_contract: "rewards_manager_contract".to_string(),
         splitter_contract: "splitter_contract".to_string(),
         native_bond_provider_contract: "native_bond_provider_contract".to_string(),
-        lsm_share_bond_provider_contract: None,
-        val_ref_contract: None,
-        rewards_pump_contract: None,
-        unbonding_pump_contract: None,
+        lsm_share_bond_provider_contract: Some("lsm_share_bond_provider_contract".to_string()),
+        val_ref_contract: Some("val_ref_contract".to_string()),
+        rewards_pump_contract: Some("rewards_pump_contract".to_string()),
+        unbonding_pump_contract: Some("unbonding_pump_contract".to_string()),
     }
 }
 
