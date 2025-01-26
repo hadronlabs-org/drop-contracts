@@ -1,7 +1,7 @@
 use crate::contract::{
     get_contract_config_owner, get_contract_version, validate_contract_metadata,
 };
-use crate::state::{AdditionalContract, PreInstantiatedContracts};
+use crate::state::PreInstantiatedContracts;
 use crate::{
     contract::{execute, instantiate, query},
     msg::{
@@ -52,26 +52,11 @@ fn get_default_factory_state() -> State {
         distribution_contract: "distribution_contract".to_string(),
         rewards_manager_contract: "rewards_manager_contract".to_string(),
         splitter_contract: "splitter_contract".to_string(),
-        bond_providers: vec![
-            AdditionalContract {
-                name: "lsm_share_bond_provider".to_string(),
-                contract_address: "lsm_share_bond_provider_contract".to_string(),
-            },
-            AdditionalContract {
-                name: "native_bond_provider".to_string(),
-                contract_address: "native_bond_provider_contract".to_string(),
-            },
-        ],
-        pumps: vec![
-            AdditionalContract {
-                name: "rewards_pump".to_string(),
-                contract_address: "rewards_pump_contract".to_string(),
-            },
-            AdditionalContract {
-                name: "unbonding_pump".to_string(),
-                contract_address: "unbonding_pump_contract".to_string(),
-            },
-        ],
+        native_bond_provider_contract: "native_bond_provider_contract".to_string(),
+        lsm_share_bond_provider_contract: None,
+        val_ref_contract: None,
+        rewards_pump_contract: None,
+        unbonding_pump_contract: None,
     }
 }
 
@@ -141,27 +126,8 @@ fn test_instantiate() {
             lsm_share_bond_provider_address: None,
             unbonding_pump_address: None,
             rewards_pump_address: None,
+            val_ref_address: None,
         },
-        bond_providers: vec![
-            AdditionalContract {
-                name: "native_bond_provider".to_string(),
-                contract_address: "native_bond_provider_address".to_string(),
-            },
-            AdditionalContract {
-                name: "lsm_share_bond_provider".to_string(),
-                contract_address: "lsm_share_bond_provider_address".to_string(),
-            },
-        ],
-        pumps: vec![
-            AdditionalContract {
-                name: "rewards_pump".to_string(),
-                contract_address: "rewards_pump_address".to_string(),
-            },
-            AdditionalContract {
-                name: "unbonding_pump".to_string(),
-                contract_address: "unbonding_pump_address".to_string(),
-            },
-        ],
         remote_opts: RemoteOpts {
             denom: "denom".to_string(),
             connection_id: "connection-0".to_string(),

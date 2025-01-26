@@ -763,22 +763,21 @@ export interface Pause {
     unbond: boolean;
 }
 export interface State {
-    bond_providers: AdditionalContract[];
     core_contract: string;
     distribution_contract: string;
-    pumps: AdditionalContract[];
+    lsm_share_bond_provider_contract?: string | null;
+    native_bond_provider_contract: string;
     puppeteer_contract: string;
     rewards_manager_contract: string;
+    rewards_pump_contract?: string | null;
     splitter_contract: string;
     strategy_contract: string;
     token_contract: string;
+    unbonding_pump_contract?: string | null;
+    val_ref_contract?: string | null;
     validators_set_contract: string;
     withdrawal_manager_contract: string;
     withdrawal_voucher_contract: string;
-}
-export interface AdditionalContract {
-    contract_address: string;
-    name: string;
 }
 export interface ConfigOptional {
     base_denom?: string | null;
@@ -1178,13 +1177,11 @@ export interface WeightedVoteOption {
 }
 export interface InstantiateMsg {
     base_denom: string;
-    bond_providers: AdditionalContract[];
     code_ids: CodeIds;
     core_params: CoreParams;
     fee_params?: FeeParams | null;
     local_denom: string;
     pre_instantiated_contracts: PreInstantiatedContracts;
-    pumps: AdditionalContract[];
     remote_opts: RemoteOpts;
     salt: string;
     subdenom: string;
@@ -1219,6 +1216,7 @@ export interface PreInstantiatedContracts {
     puppeteer_address: Addr;
     rewards_pump_address?: Addr | null;
     unbonding_pump_address?: Addr | null;
+    val_ref_address?: Addr | null;
 }
 export interface RemoteOpts {
     connection_id: string;

@@ -6,7 +6,6 @@ use cw_storage_plus::Item;
 pub struct CodeIds {
     pub token_code_id: u64,
     pub core_code_id: u64,
-    // pub puppeteer_code_id: u64,
     pub withdrawal_voucher_code_id: u64,
     pub withdrawal_manager_code_id: u64,
     pub strategy_code_id: u64,
@@ -14,14 +13,13 @@ pub struct CodeIds {
     pub distribution_code_id: u64,
     pub rewards_manager_code_id: u64,
     pub splitter_code_id: u64,
-    // pub rewards_pump_code_id: u64,
-    // pub native_bond_provider_code_id: u64,
 }
 
 #[cw_serde]
 pub struct PreInstantiatedContracts {
     pub native_bond_provider_address: Addr,
     pub puppeteer_address: Addr,
+    pub val_ref_address: Option<Addr>,
     pub lsm_share_bond_provider_address: Option<Addr>,
     pub unbonding_pump_address: Option<Addr>,
     pub rewards_pump_address: Option<Addr>,
@@ -58,14 +56,11 @@ pub struct State {
     pub distribution_contract: String,
     pub rewards_manager_contract: String,
     pub splitter_contract: String,
-    pub bond_providers: Vec<AdditionalContract>,
-    pub pumps: Vec<AdditionalContract>,
-}
-
-#[cw_serde]
-pub struct AdditionalContract {
-    pub name: String,
-    pub contract_address: String,
+    pub native_bond_provider_contract: String,
+    pub lsm_share_bond_provider_contract: Option<String>,
+    pub val_ref_contract: Option<String>,
+    pub rewards_pump_contract: Option<String>,
+    pub unbonding_pump_contract: Option<String>,
 }
 
 #[cw_serde]
@@ -76,11 +71,3 @@ pub struct PauseInfoResponse {
 }
 
 pub const STATE: Item<State> = Item::new("state");
-
-// #[cw_serde]
-// pub enum FactoryType {
-//     Native {},
-//     Remote {},
-// }
-
-// pub const FACTORY_TYPE: Item<FactoryType> = Item::new("factory_type");

@@ -145,8 +145,23 @@ pub fn instantiate(
         distribution_contract: distribution_contract.to_string(),
         rewards_manager_contract: rewards_manager_contract.to_string(),
         splitter_contract: splitter_contract.to_string(),
-        bond_providers: msg.bond_providers,
-        pumps: msg.pumps,
+        native_bond_provider_contract: native_bond_provider_contract.to_string(),
+        lsm_share_bond_provider_contract: msg
+            .pre_instantiated_contracts
+            .lsm_share_bond_provider_address
+            .map(|a| a.to_string()),
+        val_ref_contract: msg
+            .pre_instantiated_contracts
+            .val_ref_address
+            .map(|a| a.to_string()),
+        rewards_pump_contract: msg
+            .pre_instantiated_contracts
+            .rewards_pump_address
+            .map(|a| a.to_string()),
+        unbonding_pump_contract: msg
+            .pre_instantiated_contracts
+            .unbonding_pump_address
+            .map(|a| a.to_string()),
     };
     STATE.save(deps.storage, &state)?;
 

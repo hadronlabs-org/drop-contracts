@@ -62,64 +62,36 @@ main() {
   echo "Strategy address: $strategy_contract_address"
   validators_set_contract_address=$(get_contract_address $validators_set_code_id $factory_contract_address $SALT)
   echo "Validators set address: $validators_set_contract_address"
-  lsm_share_bond_provider_contract_address=$(get_contract_address $lsm_share_bond_provider_code_id $deploy_wallet $SALT)
-  echo "LSM share bond provider address: $lsm_share_bond_provider_contract_address"
   withdrawal_manager_contract_address=$(get_contract_address $withdrawal_manager_code_id $factory_contract_address $SALT)
   echo "Withdrawal manager address: $withdrawal_manager_contract_address"
   splitter_contract_address=$(get_contract_address $splitter_code_id $factory_contract_address $SALT)
   echo "Splitter address: $splitter_contract_address"
-  
 
-  uatom_on_neutron_denom="ibc/$(printf 'transfer/%s/%s' "$NEUTRON_SIDE_TRANSFER_CHANNEL_ID" "$TARGET_BASE_DENOM" \
-    | sha256sum - | awk '{print $1}' | tr '[:lower:]' '[:upper:]')"
-  echo "[OK] IBC denom of $TARGET_BASE_DENOM on Neutron is $uatom_on_neutron_denom"
+  native_sync_bond_provider_contract_address=$(deploy_native_sync_bond_provider "$factory_contract_address" "$core_contract_address" "$puppeteer_contract_address" "$strategy_contract_address")
+  echo "[OK] Native sync bond provider address: $native_sync_bond_provider_contract_address"
 
-  native_bond_provider_contract_address=$(deploy_native_bond_provider "$factory_contract_address" "$core_contract_address" "$puppeteer_contract_address" "$strategy_contract_address")
-  echo "[OK] Native bond provider address: $native_bond_provider_contract_address"
-
-  deployed_lsm_share_bond_provider_contract_address=$(deploy_lsm_share_bond_provider "$factory_contract_address" "$core_contract_address" "$puppeteer_contract_address" "$validators_set_contract_address")
-  echo "[OK] Deployed lsm share bond provider address: $deployed_lsm_share_bond_provider_contract_address"
 
   allowed_senders='[
-    "'"$lsm_share_bond_provider_contract_address"'",
-    "'"$native_bond_provider_contract_address"'",
+    "'"$native_sync_bond_provider_contract_address"'",
     "'"$core_contract_address"'",
     "'"$factory_contract_address"'"
   ]'
-  deployed_puppeteer_contract_address=$(deploy_puppeteer "$factory_contract_address" "$native_bond_provider_contract_address" "$allowed_senders")
+  deployed_puppeteer_contract_address=$(deploy_puppeteer "$factory_contract_address" "$native_sync_bond_provider_contract_address" "$allowed_senders")
   echo "[OK] Deployed puppeteer address: $deployed_puppeteer_contract_address"
 
-  unbonding_pump_contract_address=$(deploy_pump "drop-unbonding-pump" "$factory_contract_address" "$withdrawal_manager_contract_address")
-  echo "[OK] Deployed unbonding pump address: $unbonding_pump_contract_address"
-
-  rewards_pump_contract_address=$(deploy_pump "drop-rewards-pump" "$factory_contract_address" "$splitter_contract_address")
-  echo "[OK] Deployed rewards pump address: $rewards_pump_contract_address"
   
   pre_instantiated_contracts='{
-    "native_bond_provider_address":"'"$native_bond_provider_contract_address"'",
+    "native_bond_provider_address":"'"$native_sync_bond_provider_contract_address"'",
     "puppeteer_address":"'"$puppeteer_contract_address"'",
-    "lsm_share_bond_provider_address":"'"$lsm_share_bond_provider_contract_address"'",
-    "unbonding_pump_address":"'"$unbonding_pump_contract_address"'",
-    "rewards_pump_address":"'"$rewards_pump_contract_address"'"
   }'
   
   deploy_factory "$pre_instantiated_contracts"
 
   top_up_address "$puppeteer_contract_address"
-  
-  register_ica "rewards_pump" "$rewards_pump_contract_address"
-  print_hermes_command $rewards_pump_ica_port $rewards_pump_ica_channel
-  wait_ica_address "rewards_pump" $unbonding_pump_contract_address
-  rewards_pump_counterparty_channel_id=$(get_counterparty_channel_id $rewards_pump_ica_port $rewards_pump_ica_channel)
-
-  register_ica "puppeteer" "$puppeteer_contract_address"
-  print_hermes_command $puppeteer_ica_port $puppeteer_ica_channel
-  wait_ica_address "puppeteer" $puppeteer_contract_address
-  puppeteer_counterparty_channel_id=$(get_counterparty_channel_id $puppeteer_ica_port $puppeteer_ica_channel)
 
   update_msg='{
     "add_bond_provider":{
-      "bond_provider_address": "'"$native_bond_provider_contract_address"'"
+      "bond_provider_address": "'"$native_sync_bond_provider_contract_address"'"
     }
   }'
 
@@ -134,26 +106,7 @@ main() {
   }'
 
   factory_admin_execute "$factory_address" "$msg" 250000untrn
-  echo "[OK] Add Native bond provider to the Core contract"
-
-  update_msg='{
-    "add_bond_provider":{
-      "bond_provider_address": "'"$lsm_share_bond_provider_contract_address"'"
-    }
-  }'
-
-  msg='{
-    "wasm":{
-      "execute":{
-        "contract_addr":"'"$core_address"'",
-        "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64 | tr -d "\n")"'",
-        "funds": []
-      }
-    }
-  }'
-
-  factory_admin_execute "$factory_address" "$msg" 250000untrn
-  echo "[OK] Add LSM share bond provider to the Core contract"
+  echo "[OK] Add Native sync bond provider to the Core contract"
 
 
   REWARDS_ADDRESS=${REWARDS_ADDRESS:-$rewards_pump_ica_address}
@@ -192,11 +145,6 @@ main() {
   factory_proxy_execute "$factory_address" "$msg" 3000000untrn
   echo "[OK] Add initial validators to factory"
 
-  register_ica "pump" "$unbonding_pump_contract_address"
-  print_hermes_command $pump_ica_port $pump_ica_channel
-  wait_ica_address "pump" $unbonding_pump_contract_address
-  pump_counterparty_channel_id=$(get_counterparty_channel_id $pump_ica_port $pump_ica_channel)
-
   msg='{
     "update_config":{
       "core":{
@@ -210,24 +158,6 @@ main() {
   echo
   echo   "CONTRACTS INSTANTIATION SUCCEDED"
   echo
-  printf 'export FACTORY_ADDRESS="%s"\n' "$factory_address"
-  printf 'export IBC_DENOM="%s"\n' "$uatom_on_neutron_denom"
-  echo
-  echo   "[[chains]]"
-  printf 'id = "%s"\n' "NEUTRON_CHAIN_ID"
-  echo   "[chains.packet_filter]"
-  echo   "list = ["
-  echo   "  ['$puppeteer_ica_port', '$puppeteer_ica_channel'],"
-  echo   "  ['$pump_ica_port', '$pump_ica_channel'],"
-  echo   "]"
-  echo
-  echo   "[[chains]]"
-  printf 'id = "%s"\n' "$TARGET_CHAIN_ID"
-  echo   "[chains.packet_filter]"
-  echo   "list = ["
-  echo   "  ['icahost', '$puppeteer_counterparty_channel_id'],"
-  echo   "  ['icahost', '$pump_counterparty_channel_id'],"
-  echo   "]"
   
 }
 

@@ -807,28 +807,6 @@ describe('Core', () => {
           rewards_pump_address:
             context.rewardsPumpContractClient.contractAddress,
         },
-        bond_providers: [
-          {
-            name: 'native_bond_provider',
-            contract_address:
-              context.nativeBondProviderContractClient.contractAddress,
-          },
-          {
-            name: 'lsm_share_bond_provider',
-            contract_address:
-              context.predefinedContractAddresses.lsmShareBondProviderAddress,
-          },
-        ],
-        pumps: [
-          {
-            name: 'unbonding_pump',
-            contract_address: context.pumpContractClient.contractAddress,
-          },
-          {
-            name: 'rewards_pump',
-            contract_address: context.rewardsPumpContractClient.contractAddress,
-          },
-        ],
         remote_opts: {
           connection_id: 'connection-0',
           transfer_channel_id: 'channel-0',

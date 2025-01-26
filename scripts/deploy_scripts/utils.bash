@@ -141,8 +141,6 @@ pre_deploy_check_code_ids() {
 # shellcheck disable=SC2154
 deploy_factory() {
   local pre_instantiated_contracts="$1"
-  local bond_providers="$2"
-  local pumps="$3"
 
   # TODO: calculate unbond batch switch time and unbonding period using params queried from the network
   msg='{
@@ -159,8 +157,6 @@ deploy_factory() {
       "splitter_code_id": '"$splitter_code_id"'
     },
     "pre_instantiated_contracts": '"$pre_instantiated_contracts"',
-    "bond_providers": '"$bond_providers"',
-    "pumps": '"$pumps"',
     "remote_opts":{
       "connection_id":"'"$neutron_side_connection_id"'",
       "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
@@ -189,8 +185,6 @@ deploy_factory() {
       "icq_update_delay": '$CORE_PARAMS_ICQ_UPDATE_DELAY'
     }
   }'
-
-  echo "$msg"
 
   local salt_hex="$(echo -n "$SALT" | xxd -p)"
 
@@ -340,6 +334,37 @@ deploy_native_bond_provider() {
     --label "drop-native-bond-provider" --admin "$factory_address" --from "$DEPLOY_WALLET" "${ntx[@]}" \
       | wait_ntx | jq -r "$(select_attr "instantiate" "_contract_address")")"
   echo "$native_bond_provider_address"
+}
+
+deploy_native_sync_bond_provider() {
+  local factory_address="$1"
+  local core_contract="$2"
+  local puppeteer_address="$3"
+  local strategy_address="$4"
+
+  echo "deploy_native_sync_bond_provider is not implemented"
+  exit 1
+
+
+  msg='{
+    "owner":"'"$factory_address"'",
+    "base_denom":"'"$uatom_on_neutron_denom"'",
+    "puppeteer_contract":"'"$puppeteer_address"'",
+    "core_contract":"'"$core_contract"'",
+    "strategy_contract":"'"$strategy_address"'",
+    "min_stake_amount":"'"$STAKER_PARAMS_MIN_STAKE_AMOUNT"'",
+    "min_ibc_transfer":"'"$STAKER_PARAMS_MIN_IBC_TRANSFER"'",
+    "port_id":"'"$NEUTRON_SIDE_PORT_ID"'",
+    "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
+    "timeout":'$TIMEOUT_LOCAL'
+  }'
+
+  # native bond provider code ID is assigned using dynamic variable name, shellcheck's mind cannot comprehend that
+  # shellcheck disable=SC2154
+  native_sync_bond_provider_address="$(neutrond tx wasm instantiate "$native_bond_provider_code_id" "$msg"                \
+    --label "drop-native-sync-bond-provider" --admin "$factory_address" --from "$DEPLOY_WALLET" "${ntx[@]}" \
+      | wait_ntx | jq -r "$(select_attr "instantiate" "_contract_address")")"
+  echo "$native_sync_bond_provider_address"
 }
 
 deploy_lsm_share_bond_provider() {

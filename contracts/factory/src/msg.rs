@@ -1,4 +1,4 @@
-use crate::state::{AdditionalContract, CodeIds, PreInstantiatedContracts, RemoteOpts};
+use crate::state::{CodeIds, PreInstantiatedContracts, RemoteOpts};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{CosmosMsg, Decimal, Uint128};
 use cw_ownable::cw_ownable_execute;
@@ -10,8 +10,6 @@ use neutron_sdk::bindings::msg::NeutronMsg;
 pub struct InstantiateMsg {
     pub code_ids: CodeIds,
     pub pre_instantiated_contracts: PreInstantiatedContracts,
-    pub bond_providers: Vec<AdditionalContract>,
-    pub pumps: Vec<AdditionalContract>,
     pub remote_opts: RemoteOpts,
     pub salt: String,
     pub subdenom: String,
@@ -20,7 +18,6 @@ pub struct InstantiateMsg {
     pub local_denom: String,
     pub core_params: CoreParams,
     pub fee_params: Option<FeeParams>,
-    // pub factory: Factory,
 }
 
 // #[cw_serde]
