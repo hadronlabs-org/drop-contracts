@@ -109,10 +109,9 @@ main() {
   echo "[OK] Add Native sync bond provider to the Core contract"
 
 
-  REWARDS_ADDRESS=${REWARDS_ADDRESS:-$rewards_pump_ica_address}
   update_msg='{
    "setup_protocol": {
-      "rewards_withdraw_address": "'"$REWARDS_ADDRESS"'"
+      "rewards_withdraw_address": "'"$splitter_contract_address"'"
     }
   }'
 
@@ -148,12 +147,12 @@ main() {
   msg='{
     "update_config":{
       "core":{
-        "pump_ica_address":"'"$pump_ica_address"'"
+        "pump_ica_address":"'"$withdrawal_manager_contract_address"'"
       }
     }
   }'
   neutrond tx wasm execute "$factory_address" "$msg" --from "$DEPLOY_WALLET" "${ntx[@]}" | wait_ntx | assert_success
-  echo "[OK] Add pump ICA address to Core config"
+  echo "[OK] Add Withdrawal manager address to Core config"
 
   echo
   echo   "CONTRACTS INSTANTIATION SUCCEDED"
