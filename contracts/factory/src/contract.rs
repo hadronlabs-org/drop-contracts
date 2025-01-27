@@ -10,7 +10,8 @@ use drop_helpers::phonebook::{
     CORE_CONTRACT, DISTRIBUTION_CONTRACT, LSM_SHARE_BOND_PROVIDER_CONTRACT,
     NATIVE_BOND_PROVIDER_CONTRACT, PUPPETEER_CONTRACT, REWARDS_MANAGER_CONTRACT,
     REWARDS_PUMP_CONTRACT, SPLITTER_CONTRACT, STRATEGY_CONTRACT, TOKEN_CONTRACT,
-    VALIDATORS_SET_CONTRACT, WITHDRAWAL_MANAGER_CONTRACT, WITHDRAWAL_VOUCHER_CONTRACT,
+    UNBONDING_PUMP_CONTRACT, VALIDATORS_SET_CONTRACT, WITHDRAWAL_MANAGER_CONTRACT,
+    WITHDRAWAL_VOUCHER_CONTRACT,
 };
 use drop_staking_base::error::factory::ContractError;
 use drop_staking_base::msg::factory::{
@@ -185,6 +186,17 @@ pub fn instantiate(
     if let Some(rewards_pump_address) = &msg.pre_instantiated_contracts.rewards_pump_address.clone()
     {
         STATE.save(deps.storage, REWARDS_PUMP_CONTRACT, &rewards_pump_address)?;
+    }
+    if let Some(undonding_pump_address) = &msg
+        .pre_instantiated_contracts
+        .unbonding_pump_address
+        .clone()
+    {
+        STATE.save(
+            deps.storage,
+            UNBONDING_PUMP_CONTRACT,
+            &undonding_pump_address,
+        )?;
     }
 
     let msgs = vec![
