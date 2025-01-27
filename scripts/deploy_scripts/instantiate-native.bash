@@ -52,19 +52,19 @@ main() {
   pre_deploy_check_code_ids
   pre_deploy_check_balance
   pre_deploy_check_ibc_connection
-  factory_contract_address=$(get_contract_address $factory_code_id $deploy_wallet $SALT)
+  factory_contract_address=$(get_contract_address "$factory_code_id" "$deploy_wallet" "$SALT")
   echo "Factory address: $factory_contract_address"
-  core_contract_address=$(get_contract_address $core_code_id $factory_contract_address $SALT)
+  core_contract_address=$(get_contract_address "$core_code_id" "$factory_contract_address" "$SALT")
   echo "Core address: $core_contract_address"
-  puppeteer_contract_address=$(get_contract_address $puppeteer_code_id $deploy_wallet $SALT)
+  puppeteer_contract_address=$(get_contract_address "$puppeteer_code_id" "$deploy_wallet" "$SALT")
   echo "Puppeteer address: $puppeteer_contract_address"
-  strategy_contract_address=$(get_contract_address $strategy_code_id $factory_contract_address $SALT)
+  strategy_contract_address=$(get_contract_address "$strategy_code_id" "$factory_contract_address" "$SALT")
   echo "Strategy address: $strategy_contract_address"
-  validators_set_contract_address=$(get_contract_address $validators_set_code_id $factory_contract_address $SALT)
+  validators_set_contract_address=$(get_contract_address "$validators_set_code_id" "$factory_contract_address" "$SALT")
   echo "Validators set address: $validators_set_contract_address"
-  withdrawal_manager_contract_address=$(get_contract_address $withdrawal_manager_code_id $factory_contract_address $SALT)
+  withdrawal_manager_contract_address=$(get_contract_address "$withdrawal_manager_code_id" "$factory_contract_address" "$SALT")
   echo "Withdrawal manager address: $withdrawal_manager_contract_address"
-  splitter_contract_address=$(get_contract_address $splitter_code_id $factory_contract_address $SALT)
+  splitter_contract_address=$(get_contract_address "$splitter_code_id" "$factory_contract_address" "$SALT")
   echo "Splitter address: $splitter_contract_address"
 
   native_sync_bond_provider_contract_address=$(deploy_native_sync_bond_provider "$factory_contract_address" "$core_contract_address" "$puppeteer_contract_address" "$strategy_contract_address")
