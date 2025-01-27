@@ -31,9 +31,8 @@ use drop_staking_base::{
     },
 };
 use neutron_sdk::{bindings::query::NeutronQuery, interchain_queries::v045::types::Balances};
-use std::vec;
-
 use std::collections::HashMap;
+use std::vec;
 
 fn get_default_config(
     idle_min_interval: u64,
