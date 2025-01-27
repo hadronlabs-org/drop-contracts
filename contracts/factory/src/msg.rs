@@ -20,33 +20,6 @@ pub struct InstantiateMsg {
     pub fee_params: Option<FeeParams>,
 }
 
-// #[cw_serde]
-// pub enum Factory {
-//     Native {
-//         distribution_module_contract: String,
-//     },
-//     Remote {
-//         sdk_version: String,
-//         code_ids: RemoteCodeIds,
-//         lsm_share_bond_params: LsmShareBondParams,
-//         icq_update_period: u64,
-//         transfer_channel_id: String,
-//         reverse_transfer_channel_id: String,
-//         min_stake_amount: Uint128,
-//         min_ibc_transfer: Uint128,
-//         port_id: String,
-//     },
-// }
-
-// impl Factory {
-//     pub fn to_factory_type(&self) -> FactoryType {
-//         match self {
-//             Factory::Native { .. } => FactoryType::Native {},
-//             Factory::Remote { .. } => FactoryType::Remote {},
-//         }
-//     }
-// }
-
 #[cw_serde]
 pub struct FeeParams {
     pub fee: Decimal, // 0 - 1
