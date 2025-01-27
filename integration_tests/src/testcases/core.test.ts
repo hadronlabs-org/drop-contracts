@@ -456,11 +456,6 @@ describe('Core', () => {
         instantiateRes.contractAddress,
       );
 
-      console.log(
-        'Rewards Pump Contract Address: ',
-        instantiateRes.contractAddress,
-      );
-
       instantiateRes = await DropPump.Client.instantiate(
         context.client,
         context.account.address,
@@ -487,11 +482,6 @@ describe('Core', () => {
 
       context.pumpContractClient = new DropPump.Client(
         context.client,
-        instantiateRes.contractAddress,
-      );
-
-      console.log(
-        'Unbonding Pump Contract Address: ',
         instantiateRes.contractAddress,
       );
     }
@@ -695,11 +685,6 @@ describe('Core', () => {
           instantiateRes.contractAddress,
         );
 
-      console.log(
-        'LSM Share Bond Provider Contract Address: ',
-        instantiateRes.contractAddress,
-      );
-
       instantiateRes = await DropNativeBondProvider.Client.instantiate(
         context.client,
         context.account.address,
@@ -729,11 +714,6 @@ describe('Core', () => {
           context.client,
           instantiateRes.contractAddress,
         );
-
-      console.log(
-        'Native Bond Provider Contract Address: ',
-        instantiateRes.contractAddress,
-      );
 
       instantiateRes = await DropPuppeteer.Client.instantiate2(
         context.client,
@@ -768,15 +748,7 @@ describe('Core', () => {
         context.client,
         instantiateRes.contractAddress,
       );
-
-      console.log(
-        'Puppeteer Contract Address: ',
-        instantiateRes.contractAddress,
-      );
     }
-
-    console.log('predefined contracts');
-    console.log(context.predefinedContractAddresses);
 
     const instantiateRes = await DropFactory.Client.instantiate2(
       client,
@@ -846,8 +818,6 @@ describe('Core', () => {
       client,
       instantiateRes.contractAddress,
     );
-
-    console.log('Factory Contract Address: ', instantiateRes.contractAddress);
   });
 
   it('query factory state', async () => {

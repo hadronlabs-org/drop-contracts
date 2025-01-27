@@ -438,11 +438,6 @@ describe('Core Slashing', () => {
         instantiateRes.contractAddress,
       );
 
-      console.log(
-        'Rewards Pump Contract Address: ',
-        instantiateRes.contractAddress,
-      );
-
       instantiateRes = await DropPump.Client.instantiate(
         context.client,
         context.account.address,
@@ -469,11 +464,6 @@ describe('Core Slashing', () => {
 
       context.pumpContractClient = new DropPump.Client(
         context.client,
-        instantiateRes.contractAddress,
-      );
-
-      console.log(
-        'Unbonding Pump Contract Address: ',
         instantiateRes.contractAddress,
       );
     }
@@ -654,11 +644,6 @@ describe('Core Slashing', () => {
           instantiateRes.contractAddress,
         );
 
-      console.log(
-        'Native Bond Provider Contract Address: ',
-        instantiateRes.contractAddress,
-      );
-
       instantiateRes = await DropPuppeteer.Client.instantiate2(
         context.client,
         account.address,
@@ -691,15 +676,7 @@ describe('Core Slashing', () => {
         context.client,
         instantiateRes.contractAddress,
       );
-
-      console.log(
-        'Puppeteer Contract Address: ',
-        instantiateRes.contractAddress,
-      );
     }
-
-    console.log('predefined contracts');
-    console.log(context.predefinedContractAddresses);
 
     const instantiateRes = await DropFactory.Client.instantiate2(
       client,
@@ -767,8 +744,6 @@ describe('Core Slashing', () => {
       client,
       instantiateRes.contractAddress,
     );
-
-    console.log('Factory Contract Address: ', instantiateRes.contractAddress);
   });
 
   it('query factory state', async () => {
@@ -1124,10 +1099,6 @@ describe('Core Slashing', () => {
         coreContractClient,
         puppeteerContractClient,
       );
-
-      const test1 = await context.coreContractClient.queryBondProviders();
-      console.log('bond providers');
-      console.log(test1);
 
       await context.coreContractClient.tick(
         neutronUserAddress,

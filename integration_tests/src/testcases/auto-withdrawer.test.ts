@@ -436,11 +436,6 @@ describe('Auto withdrawer', () => {
         instantiateRes.contractAddress,
       );
 
-      console.log(
-        'Rewards Pump Contract Address: ',
-        instantiateRes.contractAddress,
-      );
-
       instantiateRes = await DropPump.Client.instantiate(
         context.client,
         context.account.address,
@@ -467,11 +462,6 @@ describe('Auto withdrawer', () => {
 
       context.pumpContractClient = new DropPump.Client(
         context.client,
-        instantiateRes.contractAddress,
-      );
-
-      console.log(
-        'Unbonding Pump Contract Address: ',
         instantiateRes.contractAddress,
       );
     }
@@ -626,11 +616,6 @@ describe('Auto withdrawer', () => {
           instantiateRes.contractAddress,
         );
 
-      console.log(
-        'Native Bond Provider Contract Address: ',
-        instantiateRes.contractAddress,
-      );
-
       instantiateRes = await DropPuppeteer.Client.instantiate2(
         context.client,
         account.address,
@@ -663,15 +648,7 @@ describe('Auto withdrawer', () => {
         context.client,
         instantiateRes.contractAddress,
       );
-
-      console.log(
-        'Puppeteer Contract Address: ',
-        instantiateRes.contractAddress,
-      );
     }
-
-    console.log('predefined contracts');
-    console.log(context.predefinedContractAddresses);
 
     const instantiateRes = await DropFactory.Client.instantiate2(
       client,
@@ -739,8 +716,6 @@ describe('Auto withdrawer', () => {
       client,
       instantiateRes.contractAddress,
     );
-
-    console.log('Factory Contract Address: ', instantiateRes.contractAddress);
   });
 
   it('query factory state', async () => {
