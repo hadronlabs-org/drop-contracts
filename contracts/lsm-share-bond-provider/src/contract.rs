@@ -1,12 +1,13 @@
 use cosmwasm_schema::serde::Serialize;
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, to_json_binary, Addr, Attribute, Coin, CosmosMsg, CustomQuery,
-    Decimal, Decimal256, Deps, Empty, Reply, StdError, StdResult, SubMsg, SubMsgResult, Uint128,
-    Uint256, WasmMsg,
+    attr, ensure, ensure_eq, to_json_binary, Attribute, Coin, CosmosMsg, CustomQuery, Decimal,
+    Decimal256, Deps, Empty, Reply, StdError, StdResult, SubMsg, SubMsgResult, Uint128, Uint256,
+    WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::{attr_coin, response};
+use drop_helpers::get_contracts;
 use drop_helpers::ibc_client_state::query_client_state;
 use drop_helpers::ibc_fee::query_ibc_fee;
 use drop_puppeteer_base::peripheral_hook::{
@@ -45,13 +46,9 @@ pub fn instantiate(
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(msg.owner.as_ref()))?;
 
-    let puppeteer_contract = deps.api.addr_validate(&msg.puppeteer_contract)?;
-    let core_contract = deps.api.addr_validate(&msg.core_contract)?;
-    let validators_set_contract = deps.api.addr_validate(&msg.validators_set_contract)?;
+    let factory_contract = deps.api.addr_validate(&msg.factory_contract)?;
     let config = &Config {
-        puppeteer_contract: puppeteer_contract.clone(),
-        core_contract: core_contract.clone(),
-        validators_set_contract: validators_set_contract.clone(),
+        factory_contract: factory_contract.clone(),
         port_id: msg.port_id.to_string(),
         transfer_channel_id: msg.transfer_channel_id.to_string(),
         timeout: msg.timeout,
@@ -69,9 +66,7 @@ pub fn instantiate(
         "instantiate",
         CONTRACT_NAME,
         [
-            attr("puppeteer_contract", puppeteer_contract),
-            attr("core_contract", core_contract),
-            attr("validators_set_contract", validators_set_contract),
+            attr("factory_contract", factory_contract),
             attr("port_id", msg.port_id),
             attr("transfer_channel_id", msg.transfer_channel_id),
             attr("timeout", msg.timeout.to_string()),
@@ -104,14 +99,28 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
             response: LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?,
         })
         .map_err(From::from),
-        QueryMsg::TxState {} => query_tx_state(deps, env),
+        QueryMsg::TxState {} => query_tx_state(deps),
         QueryMsg::AsyncTokensAmount {} => {
             to_json_binary(&TOTAL_LSM_SHARES_REAL_AMOUNT.load(deps.storage)?).map_err(From::from)
         }
+        QueryMsg::CanBeRemoved {} => query_can_be_removed(deps, env),
     }
 }
 
-fn query_tx_state(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Binary> {
+fn query_can_be_removed(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
+    let all_balances = deps.querier.query_all_balances(env.contract.address)?;
+    let all_balances_except_untrn = all_balances
+        .into_iter()
+        .filter(|coin| coin.denom != *LOCAL_DENOM.to_string())
+        .collect::<Vec<Coin>>();
+    let result = all_balances_except_untrn.is_empty()
+        && PENDING_LSM_SHARES.is_empty(deps.storage)
+        && LSM_SHARES_TO_REDEEM.is_empty(deps.storage)
+        && TX_STATE.load(deps.storage)?.status == TxStateStatus::Idle;
+    Ok(to_json_binary(&result)?)
+}
+
+fn query_tx_state(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let tx_state = TX_STATE.load(deps.storage)?;
     Ok(to_json_binary(&tx_state)?)
 }
@@ -153,11 +162,7 @@ fn query_can_process_on_idle(deps: Deps<NeutronQuery>, env: &Env) -> ContractRes
 
     let config = CONFIG.load(deps.storage)?;
 
-    let pending_lsm_shares_count = PENDING_LSM_SHARES
-        .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .count();
-
-    if pending_lsm_shares_count > 0 {
+    if !PENDING_LSM_SHARES.is_empty(deps.storage) {
         return Ok(true);
     }
 
@@ -187,12 +192,13 @@ fn query_token_amount(
     exchange_rate: Decimal,
 ) -> ContractResult<Binary> {
     let config = CONFIG.load(deps.storage)?;
+    let addrs = get_contracts!(deps, config.factory_contract, puppeteer_contract);
 
     let check_denom = check_denom::check_denom(&deps, &coin.denom, &config)?;
 
     let real_amount = calc_lsm_share_underlying_amount(
         deps,
-        &config.puppeteer_contract,
+        &addrs.puppeteer_contract,
         &coin.amount,
         check_denom.validator,
     )?;
@@ -227,9 +233,11 @@ fn execute_process_on_idle(
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
+    let addrs = get_contracts!(deps, config.factory_contract, core_contract);
+
     ensure_eq!(
         info.sender,
-        config.core_contract,
+        addrs.core_contract,
         ContractError::Unauthorized {}
     );
 
@@ -263,19 +271,9 @@ fn execute_update_config(
     let mut state = CONFIG.load(deps.storage)?;
     let mut attrs: Vec<Attribute> = Vec::new();
 
-    if let Some(puppeteer_contract) = new_config.puppeteer_contract {
-        state.puppeteer_contract = deps.api.addr_validate(puppeteer_contract.as_ref())?;
-        attrs.push(attr("puppeteer_contract", puppeteer_contract))
-    }
-
-    if let Some(core_contract) = new_config.core_contract {
-        state.core_contract = deps.api.addr_validate(core_contract.as_ref())?;
-        attrs.push(attr("core_contract", core_contract))
-    }
-
-    if let Some(validators_set_contract) = new_config.validators_set_contract {
-        state.validators_set_contract = deps.api.addr_validate(validators_set_contract.as_ref())?;
-        attrs.push(attr("validators_set_contract", validators_set_contract))
+    if let Some(factory_contract) = new_config.factory_contract {
+        state.factory_contract = deps.api.addr_validate(factory_contract.as_ref())?;
+        attrs.push(attr("factory_contract", factory_contract))
     }
 
     if let Some(port_id) = new_config.port_id {
@@ -325,12 +323,13 @@ fn execute_bond(
 ) -> ContractResult<Response<NeutronMsg>> {
     let Coin { amount, denom } = cw_utils::one_coin(&info)?;
     let config = CONFIG.load(deps.storage)?;
+    let addrs = get_contracts!(deps, config.factory_contract, puppeteer_contract);
 
     let check_denom = check_denom::check_denom(&deps.as_ref(), &denom, &config)?;
 
     let real_amount = calc_lsm_share_underlying_amount(
         deps.as_ref(),
-        &config.puppeteer_contract,
+        &addrs.puppeteer_contract,
         &amount,
         check_denom.validator,
     )?;
@@ -377,9 +376,15 @@ fn execute_puppeteer_hook(
     msg: drop_puppeteer_base::peripheral_hook::ResponseHookMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
+    let addrs = get_contracts!(
+        deps,
+        config.factory_contract,
+        core_contract,
+        puppeteer_contract
+    );
     ensure_eq!(
         info.sender,
-        config.puppeteer_contract,
+        addrs.puppeteer_contract,
         ContractError::Unauthorized {}
     );
     if let drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(success_msg) = msg.clone()
@@ -396,13 +401,15 @@ fn execute_puppeteer_hook(
             }
             TOTAL_LSM_SHARES_REAL_AMOUNT.update(deps.storage, |one| StdResult::Ok(one - sum))?;
             LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
+
+            TX_STATE.save(deps.storage, &TxState::default())?;
         }
     }
 
     LAST_PUPPETEER_RESPONSE.save(deps.storage, &msg)?;
 
     let hook_message = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.core_contract.to_string(),
+        contract_addr: addrs.core_contract.to_string(),
         msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(msg))?,
         funds: vec![],
     });
@@ -420,11 +427,18 @@ pub fn get_pending_redeem_msg(
     config: &Config,
     env: &Env,
 ) -> ContractResult<Option<SubMsg<NeutronMsg>>> {
-    let pending_lsm_shares_count = LSM_SHARES_TO_REDEEM
-        .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .count();
-    let last_lsm_redeem = LAST_LSM_REDEEM.load(deps.storage)?;
+    let addrs = get_contracts!(deps, config.factory_contract, puppeteer_contract);
+
     let lsm_redeem_threshold = config.lsm_redeem_threshold as usize;
+
+    let shares_to_redeeem = LSM_SHARES_TO_REDEEM
+        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+        .take(lsm_redeem_threshold)
+        .collect::<StdResult<Vec<_>>>()?;
+
+    let pending_lsm_shares_count = shares_to_redeeem.len();
+
+    let last_lsm_redeem = LAST_LSM_REDEEM.load(deps.storage)?;
 
     if pending_lsm_shares_count == 0
         || ((pending_lsm_shares_count < lsm_redeem_threshold)
@@ -432,10 +446,6 @@ pub fn get_pending_redeem_msg(
     {
         return Ok(None);
     }
-    let shares_to_redeeem = LSM_SHARES_TO_REDEEM
-        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .take(lsm_redeem_threshold)
-        .collect::<StdResult<Vec<_>>>()?;
 
     let items: Vec<RedeemShareItem> = shares_to_redeeem
         .iter()
@@ -449,7 +459,7 @@ pub fn get_pending_redeem_msg(
         .collect();
 
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.puppeteer_contract.to_string(),
+        contract_addr: addrs.puppeteer_contract.to_string(),
         msg: to_json_binary(
             &drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
                 items: items.clone(),
@@ -474,12 +484,13 @@ fn get_pending_lsm_share_msg(
     config: &Config,
     env: &Env,
 ) -> ContractResult<Option<SubMsg<NeutronMsg>>> {
+    let addrs = get_contracts!(deps, config.factory_contract, puppeteer_contract);
     let lsm_share: Option<(String, (String, Uint128, Uint128))> =
         PENDING_LSM_SHARES.first(deps.storage)?;
     match lsm_share {
         Some((local_denom, (_remote_denom, share_amount, real_amount))) => {
             let puppeteer_ica: drop_helpers::ica::IcaState = deps.querier.query_wasm_smart(
-                &config.puppeteer_contract,
+                addrs.puppeteer_contract,
                 &drop_puppeteer_base::msg::QueryMsg::<Empty>::Ica {},
             )?;
 
@@ -541,7 +552,7 @@ fn msg_with_reply_callback<C: Into<CosmosMsg<X>> + Serialize, X>(
 
 fn calc_lsm_share_underlying_amount<T: CustomQuery>(
     deps: Deps<T>,
-    puppeteer_contract: &Addr,
+    puppeteer_contract: &String,
     lsm_share: &Uint128,
     validator: String,
 ) -> ContractResult<Uint128> {
@@ -638,9 +649,10 @@ fn sudo_error(
     TX_STATE.save(deps.storage, &TxState::default())?;
 
     let config = CONFIG.load(deps.storage)?;
+    let addrs = get_contracts!(deps, config.factory_contract, core_contract);
 
     let hook_message = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.core_contract.to_string(),
+        contract_addr: addrs.core_contract.to_string(),
         msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(ResponseHookMsg::Error(
             ResponseHookErrorMsg {
                 transaction,
@@ -690,10 +702,7 @@ fn sudo_response(
         .ok_or_else(|| StdError::generic_err("IBC client state latest_height not found"))?
         .revision_height;
 
-    let attrs = vec![
-        attr("action", "sudo_response"),
-        attr("request_id", request.sequence.unwrap_or(0).to_string()),
-    ];
+    let attrs = vec![attr("action", "sudo_response")];
 
     if let Transaction::IBCTransfer {
         amount,
@@ -732,6 +741,7 @@ fn sudo_response(
     TX_STATE.save(deps.storage, &TxState::default())?;
 
     let config = CONFIG.load(deps.storage)?;
+    let addrs = get_contracts!(deps, config.factory_contract, core_contract);
 
     deps.api.debug(&format!(
         "WASMDEBUG: json: {request:?}",
@@ -744,7 +754,7 @@ fn sudo_response(
         ))?
     ));
     let hook_message = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.core_contract.to_string(),
+        contract_addr: addrs.core_contract.to_string(),
         msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
                 transaction: transaction.clone(),
@@ -828,6 +838,7 @@ pub mod check_denom {
         denom: &str,
         config: &Config,
     ) -> ContractResult<DenomData> {
+        let addrs = get_contracts!(deps, config.factory_contract, validators_set_contract);
         let trace = query_denom_trace(deps, denom)?.denom_trace;
         let (port, channel) = trace
             .path
@@ -848,7 +859,7 @@ pub mod check_denom {
         let validator_info = deps
             .querier
             .query_wasm_smart::<drop_staking_base::msg::validatorset::ValidatorResponse>(
-                &config.validators_set_contract,
+                &addrs.validators_set_contract,
                 &drop_staking_base::msg::validatorset::QueryMsg::Validator {
                     valoper: validator.to_string(),
                 },

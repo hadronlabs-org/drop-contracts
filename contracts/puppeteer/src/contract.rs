@@ -1,7 +1,5 @@
 use cosmos_sdk_proto::cosmos::{
-    bank::v1beta1::{MsgSend, MsgSendResponse},
-    base::{abci::v1beta1::TxMsgData, v1beta1::Coin},
-    distribution::v1beta1::MsgSetWithdrawAddress,
+    bank::v1beta1::MsgSend, base::v1beta1::Coin, distribution::v1beta1::MsgSetWithdrawAddress,
     staking::v1beta1::MsgDelegate,
 };
 use cosmwasm_std::{
@@ -11,6 +9,7 @@ use cosmwasm_std::{
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{
     answer::response,
+    get_contracts,
     ibc_client_state::query_client_state,
     ibc_fee::query_ibc_fee,
     icq::{
@@ -24,19 +23,15 @@ use drop_proto::proto::{
     cosmos::base::v1beta1::Coin as ProtoCoin,
     liquidstaking::{
         distribution::v1beta1::MsgWithdrawDelegatorReward,
-        staking::v1beta1::{
-            MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgDelegateResponse,
-            MsgRedeemTokensforShares, MsgRedeemTokensforSharesResponse, MsgTokenizeShares,
-            MsgTokenizeSharesResponse, MsgUndelegateResponse,
-        },
+        staking::v1beta1::{MsgBeginRedelegate, MsgRedeemTokensforShares, MsgTokenizeShares},
     },
 };
 use drop_puppeteer_base::{
     error::{ContractError, ContractResult},
     msg::{QueryMsg, TransferReadyBatchesMsg},
     peripheral_hook::{
-        ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg, ResponseHookMsg,
-        ResponseHookSuccessMsg, Transaction,
+        ReceiverExecuteMsg, ResponseHookErrorMsg, ResponseHookMsg, ResponseHookSuccessMsg,
+        Transaction,
     },
     r#trait::PuppeteerReconstruct,
     state::{
@@ -59,11 +54,10 @@ use neutron_sdk::{
         queries::get_raw_interchain_query_result,
         v045::{new_register_delegator_unbonding_delegations_query_msg, types::Balances},
     },
-    interchain_txs::helpers::decode_message_response,
     sudo::msg::{RequestPacket, SudoMsg},
     NeutronResult,
 };
-use std::{str::FromStr, vec};
+use std::vec;
 
 pub type Puppeteer<'a> = PuppeteerBase<'a, Config, KVQueryType, BalancesAndDelegations>;
 
@@ -98,7 +92,7 @@ pub fn instantiate(
         transfer_channel_id: msg.transfer_channel_id,
         sdk_version: msg.sdk_version,
         timeout: msg.timeout,
-        native_bond_provider: deps.api.addr_validate(&msg.native_bond_provider)?,
+        factory_contract: deps.api.addr_validate(&msg.factory_contract)?,
         delegations_queries_chunk_size: msg
             .delegations_queries_chunk_size
             .unwrap_or(DEFAULT_DELEGATIONS_QUERIES_CHUNK_SIZE),
@@ -321,9 +315,9 @@ fn execute_update_config(
         attrs.push(attr("timeout", timeout.to_string()));
         config.timeout = timeout;
     }
-    if let Some(native_bond_provider) = new_config.native_bond_provider {
-        config.native_bond_provider = native_bond_provider.clone();
-        attrs.push(attr("native_bond_provider", native_bond_provider))
+    if let Some(factory_contract) = new_config.factory_contract {
+        config.factory_contract = factory_contract.clone();
+        attrs.push(attr("factory_contract", factory_contract))
     }
 
     puppeteer_base.update_config(deps.into_empty(), &config)?;
@@ -339,11 +333,12 @@ fn execute_delegate(
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.storage)?;
+    let addrs = get_contracts!(deps, config.factory_contract, native_bond_provider_contract);
     validate_sender(&config, &info.sender)?;
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
 
     let non_staked_balance = deps.querier.query_wasm_smart::<Uint128>(
-        &config.native_bond_provider,
+        &addrs.native_bond_provider_contract,
         &drop_staking_base::msg::native_bond_provider::QueryMsg::NonStakedBalance {},
     )?;
 
@@ -965,14 +960,8 @@ fn sudo_response(
     _data: Binary,
 ) -> NeutronResult<Response<NeutronMsg>> {
     deps.api.debug("WASMDEBUG: sudo response");
-    let seq_id = request
-        .sequence
-        .ok_or_else(|| StdError::generic_err("sequence not found"))?;
 
-    let attrs = vec![
-        attr("action", "sudo_response"),
-        attr("request_id", seq_id.to_string()),
-    ];
+    let attrs = vec![attr("action", "sudo_response")];
     let puppeteer_base = Puppeteer::default();
 
     let channel_id = request
@@ -1039,77 +1028,6 @@ fn sudo_response(
         }));
     }
     Ok(response("sudo-response", "puppeteer", attrs).add_messages(msgs))
-}
-
-pub fn get_answers_from_msg_data(
-    deps: Deps<NeutronQuery>,
-    msg_data: TxMsgData,
-) -> NeutronResult<Vec<ResponseAnswer>> {
-    let mut answers = vec![];
-    #[allow(deprecated)]
-    for item in msg_data.data {
-        let answer = match item.msg_type.as_str() {
-            "/cosmos.staking.v1beta1.MsgDelegate" => {
-                let _out: MsgDelegateResponse = decode_message_response(&item.data)?;
-                ResponseAnswer::DelegateResponse(drop_puppeteer_base::proto::MsgDelegateResponse {})
-            }
-            "/cosmos.staking.v1beta1.MsgUndelegate" => {
-                let out: MsgUndelegateResponse = decode_message_response(&item.data)?;
-                ResponseAnswer::UndelegateResponse(
-                    drop_puppeteer_base::proto::MsgUndelegateResponse {
-                        completion_time: out.completion_time.map(|t| t.into()),
-                    },
-                )
-            }
-            "/cosmos.staking.v1beta1.MsgTokenizeShares" => {
-                let out: MsgTokenizeSharesResponse = decode_message_response(&item.data)?;
-                ResponseAnswer::TokenizeSharesResponse(
-                    drop_puppeteer_base::proto::MsgTokenizeSharesResponse {
-                        amount: out.amount.map(convert_coin).transpose()?,
-                    },
-                )
-            }
-            "/cosmos.staking.v1beta1.MsgBeginRedelegate" => {
-                let out: MsgBeginRedelegateResponse = decode_message_response(&item.data)?;
-                ResponseAnswer::BeginRedelegateResponse(
-                    drop_puppeteer_base::proto::MsgBeginRedelegateResponse {
-                        completion_time: out.completion_time.map(|t| t.into()),
-                    },
-                )
-            }
-            "/cosmos.staking.v1beta1.MsgRedeemTokensForShares" => {
-                let out: MsgRedeemTokensforSharesResponse = decode_message_response(&item.data)?;
-                ResponseAnswer::RedeemTokensforSharesResponse(
-                    drop_puppeteer_base::proto::MsgRedeemTokensforSharesResponse {
-                        amount: out.amount.map(convert_coin).transpose()?,
-                    },
-                )
-            }
-            "/cosmos.bank.v1beta1.MsgSend" => {
-                let _out: MsgSendResponse = decode_message_response(&item.data)?;
-                ResponseAnswer::TransferResponse(drop_puppeteer_base::proto::MsgSendResponse {})
-            }
-            _ => {
-                deps.api.debug(
-                    format!("This type of acknowledgement is not implemented: {item:?}").as_str(),
-                );
-                ResponseAnswer::UnknownResponse {}
-            }
-        };
-        deps.api
-            .debug(&format!("WASMDEBUG: sudo_response: answer: {answer:?}",));
-        answers.push(answer);
-    }
-    Ok(answers)
-}
-
-fn convert_coin(
-    coin: drop_proto::proto::cosmos::base::v1beta1::Coin,
-) -> StdResult<cosmwasm_std::Coin> {
-    Ok(cosmwasm_std::Coin {
-        denom: coin.denom,
-        amount: Uint128::from_str(&coin.amount)?,
-    })
 }
 
 fn sudo_error(

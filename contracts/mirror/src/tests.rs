@@ -1,10 +1,14 @@
 use cosmwasm_std::{
     attr, coin,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, CosmosMsg, CustomQuery, DepsMut, Uint128, WasmMsg,
+    to_json_binary, Addr, CosmosMsg, CustomQuery, DepsMut, IbcChannel, IbcEndpoint, IbcOrder,
+    Uint128, WasmMsg,
 };
 use drop_helpers::testing::mock_dependencies;
-use drop_staking_base::state::mirror::{BONDS, CONFIG, COUNTER};
+use drop_staking_base::{
+    error::mirror::ContractError,
+    state::mirror::{Config, BONDS, CONFIG, COUNTER},
+};
 use neutron_sdk::{
     bindings::msg::{IbcFee, NeutronMsg},
     query::min_ibc_fee::MinIbcFeeResponse,
@@ -108,10 +112,10 @@ fn test_instantiate_wo_owner() {
 }
 
 #[test]
-fn update_config() {
+fn update_config_ibc_timeout_out_of_range() {
     let mut deps = mock_dependencies(&[]);
     base_init(deps.as_mut());
-    let response = crate::contract::execute(
+    let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("owner", &[]),
@@ -120,6 +124,81 @@ fn update_config() {
                 core_contract: Some("new_core".to_string()),
                 source_port: Some("new_source_port".to_string()),
                 source_channel: Some("new_source_channel".to_string()),
+                ibc_timeout: Some(u64::MAX),
+                prefix: Some("new_prefix".to_string()),
+            },
+        },
+    )
+    .unwrap_err();
+    assert_eq!(error, ContractError::IbcTimeoutOutOfRange);
+}
+
+#[test]
+fn update_config_source_channel_not_found() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(deps.as_mut());
+    let error = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::mirror::ExecuteMsg::UpdateConfig {
+            new_config: drop_staking_base::state::mirror::ConfigOptional {
+                core_contract: Some("new_core".to_string()),
+                source_port: Some("new_source_port".to_string()),
+                source_channel: Some("new_source_channel".to_string()),
+                ibc_timeout: Some(20),
+                prefix: Some("new_prefix".to_string()),
+            },
+        },
+    )
+    .unwrap_err();
+    assert_eq!(error, ContractError::SourceChannelNotFound);
+}
+
+#[test]
+fn update_config() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(deps.as_mut());
+    deps.querier.add_ibc_channel_response(
+        Some("channel-0".to_string()),
+        Some("transfer".to_string()),
+        cosmwasm_std::ChannelResponse {
+            channel: Some(IbcChannel::new(
+                IbcEndpoint {
+                    port_id: "port_id".to_string(),
+                    channel_id: "channel_id".to_string(),
+                },
+                IbcEndpoint {
+                    port_id: "port_id".to_string(),
+                    channel_id: "channel_id".to_string(),
+                },
+                IbcOrder::Unordered,
+                "version".to_string(),
+                "connection_id".to_string(),
+            )),
+        },
+    );
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                source_channel: "source_channel".to_string(),
+                source_port: "source_port".to_string(),
+                ibc_timeout: 0u64,
+                prefix: "prefix".to_string(),
+            },
+        )
+        .unwrap();
+    let response = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        drop_staking_base::msg::mirror::ExecuteMsg::UpdateConfig {
+            new_config: drop_staking_base::state::mirror::ConfigOptional {
+                core_contract: Some("new_core".to_string()),
+                source_port: Some("transfer".to_string()),
+                source_channel: Some("channel-0".to_string()),
                 ibc_timeout: Some(20),
                 prefix: Some("new_prefix".to_string()),
             },
@@ -135,10 +214,10 @@ fn update_config() {
             .add_attributes(vec![
                 attr("action", "update_config"),
                 attr("core_contract", "new_core"),
-                attr("source_port", "new_source_port"),
-                attr("source_channel", "new_source_channel"),
                 attr("ibc_timeout", "20"),
                 attr("prefix", "new_prefix"),
+                attr("source_port", "transfer"),
+                attr("source_channel", "channel-0"),
             ])
         )
     );
@@ -147,8 +226,8 @@ fn update_config() {
         config,
         drop_staking_base::state::mirror::Config {
             core_contract: "new_core".to_string(),
-            source_port: "new_source_port".to_string(),
-            source_channel: "new_source_channel".to_string(),
+            source_port: "transfer".to_string(),
+            source_channel: "channel-0".to_string(),
             ibc_timeout: 20,
             prefix: "new_prefix".to_string(),
         }

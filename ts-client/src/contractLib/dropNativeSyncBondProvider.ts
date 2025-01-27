@@ -16,6 +16,7 @@ import { StdFee } from "@cosmjs/amino";
 export type Uint128 = string;
 export type Boolean = boolean;
 export type Boolean1 = boolean;
+export type Boolean2 = boolean;
 /**
  * A human readable address.
  *
@@ -208,6 +209,7 @@ export interface DropNativeSyncBondProviderSchema {
     | Uint128
     | Boolean
     | Boolean1
+    | Boolean2
     | Config
     | LastPuppeteerResponse
     | Uint1282
@@ -369,6 +371,9 @@ export class Client {
   }
   queryAsyncTokensAmount = async(): Promise<Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, { async_tokens_amount: {} });
+  }
+  queryCanBeRemoved = async(): Promise<Boolean> => {
+    return this.client.queryContractSmart(this.contractAddress, { can_be_removed: {} });
   }
   queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });

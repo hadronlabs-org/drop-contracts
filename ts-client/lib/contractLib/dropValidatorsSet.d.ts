@@ -71,7 +71,7 @@ export type OnTopEditOperation = {
         validator_address: string;
     };
 } | {
-    subtract: {
+    set: {
         amount: Uint128;
         validator_address: string;
     };
@@ -147,7 +147,7 @@ export interface UpdateValidatorsArgs {
     validators: ValidatorData[];
 }
 export interface ValidatorData {
-    on_top: Uint128;
+    on_top?: Uint128 | null;
     valoper_address: string;
     weight: number;
 }

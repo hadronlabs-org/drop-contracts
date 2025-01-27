@@ -1,34 +1,43 @@
-use crate::error::ContractError;
-use crate::msg::OwnerQueryMsg;
-use crate::state::PreInstantiatedContracts;
-use crate::{
-    error::ContractResult,
-    msg::{
-        ExecuteMsg, InstantiateMsg, MigrateMsg, ProxyMsg, QueryMsg, UpdateConfigMsg,
-        ValidatorSetMsg,
-    },
-    state::{State, STATE},
-};
+use std::collections::HashMap;
+
 use cosmwasm_std::{
     attr, from_json, instantiate2_address, to_json_binary, Addr, Binary, CodeInfoResponse,
     CosmosMsg, Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use cw2::ContractVersion;
 use drop_helpers::answer::response;
-use drop_staking_base::msg::{
-    core::{InstantiateMsg as CoreInstantiateMsg, QueryMsg as CoreQueryMsg},
-    distribution::InstantiateMsg as DistributionInstantiateMsg,
-    rewards_manager::{InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg},
-    splitter::InstantiateMsg as SplitterInstantiateMsg,
-    strategy::InstantiateMsg as StrategyInstantiateMsg,
-    token::InstantiateMsg as TokenInstantiateMsg,
-    validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
-    withdrawal_manager::{
-        InstantiateMsg as WithdrawalManagerInstantiateMsg, QueryMsg as WithdrawalManagerQueryMsg,
-    },
-    withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
+use drop_helpers::phonebook::{
+    CORE_CONTRACT, DISTRIBUTION_CONTRACT, LSM_SHARE_BOND_PROVIDER_CONTRACT,
+    NATIVE_BOND_PROVIDER_CONTRACT, PUPPETEER_CONTRACT, REWARDS_MANAGER_CONTRACT,
+    REWARDS_PUMP_CONTRACT, SPLITTER_CONTRACT, STRATEGY_CONTRACT, TOKEN_CONTRACT,
+    VALIDATORS_SET_CONTRACT, WITHDRAWAL_MANAGER_CONTRACT, WITHDRAWAL_VOUCHER_CONTRACT,
 };
+use drop_staking_base::error::factory::ContractError;
+use drop_staking_base::msg::factory::{
+    ExecuteMsg, MigrateMsg, OwnerQueryMsg, ProxyMsg, QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
+};
+use drop_staking_base::state::factory::{PreInstantiatedContracts, STATE};
 use drop_staking_base::state::splitter::Config as SplitterConfig;
+use drop_staking_base::{
+    error::factory::ContractResult,
+    msg::{
+        core::{InstantiateMsg as CoreInstantiateMsg, QueryMsg as CoreQueryMsg},
+        distribution::InstantiateMsg as DistributionInstantiateMsg,
+        factory::InstantiateMsg,
+        rewards_manager::{
+            InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg,
+        },
+        splitter::InstantiateMsg as SplitterInstantiateMsg,
+        strategy::InstantiateMsg as StrategyInstantiateMsg,
+        token::InstantiateMsg as TokenInstantiateMsg,
+        validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
+        withdrawal_manager::{
+            InstantiateMsg as WithdrawalManagerInstantiateMsg,
+            QueryMsg as WithdrawalManagerQueryMsg,
+        },
+        withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
+    },
+};
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     NeutronResult,
@@ -110,60 +119,73 @@ pub fn instantiate(
     let splitter_address =
         instantiate2_address(&splitter_contract_checksum, &canonical_self_address, salt)?;
 
-    let core_contract = deps.api.addr_humanize(&core_address)?.to_string();
-    let token_contract = deps.api.addr_humanize(&token_address)?.to_string();
-    let withdrawal_voucher_contract = deps
-        .api
-        .addr_humanize(&withdrawal_voucher_address)?
-        .to_string();
-    let withdrawal_manager_contract = deps
-        .api
-        .addr_humanize(&withdrawal_manager_address)?
-        .to_string();
-    let strategy_contract = deps.api.addr_humanize(&strategy_address)?.to_string();
-    let validators_set_contract = deps.api.addr_humanize(&validators_set_address)?.to_string();
-    let distribution_contract = deps
-        .api
-        .addr_humanize(&distribution_calculator_address)?
-        .to_string();
-    let rewards_manager_contract = deps
-        .api
-        .addr_humanize(&rewards_manager_address)?
-        .to_string();
-    let splitter_contract = deps.api.addr_humanize(&splitter_address)?.to_string();
+    let core_contract = deps.api.addr_humanize(&core_address)?;
+    let token_contract = deps.api.addr_humanize(&token_address)?;
+    let withdrawal_voucher_contract = deps.api.addr_humanize(&withdrawal_voucher_address)?;
+    let withdrawal_manager_contract = deps.api.addr_humanize(&withdrawal_manager_address)?;
+    let strategy_contract = deps.api.addr_humanize(&strategy_address)?;
+    let validators_set_contract = deps.api.addr_humanize(&validators_set_address)?;
+    let distribution_contract = deps.api.addr_humanize(&distribution_calculator_address)?;
+    let rewards_manager_contract = deps.api.addr_humanize(&rewards_manager_address)?;
+    let splitter_contract = deps.api.addr_humanize(&splitter_address)?;
 
-    let native_bond_provider_contract = msg.pre_instantiated_contracts.native_bond_provider_address;
+    STATE.save(deps.storage, CORE_CONTRACT, &core_contract.clone())?;
+    STATE.save(
+        deps.storage,
+        WITHDRAWAL_MANAGER_CONTRACT,
+        &withdrawal_manager_contract.clone(),
+    )?;
+    STATE.save(
+        deps.storage,
+        REWARDS_MANAGER_CONTRACT,
+        &rewards_manager_contract.clone(),
+    )?;
+    STATE.save(deps.storage, TOKEN_CONTRACT, &token_contract.clone())?;
+    STATE.save(
+        deps.storage,
+        PUPPETEER_CONTRACT,
+        &msg.pre_instantiated_contracts.puppeteer_address,
+    )?;
+    STATE.save(
+        deps.storage,
+        WITHDRAWAL_VOUCHER_CONTRACT,
+        &withdrawal_voucher_contract.clone(),
+    )?;
+    STATE.save(deps.storage, STRATEGY_CONTRACT, &strategy_contract.clone())?;
+    STATE.save(
+        deps.storage,
+        VALIDATORS_SET_CONTRACT,
+        &validators_set_contract.clone(),
+    )?;
+    STATE.save(
+        deps.storage,
+        DISTRIBUTION_CONTRACT,
+        &distribution_contract.clone(),
+    )?;
+    STATE.save(deps.storage, SPLITTER_CONTRACT, &splitter_contract.clone())?;
+    if let Some(lsm_share_bond_provider_address) = &msg
+        .pre_instantiated_contracts
+        .lsm_share_bond_provider_address
+        .clone()
+    {
+        STATE.save(
+            deps.storage,
+            LSM_SHARE_BOND_PROVIDER_CONTRACT,
+            &lsm_share_bond_provider_address,
+        )?;
+    }
 
-    let state = State {
-        token_contract: token_contract.to_string(),
-        core_contract: core_contract.to_string(),
-        puppeteer_contract: msg.pre_instantiated_contracts.puppeteer_address.to_string(),
-        withdrawal_voucher_contract: withdrawal_voucher_contract.to_string(),
-        withdrawal_manager_contract: withdrawal_manager_contract.to_string(),
-        strategy_contract: strategy_contract.to_string(),
-        validators_set_contract: validators_set_contract.to_string(),
-        distribution_contract: distribution_contract.to_string(),
-        rewards_manager_contract: rewards_manager_contract.to_string(),
-        splitter_contract: splitter_contract.to_string(),
-        native_bond_provider_contract: native_bond_provider_contract.to_string(),
-        lsm_share_bond_provider_contract: msg
-            .pre_instantiated_contracts
-            .lsm_share_bond_provider_address
-            .map(|a| a.to_string()),
-        val_ref_contract: msg
-            .pre_instantiated_contracts
-            .val_ref_address
-            .map(|a| a.to_string()),
-        rewards_pump_contract: msg
-            .pre_instantiated_contracts
-            .rewards_pump_address
-            .map(|a| a.to_string()),
-        unbonding_pump_contract: msg
-            .pre_instantiated_contracts
-            .unbonding_pump_address
-            .map(|a| a.to_string()),
-    };
-    STATE.save(deps.storage, &state)?;
+    STATE.save(
+        deps.storage,
+        NATIVE_BOND_PROVIDER_CONTRACT,
+        &msg.pre_instantiated_contracts
+            .native_bond_provider_address
+            .clone(),
+    )?;
+    if let Some(rewards_pump_address) = &msg.pre_instantiated_contracts.rewards_pump_address.clone()
+    {
+        STATE.save(deps.storage, REWARDS_PUMP_CONTRACT, &rewards_pump_address)?;
+    }
 
     let msgs = vec![
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
@@ -171,7 +193,7 @@ pub fn instantiate(
             code_id: msg.code_ids.token_code_id,
             label: get_contract_label("token"),
             msg: to_json_binary(&TokenInstantiateMsg {
-                core_address: core_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
                 subdenom: msg.subdenom,
                 token_metadata: msg.token_metadata,
                 owner: env.contract.address.to_string(),
@@ -204,10 +226,8 @@ pub fn instantiate(
             label: get_contract_label("strategy"),
             msg: to_json_binary(&StrategyInstantiateMsg {
                 owner: env.contract.address.to_string(),
-                puppeteer_address: msg.pre_instantiated_contracts.puppeteer_address.to_string(),
-                validator_set_address: validators_set_contract.to_string(),
-                distribution_address: distribution_contract.to_string(),
                 denom: msg.remote_opts.denom.to_string(),
+                factory_contract: env.contract.address.to_string(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),
@@ -217,20 +237,14 @@ pub fn instantiate(
             code_id: msg.code_ids.core_code_id,
             label: get_contract_label("core"),
             msg: to_json_binary(&CoreInstantiateMsg {
-                token_contract: token_contract.to_string(),
-                puppeteer_contract: msg.pre_instantiated_contracts.puppeteer_address.to_string(),
-                strategy_contract: strategy_contract.to_string(),
-                withdrawal_voucher_contract: withdrawal_voucher_contract.to_string(),
-                withdrawal_manager_contract: withdrawal_manager_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
                 base_denom: msg.base_denom.clone(),
                 remote_denom: msg.remote_opts.denom.to_string(),
                 pump_ica_address: None,
-                validators_set_contract: validators_set_contract.to_string(),
                 unbonding_period: msg.core_params.unbonding_period,
                 unbonding_safe_period: msg.core_params.unbonding_safe_period,
                 unbond_batch_switch_time: msg.core_params.unbond_batch_switch_time,
                 idle_min_interval: msg.core_params.idle_min_interval,
-                bond_limit: msg.core_params.bond_limit,
                 transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
                 owner: env.contract.address.to_string(),
                 emergency_address: None,
@@ -256,8 +270,7 @@ pub fn instantiate(
             code_id: msg.code_ids.withdrawal_manager_code_id,
             label: get_contract_label("withdrawal-manager"),
             msg: to_json_binary(&WithdrawalManagerInstantiateMsg {
-                core_contract: core_contract.to_string(),
-                voucher_contract: withdrawal_voucher_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
                 owner: env.contract.address.to_string(),
                 base_denom: msg.base_denom.to_string(),
             })?,
@@ -282,7 +295,9 @@ pub fn instantiate(
                 config: SplitterConfig {
                     receivers: get_splitter_receivers(
                         msg.fee_params,
-                        native_bond_provider_contract.to_string(),
+                        msg.pre_instantiated_contracts
+                            .native_bond_provider_address
+                            .to_string(),
                     )?,
                     denom: msg.base_denom.to_string(),
                 },
@@ -296,9 +311,9 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
-pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     match msg {
-        QueryMsg::State {} => to_json_binary(&STATE.load(deps.storage)?),
+        QueryMsg::State {} => query_state(deps),
         QueryMsg::PauseInfo {} => query_pause_info(deps),
         QueryMsg::Ownership {} => {
             let ownership = cw_ownable::get_ownership(deps.storage)?;
@@ -307,21 +322,32 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
     }
 }
 
-fn query_pause_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
-    let state = STATE.load(deps.storage)?;
+fn query_state(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+    let state = STATE.range(deps.storage, None, None, cosmwasm_std::Order::Ascending);
+    let out = state
+        .collect::<StdResult<Vec<_>>>()?
+        .into_iter()
+        .map(|(k, v)| (k, v.into_string()))
+        .collect::<HashMap<String, String>>();
+    Ok(to_json_binary(&out)?)
+}
 
-    to_json_binary(&crate::state::PauseInfoResponse {
+fn query_pause_info(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+    let core_contract = STATE.load(deps.storage, CORE_CONTRACT)?;
+    let withdrawal_manager_contract = STATE.load(deps.storage, WITHDRAWAL_MANAGER_CONTRACT)?;
+    let rewards_manager_contract = STATE.load(deps.storage, REWARDS_MANAGER_CONTRACT)?;
+
+    to_json_binary(&drop_staking_base::state::factory::PauseInfoResponse {
         core: deps
             .querier
-            .query_wasm_smart(state.core_contract, &CoreQueryMsg::Pause {})?,
+            .query_wasm_smart(core_contract, &CoreQueryMsg::Pause {})?,
         withdrawal_manager: deps.querier.query_wasm_smart(
-            state.withdrawal_manager_contract,
+            withdrawal_manager_contract,
             &WithdrawalManagerQueryMsg::PauseInfo {},
         )?,
-        rewards_manager: deps.querier.query_wasm_smart(
-            state.rewards_manager_contract,
-            &RewardsQueryMsg::PauseInfo {},
-        )?,
+        rewards_manager: deps
+            .querier
+            .query_wasm_smart(rewards_manager_contract, &RewardsQueryMsg::PauseInfo {})?,
     })
     .map_err(From::from)
 }
@@ -352,11 +378,14 @@ pub fn execute(
 
 fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let state = STATE.load(deps.storage)?;
+    let core_contract = STATE.load(deps.storage, CORE_CONTRACT)?;
+    let withdrawal_manager_contract = STATE.load(deps.storage, WITHDRAWAL_MANAGER_CONTRACT)?;
+    let rewards_manager_contract = STATE.load(deps.storage, REWARDS_MANAGER_CONTRACT)?;
+
     let attrs = vec![attr("action", "pause")];
     let messages = vec![
         get_proxied_message(
-            state.core_contract,
+            core_contract.to_string(),
             drop_staking_base::msg::core::ExecuteMsg::SetPause(
                 drop_staking_base::state::core::Pause {
                     tick: true,
@@ -367,12 +396,12 @@ fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Neutr
             vec![],
         )?,
         get_proxied_message(
-            state.withdrawal_manager_contract,
+            withdrawal_manager_contract.to_string(),
             drop_staking_base::msg::withdrawal_manager::ExecuteMsg::Pause {},
             vec![],
         )?,
         get_proxied_message(
-            state.rewards_manager_contract,
+            rewards_manager_contract.to_string(),
             drop_staking_base::msg::rewards_manager::ExecuteMsg::Pause {},
             vec![],
         )?,
@@ -382,11 +411,13 @@ fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Neutr
 
 fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let state = STATE.load(deps.storage)?;
+    let core_contract = STATE.load(deps.storage, CORE_CONTRACT)?;
+    let withdrawal_manager_contract = STATE.load(deps.storage, WITHDRAWAL_MANAGER_CONTRACT)?;
+    let rewards_manager_contract = STATE.load(deps.storage, REWARDS_MANAGER_CONTRACT)?;
     let attrs = vec![attr("action", "unpause")];
     let messages = vec![
         get_proxied_message(
-            state.core_contract,
+            core_contract.to_string(),
             drop_staking_base::msg::core::ExecuteMsg::SetPause(
                 drop_staking_base::state::core::Pause {
                     tick: false,
@@ -397,12 +428,12 @@ fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Neu
             vec![],
         )?,
         get_proxied_message(
-            state.rewards_manager_contract,
+            rewards_manager_contract.to_string(),
             drop_staking_base::msg::rewards_manager::ExecuteMsg::Unpause {},
             vec![],
         )?,
         get_proxied_message(
-            state.withdrawal_manager_contract,
+            withdrawal_manager_contract.to_string(),
             drop_staking_base::msg::withdrawal_manager::ExecuteMsg::Unpause {},
             vec![],
         )?,
@@ -429,18 +460,19 @@ fn execute_update_config(
 ) -> ContractResult<Response<NeutronMsg>> {
     let attrs = vec![attr("action", "update-config")];
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let state = STATE.load(deps.storage)?;
+    let core_contract = STATE.load(deps.storage, CORE_CONTRACT)?;
+    let validators_set_contract = STATE.load(deps.storage, VALIDATORS_SET_CONTRACT)?;
     let mut messages = vec![];
     match msg {
         UpdateConfigMsg::Core(msg) => messages.push(get_proxied_message(
-            state.core_contract,
+            core_contract.to_string(),
             drop_staking_base::msg::core::ExecuteMsg::UpdateConfig {
                 new_config: Box::new(*msg),
             },
             info.funds,
         )?),
         UpdateConfigMsg::ValidatorsSet(new_config) => messages.push(get_proxied_message(
-            state.validators_set_contract,
+            validators_set_contract.to_string(),
             drop_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig { new_config },
             info.funds,
         )?),
@@ -454,7 +486,8 @@ fn execute_proxy_msg(
     info: MessageInfo,
     msg: ProxyMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let state = STATE.load(deps.storage)?;
+    let validators_set_contract = STATE.load(deps.storage, VALIDATORS_SET_CONTRACT)?;
+    let puppeteer_contract = STATE.load(deps.storage, PUPPETEER_CONTRACT)?;
     let mut messages = vec![];
     let attrs = vec![attr("action", "proxy-call")];
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
@@ -462,14 +495,14 @@ fn execute_proxy_msg(
         ProxyMsg::ValidatorSet(msg) => match msg {
             ValidatorSetMsg::UpdateValidators { validators } => {
                 messages.push(get_proxied_message(
-                    state.validators_set_contract,
+                    validators_set_contract.to_string(),
                     drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
                         validators: validators.clone(),
                     },
                     vec![],
                 )?);
                 messages.push(get_proxied_message(
-                    state.puppeteer_contract,
+                    puppeteer_contract.to_string(),
                     drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
                         validators: validators.iter().map(|v| { v.valoper_address.to_string() }).collect()
                     },
@@ -520,7 +553,7 @@ pub fn migrate(
 }
 
 fn get_splitter_receivers(
-    fee_params: Option<crate::msg::FeeParams>,
+    fee_params: Option<drop_staking_base::msg::factory::FeeParams>,
     bond_provider_address: String,
 ) -> ContractResult<Vec<(String, cosmwasm_std::Uint128)>> {
     match fee_params {
