@@ -1096,11 +1096,9 @@ fn test_get_contract_config_owner() {
         )
     });
 
-    let response = get_contract_config_owner(
-        deps.as_ref().into_empty(),
-        &cosmwasm_std::Addr::unchecked(contract_addr),
-    )
-    .unwrap();
+    let response =
+        get_contract_config_owner(deps.as_ref().into_empty(), &Addr::unchecked(contract_addr))
+            .unwrap();
     assert_eq!(response, "owner");
 }
 
@@ -1124,8 +1122,8 @@ fn test_validate_contract_metadata() {
     validate_contract_metadata(
         deps.as_ref().into_empty(),
         &mocked_env,
-        &cosmwasm_std::Addr::unchecked(contract_addr),
-        vec!["contract_name".to_string()],
+        &Addr::unchecked(contract_addr),
+        &["contract_name"],
     )
     .unwrap();
 }
@@ -1150,11 +1148,8 @@ fn test_validate_contract_metadata_two_names() {
     validate_contract_metadata(
         deps.as_ref().into_empty(),
         &mocked_env,
-        &cosmwasm_std::Addr::unchecked(contract_addr),
-        vec![
-            "another_valid_name".to_string(),
-            "contract_name".to_string(),
-        ],
+        &Addr::unchecked(contract_addr),
+        &["another_valid_name", "contract_name"],
     )
     .unwrap();
 }
@@ -1179,8 +1174,8 @@ fn test_validate_contract_metadata_wrong_contract_name() {
     let error = validate_contract_metadata(
         deps.as_ref().into_empty(),
         &mocked_env,
-        &cosmwasm_std::Addr::unchecked(contract_addr),
-        vec!["contract_name".to_string()],
+        &Addr::unchecked(contract_addr),
+        &["contract_name"],
     )
     .unwrap_err();
     assert_eq!(
@@ -1210,8 +1205,8 @@ fn test_validate_contract_metadata_wrong_owner() {
     let error = validate_contract_metadata(
         deps.as_ref().into_empty(),
         &mocked_env,
-        &cosmwasm_std::Addr::unchecked(contract_addr),
-        vec!["contract_name".to_string()],
+        &Addr::unchecked(contract_addr),
+        &["contract_name"],
     )
     .unwrap_err();
     assert_eq!(
@@ -1241,8 +1236,8 @@ fn test_validate_contract_metadata_wrong_admin() {
     let error = validate_contract_metadata(
         deps.as_ref().into_empty(),
         &mocked_env,
-        &cosmwasm_std::Addr::unchecked(contract_addr),
-        vec!["contract_name".to_string()],
+        &Addr::unchecked(contract_addr),
+        &["contract_name"],
     )
     .unwrap_err();
     assert_eq!(
@@ -1272,8 +1267,8 @@ fn test_validate_contract_metadata_empty_admin() {
     let error = validate_contract_metadata(
         deps.as_ref().into_empty(),
         &mocked_env,
-        &cosmwasm_std::Addr::unchecked(contract_addr),
-        vec!["contract_name".to_string()],
+        &Addr::unchecked(contract_addr),
+        &["contract_name"],
     )
     .unwrap_err();
     assert_eq!(

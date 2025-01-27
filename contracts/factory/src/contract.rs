@@ -560,11 +560,11 @@ pub fn validate_contract_metadata(
     deps: Deps,
     env: &Env,
     contract_addr: &Addr,
-    valid_names: Vec<String>,
+    valid_names: &[&str],
 ) -> ContractResult<()> {
     let contract_version = get_contract_version(deps, contract_addr)?;
 
-    if !valid_names.contains(&contract_version.contract) {
+    if !valid_names.contains(&contract_version.contract.as_ref()) {
         return Err(ContractError::InvalidContractName {
             expected: valid_names.join(";"),
             actual: contract_version.contract,
@@ -608,9 +608,9 @@ fn validate_pre_instantiated_contracts(
         deps,
         env,
         &pre_instantiated_contracts.native_bond_provider_address,
-        vec![
-            drop_native_bond_provider::contract::CONTRACT_NAME.to_string(),
-            drop_native_sync_bond_provider::contract::CONTRACT_NAME.to_string(),
+        &[
+            drop_native_bond_provider::contract::CONTRACT_NAME,
+            drop_native_sync_bond_provider::contract::CONTRACT_NAME,
         ],
     )?;
 
@@ -622,7 +622,7 @@ fn validate_pre_instantiated_contracts(
             deps,
             env,
             lsm_share_bond_provider_address,
-            vec![drop_lsm_share_bond_provider::contract::CONTRACT_NAME.to_string()],
+            &[drop_lsm_share_bond_provider::contract::CONTRACT_NAME],
         )?;
     }
 
@@ -631,10 +631,10 @@ fn validate_pre_instantiated_contracts(
         deps,
         env,
         &pre_instantiated_contracts.puppeteer_address,
-        vec![
-            drop_puppeteer::contract::CONTRACT_NAME.to_string(),
-            drop_puppeteer_initia::contract::CONTRACT_NAME.to_string(),
-            drop_puppeteer_native::contract::CONTRACT_NAME.to_string(),
+        &[
+            drop_puppeteer::contract::CONTRACT_NAME,
+            drop_puppeteer_initia::contract::CONTRACT_NAME,
+            drop_puppeteer_native::contract::CONTRACT_NAME,
         ],
     )?;
 
@@ -644,7 +644,7 @@ fn validate_pre_instantiated_contracts(
             deps,
             env,
             unbonding_pump_address,
-            vec![drop_pump::contract::CONTRACT_NAME.to_string()],
+            &[drop_pump::contract::CONTRACT_NAME],
         )?;
     }
     if let Some(rewards_pump_address) = &pre_instantiated_contracts.rewards_pump_address {
@@ -652,7 +652,7 @@ fn validate_pre_instantiated_contracts(
             deps,
             env,
             rewards_pump_address,
-            vec![drop_pump::contract::CONTRACT_NAME.to_string()],
+            &[drop_pump::contract::CONTRACT_NAME],
         )?;
     }
 
