@@ -1,15 +1,14 @@
-use cosmwasm_std::{
-    ensure, to_json_binary, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError,
-};
+use cosmwasm_std::{ensure, BankMsg, DepsMut, Env, MessageInfo, Response, StdError};
 use drop_staking_base::{
     error::neutron_distribution_mock::ContractResult,
-    msg::neutron_distribution_mock::{ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::neutron_distribution_mock::USERS,
+    msg::neutron_distribution_mock::{ExecuteMsg, InstantiateMsg},
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+const NTRN_DENOM: &str = "untrn";
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
@@ -31,37 +30,24 @@ pub fn execute(
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut response = Response::new();
     match msg {
-        ExecuteMsg::SetWithdrawAddress { address } => {
-            let address = deps.api.addr_validate(&address)?;
-            USERS.update(deps.storage, &info.sender, |user| {
-                let mut user = user.unwrap_or_default();
-                user.rewards_address = Some(address);
-                ContractResult::Ok(user)
-            })?;
-        }
-        ExecuteMsg::WithdrawRewards {} => {
-            let mut user = USERS.load(deps.storage, &info.sender)?;
-            ensure!(!user.rewards.is_empty(), StdError::not_found("no rewards"));
-            let rewards = user.rewards;
-            user.rewards = vec![];
-            USERS.save(deps.storage, &info.sender, &user)?;
+        ExecuteMsg::ClaimRewards { receiver } => {
+            let user = if let Some(receiver) = receiver {
+                deps.api.addr_validate(&receiver)?
+            } else {
+                info.sender
+            };
+            let coin = deps.querier.query_balance(&user, NTRN_DENOM)?;
+            ensure!(
+                !coin.amount.is_zero(),
+                StdError::generic_err("balance is zero")
+            );
+
             let msg = BankMsg::Send {
-                amount: rewards,
-                to_address: user.rewards_address.unwrap_or(info.sender).into_string(),
+                amount: vec![coin],
+                to_address: user.to_string(),
             };
             response = response.add_message(msg);
         }
     }
     Ok(response)
-}
-
-#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
-pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
-    match msg {
-        QueryMsg::PendingRewards { address } => {
-            let address = deps.api.addr_validate(&address)?;
-            let user = USERS.load(deps.storage, &address)?;
-            Ok(to_json_binary(&user.rewards)?)
-        }
-    }
 }

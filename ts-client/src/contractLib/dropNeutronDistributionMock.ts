@@ -1,38 +1,13 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
-/**
- * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u128` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
- *
- * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
- *
- * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
- */
-export type Uint128 = string;
-export type ArrayOfCoin = Coin[];
-
+import { Coin } from "@cosmjs/amino";
 export interface DropNeutronDistributionMockSchema {
-  responses: ArrayOfCoin;
-  query: PendingRewardsArgs;
-  execute: SetWithdrawAddressArgs;
+  execute: ClaimRewardsArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
-export interface Coin {
-  amount: Uint128;
-  denom: string;
-  [k: string]: unknown;
-}
-export interface PendingRewardsArgs {
-  address: string;
-}
-export interface SetWithdrawAddressArgs {
-  address: string;
+export interface ClaimRewardsArgs {
+  receiver?: string | null;
 }
 export interface InstantiateMsg {}
 
@@ -82,15 +57,8 @@ export class Client {
     });
     return res;
   }
-  queryPendingRewards = async(args: PendingRewardsArgs): Promise<ArrayOfCoin> => {
-    return this.client.queryContractSmart(this.contractAddress, { pending_rewards: args });
-  }
-  setWithdrawAddress = async(sender:string, args: SetWithdrawAddressArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+  claimRewards = async(sender:string, args: ClaimRewardsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { set_withdraw_address: args }, fee || "auto", memo, funds);
-  }
-  withdrawRewards = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { withdraw_rewards: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, { claim_rewards: args }, fee || "auto", memo, funds);
   }
 }

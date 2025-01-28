@@ -26,20 +26,11 @@ class Client {
         });
         return res;
     }
-    queryPendingRewards = async (args) => {
-        return this.client.queryContractSmart(this.contractAddress, { pending_rewards: args });
-    };
-    setWithdrawAddress = async (sender, args, fee, memo, funds) => {
+    claimRewards = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { set_withdraw_address: args }, fee || "auto", memo, funds);
-    };
-    withdrawRewards = async (sender, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, { withdraw_rewards: {} }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, { claim_rewards: args }, fee || "auto", memo, funds);
     };
 }
 exports.Client = Client;
