@@ -5,8 +5,7 @@ use drop_helpers::pause::Interval;
 
 #[cw_serde]
 pub struct Config {
-    pub core_contract: Addr,
-    pub withdrawal_voucher_contract: Addr,
+    pub factory_contract: Addr,
     pub base_denom: String,
 }
 

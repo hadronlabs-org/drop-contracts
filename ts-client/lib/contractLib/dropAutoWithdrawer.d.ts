@@ -55,10 +55,8 @@ export interface Coin {
     [k: string]: unknown;
 }
 export interface InstantiateMsg {
-    core_address: string;
+    factory_contract: string;
     ld_token: string;
-    withdrawal_manager_address: string;
-    withdrawal_voucher_address: string;
 }
 export interface BondingsArgs {
     /**
@@ -81,21 +79,28 @@ export interface WithdrawArgs {
     token_id: string;
 }
 export interface InstantiateMsg1 {
-    core_address: string;
+    factory_contract: string;
     ld_token: string;
-    withdrawal_manager_address: string;
-    withdrawal_voucher_address: string;
 }
 export declare class Client {
     private readonly client;
     contractAddress: string;
     constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string);
     mustBeSigningClient(): Error;
-    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
-    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
+    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
+    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: Uint8Array, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
     queryBondings: (args: BondingsArgs) => Promise<BondingsResponse>;
     queryConfig: () => Promise<InstantiateMsg>;
     bond: (sender: string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    bondMsg: (args: BondArgs) => {
+        bond: BondArgs;
+    };
     unbond: (sender: string, args: UnbondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    unbondMsg: (args: UnbondArgs) => {
+        unbond: UnbondArgs;
+    };
     withdraw: (sender: string, args: WithdrawArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    withdrawMsg: (args: WithdrawArgs) => {
+        withdraw: WithdrawArgs;
+    };
 }

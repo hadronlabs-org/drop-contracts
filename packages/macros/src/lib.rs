@@ -88,14 +88,20 @@ pub fn bond_provider_query(metadata: TokenStream, input: TokenStream) -> TokenSt
             .unwrap();
 
             let tokens_amount: Variant = syn::parse2(quote! {
-                #[returns(Decimal)]
-                TokensAmount { coin: Coin, exchange_rate: Decimal }
+                #[returns(cosmwasm_std::Decimal)]
+                TokensAmount { coin: cosmwasm_std::Coin, exchange_rate: cosmwasm_std::Decimal }
             })
             .unwrap();
 
             let async_tokens_amount: Variant = syn::parse2(quote! {
-                #[returns(Uint128)]
+                #[returns(cosmwasm_std::Uint128)]
                 AsyncTokensAmount {}
+            })
+            .unwrap();
+
+            let can_be_removed: Variant = syn::parse2(quote! {
+                #[returns(bool)]
+                CanBeRemoved {}
             })
             .unwrap();
 
@@ -103,6 +109,7 @@ pub fn bond_provider_query(metadata: TokenStream, input: TokenStream) -> TokenSt
             variants.push(can_process_on_idle);
             variants.push(tokens_amount);
             variants.push(async_tokens_amount);
+            variants.push(can_be_removed);
         }
         _ => {
             return syn::Error::new(

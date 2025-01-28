@@ -16,7 +16,7 @@ pub struct InstantiateMsg {
 pub struct ValidatorData {
     pub valoper_address: String,
     pub weight: u64,
-    pub on_top: Uint128,
+    pub on_top: Option<Uint128>,
 }
 
 #[cw_serde]
@@ -57,7 +57,7 @@ pub enum OnTopEditOperation {
         validator_address: String,
         amount: Uint128,
     },
-    Subtract {
+    Set {
         validator_address: String,
         amount: Uint128,
     },

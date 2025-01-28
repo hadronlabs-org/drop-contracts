@@ -12,6 +12,7 @@ pub struct InstantiateMsg {
     pub owner: Option<String>,
     pub allowed_senders: Vec<String>,
     pub native_bond_provider: String,
+    pub distribution_module_contract: String,
 }
 
 #[cw_ownable_execute]
@@ -37,6 +38,9 @@ pub enum ExecuteMsg {
     UpdateConfig {
         new_config: ConfigOptional,
     },
+    RegisterBalanceAndDelegatorDelegationsQuery {
+        validators: Vec<String>,
+    },
 }
 
 #[cw_serde]
@@ -61,7 +65,6 @@ pub struct BalancesResponse {
     pub timestamp: Timestamp,
 }
 
-#[cw_ownable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryExtMsg {
@@ -75,6 +78,7 @@ pub enum QueryExtMsg {
     UnbondingDelegations {},
 }
 
+#[cw_ownable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {

@@ -4,7 +4,7 @@ use cosmwasm_std::{
 };
 use cw721::NftInfoResponse;
 use cw_ownable::{get_ownership, update_ownership};
-use drop_helpers::{answer::response, is_paused};
+use drop_helpers::get_contracts;
 use drop_staking_base::{
     msg::{
         withdrawal_manager::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveNftMsg},
@@ -33,16 +33,14 @@ pub fn instantiate(
 
     let attrs: Vec<Attribute> = vec![
         attr("action", "instantiate"),
-        attr("core_contract", &msg.core_contract),
-        attr("voucher_contract", &msg.voucher_contract),
+        attr("factory_contract", &msg.factory_contract),
         attr("base_denom", &msg.base_denom),
     ];
     PAUSE.save(deps.storage, &Pause::default())?;
     CONFIG.save(
         deps.storage,
         &Config {
-            core_contract: deps.api.addr_validate(&msg.core_contract)?,
-            withdrawal_voucher_contract: deps.api.addr_validate(&msg.voucher_contract)?,
+            factory_contract: deps.api.addr_validate(&msg.factory_contract)?,
             base_denom: msg.base_denom,
         },
     )?;
@@ -71,10 +69,9 @@ pub fn execute(
             Ok(Response::new())
         }
         ExecuteMsg::UpdateConfig {
-            core_contract,
-            voucher_contract,
+            factory_contract,
             base_denom,
-        } => execute_update_config(deps, info, core_contract, voucher_contract, base_denom),
+        } => execute_update_config(deps, info, factory_contract, base_denom),
         ExecuteMsg::ReceiveNft(Cw721ReceiveMsg {
             sender,
             token_id,
@@ -109,8 +106,7 @@ fn execute_set_pause(
 fn execute_update_config(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
-    core_contract: Option<String>,
-    voucher_contract: Option<String>,
+    factory_contract: Option<String>,
     base_denom: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
@@ -118,13 +114,9 @@ fn execute_update_config(
     let mut config = CONFIG.load(deps.storage)?;
     let mut attrs: Vec<Attribute> = vec![attr("action", "update_config")];
 
-    if let Some(core_contract) = core_contract {
-        config.core_contract = deps.api.addr_validate(&core_contract)?;
-        attrs.push(attr("core_contract", core_contract));
-    }
-    if let Some(voucher_contract) = voucher_contract {
-        config.withdrawal_voucher_contract = deps.api.addr_validate(&voucher_contract)?;
-        attrs.push(attr("voucher_contract", voucher_contract));
+    if let Some(factory_contract) = factory_contract {
+        config.factory_contract = deps.api.addr_validate(&factory_contract)?;
+        attrs.push(attr("factory_contract", factory_contract));
     }
     if let Some(base_denom) = base_denom {
         attrs.push(attr("base_denom", &base_denom));
@@ -148,13 +140,19 @@ fn execute_receive_nft_withdraw(
 
     let mut attrs = vec![attr("action", "receive_nft")];
     let config = CONFIG.load(deps.storage)?;
+    let addrs = get_contracts!(
+        deps,
+        config.factory_contract,
+        withdrawal_voucher_contract,
+        core_contract
+    );
     ensure_eq!(
-        config.withdrawal_voucher_contract,
+        addrs.withdrawal_voucher_contract,
         info.sender,
         ContractError::Unauthorized {}
     );
     let voucher: NftInfoResponse<Extension> = deps.querier.query_wasm_smart(
-        config.withdrawal_voucher_contract,
+        addrs.withdrawal_voucher_contract,
         &drop_staking_base::msg::withdrawal_voucher::QueryMsg::NftInfo { token_id },
     )?;
     let voucher_extension = voucher.extension.ok_or_else(|| ContractError::InvalidNFT {
@@ -170,7 +168,7 @@ fn execute_receive_nft_withdraw(
             })?;
 
     let unbond_batch: UnbondBatch = deps.querier.query_wasm_smart(
-        &config.core_contract,
+        &addrs.core_contract,
         &drop_staking_base::msg::core::QueryMsg::UnbondBatch {
             batch_id: batch_id.into(),
         },
@@ -201,7 +199,7 @@ fn execute_receive_nft_withdraw(
     })];
 
     messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.core_contract.to_string(),
+        contract_addr: addrs.core_contract.to_string(),
         msg: to_json_binary(
             &drop_staking_base::msg::core::ExecuteMsg::UpdateWithdrawnAmount {
                 batch_id,

@@ -65,6 +65,16 @@ pub struct ConfigOptional {
     pub prefix: Option<String>,
 }
 
+#[cw_serde]
+pub struct TimeoutRange {
+    pub from: u64,
+    pub to: u64,
+}
+
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const BONDS: Map<u64, BondItem> = Map::new("bonds");
 pub const COUNTER: Item<u64> = Item::new("counter");
+pub const TIMEOUT_RANGE: TimeoutRange = TimeoutRange {
+    from: 0,
+    to: 2592000, // 30d
+};

@@ -1,10 +1,13 @@
 pub mod astroport_exchange_handler;
 pub mod bond_providers;
 pub mod core;
+pub mod factory;
 pub mod hook_tester;
 pub mod lsm_share_bond_provider;
 pub mod mirror;
 pub mod native_bond_provider;
+pub mod native_sync_bond_provider;
+pub mod neutron_distribution_mock;
 pub mod price_provider;
 pub mod proposal_votes;
 pub mod provider_proposals;
