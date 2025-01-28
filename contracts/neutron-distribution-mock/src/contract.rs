@@ -24,7 +24,7 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut<NeutronQuery>,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
@@ -36,7 +36,9 @@ pub fn execute(
             } else {
                 info.sender
             };
-            let coin = deps.querier.query_balance(&user, NTRN_DENOM)?;
+            let coin = deps
+                .querier
+                .query_balance(&env.contract.address, NTRN_DENOM)?;
             ensure!(
                 !coin.amount.is_zero(),
                 StdError::generic_err("balance is zero")
