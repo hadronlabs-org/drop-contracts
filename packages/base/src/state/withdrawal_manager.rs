@@ -1,6 +1,7 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Addr;
 use cw_storage_plus::Item;
+use drop_helpers::pause::Interval;
 
 #[cw_serde]
 pub struct Config {
@@ -12,7 +13,7 @@ pub struct Config {
 #[cw_serde]
 #[derive(Default)]
 pub struct Pause {
-    pub receive_nft_withdraw: u64,
+    pub receive_nft_withdraw: Interval,
 }
 
 pub type Cw721ReceiveMsg = cw721::Cw721ReceiveMsg;

@@ -5,6 +5,7 @@ use cosmwasm_std::{
 };
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
 use drop_helpers::answer::{attr_coin, response};
+use drop_helpers::pause::Interval;
 use drop_staking_base::msg::reward_handler::HandlerExecuteMsg;
 use drop_staking_base::msg::rewards_manager::QueryMsg;
 use drop_staking_base::msg::rewards_manager::{ExecuteMsg, InstantiateMsg};
@@ -195,7 +196,7 @@ fn test_pause_handler_not_owner_error() {
             rewards_manager_contract.clone(),
             &ExecuteMsg::SetPause {
                 pause: Pause {
-                    exchange_rewards: 0,
+                    exchange_rewards: Interval { from: 0, to: 0 },
                 },
             },
             &[],
@@ -230,7 +231,7 @@ fn test_pause_handler() {
             rewards_manager_contract.clone(),
             &ExecuteMsg::SetPause {
                 pause: Pause {
-                    exchange_rewards: 0,
+                    exchange_rewards: Interval { from: 0, to: 0 },
                 },
             },
             &[],
@@ -252,7 +253,7 @@ fn test_pause_handler() {
     assert_eq!(
         pause_info,
         Pause {
-            exchange_rewards: 0,
+            exchange_rewards: Interval { from: 0, to: 0 },
         }
     );
 
@@ -262,7 +263,7 @@ fn test_pause_handler() {
             rewards_manager_contract.clone(),
             &ExecuteMsg::SetPause {
                 pause: Pause {
-                    exchange_rewards: 0,
+                    exchange_rewards: Interval { from: 0, to: 0 },
                 },
             },
             &[],
@@ -277,7 +278,7 @@ fn test_pause_handler() {
     assert_eq!(
         pause_info,
         Pause {
-            exchange_rewards: 0,
+            exchange_rewards: Interval { from: 0, to: 0 },
         }
     );
 }
@@ -302,7 +303,10 @@ fn test_paused_error() {
             rewards_manager_contract.clone(),
             &ExecuteMsg::SetPause {
                 pause: Pause {
-                    exchange_rewards: 1000,
+                    exchange_rewards: Interval {
+                        from: 1000,
+                        to: 100000,
+                    },
                 },
             },
             &[],
@@ -317,7 +321,10 @@ fn test_paused_error() {
     assert_eq!(
         pause_info,
         Pause {
-            exchange_rewards: 1000,
+            exchange_rewards: Interval {
+                from: 1000,
+                to: 100000
+            },
         }
     );
 

@@ -11,6 +11,7 @@ use cosmwasm_std::{
     Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use drop_helpers::answer::response;
+use drop_helpers::pause::Interval;
 use drop_staking_base::state::splitter::Config as SplitterConfig;
 use drop_staking_base::{
     msg::{
@@ -409,30 +410,11 @@ pub fn instantiate(
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::State {} => to_json_binary(&STATE.load(deps.storage)?),
-        QueryMsg::PauseInfo {} => query_pause_info(deps),
         QueryMsg::Ownership {} => {
             let ownership = cw_ownable::get_ownership(deps.storage)?;
             Ok(to_json_binary(&ownership)?)
         }
     }
-}
-
-fn query_pause_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
-    let state = STATE.load(deps.storage)?;
-
-    to_json_binary(&crate::state::PauseInfoResponse {
-        core: deps
-            .querier
-            .query_wasm_smart(state.core_contract, &CoreQueryMsg::Pause {})?,
-        withdrawal_manager: deps.querier.query_wasm_smart(
-            state.withdrawal_manager_contract,
-            &WithdrawalManagerQueryMsg::Pause {},
-        )?,
-        rewards_manager: deps
-            .querier
-            .query_wasm_smart(state.rewards_manager_contract, &RewardsQueryMsg::Pause {})?,
-    })
-    .map_err(From::from)
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
@@ -454,87 +436,8 @@ pub fn execute(
         ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, env, info, *msg),
         ExecuteMsg::Proxy(msg) => execute_proxy_msg(deps, env, info, msg),
         ExecuteMsg::AdminExecute { msgs } => execute_admin_execute(deps, env, info, msgs),
-        ExecuteMsg::Pause {} => execute_pause(deps, info),
-        ExecuteMsg::Unpause {} => execute_unpause(deps, info),
     }
 }
-
-fn execute_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let state = STATE.load(deps.storage)?;
-    let attrs = vec![attr("action", "pause")];
-    let messages = vec![
-        get_proxied_message(
-            state.core_contract,
-            drop_staking_base::msg::core::ExecuteMsg::SetPause(
-                drop_staking_base::state::core::Pause {
-                    tick: 1,
-                    bond: 0,
-                    unbond: 0,
-                },
-            ),
-            vec![],
-        )?,
-        get_proxied_message(
-            state.withdrawal_manager_contract,
-            drop_staking_base::msg::withdrawal_manager::ExecuteMsg::SetPause {
-                pause: drop_staking_base::state::withdrawal_manager::Pause {
-                    receive_nft_withdraw: 1,
-                },
-            },
-            vec![],
-        )?,
-        get_proxied_message(
-            state.rewards_manager_contract,
-            drop_staking_base::msg::rewards_manager::ExecuteMsg::SetPause {
-                pause: drop_staking_base::state::rewards_manager::Pause {
-                    exchange_rewards: 1,
-                },
-            },
-            vec![],
-        )?,
-    ];
-    Ok(response("execute-pause", CONTRACT_NAME, attrs).add_messages(messages))
-}
-
-fn execute_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let state = STATE.load(deps.storage)?;
-    let attrs = vec![attr("action", "unpause")];
-    let messages = vec![
-        get_proxied_message(
-            state.core_contract,
-            drop_staking_base::msg::core::ExecuteMsg::SetPause(
-                drop_staking_base::state::core::Pause {
-                    tick: 0,
-                    bond: 0,
-                    unbond: 0,
-                },
-            ),
-            vec![],
-        )?,
-        get_proxied_message(
-            state.withdrawal_manager_contract,
-            drop_staking_base::msg::withdrawal_manager::ExecuteMsg::SetPause {
-                pause: drop_staking_base::state::withdrawal_manager::Pause {
-                    receive_nft_withdraw: 0,
-                },
-            },
-            vec![],
-        )?,
-        get_proxied_message(
-            state.rewards_manager_contract,
-            drop_staking_base::msg::rewards_manager::ExecuteMsg::SetPause {
-                pause: drop_staking_base::state::rewards_manager::Pause {
-                    exchange_rewards: 0,
-                },
-            },
-            vec![],
-        )?,
-    ];
-    Ok(response("execute-unpause", CONTRACT_NAME, attrs).add_messages(messages))
-}
-
 fn execute_admin_execute(
     deps: DepsMut,
     _env: Env,

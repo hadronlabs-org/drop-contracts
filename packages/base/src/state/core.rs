@@ -2,6 +2,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Decimal, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, MultiIndex};
 use drop_helpers::fsm::{Fsm, Transition};
+use drop_helpers::pause::Interval;
 use drop_puppeteer_base::peripheral_hook::ResponseHookMsg as PuppeteerResponseHookMsg;
 
 use super::bond_providers::BondProviders;
@@ -155,9 +156,9 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
 #[cw_serde]
 #[derive(Default)]
 pub struct Pause {
-    pub bond: u64,
-    pub unbond: u64,
-    pub tick: u64,
+    pub bond: Interval,
+    pub unbond: Interval,
+    pub tick: Interval,
 }
 
 pub const BOND_PROVIDER_REPLY_ID: u64 = 1;

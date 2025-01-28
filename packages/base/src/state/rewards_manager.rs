@@ -1,6 +1,7 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Uint128;
 use cw_storage_plus::{Item, Map};
+use drop_helpers::pause::Interval;
 
 #[cw_serde]
 pub struct HandlerConfig {
@@ -12,7 +13,7 @@ pub struct HandlerConfig {
 #[cw_serde]
 #[derive(Default)]
 pub struct Pause {
-    pub exchange_rewards: u64,
+    pub exchange_rewards: Interval,
 }
 
 pub const PAUSE: Item<Pause> = Item::new("pause");

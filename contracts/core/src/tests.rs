@@ -2909,6 +2909,8 @@ mod bond_hooks {
 }
 
 mod pause {
+    use drop_helpers::pause::Interval;
+
     use super::*;
 
     #[test]
@@ -2917,24 +2919,48 @@ mod pause {
 
         for pause in [
             Pause {
-                bond: 1,
-                unbond: 0,
-                tick: 0,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval { from: 0, to: 0 },
+                tick: Interval { from: 0, to: 0 },
             },
             Pause {
-                bond: 1,
-                unbond: 1,
-                tick: 0,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval { from: 0, to: 0 },
             },
             Pause {
-                bond: 1,
-                unbond: 0,
-                tick: 1,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval { from: 0, to: 0 },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
             Pause {
-                bond: 1,
-                unbond: 1,
-                tick: 1,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
         ] {
             PAUSE.save(deps.as_mut().storage, &pause).unwrap();
@@ -2958,24 +2984,48 @@ mod pause {
 
         for pause in [
             Pause {
-                bond: 0,
-                unbond: 1,
-                tick: 0,
+                bond: Interval { from: 0, to: 0 },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval { from: 0, to: 0 },
             },
             Pause {
-                bond: 1,
-                unbond: 1,
-                tick: 0,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval { from: 0, to: 0 },
             },
             Pause {
-                bond: 0,
-                unbond: 1,
-                tick: 1,
+                bond: Interval { from: 0, to: 0 },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
             Pause {
-                bond: 1,
-                unbond: 1,
-                tick: 1,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
         ] {
             PAUSE.save(deps.as_mut().storage, &pause).unwrap();
@@ -2996,24 +3046,42 @@ mod pause {
 
         for pause in [
             Pause {
-                bond: 0,
-                unbond: 0,
-                tick: 1,
+                bond: Interval { from: 0, to: 0 },
+                unbond: Interval { from: 0, to: 0 },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
             Pause {
-                bond: 0,
-                unbond: 0,
-                tick: 1,
+                bond: Interval { from: 0, to: 0 },
+                unbond: Interval { from: 0, to: 0 },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
             Pause {
-                bond: 0,
-                unbond: 0,
-                tick: 1,
+                bond: Interval { from: 0, to: 0 },
+                unbond: Interval { from: 0, to: 0 },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
             Pause {
-                bond: 1,
-                unbond: 1,
-                tick: 1,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
         ] {
             PAUSE.save(deps.as_mut().storage, &pause).unwrap();

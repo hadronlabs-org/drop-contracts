@@ -49,11 +49,4 @@ pub struct State {
     pub native_bond_provider_contract: String,
 }
 
-#[cw_serde]
-pub struct PauseInfoResponse {
-    pub withdrawal_manager: drop_staking_base::state::withdrawal_manager::Pause,
-    pub core: drop_staking_base::state::core::Pause,
-    pub rewards_manager: drop_staking_base::state::rewards_manager::Pause,
-}
-
 pub const STATE: Item<State> = Item::new("state");

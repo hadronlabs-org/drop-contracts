@@ -65,8 +65,6 @@ pub enum ExecuteMsg {
     UpdateConfig(Box<UpdateConfigMsg>),
     Proxy(ProxyMsg),
     AdminExecute { msgs: Vec<CosmosMsg<NeutronMsg>> },
-    Pause {},
-    Unpause {},
 }
 #[cw_serde]
 pub struct MigrateMsg {}
@@ -77,6 +75,4 @@ pub struct MigrateMsg {}
 pub enum QueryMsg {
     #[returns(crate::state::State)]
     State {},
-    #[returns(crate::state::PauseInfoResponse)]
-    PauseInfo {},
 }
