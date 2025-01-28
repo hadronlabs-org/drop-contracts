@@ -10,7 +10,6 @@ use drop_staking_base::msg::reward_handler::HandlerExecuteMsg;
 use drop_staking_base::msg::rewards_manager::QueryMsg;
 use drop_staking_base::msg::rewards_manager::{ExecuteMsg, InstantiateMsg};
 use drop_staking_base::state::rewards_manager::{HandlerConfig, Pause};
-use std::u64;
 
 const OWNER_ADDR: &str = "owner_address";
 
