@@ -23,11 +23,8 @@ use drop_staking_base::{
     error::factory::ContractResult,
     msg::{
         core::InstantiateMsg as CoreInstantiateMsg,
-        distribution::InstantiateMsg as DistributionInstantiateMsg,
-        factory::InstantiateMsg,
-        rewards_manager::{
-            InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg,
-        },
+        distribution::InstantiateMsg as DistributionInstantiateMsg, factory::InstantiateMsg,
+        rewards_manager::InstantiateMsg as RewardsMangerInstantiateMsg,
         splitter::InstantiateMsg as SplitterInstantiateMsg,
         strategy::InstantiateMsg as StrategyInstantiateMsg,
         token::InstantiateMsg as TokenInstantiateMsg,

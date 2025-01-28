@@ -14,10 +14,9 @@ use drop_helpers::phonebook::{
     REWARDS_PUMP_CONTRACT, SPLITTER_CONTRACT, STRATEGY_CONTRACT, TOKEN_CONTRACT,
     VALIDATORS_SET_CONTRACT, WITHDRAWAL_MANAGER_CONTRACT, WITHDRAWAL_VOUCHER_CONTRACT,
 };
-use drop_helpers::testing::{mock_dependencies, mock_dependencies_with_api, WasmMockQuerier};
 use drop_helpers::{
     pause::Interval,
-    testing::{mock_dependencies, mock_dependencies_with_api},
+    testing::{mock_dependencies, mock_dependencies_with_api, WasmMockQuerier},
 };
 use drop_staking_base::state::factory::PreInstantiatedContracts;
 use drop_staking_base::{
@@ -32,9 +31,7 @@ use drop_staking_base::{
         core::{ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg},
         distribution::InstantiateMsg as DistributionInstantiateMsg,
         puppeteer::ExecuteMsg as PuppeteerExecuteMsg,
-        rewards_manager::{
-            ExecuteMsg as RewardsManagerExecuteMsg, InstantiateMsg as RewardsManagerInstantiateMsg,
-        },
+        rewards_manager::InstantiateMsg as RewardsManagerInstantiateMsg,
         splitter::InstantiateMsg as SplitterInstantiateMsg,
         strategy::InstantiateMsg as StrategyInstantiateMsg,
         token::{DenomMetadata, InstantiateMsg as TokenInstantiateMsg},

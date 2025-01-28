@@ -156,7 +156,6 @@ fn factory_query(_deps: Deps, _env: Env, msg: FactoryQueryMsg) -> StdResult<Bina
             ]);
             Ok(to_json_binary(&out).unwrap())
         }
-        FactoryQueryMsg::PauseInfo {} => todo!(),
         FactoryQueryMsg::Ownership {} => todo!(),
     }
 }
