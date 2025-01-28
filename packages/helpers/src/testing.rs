@@ -395,54 +395,69 @@ impl WasmMockQuerier {
 }
 
 pub fn mock_state_query(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier, NeutronQuery>) {
+    let factory_contract_address = deps.api.addr_make("factory_contract");
+    let core_contract_address = deps.api.addr_make("core_contract");
+    let token_contract_address = deps.api.addr_make("token_contract");
+    let withdrawal_voucher_contract_address = deps.api.addr_make("withdrawal_voucher_contract");
+    let withdrawal_manager_contract_address = deps.api.addr_make("withdrawal_manager_contract");
+    let strategy_contract_address = deps.api.addr_make("strategy_contract");
+    let validators_set_contract_address = deps.api.addr_make("validators_set_contract");
+    let distribution_contract_address = deps.api.addr_make("distribution_contract");
+    let puppeteer_contract_address = deps.api.addr_make("puppeteer_contract");
+    let rewards_manager_contract_address = deps.api.addr_make("rewards_manager_contract");
+    let rewards_pump_contract_address = deps.api.addr_make("rewards_pump_contract");
+    let splitter_contract_address = deps.api.addr_make("splitter_contract");
+    let lsm_share_bond_provider_contract_address = deps.api.addr_make("lsm_share_bond_provider_contract");
+    let native_bond_provider_contract_address = deps.api.addr_make("native_bond_provider_contract");
+
     deps.querier
-        .add_wasm_query_response("factory_contract", |_| {
+        .add_wasm_query_response(factory_contract_address.as_str(), move |_| {
             let contracts = HashMap::from([
-                ("core_contract".to_string(), "core_contract".to_string()),
-                ("token_contract".to_string(), "token_contract".to_string()),
+                ("core_contract".to_string(), core_contract_address.clone()),
+                ("token_contract".to_string(), token_contract_address.clone()),
                 (
                     "withdrawal_voucher_contract".to_string(),
-                    "withdrawal_voucher_contract".to_string(),
+                    withdrawal_voucher_contract_address.clone(),
                 ),
                 (
                     "withdrawal_manager_contract".to_string(),
-                    "withdrawal_manager_contract".to_string(),
+                    withdrawal_manager_contract_address.clone(),
                 ),
                 (
                     "strategy_contract".to_string(),
-                    "strategy_contract".to_string(),
+                    strategy_contract_address.clone(),
                 ),
                 (
                     "validators_set_contract".to_string(),
-                    "validators_set_contract".to_string(),
+                    validators_set_contract_address.clone(),
                 ),
                 (
                     "distribution_contract".to_string(),
-                    "distribution_contract".to_string(),
+                    distribution_contract_address.clone(),
                 ),
                 (
                     "puppeteer_contract".to_string(),
-                    "puppeteer_contract".to_string(),
+                    puppeteer_contract_address.clone(),
                 ),
                 (
                     "rewards_manager_contract".to_string(),
-                    "rewards_manager_contract".to_string(),
+                    rewards_manager_contract_address.clone(),
                 ),
                 (
                     "rewards_pump_contract".to_string(),
-                    "rewards_pump_contract".to_string(),
+                    rewards_pump_contract_address.clone(),
                 ),
                 (
                     "splitter_contract".to_string(),
-                    "splitter_contract".to_string(),
+                    splitter_contract_address.clone(),
                 ),
                 (
                     "lsm_share_bond_provider_contract".to_string(),
-                    "lsm_share_bond_provider_contract".to_string(),
+                    lsm_share_bond_provider_contract_address.clone(),
                 ),
                 (
                     "native_bond_provider_contract".to_string(),
-                    "native_bond_provider_contract".to_string(),
+                    native_bond_provider_contract_address.clone(),
                 ),
             ]);
             cosmwasm_std::ContractResult::Ok(to_json_binary(&contracts).unwrap())

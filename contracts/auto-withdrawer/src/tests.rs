@@ -42,11 +42,13 @@ fn instantiate() {
 #[test]
 fn bond_missing_ld_assets() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
+
     mock_state_query(&mut deps);
     FACTORY_CONTRACT
         .save(
             deps.as_mut().storage,
-            &cosmwasm_std::Addr::unchecked("factory_contract".to_string()),
+            &api.addr_make("factory_contract"),
         )
         .unwrap();
     LD_TOKEN
@@ -55,7 +57,7 @@ fn bond_missing_ld_assets() {
     let err = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("sender"), &[coin(10, "uatom"), coin(20, "untrn")]),
+        message_info(&api.addr_make("sender"), &[coin(10, "uatom"), coin(20, "untrn")]),
         ExecuteMsg::Bond(BondMsg::WithLdAssets {}),
     )
     .unwrap_err();
@@ -88,11 +90,13 @@ mod bond_missing_deposit {
     #[test]
     fn with_ld_assets() {
         let mut deps = mock_dependencies(&[]);
+        let api = deps.api;
+
         mock_state_query(&mut deps);
         FACTORY_CONTRACT
             .save(
                 deps.as_mut().storage,
-                &cosmwasm_std::Addr::unchecked("factory_contract".to_string()),
+                &api.addr_make("factory_contract"),
             )
             .unwrap();
         LD_TOKEN
@@ -101,7 +105,7 @@ mod bond_missing_deposit {
         let err = contract::execute(
             deps.as_mut(),
             mock_env(),
-            message_info(&Addr::unchecked("sender"), &[coin(10, "ld_token")]),
+            message_info(&api.addr_make("sender"), &[coin(10, "ld_token")]),
             ExecuteMsg::Bond(BondMsg::WithLdAssets {}),
         )
         .unwrap_err();
