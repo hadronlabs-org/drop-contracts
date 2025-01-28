@@ -172,7 +172,7 @@ pub fn instantiate(
         STATE.save(
             deps.storage,
             LSM_SHARE_BOND_PROVIDER_CONTRACT,
-            &lsm_share_bond_provider_address,
+            lsm_share_bond_provider_address,
         )?;
     }
 
@@ -185,7 +185,7 @@ pub fn instantiate(
     )?;
     if let Some(rewards_pump_address) = &msg.pre_instantiated_contracts.rewards_pump_address.clone()
     {
-        STATE.save(deps.storage, REWARDS_PUMP_CONTRACT, &rewards_pump_address)?;
+        STATE.save(deps.storage, REWARDS_PUMP_CONTRACT, rewards_pump_address)?;
     }
     if let Some(undonding_pump_address) = &msg
         .pre_instantiated_contracts
@@ -195,7 +195,7 @@ pub fn instantiate(
         STATE.save(
             deps.storage,
             UNBONDING_PUMP_CONTRACT,
-            &undonding_pump_address,
+            undonding_pump_address,
         )?;
     }
 

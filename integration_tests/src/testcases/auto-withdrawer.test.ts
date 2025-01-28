@@ -593,7 +593,7 @@ describe('Auto withdrawer', () => {
         {
           owner: context.predefinedContractAddresses.factoryAddress,
           base_denom: context.neutronIBCDenom,
-          factory_contract: context.factoryContractClient.contractAddress,
+          factory_contract: context.predefinedContractAddresses.factoryAddress,
           min_stake_amount: '10000',
           min_ibc_transfer: '10000',
           port_id: 'transfer',
@@ -631,7 +631,7 @@ describe('Auto withdrawer', () => {
           transfer_channel_id: 'channel-0',
           sdk_version: process.env.SDK_VERSION || '0.47.10',
           timeout: 60,
-          factory_contract: context.factoryContractClient.contractAddress,
+          factory_contract: context.predefinedContractAddresses.factoryAddress,
         },
         'drop-staking-puppeteer',
         1.5,
@@ -1008,7 +1008,7 @@ describe('Auto withdrawer', () => {
       account.address,
       res.codeId,
       {
-        factory_contract: context.factoryContractClient.contractAddress,
+        factory_contract: context.predefinedContractAddresses.factoryAddress,
         ld_token: ldDenom,
       },
       'drop-auto-withdrawer',

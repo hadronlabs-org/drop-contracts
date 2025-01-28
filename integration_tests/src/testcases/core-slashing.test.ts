@@ -621,7 +621,7 @@ describe('Core Slashing', () => {
         {
           owner: context.predefinedContractAddresses.factoryAddress,
           base_denom: context.neutronIBCDenom,
-          factory_contract: context.factoryContractClient.contractAddress,
+          factory_contract: context.predefinedContractAddresses.factoryAddress,
           min_stake_amount: '100',
           min_ibc_transfer: '100',
           port_id: 'transfer',
@@ -659,7 +659,7 @@ describe('Core Slashing', () => {
           transfer_channel_id: 'channel-0',
           sdk_version: process.env.SDK_VERSION || '0.47.10',
           timeout: 60,
-          factory_contract: context.factoryContractClient.contractAddress,
+          factory_contract: context.predefinedContractAddresses.factoryAddress,
         },
         'drop-staking-puppeteer',
         1.5,

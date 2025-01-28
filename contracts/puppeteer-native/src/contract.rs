@@ -275,7 +275,7 @@ pub fn execute(
             rewards_withdraw_address,
         } => execute_setup_protocol(deps, env, info, rewards_withdraw_address),
         ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: _ } => {
-            execute_register_balance_and_delegator_delegations_query()
+            Ok(Response::default())
         }
     }
 }
@@ -529,11 +529,6 @@ fn execute_undelegate(
     }
 
     Ok(Response::default().add_messages(messages))
-}
-
-fn execute_register_balance_and_delegator_delegations_query() -> ContractResult<Response<NeutronMsg>>
-{
-    Ok(Response::default())
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]

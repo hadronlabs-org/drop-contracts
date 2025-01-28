@@ -659,7 +659,7 @@ describe('Core', () => {
         context.codeIds.lsmShareBondProvider,
         toAscii(SALT),
         {
-          factory_contract: context.factoryContractClient.contractAddress,
+          factory_contract: context.predefinedContractAddresses.factoryAddress,
           lsm_redeem_threshold: 2,
           lsm_min_bond_amount: '1000',
           lsm_redeem_maximum_interval: 60_000,
@@ -687,7 +687,7 @@ describe('Core', () => {
         {
           owner: context.predefinedContractAddresses.factoryAddress,
           base_denom: context.neutronIBCDenom,
-          factory_contract: context.factoryContractClient.contractAddress,
+          factory_contract: context.predefinedContractAddresses.factoryAddress,
           min_stake_amount: '10000',
           min_ibc_transfer: '10000',
           port_id: 'transfer',
@@ -726,7 +726,7 @@ describe('Core', () => {
           transfer_channel_id: 'channel-0',
           sdk_version: process.env.SDK_VERSION || '0.47.10',
           timeout: 60,
-          factory_contract: context.factoryContractClient.contractAddress,
+          factory_contract: context.predefinedContractAddresses.factoryAddress,
         },
         'drop-staking-puppeteer',
         1.5,
@@ -891,7 +891,7 @@ describe('Core', () => {
       {
         core_contract: context.coreContractClient.contractAddress,
         denom: `factory/${context.tokenContractClient.contractAddress}/udatom`,
-        owner: context.factoryContractClient.contractAddress,
+        owner: context.predefinedContractAddresses.factoryAddress,
       },
       'drop-redemption-rate-adapter',
       1.5,
