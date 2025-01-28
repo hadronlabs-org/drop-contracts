@@ -124,13 +124,6 @@ class Client {
         return this.client.execute(sender, this.contractAddress, this.peripheralHookMsg(args), fee || "auto", memo, funds);
     };
     peripheralHookMsg = (args) => { return { peripheral_hook: args }; };
-    resetBondedAmount = async (sender, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, this.resetBondedAmountMsg(), fee || "auto", memo, funds);
-    };
-    resetBondedAmountMsg = () => { return { reset_bonded_amount: {} }; };
     processEmergencyBatch = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
