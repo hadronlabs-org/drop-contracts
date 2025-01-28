@@ -1,5 +1,4 @@
 use crate::contract::instantiate;
-
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{
     attr, coins, to_json_binary, Addr, Attribute, Coin, Empty, Event, Response, StdError, Uint128,
@@ -9,7 +8,8 @@ use drop_helpers::answer::{attr_coin, response};
 use drop_staking_base::msg::reward_handler::HandlerExecuteMsg;
 use drop_staking_base::msg::rewards_manager::QueryMsg;
 use drop_staking_base::msg::rewards_manager::{ExecuteMsg, InstantiateMsg};
-use drop_staking_base::state::rewards_manager::{HandlerConfig, Pause, PauseType};
+use drop_staking_base::state::rewards_manager::{HandlerConfig, Pause};
+use std::u64;
 
 const OWNER_ADDR: &str = "owner_address";
 
@@ -195,9 +195,7 @@ fn test_pause_handler_not_owner_error() {
             rewards_manager_contract.clone(),
             &ExecuteMsg::SetPause {
                 pause: Pause {
-                    pause: PauseType::Switch {
-                        exchange_rewards: false,
-                    },
+                    exchange_rewards: 0,
                 },
             },
             &[],
@@ -232,9 +230,7 @@ fn test_pause_handler() {
             rewards_manager_contract.clone(),
             &ExecuteMsg::SetPause {
                 pause: Pause {
-                    pause: PauseType::Switch {
-                        exchange_rewards: true,
-                    },
+                    exchange_rewards: 0,
                 },
             },
             &[],
@@ -256,9 +252,7 @@ fn test_pause_handler() {
     assert_eq!(
         pause_info,
         Pause {
-            pause: PauseType::Switch {
-                exchange_rewards: true,
-            },
+            exchange_rewards: 0,
         }
     );
 
@@ -268,9 +262,7 @@ fn test_pause_handler() {
             rewards_manager_contract.clone(),
             &ExecuteMsg::SetPause {
                 pause: Pause {
-                    pause: PauseType::Switch {
-                        exchange_rewards: false,
-                    },
+                    exchange_rewards: 0,
                 },
             },
             &[],
@@ -285,9 +277,7 @@ fn test_pause_handler() {
     assert_eq!(
         pause_info,
         Pause {
-            pause: PauseType::Switch {
-                exchange_rewards: false,
-            },
+            exchange_rewards: 0,
         }
     );
 }
@@ -312,9 +302,7 @@ fn test_paused_error() {
             rewards_manager_contract.clone(),
             &ExecuteMsg::SetPause {
                 pause: Pause {
-                    pause: PauseType::Switch {
-                        exchange_rewards: true,
-                    },
+                    exchange_rewards: 1000,
                 },
             },
             &[],
@@ -329,9 +317,7 @@ fn test_paused_error() {
     assert_eq!(
         pause_info,
         Pause {
-            pause: PauseType::Switch {
-                exchange_rewards: true,
-            },
+            exchange_rewards: 1000,
         }
     );
 
@@ -573,7 +559,11 @@ fn test_empty_denoms_list() {
             &[],
         )
         .unwrap();
-
+    let pause_info: Pause = app
+        .wrap()
+        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::Pause {})
+        .unwrap();
+    println!("{:?}", pause_info);
     let res = app.execute_contract(
         Addr::unchecked(OWNER_ADDR),
         rewards_manager_contract.clone(),

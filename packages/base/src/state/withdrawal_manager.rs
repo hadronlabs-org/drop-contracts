@@ -10,23 +10,9 @@ pub struct Config {
 }
 
 #[cw_serde]
-pub enum PauseType {
-    Switch { receive_nft_withdraw: bool },
-    Height { receive_nft_withdraw: u64 },
-}
-
-impl Default for PauseType {
-    fn default() -> Self {
-        PauseType::Switch {
-            receive_nft_withdraw: false,
-        }
-    }
-}
-
-#[cw_serde]
 #[derive(Default)]
 pub struct Pause {
-    pub pause: PauseType,
+    pub receive_nft_withdraw: u64,
 }
 
 pub type Cw721ReceiveMsg = cw721::Cw721ReceiveMsg;

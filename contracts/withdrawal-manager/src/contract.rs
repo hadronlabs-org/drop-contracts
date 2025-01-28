@@ -12,7 +12,7 @@ use drop_staking_base::{
     },
     state::{
         core::{UnbondBatch, UnbondBatchStatus},
-        withdrawal_manager::{Config, Cw721ReceiveMsg, Pause, PauseType, CONFIG, PAUSE},
+        withdrawal_manager::{Config, Cw721ReceiveMsg, Pause, CONFIG, PAUSE},
     },
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
@@ -97,22 +97,11 @@ fn execute_set_pause(
     pause: Pause,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-
     PAUSE.save(deps.storage, &pause)?;
-
-    let attrs = match pause.pause {
-        PauseType::Switch {
-            receive_nft_withdraw,
-        } => {
-            vec![("receive_nft_withdraw", receive_nft_withdraw.to_string())]
-        }
-        PauseType::Height {
-            receive_nft_withdraw,
-        } => {
-            vec![("receive_nft_withdraw", receive_nft_withdraw.to_string())]
-        }
-    };
-
+    let attrs = vec![(
+        "receive_nft_withdraw",
+        pause.receive_nft_withdraw.to_string(),
+    )];
     Ok(response("execute-set-pause", CONTRACT_NAME, attrs))
 }
 fn execute_update_config(

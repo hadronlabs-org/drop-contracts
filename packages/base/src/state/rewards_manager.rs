@@ -10,23 +10,9 @@ pub struct HandlerConfig {
 }
 
 #[cw_serde]
-pub enum PauseType {
-    Switch { exchange_rewards: bool },
-    Height { exchange_rewards: u64 },
-}
-
-impl Default for PauseType {
-    fn default() -> Self {
-        PauseType::Switch {
-            exchange_rewards: false,
-        }
-    }
-}
-
-#[cw_serde]
 #[derive(Default)]
 pub struct Pause {
-    pub pause: PauseType,
+    pub exchange_rewards: u64,
 }
 
 pub const PAUSE: Item<Pause> = Item::new("pause");

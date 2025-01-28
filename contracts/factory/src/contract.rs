@@ -34,11 +34,8 @@ use drop_staking_base::{
         withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
     },
     state::{
-        pump::PumpTimeout,
-        rewards_manager::{Pause as RewardsManagerPause, PauseType as RewardsManagerPauseType},
-        withdrawal_manager::{
-            Pause as WithdrawalManagerPause, PauseType as WithdrawalManagerPauseType,
-        },
+        pump::PumpTimeout, rewards_manager::Pause as RewardsManagerPause,
+        withdrawal_manager::Pause as WithdrawalManagerPause,
     },
 };
 use neutron_sdk::{
@@ -516,11 +513,9 @@ fn execute_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<
             state.core_contract,
             drop_staking_base::msg::core::ExecuteMsg::SetPause(
                 drop_staking_base::state::core::Pause {
-                    pause: drop_staking_base::state::core::PauseType::Switch {
-                        tick: false,
-                        bond: false,
-                        unbond: false,
-                    },
+                    tick: 0,
+                    bond: 0,
+                    unbond: 0,
                 },
             ),
             vec![],
@@ -529,9 +524,7 @@ fn execute_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<
             state.withdrawal_manager_contract,
             drop_staking_base::msg::withdrawal_manager::ExecuteMsg::SetPause {
                 pause: WithdrawalManagerPause {
-                    pause: WithdrawalManagerPauseType::Switch {
-                        receive_nft_withdraw: false,
-                    },
+                    receive_nft_withdraw: 0,
                 },
             },
             vec![],
@@ -540,9 +533,7 @@ fn execute_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<
             state.rewards_manager_contract,
             drop_staking_base::msg::rewards_manager::ExecuteMsg::SetPause {
                 pause: RewardsManagerPause {
-                    pause: RewardsManagerPauseType::Switch {
-                        exchange_rewards: false,
-                    },
+                    exchange_rewards: 0,
                 },
             },
             vec![],
@@ -560,11 +551,9 @@ fn execute_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Ne
             state.core_contract,
             drop_staking_base::msg::core::ExecuteMsg::SetPause(
                 drop_staking_base::state::core::Pause {
-                    pause: drop_staking_base::state::core::PauseType::Switch {
-                        tick: true,
-                        bond: false,
-                        unbond: false,
-                    },
+                    tick: 1,
+                    bond: 1,
+                    unbond: 1,
                 },
             ),
             vec![],
@@ -573,9 +562,7 @@ fn execute_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Ne
             state.withdrawal_manager_contract,
             drop_staking_base::msg::withdrawal_manager::ExecuteMsg::SetPause {
                 pause: WithdrawalManagerPause {
-                    pause: WithdrawalManagerPauseType::Switch {
-                        receive_nft_withdraw: true,
-                    },
+                    receive_nft_withdraw: 1,
                 },
             },
             vec![],
@@ -584,9 +571,7 @@ fn execute_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<Ne
             state.rewards_manager_contract,
             drop_staking_base::msg::rewards_manager::ExecuteMsg::SetPause {
                 pause: RewardsManagerPause {
-                    pause: RewardsManagerPauseType::Switch {
-                        exchange_rewards: true,
-                    },
+                    exchange_rewards: 1,
                 },
             },
             vec![],

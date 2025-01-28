@@ -22,11 +22,11 @@ use drop_staking_base::{
     },
     state::{
         core::{
-            unbond_batches_map, Config, ConfigOptional, ContractState, Pause, PauseType,
-            UnbondBatch, UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse,
-            BONDED_AMOUNT, BOND_HOOKS, BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG,
-            EXCHANGE_RATE, FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL,
-            LAST_PUPPETEER_RESPONSE, LD_DENOM, PAUSE, UNBOND_BATCH_ID,
+            unbond_batches_map, Config, ConfigOptional, ContractState, Pause, UnbondBatch,
+            UnbondBatchStatus, UnbondBatchStatusTimestamps, UnbondBatchesResponse, BONDED_AMOUNT,
+            BOND_HOOKS, BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG, EXCHANGE_RATE,
+            FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE,
+            LD_DENOM, PAUSE, UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
         withdrawal_voucher::{Metadata, Trait},
@@ -364,18 +364,11 @@ fn execute_set_pause(
 
     PAUSE.save(deps.storage, &pause)?;
 
-    let attrs = match pause.pause {
-        PauseType::Switch { bond, unbond, tick } => vec![
-            ("bond", bond.to_string()),
-            ("unbond", unbond.to_string()),
-            ("tick", tick.to_string()),
-        ],
-        PauseType::Height { bond, unbond, tick } => vec![
-            ("bond", bond.to_string()),
-            ("unbond", unbond.to_string()),
-            ("tick", tick.to_string()),
-        ],
-    };
+    let attrs = vec![
+        ("bond", pause.bond.to_string()),
+        ("unbond", pause.unbond.to_string()),
+        ("tick", pause.tick.to_string()),
+    ];
 
     Ok(response("execute-set-pause", CONTRACT_NAME, attrs))
 }

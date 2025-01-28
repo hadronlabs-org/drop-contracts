@@ -153,34 +153,13 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
 ];
 
 #[cw_serde]
-pub enum PauseType {
-    Switch {
-        bond: bool,
-        unbond: bool,
-        tick: bool,
-    },
-    Height {
-        bond: u64,
-        unbond: u64,
-        tick: u64,
-    },
-}
-
-impl Default for PauseType {
-    fn default() -> Self {
-        PauseType::Switch {
-            bond: false,
-            unbond: false,
-            tick: false,
-        }
-    }
-}
-
-#[cw_serde]
 #[derive(Default)]
 pub struct Pause {
-    pub pause: PauseType,
+    pub bond: u64,
+    pub unbond: u64,
+    pub tick: u64,
 }
+
 pub const BOND_PROVIDER_REPLY_ID: u64 = 1;
 
 pub const FSM: Fsm<ContractState> = Fsm::new("machine_state", TRANSITIONS);

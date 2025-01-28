@@ -12,7 +12,6 @@ use cosmwasm_std::{
     to_json_binary, BankMsg, Uint128,
 };
 use drop_helpers::testing::{mock_dependencies, mock_dependencies_with_api};
-use drop_staking_base::state::core::PauseType;
 use drop_staking_base::{
     msg::{
         core::{ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg},
@@ -763,11 +762,9 @@ fn test_admin_execute_unauthorized() {
                 cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
                     contract_addr: "core_contract".to_string(),
                     msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
-                        pause: PauseType::Switch {
-                            tick: true,
-                            bond: true,
-                            unbond: false,
-                        },
+                        tick: 1,
+                        bond: 1,
+                        unbond: 0,
                     }))
                     .unwrap(),
                     funds: vec![],
@@ -809,11 +806,9 @@ fn test_admin_execute() {
                 cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
                     contract_addr: "core_contract".to_string(),
                     msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
-                        pause: PauseType::Switch {
-                            tick: true,
-                            bond: true,
-                            unbond: false,
-                        },
+                        tick: 1,
+                        bond: 1,
+                        unbond: 0,
                     }))
                     .unwrap(),
                     funds: vec![],
@@ -842,11 +837,9 @@ fn test_admin_execute() {
                 cosmwasm_std::WasmMsg::Execute {
                     contract_addr: "core_contract".to_string(),
                     msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
-                        pause: PauseType::Switch {
-                            tick: true,
-                            bond: true,
-                            unbond: false,
-                        }
+                        tick: 1,
+                        bond: 1,
+                        unbond: 0,
                     }))
                     .unwrap(),
                     funds: vec![]
@@ -917,11 +910,9 @@ fn test_pause() {
                     cosmwasm_std::WasmMsg::Execute {
                         contract_addr: "core_contract".to_string(),
                         msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
-                            pause: PauseType::Switch {
-                                tick: true,
-                                bond: false,
-                                unbond: false,
-                            }
+                            tick: 1,
+                            bond: 0,
+                            unbond: 0,
                         }))
                         .unwrap(),
                         funds: vec![]
@@ -932,9 +923,7 @@ fn test_pause() {
                         contract_addr: "withdrawal_manager_contract".to_string(),
                         msg: to_json_binary(&WithdrawalManagerExecuteMsg::SetPause {
                             pause: drop_staking_base::state::withdrawal_manager::Pause {
-                                pause: drop_staking_base::state::withdrawal_manager::PauseType::Switch {
-                                    receive_nft_withdraw: true
-                                },
+                                receive_nft_withdraw: 1
                             }
                         })
                         .unwrap(),
@@ -946,11 +935,10 @@ fn test_pause() {
                         contract_addr: "rewards_manager_contract".to_string(),
                         msg: to_json_binary(&RewardsManagerExecuteMsg::SetPause {
                             pause: drop_staking_base::state::rewards_manager::Pause {
-                                pause: drop_staking_base::state::rewards_manager::PauseType::Switch {
-                                    exchange_rewards: true
-                                },
+                                exchange_rewards: 1
                             }
-                        }).unwrap(),
+                        })
+                        .unwrap(),
                         funds: vec![]
                     }
                 ))
@@ -1008,11 +996,9 @@ fn test_unpause() {
                     cosmwasm_std::WasmMsg::Execute {
                         contract_addr: "core_contract".to_string(),
                         msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
-                            pause: PauseType::Switch {
-                                tick: false,
-                                bond: false,
-                                unbond: false,
-                            }
+                            tick: 0,
+                            bond: 0,
+                            unbond: 0,
                         }))
                         .unwrap(),
                         funds: vec![]
@@ -1023,11 +1009,10 @@ fn test_unpause() {
                         contract_addr: "withdrawal_manager_contract".to_string(),
                         msg: to_json_binary(&WithdrawalManagerExecuteMsg::SetPause {
                             pause: drop_staking_base::state::withdrawal_manager::Pause {
-                                pause: drop_staking_base::state::withdrawal_manager::PauseType::Switch {
-                                    receive_nft_withdraw: false
-                                },
+                                receive_nft_withdraw: 0
                             }
-                        }).unwrap(),
+                        })
+                        .unwrap(),
                         funds: vec![]
                     }
                 )),
@@ -1036,10 +1021,7 @@ fn test_unpause() {
                         contract_addr: "rewards_manager_contract".to_string(),
                         msg: to_json_binary(&RewardsManagerExecuteMsg::SetPause {
                             pause: drop_staking_base::state::rewards_manager::Pause {
-                                pause:
-                                    drop_staking_base::state::rewards_manager::PauseType::Switch {
-                                        exchange_rewards: false
-                                    },
+                                exchange_rewards: 0
                             }
                         })
                         .unwrap(),
@@ -1076,11 +1058,9 @@ fn test_query_pause_info() {
     deps.querier.add_wasm_query_response("core_contract", |_| {
         cosmwasm_std::ContractResult::Ok(
             to_json_binary(&CorePause {
-                pause: PauseType::Switch {
-                    tick: true,
-                    bond: false,
-                    unbond: false,
-                },
+                tick: 1,
+                bond: 0,
+                unbond: 0,
             })
             .unwrap(),
         )
@@ -1089,9 +1069,7 @@ fn test_query_pause_info() {
         .add_wasm_query_response("withdrawal_manager_contract", |_| {
             cosmwasm_std::ContractResult::Ok(
                 to_json_binary(&drop_staking_base::state::withdrawal_manager::Pause {
-                    pause: drop_staking_base::state::withdrawal_manager::PauseType::Switch {
-                        receive_nft_withdraw: false,
-                    },
+                    receive_nft_withdraw: 0,
                 })
                 .unwrap(),
             )
@@ -1100,9 +1078,7 @@ fn test_query_pause_info() {
         .add_wasm_query_response("rewards_manager_contract", |_| {
             cosmwasm_std::ContractResult::Ok(
                 to_json_binary(&drop_staking_base::state::rewards_manager::Pause {
-                    pause: drop_staking_base::state::rewards_manager::PauseType::Switch {
-                        exchange_rewards: true,
-                    },
+                    exchange_rewards: 1,
                 })
                 .unwrap(),
             )
@@ -1116,21 +1092,15 @@ fn test_query_pause_info() {
         query_res,
         crate::state::PauseInfoResponse {
             core: CorePause {
-                pause: PauseType::Switch {
-                    tick: true,
-                    bond: false,
-                    unbond: false,
-                }
+                tick: 1,
+                bond: 0,
+                unbond: 0,
             },
             withdrawal_manager: drop_staking_base::state::withdrawal_manager::Pause {
-                pause: drop_staking_base::state::withdrawal_manager::PauseType::Switch {
-                    receive_nft_withdraw: false,
-                },
+                receive_nft_withdraw: 0,
             },
             rewards_manager: drop_staking_base::state::rewards_manager::Pause {
-                pause: drop_staking_base::state::rewards_manager::PauseType::Switch {
-                    exchange_rewards: true,
-                },
+                exchange_rewards: 1,
             },
         }
     );

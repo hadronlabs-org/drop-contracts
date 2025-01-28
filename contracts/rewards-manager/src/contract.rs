@@ -5,9 +5,7 @@ use drop_helpers::{answer::response, is_paused};
 use drop_staking_base::error::rewards_manager::{ContractError, ContractResult};
 use drop_staking_base::msg::reward_handler::HandlerExecuteMsg;
 use drop_staking_base::msg::rewards_manager::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
-use drop_staking_base::state::rewards_manager::{
-    HandlerConfig, Pause, PauseType, PAUSE, REWARDS_HANDLERS,
-};
+use drop_staking_base::state::rewards_manager::{HandlerConfig, Pause, PAUSE, REWARDS_HANDLERS};
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
@@ -72,18 +70,9 @@ pub fn execute(
 
 fn execute_set_pause(deps: DepsMut, info: MessageInfo, pause: Pause) -> ContractResult<Response> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-
     PAUSE.save(deps.storage, &pause)?;
 
-    let attrs = match pause.pause {
-        PauseType::Switch { exchange_rewards } => {
-            vec![("exchange_rewards", exchange_rewards.to_string())]
-        }
-        PauseType::Height { exchange_rewards } => {
-            vec![("exchange_rewards", exchange_rewards.to_string())]
-        }
-    };
-
+    let attrs = vec![("exchange_rewards", pause.exchange_rewards.to_string())];
     Ok(response("execute-set-pause", CONTRACT_NAME, attrs))
 }
 
