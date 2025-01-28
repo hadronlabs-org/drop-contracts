@@ -11,26 +11,20 @@ use cosmwasm_std::{
     Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use drop_helpers::answer::response;
-use drop_helpers::pause::Interval;
 use drop_staking_base::state::splitter::Config as SplitterConfig;
 use drop_staking_base::{
     msg::{
-        core::{InstantiateMsg as CoreInstantiateMsg, QueryMsg as CoreQueryMsg},
+        core::InstantiateMsg as CoreInstantiateMsg,
         distribution::InstantiateMsg as DistributionInstantiateMsg,
         native_bond_provider::InstantiateMsg as NativeBondProviderInstantiateMsg,
         pump::InstantiateMsg as RewardsPumpInstantiateMsg,
         puppeteer_native::InstantiateMsg as PuppeteerInstantiateMsg,
-        rewards_manager::{
-            InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg,
-        },
+        rewards_manager::InstantiateMsg as RewardsMangerInstantiateMsg,
         splitter::InstantiateMsg as SplitterInstantiateMsg,
         strategy::InstantiateMsg as StrategyInstantiateMsg,
         token::InstantiateMsg as TokenInstantiateMsg,
         validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
-        withdrawal_manager::{
-            InstantiateMsg as WithdrawalManagerInstantiateMsg,
-            QueryMsg as WithdrawalManagerQueryMsg,
-        },
+        withdrawal_manager::InstantiateMsg as WithdrawalManagerInstantiateMsg,
         withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
     },
     state::pump::PumpTimeout,
