@@ -1542,7 +1542,8 @@ pub fn migrate(
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-
+        deps.storage.remove("pause".as_bytes());
+        PAUSE.save(deps.storage, &Pause::default())?;
         BOND_HOOKS.save(deps.storage, &vec![])?;
     }
 
