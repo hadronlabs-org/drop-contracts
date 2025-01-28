@@ -7,8 +7,7 @@ macro_rules! is_paused {
     ($pause:expr, $deps:expr, $env:expr, $field:ident) => {{
         let pause = ($pause).load(($deps).storage)?;
         let height = ($env).block.height;
-        (pause.$field.from > 0 && pause.$field.to > 0)
-            && (pause.$field.from <= height && height <= pause.$field.to)
+        (pause.$field.from <= height && height <= pause.$field.to)
     }};
 }
 
