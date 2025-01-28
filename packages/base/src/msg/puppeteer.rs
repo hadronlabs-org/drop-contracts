@@ -1,6 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Timestamp, Uint128};
-use cw_ownable::{cw_ownable_execute, cw_ownable_query};
+use cw_ownable::cw_ownable_execute;
 use drop_helpers::version::version_to_u32;
 use prost::Message;
 
@@ -29,7 +29,7 @@ pub struct InstantiateMsg {
     pub transfer_channel_id: String,
     pub sdk_version: String,
     pub timeout: u64,
-    pub native_bond_provider: String,
+    pub factory_contract: String,
     pub delegations_queries_chunk_size: Option<u32>,
 }
 
@@ -120,7 +120,6 @@ pub struct BalancesResponse {
     pub timestamp: Timestamp,
 }
 
-#[cw_ownable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryExtMsg {

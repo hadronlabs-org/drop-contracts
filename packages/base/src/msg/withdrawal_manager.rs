@@ -7,8 +7,7 @@ use drop_macros::{pausable, pausable_query};
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub core_contract: String,
-    pub voucher_contract: String,
+    pub factory_contract: String,
     pub base_denom: String,
     pub owner: String,
 }
@@ -27,8 +26,7 @@ pub enum QueryMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig {
-        core_contract: Option<String>,
-        voucher_contract: Option<String>,
+        factory_contract: Option<String>,
         base_denom: Option<String>,
     },
     ReceiveNft(Cw721ReceiveMsg),

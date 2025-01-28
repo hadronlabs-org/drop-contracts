@@ -47,13 +47,14 @@ fn test_instantiate() {
     assert_eq!(
         res,
         Response::new().add_event(
-            Event::new("crates.io:drop-neutron-contracts__drop-puppeteer-native-instantiate")
-                .add_attributes(vec![
+            Event::new("crates.io:drop-staking__drop-puppeteer-native-instantiate").add_attributes(
+                vec![
                     ("owner", "owner"),
                     ("remote_denom", "remote_denom"),
                     ("native_bond_provider", "native_bond_provider"),
                     ("allowed_senders", "allowed_sender1,allowed_sender2"),
-                ])
+                ]
+            )
         )
     );
     let config = CONFIG.load(deps.as_ref().storage).unwrap();
@@ -125,7 +126,7 @@ fn test_execute_update_config() {
     assert_eq!(
         res,
         Response::new().add_event(
-            Event::new("crates.io:drop-neutron-contracts__drop-puppeteer-native-config_update")
+            Event::new("crates.io:drop-staking__drop-puppeteer-native-config_update")
                 .add_attributes(vec![
                     ("remote_denom", "new_remote_denom"),
                     ("allowed_senders", "1"),
@@ -430,9 +431,7 @@ fn test_transfer_ownership() {
         crate::contract::query(
             deps.as_ref(),
             mock_env(),
-            drop_staking_base::msg::puppeteer_native::QueryMsg::Extension {
-                msg: drop_staking_base::msg::puppeteer_native::QueryExtMsg::Ownership {},
-            },
+            drop_staking_base::msg::puppeteer_native::QueryMsg::Ownership {},
         )
         .unwrap(),
     )

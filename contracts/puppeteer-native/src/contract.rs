@@ -31,7 +31,7 @@ use neutron_sdk::{
 use prost::Message;
 use std::{env, vec};
 
-const CONTRACT_NAME: &str = concat!("crates.io:drop-neutron-contracts__", env!("CARGO_PKG_NAME"));
+pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
@@ -89,13 +89,13 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
             //     query_non_native_rewards_balances(deps, env)
             // }
             QueryExtMsg::UnbondingDelegations {} => query_unbonding_delegations(deps, env),
-            QueryExtMsg::Ownership {} => {
-                let owner = cw_ownable::get_ownership(deps.storage)?;
-                to_json_binary(&owner).map_err(ContractError::Std)
-            }
         },
         QueryMsg::Config {} => query_config(deps),
         QueryMsg::Transactions {} => query_transactions(),
+        QueryMsg::Ownership {} => {
+            let owner = cw_ownable::get_ownership(deps.storage)?;
+            to_json_binary(&owner).map_err(ContractError::Std)
+        }
     }
 }
 
@@ -274,6 +274,9 @@ pub fn execute(
         ExecuteMsg::SetupProtocol {
             rewards_withdraw_address,
         } => execute_setup_protocol(deps, env, info, rewards_withdraw_address),
+        ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: _ } => {
+            Ok(Response::default())
+        }
     }
 }
 
@@ -408,7 +411,7 @@ fn execute_setup_protocol(
 ) -> ContractResult<Response<NeutronMsg>> {
     let config: Config = CONFIG.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
-    let rewards_withdraw_addr = deps.api.addr_validate(&rewards_withdraw_address)?;
+    let rewards_withdraw_addr = deps.api.addr_validate(&rewards_withdraw_address)?; // Splitter contract
 
     let msg = WasmMsg::Execute {
         contract_addr: config.distribution_module_contract.into_string(),
@@ -443,7 +446,7 @@ fn execute_claim_rewards_and_optionaly_transfer(
     let mut messages = vec![];
     if let Some(transfer) = transfer.clone() {
         let send_msg = CosmosMsg::Bank(BankMsg::Send {
-            to_address: transfer.recipient,
+            to_address: transfer.recipient, // Should send to withdrawal manager
             amount: vec![StdCoin {
                 amount: transfer.amount,
                 denom: config.remote_denom.to_string(),

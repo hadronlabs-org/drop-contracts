@@ -12,6 +12,7 @@ fi
 git clone git@github.com:neutron-org/neutron-private
 cd neutron-private
 git checkout $COMMIT_HASH_OR_BRANCH
+echo "$OSTYPE"
 if [[ "$OSTYPE" == "darwin"* ]]; then
     sed -i '' 's/Ym+xqrhq1kJzyyJICGc2gB43+EETGy72sumZUU1wCt8=/EIdcrUrrPt9UgCUZTupM28XoMPHNsLvMDHRD0oKe\/Ck=/g' go.sum
 else

@@ -80,7 +80,7 @@ fn test_instantiate() {
         delegations_queries_chunk_size: Some(2u32),
         owner: Some("owner".to_string()),
         connection_id: "connection_id".to_string(),
-        native_bond_provider: "native_bond_provider".to_string(),
+        factory_contract: "factory_contract".to_string(),
         port_id: "port_id".to_string(),
         update_period: 60u64,
         remote_denom: "move/14a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
@@ -113,7 +113,7 @@ fn test_update_config() {
             remote_denom: Some(
                 "move/24a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a".to_string(),
             ),
-            native_bond_provider: Some(Addr::unchecked("native_bond_provider")),
+            factory_contract: Some(Addr::unchecked("factory_contract")),
             allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
             transfer_channel_id: Some("new_transfer_channel_id".to_string()),
             connection_id: Some("new_connection_id".to_string()),
@@ -130,7 +130,7 @@ fn test_update_config() {
     assert_eq!(
         res,
         Response::new().add_event(
-            Event::new("crates.io:drop-neutron-contracts__drop-puppeteer-initia-config_update")
+            Event::new("crates.io:drop-staking__drop-puppeteer-initia-config_update")
                 .add_attributes(vec![
                     (
                         "remote_denom",
@@ -153,7 +153,7 @@ fn test_update_config() {
             delegations_queries_chunk_size: 2u32,
             port_id: "new_port_id".to_string(),
             connection_id: "new_connection_id".to_string(),
-            native_bond_provider: Addr::unchecked("native_bond_provider"),
+            factory_contract: Addr::unchecked("factory_contract"),
             update_period: 121u64,
             remote_denom: "move/24a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
                 .to_string(),
@@ -966,7 +966,7 @@ fn get_base_config() -> Config {
         delegations_queries_chunk_size: 2u32,
         port_id: "port_id".to_string(),
         connection_id: "connection_id".to_string(),
-        native_bond_provider: Addr::unchecked("native_bond_provider"),
+        factory_contract: Addr::unchecked("factory_contract"),
         update_period: 60u64,
         remote_denom: "move/14a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
             .to_string(),

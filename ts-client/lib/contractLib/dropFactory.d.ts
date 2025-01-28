@@ -34,18 +34,18 @@ export type Timestamp = Uint64;
  * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
  */
 export type Uint64 = string;
-/**
- * Information about if the contract is currently paused.
- */
-export type PauseInfoResponse1 = {
-    paused: {};
-} | {
-    unpaused: {};
-};
 export type UpdateConfigArgs = {
     core: ConfigOptional;
 } | {
     validators_set: ConfigOptional2;
+};
+export type ProxyArgs = {
+    validator_set: ValidatorSetMsg;
+};
+export type ValidatorSetMsg = {
+    update_validators: {
+        validators: ValidatorData[];
+    };
 };
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
@@ -61,14 +61,6 @@ export type UpdateConfigArgs = {
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type ProxyArgs = {
-    validator_set: ValidatorSetMsg;
-};
-export type ValidatorSetMsg = {
-    update_validators: {
-        validators: ValidatorData[];
-    };
-};
 export type CosmosMsgFor_NeutronMsg = {
     bank: BankMsg;
 } | {
@@ -719,25 +711,18 @@ export type UpdateOwnershipArgs = {
         new_owner: string;
     };
 } | "accept_ownership" | "renounce_ownership";
-export type Factory = {
-    native: {
-        distribution_module_contract: string;
-    };
-} | {
-    remote: {
-        code_ids: RemoteCodeIds;
-        icq_update_period: number;
-        lsm_share_bond_params: LsmShareBondParams;
-        min_ibc_transfer: Uint128;
-        min_stake_amount: Uint128;
-        port_id: string;
-        reverse_transfer_channel_id: string;
-        sdk_version: string;
-        transfer_channel_id: string;
-    };
-};
+/**
+ * A human readable address.
+ *
+ * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
+ *
+ * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
+ *
+ * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
+ */
+export type Addr = string;
 export interface DropFactorySchema {
-    responses: OwnershipForString | PauseInfoResponse | State;
+    responses: OwnershipForString | MapOfString | MapOfString1;
     execute: UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
@@ -759,50 +744,24 @@ export interface OwnershipForString {
      */
     pending_owner?: string | null;
 }
-export interface PauseInfoResponse {
-    core: Pause;
-    rewards_manager: PauseInfoResponse1;
-    withdrawal_manager: PauseInfoResponse1;
+export interface MapOfString {
+    [k: string]: string;
 }
-export interface Pause {
-    bond: boolean;
-    tick: boolean;
-    unbond: boolean;
-}
-export interface State {
-    core_contract: string;
-    distribution_contract: string;
-    lsm_share_bond_provider_contract?: string | null;
-    native_bond_provider_contract: string;
-    puppeteer_contract: string;
-    rewards_manager_contract: string;
-    rewards_pump_contract: string;
-    splitter_contract: string;
-    strategy_contract: string;
-    token_contract: string;
-    validators_set_contract: string;
-    withdrawal_manager_contract: string;
-    withdrawal_voucher_contract: string;
+export interface MapOfString1 {
+    [k: string]: string;
 }
 export interface ConfigOptional {
     base_denom?: string | null;
-    bond_limit?: Uint128 | null;
     emergency_address?: string | null;
+    factory_contract?: string | null;
     idle_min_interval?: number | null;
     pump_ica_address?: string | null;
-    puppeteer_contract?: string | null;
     remote_denom?: string | null;
     rewards_receiver?: string | null;
-    staker_contract?: string | null;
-    strategy_contract?: string | null;
-    token_contract?: string | null;
     transfer_channel_id?: string | null;
     unbond_batch_switch_time?: number | null;
     unbonding_period?: number | null;
     unbonding_safe_period?: number | null;
-    validators_set_contract?: string | null;
-    withdrawal_manager_contract?: string | null;
-    withdrawal_voucher_contract?: string | null;
 }
 export interface ConfigOptional2 {
     provider_proposals_contract?: string | null;
@@ -810,7 +769,7 @@ export interface ConfigOptional2 {
     val_ref_contract?: string | null;
 }
 export interface ValidatorData {
-    on_top: Uint128;
+    on_top?: Uint128 | null;
     valoper_address: string;
     weight: number;
 }
@@ -1184,9 +1143,9 @@ export interface InstantiateMsg {
     base_denom: string;
     code_ids: CodeIds;
     core_params: CoreParams;
-    factory: Factory;
     fee_params?: FeeParams | null;
     local_denom: string;
+    pre_instantiated_contracts: PreInstantiatedContracts;
     remote_opts: RemoteOpts;
     salt: string;
     subdenom: string;
@@ -1195,10 +1154,7 @@ export interface InstantiateMsg {
 export interface CodeIds {
     core_code_id: number;
     distribution_code_id: number;
-    native_bond_provider_code_id: number;
-    puppeteer_code_id: number;
     rewards_manager_code_id: number;
-    rewards_pump_code_id: number;
     splitter_code_id: number;
     strategy_code_id: number;
     token_code_id: number;
@@ -1207,29 +1163,29 @@ export interface CodeIds {
     withdrawal_voucher_code_id: number;
 }
 export interface CoreParams {
-    bond_limit?: Uint128 | null;
     icq_update_delay: number;
     idle_min_interval: number;
     unbond_batch_switch_time: number;
     unbonding_period: number;
     unbonding_safe_period: number;
 }
-export interface RemoteCodeIds {
-    lsm_share_bond_provider_code_id: number;
-}
-export interface LsmShareBondParams {
-    lsm_min_bond_amount: Uint128;
-    lsm_redeem_max_interval: number;
-    lsm_redeem_threshold: number;
-}
 export interface FeeParams {
     fee: Decimal;
     fee_address: string;
+}
+export interface PreInstantiatedContracts {
+    lsm_share_bond_provider_address?: Addr | null;
+    native_bond_provider_address: Addr;
+    puppeteer_address: Addr;
+    rewards_pump_address?: Addr | null;
+    unbonding_pump_address?: Addr | null;
+    val_ref_address?: Addr | null;
 }
 export interface RemoteOpts {
     connection_id: string;
     denom: string;
     timeout: Timeout;
+    transfer_channel_id: string;
 }
 export interface Timeout {
     local: number;
@@ -1270,15 +1226,33 @@ export declare class Client {
     contractAddress: string;
     constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string);
     mustBeSigningClient(): Error;
-    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
-    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
-    queryState: () => Promise<State>;
-    queryPauseInfo: () => Promise<PauseInfoResponse>;
+    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
+    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: Uint8Array, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
+    queryState: () => Promise<MapOfString>;
+    queryPauseInfo: () => Promise<MapOfString>;
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateConfigMsg: (args: UpdateConfigArgs) => {
+        update_config: UpdateConfigArgs;
+    };
     proxy: (sender: string, args: ProxyArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    proxyMsg: (args: ProxyArgs) => {
+        proxy: ProxyArgs;
+    };
     adminExecute: (sender: string, args: AdminExecuteArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    adminExecuteMsg: (args: AdminExecuteArgs) => {
+        admin_execute: AdminExecuteArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
     pause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    pauseMsg: () => {
+        pause: {};
+    };
     unpause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    unpauseMsg: () => {
+        unpause: {};
+    };
 }
