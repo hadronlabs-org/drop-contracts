@@ -871,6 +871,40 @@ describe('Core', () => {
         expect(delegation_responses[0].balance.amount).toEqual('200000');
         expect(delegation_responses[1].balance.amount).toEqual('200000');
       });
+
+      it('verify puppeteer delegations', async () => {
+        const res = (await context.puppeteerContractClient.queryExtension({
+          msg: { delegations: {} },
+        } as any)) as any;
+        expect(
+          sortByStringKey(res.delegations.delegations as any[], 'validator'),
+        ).toEqual(
+          sortByStringKey(
+            [
+              {
+                amount: { amount: '200000', denom: 'untrn' },
+                share_ratio: '200000',
+                validator: context.validatorAddress,
+                delegator: context.puppeteerContractClient.contractAddress,
+              },
+              {
+                amount: { amount: '200000', denom: 'untrn' },
+                share_ratio: '200000',
+                validator: context.secondValidatorAddress,
+                delegator: context.puppeteerContractClient.contractAddress,
+              },
+            ],
+            'validator',
+          ),
+        );
+      });
     });
   });
 });
+
+function sortByStringKey<T extends Record<K, string>, K extends keyof T>(
+  arr: T[],
+  key: K,
+): T[] {
+  return arr.sort((a, b) => a[key].localeCompare(b[key]));
+}

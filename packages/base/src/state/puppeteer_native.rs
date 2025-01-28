@@ -33,6 +33,7 @@ pub const NON_NATIVE_REWARD_BALANCES: Item<BalancesAndDelegationsState<MultiBala
 
 pub const DECIMAL_PLACES: u32 = 18;
 
+pub const REWARDS_WITHDRAW_ADDR: Item<Addr> = Item::new("rewards_withdraw_addr");
 #[cw_serde]
 pub struct PageResponse {
     pub next_key: Option<Vec<u8>>,

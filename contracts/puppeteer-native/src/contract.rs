@@ -1,7 +1,7 @@
 use cosmos_sdk_proto::cosmos::base::query::v1beta1::PageRequest;
 use cosmwasm_std::{
     attr, ensure, to_json_binary, Addr, Attribute, BankMsg, Coin as StdCoin, CosmosMsg, Deps,
-    DistributionMsg, QueryRequest, StakingMsg, StdError, Timestamp, Uint128, WasmMsg,
+    QueryRequest, StakingMsg, StdError, Timestamp, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{answer::response, validation::validate_addresses};
@@ -11,6 +11,7 @@ use drop_puppeteer_base::{
     msg::TransferReadyBatchesMsg,
     peripheral_hook::{ReceiverExecuteMsg, ResponseHookMsg, ResponseHookSuccessMsg, Transaction},
 };
+use drop_staking_base::state::puppeteer_native::REWARDS_WITHDRAW_ADDR;
 use drop_staking_base::{
     msg::puppeteer_native::{
         BalancesResponse, DelegationsResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryExtMsg,
@@ -408,24 +409,14 @@ fn execute_setup_protocol(
 ) -> ContractResult<Response<NeutronMsg>> {
     let config: Config = CONFIG.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
-    let rewards_withdraw_addr = deps.api.addr_validate(&rewards_withdraw_address)?;
-
-    let msg = WasmMsg::Execute {
-        contract_addr: config.distribution_module_contract.into_string(),
-        funds: vec![],
-        msg: to_json_binary(
-            &drop_staking_base::msg::neutron_distribution_mock::ExecuteMsg::SetWithdrawAddress {
-                address: rewards_withdraw_addr.into_string(),
-            },
-        )?,
-    };
+    let rewards_withdraw_addr = deps.api.addr_validate(&rewards_withdraw_address)?; // Splitter contract
+    REWARDS_WITHDRAW_ADDR.save(deps.storage, &rewards_withdraw_addr)?;
 
     Ok(response(
         "execute_setup_protocol",
         CONTRACT_NAME,
         [("rewards_withdraw_address", rewards_withdraw_address)],
-    )
-    .add_message(msg))
+    ))
 }
 
 fn execute_claim_rewards_and_optionaly_transfer(
@@ -443,7 +434,7 @@ fn execute_claim_rewards_and_optionaly_transfer(
     let mut messages = vec![];
     if let Some(transfer) = transfer.clone() {
         let send_msg = CosmosMsg::Bank(BankMsg::Send {
-            to_address: transfer.recipient,
+            to_address: transfer.recipient, // Should send to withdrawal manager
             amount: vec![StdCoin {
                 amount: transfer.amount,
                 denom: config.remote_denom.to_string(),
@@ -453,12 +444,17 @@ fn execute_claim_rewards_and_optionaly_transfer(
         messages.push(send_msg);
     }
 
-    for val in validators.clone() {
-        let withdraw_reward_msg =
-            CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward { validator: val });
+    let rewards_withdraw_addr = REWARDS_WITHDRAW_ADDR.load(deps.storage)?;
 
-        messages.push(withdraw_reward_msg);
-    }
+    messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.distribution_module_contract.to_string(),
+        msg: to_json_binary(
+            &drop_staking_base::msg::neutron_distribution_mock::ExecuteMsg::ClaimRewards {
+                receiver: Some(rewards_withdraw_addr.to_string()),
+            },
+        )?,
+        funds: vec![],
+    }));
 
     if !reply_to.is_empty() {
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
