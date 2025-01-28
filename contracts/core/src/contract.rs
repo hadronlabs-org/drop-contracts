@@ -362,6 +362,10 @@ fn execute_set_pause(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
+    pause.bond.validate()?;
+    pause.unbond.validate()?;
+    pause.tick.validate()?;
+
     PAUSE.save(deps.storage, &pause)?;
 
     let attrs = vec![

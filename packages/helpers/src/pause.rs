@@ -33,3 +33,15 @@ impl std::fmt::Display for Interval {
         write!(f, "[{}, {}]", self.from, self.to)
     }
 }
+
+impl Interval {
+    pub fn validate(&self) -> Result<bool, StdError> {
+        if self.from <= self.to {
+            return Ok(true);
+        }
+        Err(StdError::generic_err(format!(
+            "Failed to validate interval [{:?}, {:?}]",
+            self.from, self.to
+        )))
+    }
+}

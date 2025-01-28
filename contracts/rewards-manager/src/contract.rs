@@ -70,8 +70,8 @@ pub fn execute(
 
 fn execute_set_pause(deps: DepsMut, info: MessageInfo, pause: Pause) -> ContractResult<Response> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
+    pause.exchange_rewards.validate()?;
     PAUSE.save(deps.storage, &pause)?;
-
     let attrs = vec![("exchange_rewards", pause.exchange_rewards.to_string())];
     Ok(response("execute-set-pause", CONTRACT_NAME, attrs))
 }

@@ -97,6 +97,7 @@ fn execute_set_pause(
     pause: Pause,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
+    pause.receive_nft_withdraw.validate()?;
     PAUSE.save(deps.storage, &pause)?;
     let attrs = vec![(
         "receive_nft_withdraw",
@@ -104,6 +105,7 @@ fn execute_set_pause(
     )];
     Ok(response("execute-set-pause", CONTRACT_NAME, attrs))
 }
+
 fn execute_update_config(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
