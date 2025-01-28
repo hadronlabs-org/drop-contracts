@@ -44,11 +44,4 @@ pub struct Timeout {
     pub remote: u64,
 }
 
-#[cw_serde]
-pub struct PauseInfoResponse {
-    pub withdrawal_manager: drop_helpers::pause::PauseInfoResponse,
-    pub core: crate::state::core::Pause,
-    pub rewards_manager: drop_helpers::pause::PauseInfoResponse,
-}
-
 pub const STATE: Map<&str, Addr> = Map::new("state");

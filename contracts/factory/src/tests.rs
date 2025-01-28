@@ -14,7 +14,10 @@ use drop_helpers::phonebook::{
     REWARDS_PUMP_CONTRACT, SPLITTER_CONTRACT, STRATEGY_CONTRACT, TOKEN_CONTRACT,
     VALIDATORS_SET_CONTRACT, WITHDRAWAL_MANAGER_CONTRACT, WITHDRAWAL_VOUCHER_CONTRACT,
 };
-use drop_helpers::testing::{mock_dependencies, mock_dependencies_with_api, WasmMockQuerier};
+use drop_helpers::{
+    pause::Interval,
+    testing::{mock_dependencies, mock_dependencies_with_api, WasmMockQuerier},
+};
 use drop_staking_base::state::factory::PreInstantiatedContracts;
 use drop_staking_base::{
     msg::factory::{
@@ -28,19 +31,14 @@ use drop_staking_base::{
         core::{ExecuteMsg as CoreExecuteMsg, InstantiateMsg as CoreInstantiateMsg},
         distribution::InstantiateMsg as DistributionInstantiateMsg,
         puppeteer::ExecuteMsg as PuppeteerExecuteMsg,
-        rewards_manager::{
-            ExecuteMsg as RewardsManagerExecuteMsg, InstantiateMsg as RewardsManagerInstantiateMsg,
-        },
+        rewards_manager::InstantiateMsg as RewardsManagerInstantiateMsg,
         splitter::InstantiateMsg as SplitterInstantiateMsg,
         strategy::InstantiateMsg as StrategyInstantiateMsg,
         token::{DenomMetadata, InstantiateMsg as TokenInstantiateMsg},
         validatorset::{
             ExecuteMsg as ValidatorSetExecuteMsg, InstantiateMsg as ValidatorsSetInstantiateMsg,
         },
-        withdrawal_manager::{
-            ExecuteMsg as WithdrawalManagerExecuteMsg,
-            InstantiateMsg as WithdrawalManagerInstantiateMsg,
-        },
+        withdrawal_manager::InstantiateMsg as WithdrawalManagerInstantiateMsg,
         withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
     },
     state::{core::Pause as CorePause, splitter::Config as SplitterConfig},
@@ -710,9 +708,15 @@ fn test_admin_execute_unauthorized() {
                 cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
                     contract_addr: "core_contract".to_string(),
                     msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
-                        tick: true,
-                        bond: true,
-                        unbond: false,
+                        tick: Interval {
+                            from: 1000,
+                            to: 1000000,
+                        },
+                        bond: Interval {
+                            from: 1000,
+                            to: 1000000,
+                        },
+                        unbond: Interval { from: 0, to: 0 },
                     }))
                     .unwrap(),
                     funds: vec![],
@@ -756,9 +760,15 @@ fn test_admin_execute() {
                 cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
                     contract_addr: "core_contract".to_string(),
                     msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
-                        tick: true,
-                        bond: true,
-                        unbond: false,
+                        tick: Interval {
+                            from: 1000,
+                            to: 1000000,
+                        },
+                        bond: Interval {
+                            from: 1000,
+                            to: 1000000,
+                        },
+                        unbond: Interval { from: 0, to: 0 },
                     }))
                     .unwrap(),
                     funds: vec![],
@@ -787,9 +797,15 @@ fn test_admin_execute() {
                 cosmwasm_std::WasmMsg::Execute {
                     contract_addr: "core_contract".to_string(),
                     msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
-                        tick: true,
-                        bond: true,
-                        unbond: false,
+                        tick: Interval {
+                            from: 1000,
+                            to: 1000000,
+                        },
+                        bond: Interval {
+                            from: 1000,
+                            to: 1000000,
+                        },
+                        unbond: Interval { from: 0, to: 0 },
                     }))
                     .unwrap(),
                     funds: vec![]
@@ -815,158 +831,6 @@ fn test_admin_execute() {
                     "crates.io:drop-staking__drop-factory-execute-admin".to_string()
                 )
                 .add_attribute("action".to_string(), "admin-execute".to_string())
-            )
-    )
-}
-
-#[test]
-fn test_pause_unauthorized() {
-    let mut deps = mock_dependencies(&[]);
-    let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    let res = execute(
-        deps.as_mut().into_empty(),
-        mock_env(),
-        mock_info("not_an_owner", &[]),
-        ExecuteMsg::Pause {},
-    )
-    .unwrap_err();
-    assert_eq!(
-        res,
-        drop_staking_base::error::factory::ContractError::OwnershipError(
-            cw_ownable::OwnershipError::NotOwner
-        )
-    );
-}
-
-#[test]
-fn test_pause() {
-    let mut deps = mock_dependencies(&[]);
-    let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    set_default_factory_state(deps.as_mut());
-    let res = execute(
-        deps.as_mut().into_empty(),
-        mock_env(),
-        mock_info("owner", &[]),
-        ExecuteMsg::Pause {},
-    )
-    .unwrap();
-    assert_eq!(
-        res,
-        cosmwasm_std::Response::new()
-            .add_submessages(vec![
-                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
-                    cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "core_contract".to_string(),
-                        msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
-                            tick: true,
-                            bond: false,
-                            unbond: false,
-                        }))
-                        .unwrap(),
-                        funds: vec![]
-                    }
-                )),
-                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
-                    cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "withdrawal_manager_contract".to_string(),
-                        msg: to_json_binary(&WithdrawalManagerExecuteMsg::Pause {}).unwrap(),
-                        funds: vec![]
-                    }
-                )),
-                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
-                    cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "rewards_manager_contract".to_string(),
-                        msg: to_json_binary(&RewardsManagerExecuteMsg::Pause {}).unwrap(),
-                        funds: vec![]
-                    }
-                ))
-            ])
-            .add_event(
-                cosmwasm_std::Event::new(
-                    "crates.io:drop-staking__drop-factory-execute-pause".to_string()
-                )
-                .add_attributes(vec![cosmwasm_std::attr(
-                    "action".to_string(),
-                    "pause".to_string()
-                )])
-            )
-    )
-}
-
-#[test]
-fn test_unpause_unauthorized() {
-    let mut deps = mock_dependencies(&[]);
-    let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    let res = execute(
-        deps.as_mut().into_empty(),
-        mock_env(),
-        mock_info("not_an_owner", &[]),
-        ExecuteMsg::Unpause {},
-    )
-    .unwrap_err();
-    assert_eq!(
-        res,
-        drop_staking_base::error::factory::ContractError::OwnershipError(
-            cw_ownable::OwnershipError::NotOwner
-        )
-    );
-}
-
-#[test]
-fn test_unpause() {
-    let mut deps = mock_dependencies(&[]);
-    let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    set_default_factory_state(deps.as_mut());
-    let res = execute(
-        deps.as_mut().into_empty(),
-        mock_env(),
-        mock_info("owner", &[]),
-        ExecuteMsg::Unpause {},
-    )
-    .unwrap();
-    assert_eq!(
-        res,
-        cosmwasm_std::Response::new()
-            .add_submessages(vec![
-                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
-                    cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "core_contract".to_string(),
-                        msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
-                            tick: false,
-                            bond: false,
-                            unbond: false,
-                        }))
-                        .unwrap(),
-                        funds: vec![]
-                    }
-                )),
-                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
-                    cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "rewards_manager_contract".to_string(),
-                        msg: to_json_binary(&RewardsManagerExecuteMsg::Unpause {}).unwrap(),
-                        funds: vec![]
-                    }
-                )),
-                cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
-                    cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "withdrawal_manager_contract".to_string(),
-                        msg: to_json_binary(&WithdrawalManagerExecuteMsg::Unpause {}).unwrap(),
-                        funds: vec![]
-                    }
-                ))
-            ])
-            .add_event(
-                cosmwasm_std::Event::new(
-                    "crates.io:drop-staking__drop-factory-execute-unpause".to_string()
-                )
-                .add_attributes(vec![cosmwasm_std::attr(
-                    "action".to_string(),
-                    "unpause".to_string()
-                )])
             )
     )
 }
@@ -1027,48 +891,6 @@ fn test_query_state() {
                 "native_bond_provider_contract".to_string()
             )
         ])
-    );
-}
-
-#[test]
-fn test_query_pause_info() {
-    let mut deps = mock_dependencies(&[]);
-    deps.querier.add_wasm_query_response("core_contract", |_| {
-        cosmwasm_std::ContractResult::Ok(
-            to_json_binary(&CorePause {
-                tick: true,
-                bond: false,
-                unbond: false,
-            })
-            .unwrap(),
-        )
-    });
-    deps.querier
-        .add_wasm_query_response("withdrawal_manager_contract", |_| {
-            cosmwasm_std::ContractResult::Ok(
-                to_json_binary(&drop_helpers::pause::PauseInfoResponse::Unpaused {}).unwrap(),
-            )
-        });
-    deps.querier
-        .add_wasm_query_response("rewards_manager_contract", |_| {
-            cosmwasm_std::ContractResult::Ok(
-                to_json_binary(&drop_helpers::pause::PauseInfoResponse::Paused {}).unwrap(),
-            )
-        });
-    set_default_factory_state(deps.as_mut());
-    let query_res: drop_staking_base::state::factory::PauseInfoResponse =
-        from_json(query(deps.as_ref(), mock_env(), QueryMsg::PauseInfo {}).unwrap()).unwrap();
-    assert_eq!(
-        query_res,
-        drop_staking_base::state::factory::PauseInfoResponse {
-            core: CorePause {
-                tick: true,
-                bond: false,
-                unbond: false,
-            },
-            withdrawal_manager: drop_helpers::pause::PauseInfoResponse::Unpaused {},
-            rewards_manager: drop_helpers::pause::PauseInfoResponse::Paused {},
-        }
     );
 }
 

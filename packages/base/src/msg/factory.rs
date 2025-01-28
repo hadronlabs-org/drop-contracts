@@ -3,7 +3,6 @@ use crate::state::factory::{CodeIds, PreInstantiatedContracts, RemoteOpts};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{CosmosMsg, Decimal, Uint128};
 use cw_ownable::cw_ownable_execute;
-use drop_macros::pausable;
 use neutron_sdk::bindings::msg::NeutronMsg;
 
 #[cw_serde]
@@ -60,8 +59,14 @@ pub enum ValidatorSetMsg {
     },
 }
 
+#[cw_serde]
+pub enum PauseType {
+    Core {},
+    WithdrawManager {},
+    RewardsManager {},
+}
+
 #[cw_ownable_execute]
-#[pausable]
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig(Box<UpdateConfigMsg>),
@@ -77,8 +82,6 @@ pub struct MigrateMsg {}
 pub enum QueryMsg {
     #[returns(std::collections::HashMap<String, String>)]
     State {},
-    #[returns(std::collections::HashMap<String, String>)]
-    PauseInfo {},
 }
 
 #[cw_ownable::cw_ownable_query]
