@@ -31,10 +31,11 @@ use prost::Message;
 use schemars::_serde_json::to_string;
 
 use std::vec;
+use cosmwasm_std::testing::MockApi;
 
 type PuppeteerBaseType = PuppeteerBase<
     'static,
-    drop_staking_base::state::puppeteer::Config,
+    Config,
     KVQueryType,
     BalancesAndDelegations,
 >;
@@ -308,28 +309,29 @@ fn build_interchain_query_response() -> Binary {
 #[test]
 fn test_instantiate() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let msg = InstantiateMsg {
         delegations_queries_chunk_size: Some(2u32),
-        owner: Some("owner".to_string()),
+        owner: Some(api.addr_make("owner").to_string()),
         connection_id: "connection_id".to_string(),
-        factory_contract: "factory_contract".to_string(),
+        factory_contract: api.addr_make("factory_contract").to_string(),
         port_id: "port_id".to_string(),
         update_period: 60u64,
         remote_denom: "remote_denom".to_string(),
-        allowed_senders: vec!["allowed_sender".to_string()],
+        allowed_senders: vec![api.addr_make("allowed_sender").to_string()],
         transfer_channel_id: "transfer_channel_id".to_string(),
         sdk_version: "0.47.10".to_string(),
         timeout: 100u64,
     };
     let env = mock_env();
     let res =
-        crate::contract::instantiate(deps.as_mut(), env, message_info(&Addr::unchecked("sender"), &[]), msg).unwrap();
+        crate::contract::instantiate(deps.as_mut(), env, message_info(&api.addr_make("sender"), &[]), msg).unwrap();
     assert_eq!(res, Response::new());
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.as_ref().storage).unwrap();
-    assert_eq!(config, get_base_config("0.47.10".to_string()));
+    assert_eq!(config, get_base_config("0.47.10".to_string(), api));
     assert_eq!(
-        cosmwasm_std::Addr::unchecked("owner"),
+        api.addr_make("owner"),
         cw_ownable::get_ownership(deps.as_mut().storage)
             .unwrap()
             .owner
@@ -340,20 +342,21 @@ fn test_instantiate() {
 #[test]
 fn test_execute_update_config_unauthorized() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let puppeteer_base = Puppeteer::default();
     puppeteer_base
         .config
         .save(
             deps.as_mut().storage,
-            &get_base_config("0.47.10".to_string()),
+            &get_base_config("0.47.10".to_string(), api),
         )
         .unwrap();
     let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::UpdateConfig {
         new_config: ConfigOptional {
             update_period: Some(121u64),
             remote_denom: Some("new_remote_denom".to_string()),
-            factory_contract: Some(Addr::unchecked("factory_contract")),
-            allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
+            factory_contract: Some(api.addr_make("factory_contract")),
+            allowed_senders: Some(vec![api.addr_make("new_allowed_sender").to_string()]),
             transfer_channel_id: Some("new_transfer_channel_id".to_string()),
             connection_id: Some("new_connection_id".to_string()),
             port_id: Some("new_port_id".to_string()),
@@ -362,12 +365,12 @@ fn test_execute_update_config_unauthorized() {
         },
     };
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
 
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("not_an_owner"), &[]),
+        message_info(&api.addr_make("not_an_owner"), &[]),
         msg.clone(),
     )
     .unwrap_err();
@@ -382,27 +385,28 @@ fn test_execute_update_config_unauthorized() {
 #[test]
 fn test_execute_update_config() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let puppeteer_base = Puppeteer::default();
     puppeteer_base
         .config
         .save(
             deps.as_mut().storage,
-            &get_base_config("0.47.10".to_string()),
+            &get_base_config("0.47.10".to_string(), api),
         )
         .unwrap();
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
 
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 update_period: Some(121u64),
                 remote_denom: Some("new_remote_denom".to_string()),
-                factory_contract: Some(Addr::unchecked("factory_contract")),
-                allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
+                factory_contract: Some(api.addr_make("factory_contract")),
+                allowed_senders: Some(vec![api.addr_make("new_allowed_sender").to_string()]),
                 transfer_channel_id: Some("new_transfer_channel_id".to_string()),
                 connection_id: Some("new_connection_id".to_string()),
                 port_id: Some("new_port_id".to_string()),
@@ -425,7 +429,7 @@ fn test_execute_update_config() {
                     ("transfer_channel_id", "new_transfer_channel_id"),
                     ("sdk_version", "0.47.0"),
                     ("timeout", "101"),
-                    ("factory_contract", "factory_contract"),
+                    ("factory_contract", api.addr_make("factory_contract").as_str()),
                 ])
         )
     );
@@ -437,10 +441,10 @@ fn test_execute_update_config() {
             delegations_queries_chunk_size: 2u32,
             port_id: "new_port_id".to_string(),
             connection_id: "new_connection_id".to_string(),
-            factory_contract: Addr::unchecked("factory_contract"),
+            factory_contract: api.addr_make("factory_contract"),
             update_period: 121u64,
             remote_denom: "new_remote_denom".to_string(),
-            allowed_senders: vec![Addr::unchecked("new_allowed_sender")],
+            allowed_senders: vec![api.addr_make("new_allowed_sender")],
             transfer_channel_id: "new_transfer_channel_id".to_string(),
             sdk_version: "0.47.0".to_string(),
             timeout: 101u64,
@@ -451,7 +455,8 @@ fn test_execute_update_config() {
 #[test]
 fn test_execute_setup_protocol_sender_is_not_allowed() {
     let mut deps = mock_dependencies(&[]);
-    base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let api = deps.api;
+    base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
@@ -461,7 +466,7 @@ fn test_execute_setup_protocol_sender_is_not_allowed() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("not_allowed_sender"), &[]),
+        message_info(&api.addr_make("not_allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::SetupProtocol {
             rewards_withdraw_address: "rewards_withdraw_address".to_string(),
         },
@@ -477,19 +482,20 @@ fn test_execute_setup_protocol_sender_is_not_allowed() {
 #[test]
 fn test_execute_setup_protocol() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    let pupeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let pupeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("allowed_sender"), &[]),
+        message_info(&api.addr_make("allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::SetupProtocol {
-            rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+            rewards_withdraw_address: api.addr_make("rewards_withdraw_address").to_string(),
         },
     )
     .unwrap();
@@ -499,8 +505,8 @@ fn test_execute_setup_protocol() {
             type_url: "/cosmos.distribution.v1beta1.MsgSetWithdrawAddress".to_string(),
             value: Binary::from(
                 cosmos_sdk_proto::cosmos::distribution::v1beta1::MsgSetWithdrawAddress {
-                    delegator_address: "ica_address".to_string(),
-                    withdraw_address: "rewards_withdraw_address".to_string(),
+                    delegator_address: api.addr_make("ica_address").to_string(),
+                    withdraw_address: api.addr_make("rewards_withdraw_address").to_string(),
                 }
                 .encode_to_vec(),
             ),
@@ -529,8 +535,8 @@ fn test_execute_setup_protocol() {
             reply_to: Some("".to_string()),
             transaction: Some(
                 drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
-                    interchain_account_id: "ica_address".to_string(),
-                    rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                    interchain_account_id: api.addr_make("ica_address").to_string(),
+                    rewards_withdraw_address: api.addr_make("rewards_withdraw_address").to_string(),
                 }
             )
         }
@@ -540,13 +546,14 @@ fn test_execute_setup_protocol() {
 #[test]
 fn test_execute_setup_protocol_not_idle() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    let pupeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let pupeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     pupeteer_base
         .tx_state
         .save(
@@ -567,7 +574,7 @@ fn test_execute_setup_protocol_not_idle() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("allowed_sender"), &[]),
+        message_info(&api.addr_make("allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::SetupProtocol {
             rewards_withdraw_address: "rewards_withdraw_address".to_string(),
         },
@@ -586,21 +593,22 @@ fn test_execute_setup_protocol_not_idle() {
 #[test]
 fn test_execute_undelegate_sender_is_not_allowed() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("not_allowed_sender"), &[]),
+        message_info(&api.addr_make("not_allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
             batch_id: 0u128,
-            items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
-            reply_to: "some_reply_to".to_string(),
+            items: vec![(api.addr_make("valoper1").to_string(), Uint128::from(1000u128))],
+            reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
     .unwrap_err();
@@ -615,13 +623,14 @@ fn test_execute_undelegate_sender_is_not_allowed() {
 #[test]
 fn test_execute_undelegate_sender_not_idle() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    let pupeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let pupeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     pupeteer_base
         .tx_state
         .save(
@@ -629,11 +638,11 @@ fn test_execute_undelegate_sender_not_idle() {
             &drop_puppeteer_base::state::TxState {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
-                reply_to: Some("".to_string()),
+                reply_to: Some(api.addr_make("").to_string()),
                 transaction: Some(
                     drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
-                        interchain_account_id: "ica_address".to_string(),
-                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                        interchain_account_id: api.addr_make("ica_address").to_string(),
+                        rewards_withdraw_address: api.addr_make("rewards_withdraw_address").to_string(),
                     },
                 ),
             },
@@ -642,18 +651,18 @@ fn test_execute_undelegate_sender_not_idle() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("allowed_sender"), &[]),
+        message_info(&api.addr_make("allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
             batch_id: 0u128,
-            items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
-            reply_to: "some_reply_to".to_string(),
+            items: vec![(api.addr_make("valoper1").to_string(), Uint128::from(1000u128))],
+            reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
     .unwrap_err();
     assert_eq!(
         res,
         drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
-            cosmwasm_std::StdError::generic_err(
+            StdError::generic_err(
                 "Transaction txState is not equal to expected: Idle".to_string()
             )
         ))
@@ -663,30 +672,31 @@ fn test_execute_undelegate_sender_not_idle() {
 #[test]
 fn test_execute_undelegate() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
 
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("allowed_sender"), &[]),
+        message_info(&api.addr_make("allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
             batch_id: 0u128,
-            items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
-            reply_to: "some_reply_to".to_string(),
+            items: vec![(api.addr_make("valoper1").to_string(), Uint128::from(1000u128))],
+            reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
     .unwrap();
 
     let undelegate_msg = drop_helpers::interchain::prepare_any_msg(
         cosmos_sdk_proto::cosmos::staking::v1beta1::MsgUndelegate {
-            delegator_address: "ica_address".to_string(),
-            validator_address: "valoper1".to_string(),
+            delegator_address: api.addr_make("ica_address").to_string(),
+            validator_address: api.addr_make("valoper1").to_string(),
             amount: Some(cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
                 denom: "remote_denom".to_string(),
                 amount: "1000".to_string(),
@@ -716,13 +726,13 @@ fn test_execute_undelegate() {
         drop_puppeteer_base::state::TxState {
             seq_id: None,
             status: drop_puppeteer_base::state::TxStateStatus::InProgress,
-            reply_to: Some("some_reply_to".to_string()),
+            reply_to: Some(api.addr_make("some_reply_to").to_string()),
             transaction: Some(
                 drop_puppeteer_base::peripheral_hook::Transaction::Undelegate {
                     batch_id: 0u128,
                     interchain_account_id: "DROP".to_string(),
                     denom: "remote_denom".to_string(),
-                    items: vec![("valoper1".to_string(), Uint128::from(1000u128))]
+                    items: vec![(api.addr_make("valoper1").to_string(), Uint128::from(1000u128))]
                 }
             )
         }
@@ -732,22 +742,23 @@ fn test_execute_undelegate() {
 #[test]
 fn test_execute_redelegate_sender_is_not_allowed() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("not_allowed_sender"), &[]),
+        message_info(&api.addr_make("not_allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::Redelegate {
-            validator_from: "validator_from".to_string(),
-            validator_to: "validator_to".to_string(),
+            validator_from: api.addr_make("validator_from").to_string(),
+            validator_to: api.addr_make("validator_to").to_string(),
             amount: Uint128::from(0u64),
-            reply_to: "some_reply_to".to_string(),
+            reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
     .unwrap_err();
@@ -762,13 +773,14 @@ fn test_execute_redelegate_sender_is_not_allowed() {
 #[test]
 fn test_execute_redelegate_sender_not_idle() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    let pupeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let pupeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     pupeteer_base
         .tx_state
         .save(
@@ -776,11 +788,11 @@ fn test_execute_redelegate_sender_not_idle() {
             &drop_puppeteer_base::state::TxState {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
-                reply_to: Some("".to_string()),
+                reply_to: Some(api.addr_make("").to_string()),
                 transaction: Some(
                     drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
-                        interchain_account_id: "ica_address".to_string(),
-                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                        interchain_account_id: api.addr_make("ica_address").to_string(),
+                        rewards_withdraw_address: api.addr_make("rewards_withdraw_address").to_string(),
                     },
                 ),
             },
@@ -789,19 +801,19 @@ fn test_execute_redelegate_sender_not_idle() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("allowed_sender"), &[]),
+        message_info(&api.addr_make("allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::Redelegate {
-            validator_from: "validator_from".to_string(),
-            validator_to: "validator_to".to_string(),
+            validator_from: api.addr_make("validator_from").to_string(),
+            validator_to: api.addr_make("validator_to").to_string(),
             amount: Uint128::from(0u64),
-            reply_to: "some_reply_to".to_string(),
+            reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
     .unwrap_err();
     assert_eq!(
         res,
         drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
-            cosmwasm_std::StdError::generic_err(
+            StdError::generic_err(
                 "Transaction txState is not equal to expected: Idle".to_string()
             )
         ))
@@ -811,23 +823,24 @@ fn test_execute_redelegate_sender_not_idle() {
 #[test]
 fn test_execute_redelegate() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
 
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("allowed_sender"), &[]),
+        message_info(&api.addr_make("allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::Redelegate {
-            validator_from: "validator_from".to_string(),
-            validator_to: "validator_to".to_string(),
+            validator_from: api.addr_make("validator_from").to_string(),
+            validator_to: api.addr_make("validator_to").to_string(),
             amount: Uint128::from(0u64),
-            reply_to: "some_reply_to".to_string(),
+            reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
     .unwrap();
@@ -845,8 +858,8 @@ fn test_execute_redelegate() {
                             .ica
                             .get_address(deps.as_mut().storage)
                             .unwrap(),
-                        validator_src_address: "validator_from".to_string(),
-                        validator_dst_address: "validator_to".to_string(),
+                        validator_src_address: api.addr_make("validator_from").to_string(),
+                        validator_dst_address: api.addr_make("validator_to").to_string(),
                         amount: Some(drop_proto::proto::cosmos::base::v1beta1::Coin {
                             denom: puppeteer_base
                                 .config
@@ -882,21 +895,22 @@ fn test_execute_redelegate() {
 #[test]
 fn test_execute_tokenize_share_sender_is_not_allowed() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("not_allowed_sender"), &[]),
+        message_info(&api.addr_make("not_allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::TokenizeShare {
-            validator: "validator".to_string(),
+            validator: api.addr_make("validator").to_string(),
             amount: Uint128::from(123u64),
-            reply_to: "some_reply_to".to_string(),
+            reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
     .unwrap_err();
@@ -911,13 +925,14 @@ fn test_execute_tokenize_share_sender_is_not_allowed() {
 #[test]
 fn test_execute_tokenize_share_sender_not_idle() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    let pupeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let pupeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     pupeteer_base
         .tx_state
         .save(
@@ -925,11 +940,11 @@ fn test_execute_tokenize_share_sender_not_idle() {
             &drop_puppeteer_base::state::TxState {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
-                reply_to: Some("".to_string()),
+                reply_to: Some(api.addr_make("").to_string()),
                 transaction: Some(
                     drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
-                        interchain_account_id: "ica_address".to_string(),
-                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                        interchain_account_id: api.addr_make("ica_address").to_string(),
+                        rewards_withdraw_address: api.addr_make("rewards_withdraw_address").to_string(),
                     },
                 ),
             },
@@ -938,18 +953,18 @@ fn test_execute_tokenize_share_sender_not_idle() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("allowed_sender"), &[]),
+        message_info(&api.addr_make("allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::TokenizeShare {
-            validator: "validator".to_string(),
+            validator: api.addr_make("validator").to_string(),
             amount: Uint128::from(123u64),
-            reply_to: "some_reply_to".to_string(),
+            reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
     .unwrap_err();
     assert_eq!(
         res,
         drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
-            cosmwasm_std::StdError::generic_err(
+            StdError::generic_err(
                 "Transaction txState is not equal to expected: Idle".to_string()
             )
         ))
@@ -959,22 +974,23 @@ fn test_execute_tokenize_share_sender_not_idle() {
 #[test]
 fn test_execute_tokenize_share() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
 
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("allowed_sender"), &[]),
+        message_info(&api.addr_make("allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::TokenizeShare {
-            validator: "validator".to_string(),
+            validator: api.addr_make("validator").to_string(),
             amount: Uint128::from(123u64),
-            reply_to: "some_reply_to".to_string(),
+            reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
     .unwrap();
@@ -993,7 +1009,7 @@ fn test_execute_tokenize_share() {
                 vec![drop_helpers::interchain::prepare_any_msg(
                     drop_proto::proto::liquidstaking::staking::v1beta1::MsgTokenizeShares {
                         delegator_address: delegator.clone(),
-                        validator_address: "validator".to_string(),
+                        validator_address: api.addr_make("validator").to_string(),
                         amount: Some(drop_proto::proto::cosmos::base::v1beta1::Coin {
                             denom: puppeteer_base
                                 .config
@@ -1030,24 +1046,25 @@ fn test_execute_tokenize_share() {
 #[test]
 fn test_execute_redeem_shares_sender_is_not_allowed() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("not_allowed_sender"), &[]),
+        message_info(&api.addr_make("not_allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
             items: vec![drop_puppeteer_base::state::RedeemShareItem {
                 amount: Uint128::from(1000u128),
                 remote_denom: "remote_denom".to_string(),
                 local_denom: "local_denom".to_string(),
             }],
-            reply_to: "some_reply_to".to_string(),
+            reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
     .unwrap_err();
@@ -1062,13 +1079,14 @@ fn test_execute_redeem_shares_sender_is_not_allowed() {
 #[test]
 fn test_execute_redeeem_shares_sender_not_idle() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    let pupeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let pupeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     pupeteer_base
         .tx_state
         .save(
@@ -1076,11 +1094,11 @@ fn test_execute_redeeem_shares_sender_not_idle() {
             &drop_puppeteer_base::state::TxState {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
-                reply_to: Some("".to_string()),
+                reply_to: Some(api.addr_make("").to_string()),
                 transaction: Some(
                     drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
-                        interchain_account_id: "ica_address".to_string(),
-                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                        interchain_account_id: api.addr_make("ica_address").to_string(),
+                        rewards_withdraw_address: api.addr_make("rewards_withdraw_address").to_string(),
                     },
                 ),
             },
@@ -1089,21 +1107,21 @@ fn test_execute_redeeem_shares_sender_not_idle() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("allowed_sender"), &[]),
+        message_info(&api.addr_make("allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
             items: vec![drop_puppeteer_base::state::RedeemShareItem {
                 amount: Uint128::from(1000u128),
                 remote_denom: "remote_denom".to_string(),
                 local_denom: "local_denom".to_string(),
             }],
-            reply_to: "some_reply_to".to_string(),
+            reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
     .unwrap_err();
     assert_eq!(
         res,
         drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
-            cosmwasm_std::StdError::generic_err(
+            StdError::generic_err(
                 "Transaction txState is not equal to expected: Idle".to_string()
             )
         ))
@@ -1113,24 +1131,25 @@ fn test_execute_redeeem_shares_sender_not_idle() {
 #[test]
 fn test_execute_redeem_share() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("allowed_sender"), &[]),
+        message_info(&api.addr_make("allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::RedeemShares {
             items: vec![drop_puppeteer_base::state::RedeemShareItem {
                 amount: Uint128::from(1000u128),
                 remote_denom: "remote_denom".to_string(),
                 local_denom: "local_denom".to_string(),
             }],
-            reply_to: "some_reply_to".to_string(),
+            reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
     .unwrap();
@@ -1142,7 +1161,7 @@ fn test_execute_redeem_share() {
                     denom: "remote_denom".to_string(),
                     amount: "1000".to_string(),
                 }),
-                delegator_address: "ica_address".to_string(),
+                delegator_address: api.addr_make("ica_address").to_string(),
             }
             .encode_to_vec(),
         ),
@@ -1167,7 +1186,7 @@ fn test_execute_redeem_share() {
         drop_puppeteer_base::state::TxState {
             seq_id: None,
             status: drop_puppeteer_base::state::TxStateStatus::InProgress,
-            reply_to: Some("some_reply_to".to_string()),
+            reply_to: Some(api.addr_make("some_reply_to").to_string()),
             transaction: Some(
                 drop_puppeteer_base::peripheral_hook::Transaction::RedeemShares {
                     items: vec![drop_puppeteer_base::state::RedeemShareItem {
@@ -1184,26 +1203,27 @@ fn test_execute_redeem_share() {
 #[test]
 fn test_execute_claim_rewards_and_optionaly_transfer_sender_is_not_allowed() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("not_allowed_sender"), &[]),
+        message_info(&api.addr_make("not_allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
-            validators: vec!["validator1".to_string(), "validator2".to_string()],
+            validators: vec![api.addr_make("validator1").to_string(), api.addr_make("validator2").to_string()],
             transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg {
                 batch_ids: vec![0u128, 1u128, 2u128],
                 emergency: true,
                 amount: Uint128::from(123u64),
-                recipient: "some_recipient".to_string(),
+                recipient: api.addr_make("some_recipient").to_string(),
             }),
-            reply_to: "some_reply_to".to_string(),
+            reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
     .unwrap_err();
@@ -1218,13 +1238,14 @@ fn test_execute_claim_rewards_and_optionaly_transfer_sender_is_not_allowed() {
 #[test]
 fn test_execute_claim_rewards_and_optionaly_transfer_not_idle() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    let pupeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let pupeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     pupeteer_base
         .tx_state
         .save(
@@ -1232,11 +1253,11 @@ fn test_execute_claim_rewards_and_optionaly_transfer_not_idle() {
             &drop_puppeteer_base::state::TxState {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
-                reply_to: Some("".to_string()),
+                reply_to: Some(api.addr_make("").to_string()),
                 transaction: Some(
                     drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
-                        interchain_account_id: "ica_address".to_string(),
-                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                        interchain_account_id: api.addr_make("ica_address").to_string(),
+                        rewards_withdraw_address: api.addr_make("rewards_withdraw_address").to_string(),
                     },
                 ),
             },
@@ -1245,23 +1266,23 @@ fn test_execute_claim_rewards_and_optionaly_transfer_not_idle() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("allowed_sender"), &[]),
+        message_info(&api.addr_make("allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
-            validators: vec!["validator1".to_string(), "validator2".to_string()],
+            validators: vec![api.addr_make("validator1").to_string(), api.addr_make("validator2").to_string()],
             transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg {
                 batch_ids: vec![0u128, 1u128, 2u128],
                 emergency: true,
                 amount: Uint128::from(123u64),
-                recipient: "some_recipient".to_string(),
+                recipient: api.addr_make("some_recipient").to_string(),
             }),
-            reply_to: "some_reply_to".to_string(),
+            reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
     .unwrap_err();
     assert_eq!(
         res,
         drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
-            cosmwasm_std::StdError::generic_err(
+            StdError::generic_err(
                 "Transaction txState is not equal to expected: Idle".to_string()
             )
         ))
@@ -1271,27 +1292,28 @@ fn test_execute_claim_rewards_and_optionaly_transfer_not_idle() {
 #[test]
 fn test_execute_claim_rewards_and_optionaly_transfer() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
 
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("allowed_sender"), &[]),
+        message_info(&api.addr_make("allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
-            validators: vec!["validator1".to_string(), "validator2".to_string()],
+            validators: vec![api.addr_make("validator1").to_string(), api.addr_make("validator2").to_string()],
             transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg {
                 batch_ids: vec![0u128, 1u128, 2u128],
                 emergency: true,
                 amount: Uint128::from(123u64),
-                recipient: "some_recipient".to_string(),
+                recipient: api.addr_make("some_recipient").to_string(),
             }),
-            reply_to: "some_reply_to".to_string(),
+            reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
     .unwrap();
@@ -1311,7 +1333,7 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
                     drop_helpers::interchain::prepare_any_msg(
                         cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSend {
                             from_address: ica_address.clone(),
-                            to_address: "some_recipient".to_string(),
+                            to_address: api.addr_make("some_recipient").to_string(),
                             amount: vec![cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
                                 amount: "123".to_string(),
                                 denom: puppeteer_base
@@ -1327,7 +1349,7 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
                     drop_helpers::interchain::prepare_any_msg(
                         drop_proto::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
                             delegator_address: ica_address.clone(),
-                            validator_address: "validator1".to_string(),
+                            validator_address: api.addr_make("validator1").to_string(),
                         },
                         "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
                     )
@@ -1335,7 +1357,7 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
                     drop_helpers::interchain::prepare_any_msg(
                         drop_proto::proto::liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward {
                             delegator_address: ica_address.clone(),
-                            validator_address: "validator2".to_string(),
+                            validator_address: api.addr_make("validator2").to_string(),
                         },
                         "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
                     )
@@ -1345,11 +1367,11 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
                 100u64,
                 IbcFee {
                     recv_fee: vec![],
-                    ack_fee: vec![cosmwasm_std::Coin {
+                    ack_fee: vec![Coin {
                         denom: "untrn".to_string(),
                         amount: Uint128::from(100u64),
                     }],
-                    timeout_fee: vec![cosmwasm_std::Coin {
+                    timeout_fee: vec![Coin {
                         denom: "untrn".to_string(),
                         amount: Uint128::from(200u64),
                     }],
@@ -1364,14 +1386,15 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
 #[test]
 fn test_execute_register_balance_and_delegator_delegations_query_unauthorized() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("owner").as_ref()),
+        Some(api.addr_make("owner").as_ref()),
     )
     .unwrap();
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     puppeteer_base
         .ica
         .set_address(
@@ -1384,7 +1407,7 @@ fn test_execute_register_balance_and_delegator_delegations_query_unauthorized() 
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("not_an_owner"), &[]),
+        message_info(&api.addr_make("not_an_owner"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery{
         validators: vec!["neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(); 2]
     },
@@ -1401,14 +1424,15 @@ fn test_execute_register_balance_and_delegator_delegations_query_unauthorized() 
 #[test]
 fn test_execute_register_balance_and_delegator_delegations_query_too_many_validators() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("owner").as_ref()),
+        Some(api.addr_make("owner").as_ref()),
     )
     .unwrap();
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     puppeteer_base
         .ica
         .set_address(
@@ -1421,7 +1445,7 @@ fn test_execute_register_balance_and_delegator_delegations_query_too_many_valida
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery{
         validators: vec!["neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(); u16::MAX as usize]
     },
@@ -1438,14 +1462,15 @@ fn test_execute_register_balance_and_delegator_delegations_query_too_many_valida
 #[test]
 fn test_execute_register_balance_and_delegator_delegations_query() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("owner").as_ref()),
+        Some(api.addr_make("owner").as_ref()),
     )
     .unwrap();
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     puppeteer_base
         .ica
         .set_address(
@@ -1459,7 +1484,7 @@ fn test_execute_register_balance_and_delegator_delegations_query() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery{
         validators: msg_validators.clone()
     },
@@ -1495,14 +1520,15 @@ fn test_execute_register_balance_and_delegator_delegations_query() {
 #[test]
 fn test_execute_register_unbonding_delegations_query_unauthorized() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("owner").as_ref()),
+        Some(api.addr_make("owner").as_ref()),
     )
     .unwrap();
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     puppeteer_base
         .ica
         .set_address(
@@ -1515,7 +1541,7 @@ fn test_execute_register_unbonding_delegations_query_unauthorized() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("not_an_owner"), &[]),
+        message_info(&api.addr_make("not_an_owner"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery{
         validators: vec!["neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(); 2]
     },
@@ -1532,14 +1558,15 @@ fn test_execute_register_unbonding_delegations_query_unauthorized() {
 #[test]
 fn test_execute_register_unbonding_delegations_query_too_many_validators() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("owner").as_ref()),
+        Some(api.addr_make("owner").as_ref()),
     )
     .unwrap();
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     puppeteer_base
         .ica
         .set_address(
@@ -1552,7 +1579,7 @@ fn test_execute_register_unbonding_delegations_query_too_many_validators() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterDelegatorUnbondingDelegationsQuery {
             validators: vec![
                 "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string();
@@ -1572,14 +1599,15 @@ fn test_execute_register_unbonding_delegations_query_too_many_validators() {
 #[test]
 fn test_execute_register_unbonding_delegations_query() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("owner").as_ref()),
+        Some(api.addr_make("owner").as_ref()),
     )
     .unwrap();
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     puppeteer_base
         .ica
         .set_address(
@@ -1593,7 +1621,7 @@ fn test_execute_register_unbonding_delegations_query() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterDelegatorUnbondingDelegationsQuery {
             validators: msg_validators.clone(),
         },
@@ -1631,14 +1659,15 @@ fn test_execute_register_unbonding_delegations_query() {
 #[test]
 fn test_execute_register_non_native_rewards_balances_query_unauthorized() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("owner").as_ref()),
+        Some(api.addr_make("owner").as_ref()),
     )
     .unwrap();
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     puppeteer_base
         .ica
         .set_address(
@@ -1651,7 +1680,7 @@ fn test_execute_register_non_native_rewards_balances_query_unauthorized() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("not_an_owner"), &[]),
+        message_info(&api.addr_make("not_an_owner"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
             denoms: vec![],
         },
@@ -1668,14 +1697,15 @@ fn test_execute_register_non_native_rewards_balances_query_unauthorized() {
 #[test]
 fn test_execute_register_non_native_rewards_balances_query_empty_kv_queries() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("owner").as_ref()),
+        Some(api.addr_make("owner").as_ref()),
     )
     .unwrap();
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     puppeteer_base
         .ica
         .set_address(
@@ -1695,7 +1725,7 @@ fn test_execute_register_non_native_rewards_balances_query_empty_kv_queries() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
             denoms: msg_denoms.clone(),
         },
@@ -1724,14 +1754,15 @@ fn test_execute_register_non_native_rewards_balances_query_empty_kv_queries() {
 #[test]
 fn test_execute_register_non_native_rewards_balances_query_not_empty_kv_queries() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("owner").as_ref()),
+        Some(api.addr_make("owner").as_ref()),
     )
     .unwrap();
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     puppeteer_base
         .ica
         .set_address(
@@ -1758,7 +1789,7 @@ fn test_execute_register_non_native_rewards_balances_query_not_empty_kv_queries(
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
             denoms: msg_denoms.clone(),
         },
@@ -1786,14 +1817,15 @@ fn test_execute_register_non_native_rewards_balances_query_not_empty_kv_queries(
 #[test]
 fn test_execute_register_non_native_rewards_balances_query_has_non_native_rewards_balances() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("owner").as_ref()),
+        Some(api.addr_make("owner").as_ref()),
     )
     .unwrap();
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     puppeteer_base
         .ica
         .set_address(
@@ -1829,7 +1861,7 @@ fn test_execute_register_non_native_rewards_balances_query_has_non_native_reward
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
             denoms: msg_denoms.clone(),
         },
@@ -1858,14 +1890,15 @@ fn test_execute_register_non_native_rewards_balances_query_has_non_native_reward
 fn test_execute_register_non_native_rewards_balances_query_has_several_non_native_rewards_balances()
 {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("owner").as_ref()),
+        Some(api.addr_make("owner").as_ref()),
     )
     .unwrap();
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     puppeteer_base
         .ica
         .set_address(
@@ -1917,7 +1950,7 @@ fn test_execute_register_non_native_rewards_balances_query_has_several_non_nativ
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterNonNativeRewardsBalancesQuery {
             denoms: msg_denoms.clone(),
         },
@@ -1961,20 +1994,21 @@ fn test_execute_register_non_native_rewards_balances_query_has_several_non_nativ
 #[test]
 fn test_execute_transfer_sender_is_not_allowed() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("not_allowed_sender"), &[]),
+        message_info(&api.addr_make("not_allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
             items: vec![],
-            reply_to: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            reply_to: api.addr_make("some").to_string(),
         },
     )
     .unwrap_err();
@@ -1989,7 +2023,8 @@ fn test_execute_transfer_sender_is_not_allowed() {
 #[test]
 fn test_execute_transfer_not_idle() {
     let mut deps = mock_dependencies(&[]);
-    let pupeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let api = deps.api;
+    let pupeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     pupeteer_base
         .tx_state
         .save(
@@ -1997,11 +2032,11 @@ fn test_execute_transfer_not_idle() {
             &drop_puppeteer_base::state::TxState {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::InProgress,
-                reply_to: Some("".to_string()),
+                reply_to: Some(api.addr_make("").to_string()),
                 transaction: Some(
                     drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
-                        interchain_account_id: "ica_address".to_string(),
-                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                        interchain_account_id: api.addr_make("ica_address").to_string(),
+                        rewards_withdraw_address: api.addr_make("rewards_withdraw_address").to_string(),
                     },
                 ),
             },
@@ -2010,17 +2045,17 @@ fn test_execute_transfer_not_idle() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("allowed_sender"), &[]),
+        message_info(&api.addr_make("allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
             items: vec![],
-            reply_to: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            reply_to: api.addr_make("owner").to_string(),
         },
     )
     .unwrap_err();
     assert_eq!(
         res,
         drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
-            cosmwasm_std::StdError::generic_err(
+            StdError::generic_err(
                 "Transaction txState is not equal to expected: Idle".to_string()
             )
         ))
@@ -2030,18 +2065,19 @@ fn test_execute_transfer_not_idle() {
 #[test]
 fn test_execute_transfer() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     puppeteer_base
         .ica
         .set_address(
             deps.as_mut().storage,
-            "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            api.addr_make("some").to_string(),
             "transfer".to_string(),
             "channel-0".to_string(),
         )
@@ -2054,8 +2090,8 @@ fn test_execute_transfer() {
         deps.as_mut(),
         mock_env(),
         message_info(
-            &Addr::unchecked("allowed_sender"),
-            &[cosmwasm_std::Coin {
+            &api.addr_make("allowed_sender"),
+            &[Coin {
                 denom: "uatom".to_string(),
                 amount: Uint128::from(123u64),
             }],
@@ -2063,21 +2099,21 @@ fn test_execute_transfer() {
         drop_staking_base::msg::puppeteer::ExecuteMsg::Transfer {
             items: vec![
                 (
-                    "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
-                    cosmwasm_std::Coin {
+                    api.addr_make("owner").to_string(),
+                    Coin {
                         denom: "uatom".to_string(),
                         amount: Uint128::from(123u64),
                     },
                 ),
                 (
-                    "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
-                    cosmwasm_std::Coin {
+                    api.addr_make("owner").to_string(),
+                    Coin {
                         denom: "uatom".to_string(),
                         amount: Uint128::from(321u64),
                     },
                 ),
             ],
-            reply_to: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
+            reply_to: api.addr_make("owner").to_string(),
         },
     )
     .unwrap();
@@ -2093,8 +2129,7 @@ fn test_execute_transfer() {
                     drop_helpers::interchain::prepare_any_msg(
                         cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSend {
                             from_address: puppeteer_ica.clone(),
-                            to_address: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6"
-                                .to_string(),
+                            to_address: api.addr_make("owner").to_string(),
                             amount: vec![cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
                                 amount: "123".to_string(),
                                 denom: "uatom".to_string()
@@ -2106,8 +2141,7 @@ fn test_execute_transfer() {
                     drop_helpers::interchain::prepare_any_msg(
                         cosmos_sdk_proto::cosmos::bank::v1beta1::MsgSend {
                             from_address: puppeteer_ica.clone(),
-                            to_address: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6"
-                                .to_string(),
+                            to_address: api.addr_make("owner").to_string(),
                             amount: vec![cosmos_sdk_proto::cosmos::base::v1beta1::Coin {
                                 amount: "321".to_string(),
                                 denom: "uatom".to_string()
@@ -2141,7 +2175,8 @@ fn test_execute_transfer() {
 fn test_sudo_response_tx_state_wrong() {
     // Test that the contract returns an error if the tx state is not in progress
     let mut deps = mock_dependencies(&[]);
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let api = deps.api;
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     let msg = SudoMsg::Response {
         request: neutron_sdk::sudo::msg::RequestPacket {
             sequence: Some(1u64),
@@ -2180,13 +2215,14 @@ fn test_sudo_response_tx_state_wrong() {
 #[test]
 fn test_sudo_delegations_and_balance_kv_query_result() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     let query_id = 1u64;
 
     deps.querier
         .add_query_response(query_id, build_interchain_query_response());
 
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
 
     let msg = SudoMsg::KVQueryResult { query_id };
     let env = mock_env();
@@ -2222,18 +2258,14 @@ fn test_sudo_delegations_and_balance_kv_query_result() {
                 delegations: Delegations {
                     delegations: vec![
                         DropDelegation {
-                            delegator: Addr::unchecked(
-                                "cosmos1nujy3vl3rww3cy8tf8pdru5jp3f9ppmkadws553ck3qryg2tjanqt39xnv"
-                            ),
+                            delegator: Addr::unchecked("cosmos1nujy3vl3rww3cy8tf8pdru5jp3f9ppmkadws553ck3qryg2tjanqt39xnv"),
                             validator: "cosmosvaloper1rndyjagfg0nsedl2uy5n92vssn8aj5n67t0nfx"
                                 .to_string(),
                             amount: coin(13582465152, "stake"),
                             share_ratio: Decimal256::one()
                         },
                         DropDelegation {
-                            delegator: Addr::unchecked(
-                                "cosmos1nujy3vl3rww3cy8tf8pdru5jp3f9ppmkadws553ck3qryg2tjanqt39xnv"
-                            ),
+                            delegator: Addr::unchecked("cosmos1nujy3vl3rww3cy8tf8pdru5jp3f9ppmkadws553ck3qryg2tjanqt39xnv"),
                             validator: "cosmosvaloper1gh4vzw9wsfgl2h37qqnetet0m4wrzm7v7x3j9x"
                                 .to_string(),
                             amount: coin(13582465152, "stake"),
@@ -2254,13 +2286,14 @@ fn test_sudo_delegations_and_balance_kv_query_result() {
 // #[allow(dead_code)]
 fn test_sudo_delegations_and_balance_kv_query_result_for_celestia() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     let query_id = 1u64;
 
     deps.querier
         .add_query_response(query_id, build_interchain_query_response_celestia());
 
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.46.16".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.46.16".to_string(), api);
 
     let msg = SudoMsg::KVQueryResult { query_id };
     let env = mock_env();
@@ -2327,6 +2360,7 @@ fn test_sudo_delegations_and_balance_kv_query_result_for_celestia() {
 #[test]
 fn test_sudo_response_ok() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     deps.querier.add_stargate_query_response(
         "/ibc.core.channel.v1.Query/ChannelClientState",
@@ -2367,7 +2401,7 @@ fn test_sudo_response_ok() {
         },
     );
 
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     let request = neutron_sdk::sudo::msg::RequestPacket {
         sequence: Some(1u64),
         source_port: Some("source_port".to_string()),
@@ -2382,7 +2416,7 @@ fn test_sudo_response_ok() {
         denom: "remote_denom".to_string(),
         amount: 1000u128,
         real_amount: 1000u128,
-        recipient: "recipient".to_string(),
+        recipient: api.addr_make("recipient").to_string(),
         reason: drop_puppeteer_base::peripheral_hook::IBCTransferReason::Delegate,
     };
     let msg = SudoMsg::Response {
@@ -2397,7 +2431,7 @@ fn test_sudo_response_ok() {
             &drop_puppeteer_base::state::TxState {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::WaitingForAck,
-                reply_to: Some("reply_to_contract".to_string()),
+                reply_to: Some(api.addr_make("reply_to_contract").to_string()),
                 transaction: Some(transaction.clone()),
             },
         )
@@ -2407,7 +2441,7 @@ fn test_sudo_response_ok() {
         res,
         Response::new()
             .add_message(CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
-                contract_addr: "reply_to_contract".to_string(),
+                contract_addr: api.addr_make("reply_to_contract").to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PeripheralHook(
                     Box::new(
                         drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(
@@ -2431,7 +2465,7 @@ fn test_sudo_response_ok() {
     assert_eq!(
         ica,
         drop_helpers::ica::IcaState::Registered {
-            ica_address: "ica_address".to_string(),
+            ica_address: api.addr_make("ica_address").to_string(),
             port_id: "port".to_string(),
             channel_id: "channel".to_string(),
         }
@@ -2451,7 +2485,8 @@ fn test_sudo_response_ok() {
 #[test]
 fn test_sudo_response_error() {
     let mut deps = mock_dependencies(&[]);
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let api = deps.api;
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     let request = neutron_sdk::sudo::msg::RequestPacket {
         sequence: Some(1u64),
         source_port: Some("source_port".to_string()),
@@ -2466,7 +2501,7 @@ fn test_sudo_response_error() {
         denom: "remote_denom".to_string(),
         amount: 1000u128,
         real_amount: 1000u128,
-        recipient: "recipient".to_string(),
+        recipient: api.addr_make("recipient").to_string(),
         reason: drop_puppeteer_base::peripheral_hook::IBCTransferReason::Delegate,
     };
     let msg = SudoMsg::Error {
@@ -2481,7 +2516,7 @@ fn test_sudo_response_error() {
             &drop_puppeteer_base::state::TxState {
                 seq_id: None,
                 status: drop_puppeteer_base::state::TxStateStatus::WaitingForAck,
-                reply_to: Some("reply_to_contract".to_string()),
+                reply_to: Some(api.addr_make("reply_to_contract").to_string()),
                 transaction: Some(transaction.clone()),
             },
         )
@@ -2491,7 +2526,7 @@ fn test_sudo_response_error() {
         res,
         Response::new()
             .add_message(CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
-                contract_addr: "reply_to_contract".to_string(),
+                contract_addr: api.addr_make("reply_to_contract").to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::PeripheralHook(
                     Box::new(
                         drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(
@@ -2515,7 +2550,7 @@ fn test_sudo_response_error() {
     assert_eq!(
         ica,
         drop_helpers::ica::IcaState::Registered {
-            ica_address: "ica_address".to_string(),
+            ica_address: api.addr_make("ica_address").to_string(),
             port_id: "port".to_string(),
             channel_id: "channel".to_string(),
         }
@@ -2535,7 +2570,8 @@ fn test_sudo_response_error() {
 #[test]
 fn test_sudo_open_ack() {
     let mut deps = mock_dependencies(&[]);
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let api = deps.api;
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     let msg = SudoMsg::OpenAck {
         port_id: "port_id_1".to_string(),
         channel_id: "channel_1".to_string(),
@@ -2559,7 +2595,8 @@ fn test_sudo_open_ack() {
 #[test]
 fn test_sudo_response_timeout() {
     let mut deps = mock_dependencies(&[]);
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let api = deps.api;
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     let request = neutron_sdk::sudo::msg::RequestPacket {
         sequence: Some(1u64),
         source_port: Some("source_port".to_string()),
@@ -2682,15 +2719,16 @@ fn test_reply_sudo_payload_tx_state_error() {
     .unwrap_err();
     assert_eq!(
         res,
-        StdError::generic_err(format!("type: drop_puppeteer_base::state::TxState; key: {:X?}", "sudo_payload".as_bytes()))
+        StdError::not_found(format!("type: drop_puppeteer_base::state::TxState; key: {:X?}", "sudo_payload".as_bytes()))
     )
 }
 
 #[test]
 fn test_reply_sudo_payload() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     puppeteer_base
         .tx_state
         .save(
@@ -2802,15 +2840,16 @@ fn test_reply_ibc_transfer_tx_state_error() {
     .unwrap_err();
     assert_eq!(
         res,
-        StdError::generic_err(format!("type: drop_puppeteer_base::state::TxState; key: {:X?}", "sudo_payload".as_bytes()))
+        StdError::not_found(format!("type: drop_puppeteer_base::state::TxState; key: {:X?}", "sudo_payload".as_bytes()))
     )
 }
 
 #[test]
 fn test_reply_ibc_transfer() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     puppeteer_base
         .tx_state
         .save(
@@ -2907,8 +2946,9 @@ fn test_reply_kv_delegations_and_balance() {
         ..(drop_puppeteer_base::state::reply_msg::KV_DELEGATIONS_AND_BALANCE_UPPER_BOUND + 1)
     {
         let mut deps = mock_dependencies(&[]);
+        let api = deps.api;
 
-        let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+        let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
         let res = crate::contract::reply(
             deps.as_mut().into_empty(),
             mock_env(),
@@ -2978,8 +3018,9 @@ fn test_reply_kv_non_native_rewards_balances_no_result() {
 #[test]
 fn test_reply_kv_non_native_rewards_balances() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     let res = crate::contract::reply(
         deps.as_mut().into_empty(),
         mock_env(),
@@ -3065,8 +3106,9 @@ fn test_reply_kv_unbonding_delegations_no_result() {
         ..(drop_puppeteer_base::state::reply_msg::KV_UNBONDING_DELEGATIONS_UPPER_BOUND + 1)
     {
         let mut deps = mock_dependencies(&[]);
+        let api = deps.api;
 
-        let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+        let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
         puppeteer_base
             .unbonding_delegations_reply_id_storage
             .save(
@@ -3107,8 +3149,9 @@ fn test_reply_kv_unbonding_delegations() {
         ..(drop_puppeteer_base::state::reply_msg::KV_UNBONDING_DELEGATIONS_UPPER_BOUND + 1)
     {
         let mut deps = mock_dependencies(&[]);
+        let api = deps.api;
 
-        let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+        let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
         puppeteer_base
             .unbonding_delegations_reply_id_storage
             .save(
@@ -3188,12 +3231,13 @@ mod register_delegations_and_balance_query {
         PuppeteerBaseType,
     ) {
         let mut deps = mock_dependencies(&[]);
-        let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+        let api = deps.api;
+        let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
         let deps_mut = deps.as_mut();
         cw_ownable::initialize_owner(
             deps_mut.storage,
             deps_mut.api,
-            Some(Addr::unchecked(owner.unwrap_or("owner")).as_ref()),
+            Some(api.addr_make(owner.unwrap_or("owner")).as_str()),
         )
         .unwrap();
         (deps, puppeteer_base)
@@ -3202,9 +3246,10 @@ mod register_delegations_and_balance_query {
     #[test]
     fn non_owner() {
         let (mut deps, _puppeteer_base) = setup(None);
+        let api = deps.api;
         let env = mock_env();
         let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: vec![] } ;
-        let res = crate::contract::execute(deps.as_mut(), env, message_info(&Addr::unchecked("not_owner"), &[]), msg);
+        let res = crate::contract::execute(deps.as_mut(), env, message_info(&api.addr_make("not_owner"), &[]), msg);
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err(),
@@ -3215,6 +3260,7 @@ mod register_delegations_and_balance_query {
     #[test]
     fn too_many_validators() {
         let (mut deps, _puppeteer_base) = setup(None);
+        let api = deps.api;
         let env = mock_env();
         let mut validators = vec![];
         for i in 0..=65536u32 {
@@ -3224,7 +3270,7 @@ mod register_delegations_and_balance_query {
         let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
             validators
         };
-        let res = crate::contract::execute(deps.as_mut(), env, message_info(&Addr::unchecked("owner"), &[]), msg);
+        let res = crate::contract::execute(deps.as_mut(), env, message_info(&api.addr_make("owner"), &[]), msg);
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err(),
@@ -3234,8 +3280,8 @@ mod register_delegations_and_balance_query {
 
     #[test]
     fn happy_path_validators_count_less_than_chunk_size() {
-        let (mut deps, puppeteer_base) =
-            setup(Some("neutron1m9l358xunhhwds0568za49mzhvuxx9ux8xafx2"));
+        let (mut deps, puppeteer_base) = setup(Some("owner"));
+        let api = deps.api;
         let env = mock_env();
         let validators = vec![
             "cosmos1jy7lsk5pk38zjfnn6nt6qlaphy9uejn4hu65xa".to_string(),
@@ -3257,7 +3303,7 @@ mod register_delegations_and_balance_query {
         let res = crate::contract::execute(
             deps.as_mut(),
             env,
-            message_info(&Addr::unchecked("neutron1m9l358xunhhwds0568za49mzhvuxx9ux8xafx2"), &[]),
+            message_info(&api.addr_make("owner"), &[]),
             msg,
         )
         .unwrap();
@@ -3283,8 +3329,8 @@ mod register_delegations_and_balance_query {
 
     #[test]
     fn happy_path_validators_count_more_than_chunk_size() {
-        let (mut deps, puppeteer_base) =
-            setup(Some("neutron1m9l358xunhhwds0568za49mzhvuxx9ux8xafx2"));
+        let (mut deps, puppeteer_base) = setup(Some("owner"));
+        let api = deps.api;
         let env = mock_env();
         let validators = vec![
             "cosmos1jy7lsk5pk38zjfnn6nt6qlaphy9uejn4hu65xa".to_string(),
@@ -3314,7 +3360,7 @@ mod register_delegations_and_balance_query {
         let res = crate::contract::execute(
             deps.as_mut(),
             env,
-            message_info(&Addr::unchecked("neutron1m9l358xunhhwds0568za49mzhvuxx9ux8xafx2"), &[]),
+            message_info(&api.addr_make("owner"), &[]),
             msg,
         )
         .unwrap();
@@ -3372,31 +3418,31 @@ mod register_delegations_and_balance_query {
     }
 }
 
-fn get_base_config(sdk_version: String) -> Config {
+fn get_base_config(sdk_version: String, api: MockApi) -> Config {
     Config {
         delegations_queries_chunk_size: 2u32,
         port_id: "port_id".to_string(),
         connection_id: "connection_id".to_string(),
-        factory_contract: Addr::unchecked("factory_contract"),
+        factory_contract: api.addr_make("factory_contract"),
         update_period: 60u64,
         remote_denom: "remote_denom".to_string(),
-        allowed_senders: vec![Addr::unchecked("allowed_sender")],
+        allowed_senders: vec![api.addr_make("allowed_sender")],
         transfer_channel_id: "transfer_channel_id".to_string(),
         sdk_version, //: "0.47.10".to_string(),
         timeout: 100u64,
     }
 }
 
-fn base_init(deps_mut: &mut DepsMut<NeutronQuery>, sdk_version: String) -> PuppeteerBaseType {
+fn base_init(deps_mut: &mut DepsMut<NeutronQuery>, sdk_version: String, api: MockApi) -> PuppeteerBaseType {
     let puppeteer_base = Puppeteer::default();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
     puppeteer_base
         .config
-        .save(deps_mut.storage, &get_base_config(sdk_version))
+        .save(deps_mut.storage, &get_base_config(sdk_version, api))
         .unwrap();
     puppeteer_base
         .ica
-        .set_address(deps_mut.storage, "ica_address", "port", "channel")
+        .set_address(deps_mut.storage, api.addr_make("ica_address"), "port", "channel")
         .unwrap();
     puppeteer_base
 }
@@ -3412,15 +3458,16 @@ fn get_standard_fees() -> IbcFee {
 #[test]
 fn test_transfer_ownership() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
     crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::UpdateOwnership(
             cw_ownable::Action::TransferOwnership {
-                new_owner: "new_owner".to_string(),
+                new_owner: api.addr_make("new_owner").to_string(),
                 expiry: Some(cw_ownable::Expiration::Never {}),
             },
         ),
@@ -3429,7 +3476,7 @@ fn test_transfer_ownership() {
     crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("new_owner"), &[]),
+        message_info(&api.addr_make("new_owner"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::UpdateOwnership(
             cw_ownable::Action::AcceptOwnership {},
         ),
@@ -3449,7 +3496,7 @@ fn test_transfer_ownership() {
     assert_eq!(
         query_res,
         cw_ownable::Ownership {
-            owner: Some(cosmwasm_std::Addr::unchecked("new_owner".to_string())),
+            owner: Some(api.addr_make("new_owner")),
             pending_expiry: None,
             pending_owner: None
         }
@@ -3459,7 +3506,8 @@ fn test_transfer_ownership() {
 #[test]
 fn test_query_kv_query_ids() {
     let mut deps = mock_dependencies(&[]);
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let api = deps.api;
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     puppeteer_base
         .kv_queries
         .save(
@@ -3513,14 +3561,15 @@ fn test_query_extension_delegations_none() {
 #[test]
 fn test_query_extension_delegations_some() {
     let mut deps = mock_dependencies(&[]);
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let api = deps.api;
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     puppeteer_base
         .last_complete_delegations_and_balances_key
         .save(deps.as_mut().storage, &0u64)
         .unwrap();
     let delegations = vec![
         DropDelegation {
-            delegator: Addr::unchecked("delegator1"),
+            delegator: api.addr_make("delegator1"),
             validator: "validator1".to_string(),
             amount: cosmwasm_std::Coin::new(100u128, "denom1"),
             share_ratio: Decimal256::from_ratio(
@@ -3529,7 +3578,7 @@ fn test_query_extension_delegations_some() {
             ),
         },
         DropDelegation {
-            delegator: Addr::unchecked("delegator2"),
+            delegator: api.addr_make("delegator2"),
             validator: "validator2".to_string(),
             amount: cosmwasm_std::Coin::new(100u128, "denom2"),
             share_ratio: Decimal256::from_ratio(
@@ -3607,7 +3656,8 @@ fn test_query_extension_balances_none() {
 #[test]
 fn test_query_extension_balances_some() {
     let mut deps = mock_dependencies(&[]);
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let api = deps.api;
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     puppeteer_base
         .last_complete_delegations_and_balances_key
         .save(deps.as_mut().storage, &0u64)
@@ -3705,7 +3755,8 @@ fn test_query_non_native_rewards_balances() {
 #[test]
 fn test_unbonding_delegations() {
     let mut deps = mock_dependencies(&[]);
-    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string());
+    let api = deps.api;
+    let puppeteer_base = base_init(&mut deps.as_mut(), "0.47.10".to_string(), api);
     let unbonding_delegations = vec![
         drop_puppeteer_base::state::UnbondingDelegation {
             validator_address: "validator_address1".to_string(),

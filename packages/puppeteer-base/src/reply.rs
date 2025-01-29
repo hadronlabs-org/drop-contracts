@@ -86,7 +86,7 @@ where
                 serde_json_wasm::from_slice(msg_response.value.as_slice())
                     .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?
             } else {
-                return Err(StdError::generic_err("no msg_responses found"));
+                return Err(StdError::generic_err("no result"));
             }
         };
 
@@ -116,7 +116,7 @@ where
                 serde_json_wasm::from_slice(msg_response.value.as_slice())
                     .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?
             } else {
-                return Err(StdError::generic_err("no msg_responses found"));
+                return Err(StdError::generic_err("no result"));
             }
         };
 
