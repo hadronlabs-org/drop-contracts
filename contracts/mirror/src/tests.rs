@@ -4,6 +4,7 @@ use cosmwasm_std::{
     to_json_binary, Addr, CosmosMsg, CustomQuery, DepsMut, IbcChannel, IbcEndpoint, IbcOrder,
     Uint128, WasmMsg,
 };
+use cosmwasm_std::testing::MockApi;
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::{
     error::mirror::ContractError,
@@ -15,12 +16,12 @@ use neutron_sdk::{
     sudo::msg::RequestPacketTimeoutHeight,
 };
 
-fn base_init<T>(deps: DepsMut<T>)
+fn base_init<T>(deps: DepsMut<T>, api: MockApi)
 where
     T: CustomQuery,
 {
-    let config = drop_staking_base::state::mirror::Config {
-        core_contract: "core".to_string(),
+    let config = Config {
+        core_contract: api.addr_make("core").to_string(),
         source_port: "source_port".to_string(),
         source_channel: "source_channel".to_string(),
         ibc_timeout: 10,
@@ -28,22 +29,24 @@ where
     };
     CONFIG.save(deps.storage, &config).unwrap();
     COUNTER.save(deps.storage, &0).unwrap();
-    cw_ownable::initialize_owner(deps.storage, deps.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(deps.storage, deps.api, Some(api.addr_make("owner").as_str())).unwrap();
 }
 
 #[test]
 fn test_instantiate() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
+
     let response = crate::contract::instantiate(
         deps.as_mut(),
         mock_env(),
         message_info(&Addr::unchecked("sender"), &[]),
         drop_staking_base::msg::mirror::InstantiateMsg {
-            core_contract: "core".to_string(),
+            core_contract: api.addr_make("core").to_string(),
             source_port: "source_port".to_string(),
             source_channel: "source_channel".to_string(),
             ibc_timeout: 10,
-            owner: Some("owner".to_string()),
+            owner: Some(api.addr_make("owner").to_string()),
             prefix: "prefix".to_string(),
         },
     )
@@ -52,14 +55,14 @@ fn test_instantiate() {
         response,
         cosmwasm_std::Response::new().add_event(
             cosmwasm_std::Event::new("crates.io:drop-staking__drop-mirror-instantiate".to_string())
-                .add_attributes(vec![attr("action", "instantiate"), attr("owner", "owner")])
+                .add_attributes(vec![attr("action", "instantiate"), attr("owner", api.addr_make("owner"))])
         )
     );
     let config = CONFIG.load(&deps.storage).unwrap();
     assert_eq!(
         config,
-        drop_staking_base::state::mirror::Config {
-            core_contract: "core".to_string(),
+        Config {
+            core_contract: api.addr_make("core").to_string(),
             source_port: "source_port".to_string(),
             source_channel: "source_channel".to_string(),
             ibc_timeout: 10,
@@ -67,7 +70,7 @@ fn test_instantiate() {
         }
     );
     let owner = cw_ownable::get_ownership(&deps.storage).unwrap();
-    assert_eq!(owner.owner, Some(Addr::unchecked("owner")));
+    assert_eq!(owner.owner, Some(api.addr_make("owner")));
     let counter = COUNTER.load(&deps.storage).unwrap();
     assert_eq!(counter, 0);
 }
@@ -75,12 +78,14 @@ fn test_instantiate() {
 #[test]
 fn test_instantiate_wo_owner() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
+
     let response = crate::contract::instantiate(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("sender"), &[]),
+        message_info(&api.addr_make("sender"), &[]),
         drop_staking_base::msg::mirror::InstantiateMsg {
-            core_contract: "core".to_string(),
+            core_contract: api.addr_make("core").to_string(),
             source_port: "source_port".to_string(),
             source_channel: "source_channel".to_string(),
             ibc_timeout: 10,
@@ -93,14 +98,14 @@ fn test_instantiate_wo_owner() {
         response,
         cosmwasm_std::Response::new().add_event(
             cosmwasm_std::Event::new("crates.io:drop-staking__drop-mirror-instantiate".to_string())
-                .add_attributes(vec![attr("action", "instantiate"), attr("owner", "sender")])
+                .add_attributes(vec![attr("action", "instantiate"), attr("owner", api.addr_make("sender"))])
         )
     );
     let config = CONFIG.load(&deps.storage).unwrap();
     assert_eq!(
         config,
-        drop_staking_base::state::mirror::Config {
-            core_contract: "core".to_string(),
+        Config {
+            core_contract: api.addr_make("core").to_string(),
             source_port: "source_port".to_string(),
             source_channel: "source_channel".to_string(),
             ibc_timeout: 10,
@@ -108,20 +113,23 @@ fn test_instantiate_wo_owner() {
         }
     );
     let owner = cw_ownable::get_ownership(&deps.storage).unwrap();
-    assert_eq!(owner.owner, Some(Addr::unchecked("sender")));
+    assert_eq!(owner.owner, Some(api.addr_make("sender")));
 }
 
 #[test]
 fn update_config_ibc_timeout_out_of_range() {
     let mut deps = mock_dependencies(&[]);
-    base_init(deps.as_mut());
+    let api = deps.api;
+
+    base_init(deps.as_mut(), api);
+
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::UpdateConfig {
             new_config: drop_staking_base::state::mirror::ConfigOptional {
-                core_contract: Some("new_core".to_string()),
+                core_contract: Some(api.addr_make("new_core").to_string()),
                 source_port: Some("new_source_port".to_string()),
                 source_channel: Some("new_source_channel".to_string()),
                 ibc_timeout: Some(u64::MAX),
@@ -136,14 +144,17 @@ fn update_config_ibc_timeout_out_of_range() {
 #[test]
 fn update_config_source_channel_not_found() {
     let mut deps = mock_dependencies(&[]);
-    base_init(deps.as_mut());
+    let api = deps.api;
+
+    base_init(deps.as_mut(), api);
+
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::UpdateConfig {
             new_config: drop_staking_base::state::mirror::ConfigOptional {
-                core_contract: Some("new_core".to_string()),
+                core_contract: Some(api.addr_make("new_core").to_string()),
                 source_port: Some("new_source_port".to_string()),
                 source_channel: Some("new_source_channel".to_string()),
                 ibc_timeout: Some(20),
@@ -158,7 +169,10 @@ fn update_config_source_channel_not_found() {
 #[test]
 fn update_config() {
     let mut deps = mock_dependencies(&[]);
-    base_init(deps.as_mut());
+    let api = deps.api;
+
+    base_init(deps.as_mut(), api);
+
     deps.querier.add_ibc_channel_response(
         Some("channel-0".to_string()),
         Some("transfer".to_string()),
@@ -180,7 +194,7 @@ fn update_config() {
         .save(
             deps.as_mut().storage,
             &Config {
-                core_contract: "core_contract".to_string(),
+                core_contract: api.addr_make("core_contract").to_string(),
                 source_channel: "source_channel".to_string(),
                 source_port: "source_port".to_string(),
                 ibc_timeout: 0u64,
@@ -191,10 +205,10 @@ fn update_config() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::UpdateConfig {
             new_config: drop_staking_base::state::mirror::ConfigOptional {
-                core_contract: Some("new_core".to_string()),
+                core_contract: Some(api.addr_make("new_core").to_string()),
                 source_port: Some("transfer".to_string()),
                 source_channel: Some("channel-0".to_string()),
                 ibc_timeout: Some(20),
@@ -211,7 +225,7 @@ fn update_config() {
             )
             .add_attributes(vec![
                 attr("action", "update_config"),
-                attr("core_contract", "new_core"),
+                attr("core_contract", api.addr_make("new_core")),
                 attr("ibc_timeout", "20"),
                 attr("prefix", "new_prefix"),
                 attr("source_port", "transfer"),
@@ -222,8 +236,8 @@ fn update_config() {
     let config = CONFIG.load(&deps.storage).unwrap();
     assert_eq!(
         config,
-        drop_staking_base::state::mirror::Config {
-            core_contract: "new_core".to_string(),
+        Config {
+            core_contract: api.addr_make("new_core").to_string(),
             source_port: "transfer".to_string(),
             source_channel: "channel-0".to_string(),
             ibc_timeout: 20,
@@ -235,42 +249,48 @@ fn update_config() {
 #[test]
 fn bond_wrong_receiver() {
     let mut deps = mock_dependencies(&[]);
-    base_init(deps.as_mut());
+    let api = deps.api;
+
+    base_init(deps.as_mut(), api);
+
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("sender"), &[coin(1000, "mytoken")]),
+        message_info(&api.addr_make("sender"), &[coin(1000, "mytoken")]),
         drop_staking_base::msg::mirror::ExecuteMsg::Bond {
-            receiver: "some".to_string(),
-            r#ref: Some("reff".to_string()),
-            backup: Some("backup".to_string()),
+            receiver: api.addr_make("some").to_string(),
+            r#ref: Some(api.addr_make("reff").to_string()),
+            backup: Some(api.addr_make("backup").to_string()),
         },
     );
     assert_eq!(
         response,
-        Err(drop_staking_base::error::mirror::ContractError::InvalidPrefix {})
+        Err(ContractError::InvalidPrefix {})
     );
 }
 
 #[test]
 fn bond_no_funds() {
     let mut deps = mock_dependencies(&[]);
-    base_init(deps.as_mut());
+    let api = deps.api;
+
+    base_init(deps.as_mut(), api);
+
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("sender"), &[]),
+        message_info(&api.addr_make("sender"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::Bond {
             receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                 .to_string(),
-            r#ref: Some("reff".to_string()),
-            backup: Some("backup".to_string()),
+            r#ref: Some(api.addr_make("reff").to_string()),
+            backup: Some(api.addr_make("backup").to_string()),
         },
     );
     assert_eq!(
         response,
         Err(
-            drop_staking_base::error::mirror::ContractError::PaymentError(
+            ContractError::PaymentError(
                 cw_utils::PaymentError::NoFunds {}
             )
         )
@@ -280,16 +300,18 @@ fn bond_no_funds() {
 #[test]
 fn bond() {
     let mut deps = mock_dependencies(&[]);
-    base_init(deps.as_mut());
+    let api = deps.api;
+
+    base_init(deps.as_mut(), api);
+
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("sender"), &[coin(1000, "mytoken")]),
+        message_info(&api.addr_make("sender"), &[coin(1000, "mytoken")]),
         drop_staking_base::msg::mirror::ExecuteMsg::Bond {
-            receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
-                .to_string(),
-            r#ref: Some("reff".to_string()),
-            backup: Some("backup".to_string()),
+            receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j".to_string(),
+            r#ref: Some(api.addr_make("reff").to_string()),
+            backup: Some(api.addr_make("backup").to_string()),
         },
     )
     .unwrap();
@@ -299,9 +321,8 @@ fn bond() {
     assert_eq!(
         bond,
         drop_staking_base::state::mirror::BondItem {
-            receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
-                .to_string(),
-            backup: Some(Addr::unchecked("backup".to_string())),
+            receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j".to_string(),
+            backup: Some(api.addr_make("backup")),
             amount: Uint128::new(1000),
             received: None,
             return_type: drop_staking_base::state::mirror::ReturnType::Remote,
@@ -313,10 +334,10 @@ fn bond() {
         cosmwasm_std::Response::new()
             .add_submessage(cosmwasm_std::SubMsg::reply_on_success(
                 WasmMsg::Execute {
-                    contract_addr: "core".to_string(),
+                    contract_addr: api.addr_make("core").to_string(),
                     msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::Bond {
                         receiver: None,
-                        r#ref: Some("reff".to_string())
+                        r#ref: Some(api.addr_make("reff").to_string())
                     })
                     .unwrap(),
                     funds: vec![coin(1000, "mytoken")],
@@ -332,8 +353,8 @@ fn bond() {
                             "receiver",
                             "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                         ),
-                        attr("ref", "reff"),
-                        attr("backup", "backup"),
+                        attr("ref", api.addr_make("reff")),
+                        attr("backup", api.addr_make("backup")),
                     ])
             )
     );
@@ -342,13 +363,17 @@ fn bond() {
 #[test]
 fn complete_remote() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
+
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    base_init(deps.as_mut());
+
+    base_init(deps.as_mut(), api);
+
     BONDS
         .save(
             deps.as_mut().storage,
@@ -356,7 +381,7 @@ fn complete_remote() {
             &drop_staking_base::state::mirror::BondItem {
                 receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                     .to_string(),
-                backup: Some(Addr::unchecked("backup".to_string())),
+                backup: Some(api.addr_make("backup")),
                 amount: Uint128::new(1000),
                 received: Some(coin(1000, "ld_denom")),
                 return_type: drop_staking_base::state::mirror::ReturnType::Remote,
@@ -367,7 +392,7 @@ fn complete_remote() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::Complete { items: vec![1] },
     )
     .unwrap();
@@ -377,7 +402,7 @@ fn complete_remote() {
         drop_staking_base::state::mirror::BondItem {
             receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                 .to_string(),
-            backup: Some(Addr::unchecked("backup".to_string())),
+            backup: Some(api.addr_make("backup")),
             amount: Uint128::new(1000),
             received: Some(coin(1000, "ld_denom")),
             return_type: drop_staking_base::state::mirror::ReturnType::Remote,
@@ -392,7 +417,7 @@ fn complete_remote() {
                     source_port: "source_port".to_string(),
                     source_channel: "source_channel".to_string(),
                     token: coin(1000, "ld_denom"),
-                    sender: "cosmos2contract".to_string(),
+                    sender: api.addr_make("cosmos2contract").to_string(),
                     receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                         .to_string(),
                     timeout_height: RequestPacketTimeoutHeight {
@@ -421,13 +446,17 @@ fn complete_remote() {
 #[test]
 fn complete_local() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
+
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),
         })
         .unwrap()
     });
-    base_init(deps.as_mut());
+
+    base_init(deps.as_mut(), api);
+
     BONDS
         .save(
             deps.as_mut().storage,
@@ -435,7 +464,7 @@ fn complete_local() {
             &drop_staking_base::state::mirror::BondItem {
                 receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                     .to_string(),
-                backup: Some(Addr::unchecked("backup".to_string())),
+                backup: Some(api.addr_make("backup")),
                 amount: Uint128::new(1000),
                 received: Some(coin(1000, "ld_denom")),
                 return_type: drop_staking_base::state::mirror::ReturnType::Local,
@@ -446,7 +475,7 @@ fn complete_local() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::Complete { items: vec![1] },
     )
     .unwrap();
@@ -457,7 +486,7 @@ fn complete_local() {
         cosmwasm_std::Response::new()
             .add_submessage(cosmwasm_std::SubMsg::new(CosmosMsg::Bank(
                 cosmwasm_std::BankMsg::Send {
-                    to_address: "backup".to_string(),
+                    to_address: api.addr_make("backup").to_string(),
                     amount: vec![coin(1000, "ld_denom")],
                 }
             )))
@@ -478,7 +507,10 @@ fn complete_local() {
 #[test]
 fn change_return_type() {
     let mut deps = mock_dependencies(&[]);
-    base_init(deps.as_mut());
+    let api = deps.api;
+
+    base_init(deps.as_mut(), api);
+
     BONDS
         .save(
             deps.as_mut().storage,
@@ -486,7 +518,7 @@ fn change_return_type() {
             &drop_staking_base::state::mirror::BondItem {
                 receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                     .to_string(),
-                backup: Some(Addr::unchecked("backup".to_string())),
+                backup: Some(api.addr_make("backup")),
                 amount: Uint128::new(1000),
                 received: Some(coin(1000, "ld_denom")),
                 return_type: drop_staking_base::state::mirror::ReturnType::Remote,
@@ -497,7 +529,7 @@ fn change_return_type() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::ChangeReturnType {
             id: 1,
             return_type: drop_staking_base::state::mirror::ReturnType::Local,
@@ -505,13 +537,13 @@ fn change_return_type() {
     );
     assert_eq!(
         response,
-        Err(drop_staking_base::error::mirror::ContractError::Unauthorized {})
+        Err(ContractError::Unauthorized {})
     );
 
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("backup"), &[]),
+        message_info(&api.addr_make("backup"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::ChangeReturnType {
             id: 1,
             return_type: drop_staking_base::state::mirror::ReturnType::Local,
@@ -525,7 +557,7 @@ fn change_return_type() {
         drop_staking_base::state::mirror::BondItem {
             receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                 .to_string(),
-            backup: Some(Addr::unchecked("backup".to_string())),
+            backup: Some(api.addr_make("backup")),
             amount: Uint128::new(1000),
             received: Some(coin(1000, "ld_denom")),
             return_type: drop_staking_base::state::mirror::ReturnType::Local,
@@ -550,14 +582,17 @@ fn change_return_type() {
 #[test]
 fn update_bond() {
     let mut deps = mock_dependencies(&[]);
-    base_init(deps.as_mut());
+    let api = deps.api;
+
+    base_init(deps.as_mut(), api);
+
     BONDS
         .save(
             deps.as_mut().storage,
             1,
             &drop_staking_base::state::mirror::BondItem {
-                receiver: "receiver".to_string(),
-                backup: Some(Addr::unchecked("backup".to_string())),
+                receiver: api.addr_make("receiver").to_string(),
+                backup: Some(api.addr_make("backup")),
                 amount: Uint128::new(1000),
                 received: None,
                 return_type: drop_staking_base::state::mirror::ReturnType::Remote,
@@ -568,11 +603,11 @@ fn update_bond() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("sender"), &[]),
+        message_info(&api.addr_make("sender"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::UpdateBond {
             id: 1,
-            receiver: "new_receiver".to_string(),
-            backup: Some("new_backup".to_string()),
+            receiver: api.addr_make("new_receiver").to_string(),
+            backup: Some(api.addr_make("new_backup").to_string()),
             return_type: drop_staking_base::state::mirror::ReturnType::Local,
         },
     );
@@ -588,11 +623,11 @@ fn update_bond() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::mirror::ExecuteMsg::UpdateBond {
             id: 1,
-            receiver: "new_receiver".to_string(),
-            backup: Some("new_backup".to_string()),
+            receiver: api.addr_make("new_receiver").to_string(),
+            backup: Some(api.addr_make("new_backup").to_string()),
             return_type: drop_staking_base::state::mirror::ReturnType::Local,
         },
     )
@@ -602,8 +637,8 @@ fn update_bond() {
     assert_eq!(
         bond,
         drop_staking_base::state::mirror::BondItem {
-            receiver: "new_receiver".to_string(),
-            backup: Some(Addr::unchecked("new_backup".to_string())),
+            receiver: api.addr_make("new_receiver").to_string(),
+            backup: Some(api.addr_make("new_backup")),
             amount: Uint128::new(1000),
             received: None,
             return_type: drop_staking_base::state::mirror::ReturnType::Local,
@@ -619,8 +654,8 @@ fn update_bond() {
             .add_attributes(vec![
                 attr("action", "update_bond"),
                 attr("id", "1"),
-                attr("receiver", "new_receiver"),
-                attr("backup", "new_backup"),
+                attr("receiver", api.addr_make("new_receiver")),
+                attr("backup", api.addr_make("new_backup")),
                 attr("return_type", "Local"),
             ])
         )
@@ -630,7 +665,10 @@ fn update_bond() {
 #[test]
 fn query_one() {
     let mut deps = mock_dependencies(&[]);
-    base_init(deps.as_mut());
+    let api = deps.api;
+
+    base_init(deps.as_mut(), api);
+
     BONDS
         .save(
             deps.as_mut().storage,
@@ -638,7 +676,7 @@ fn query_one() {
             &drop_staking_base::state::mirror::BondItem {
                 receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                     .to_string(),
-                backup: Some(Addr::unchecked("backup".to_string())),
+                backup: Some(api.addr_make("backup")),
                 amount: Uint128::new(1000),
                 received: None,
                 return_type: drop_staking_base::state::mirror::ReturnType::Remote,
@@ -657,7 +695,7 @@ fn query_one() {
         to_json_binary(&drop_staking_base::state::mirror::BondItem {
             receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                 .to_string(),
-            backup: Some(Addr::unchecked("backup".to_string())),
+            backup: Some(api.addr_make("backup")),
             amount: Uint128::new(1000),
             received: None,
             return_type: drop_staking_base::state::mirror::ReturnType::Remote,
@@ -670,7 +708,10 @@ fn query_one() {
 #[test]
 fn query_all() {
     let mut deps = mock_dependencies(&[]);
-    base_init(deps.as_mut());
+    let api = deps.api;
+
+    base_init(deps.as_mut(), api);
+
     BONDS
         .save(
             deps.as_mut().storage,
@@ -678,7 +719,7 @@ fn query_all() {
             &drop_staking_base::state::mirror::BondItem {
                 receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                     .to_string(),
-                backup: Some(Addr::unchecked("backup".to_string())),
+                backup: Some(api.addr_make("backup")),
                 amount: Uint128::new(1000),
                 received: None,
                 return_type: drop_staking_base::state::mirror::ReturnType::Remote,
@@ -702,7 +743,7 @@ fn query_all() {
             drop_staking_base::state::mirror::BondItem {
                 receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
                     .to_string(),
-                backup: Some(Addr::unchecked("backup".to_string())),
+                backup: Some(api.addr_make("backup")),
                 amount: Uint128::new(1000),
                 received: None,
                 return_type: drop_staking_base::state::mirror::ReturnType::Remote,
