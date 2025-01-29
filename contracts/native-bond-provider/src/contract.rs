@@ -146,19 +146,17 @@ fn query_can_process_on_idle(
         }
     );
 
-    let non_staked_balance = NON_STAKED_BALANCE.load(deps.storage)?;
-    let pending_coin = deps
+    let non_staked_balance = deps
         .querier
-        .query_balance(&env.contract.address, config.base_denom.to_string())?;
+        .query_balance(&env.contract.address, config.base_denom.to_string())?
+        .amount;
 
     ensure!(
-        pending_coin.amount >= config.min_ibc_transfer
-            || non_staked_balance >= config.min_stake_amount,
+        non_staked_balance >= config.min_stake_amount,
         ContractError::NotEnoughToProcessIdle {
             min_stake_amount: config.min_stake_amount,
             non_staked_balance,
             min_ibc_transfer: config.min_ibc_transfer,
-            pending_coins: pending_coin.amount,
         }
     );
 

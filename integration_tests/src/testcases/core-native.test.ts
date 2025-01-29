@@ -449,7 +449,7 @@ describe('Core', () => {
         },
         base_denom: 'untrn',
         core_params: {
-          idle_min_interval: 120,
+          idle_min_interval: 15,
           unbond_batch_switch_time: 60,
           unbonding_safe_period: 10,
           unbonding_period: 360,
@@ -793,7 +793,7 @@ describe('Core', () => {
       undefined,
       [
         {
-          amount: Math.floor(400_000 / context.exchangeRate).toString(),
+          amount: Math.floor(200_000 / context.exchangeRate).toString(),
           denom: ldDenom,
         },
       ],
@@ -812,7 +812,7 @@ describe('Core', () => {
       status_timestamps: expect.any(Object),
       expected_release_time: 0,
       status: 'new',
-      total_dasset_amount_to_withdraw: '400000',
+      total_dasset_amount_to_withdraw: '200000',
       expected_native_asset_amount: '0',
       total_unbond_items: 1,
       unbonded_amount: null,
@@ -897,6 +897,129 @@ describe('Core', () => {
             'validator',
           ),
         );
+      });
+    });
+    describe('second cycle', () => {
+      it('top up rewards balance', async () => {
+        const res = await context.client.sendTokens(
+          context.account.address,
+          context.distributionMockClient.contractAddress,
+          [{ amount: '1000000', denom: 'untrn' }],
+          1.5,
+        );
+        expect(res.transactionHash).toHaveLength(64);
+      });
+      it('tick', async () => {
+        {
+          const res = await context.coreContractClient.tick(
+            context.neutronUserAddress,
+            1.5,
+            undefined,
+            [],
+          );
+          expect(res.transactionHash).toHaveLength(64);
+          const state = await context.coreContractClient.queryContractState();
+          expect(state).toEqual('idle');
+        }
+        {
+          const res = await context.coreContractClient.tick(
+            context.neutronUserAddress,
+            2.5,
+            undefined,
+            [],
+          );
+          expect(res.transactionHash).toHaveLength(64);
+          const state = await context.coreContractClient.queryContractState();
+          expect(state).toEqual('claiming');
+        }
+        await checkExchangeRate(context);
+      });
+      it('verify mock does not have tokens now', async () => {
+        const balance = await context.client.getBalance(
+          context.distributionMockClient.contractAddress,
+          'untrn',
+        );
+        expect(balance.amount).toEqual('0');
+      });
+      it('distribute', async () => {
+        const res = await context.splitterContractClient.distribute(
+          context.account.address,
+          1.5,
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const afterBalance = await context.client.getBalance(
+          context.nativeBondProviderContractClient.contractAddress,
+          'untrn',
+        );
+        expect(afterBalance.amount).toEqual('1000000');
+      });
+    });
+    describe('third cycle', () => {
+      it('tick', async () => {
+        {
+          const res = await context.coreContractClient.tick(
+            context.neutronUserAddress,
+            1.5,
+            undefined,
+            [],
+          );
+          expect(res.transactionHash).toHaveLength(64);
+          const state = await context.coreContractClient.queryContractState();
+          expect(state).toEqual('idle');
+        }
+      });
+      it('tick to peripheral', async () => {
+        const preBalanceOnNativeBondProvider = (
+          await context.client.getBalance(
+            context.nativeBondProviderContractClient.contractAddress,
+            'untrn',
+          )
+        ).amount;
+        expect(preBalanceOnNativeBondProvider).toEqual('1000000');
+        const res = await context.coreContractClient.tick(
+          context.neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('peripheral');
+        const postBalanceOnNativeBondProvider = (
+          await context.client.getBalance(
+            context.nativeBondProviderContractClient.contractAddress,
+            'untrn',
+          )
+        ).amount;
+        expect(postBalanceOnNativeBondProvider).toEqual('0');
+      });
+      it('one more tick', async () => {
+        const res = await context.coreContractClient.tick(
+          context.neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+        await checkExchangeRate(context);
+      });
+      it('validate delegations', async () => {
+        const res = await context.park.executeInNetwork(
+          'neutronv2',
+          `neutrond q staking delegations ${context.puppeteerContractClient.contractAddress} --output json`,
+        );
+        const { delegation_responses } = JSON.parse(res.out);
+        expect(delegation_responses).toHaveLength(2);
+        expect(
+          parseInt(delegation_responses[0].balance.amount) +
+            parseInt(delegation_responses[1].balance.amount),
+        ).toEqual(1_400_000);
+        const exchangeRate = parseFloat(
+          await context.coreContractClient.queryExchangeRate(),
+        );
+        expect(exchangeRate).toBeGreaterThan(1);
       });
     });
   });

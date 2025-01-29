@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, to_json_binary, Attribute, BankMsg, Coin, CosmosMsg, Decimal, Deps,
-    StdResult, Uint128, WasmMsg,
+    attr, ensure, ensure_eq, to_json_binary, Attribute, Coin, CosmosMsg, Decimal, Deps, Uint128,
+    WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{get_ownership, update_ownership};
@@ -9,7 +9,7 @@ use drop_staking_base::{
     msg::native_sync_bond_provider::{
         ConfigOptional, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
     },
-    state::native_sync_bond_provider::{Config, CONFIG, NON_STAKED_BALANCE},
+    state::native_sync_bond_provider::{Config, CONFIG},
 };
 
 use drop_puppeteer_base::peripheral_hook::ReceiverExecuteMsg;
@@ -45,8 +45,6 @@ pub fn instantiate(
         base_denom: msg.base_denom.to_string(),
     };
     CONFIG.save(deps.storage, config)?;
-
-    NON_STAKED_BALANCE.save(deps.storage, &Uint128::zero())?;
 
     Ok(response(
         "instantiate",
@@ -94,19 +92,17 @@ fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Binary> {
     Ok(to_json_binary(&config)?)
 }
 
-fn query_non_staked_balance(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Binary> {
-    let balance = NON_STAKED_BALANCE.load(deps.storage)?;
+fn query_non_staked_balance(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
+    let config = CONFIG.load(deps.storage)?;
+    let balance = deps
+        .querier
+        .query_balance(env.contract.address, config.base_denom)?
+        .amount;
     Ok(to_json_binary(&(balance))?)
 }
 
 fn query_async_tokens_amount(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
-    let balance = NON_STAKED_BALANCE.load(deps.storage)?;
-    let config = CONFIG.load(deps.storage)?;
-    let local_balance = deps
-        .querier
-        .query_balance(env.contract.address.to_string(), config.base_denom)?
-        .amount;
-    to_json_binary(&(balance + local_balance)).map_err(ContractError::Std)
+    query_non_staked_balance(deps, env)
 }
 
 fn query_can_bond(deps: Deps<NeutronQuery>, denom: String) -> ContractResult<Binary> {
@@ -120,18 +116,17 @@ fn query_can_process_on_idle(
     env: &Env,
     config: &Config,
 ) -> ContractResult<bool> {
-    let non_staked_balance = NON_STAKED_BALANCE.load(deps.storage)?;
-    let pending_coin = deps
+    let not_staked_balance = deps
         .querier
-        .query_balance(&env.contract.address, config.base_denom.to_string())?;
+        .query_balance(&env.contract.address, config.base_denom.to_string())?
+        .amount;
 
     ensure!(
-        !pending_coin.amount.is_zero() || !non_staked_balance.is_zero(),
+        !not_staked_balance.is_zero(),
         ContractError::NotEnoughToProcessIdle {
             min_stake_amount: Uint128::new(1),
             min_ibc_transfer: Uint128::new(0),
             non_staked_balance,
-            pending_coins: pending_coin.amount,
         }
     );
 
@@ -223,22 +218,11 @@ fn execute_bond(
         return Err(ContractError::InvalidDenom {});
     }
 
-    let message = CosmosMsg::Bank(BankMsg::Send {
-        to_address: config.puppeteer_contract.to_string(),
-        amount: vec![Coin {
-            denom: config.base_denom,
-            amount,
-        }],
-    });
-
-    NON_STAKED_BALANCE.update(deps.storage, |balance| StdResult::Ok(balance + amount))?;
-
     Ok(response(
         "bond",
         CONTRACT_NAME,
         [attr_coin("received_funds", amount.to_string(), denom)],
-    )
-    .add_message(message))
+    ))
 }
 
 fn execute_process_on_idle(
@@ -257,9 +241,8 @@ fn execute_process_on_idle(
     let attrs = vec![attr("action", "process_on_idle")];
     let mut messages: Vec<CosmosMsg<NeutronMsg>> = vec![];
 
-    if let Some(lsm_msg) = get_delegation_msg(deps.branch(), &env, &config)? {
-        messages.push(lsm_msg);
-        NON_STAKED_BALANCE.save(deps.storage, &Uint128::zero())?;
+    if let Some(delegate_msg) = get_delegation_msg(deps.branch(), &env, &config)? {
+        messages.push(delegate_msg);
     }
 
     Ok(
@@ -274,16 +257,19 @@ fn get_delegation_msg(
     env: &Env,
     config: &Config,
 ) -> ContractResult<Option<CosmosMsg<NeutronMsg>>> {
-    let non_staked_balance = NON_STAKED_BALANCE.load(deps.storage)?;
+    let not_staked_balance = deps
+        .querier
+        .query_balance(&env.contract.address, config.base_denom.to_string())?
+        .amount;
 
-    if non_staked_balance.is_zero() {
+    if not_staked_balance.is_zero() {
         return Ok(None);
     }
 
     let to_delegate: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
         &config.strategy_contract,
         &drop_staking_base::msg::strategy::QueryMsg::CalcDeposit {
-            deposit: non_staked_balance,
+            deposit: not_staked_balance,
         },
     )?;
     let puppeteer_delegation_msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -292,7 +278,10 @@ fn get_delegation_msg(
             items: to_delegate,
             reply_to: env.contract.address.to_string(),
         })?,
-        funds: vec![],
+        funds: vec![Coin {
+            denom: config.base_denom.to_string(),
+            amount: not_staked_balance,
+        }],
     });
 
     Ok(Some(puppeteer_delegation_msg))

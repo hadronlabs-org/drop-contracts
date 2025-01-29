@@ -329,23 +329,15 @@ fn execute_delegate(
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
+    cw_utils::must_pay(&info, &config.remote_denom)?;
+    cw_utils::one_coin(&info)?;
 
-    let non_staked_balance = deps
-        .querier
-        .query_balance(env.contract.address, &config.remote_denom)?
-        .amount;
+    let amount_attached = info.funds.last().unwrap().amount;
 
-    ensure!(
-        non_staked_balance > Uint128::zero(),
-        ContractError::InvalidFunds {
-            reason: "no funds to stake".to_string()
-        }
-    );
-
-    let amount_to_stake = items.iter().map(|(_, amount)| *amount).sum();
+    let amount_to_stake: Uint128 = items.iter().map(|(_, amount)| *amount).sum();
 
     ensure!(
-        non_staked_balance >= amount_to_stake,
+        amount_attached >= amount_to_stake,
         ContractError::InvalidFunds {
             reason: "not enough funds to stake".to_string()
         }
