@@ -18,16 +18,18 @@ fn mock_dependencies<Q: Querier + Default>() -> OwnedDeps<MockStorage, MockApi, 
 #[test]
 fn instantiate() {
     let mut deps = mock_dependencies::<MockQuerier>();
+    let api = deps.api;
+
     let response = crate::contract::instantiate(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("admin"), &[]),
+        message_info(&api.addr_make("admin"), &[]),
         drop_staking_base::msg::proposal_votes::InstantiateMsg {
             connection_id: "connection-0".to_string(),
             port_id: "transfer".to_string(),
             update_period: 100,
-            core_address: "core".to_string(),
-            provider_proposals_address: "provider_proposals".to_string(),
+            core_address: api.addr_make("core").to_string(),
+            provider_proposals_address: api.addr_make("provider_proposals").to_string(),
         },
     )
     .unwrap();
@@ -41,8 +43,8 @@ fn instantiate() {
             connection_id: "connection-0".to_string(),
             port_id: "transfer".to_string(),
             update_period: 100,
-            core_address: "core".to_string(),
-            provider_proposals_address: "provider_proposals".to_string(),
+            core_address: api.addr_make("core").to_string(),
+            provider_proposals_address: api.addr_make("provider_proposals").to_string(),
         }
     );
 
@@ -55,8 +57,8 @@ fn instantiate() {
                     attr("connection_id", "connection-0"),
                     attr("port_id", "transfer"),
                     attr("update_period", "100"),
-                    attr("core_address", "core"),
-                    attr("provider_proposals_address", "provider_proposals")
+                    attr("core_address", api.addr_make("core")),
+                    attr("provider_proposals_address", api.addr_make("provider_proposals"))
                 ])
         ]
     );
@@ -101,6 +103,7 @@ fn query_config() {
 #[test]
 fn update_config_wrong_owner() {
     let mut deps = mock_dependencies::<MockQuerier>();
+    let api = deps.api;
 
     drop_staking_base::state::proposal_votes::CONFIG
         .save(
@@ -109,8 +112,8 @@ fn update_config_wrong_owner() {
                 connection_id: "connection-0".to_string(),
                 port_id: "transfer".to_string(),
                 update_period: 100,
-                core_address: "core".to_string(),
-                provider_proposals_address: "provider_proposals".to_string(),
+                core_address: api.addr_make("core").to_string(),
+                provider_proposals_address: api.addr_make("provider_proposals").to_string(),
             },
         )
         .unwrap();
@@ -118,14 +121,14 @@ fn update_config_wrong_owner() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("core1"), &[]),
+        message_info(&api.addr_make("core1"), &[]),
         drop_staking_base::msg::proposal_votes::ExecuteMsg::UpdateConfig {
             new_config: drop_staking_base::state::proposal_votes::ConfigOptional {
                 connection_id: Some("connection-0".to_string()),
                 port_id: Some("transfer".to_string()),
                 update_period: Some(100),
-                core_address: Some("core".to_string()),
-                provider_proposals_address: Some("provider_proposals".to_string()),
+                core_address: Some(api.addr_make("core").to_string()),
+                provider_proposals_address: Some(api.addr_make("provider_proposals").to_string()),
             },
         },
     )
@@ -133,7 +136,7 @@ fn update_config_wrong_owner() {
     assert_eq!(
         error,
         crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::Std(
-            cosmwasm_std::StdError::generic_err("type: cw_ownable::Ownership<cosmwasm_std::addresses::Addr>; key: [6F, 77, 6E, 65, 72, 73, 68, 69, 70]")
+            cosmwasm_std::StdError::not_found("type: cw_ownable::Ownership<cosmwasm_std::addresses::Addr>; key: [6F, 77, 6E, 65, 72, 73, 68, 69, 70]")
         ))
     );
 }
@@ -141,13 +144,14 @@ fn update_config_wrong_owner() {
 #[test]
 fn update_config_ok() {
     let mut deps = mock_dependencies::<MockQuerier>();
+    let api = deps.api;
 
     let deps_mut = deps.as_mut();
 
     let _result = cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("core").as_ref()),
+        Some(api.addr_make("core").as_ref()),
     );
 
     drop_staking_base::state::proposal_votes::CONFIG
@@ -157,8 +161,8 @@ fn update_config_ok() {
                 connection_id: "connection-0".to_string(),
                 port_id: "transfer".to_string(),
                 update_period: 100,
-                core_address: "core".to_string(),
-                provider_proposals_address: "provider_proposals".to_string(),
+                core_address: api.addr_make("core").to_string(),
+                provider_proposals_address: api.addr_make("provider_proposals").to_string(),
             },
         )
         .unwrap();
@@ -166,14 +170,14 @@ fn update_config_ok() {
     let _response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("core"), &[]),
+        message_info(&api.addr_make("core"), &[]),
         drop_staking_base::msg::proposal_votes::ExecuteMsg::UpdateConfig {
             new_config: drop_staking_base::state::proposal_votes::ConfigOptional {
                 connection_id: Some("connection-1".to_string()),
                 port_id: Some("transfer1".to_string()),
                 update_period: Some(200),
-                core_address: Some("core1".to_string()),
-                provider_proposals_address: Some("provider_proposals_1".to_string()),
+                core_address: Some(api.addr_make("core1").to_string()),
+                provider_proposals_address: Some(api.addr_make("provider_proposals_1").to_string()),
             },
         },
     )
@@ -192,8 +196,8 @@ fn update_config_ok() {
             connection_id: "connection-1".to_string(),
             port_id: "transfer1".to_string(),
             update_period: 200,
-            core_address: "core1".to_string(),
-            provider_proposals_address: "provider_proposals_1".to_string()
+            core_address: api.addr_make("core1").to_string(),
+            provider_proposals_address: api.addr_make("provider_proposals_1").to_string()
         })
         .unwrap()
     );
@@ -202,11 +206,12 @@ fn update_config_ok() {
 #[test]
 fn update_voters_list_wrong_owner() {
     let mut deps = mock_dependencies::<MockQuerier>();
+    let api = deps.api;
 
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("core1"), &[]),
+        message_info(&api.addr_make("core1"), &[]),
         drop_staking_base::msg::proposal_votes::ExecuteMsg::UpdateVotersList {
             voters: vec!["voter1".to_string(), "voter2".to_string()],
         },
@@ -215,7 +220,7 @@ fn update_voters_list_wrong_owner() {
     assert_eq!(
         error,
         crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::Std(
-            cosmwasm_std::StdError::generic_err("type: cw_ownable::Ownership<cosmwasm_std::addresses::Addr>; key: [6F, 77, 6E, 65, 72, 73, 68, 69, 70]")
+            cosmwasm_std::StdError::not_found("type: cw_ownable::Ownership<cosmwasm_std::addresses::Addr>; key: [6F, 77, 6E, 65, 72, 73, 68, 69, 70]")
         ))
     );
 }
@@ -223,19 +228,20 @@ fn update_voters_list_wrong_owner() {
 #[test]
 fn update_voters_list_ok() {
     let mut deps = mock_dependencies::<MockQuerier>();
+    let api = deps.api;
 
     let deps_mut = deps.as_mut();
 
     let _result = cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("core").as_ref()),
+        Some(api.addr_make("core").as_ref()),
     );
 
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("core"), &[]),
+        message_info(&api.addr_make("core"), &[]),
         drop_staking_base::msg::proposal_votes::ExecuteMsg::UpdateVotersList {
             voters: vec!["voter1".to_string(), "voter2".to_string()],
         },

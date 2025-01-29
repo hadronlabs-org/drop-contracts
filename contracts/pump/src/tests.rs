@@ -3,6 +3,7 @@ use crate::{
     error::ContractError,
 };
 use cosmwasm_std::{coins, from_json, testing::{mock_env, message_info}, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Event, Response, SubMsg};
+use cosmwasm_std::testing::MockApi;
 use drop_helpers::ica::IcaState;
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::state::pump::{Config, CONFIG, ICA};
@@ -16,13 +17,13 @@ use neutron_sdk::{
 };
 use prost::Message;
 
-fn get_default_config() -> Config {
+fn get_default_config(api: MockApi) -> Config {
     Config {
-        dest_address: Some(Addr::unchecked("dest_address")),
+        dest_address: Some(api.addr_make("dest_address")),
         dest_channel: Some("dest_channel".to_string()),
         dest_port: Some("dest_port".to_string()),
         connection_id: "connection".to_string(),
-        refundee: Some(Addr::unchecked("refundee")),
+        refundee: Some(api.addr_make("refundee")),
         timeout: drop_staking_base::state::pump::PumpTimeout {
             local: Some(10u64),
             remote: 10u64,
@@ -34,20 +35,22 @@ fn get_default_config() -> Config {
 #[test]
 fn test_instantiate() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
+
     let msg = drop_staking_base::msg::pump::InstantiateMsg {
-        dest_address: Some("dest_address".to_string()),
+        dest_address: Some(api.addr_make("dest_address").to_string()),
         dest_channel: Some("dest_channel".to_string()),
         dest_port: Some("dest_port".to_string()),
         connection_id: "connection".to_string(),
-        refundee: Some("refundee".to_string()),
+        refundee: Some(api.addr_make("refundee").to_string()),
         timeout: drop_staking_base::state::pump::PumpTimeout {
             local: Some(10u64),
             remote: 10u64,
         },
         local_denom: "local_denom".to_string(),
-        owner: Some("owner".to_string()),
+        owner: Some(api.addr_make("owner").to_string()),
     };
-    let res = instantiate(deps.as_mut(), mock_env(), message_info(&Addr::unchecked("owner"), &[]), msg).unwrap();
+    let res = instantiate(deps.as_mut(), mock_env(), message_info(&api.addr_make("owner"), &[]), msg).unwrap();
     assert_eq!(
         res,
         Response::new().add_event(Event::new(
@@ -55,12 +58,12 @@ fn test_instantiate() {
         ).add_attributes(vec![
             ("contract_name", "crates.io:drop-neutron-contracts__drop-pump"),
             ("contract_version", "1.0.0"),
-            ("msg", "InstantiateMsg { dest_address: Some(\"dest_address\"), dest_channel: Some(\"dest_channel\"), dest_port: Some(\"dest_port\"), connection_id: \"connection\", refundee: Some(\"refundee\"), timeout: PumpTimeout { local: Some(10), remote: 10 }, local_denom: \"local_denom\", owner: Some(\"owner\") }"),
-            ("sender", "owner")
+            ("msg", "InstantiateMsg { dest_address: Some(\"cosmwasm1t32u3yaj9q3hkk0tld3tvemj9fgdt63krq55agm34unqhtk8cf2q8wcqy7\"), dest_channel: Some(\"dest_channel\"), dest_port: Some(\"dest_port\"), connection_id: \"connection\", refundee: Some(\"cosmwasm1qjzlg5f35pvnfjdgf0zpnmpaujc964jcekwqewqnj7q8u7s0klrsmh3dsm\"), timeout: PumpTimeout { local: Some(10), remote: 10 }, local_denom: \"local_denom\", owner: Some(\"cosmwasm1fsgzj6t7udv8zhf6zj32mkqhcjcpv52yph5qsdcl0qt94jgdckqs2g053y\") }"),
+            ("sender", api.addr_make("owner").as_str())
         ]))
     );
     assert_eq!(
-        "owner",
+        api.addr_make("owner").as_str(),
         cw_ownable::get_ownership(deps.as_ref().storage)
             .unwrap()
             .owner
@@ -68,37 +71,38 @@ fn test_instantiate() {
             .as_str()
     );
     let config = CONFIG.load(deps.as_ref().storage).unwrap();
-    assert_eq!(config, get_default_config());
+    assert_eq!(config, get_default_config(api));
 }
 
 #[test]
 fn test_update_config_unauthorized() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let msg = drop_staking_base::msg::pump::InstantiateMsg {
-        dest_address: Some("dest_address".to_string()),
+        dest_address: Some(api.addr_make("dest_address").to_string()),
         dest_channel: Some("dest_channel".to_string()),
         dest_port: Some("dest_port".to_string()),
         connection_id: "connection".to_string(),
-        refundee: Some("refundee".to_string()),
+        refundee: Some(api.addr_make("refundee").to_string()),
         timeout: drop_staking_base::state::pump::PumpTimeout {
             local: Some(0u64),
             remote: 0u64,
         },
         local_denom: "local_denom".to_string(),
-        owner: Some("owner".to_string()),
+        owner: Some(api.addr_make("owner").to_string()),
     };
-    let _ = instantiate(deps.as_mut(), mock_env(), message_info(&Addr::unchecked("owner"), &[]), msg).unwrap();
+    let _ = instantiate(deps.as_mut(), mock_env(), message_info(&api.addr_make("owner"), &[]), msg).unwrap();
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("not_an_owner"), &[]),
+        message_info(&api.addr_make("not_an_owner"), &[]),
         drop_staking_base::msg::pump::ExecuteMsg::UpdateConfig {
             new_config: Box::new(drop_staking_base::msg::pump::UpdateConfigMsg {
-                dest_address: Some("new_dest_address".to_string()),
+                dest_address: Some(api.addr_make("new_dest_address").to_string()),
                 dest_channel: Some("new_dest_channel".to_string()),
                 dest_port: Some("new_dest_port".to_string()),
                 connection_id: Some("new_connection".to_string()),
-                refundee: Some("new_refundee".to_string()),
+                refundee: Some(api.addr_make("new_refundee").to_string()),
                 timeout: Some(drop_staking_base::state::pump::PumpTimeout {
                     local: Some(1u64),
                     remote: 1u64,
@@ -110,35 +114,36 @@ fn test_update_config_unauthorized() {
     .unwrap_err();
     assert_eq!(
         res,
-        crate::error::ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
+        ContractError::OwnershipError(cw_ownable::OwnershipError::NotOwner)
     )
 }
 
 #[test]
 fn test_update_config() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let msg = drop_staking_base::msg::pump::InstantiateMsg {
-        dest_address: Some("dest_address".to_string()),
+        dest_address: Some(api.addr_make("dest_address").to_string()),
         dest_channel: Some("dest_channel".to_string()),
         dest_port: Some("dest_port".to_string()),
         connection_id: "connection_id".to_string(),
-        refundee: Some("refundee".to_string()),
+        refundee: Some(api.addr_make("refundee").to_string()),
         timeout: drop_staking_base::state::pump::PumpTimeout {
             local: Some(0u64),
             remote: 0u64,
         },
         local_denom: "local_denom".to_string(),
-        owner: Some("owner".to_string()),
+        owner: Some(api.addr_make("owner").to_string()),
     };
-    let _ = instantiate(deps.as_mut(), mock_env(), message_info(&Addr::unchecked("admin"), &[]), msg).unwrap();
+    let _ = instantiate(deps.as_mut(), mock_env(), message_info(&api.addr_make("admin"), &[]), msg).unwrap();
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("admin").as_str())).unwrap();
     let msg = drop_staking_base::msg::pump::UpdateConfigMsg {
-        dest_address: Some("new_dest_address".to_string()),
+        dest_address: Some(api.addr_make("new_dest_address").to_string()),
         dest_channel: Some("new_dest_channel".to_string()),
         dest_port: Some("new_dest_port".to_string()),
         connection_id: Some("new_connection_id".to_string()),
-        refundee: Some("new_refundee".to_string()),
+        refundee: Some(api.addr_make("new_refundee").to_string()),
         timeout: Some(drop_staking_base::state::pump::PumpTimeout {
             local: Some(1u64),
             remote: 1u64,
@@ -148,7 +153,7 @@ fn test_update_config() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("admin"), &[]),
+        message_info(&api.addr_make("admin"), &[]),
         drop_staking_base::msg::pump::ExecuteMsg::UpdateConfig {
             new_config: Box::new(msg.clone()),
         },
@@ -160,11 +165,11 @@ fn test_update_config() {
             Event::new("crates.io:drop-neutron-contracts__drop-pump-update_config").add_attributes(
                 vec![
                     cosmwasm_std::attr("action", "update_config"),
-                    cosmwasm_std::attr("dest_address", "new_dest_address"),
+                    cosmwasm_std::attr("dest_address", api.addr_make("new_dest_address")),
                     cosmwasm_std::attr("dest_channel", "new_dest_channel"),
                     cosmwasm_std::attr("dest_port", "new_dest_port"),
                     cosmwasm_std::attr("connection_id", "new_connection_id"),
-                    cosmwasm_std::attr("refundee", "new_refundee"),
+                    cosmwasm_std::attr("refundee", api.addr_make("new_refundee")),
                     cosmwasm_std::attr("timeout", format!("{:?}", msg.timeout.unwrap())),
                     cosmwasm_std::attr("local_denom", "new_local_denom"),
                 ]
@@ -175,11 +180,11 @@ fn test_update_config() {
     assert_eq!(
         config,
         Config {
-            dest_address: Some(Addr::unchecked("new_dest_address")),
+            dest_address: Some(api.addr_make("new_dest_address")),
             dest_channel: Some("new_dest_channel".to_string()),
             dest_port: Some("new_dest_port".to_string()),
             connection_id: "new_connection_id".to_string(),
-            refundee: Some(Addr::unchecked("new_refundee")),
+            refundee: Some(api.addr_make("new_refundee")),
             timeout: drop_staking_base::state::pump::PumpTimeout {
                 local: Some(1u64),
                 remote: 1u64,
@@ -192,8 +197,10 @@ fn test_update_config() {
 #[test]
 fn test_register_ica_no_fee() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
+
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config())
+        .save(deps.as_mut().storage, &get_default_config(api))
         .unwrap();
     let msg = drop_staking_base::msg::pump::ExecuteMsg::RegisterICA {};
 
@@ -216,8 +223,10 @@ fn test_register_ica_no_fee() {
 #[test]
 fn test_register_ica() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
+
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config())
+        .save(deps.as_mut().storage, &get_default_config(api))
         .unwrap();
     let msg = drop_staking_base::msg::pump::ExecuteMsg::RegisterICA {};
     let res = execute(
@@ -299,7 +308,8 @@ fn test_execute_refund_no_refundee() {
         coins: coins(200, "untrn"),
     };
     let mut deps = mock_dependencies(&[]);
-    let mut config = get_default_config();
+    let api = deps.api;
+    let mut config = get_default_config(api);
     config.refundee = None;
     CONFIG.save(deps.as_mut().storage, &config).unwrap();
     let err = execute(deps.as_mut(), mock_env(), message_info(&Addr::unchecked("nobody"), &[]), msg).unwrap_err();
@@ -312,19 +322,20 @@ fn test_execute_refund_success_refundee() {
         coins: coins(200, "untrn"),
     };
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config())
+        .save(deps.as_mut().storage, &get_default_config(api))
         .unwrap();
-    let res = execute(deps.as_mut(), mock_env(), message_info(&Addr::unchecked("refundee"), &[]), msg).unwrap();
+    let res = execute(deps.as_mut(), mock_env(), message_info(&api.addr_make("refundee"), &[]), msg).unwrap();
     assert_eq!(
         res,
         Response::new()
             .add_event(
                 Event::new("crates.io:drop-neutron-contracts__drop-pump-refund")
-                    .add_attributes(vec![("action", "refund"), ("refundee", "refundee")])
+                    .add_attributes(vec![("action", "refund"), ("refundee", api.addr_make("refundee").as_str())])
             )
             .add_message(CosmosMsg::Bank(BankMsg::Send {
-                to_address: "refundee".to_string(),
+                to_address: api.addr_make("refundee").to_string(),
                 amount: vec![Coin::new(200u128, "untrn")]
             }))
     );
@@ -336,21 +347,22 @@ fn test_execute_refund() {
         coins: coins(200, "untrn"),
     };
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config())
+        .save(deps.as_mut().storage, &get_default_config(api))
         .unwrap();
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    let res = execute(deps.as_mut(), mock_env(), message_info(&Addr::unchecked("owner"), &[]), msg).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    let res = execute(deps.as_mut(), mock_env(), message_info(&api.addr_make("owner"), &[]), msg).unwrap();
     assert_eq!(
         res,
         Response::new()
             .add_event(
                 Event::new("crates.io:drop-neutron-contracts__drop-pump-refund")
-                    .add_attributes(vec![("action", "refund"), ("refundee", "refundee")])
+                    .add_attributes(vec![("action", "refund"), ("refundee", api.addr_make("refundee").as_str())])
             )
             .add_message(CosmosMsg::Bank(BankMsg::Send {
-                to_address: "refundee".to_string(),
+                to_address: api.addr_make("refundee").to_string(),
                 amount: vec![Coin::new(200u128, "untrn")]
             }))
     );
@@ -362,24 +374,26 @@ fn test_execute_refund_unauthorized() {
         coins: coins(200, "untrn"),
     };
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config())
+        .save(deps.as_mut().storage, &get_default_config(api))
         .unwrap();
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
     let err = execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("not_an_owner"), &[]),
+        message_info(&api.addr_make("not_an_owner"), &[]),
         msg,
     )
     .unwrap_err();
-    assert_eq!(err, crate::error::ContractError::Unauthorized {});
+    assert_eq!(err, ContractError::Unauthorized {});
 }
 
 #[test]
 fn test_push_no_destination_port() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: IbcFee {
@@ -390,7 +404,7 @@ fn test_push_no_destination_port() {
         })
         .unwrap()
     });
-    let mut config = get_default_config();
+    let mut config = get_default_config(api);
     config.dest_port = None;
     CONFIG.save(deps.as_mut().storage, &config).unwrap();
     ICA.set_address(deps.as_mut().storage, "some", "port", "channel")
@@ -411,6 +425,7 @@ fn test_push_no_destination_port() {
 #[test]
 fn test_push_no_destintation_channel() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: IbcFee {
@@ -421,7 +436,7 @@ fn test_push_no_destintation_channel() {
         })
         .unwrap()
     });
-    let mut config = get_default_config();
+    let mut config = get_default_config(api);
     config.dest_channel = None;
     CONFIG.save(deps.as_mut().storage, &config).unwrap();
     ICA.set_address(deps.as_mut().storage, "some", "port", "channel")
@@ -442,6 +457,7 @@ fn test_push_no_destintation_channel() {
 #[test]
 fn test_push_no_destintation_address() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: IbcFee {
@@ -452,7 +468,7 @@ fn test_push_no_destintation_address() {
         })
         .unwrap()
     });
-    let mut config = get_default_config();
+    let mut config = get_default_config(api);
     config.dest_address = None;
     CONFIG.save(deps.as_mut().storage, &config).unwrap();
     ICA.set_address(deps.as_mut().storage, "some", "port", "channel")
@@ -473,6 +489,7 @@ fn test_push_no_destintation_address() {
 #[test]
 fn test_push() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: IbcFee {
@@ -483,16 +500,16 @@ fn test_push() {
         })
         .unwrap()
     });
-    ICA.set_address(deps.as_mut().storage, "some", "port", "channel")
+    ICA.set_address(deps.as_mut().storage, api.addr_make("some"), "port", "channel")
         .unwrap();
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config())
+        .save(deps.as_mut().storage, &get_default_config(api))
         .unwrap();
     let env = mock_env();
     let res = execute(
         deps.as_mut(),
         env.clone(),
-        message_info(&Addr::unchecked("somebody"), &[]),
+        message_info(&api.addr_make("somebody"), &[]),
         drop_staking_base::msg::pump::ExecuteMsg::Push {
             coins: vec![Coin::new(100u128, "remote_denom")],
         }
@@ -525,8 +542,8 @@ fn test_push() {
                                 denom: "remote_denom".to_string(),
                                 amount: "100".to_string(),
                             }),
-                            sender: "some".to_string(),
-                            receiver: "dest_address".to_string(),
+                            sender: api.addr_make("some").to_string(),
+                            receiver: api.addr_make("dest_address").to_string(),
                             timeout_height: None,
                             timeout_timestamp: env.block.time.plus_seconds(10).nanos(),
                         }
@@ -861,7 +878,8 @@ fn test_sudo_open_ack() {
 #[test]
 fn test_query_config() {
     let mut deps = mock_dependencies(&[]);
-    let config = get_default_config();
+    let api = deps.api;
+    let config = get_default_config(api);
     CONFIG.save(deps.as_mut().storage, &config).unwrap();
     let query_res: drop_staking_base::state::pump::Config = from_json(
         query(
@@ -893,9 +911,10 @@ fn test_query_ica() {
 #[test]
 fn test_query_ownership() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap();
-    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("admin").as_str())).unwrap();
+    let query_res: cw_ownable::Ownership<Addr> = from_json(
         query(
             deps.as_ref().into_empty(),
             mock_env(),
@@ -907,7 +926,7 @@ fn test_query_ownership() {
     assert_eq!(
         query_res,
         cw_ownable::Ownership {
-            owner: Some(cosmwasm_std::Addr::unchecked("admin".to_string())),
+            owner: Some(api.addr_make("admin")),
             pending_expiry: None,
             pending_owner: None
         }
@@ -917,15 +936,16 @@ fn test_query_ownership() {
 #[test]
 fn test_transfer_ownership() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
     execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::pump::ExecuteMsg::UpdateOwnership(
             cw_ownable::Action::TransferOwnership {
-                new_owner: "new_owner".to_string(),
+                new_owner: api.addr_make("new_owner").to_string(),
                 expiry: Some(cw_ownable::Expiration::Never {}),
             },
         ),
@@ -934,13 +954,13 @@ fn test_transfer_ownership() {
     execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("new_owner"), &[]),
+        message_info(&api.addr_make("new_owner"), &[]),
         drop_staking_base::msg::pump::ExecuteMsg::UpdateOwnership(
             cw_ownable::Action::AcceptOwnership {},
         ),
     )
     .unwrap();
-    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
+    let query_res: cw_ownable::Ownership<Addr> = from_json(
         query(
             deps.as_ref().into_empty(),
             mock_env(),
@@ -952,7 +972,7 @@ fn test_transfer_ownership() {
     assert_eq!(
         query_res,
         cw_ownable::Ownership {
-            owner: Some(Addr::unchecked("new_owner".to_string())),
+            owner: Some(api.addr_make("new_owner")),
             pending_expiry: None,
             pending_owner: None
         }
