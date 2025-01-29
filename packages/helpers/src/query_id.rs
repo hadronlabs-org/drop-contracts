@@ -8,7 +8,7 @@ pub fn get_query_id(msg_result: SubMsgResult) -> StdResult<u64> {
         .map_err(StdError::generic_err)?
         .msg_responses
         .first()
-        .ok_or_else(|| StdError::generic_err("no msg_responses found"))
+        .ok_or_else(|| StdError::generic_err("no result"))
         .and_then(|msg_response| {
             from_slice::<MsgRegisterInterchainQueryResponse>(msg_response.value.as_slice())
                 .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))
