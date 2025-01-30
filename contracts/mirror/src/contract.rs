@@ -208,7 +208,7 @@ pub fn execute_bond(
         attr("receiver", receiver.to_string()),
         attr("ref", r#ref.clone().unwrap_or_default()),
     ];
-    REPLY_RECEIVER.save(deps.storage, &"".to_string())?;
+    REPLY_RECEIVER.save(deps.storage, &receiver)?;
     let msg = SubMsg::reply_on_success(
         WasmMsg::Execute {
             contract_addr: core_contract,
@@ -352,14 +352,6 @@ pub fn migrate(
     _msg: MigrateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
-    let storage_contract_name = contract_version_metadata.contract.as_str();
-    if storage_contract_name != CONTRACT_NAME {
-        return Err(ContractError::MigrationError {
-            storage_contract_name: storage_contract_name.to_string(),
-            contract_name: CONTRACT_NAME.to_string(),
-        });
-    }
-
     let storage_version: semver::Version = contract_version_metadata.version.parse()?;
     let version: semver::Version = CONTRACT_VERSION.parse()?;
 
