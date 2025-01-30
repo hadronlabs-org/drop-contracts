@@ -9,7 +9,7 @@ use cw_utils::PaymentError;
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::{
     msg::native_sync_bond_provider::ConfigOptional,
-    state::native_sync_bond_provider::{Config, CONFIG, NON_STAKED_BALANCE},
+    state::native_sync_bond_provider::{Config, CONFIG},
 };
 
 fn get_default_config() -> Config {
@@ -254,10 +254,6 @@ fn query_can_process_on_idle_false_if_no_funds_to_process() {
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
-    NON_STAKED_BALANCE
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
-
     deps.querier.add_bank_query_response(
         "cosmos2contract".to_string(),
         BalanceResponse {
@@ -278,7 +274,6 @@ fn query_can_process_on_idle_false_if_no_funds_to_process() {
             min_stake_amount: Uint128::new(1),
             non_staked_balance: Uint128::from(0u128),
             min_ibc_transfer: Uint128::new(0),
-            pending_coins: Uint128::zero()
         }
     );
 }
@@ -289,10 +284,6 @@ fn query_can_process_on_idle_enough_non_staked_balance() {
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
-        .unwrap();
-
-    NON_STAKED_BALANCE
-        .save(deps.as_mut().storage, &Uint128::from(100u128))
         .unwrap();
 
     let res = crate::contract::query(
@@ -320,10 +311,6 @@ fn query_can_process_on_idle_enough_contract_balance() {
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
-        .unwrap();
-
-    NON_STAKED_BALANCE
-        .save(deps.as_mut().storage, &Uint128::from(100u128))
         .unwrap();
 
     let res = crate::contract::query(
@@ -517,10 +504,6 @@ fn process_on_idle_delegation() {
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
-    NON_STAKED_BALANCE
-        .save(deps.as_mut().storage, &Uint128::from(100u128))
-        .unwrap();
-
     deps.querier
         .add_wasm_query_response("strategy_contract", |_| {
             cosmwasm_std::ContractResult::Ok(
@@ -539,11 +522,6 @@ fn process_on_idle_delegation() {
         drop_staking_base::msg::native_sync_bond_provider::ExecuteMsg::ProcessOnIdle {},
     )
     .unwrap();
-
-    assert_eq!(
-        NON_STAKED_BALANCE.load(deps.as_ref().storage).unwrap(),
-        Uint128::zero()
-    );
 
     assert_eq!(
         res,
@@ -572,10 +550,6 @@ fn process_on_idle_not_allowed_if_no_funds() {
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
-    NON_STAKED_BALANCE
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
-
     deps.querier.add_bank_query_response(
         "cosmos2contract".to_string(),
         BalanceResponse {
@@ -597,7 +571,6 @@ fn process_on_idle_not_allowed_if_no_funds() {
             min_stake_amount: Uint128::new(1),
             non_staked_balance: Uint128::zero(),
             min_ibc_transfer: Uint128::new(0),
-            pending_coins: Uint128::zero()
         }
     );
 }
@@ -612,10 +585,6 @@ fn execute_bond() {
         .save(deps_mut.storage, &get_default_config())
         .unwrap();
 
-    NON_STAKED_BALANCE
-        .save(deps_mut.storage, &Uint128::zero())
-        .unwrap();
-
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
@@ -624,11 +593,6 @@ fn execute_bond() {
     )
     .unwrap();
     assert_eq!(response.messages.len(), 1);
-
-    assert_eq!(
-        NON_STAKED_BALANCE.load(deps.as_ref().storage).unwrap(),
-        Uint128::from(100u128)
-    );
 
     assert_eq!(
         response,
