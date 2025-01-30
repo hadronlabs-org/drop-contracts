@@ -88,9 +88,9 @@ impl Api for CustomMockApi {
 pub fn mock_dependencies_with_api(
     contract_balance: &[Coin],
 ) -> OwnedDeps<MockStorage, CustomMockApi, WasmMockQuerier, NeutronQuery> {
-    let contract_addr = MOCK_CONTRACT_ADDR;
+    let contract_addr = MockApi::default().addr_make(MOCK_CONTRACT_ADDR);
     let custom_querier: WasmMockQuerier =
-        WasmMockQuerier::new(MockQuerier::new(&[(contract_addr, contract_balance)]));
+        WasmMockQuerier::new(MockQuerier::new(&[(contract_addr.as_str(), contract_balance)]));
 
     OwnedDeps {
         storage: MockStorage::default(),
@@ -103,9 +103,9 @@ pub fn mock_dependencies_with_api(
 pub fn mock_dependencies(
     contract_balance: &[Coin],
 ) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier, NeutronQuery> {
-    let contract_addr = MOCK_CONTRACT_ADDR;
+    let contract_addr = MockApi::default().addr_make(MOCK_CONTRACT_ADDR);
     let custom_querier: WasmMockQuerier =
-        WasmMockQuerier::new(MockQuerier::new(&[(contract_addr, contract_balance)]));
+        WasmMockQuerier::new(MockQuerier::new(&[(contract_addr.as_str(), contract_balance)]));
 
     OwnedDeps {
         storage: MockStorage::default(),
