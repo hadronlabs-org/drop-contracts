@@ -62,5 +62,5 @@ pub type WithdrawalVoucherExtension = Option<WithdrawalVoucherMetadata>;
 
 #[cw_serde]
 pub struct WithdrawalVoucherNftInfoMsg {
-    pub token_id: String
+    pub token_id: String,
 }

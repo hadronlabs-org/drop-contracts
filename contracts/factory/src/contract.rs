@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use cosmwasm_std::{attr, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg, Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg};
+use cosmwasm_std::{
+    attr, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg, Deps, DepsMut,
+    Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
+};
 use drop_helpers::answer::response;
 use drop_helpers::phonebook::{
     CORE_CONTRACT, DISTRIBUTION_CONTRACT, LSM_SHARE_BOND_PROVIDER_CONTRACT,

@@ -2,8 +2,12 @@ use crate::{
     contract::{execute, instantiate, query, sudo},
     error::ContractError,
 };
-use cosmwasm_std::{coins, from_json, testing::{mock_env, message_info}, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Event, Response, SubMsg};
 use cosmwasm_std::testing::MockApi;
+use cosmwasm_std::{
+    coins, from_json,
+    testing::{message_info, mock_env},
+    to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Event, Response, SubMsg,
+};
 use drop_helpers::ica::IcaState;
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::state::pump::{Config, CONFIG, ICA};
@@ -50,7 +54,13 @@ fn test_instantiate() {
         local_denom: "local_denom".to_string(),
         owner: Some(api.addr_make("owner").to_string()),
     };
-    let res = instantiate(deps.as_mut(), mock_env(), message_info(&api.addr_make("owner"), &[]), msg).unwrap();
+    let res = instantiate(
+        deps.as_mut(),
+        mock_env(),
+        message_info(&api.addr_make("owner"), &[]),
+        msg,
+    )
+    .unwrap();
     assert_eq!(
         res,
         Response::new().add_event(Event::new(
@@ -91,7 +101,13 @@ fn test_update_config_unauthorized() {
         local_denom: "local_denom".to_string(),
         owner: Some(api.addr_make("owner").to_string()),
     };
-    let _ = instantiate(deps.as_mut(), mock_env(), message_info(&api.addr_make("owner"), &[]), msg).unwrap();
+    let _ = instantiate(
+        deps.as_mut(),
+        mock_env(),
+        message_info(&api.addr_make("owner"), &[]),
+        msg,
+    )
+    .unwrap();
     let res = execute(
         deps.as_mut(),
         mock_env(),
@@ -135,9 +151,20 @@ fn test_update_config() {
         local_denom: "local_denom".to_string(),
         owner: Some(api.addr_make("owner").to_string()),
     };
-    let _ = instantiate(deps.as_mut(), mock_env(), message_info(&api.addr_make("admin"), &[]), msg).unwrap();
+    let _ = instantiate(
+        deps.as_mut(),
+        mock_env(),
+        message_info(&api.addr_make("admin"), &[]),
+        msg,
+    )
+    .unwrap();
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("admin").as_str())).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("admin").as_str()),
+    )
+    .unwrap();
     let msg = drop_staking_base::msg::pump::UpdateConfigMsg {
         dest_address: Some(api.addr_make("new_dest_address").to_string()),
         dest_channel: Some("new_dest_channel".to_string()),
@@ -312,7 +339,13 @@ fn test_execute_refund_no_refundee() {
     let mut config = get_default_config(api);
     config.refundee = None;
     CONFIG.save(deps.as_mut().storage, &config).unwrap();
-    let err = execute(deps.as_mut(), mock_env(), message_info(&Addr::unchecked("nobody"), &[]), msg).unwrap_err();
+    let err = execute(
+        deps.as_mut(),
+        mock_env(),
+        message_info(&Addr::unchecked("nobody"), &[]),
+        msg,
+    )
+    .unwrap_err();
     assert_eq!(err, ContractError::RefundeeIsNotSet {});
 }
 
@@ -326,13 +359,23 @@ fn test_execute_refund_success_refundee() {
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(api))
         .unwrap();
-    let res = execute(deps.as_mut(), mock_env(), message_info(&api.addr_make("refundee"), &[]), msg).unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        message_info(&api.addr_make("refundee"), &[]),
+        msg,
+    )
+    .unwrap();
     assert_eq!(
         res,
         Response::new()
             .add_event(
-                Event::new("crates.io:drop-neutron-contracts__drop-pump-refund")
-                    .add_attributes(vec![("action", "refund"), ("refundee", api.addr_make("refundee").as_str())])
+                Event::new("crates.io:drop-neutron-contracts__drop-pump-refund").add_attributes(
+                    vec![
+                        ("action", "refund"),
+                        ("refundee", api.addr_make("refundee").as_str())
+                    ]
+                )
             )
             .add_message(CosmosMsg::Bank(BankMsg::Send {
                 to_address: api.addr_make("refundee").to_string(),
@@ -352,14 +395,29 @@ fn test_execute_refund() {
         .save(deps.as_mut().storage, &get_default_config(api))
         .unwrap();
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
-    let res = execute(deps.as_mut(), mock_env(), message_info(&api.addr_make("owner"), &[]), msg).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        message_info(&api.addr_make("owner"), &[]),
+        msg,
+    )
+    .unwrap();
     assert_eq!(
         res,
         Response::new()
             .add_event(
-                Event::new("crates.io:drop-neutron-contracts__drop-pump-refund")
-                    .add_attributes(vec![("action", "refund"), ("refundee", api.addr_make("refundee").as_str())])
+                Event::new("crates.io:drop-neutron-contracts__drop-pump-refund").add_attributes(
+                    vec![
+                        ("action", "refund"),
+                        ("refundee", api.addr_make("refundee").as_str())
+                    ]
+                )
             )
             .add_message(CosmosMsg::Bank(BankMsg::Send {
                 to_address: api.addr_make("refundee").to_string(),
@@ -379,7 +437,12 @@ fn test_execute_refund_unauthorized() {
         .save(deps.as_mut().storage, &get_default_config(api))
         .unwrap();
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     let err = execute(
         deps.as_mut(),
         mock_env(),
@@ -500,8 +563,13 @@ fn test_push() {
         })
         .unwrap()
     });
-    ICA.set_address(deps.as_mut().storage, api.addr_make("some"), "port", "channel")
-        .unwrap();
+    ICA.set_address(
+        deps.as_mut().storage,
+        api.addr_make("some"),
+        "port",
+        "channel",
+    )
+    .unwrap();
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(api))
         .unwrap();
@@ -800,7 +868,9 @@ fn test_sudo_kv_query_result_not_supported() {
     .unwrap_err();
     assert_eq!(
         res,
-        ContractError::Std(cosmwasm_std::StdError::generic_err("KVQueryResult and TxQueryResult are not supported"))
+        ContractError::Std(cosmwasm_std::StdError::generic_err(
+            "KVQueryResult and TxQueryResult are not supported"
+        ))
     );
 }
 
@@ -822,7 +892,9 @@ fn test_sudo_tx_query_result_not_supported() {
     .unwrap_err();
     assert_eq!(
         res,
-        ContractError::Std(cosmwasm_std::StdError::generic_err("KVQueryResult and TxQueryResult are not supported".to_string()))
+        ContractError::Std(cosmwasm_std::StdError::generic_err(
+            "KVQueryResult and TxQueryResult are not supported".to_string()
+        ))
     );
 }
 
@@ -913,7 +985,12 @@ fn test_query_ownership() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("admin").as_str())).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("admin").as_str()),
+    )
+    .unwrap();
     let query_res: cw_ownable::Ownership<Addr> = from_json(
         query(
             deps.as_ref().into_empty(),
@@ -938,7 +1015,12 @@ fn test_transfer_ownership() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     execute(
         deps.as_mut(),
         mock_env(),

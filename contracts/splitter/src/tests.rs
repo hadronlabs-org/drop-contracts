@@ -1,6 +1,4 @@
-use cosmwasm_std::{
-    attr, from_json, testing::mock_env, BankMsg, Coin, CosmosMsg, Event, Uint128,
-};
+use cosmwasm_std::{attr, from_json, testing::mock_env, BankMsg, Coin, CosmosMsg, Event, Uint128};
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::state::splitter::Config;
 
@@ -10,7 +8,10 @@ fn change_splitter_config() {
     let api = deps.api;
 
     let instantiate_config: Config = Config {
-        receivers: vec![(api.addr_make("receiver1").to_string(), Uint128::from(1000000000u64))],
+        receivers: vec![(
+            api.addr_make("receiver1").to_string(),
+            Uint128::from(1000000000u64),
+        )],
         denom: "drop".to_string(),
     };
     {
@@ -34,7 +35,10 @@ fn change_splitter_config() {
             .unwrap(),
         )
         .unwrap();
-        assert_eq!(response.owner.unwrap(), api.addr_make("arbitrary_owner").as_str());
+        assert_eq!(
+            response.owner.unwrap(),
+            api.addr_make("arbitrary_owner").as_str()
+        );
     }
     {
         let response: Config = from_json(

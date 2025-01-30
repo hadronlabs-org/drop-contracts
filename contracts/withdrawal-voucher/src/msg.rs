@@ -1,7 +1,7 @@
+use crate::state::Metadata;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Empty;
 pub use cw721_base::{ContractError, InstantiateMsg as CW721InstantiateMsg, MinterResponse};
-use crate::state::Metadata;
 
 pub type Extension = Option<Metadata>;
 pub type InstantiateMsg = CW721InstantiateMsg;

@@ -2,12 +2,12 @@ use crate::{
     contract::{self, EDIT_ON_TOP_REPLY_ID},
     error::ContractError,
 };
+use cosmwasm_std::testing::MockApi;
 use cosmwasm_std::{
     from_json,
-    testing::{mock_env, message_info},
+    testing::{message_info, mock_env},
     to_json_binary, Addr, Decimal, Event, Order, Response, StdResult, SubMsg, Uint128, WasmMsg,
 };
-use cosmwasm_std::testing::MockApi;
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::{
     msg::{
@@ -22,8 +22,8 @@ fn get_bond_hook_msg(amount: u128, r#ref: Option<&str>, api: MockApi) -> BondHoo
     BondHook {
         dasset_minted: amount.into(),
         r#ref: r#ref.map(|r#ref| r#ref.into()),
-        amount: Uint128::zero(),     // never used by contract
-        denom: String::from(""),     // never used by contract
+        amount: Uint128::zero(),   // never used by contract
+        denom: String::from(""),   // never used by contract
         sender: api.addr_make(""), // never used by contract
     }
 }
@@ -72,7 +72,12 @@ fn execute_update_ownership() {
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner1").as_str())).unwrap();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(api.addr_make("owner1").as_str()),
+        )
+        .unwrap();
     }
 
     let response = contract::execute(
@@ -112,7 +117,12 @@ fn execute_update_config_unauthorized() {
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(api.addr_make("owner").as_str()),
+        )
+        .unwrap();
     }
 
     let error = contract::execute(
@@ -139,7 +149,12 @@ fn execute_update_config() {
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(api.addr_make("owner").as_str()),
+        )
+        .unwrap();
     }
 
     let response = contract::execute(
@@ -253,15 +268,20 @@ fn execute_bond_hook_known_validator() {
     VALIDATORS_SET_ADDRESS
         .save(deps.as_mut().storage, &api.addr_make("validators_set"))
         .unwrap();
-    REFS.save(deps.as_mut().storage, "X", &api.addr_make("valoperX").to_string())
-        .unwrap();
+    REFS.save(
+        deps.as_mut().storage,
+        "X",
+        &api.addr_make("valoperX").to_string(),
+    )
+    .unwrap();
 
-    deps.querier.add_wasm_query_response(api.addr_make("core").as_str(), |req| {
-        let req = from_json::<CoreQueryMsg>(req).unwrap();
-        assert_eq!(req, CoreQueryMsg::ExchangeRate {});
+    deps.querier
+        .add_wasm_query_response(api.addr_make("core").as_str(), |req| {
+            let req = from_json::<CoreQueryMsg>(req).unwrap();
+            assert_eq!(req, CoreQueryMsg::ExchangeRate {});
 
-        to_json_binary(&Decimal::from_ratio(3u128, 2u128)).unwrap()
-    });
+            to_json_binary(&Decimal::from_ratio(3u128, 2u128)).unwrap()
+        });
 
     let response = contract::execute(
         deps.as_mut(),
@@ -305,7 +325,12 @@ fn execute_set_refs_unauthorized() {
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(api.addr_make("owner").as_str()),
+        )
+        .unwrap();
     }
 
     let error = contract::execute(
@@ -329,7 +354,12 @@ fn execute_set_refs_empty() {
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(api.addr_make("owner").as_str()),
+        )
+        .unwrap();
     }
 
     REFS.save(deps.as_mut().storage, "x", &String::from("X"))
@@ -364,7 +394,12 @@ fn execute_set_refs_override() {
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(api.addr_make("owner").as_str()),
+        )
+        .unwrap();
     }
 
     REFS.save(deps.as_mut().storage, "x", &api.addr_make("X").to_string())
@@ -414,7 +449,12 @@ fn query_ownership() {
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(api.addr_make("owner").as_str()),
+        )
+        .unwrap();
     }
 
     let response = from_json::<cw_ownable::Ownership<Addr>>(
