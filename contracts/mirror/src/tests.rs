@@ -1,10 +1,10 @@
+use cosmwasm_std::testing::MockApi;
 use cosmwasm_std::{
     attr, coin,
-    testing::{mock_env, message_info},
+    testing::{message_info, mock_env},
     to_json_binary, Addr, CosmosMsg, CustomQuery, DepsMut, IbcChannel, IbcEndpoint, IbcOrder,
     Uint128, WasmMsg,
 };
-use cosmwasm_std::testing::MockApi;
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::{
     error::mirror::ContractError,
@@ -29,7 +29,12 @@ where
     };
     CONFIG.save(deps.storage, &config).unwrap();
     COUNTER.save(deps.storage, &0).unwrap();
-    cw_ownable::initialize_owner(deps.storage, deps.api, Some(api.addr_make("owner").as_str())).unwrap();
+    cw_ownable::initialize_owner(
+        deps.storage,
+        deps.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
 }
 
 #[test]
@@ -55,7 +60,10 @@ fn test_instantiate() {
         response,
         cosmwasm_std::Response::new().add_event(
             cosmwasm_std::Event::new("crates.io:drop-staking__drop-mirror-instantiate".to_string())
-                .add_attributes(vec![attr("action", "instantiate"), attr("owner", api.addr_make("owner"))])
+                .add_attributes(vec![
+                    attr("action", "instantiate"),
+                    attr("owner", api.addr_make("owner"))
+                ])
         )
     );
     let config = CONFIG.load(&deps.storage).unwrap();
@@ -98,7 +106,10 @@ fn test_instantiate_wo_owner() {
         response,
         cosmwasm_std::Response::new().add_event(
             cosmwasm_std::Event::new("crates.io:drop-staking__drop-mirror-instantiate".to_string())
-                .add_attributes(vec![attr("action", "instantiate"), attr("owner", api.addr_make("sender"))])
+                .add_attributes(vec![
+                    attr("action", "instantiate"),
+                    attr("owner", api.addr_make("sender"))
+                ])
         )
     );
     let config = CONFIG.load(&deps.storage).unwrap();
@@ -188,7 +199,7 @@ fn update_config() {
             IbcOrder::Unordered,
             "version".to_string(),
             "connection_id".to_string(),
-        )))
+        ))),
     );
     CONFIG
         .save(
@@ -263,10 +274,7 @@ fn bond_wrong_receiver() {
             backup: Some(api.addr_make("backup").to_string()),
         },
     );
-    assert_eq!(
-        response,
-        Err(ContractError::InvalidPrefix {})
-    );
+    assert_eq!(response, Err(ContractError::InvalidPrefix {}));
 }
 
 #[test]
@@ -289,11 +297,9 @@ fn bond_no_funds() {
     );
     assert_eq!(
         response,
-        Err(
-            ContractError::PaymentError(
-                cw_utils::PaymentError::NoFunds {}
-            )
-        )
+        Err(ContractError::PaymentError(
+            cw_utils::PaymentError::NoFunds {}
+        ))
     );
 }
 
@@ -309,7 +315,8 @@ fn bond() {
         mock_env(),
         message_info(&api.addr_make("sender"), &[coin(1000, "mytoken")]),
         drop_staking_base::msg::mirror::ExecuteMsg::Bond {
-            receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j".to_string(),
+            receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
+                .to_string(),
             r#ref: Some(api.addr_make("reff").to_string()),
             backup: Some(api.addr_make("backup").to_string()),
         },
@@ -321,7 +328,8 @@ fn bond() {
     assert_eq!(
         bond,
         drop_staking_base::state::mirror::BondItem {
-            receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j".to_string(),
+            receiver: "prefix10yaps46wgmzrsslmeqpc9wxpssu7zuw4rrfv8d5rv8pudt8m88446jgnu2j"
+                .to_string(),
             backup: Some(api.addr_make("backup")),
             amount: Uint128::new(1000),
             received: None,
@@ -535,10 +543,7 @@ fn change_return_type() {
             return_type: drop_staking_base::state::mirror::ReturnType::Local,
         },
     );
-    assert_eq!(
-        response,
-        Err(ContractError::Unauthorized {})
-    );
+    assert_eq!(response, Err(ContractError::Unauthorized {}));
 
     let response = crate::contract::execute(
         deps.as_mut(),
@@ -613,11 +618,9 @@ fn update_bond() {
     );
     assert_eq!(
         response,
-        Err(
-            ContractError::OwnershipError(
-                cw_ownable::OwnershipError::NotOwner
-            )
-        )
+        Err(ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        ))
     );
 
     let response = crate::contract::execute(

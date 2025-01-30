@@ -77,14 +77,12 @@ where
 
     pub fn submit_tx_reply(&self, deps: DepsMut, msg: Reply) -> StdResult<Response> {
         let resp: MsgSubmitTxResponse = {
-            let result = msg
-                .result
-                .into_result()
-                .map_err(StdError::generic_err)?;
+            let result = msg.result.into_result().map_err(StdError::generic_err)?;
 
             if let Some(msg_response) = result.msg_responses.first() {
-                serde_json_wasm::from_slice(msg_response.value.as_slice())
-                    .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?
+                serde_json_wasm::from_slice(msg_response.value.as_slice()).map_err(|e| {
+                    StdError::generic_err(format!("failed to parse response: {e:?}"))
+                })?
             } else {
                 return Err(StdError::generic_err("no result"));
             }
@@ -107,14 +105,12 @@ where
 
     pub fn submit_ibc_transfer_reply(&self, deps: DepsMut, msg: Reply) -> StdResult<Response> {
         let resp: MsgIbcTransferResponse = {
-            let result = msg
-                .result
-                .into_result()
-                .map_err(StdError::generic_err)?;
+            let result = msg.result.into_result().map_err(StdError::generic_err)?;
 
             if let Some(msg_response) = result.msg_responses.first() {
-                serde_json_wasm::from_slice(msg_response.value.as_slice())
-                    .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?
+                serde_json_wasm::from_slice(msg_response.value.as_slice()).map_err(|e| {
+                    StdError::generic_err(format!("failed to parse response: {e:?}"))
+                })?
             } else {
                 return Err(StdError::generic_err("no result"));
             }

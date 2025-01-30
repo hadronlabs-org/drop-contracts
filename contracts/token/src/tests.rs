@@ -8,9 +8,8 @@ use cosmos_sdk_proto::{
 };
 use cosmwasm_std::{
     attr, coin,
-    testing::{mock_env, message_info, MOCK_CONTRACT_ADDR},
-    to_json_binary, Binary, CosmosMsg, Event, QueryRequest, Reply, ReplyOn, SubMsgResult,
-    Uint128,
+    testing::{message_info, mock_env, MOCK_CONTRACT_ADDR},
+    to_json_binary, Binary, CosmosMsg, Event, QueryRequest, Reply, ReplyOn, SubMsgResult, Uint128,
 };
 use drop_helpers::testing::{mock_dependencies, mock_state_query};
 use drop_staking_base::{
@@ -320,7 +319,10 @@ fn burn_multiple_coins() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&api.addr_make("core_contract"), &[coin(20, "coin1"), coin(10, "denom")]),
+        message_info(
+            &api.addr_make("core_contract"),
+            &[coin(20, "coin1"), coin(10, "denom")],
+        ),
         ExecuteMsg::Burn {},
     )
     .unwrap_err();

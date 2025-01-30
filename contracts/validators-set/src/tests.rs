@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     attr, from_json,
-    testing::{mock_env, message_info},
+    testing::{message_info, mock_env},
     to_json_binary, Addr, Decimal, Event, Response, Uint128,
 };
 use drop_helpers::testing::mock_dependencies;
@@ -38,8 +38,9 @@ fn instantiate() {
     assert_eq!(
         response.events,
         vec![
-            Event::new("crates.io:drop-staking__drop-validators-set-instantiate")
-                .add_attributes([attr("stats_contract", api.addr_make("stats_contract").as_str())])
+            Event::new("crates.io:drop-staking__drop-validators-set-instantiate").add_attributes([
+                attr("stats_contract", api.addr_make("stats_contract").as_str())
+            ])
         ]
     );
     assert!(response.attributes.is_empty());
@@ -146,7 +147,9 @@ fn update_config_ok() {
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 stats_contract: Some(api.addr_make("stats_contract1").to_string()),
-                provider_proposals_contract: Some(api.addr_make("provider_proposals_contract1").to_string()),
+                provider_proposals_contract: Some(
+                    api.addr_make("provider_proposals_contract1").to_string(),
+                ),
                 val_ref_contract: Some(api.addr_make("val_ref_contract1").to_string()),
             },
         },
@@ -766,7 +769,12 @@ fn query_ownership() {
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(api.addr_make("owner").as_str()),
+        )
+        .unwrap();
     }
 
     let response = from_json::<cw_ownable::Ownership<Addr>>(
@@ -796,7 +804,12 @@ fn execute_update_ownership() {
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner1").as_str())).unwrap();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(api.addr_make("owner1").as_str()),
+        )
+        .unwrap();
     }
 
     let response = crate::contract::execute(
@@ -864,7 +877,12 @@ fn execute_edit_on_top_unauthorized_stranger() {
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(api.addr_make("owner").as_str()),
+        )
+        .unwrap();
     }
 
     drop_staking_base::state::validatorset::CONFIG
@@ -899,7 +917,12 @@ fn execute_edit_on_top_authorized_owner() {
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(api.addr_make("owner").as_str()),
+        )
+        .unwrap();
     }
 
     drop_staking_base::state::validatorset::CONFIG
@@ -936,7 +959,12 @@ fn execute_edit_on_top_authorized_val_ref_contract() {
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(api.addr_make("owner").as_str()),
+        )
+        .unwrap();
     }
 
     drop_staking_base::state::validatorset::CONFIG

@@ -1,10 +1,10 @@
+use cosmwasm_std::testing::MockApi;
 use cosmwasm_std::{
     attr, coins, from_json,
-    testing::{mock_env, message_info},
+    testing::{message_info, mock_env},
     to_json_binary, Addr, BalanceResponse, Coin, CosmosMsg, Decimal, Event, Response, SubMsg,
     Uint128, WasmMsg,
 };
-use cosmwasm_std::testing::MockApi;
 use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
 use drop_helpers::{
@@ -343,7 +343,7 @@ fn query_can_process_on_idle_false_if_no_funds_to_process() {
 
     deps.querier.add_bank_query_response(
         "cosmos2contract".to_string(),
-        BalanceResponse::new(Coin::new(0u128, "base_denom".to_string()))
+        BalanceResponse::new(Coin::new(0u128, "base_denom".to_string())),
     );
 
     let error = crate::contract::query(
@@ -390,7 +390,7 @@ fn query_can_process_on_idle_enough_non_staked_balance() {
 
     deps.querier.add_bank_query_response(
         "cosmos2contract".to_string(),
-        BalanceResponse::new(Coin::new(0u128, "base_denom".to_string()))
+        BalanceResponse::new(Coin::new(0u128, "base_denom".to_string())),
     );
 
     let res: bool = from_json(res).unwrap();
@@ -424,7 +424,7 @@ fn query_can_process_on_idle_enough_contract_balance() {
 
     deps.querier.add_bank_query_response(
         "cosmos2contract".to_string(),
-        BalanceResponse::new(Coin::new(100u128, "base_denom".to_string()))
+        BalanceResponse::new(Coin::new(100u128, "base_denom".to_string())),
     );
 
     let res: bool = from_json(res).unwrap();
@@ -454,7 +454,10 @@ fn query_token_amount() {
     )
     .unwrap();
 
-    assert_eq!(token_amount, to_json_binary(&Uint128::new(100u128)).unwrap());
+    assert_eq!(
+        token_amount,
+        to_json_binary(&Uint128::new(100u128)).unwrap()
+    );
 }
 
 #[test]
@@ -479,7 +482,10 @@ fn query_token_amount_half() {
     )
     .unwrap();
 
-    assert_eq!(token_amount, to_json_binary(&Uint128::new(200u128)).unwrap());
+    assert_eq!(
+        token_amount,
+        to_json_binary(&Uint128::new(200u128)).unwrap()
+    );
 }
 
 #[test]
@@ -696,7 +702,10 @@ fn process_on_idle_delegation() {
                 CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: api.addr_make("puppeteer_contract").to_string(),
                     msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
-                        items: vec![(api.addr_make("valoper_address").to_string(), Uint128::from(1000u128))],
+                        items: vec![(
+                            api.addr_make("valoper_address").to_string(),
+                            Uint128::from(1000u128)
+                        )],
                         reply_to: api.addr_make("cosmos2contract").to_string()
                     })
                     .unwrap(),
@@ -728,7 +737,7 @@ fn process_on_idle_ibc_transfer() {
 
     deps.querier.add_bank_query_response(
         api.addr_make("cosmos2contract").to_string(),
-        BalanceResponse::new(Coin::new(100u128, "base_denom".to_string()))
+        BalanceResponse::new(Coin::new(100u128, "base_denom".to_string())),
     );
 
     deps.querier.add_custom_query_response(|_| {
@@ -850,7 +859,10 @@ fn execute_bond() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("core"), &[Coin::new(100u128, "base_denom")]),
+        message_info(
+            &Addr::unchecked("core"),
+            &[Coin::new(100u128, "base_denom")],
+        ),
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::Bond {},
     )
     .unwrap();
@@ -877,7 +889,10 @@ fn execute_bond_wrong_denom() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("core"), &[Coin::new(100u128, "wrong_denom")]),
+        message_info(
+            &Addr::unchecked("core"),
+            &[Coin::new(100u128, "wrong_denom")],
+        ),
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::Bond {},
     )
     .unwrap_err();

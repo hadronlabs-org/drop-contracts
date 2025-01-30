@@ -1,7 +1,5 @@
 use cosmwasm_schema::write_api;
-use drop_withdrawal_voucher::msg::{
-    ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
-};
+use drop_withdrawal_voucher::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 
 fn main() {
     write_api! {

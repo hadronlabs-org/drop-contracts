@@ -1,7 +1,12 @@
 use crate::contract::Puppeteer;
 use cosmos_sdk_proto::traits::MessageExt;
 use cosmwasm_schema::schemars;
-use cosmwasm_std::{coin, coins, from_json, testing::{mock_env, message_info}, to_json_binary, Binary, CosmosMsg, Decimal256, DepsMut, Event, Response, StdError, SubMsg, Timestamp, Uint128, Uint64, Addr};
+use cosmwasm_std::{
+    coin, coins, from_json,
+    testing::{message_info, mock_env},
+    to_json_binary, Addr, Binary, CosmosMsg, Decimal256, DepsMut, Event, Response, StdError,
+    SubMsg, Timestamp, Uint128, Uint64,
+};
 use drop_helpers::{
     ibc_client_state::{
         ChannelClientStateResponse, ClientState, Fraction, Height, IdentifiedClientState,
@@ -30,8 +35,8 @@ use neutron_sdk::{
 use prost::Message;
 use schemars::_serde_json::to_string;
 
-use std::vec;
 use cosmwasm_std::testing::MockApi;
+use std::vec;
 
 type PuppeteerBaseType = PuppeteerBase<
     'static,
@@ -88,8 +93,13 @@ fn test_instantiate() {
         timeout: 100u64,
     };
     let env = mock_env();
-    let res =
-        crate::contract::instantiate(deps.as_mut(), env, message_info(&api.addr_make("sender"), &[]), msg).unwrap();
+    let res = crate::contract::instantiate(
+        deps.as_mut(),
+        env,
+        message_info(&api.addr_make("sender"), &[]),
+        msg,
+    )
+    .unwrap();
     assert_eq!(res, Response::new());
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.as_ref().storage).unwrap();
@@ -121,10 +131,20 @@ fn test_update_config() {
         },
     };
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     let env = mock_env();
-    let res =
-        crate::contract::execute(deps.as_mut(), env, message_info(&api.addr_make("owner"), &[]), msg.clone()).unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env,
+        message_info(&api.addr_make("owner"), &[]),
+        msg.clone(),
+    )
+    .unwrap();
     assert_eq!(
         res,
         Response::new().add_event(
@@ -190,8 +210,13 @@ fn test_execute_setup_protocol() {
         ))
     );
     let env = mock_env();
-    let res = crate::contract::execute(deps.as_mut(), env, message_info(&api.addr_make("allowed_sender"), &[]), msg)
-        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env,
+        message_info(&api.addr_make("allowed_sender"), &[]),
+        msg,
+    )
+    .unwrap();
     let distribution_msg = {
         neutron_sdk::bindings::types::ProtobufAny {
             type_url: "/cosmos.distribution.v1beta1.MsgSetWithdrawAddress".to_string(),
@@ -430,14 +455,18 @@ fn test_sudo_kv_query_result() {
                 delegations: Delegations {
                     delegations: vec![
                         DropDelegation {
-                            delegator: Addr::unchecked("init19qd73vj56rd5dlpfulunxsdyz8zl53avskweud2meff7vww7zx2sc20up9"),
+                            delegator: Addr::unchecked(
+                                "init19qd73vj56rd5dlpfulunxsdyz8zl53avskweud2meff7vww7zx2sc20up9"
+                            ),
                             validator: "initvaloper1qfpg3a8emskfflkw84d68sj8rgra423g293n0v"
                                 .to_string(),
                             amount: coin(250000, "uinit"),
                             share_ratio: Decimal256::one()
                         },
                         DropDelegation {
-                            delegator: Addr::unchecked("init19qd73vj56rd5dlpfulunxsdyz8zl53avskweud2meff7vww7zx2sc20up9"),
+                            delegator: Addr::unchecked(
+                                "init19qd73vj56rd5dlpfulunxsdyz8zl53avskweud2meff7vww7zx2sc20up9"
+                            ),
                             validator: "initvaloper1e0tdn24ej05270sggwdxua4qz38x47zrazr8q2"
                                 .to_string(),
                             amount: coin(250000, "uinit"),
@@ -789,8 +818,8 @@ fn test_migrate_wrong_contract() {
 }
 
 mod register_delegations_and_balance_query {
-    use cosmwasm_std::{testing::MockApi, MemoryStorage, OwnedDeps, StdResult};
     use cosmwasm_std::testing::message_info;
+    use cosmwasm_std::{testing::MockApi, MemoryStorage, OwnedDeps, StdResult};
     use drop_helpers::testing::WasmMockQuerier;
     use drop_puppeteer_base::error::ContractError;
 
@@ -821,7 +850,12 @@ mod register_delegations_and_balance_query {
         let api = deps.api;
         let env = mock_env();
         let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: vec![] } ;
-        let res = crate::contract::execute(deps.as_mut(), env, message_info(&api.addr_make("not_owner"), &[]), msg);
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            env,
+            message_info(&api.addr_make("not_owner"), &[]),
+            msg,
+        );
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err(),
@@ -842,7 +876,12 @@ mod register_delegations_and_balance_query {
         let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
             validators
         };
-        let res = crate::contract::execute(deps.as_mut(), env, message_info(&api.addr_make("owner"), &[]), msg);
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            env,
+            message_info(&api.addr_make("owner"), &[]),
+            msg,
+        );
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err(),
@@ -1007,17 +1046,28 @@ fn get_base_config(api: MockApi) -> Config {
 }
 
 fn base_init(
-    deps_mut: &mut DepsMut<NeutronQuery>, api: MockApi
+    deps_mut: &mut DepsMut<NeutronQuery>,
+    api: MockApi,
 ) -> PuppeteerBase<'static, Config, KVQueryType, BalancesAndDelegations> {
     let puppeteer_base = Puppeteer::default();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     puppeteer_base
         .config
         .save(deps_mut.storage, &get_base_config(api))
         .unwrap();
     puppeteer_base
         .ica
-        .set_address(deps_mut.storage, api.addr_make("ica_address"), "port", "channel")
+        .set_address(
+            deps_mut.storage,
+            api.addr_make("ica_address"),
+            "port",
+            "channel",
+        )
         .unwrap();
     puppeteer_base
 }

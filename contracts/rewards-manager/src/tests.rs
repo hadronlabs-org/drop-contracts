@@ -464,7 +464,11 @@ fn test_handler_call() {
 
     let amount = coins(100, "ueth");
     let _ = app
-        .send_tokens(sender_address.clone(), rewards_manager_contract.clone(), &amount)
+        .send_tokens(
+            sender_address.clone(),
+            rewards_manager_contract.clone(),
+            &amount,
+        )
         .unwrap();
 
     let handler_config = HandlerConfig {
@@ -531,7 +535,11 @@ fn test_empty_denoms_list() {
 
     let amount = coins(100, "ueth");
     let _ = app
-        .send_tokens(sender_address.clone(), rewards_manager_contract.clone(), &amount)
+        .send_tokens(
+            sender_address.clone(),
+            rewards_manager_contract.clone(),
+            &amount,
+        )
         .unwrap();
 
     let handler_config = HandlerConfig {
@@ -597,7 +605,11 @@ fn test_two_handlers_call() {
 
     let amount = coins(55, "untrn");
     let _ = app
-        .send_tokens(sender_address.clone(), rewards_manager_contract.clone(), &amount)
+        .send_tokens(
+            sender_address.clone(),
+            rewards_manager_contract.clone(),
+            &amount,
+        )
         .unwrap();
 
     let ueth_handler_config = HandlerConfig {

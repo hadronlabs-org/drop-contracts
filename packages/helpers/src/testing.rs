@@ -6,7 +6,11 @@ use std::marker::PhantomData;
 
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage};
-use cosmwasm_std::{from_json, to_json_binary, AllBalanceResponse, Api, BalanceResponse, BankQuery, Binary, Coin, ContractResult, CustomQuery, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, GrpcQuery};
+use cosmwasm_std::{
+    from_json, to_json_binary, AllBalanceResponse, Api, BalanceResponse, BankQuery, Binary, Coin,
+    ContractResult, CustomQuery, GrpcQuery, OwnedDeps, Querier, QuerierResult, QueryRequest,
+    SystemError, SystemResult, Uint128,
+};
 
 use neutron_sdk::bindings::query::NeutronQuery;
 
@@ -89,8 +93,10 @@ pub fn mock_dependencies_with_api(
     contract_balance: &[Coin],
 ) -> OwnedDeps<MockStorage, CustomMockApi, WasmMockQuerier, NeutronQuery> {
     let contract_addr = MockApi::default().addr_make(MOCK_CONTRACT_ADDR);
-    let custom_querier: WasmMockQuerier =
-        WasmMockQuerier::new(MockQuerier::new(&[(contract_addr.as_str(), contract_balance)]));
+    let custom_querier: WasmMockQuerier = WasmMockQuerier::new(MockQuerier::new(&[(
+        contract_addr.as_str(),
+        contract_balance,
+    )]));
 
     OwnedDeps {
         storage: MockStorage::default(),
@@ -104,8 +110,10 @@ pub fn mock_dependencies(
     contract_balance: &[Coin],
 ) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier, NeutronQuery> {
     let contract_addr = MockApi::default().addr_make(MOCK_CONTRACT_ADDR);
-    let custom_querier: WasmMockQuerier =
-        WasmMockQuerier::new(MockQuerier::new(&[(contract_addr.as_str(), contract_balance)]));
+    let custom_querier: WasmMockQuerier = WasmMockQuerier::new(MockQuerier::new(&[(
+        contract_addr.as_str(),
+        contract_balance,
+    )]));
 
     OwnedDeps {
         storage: MockStorage::default(),
@@ -183,8 +191,7 @@ impl WasmMockQuerier {
                 SystemResult::Ok(
                     ContractResult::Ok(
                         (*self.ibc_query_responses.get(&channel_port).unwrap_or(
-                            &to_json_binary(&cosmwasm_std::ChannelResponse::new(None))
-                                .unwrap(),
+                            &to_json_binary(&cosmwasm_std::ChannelResponse::new(None)).unwrap(),
                         ))
                         .clone(),
                     )
@@ -407,7 +414,8 @@ pub fn mock_state_query(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQueri
     let rewards_manager_contract_address = deps.api.addr_make("rewards_manager_contract");
     let rewards_pump_contract_address = deps.api.addr_make("rewards_pump_contract");
     let splitter_contract_address = deps.api.addr_make("splitter_contract");
-    let lsm_share_bond_provider_contract_address = deps.api.addr_make("lsm_share_bond_provider_contract");
+    let lsm_share_bond_provider_contract_address =
+        deps.api.addr_make("lsm_share_bond_provider_contract");
     let native_bond_provider_contract_address = deps.api.addr_make("native_bond_provider_contract");
 
     deps.querier

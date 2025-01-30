@@ -10,8 +10,9 @@ use drop_helpers::{
     pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse},
 };
 use drop_staking_base::{
-    msg::{
-        withdrawal_manager::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveNftMsg, WithdrawalVoucherExtension, WithdrawalVoucherNftInfoMsg},
+    msg::withdrawal_manager::{
+        ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveNftMsg,
+        WithdrawalVoucherExtension, WithdrawalVoucherNftInfoMsg,
     },
     state::{
         core::{UnbondBatch, UnbondBatchStatus},
@@ -207,7 +208,10 @@ fn execute_receive_nft_withdraw(
         unbond_batch.total_dasset_amount_to_withdraw,
     );
 
-    let payout_amount = unbond_batch.unbonded_amount.unwrap_or(Uint128::zero()).mul_floor(user_share);
+    let payout_amount = unbond_batch
+        .unbonded_amount
+        .unwrap_or(Uint128::zero())
+        .mul_floor(user_share);
     let to_address = receiver.unwrap_or(sender);
     attrs.push(attr("batch_id", batch_id.to_string()));
     attrs.push(attr("payout_amount", payout_amount.to_string()));

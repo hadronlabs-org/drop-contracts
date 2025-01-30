@@ -1,5 +1,9 @@
 use crate::contract::{execute, instantiate, query};
-use cosmwasm_std::{attr, from_json, testing::{mock_env, message_info, MockApi}, to_json_binary, Addr, BankMsg, DepsMut, Uint128, Checksum, HexBinary};
+use cosmwasm_std::{
+    attr, from_json,
+    testing::{message_info, mock_env, MockApi},
+    to_json_binary, Addr, BankMsg, Checksum, DepsMut, HexBinary, Uint128,
+};
 use drop_helpers::{
     phonebook::{
         CORE_CONTRACT, DISTRIBUTION_CONTRACT, LSM_SHARE_BOND_PROVIDER_CONTRACT,
@@ -52,11 +56,7 @@ fn set_default_factory_state(deps: DepsMut<NeutronQuery>, api: MockApi) {
         )
         .unwrap();
     STATE
-        .save(
-            deps.storage,
-            CORE_CONTRACT,
-            &api.addr_make("core_contract"),
-        )
+        .save(deps.storage, CORE_CONTRACT, &api.addr_make("core_contract"))
         .unwrap();
     STATE
         .save(
@@ -596,7 +596,12 @@ fn test_update_config_core_unauthorized() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     let new_core_config = drop_staking_base::state::core::ConfigOptional {
         factory_contract: None,
         base_denom: None,
@@ -631,7 +636,12 @@ fn test_update_config_core() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     set_default_factory_state(deps.as_mut(), api);
     let new_core_config = drop_staking_base::state::core::ConfigOptional {
         factory_contract: Some(api.addr_make("factory_contract1").to_string()),
@@ -681,10 +691,17 @@ fn test_update_config_validators_set_unauthorized() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     let new_validator_set_config = drop_staking_base::state::validatorset::ConfigOptional {
         stats_contract: Some(api.addr_make("validator_stats_contract").to_string()),
-        provider_proposals_contract: Some(api.addr_make("provider_proposals_contract1").to_string()),
+        provider_proposals_contract: Some(
+            api.addr_make("provider_proposals_contract1").to_string(),
+        ),
         val_ref_contract: Some(api.addr_make("val_ref_contract1").to_string()),
     };
     let res = execute(
@@ -709,12 +726,19 @@ fn test_update_config_validators_set() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     set_default_factory_state(deps.as_mut(), api);
 
     let new_validator_set_config = drop_staking_base::state::validatorset::ConfigOptional {
         stats_contract: Some(api.addr_make("validator_stats_contract").to_string()),
-        provider_proposals_contract: Some(api.addr_make("provider_proposals_contract1").to_string()),
+        provider_proposals_contract: Some(
+            api.addr_make("provider_proposals_contract1").to_string(),
+        ),
         val_ref_contract: Some(api.addr_make("val_ref_contract1").to_string()),
     };
     let res = execute(
@@ -753,7 +777,12 @@ fn test_proxy_validators_set_update_validators_unauthorized() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     set_default_factory_state(deps.as_mut(), api);
     let res = execute(
         deps.as_mut().into_empty(),
@@ -790,7 +819,12 @@ fn test_proxy_validators_set_update_validators() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     set_default_factory_state(deps.as_mut(), api);
 
     let res = execute(
@@ -870,7 +904,12 @@ fn test_admin_execute_unauthorized() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
@@ -917,7 +956,12 @@ fn test_admin_execute() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
@@ -995,7 +1039,12 @@ fn test_pause_unauthorized() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
@@ -1016,7 +1065,12 @@ fn test_pause() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     set_default_factory_state(deps.as_mut(), api);
     let res = execute(
         deps.as_mut().into_empty(),
@@ -1060,10 +1114,7 @@ fn test_pause() {
                 cosmwasm_std::Event::new(
                     "crates.io:drop-staking__drop-factory-execute-pause".to_string()
                 )
-                .add_attributes(vec![attr(
-                    "action".to_string(),
-                    "pause".to_string()
-                )])
+                .add_attributes(vec![attr("action".to_string(), "pause".to_string())])
             )
     )
 }
@@ -1073,7 +1124,12 @@ fn test_unpause_unauthorized() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
@@ -1094,7 +1150,12 @@ fn test_unpause() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     set_default_factory_state(deps.as_mut(), api);
     let res = execute(
         deps.as_mut().into_empty(),
@@ -1156,8 +1217,14 @@ fn test_query_state() {
     assert_eq!(
         query_res,
         HashMap::from([
-            ("core_contract".to_string(), api.addr_make("core_contract").to_string()),
-            ("token_contract".to_string(), api.addr_make("token_contract").to_string()),
+            (
+                "core_contract".to_string(),
+                api.addr_make("core_contract").to_string()
+            ),
+            (
+                "token_contract".to_string(),
+                api.addr_make("token_contract").to_string()
+            ),
             (
                 "puppeteer_contract".to_string(),
                 api.addr_make("puppeteer_contract").to_string()
@@ -1196,7 +1263,8 @@ fn test_query_state() {
             ),
             (
                 "lsm_share_bond_provider_contract".to_string(),
-                api.addr_make("lsm_share_bond_provider_contract").to_string()
+                api.addr_make("lsm_share_bond_provider_contract")
+                    .to_string()
             ),
             (
                 "native_bond_provider_contract".to_string(),
@@ -1254,16 +1322,14 @@ fn test_query_ownership() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
-    let query_res: cw_ownable::Ownership<Addr> = from_json(
-        query(
-            deps.as_ref(),
-            mock_env(),
-            QueryMsg::Ownership {},
-        )
-        .unwrap(),
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
     )
     .unwrap();
+    let query_res: cw_ownable::Ownership<Addr> =
+        from_json(query(deps.as_ref(), mock_env(), QueryMsg::Ownership {}).unwrap()).unwrap();
     assert_eq!(
         query_res,
         cw_ownable::Ownership {
@@ -1279,7 +1345,12 @@ fn test_transfer_ownership() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     execute(
         deps.as_mut().into_empty(),
         mock_env(),
@@ -1297,15 +1368,8 @@ fn test_transfer_ownership() {
         ExecuteMsg::UpdateOwnership(cw_ownable::Action::AcceptOwnership {}),
     )
     .unwrap();
-    let query_res: cw_ownable::Ownership<Addr> = from_json(
-        query(
-            deps.as_ref(),
-            mock_env(),
-            QueryMsg::Ownership {},
-        )
-        .unwrap(),
-    )
-    .unwrap();
+    let query_res: cw_ownable::Ownership<Addr> =
+        from_json(query(deps.as_ref(), mock_env(), QueryMsg::Ownership {}).unwrap()).unwrap();
     assert_eq!(
         query_res,
         cw_ownable::Ownership {

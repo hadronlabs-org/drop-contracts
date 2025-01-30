@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     attr,
-    testing::{mock_env, message_info, MockApi, MockQuerier, MockStorage},
+    testing::{message_info, mock_env, MockApi, MockQuerier, MockStorage},
     to_json_binary, Addr, Event, OwnedDeps, Querier,
 };
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -58,7 +58,10 @@ fn instantiate() {
                     attr("port_id", "transfer"),
                     attr("update_period", "100"),
                     attr("core_address", api.addr_make("core")),
-                    attr("provider_proposals_address", api.addr_make("provider_proposals"))
+                    attr(
+                        "provider_proposals_address",
+                        api.addr_make("provider_proposals")
+                    )
                 ])
         ]
     );

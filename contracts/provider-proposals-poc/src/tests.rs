@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     attr,
-    testing::{mock_env, message_info, MockApi, MockQuerier, MockStorage},
+    testing::{message_info, mock_env, MockApi, MockQuerier, MockStorage},
     to_json_binary, Addr, Binary, Decimal, Event, OwnedDeps, Querier, SubMsg,
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery, types::KVKey};

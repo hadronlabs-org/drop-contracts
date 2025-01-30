@@ -1,6 +1,6 @@
+use crate::msg::{ExecuteMsg, Extension, InstantiateMsg, MigrateMsg, QueryMsg};
 use cosmwasm_std::Empty;
 pub use cw721_base::{ContractError, MinterResponse};
-use crate::msg::{Extension, ExecuteMsg, InstantiateMsg, QueryMsg, MigrateMsg};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");

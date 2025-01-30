@@ -1,7 +1,7 @@
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankQuery, Binary, Coin,
-    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, GrpcQuery, MessageInfo, Order, QueryRequest,
-    Response, StdError, StdResult, Uint128, Uint64, WasmMsg,
+    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, GrpcQuery, MessageInfo, Order,
+    QueryRequest, Response, StdError, StdResult, Uint128, Uint64, WasmMsg,
 };
 use cw_storage_plus::{Bound, Item};
 use drop_helpers::answer::response;
@@ -11,7 +11,8 @@ use drop_staking_base::{
     msg::{
         core::{
             BondCallback, BondHook, ExecuteMsg, FailedBatchResponse, InstantiateMsg,
-            LastPuppeteerResponse, MigrateMsg, QueryMsg, WithdrawalVoucherMintMsg, WithdrawalVoucherMetadata, WithdrawalVoucherTrait,
+            LastPuppeteerResponse, MigrateMsg, QueryMsg, WithdrawalVoucherMetadata,
+            WithdrawalVoucherMintMsg, WithdrawalVoucherTrait,
         },
         token::{
             ConfigResponse as TokenConfigResponse, ExecuteMsg as TokenExecuteMsg,
@@ -1261,7 +1262,9 @@ fn get_unbonding_msg<T>(
     {
         let current_exchange_rate = query_exchange_rate(deps.as_ref(), config)?;
         attrs.push(attr("exchange_rate", current_exchange_rate.to_string()));
-        let expected_native_asset_amount = unbond.total_dasset_amount_to_withdraw.mul_floor(current_exchange_rate);
+        let expected_native_asset_amount = unbond
+            .total_dasset_amount_to_withdraw
+            .mul_floor(current_exchange_rate);
 
         let calc_withdraw_query_result: Result<Vec<(String, Uint128)>, StdError> =
             deps.querier.query_wasm_smart(

@@ -4,7 +4,11 @@ use crate::{
     msg::{BondMsg, ExecuteMsg, InstantiateMsg},
     store::{FACTORY_CONTRACT, LD_TOKEN},
 };
-use cosmwasm_std::{attr, coin, testing::{mock_env, message_info}, Event, Addr};
+use cosmwasm_std::{
+    attr, coin,
+    testing::{message_info, mock_env},
+    Addr, Event,
+};
 use drop_helpers::testing::{mock_dependencies, mock_state_query};
 
 #[test]
@@ -23,7 +27,10 @@ fn instantiate() {
     .unwrap();
 
     let factory_contract_address_storage = FACTORY_CONTRACT.load(deps.as_ref().storage).unwrap();
-    assert_eq!(factory_contract_address_storage.as_str(), factory_contract_address_msg.as_str());
+    assert_eq!(
+        factory_contract_address_storage.as_str(),
+        factory_contract_address_msg.as_str()
+    );
     let ld_token = LD_TOKEN.load(deps.as_ref().storage).unwrap();
     assert_eq!(ld_token, "ld_token");
     assert_eq!(response.messages.len(), 0);
@@ -46,10 +53,7 @@ fn bond_missing_ld_assets() {
 
     mock_state_query(&mut deps);
     FACTORY_CONTRACT
-        .save(
-            deps.as_mut().storage,
-            &api.addr_make("factory_contract"),
-        )
+        .save(deps.as_mut().storage, &api.addr_make("factory_contract"))
         .unwrap();
     LD_TOKEN
         .save(deps.as_mut().storage, &"ld_token".into())
@@ -57,7 +61,10 @@ fn bond_missing_ld_assets() {
     let err = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&api.addr_make("sender"), &[coin(10, "uatom"), coin(20, "untrn")]),
+        message_info(
+            &api.addr_make("sender"),
+            &[coin(10, "uatom"), coin(20, "untrn")],
+        ),
         ExecuteMsg::Bond(BondMsg::WithLdAssets {}),
     )
     .unwrap_err();
@@ -94,10 +101,7 @@ mod bond_missing_deposit {
 
         mock_state_query(&mut deps);
         FACTORY_CONTRACT
-            .save(
-                deps.as_mut().storage,
-                &api.addr_make("factory_contract"),
-            )
+            .save(deps.as_mut().storage, &api.addr_make("factory_contract"))
             .unwrap();
         LD_TOKEN
             .save(deps.as_mut().storage, &"ld_token".into())

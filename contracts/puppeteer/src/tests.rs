@@ -1,6 +1,11 @@
 use crate::contract::{Puppeteer, CONTRACT_NAME};
 use cosmwasm_schema::schemars;
-use cosmwasm_std::{coin, coins, from_json, testing::{mock_env, message_info}, to_json_binary, Addr, Binary, Coin, CosmosMsg, Decimal256, DepsMut, Event, Response, StdError, SubMsg, Timestamp, Uint128, Uint64, MsgResponse};
+use cosmwasm_std::{
+    coin, coins, from_json,
+    testing::{message_info, mock_env},
+    to_json_binary, Addr, Binary, Coin, CosmosMsg, Decimal256, DepsMut, Event, MsgResponse,
+    Response, StdError, SubMsg, Timestamp, Uint128, Uint64,
+};
 use drop_helpers::{
     ibc_client_state::{
         ChannelClientStateResponse, ClientState, Fraction, Height, IdentifiedClientState,
@@ -30,15 +35,10 @@ use neutron_sdk::{
 use prost::Message;
 use schemars::_serde_json::to_string;
 
-use std::vec;
 use cosmwasm_std::testing::MockApi;
+use std::vec;
 
-type PuppeteerBaseType = PuppeteerBase<
-    'static,
-    Config,
-    KVQueryType,
-    BalancesAndDelegations,
->;
+type PuppeteerBaseType = PuppeteerBase<'static, Config, KVQueryType, BalancesAndDelegations>;
 
 fn build_interchain_query_response_celestia() -> Binary {
     let res: Vec<StorageValue> = from_json(
@@ -324,8 +324,13 @@ fn test_instantiate() {
         timeout: 100u64,
     };
     let env = mock_env();
-    let res =
-        crate::contract::instantiate(deps.as_mut(), env, message_info(&api.addr_make("sender"), &[]), msg).unwrap();
+    let res = crate::contract::instantiate(
+        deps.as_mut(),
+        env,
+        message_info(&api.addr_make("sender"), &[]),
+        msg,
+    )
+    .unwrap();
     assert_eq!(res, Response::new());
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.as_ref().storage).unwrap();
@@ -365,7 +370,12 @@ fn test_execute_update_config_unauthorized() {
         },
     };
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
 
     let res = crate::contract::execute(
         deps.as_mut(),
@@ -395,7 +405,12 @@ fn test_execute_update_config() {
         )
         .unwrap();
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
 
     let res = crate::contract::execute(
         deps.as_mut(),
@@ -429,7 +444,10 @@ fn test_execute_update_config() {
                     ("transfer_channel_id", "new_transfer_channel_id"),
                     ("sdk_version", "0.47.0"),
                     ("timeout", "101"),
-                    ("factory_contract", api.addr_make("factory_contract").as_str()),
+                    (
+                        "factory_contract",
+                        api.addr_make("factory_contract").as_str()
+                    ),
                 ])
         )
     );
@@ -607,7 +625,10 @@ fn test_execute_undelegate_sender_is_not_allowed() {
         message_info(&api.addr_make("not_allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
             batch_id: 0u128,
-            items: vec![(api.addr_make("valoper1").to_string(), Uint128::from(1000u128))],
+            items: vec![(
+                api.addr_make("valoper1").to_string(),
+                Uint128::from(1000u128),
+            )],
             reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
@@ -642,7 +663,9 @@ fn test_execute_undelegate_sender_not_idle() {
                 transaction: Some(
                     drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
                         interchain_account_id: api.addr_make("ica_address").to_string(),
-                        rewards_withdraw_address: api.addr_make("rewards_withdraw_address").to_string(),
+                        rewards_withdraw_address: api
+                            .addr_make("rewards_withdraw_address")
+                            .to_string(),
                     },
                 ),
             },
@@ -654,7 +677,10 @@ fn test_execute_undelegate_sender_not_idle() {
         message_info(&api.addr_make("allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
             batch_id: 0u128,
-            items: vec![(api.addr_make("valoper1").to_string(), Uint128::from(1000u128))],
+            items: vec![(
+                api.addr_make("valoper1").to_string(),
+                Uint128::from(1000u128),
+            )],
             reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
@@ -662,9 +688,7 @@ fn test_execute_undelegate_sender_not_idle() {
     assert_eq!(
         res,
         drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
-            StdError::generic_err(
-                "Transaction txState is not equal to expected: Idle".to_string()
-            )
+            StdError::generic_err("Transaction txState is not equal to expected: Idle".to_string())
         ))
     );
 }
@@ -687,7 +711,10 @@ fn test_execute_undelegate() {
         message_info(&api.addr_make("allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
             batch_id: 0u128,
-            items: vec![(api.addr_make("valoper1").to_string(), Uint128::from(1000u128))],
+            items: vec![(
+                api.addr_make("valoper1").to_string(),
+                Uint128::from(1000u128),
+            )],
             reply_to: api.addr_make("some_reply_to").to_string(),
         },
     )
@@ -732,7 +759,10 @@ fn test_execute_undelegate() {
                     batch_id: 0u128,
                     interchain_account_id: "DROP".to_string(),
                     denom: "remote_denom".to_string(),
-                    items: vec![(api.addr_make("valoper1").to_string(), Uint128::from(1000u128))]
+                    items: vec![(
+                        api.addr_make("valoper1").to_string(),
+                        Uint128::from(1000u128)
+                    )]
                 }
             )
         }
@@ -792,7 +822,9 @@ fn test_execute_redelegate_sender_not_idle() {
                 transaction: Some(
                     drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
                         interchain_account_id: api.addr_make("ica_address").to_string(),
-                        rewards_withdraw_address: api.addr_make("rewards_withdraw_address").to_string(),
+                        rewards_withdraw_address: api
+                            .addr_make("rewards_withdraw_address")
+                            .to_string(),
                     },
                 ),
             },
@@ -813,9 +845,7 @@ fn test_execute_redelegate_sender_not_idle() {
     assert_eq!(
         res,
         drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
-            StdError::generic_err(
-                "Transaction txState is not equal to expected: Idle".to_string()
-            )
+            StdError::generic_err("Transaction txState is not equal to expected: Idle".to_string())
         ))
     );
 }
@@ -944,7 +974,9 @@ fn test_execute_tokenize_share_sender_not_idle() {
                 transaction: Some(
                     drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
                         interchain_account_id: api.addr_make("ica_address").to_string(),
-                        rewards_withdraw_address: api.addr_make("rewards_withdraw_address").to_string(),
+                        rewards_withdraw_address: api
+                            .addr_make("rewards_withdraw_address")
+                            .to_string(),
                     },
                 ),
             },
@@ -964,9 +996,7 @@ fn test_execute_tokenize_share_sender_not_idle() {
     assert_eq!(
         res,
         drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
-            StdError::generic_err(
-                "Transaction txState is not equal to expected: Idle".to_string()
-            )
+            StdError::generic_err("Transaction txState is not equal to expected: Idle".to_string())
         ))
     );
 }
@@ -1098,7 +1128,9 @@ fn test_execute_redeeem_shares_sender_not_idle() {
                 transaction: Some(
                     drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
                         interchain_account_id: api.addr_make("ica_address").to_string(),
-                        rewards_withdraw_address: api.addr_make("rewards_withdraw_address").to_string(),
+                        rewards_withdraw_address: api
+                            .addr_make("rewards_withdraw_address")
+                            .to_string(),
                     },
                 ),
             },
@@ -1121,9 +1153,7 @@ fn test_execute_redeeem_shares_sender_not_idle() {
     assert_eq!(
         res,
         drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
-            StdError::generic_err(
-                "Transaction txState is not equal to expected: Idle".to_string()
-            )
+            StdError::generic_err("Transaction txState is not equal to expected: Idle".to_string())
         ))
     );
 }
@@ -1216,7 +1246,10 @@ fn test_execute_claim_rewards_and_optionaly_transfer_sender_is_not_allowed() {
         mock_env(),
         message_info(&api.addr_make("not_allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
-            validators: vec![api.addr_make("validator1").to_string(), api.addr_make("validator2").to_string()],
+            validators: vec![
+                api.addr_make("validator1").to_string(),
+                api.addr_make("validator2").to_string(),
+            ],
             transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg {
                 batch_ids: vec![0u128, 1u128, 2u128],
                 emergency: true,
@@ -1257,7 +1290,9 @@ fn test_execute_claim_rewards_and_optionaly_transfer_not_idle() {
                 transaction: Some(
                     drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
                         interchain_account_id: api.addr_make("ica_address").to_string(),
-                        rewards_withdraw_address: api.addr_make("rewards_withdraw_address").to_string(),
+                        rewards_withdraw_address: api
+                            .addr_make("rewards_withdraw_address")
+                            .to_string(),
                     },
                 ),
             },
@@ -1268,7 +1303,10 @@ fn test_execute_claim_rewards_and_optionaly_transfer_not_idle() {
         mock_env(),
         message_info(&api.addr_make("allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
-            validators: vec![api.addr_make("validator1").to_string(), api.addr_make("validator2").to_string()],
+            validators: vec![
+                api.addr_make("validator1").to_string(),
+                api.addr_make("validator2").to_string(),
+            ],
             transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg {
                 batch_ids: vec![0u128, 1u128, 2u128],
                 emergency: true,
@@ -1282,9 +1320,7 @@ fn test_execute_claim_rewards_and_optionaly_transfer_not_idle() {
     assert_eq!(
         res,
         drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
-            StdError::generic_err(
-                "Transaction txState is not equal to expected: Idle".to_string()
-            )
+            StdError::generic_err("Transaction txState is not equal to expected: Idle".to_string())
         ))
     );
 }
@@ -1306,7 +1342,10 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
         mock_env(),
         message_info(&api.addr_make("allowed_sender"), &[]),
         drop_staking_base::msg::puppeteer::ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
-            validators: vec![api.addr_make("validator1").to_string(), api.addr_make("validator2").to_string()],
+            validators: vec![
+                api.addr_make("validator1").to_string(),
+                api.addr_make("validator2").to_string(),
+            ],
             transfer: Some(drop_puppeteer_base::msg::TransferReadyBatchesMsg {
                 batch_ids: vec![0u128, 1u128, 2u128],
                 emergency: true,
@@ -2036,7 +2075,9 @@ fn test_execute_transfer_not_idle() {
                 transaction: Some(
                     drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
                         interchain_account_id: api.addr_make("ica_address").to_string(),
-                        rewards_withdraw_address: api.addr_make("rewards_withdraw_address").to_string(),
+                        rewards_withdraw_address: api
+                            .addr_make("rewards_withdraw_address")
+                            .to_string(),
                     },
                 ),
             },
@@ -2055,9 +2096,7 @@ fn test_execute_transfer_not_idle() {
     assert_eq!(
         res,
         drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
-            StdError::generic_err(
-                "Transaction txState is not equal to expected: Idle".to_string()
-            )
+            StdError::generic_err("Transaction txState is not equal to expected: Idle".to_string())
         ))
     );
 }
@@ -2258,14 +2297,18 @@ fn test_sudo_delegations_and_balance_kv_query_result() {
                 delegations: Delegations {
                     delegations: vec![
                         DropDelegation {
-                            delegator: Addr::unchecked("cosmos1nujy3vl3rww3cy8tf8pdru5jp3f9ppmkadws553ck3qryg2tjanqt39xnv"),
+                            delegator: Addr::unchecked(
+                                "cosmos1nujy3vl3rww3cy8tf8pdru5jp3f9ppmkadws553ck3qryg2tjanqt39xnv"
+                            ),
                             validator: "cosmosvaloper1rndyjagfg0nsedl2uy5n92vssn8aj5n67t0nfx"
                                 .to_string(),
                             amount: coin(13582465152, "stake"),
                             share_ratio: Decimal256::one()
                         },
                         DropDelegation {
-                            delegator: Addr::unchecked("cosmos1nujy3vl3rww3cy8tf8pdru5jp3f9ppmkadws553ck3qryg2tjanqt39xnv"),
+                            delegator: Addr::unchecked(
+                                "cosmos1nujy3vl3rww3cy8tf8pdru5jp3f9ppmkadws553ck3qryg2tjanqt39xnv"
+                            ),
                             validator: "cosmosvaloper1gh4vzw9wsfgl2h37qqnetet0m4wrzm7v7x3j9x"
                                 .to_string(),
                             amount: coin(13582465152, "stake"),
@@ -2705,21 +2748,20 @@ fn test_reply_sudo_payload_tx_state_error() {
             result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
                 events: vec![],
                 data: None,
-                msg_responses: vec![
-                    MsgResponse {
-                        type_url: "/neutron.interchainquery.v1.MsgIbcTransferResponse".to_string(),
-                        value: Binary::from(
-                            "{\"sequence_id\":0,\"channel\":\"channel-0\"}".as_bytes(),
-                        ),
-                    },
-                ],
+                msg_responses: vec![MsgResponse {
+                    type_url: "/neutron.interchainquery.v1.MsgIbcTransferResponse".to_string(),
+                    value: Binary::from("{\"sequence_id\":0,\"channel\":\"channel-0\"}".as_bytes()),
+                }],
             }),
         },
     )
     .unwrap_err();
     assert_eq!(
         res,
-        StdError::not_found(format!("type: drop_puppeteer_base::state::TxState; key: {:X?}", "sudo_payload".as_bytes()))
+        StdError::not_found(format!(
+            "type: drop_puppeteer_base::state::TxState; key: {:X?}",
+            "sudo_payload".as_bytes()
+        ))
     )
 }
 
@@ -2752,14 +2794,10 @@ fn test_reply_sudo_payload() {
             result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
                 events: vec![],
                 data: None,
-                msg_responses: vec![
-                    MsgResponse {
-                        type_url: "/neutron.interchainquery.v1.MsgIbcTransferResponse".to_string(),
-                        value: Binary::from(
-                            "{\"sequence_id\":0,\"channel\":\"channel-0\"}".as_bytes(),
-                        ),
-                    },
-                ],
+                msg_responses: vec![MsgResponse {
+                    type_url: "/neutron.interchainquery.v1.MsgIbcTransferResponse".to_string(),
+                    value: Binary::from("{\"sequence_id\":0,\"channel\":\"channel-0\"}".as_bytes()),
+                }],
             }),
         },
     )
@@ -2824,23 +2862,24 @@ fn test_reply_ibc_transfer_tx_state_error() {
             result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
                 events: vec![],
                 data: None,
-                msg_responses: vec![
-                    MsgResponse {
-                        type_url: "/neutron.interchainquery.v1.MsgIbcTransferResponse".to_string(),
-                        value: to_json_binary(&neutron_sdk::bindings::msg::MsgIbcTransferResponse {
-                            sequence_id: 0,
-                            channel: "channel-0".to_string(),
-                        })
-                        .unwrap(),
-                    },
-                ],
+                msg_responses: vec![MsgResponse {
+                    type_url: "/neutron.interchainquery.v1.MsgIbcTransferResponse".to_string(),
+                    value: to_json_binary(&neutron_sdk::bindings::msg::MsgIbcTransferResponse {
+                        sequence_id: 0,
+                        channel: "channel-0".to_string(),
+                    })
+                    .unwrap(),
+                }],
             }),
         },
     )
     .unwrap_err();
     assert_eq!(
         res,
-        StdError::not_found(format!("type: drop_puppeteer_base::state::TxState; key: {:X?}", "sudo_payload".as_bytes()))
+        StdError::not_found(format!(
+            "type: drop_puppeteer_base::state::TxState; key: {:X?}",
+            "sudo_payload".as_bytes()
+        ))
     )
 }
 
@@ -2873,16 +2912,14 @@ fn test_reply_ibc_transfer() {
             result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
                 events: vec![],
                 data: None,
-                msg_responses: vec![
-                    MsgResponse {
-                        type_url: "/neutron.interchainquery.v1.MsgIbcTransferResponse".to_string(),
-                        value: to_json_binary(&neutron_sdk::bindings::msg::MsgIbcTransferResponse {
-                            sequence_id: 0,
-                            channel: "channel-0".to_string(),
-                        })
-                            .unwrap(),
-                    },
-                ],
+                msg_responses: vec![MsgResponse {
+                    type_url: "/neutron.interchainquery.v1.MsgIbcTransferResponse".to_string(),
+                    value: to_json_binary(&neutron_sdk::bindings::msg::MsgIbcTransferResponse {
+                        sequence_id: 0,
+                        channel: "channel-0".to_string(),
+                    })
+                    .unwrap(),
+                }],
             }),
         },
     )
@@ -2960,17 +2997,16 @@ fn test_reply_kv_delegations_and_balance() {
                 result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
                     events: vec![],
                     data: None,
-                    msg_responses: vec![
-                        MsgResponse {
-                            type_url: "/neutron.interchainquery.v1.MsgRegisterInterchainQueryResponse".to_string(),
-                            value: to_json_binary(
-                                &neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse {
-                                    id: response_id,
-                                },
-                            )
-                            .unwrap(),
-                        },
-                    ],
+                    msg_responses: vec![MsgResponse {
+                        type_url: "/neutron.interchainquery.v1.MsgRegisterInterchainQueryResponse"
+                            .to_string(),
+                        value: to_json_binary(
+                            &neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse {
+                                id: response_id,
+                            },
+                        )
+                        .unwrap(),
+                    }],
                 }),
             },
         )
@@ -3032,17 +3068,16 @@ fn test_reply_kv_non_native_rewards_balances() {
             result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
                 events: vec![],
                 data: None,
-                msg_responses: vec![
-                    MsgResponse {
-                        type_url: "/neutron.interchainquery.v1.MsgRegisterInterchainQueryResponse".to_string(),
-                        value: to_json_binary(
-                            &neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse {
-                                id: 0u64,
-                            },
-                        )
-                        .unwrap(),
-                    },
-                ],
+                msg_responses: vec![MsgResponse {
+                    type_url: "/neutron.interchainquery.v1.MsgRegisterInterchainQueryResponse"
+                        .to_string(),
+                    value: to_json_binary(
+                        &neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse {
+                            id: 0u64,
+                        },
+                    )
+                    .unwrap(),
+                }],
             }),
         },
     )
@@ -3083,15 +3118,17 @@ fn test_reply_kv_unbonding_delegations_tx_state_error() {
                     result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
                         events: vec![],
                         data: None,
-                        msg_responses: vec![
-                            MsgResponse {
-                                type_url: "/neutron.interchainquery.v1.MsgRegisterInterchainQueryResponse".to_string(),
-                                value: to_json_binary(&neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse {
+                        msg_responses: vec![MsgResponse {
+                            type_url:
+                                "/neutron.interchainquery.v1.MsgRegisterInterchainQueryResponse"
+                                    .to_string(),
+                            value: to_json_binary(
+                                &neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse {
                                     id: response_id,
-                                })
-                                .unwrap(),
-                            },
-                        ],
+                                },
+                            )
+                            .unwrap(),
+                        }],
                     }),
                 },
             )
@@ -3176,14 +3213,16 @@ fn test_reply_kv_unbonding_delegations() {
                 result: cosmwasm_std::SubMsgResult::Ok(cosmwasm_std::SubMsgResponse {
                     events: vec![],
                     data: None,
-                    msg_responses: vec![
-                        MsgResponse {
-                            type_url: "/neutron.interchainquery.v1.MsgRegisterInterchainQueryResponse".to_string(),
-                            value: to_json_binary(&neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse {
+                    msg_responses: vec![MsgResponse {
+                        type_url: "/neutron.interchainquery.v1.MsgRegisterInterchainQueryResponse"
+                            .to_string(),
+                        value: to_json_binary(
+                            &neutron_sdk::bindings::msg::MsgRegisterInterchainQueryResponse {
                                 id: response_id,
-                            }).unwrap(),
-                        },
-                    ],
+                            },
+                        )
+                        .unwrap(),
+                    }],
                 }),
             },
         )
@@ -3218,7 +3257,10 @@ fn test_reply_kv_unbonding_delegations() {
 }
 
 mod register_delegations_and_balance_query {
-    use cosmwasm_std::{testing::{MockApi, message_info}, MemoryStorage, OwnedDeps, StdResult};
+    use cosmwasm_std::{
+        testing::{message_info, MockApi},
+        MemoryStorage, OwnedDeps, StdResult,
+    };
     use drop_helpers::testing::WasmMockQuerier;
     use drop_puppeteer_base::error::ContractError;
 
@@ -3249,7 +3291,12 @@ mod register_delegations_and_balance_query {
         let api = deps.api;
         let env = mock_env();
         let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: vec![] } ;
-        let res = crate::contract::execute(deps.as_mut(), env, message_info(&api.addr_make("not_owner"), &[]), msg);
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            env,
+            message_info(&api.addr_make("not_owner"), &[]),
+            msg,
+        );
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err(),
@@ -3270,7 +3317,12 @@ mod register_delegations_and_balance_query {
         let msg = drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
             validators
         };
-        let res = crate::contract::execute(deps.as_mut(), env, message_info(&api.addr_make("owner"), &[]), msg);
+        let res = crate::contract::execute(
+            deps.as_mut(),
+            env,
+            message_info(&api.addr_make("owner"), &[]),
+            msg,
+        );
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err(),
@@ -3433,16 +3485,30 @@ fn get_base_config(sdk_version: String, api: MockApi) -> Config {
     }
 }
 
-fn base_init(deps_mut: &mut DepsMut<NeutronQuery>, sdk_version: String, api: MockApi) -> PuppeteerBaseType {
+fn base_init(
+    deps_mut: &mut DepsMut<NeutronQuery>,
+    sdk_version: String,
+    api: MockApi,
+) -> PuppeteerBaseType {
     let puppeteer_base = Puppeteer::default();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     puppeteer_base
         .config
         .save(deps_mut.storage, &get_base_config(sdk_version, api))
         .unwrap();
     puppeteer_base
         .ica
-        .set_address(deps_mut.storage, api.addr_make("ica_address"), "port", "channel")
+        .set_address(
+            deps_mut.storage,
+            api.addr_make("ica_address"),
+            "port",
+            "channel",
+        )
         .unwrap();
     puppeteer_base
 }
@@ -3460,7 +3526,12 @@ fn test_transfer_ownership() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     crate::contract::execute(
         deps.as_mut(),
         mock_env(),

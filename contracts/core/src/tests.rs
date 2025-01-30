@@ -1,7 +1,7 @@
 use crate::contract::{execute, query};
 use cosmwasm_std::{
     from_json,
-    testing::{mock_env, message_info, MockApi, MockStorage},
+    testing::{message_info, mock_env, MockApi, MockStorage},
     to_json_binary, Addr, Coin, CosmosMsg, Decimal, Decimal256, Event, OwnedDeps, Response, SubMsg,
     Timestamp, Uint128, WasmMsg,
 };
@@ -13,7 +13,9 @@ use drop_puppeteer_base::msg::TransferReadyBatchesMsg;
 use drop_staking_base::{
     error::core::ContractError,
     msg::{
-        core::{ExecuteMsg, FailedBatchResponse, InstantiateMsg, QueryMsg, WithdrawalVoucherMintMsg},
+        core::{
+            ExecuteMsg, FailedBatchResponse, InstantiateMsg, QueryMsg, WithdrawalVoucherMintMsg,
+        },
         puppeteer::{BalancesResponse, DelegationsResponse},
         strategy::QueryMsg as StrategyQueryMsg,
     },
@@ -172,7 +174,8 @@ fn query_ownership() {
     let mut deps = mock_dependencies(&[]);
     let owner_address = deps.api.addr_make("owner");
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str())).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str()))
+        .unwrap();
     assert_eq!(
         from_json::<String>(&query(deps.as_ref(), mock_env(), QueryMsg::Owner {}).unwrap())
             .unwrap(),
@@ -187,7 +190,8 @@ fn test_bond_provider_has_any_tokens() {
     let bond_provider_address = deps.api.addr_make("bond_provider");
 
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str())).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str()))
+        .unwrap();
 
     deps.querier
         .add_wasm_query_response(bond_provider_address.as_str(), |_| {
@@ -214,7 +218,8 @@ fn test_execute_add_bond_provider_max_limit_reached() {
     let overflow_bond_provider_address = deps.api.addr_make("overflow_bond_provider");
 
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str())).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str()))
+        .unwrap();
 
     for i in 0..MAX_BOND_PROVIDERS {
         let mut provider: String = "provider".to_string();
@@ -242,7 +247,10 @@ fn test_update_withdrawn_amount() {
     let api = deps.api;
 
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config(api, 1000, 10, 6000))
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(api, 1000, 10, 6000),
+        )
         .unwrap();
     mock_state_query(&mut deps);
     let withdrawn_batch = &UnbondBatch {
@@ -315,7 +323,8 @@ fn test_add_remove_bond_provider() {
 
     mock_state_query(&mut deps);
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(admin_address.as_str())).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(admin_address.as_str()))
+        .unwrap();
 
     let bond_providers = query(deps.as_ref(), mock_env(), QueryMsg::BondProviders {}).unwrap();
 
@@ -340,7 +349,10 @@ fn test_add_remove_bond_provider() {
         res,
         Ok(Response::new().add_event(
             Event::new("crates.io:drop-staking__drop-core-execute-add_bond_provider")
-                .add_attributes(vec![("bond_provider_address", bond_provider_address.clone())])
+                .add_attributes(vec![(
+                    "bond_provider_address",
+                    bond_provider_address.clone()
+                )])
         ))
     );
 
@@ -363,7 +375,10 @@ fn test_add_remove_bond_provider() {
         res,
         Ok(Response::new().add_event(
             Event::new("crates.io:drop-staking__drop-core-execute-remove_bond_provider")
-                .add_attributes(vec![("bond_provider_address", bond_provider_address.clone())])
+                .add_attributes(vec![(
+                    "bond_provider_address",
+                    bond_provider_address.clone()
+                )])
         ))
     );
 
@@ -416,14 +431,14 @@ fn test_execute_tick_idle_process_bondig_provider() {
         });
 
     BOND_PROVIDERS
-        .add(
-            deps.as_mut().storage,
-            api.addr_make("lsm_provider_address"),
-        )
+        .add(deps.as_mut().storage, api.addr_make("lsm_provider_address"))
         .unwrap();
 
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config(api, 1000, 10, 6000))
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(api, 1000, 10, 6000),
+        )
         .unwrap();
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
@@ -458,7 +473,10 @@ fn test_execute_tick_idle_process_bondig_provider() {
                         ("knot", "002"),
                         ("knot", "003"),
                         ("knot", "036"),
-                        ("used_bond_provider", api.addr_make("lsm_provider_address").as_str()),
+                        (
+                            "used_bond_provider",
+                            api.addr_make("lsm_provider_address").as_str()
+                        ),
                     ]
                 )
             )
@@ -741,7 +759,10 @@ fn test_tick_idle_claim_with_unbond_transfer() {
             )
         });
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config(api, 1000, 100, 6000))
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(api, 1000, 100, 6000),
+        )
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
@@ -820,7 +841,10 @@ fn test_tick_no_puppeteer_response() {
     mock_state_query(&mut deps);
 
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config(api, 1000, 100, 600))
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(api, 1000, 100, 600),
+        )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -934,7 +958,10 @@ fn test_tick_claiming_error_wo_transfer() {
             }
         });
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config(api, 1000, 100, 600))
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(api, 1000, 100, 600),
+        )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -1051,7 +1078,10 @@ fn test_tick_claiming_error_with_transfer() {
             }
         });
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config(api, 1000, 100, 600))
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(api, 1000, 100, 600),
+        )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -1219,7 +1249,10 @@ fn test_tick_claiming_wo_transfer_unbonding() {
             }
         });
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config(api, 1000, 100, 600))
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(api, 1000, 100, 600),
+        )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -1312,7 +1345,10 @@ fn test_tick_claiming_wo_transfer_unbonding() {
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: api.addr_make("puppeteer_contract").to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Undelegate {
-                    items: vec![(api.addr_make("valoper_address").to_string(), Uint128::from(1000u128))],
+                    items: vec![(
+                        api.addr_make("valoper_address").to_string(),
+                        Uint128::from(1000u128)
+                    )],
                     batch_id: 0u128,
                     reply_to: api.addr_make("cosmos2contract").to_string()
                 })
@@ -1398,7 +1434,10 @@ fn test_tick_claiming_wo_idle() {
             }
         });
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config(api, 1000, 100, 60000))
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(api, 1000, 100, 60000),
+        )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -1495,7 +1534,10 @@ fn test_execute_tick_guard_balance_outdated() {
     mock_state_query(&mut deps);
 
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config(api, 1000, 100, 600))
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(api, 1000, 100, 600),
+        )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -1541,7 +1583,10 @@ fn test_execute_tick_guard_delegations_outdated() {
     mock_state_query(&mut deps);
 
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config(api, 1000, 100, 600))
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(api, 1000, 100, 600),
+        )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
@@ -1601,7 +1646,10 @@ fn test_execute_tick_staking_no_puppeteer_response() {
     mock_state_query(&mut deps);
 
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config(api, 1000, 100, 600))
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(api, 1000, 100, 600),
+        )
         .unwrap();
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Unbonding)
         .unwrap();
@@ -1654,7 +1702,10 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
 
     mock_state_query(&mut deps);
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config(api, 1000, 100, 600))
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(api, 1000, 100, 600),
+        )
         .unwrap();
 
     LAST_ICA_CHANGE_HEIGHT
@@ -1732,7 +1783,10 @@ fn test_bond_wo_receiver() {
         .unwrap();
 
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config(api, 1000, 100, 600))
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(api, 1000, 100, 600),
+        )
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
@@ -1758,7 +1812,10 @@ fn test_bond_wo_receiver() {
                 Event::new("crates.io:drop-staking__drop-core-execute-bond")
                     .add_attribute("action", "bond")
                     .add_attribute("exchange_rate", "1")
-                    .add_attribute("used_bond_provider", api.addr_make("native_provider_address").to_string())
+                    .add_attribute(
+                        "used_bond_provider",
+                        api.addr_make("native_provider_address").to_string()
+                    )
                     .add_attribute("issue_amount", "1000")
                     .add_attribute("receiver", api.addr_make("some"))
             )
@@ -1809,7 +1866,10 @@ fn test_bond_with_receiver() {
         )
         .unwrap();
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config(api, 1000, 100, 600))
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(api, 1000, 100, 600),
+        )
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
@@ -1970,7 +2030,10 @@ fn test_bond_lsm_share_increase_exchange_rate() {
         .unwrap();
 
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config(api, 1000, 100, 600))
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(api, 1000, 100, 600),
+        )
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
@@ -2000,7 +2063,10 @@ fn test_bond_lsm_share_increase_exchange_rate() {
     let res = execute(
         deps.as_mut(),
         env,
-        message_info(&api.addr_make("some"), &[Coin::new(100500u128, "lsm_share")]),
+        message_info(
+            &api.addr_make("some"),
+            &[Coin::new(100500u128, "lsm_share")],
+        ),
         ExecuteMsg::Bond {
             receiver: None,
             r#ref: None,
@@ -2058,7 +2124,10 @@ fn test_unbond() {
         )
         .unwrap();
     CONFIG
-        .save(deps.as_mut().storage, &get_default_config(api, 1000, 100, 600))
+        .save(
+            deps.as_mut().storage,
+            &get_default_config(api, 1000, 100, 600),
+        )
         .unwrap();
     LD_DENOM
         .save(deps.as_mut().storage, &"ld_denom".into())
@@ -2069,7 +2138,10 @@ fn test_unbond() {
     let res = execute(
         deps.as_mut(),
         env,
-        message_info(&api.addr_make("some_sender"), &[Coin::new(1000u128, "ld_denom")]),
+        message_info(
+            &api.addr_make("some_sender"),
+            &[Coin::new(1000u128, "ld_denom")],
+        ),
         ExecuteMsg::Unbond {},
     )
     .unwrap();
@@ -2097,14 +2169,12 @@ fn test_unbond() {
         Response::new()
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: api.addr_make("withdrawal_voucher_contract").to_string(),
-                msg: to_json_binary(
-                    &WithdrawalVoucherMintMsg {
-                        token_id: "0_".to_string() + api.addr_make("some_sender").as_str() + "_1",
-                        owner: api.addr_make("some_sender").to_string(),
-                        token_uri: None,
-                        extension,
-                    }
-                )
+                msg: to_json_binary(&WithdrawalVoucherMintMsg {
+                    token_id: "0_".to_string() + api.addr_make("some_sender").as_str() + "_1",
+                    owner: api.addr_make("some_sender").to_string(),
+                    token_uri: None,
+                    extension,
+                })
                 .unwrap(),
                 funds: vec![],
             })))
@@ -2168,8 +2238,12 @@ mod process_emergency_batch {
 
         {
             let deps_as_mut = deps.as_mut();
-            cw_ownable::initialize_owner(deps_as_mut.storage, deps_as_mut.api, Some(owner_address.as_str()))
-                .unwrap();
+            cw_ownable::initialize_owner(
+                deps_as_mut.storage,
+                deps_as_mut.api,
+                Some(owner_address.as_str()),
+            )
+            .unwrap();
         }
         {
             unbond_batches_map()
@@ -2362,7 +2436,12 @@ mod bond_hooks {
 
         {
             let deps_mut = deps.as_mut();
-            cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str())).unwrap();
+            cw_ownable::initialize_owner(
+                deps_mut.storage,
+                deps_mut.api,
+                Some(owner_address.as_str()),
+            )
+            .unwrap();
         }
 
         let error = execute(
@@ -2387,7 +2466,12 @@ mod bond_hooks {
 
         {
             let deps_mut = deps.as_mut();
-            cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str())).unwrap();
+            cw_ownable::initialize_owner(
+                deps_mut.storage,
+                deps_mut.api,
+                Some(owner_address.as_str()),
+            )
+            .unwrap();
         }
 
         let response = execute(
@@ -2422,7 +2506,12 @@ mod bond_hooks {
 
         {
             let deps_mut = deps.as_mut();
-            cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str())).unwrap();
+            cw_ownable::initialize_owner(
+                deps_mut.storage,
+                deps_mut.api,
+                Some(owner_address.as_str()),
+            )
+            .unwrap();
         }
 
         BOND_HOOKS
@@ -2461,7 +2550,12 @@ mod bond_hooks {
 
         {
             let deps_mut = deps.as_mut();
-            cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str())).unwrap();
+            cw_ownable::initialize_owner(
+                deps_mut.storage,
+                deps_mut.api,
+                Some(owner_address.as_str()),
+            )
+            .unwrap();
         }
 
         BOND_HOOKS
@@ -2533,7 +2627,10 @@ mod bond_hooks {
             )
             .unwrap();
         CONFIG
-            .save(deps.as_mut().storage, &get_default_config(api, 1000, 100, 600))
+            .save(
+                deps.as_mut().storage,
+                &get_default_config(api, 1000, 100, 600),
+            )
             .unwrap();
         LD_DENOM
             .save(deps.as_mut().storage, &"ld_denom".into())
@@ -2609,7 +2706,10 @@ mod bond_hooks {
             )
             .unwrap();
         CONFIG
-            .save(deps.as_mut().storage, &get_default_config(api, 1000, 100, 600))
+            .save(
+                deps.as_mut().storage,
+                &get_default_config(api, 1000, 100, 600),
+            )
             .unwrap();
         LD_DENOM
             .save(deps.as_mut().storage, &"ld_denom".into())
@@ -2685,7 +2785,10 @@ mod bond_hooks {
             )
             .unwrap();
         CONFIG
-            .save(deps.as_mut().storage, &get_default_config(api, 1000, 100, 600))
+            .save(
+                deps.as_mut().storage,
+                &get_default_config(api, 1000, 100, 600),
+            )
             .unwrap();
         LD_DENOM
             .save(deps.as_mut().storage, &"ld_denom".into())
