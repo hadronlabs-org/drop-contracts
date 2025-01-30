@@ -270,7 +270,7 @@ pub fn finalize_bond(
                 CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: source_port.clone(),
                     source_channel: source_channel.clone(),
-                    token: coin, // at this point unwrap is safe as bond is finalized already
+                    token: coin,
                     sender: env.contract.address.to_string(),
                     receiver: receiver.clone(),
                     timeout_height: RequestPacketTimeoutHeight {
