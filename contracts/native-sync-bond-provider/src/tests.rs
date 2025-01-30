@@ -1,8 +1,8 @@
 use cosmwasm_std::{
     attr, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, BalanceResponse, BankMsg, Coin, CosmosMsg, Decimal, Event, Response,
-    Uint128, WasmMsg,
+    to_json_binary, Addr, BalanceResponse, Coin, CosmosMsg, Decimal, Event, Response, Uint128,
+    WasmMsg,
 };
 use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
@@ -274,6 +274,7 @@ fn query_can_process_on_idle_false_if_no_funds_to_process() {
             min_stake_amount: Uint128::new(1),
             non_staked_balance: Uint128::from(0u128),
             min_ibc_transfer: Uint128::new(0),
+            pending_coins: Uint128::new(0),
         }
     );
 }
@@ -571,6 +572,7 @@ fn process_on_idle_not_allowed_if_no_funds() {
             min_stake_amount: Uint128::new(1),
             non_staked_balance: Uint128::zero(),
             min_ibc_transfer: Uint128::new(0),
+            pending_coins: Uint128::new(0),
         }
     );
 }
@@ -592,22 +594,14 @@ fn execute_bond() {
         drop_staking_base::msg::native_sync_bond_provider::ExecuteMsg::Bond {},
     )
     .unwrap();
-    assert_eq!(response.messages.len(), 1);
+    assert_eq!(response.messages.len(), 0);
 
     assert_eq!(
         response,
-        Response::new()
-            .add_event(
-                Event::new("crates.io:drop-staking__drop-native-sync-bond-provider-bond")
-                    .add_attributes(vec![("received_funds", "100base_denom"),])
-            )
-            .add_message(CosmosMsg::Bank(BankMsg::Send {
-                to_address: "puppeteer_contract".to_string(),
-                amount: vec![Coin {
-                    denom: "base_denom".to_string(),
-                    amount: Uint128::from(100u128),
-                }],
-            }))
+        Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-native-sync-bond-provider-bond")
+                .add_attributes(vec![("received_funds", "100base_denom")])
+        )
     );
 }
 

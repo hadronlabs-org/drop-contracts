@@ -35,11 +35,12 @@ pub enum ContractError {
     #[error("Unknown reply id: {id}")]
     UnknownReplyId { id: u64 },
 
-    #[error("Not enough pending coins to process idle. Min stake amount: {min_stake_amount}, min IBC transfer: {min_ibc_transfer}, not staked balance: {non_staked_balance}")]
+    #[error("Not enough pending coins to process idle. Min stake amount: {min_stake_amount}, min IBC transfer: {min_ibc_transfer}, non staked balance: {non_staked_balance}, pending coins: {pending_coins}")]
     NotEnoughToProcessIdle {
         min_stake_amount: Uint128,
         non_staked_balance: Uint128,
         min_ibc_transfer: Uint128,
+        pending_coins: Uint128,
     },
 
     #[error("Invalid State: {reason}")]

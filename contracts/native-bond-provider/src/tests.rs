@@ -349,13 +349,14 @@ fn query_can_process_on_idle_false_if_no_funds_to_process() {
             min_stake_amount: Uint128::from(100u128),
             non_staked_balance: Uint128::from(0u128),
             min_ibc_transfer: Uint128::from(100u128),
+            pending_coins: Uint128::from(0u128),
         }
     );
 }
 
 #[test]
 fn query_can_process_on_idle_enough_non_staked_balance() {
-    let mut deps = mock_dependencies(&[]);
+    let mut deps = mock_dependencies(&[Coin::new(1000u128, "base_denom")]);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -813,6 +814,7 @@ fn process_on_idle_not_allowed_if_no_funds() {
             min_stake_amount: Uint128::from(100u128),
             non_staked_balance: Uint128::zero(),
             min_ibc_transfer: Uint128::from(100u128),
+            pending_coins: Uint128::zero(),
         }
     );
 }

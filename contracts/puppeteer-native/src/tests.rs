@@ -1,8 +1,8 @@
 use cosmwasm_std::{
     coin, coins, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, BankMsg, CosmosMsg, Decimal256, DepsMut, DistributionMsg, Event,
-    Response, StakingMsg, StdError, Timestamp, Uint128, Uint64, WasmMsg,
+    to_json_binary, Addr, BankMsg, CosmosMsg, Decimal256, DepsMut, Event, Response, StakingMsg,
+    StdError, Timestamp, Uint128, Uint64, WasmMsg,
 };
 use drop_helpers::testing::mock_dependencies;
 
@@ -17,6 +17,7 @@ use drop_staking_base::state::{
             UnbondingDelegationNative,
         },
         Config, ConfigOptional, Delegation, DelegationResponseNative, PageResponse, CONFIG,
+        REWARDS_WITHDRAW_ADDR,
     },
 };
 use drop_staking_base::{
@@ -349,11 +350,15 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
                 to_address: "some_recipient".to_string(),
                 amount: vec![cosmwasm_std::Coin::new(123u128, "remote_denom".to_string())],
             }),
-            CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward {
-                validator: "validator1".to_string()
-            }),
-            CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward {
-                validator: "validator2".to_string()
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "distribution_module".to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::neutron_distribution_mock::ExecuteMsg::ClaimRewards {
+                        receiver: Some("rewards_withdraw_address".to_string())
+                    }
+                )
+                .unwrap(),
+                funds: vec![],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "some_reply_to".to_string(),
@@ -391,6 +396,12 @@ fn get_base_config() -> Config {
 fn base_init(deps_mut: &mut DepsMut<NeutronQuery>) {
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     CONFIG.save(deps_mut.storage, &get_base_config()).unwrap();
+    REWARDS_WITHDRAW_ADDR
+        .save(
+            deps_mut.storage,
+            &Addr::unchecked("rewards_withdraw_address"),
+        )
+        .unwrap();
 }
 
 fn get_standard_fees() -> IbcFee {

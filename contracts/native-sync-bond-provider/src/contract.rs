@@ -128,6 +128,7 @@ fn query_can_process_on_idle(
             min_stake_amount: Uint128::new(1),
             min_ibc_transfer: Uint128::new(0),
             non_staked_balance,
+            pending_coins: Uint128::new(0),
         }
     );
 
