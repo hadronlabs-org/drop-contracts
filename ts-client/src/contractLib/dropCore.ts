@@ -319,9 +319,13 @@ export interface OwnershipForString {
   pending_owner?: string | null;
 }
 export interface Pause {
-  bond: boolean;
-  tick: boolean;
-  unbond: boolean;
+  bond: Interval;
+  tick: Interval;
+  unbond: Interval;
+}
+export interface Interval {
+  from: number;
+  to: number;
 }
 export interface UnbondBatch {
   expected_native_asset_amount: Uint1281;

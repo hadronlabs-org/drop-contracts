@@ -49,16 +49,6 @@ export type Timestamp = Uint64;
  */
 export type Uint64 = string;
 /**
- * Information about if the contract is currently paused.
- */
-export type PauseInfoResponse =
-  | {
-      paused: {};
-    }
-  | {
-      unpaused: {};
-    };
-/**
  * Actions that can be taken to alter the contract's ownership
  */
 export type UpdateOwnershipArgs =
@@ -72,8 +62,8 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropWithdrawalManagerSchema {
-  responses: Config | OwnershipForString | PauseInfoResponse;
-  execute: UpdateConfigArgs | ReceiveNftArgs | UpdateOwnershipArgs;
+  responses: Config | OwnershipForString | Pause;
+  execute: UpdateConfigArgs | ReceiveNftArgs | SetPauseArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
@@ -98,6 +88,13 @@ export interface OwnershipForString {
    */
   pending_owner?: string | null;
 }
+export interface Pause {
+  receive_nft_withdraw: Interval;
+}
+export interface Interval {
+  from: number;
+  to: number;
+}
 export interface UpdateConfigArgs {
   base_denom?: string | null;
   factory_contract?: string | null;
@@ -113,6 +110,12 @@ export interface ReceiveNftArgs {
     [k: string]: unknown;
   };
   additionalProperties?: never;
+}
+export interface SetPauseArgs {
+  pause: Pause1;
+}
+export interface Pause1 {
+  receive_nft_withdraw: Interval;
 }
 export interface InstantiateMsg {
   base_denom: string;
@@ -171,11 +174,11 @@ export class Client {
   queryConfig = async(): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
   }
+  queryPause = async(): Promise<Pause> => {
+    return this.client.queryContractSmart(this.contractAddress, { pause: {} });
+  }
   queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
-  }
-  queryPauseInfo = async(): Promise<PauseInfoResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
   }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
@@ -187,19 +190,14 @@ export class Client {
     return this.client.execute(sender, this.contractAddress, this.receiveNftMsg(args), fee || "auto", memo, funds);
   }
   receiveNftMsg = (args: ReceiveNftArgs): { receive_nft: ReceiveNftArgs } => { return { receive_nft: args }; }
+  setPause = async(sender:string, args: SetPauseArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, this.setPauseMsg(args), fee || "auto", memo, funds);
+  }
+  setPauseMsg = (args: SetPauseArgs): { set_pause: SetPauseArgs } => { return { set_pause: args }; }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, this.updateOwnershipMsg(args), fee || "auto", memo, funds);
   }
   updateOwnershipMsg = (args: UpdateOwnershipArgs): { update_ownership: UpdateOwnershipArgs } => { return { update_ownership: args }; }
-  pause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.pauseMsg(), fee || "auto", memo, funds);
-  }
-  pauseMsg = (): { pause: {} } => { return { pause: {} } }
-  unpause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.unpauseMsg(), fee || "auto", memo, funds);
-  }
-  unpauseMsg = (): { unpause: {} } => { return { unpause: {} } }
 }

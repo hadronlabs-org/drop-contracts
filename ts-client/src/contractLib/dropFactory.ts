@@ -797,7 +797,7 @@ export type UpdateOwnershipArgs =
 export type Addr = string;
 
 export interface DropFactorySchema {
-  responses: OwnershipForString | MapOfString | MapOfString1;
+  responses: OwnershipForString | MapOfString;
   execute: UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
@@ -820,9 +820,6 @@ export interface OwnershipForString {
   pending_owner?: string | null;
 }
 export interface MapOfString {
-  [k: string]: string;
-}
-export interface MapOfString1 {
   [k: string]: string;
 }
 export interface ConfigOptional {
@@ -1348,9 +1345,6 @@ export class Client {
   queryState = async(): Promise<MapOfString> => {
     return this.client.queryContractSmart(this.contractAddress, { state: {} });
   }
-  queryPauseInfo = async(): Promise<MapOfString> => {
-    return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
-  }
   queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
   }
@@ -1374,14 +1368,4 @@ export class Client {
     return this.client.execute(sender, this.contractAddress, this.updateOwnershipMsg(args), fee || "auto", memo, funds);
   }
   updateOwnershipMsg = (args: UpdateOwnershipArgs): { update_ownership: UpdateOwnershipArgs } => { return { update_ownership: args }; }
-  pause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.pauseMsg(), fee || "auto", memo, funds);
-  }
-  pauseMsg = (): { pause: {} } => { return { pause: {} } }
-  unpause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.unpauseMsg(), fee || "auto", memo, funds);
-  }
-  unpauseMsg = (): { unpause: {} } => { return { unpause: {} } }
 }
