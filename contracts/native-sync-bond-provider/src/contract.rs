@@ -34,27 +34,17 @@ pub fn instantiate(
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(msg.owner.as_ref()))?;
 
-    let puppeteer_contract = deps.api.addr_validate(&msg.puppeteer_contract)?;
-    let core_contract = deps.api.addr_validate(&msg.core_contract)?;
-    let strategy_contract = deps.api.addr_validate(&msg.strategy_contract)?;
+    let factory_contract = deps.api.addr_validate(&msg.factory_contract)?;
 
     let config = &Config {
-        puppeteer_contract: puppeteer_contract.clone(),
-        core_contract: core_contract.clone(),
-        strategy_contract: strategy_contract.clone(),
-        base_denom: msg.base_denom.to_string(),
+        factory_contract: factory_contract.clone(),
     };
     CONFIG.save(deps.storage, config)?;
 
     Ok(response(
         "instantiate",
         CONTRACT_NAME,
-        [
-            attr("puppeteer_contract", puppeteer_contract.into_string()),
-            attr("core_contract", core_contract.into_string()),
-            attr("strategy_contract", strategy_contract.into_string()),
-            attr("base_denom", msg.base_denom),
-        ],
+        [attr("factory_contract", factory_contract.into_string())],
     ))
 }
 
@@ -63,17 +53,14 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
     match msg {
         QueryMsg::Ownership {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
         QueryMsg::Config {} => query_config(deps, env),
-        QueryMsg::CanBond { denom } => query_can_bond(deps, denom),
+        QueryMsg::CanBond { denom } => query_can_bond(denom),
         QueryMsg::CanProcessOnIdle {} => {
-            let config = CONFIG.load(deps.storage)?;
-            Ok(to_json_binary(&query_can_process_on_idle(
-                deps, &env, &config,
-            )?)?)
+            Ok(to_json_binary(&query_can_process_on_idle(deps, &env)?)?)
         }
         QueryMsg::TokensAmount {
             coin,
             exchange_rate,
-        } => query_token_amount(deps, coin, exchange_rate),
+        } => query_token_amount(coin, exchange_rate),
         QueryMsg::AsyncTokensAmount {} => query_async_tokens_amount(deps, env),
         QueryMsg::NonStakedBalance {} => query_non_staked_balance(deps, env),
         QueryMsg::TxState {} => query_tx_state(deps, env),
@@ -94,10 +81,9 @@ fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Binary> {
 }
 
 fn query_non_staked_balance(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
-    let config = CONFIG.load(deps.storage)?;
     let balance = deps
         .querier
-        .query_balance(env.contract.address, config.base_denom)?
+        .query_balance(env.contract.address, LOCAL_DENOM)?
         .amount;
     Ok(to_json_binary(&(balance))?)
 }
@@ -106,20 +92,14 @@ fn query_async_tokens_amount(deps: Deps<NeutronQuery>, env: Env) -> ContractResu
     query_non_staked_balance(deps, env)
 }
 
-fn query_can_bond(deps: Deps<NeutronQuery>, denom: String) -> ContractResult<Binary> {
-    let config = CONFIG.load(deps.storage)?;
-
-    Ok(to_json_binary(&can_bond(config.base_denom, denom))?)
+fn query_can_bond(denom: String) -> ContractResult<Binary> {
+    Ok(to_json_binary(&can_bond(LOCAL_DENOM.to_string(), denom))?)
 }
 
-fn query_can_process_on_idle(
-    deps: Deps<NeutronQuery>,
-    env: &Env,
-    config: &Config,
-) -> ContractResult<bool> {
+fn query_can_process_on_idle(deps: Deps<NeutronQuery>, env: &Env) -> ContractResult<bool> {
     let non_staked_balance = deps
         .querier
-        .query_balance(&env.contract.address, config.base_denom.to_string())?
+        .query_balance(&env.contract.address, LOCAL_DENOM.to_string())?
         .amount;
 
     ensure!(
@@ -135,14 +115,8 @@ fn query_can_process_on_idle(
     Ok(true)
 }
 
-fn query_token_amount(
-    deps: Deps<NeutronQuery>,
-    coin: Coin,
-    exchange_rate: Decimal,
-) -> ContractResult<Binary> {
-    let config = CONFIG.load(deps.storage)?;
-
-    if can_bond(config.base_denom, coin.denom) {
+fn query_token_amount(coin: Coin, exchange_rate: Decimal) -> ContractResult<Binary> {
+    if can_bond(LOCAL_DENOM.to_string(), coin.denom) {
         let issue_amount = coin.amount * (Decimal::one() / exchange_rate);
 
         return Ok(to_json_binary(&issue_amount)?);
@@ -168,7 +142,7 @@ pub fn execute(
             Ok(Response::new())
         }
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
-        ExecuteMsg::Bond {} => execute_bond(deps, info),
+        ExecuteMsg::Bond {} => execute_bond(info),
         ExecuteMsg::ProcessOnIdle {} => execute_process_on_idle(deps, env, info),
         ExecuteMsg::PeripheralHook(msg) => execute_puppeteer_hook(deps, env, info, *msg),
     }
@@ -184,24 +158,9 @@ fn execute_update_config(
     let mut state = CONFIG.load(deps.storage)?;
     let mut attrs: Vec<Attribute> = Vec::new();
 
-    if let Some(puppeteer_contract) = new_config.puppeteer_contract {
-        state.puppeteer_contract = deps.api.addr_validate(puppeteer_contract.as_ref())?;
-        attrs.push(attr("puppeteer_contract", puppeteer_contract))
-    }
-
-    if let Some(core_contract) = new_config.core_contract {
-        state.core_contract = deps.api.addr_validate(core_contract.as_ref())?;
-        attrs.push(attr("core_contract", core_contract))
-    }
-
-    if let Some(strategy_contract) = new_config.strategy_contract {
-        state.strategy_contract = deps.api.addr_validate(strategy_contract.as_ref())?;
-        attrs.push(attr("strategy_contract", strategy_contract))
-    }
-
-    if let Some(base_denom) = new_config.base_denom {
-        state.base_denom = base_denom.to_string();
-        attrs.push(attr("base_denom", base_denom));
+    if let Some(factory_contract) = new_config.factory_contract {
+        state.factory_contract = deps.api.addr_validate(factory_contract.as_ref())?;
+        attrs.push(attr("factory_contract", factory_contract))
     }
 
     CONFIG.save(deps.storage, &state)?;
@@ -209,14 +168,10 @@ fn execute_update_config(
     Ok(response("update_config", CONTRACT_NAME, attrs))
 }
 
-fn execute_bond(
-    deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
-) -> ContractResult<Response<NeutronMsg>> {
+fn execute_bond(info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
     let Coin { amount, denom } = cw_utils::one_coin(&info)?;
-    let config = CONFIG.load(deps.storage)?;
 
-    if denom != config.base_denom {
+    if denom != *LOCAL_DENOM {
         return Err(ContractError::InvalidDenom {});
     }
 
@@ -233,12 +188,13 @@ fn execute_process_on_idle(
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
+    let addrs = drop_helpers::get_contracts!(deps, config.factory_contract, core_contract);
     ensure_eq!(
         info.sender,
-        config.core_contract,
+        deps.api.addr_validate(&addrs.core_contract)?,
         ContractError::Unauthorized {}
     );
-    query_can_process_on_idle(deps.as_ref(), &env, &config)?;
+    query_can_process_on_idle(deps.as_ref(), &env)?;
 
     let attrs = vec![attr("action", "process_on_idle")];
     let mut messages: Vec<CosmosMsg<NeutronMsg>> = vec![];
@@ -261,27 +217,34 @@ fn get_delegation_msg(
 ) -> ContractResult<Option<CosmosMsg<NeutronMsg>>> {
     let non_staked_balance = deps
         .querier
-        .query_balance(&env.contract.address, config.base_denom.to_string())?
+        .query_balance(&env.contract.address, LOCAL_DENOM.to_string())?
         .amount;
 
     if non_staked_balance.is_zero() {
         return Ok(None);
     }
 
+    let addrs = drop_helpers::get_contracts!(
+        deps,
+        config.factory_contract,
+        strategy_contract,
+        puppeteer_contract
+    );
+
     let to_delegate: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
-        &config.strategy_contract,
+        &addrs.strategy_contract,
         &drop_staking_base::msg::strategy::QueryMsg::CalcDeposit {
             deposit: non_staked_balance,
         },
     )?;
     let puppeteer_delegation_msg = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.puppeteer_contract.to_string(),
+        contract_addr: addrs.puppeteer_contract,
         msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
             items: to_delegate,
             reply_to: env.contract.address.to_string(),
         })?,
         funds: vec![Coin {
-            denom: config.base_denom.to_string(),
+            denom: LOCAL_DENOM.to_string(),
             amount: non_staked_balance,
         }],
     });
@@ -296,15 +259,21 @@ fn execute_puppeteer_hook(
     msg: drop_puppeteer_base::peripheral_hook::ResponseHookMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
+    let addrs = drop_helpers::get_contracts!(
+        deps,
+        config.factory_contract,
+        puppeteer_contract,
+        core_contract
+    );
     ensure_eq!(
         info.sender,
-        config.puppeteer_contract,
+        deps.api.addr_validate(&addrs.puppeteer_contract)?,
         ContractError::Unauthorized {}
     );
 
     LAST_PUPPETEER_RESPONSE.save(deps.storage, &msg)?;
     let hook_message = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.core_contract.to_string(),
+        contract_addr: addrs.core_contract.to_string(),
         msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(msg))?,
         funds: vec![],
     });

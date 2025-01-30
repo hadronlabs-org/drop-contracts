@@ -1,21 +1,58 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
 /**
+ * A human readable address.
+ *
+ * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
+ *
+ * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
+ *
+ * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
+ */
+export type Addr = string;
+/**
  * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
  *
  * This is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.
  */
 export type Binary = string;
-export type IcaState =
-  | ("none" | "in_progress" | "timeout")
+/**
+ * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
+ */
+export type Expiration =
   | {
-      registered: {
-        channel_id: string;
-        ica_address: string;
-        port_id: string;
-      };
+      at_height: number;
+    }
+  | {
+      at_time: Timestamp;
+    }
+  | {
+      never: {};
     };
-export type ArrayOfTupleOfUint64AndString = [number, string][];
+/**
+ * A point in time in nanosecond precision.
+ *
+ * This type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.
+ *
+ * ## Examples
+ *
+ * ``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);
+ *
+ * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
+ */
+export type Timestamp = Uint64;
+/**
+ * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u64` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
+ *
+ * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
+ */
+export type Uint64 = string;
 export type Transaction =
   | {
       undelegate: {
@@ -103,7 +140,6 @@ export type Transaction =
 export type Uint128 = string;
 export type IBCTransferReason = "l_s_m_share" | "delegate";
 export type ArrayOfTransaction = Transaction[];
-export type TxStateStatus = "idle" | "in_progress" | "waiting_for_ack";
 export type QueryExtMsg =
   | {
       delegations: {};
@@ -112,24 +148,8 @@ export type QueryExtMsg =
       balances: {};
     }
   | {
-      non_native_rewards_balances: {};
-    }
-  | {
       unbonding_delegations: {};
-    }
-  | {
-      ownership: {};
     };
-/**
- * A human readable address.
- *
- * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
- *
- * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
- *
- * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
- */
-export type Addr = string;
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -142,67 +162,41 @@ export type UpdateOwnershipArgs =
     }
   | "accept_ownership"
   | "renounce_ownership";
-/**
- * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
- */
-export type Expiration =
-  | {
-      at_height: number;
-    }
-  | {
-      at_time: Timestamp;
-    }
-  | {
-      never: {};
-    };
-/**
- * A point in time in nanosecond precision.
- *
- * This type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.
- *
- * ## Examples
- *
- * ``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);
- *
- * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
- */
-export type Timestamp = Uint64;
-/**
- * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u64` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
- *
- * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
- */
-export type Uint64 = string;
 
 export interface DropPuppeteerNativeSchema {
-  responses: ConfigResponse | Binary | IcaState | ArrayOfTupleOfUint64AndString | ArrayOfTransaction | TxState;
+  responses: Config | Binary | OwnershipForString | ArrayOfTransaction;
   query: ExtensionArgs;
   execute:
-    | RegisterBalanceAndDelegatorDelegationsQueryArgs
-    | RegisterDelegatorUnbondingDelegationsQueryArgs
-    | RegisterNonNativeRewardsBalancesQueryArgs
     | SetupProtocolArgs
     | DelegateArgs
     | UndelegateArgs
-    | RedelegateArgs
-    | TokenizeShareArgs
-    | RedeemSharesArgs
-    | TransferArgs
     | ClaimRewardsAndOptionalyTransferArgs
     | UpdateConfigArgs
+    | RegisterBalanceAndDelegatorDelegationsQueryArgs
     | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
-export interface ConfigResponse {
-  connection_id: string;
-  update_period: number;
+export interface Config {
+  allowed_senders: Addr[];
+  distribution_module_contract: Addr;
+}
+/**
+ * The contract's ownership info
+ */
+export interface OwnershipForString {
+  /**
+   * The contract's current owner. `None` if the ownership has been renounced.
+   */
+  owner?: string | null;
+  /**
+   * The deadline for the pending owner to accept the ownership. `None` if there isn't a pending ownership transfer, or if a transfer exists and it doesn't have a deadline.
+   */
+  pending_expiry?: Expiration | null;
+  /**
+   * The account who has been proposed to take over the ownership. `None` if there isn't a pending ownership transfer.
+   */
+  pending_owner?: string | null;
 }
 export interface RedeemShareItem {
   amount: Uint128;
@@ -220,23 +214,8 @@ export interface Coin {
   denom: string;
   [k: string]: unknown;
 }
-export interface TxState {
-  reply_to?: string | null;
-  seq_id?: number | null;
-  status: TxStateStatus;
-  transaction?: Transaction | null;
-}
 export interface ExtensionArgs {
   msg: QueryExtMsg;
-}
-export interface RegisterBalanceAndDelegatorDelegationsQueryArgs {
-  validators: string[];
-}
-export interface RegisterDelegatorUnbondingDelegationsQueryArgs {
-  validators: string[];
-}
-export interface RegisterNonNativeRewardsBalancesQueryArgs {
-  denoms: string[];
 }
 export interface SetupProtocolArgs {
   rewards_withdraw_address: string;
@@ -250,25 +229,6 @@ export interface UndelegateArgs {
   items: [string, Uint128][];
   reply_to: string;
 }
-export interface RedelegateArgs {
-  amount: Uint128;
-  reply_to: string;
-  validator_from: string;
-  validator_to: string;
-}
-export interface TokenizeShareArgs {
-  amount: Uint128;
-  reply_to: string;
-  validator: string;
-}
-export interface RedeemSharesArgs {
-  items: RedeemShareItem[];
-  reply_to: string;
-}
-export interface TransferArgs {
-  items: [string, Coin][];
-  reply_to: string;
-}
 export interface ClaimRewardsAndOptionalyTransferArgs {
   reply_to: string;
   transfer?: TransferReadyBatchesMsg | null;
@@ -279,27 +239,15 @@ export interface UpdateConfigArgs {
 }
 export interface ConfigOptional {
   allowed_senders?: string[] | null;
-  connection_id?: string | null;
-  native_bond_provider?: Addr | null;
-  port_id?: string | null;
-  remote_denom?: string | null;
-  sdk_version?: string | null;
-  timeout?: number | null;
-  transfer_channel_id?: string | null;
-  update_period?: number | null;
+  distribution_module_contract?: string | null;
+}
+export interface RegisterBalanceAndDelegatorDelegationsQueryArgs {
+  validators: string[];
 }
 export interface InstantiateMsg {
   allowed_senders: string[];
-  connection_id: string;
-  delegations_queries_chunk_size?: number | null;
-  native_bond_provider: string;
+  distribution_module_contract: string;
   owner?: string | null;
-  port_id: string;
-  remote_denom: string;
-  sdk_version: string;
-  timeout: number;
-  transfer_channel_id: string;
-  update_period: number;
 }
 
 
@@ -350,49 +298,18 @@ export class Client {
     });
     return res;
   }
-  queryConfig = async(): Promise<ConfigResponse> => {
+  queryConfig = async(): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
-  }
-  queryIca = async(): Promise<IcaState> => {
-    return this.client.queryContractSmart(this.contractAddress, { ica: {} });
   }
   queryTransactions = async(): Promise<ArrayOfTransaction> => {
     return this.client.queryContractSmart(this.contractAddress, { transactions: {} });
   }
-  queryKVQueryIds = async(): Promise<ArrayOfTupleOfUint64AndString> => {
-    return this.client.queryContractSmart(this.contractAddress, { k_v_query_ids: {} });
-  }
   queryExtension = async(args: ExtensionArgs): Promise<Binary> => {
     return this.client.queryContractSmart(this.contractAddress, { extension: args });
   }
-  queryTxState = async(): Promise<TxState> => {
-    return this.client.queryContractSmart(this.contractAddress, { tx_state: {} });
+  queryOwnership = async(): Promise<OwnershipForString> => {
+    return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
   }
-  registerICA = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.registerICAMsg(), fee || "auto", memo, funds);
-  }
-  registerICAMsg = (): { register_i_c_a: {} } => { return { register_i_c_a: {} } }
-  registerQuery = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.registerQueryMsg(), fee || "auto", memo, funds);
-  }
-  registerQueryMsg = (): { register_query: {} } => { return { register_query: {} } }
-  registerBalanceAndDelegatorDelegationsQuery = async(sender:string, args: RegisterBalanceAndDelegatorDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.registerBalanceAndDelegatorDelegationsQueryMsg(args), fee || "auto", memo, funds);
-  }
-  registerBalanceAndDelegatorDelegationsQueryMsg = (args: RegisterBalanceAndDelegatorDelegationsQueryArgs): { register_balance_and_delegator_delegations_query: RegisterBalanceAndDelegatorDelegationsQueryArgs } => { return { register_balance_and_delegator_delegations_query: args }; }
-  registerDelegatorUnbondingDelegationsQuery = async(sender:string, args: RegisterDelegatorUnbondingDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.registerDelegatorUnbondingDelegationsQueryMsg(args), fee || "auto", memo, funds);
-  }
-  registerDelegatorUnbondingDelegationsQueryMsg = (args: RegisterDelegatorUnbondingDelegationsQueryArgs): { register_delegator_unbonding_delegations_query: RegisterDelegatorUnbondingDelegationsQueryArgs } => { return { register_delegator_unbonding_delegations_query: args }; }
-  registerNonNativeRewardsBalancesQuery = async(sender:string, args: RegisterNonNativeRewardsBalancesQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.registerNonNativeRewardsBalancesQueryMsg(args), fee || "auto", memo, funds);
-  }
-  registerNonNativeRewardsBalancesQueryMsg = (args: RegisterNonNativeRewardsBalancesQueryArgs): { register_non_native_rewards_balances_query: RegisterNonNativeRewardsBalancesQueryArgs } => { return { register_non_native_rewards_balances_query: args }; }
   setupProtocol = async(sender:string, args: SetupProtocolArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, this.setupProtocolMsg(args), fee || "auto", memo, funds);
@@ -408,26 +325,6 @@ export class Client {
     return this.client.execute(sender, this.contractAddress, this.undelegateMsg(args), fee || "auto", memo, funds);
   }
   undelegateMsg = (args: UndelegateArgs): { undelegate: UndelegateArgs } => { return { undelegate: args }; }
-  redelegate = async(sender:string, args: RedelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.redelegateMsg(args), fee || "auto", memo, funds);
-  }
-  redelegateMsg = (args: RedelegateArgs): { redelegate: RedelegateArgs } => { return { redelegate: args }; }
-  tokenizeShare = async(sender:string, args: TokenizeShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.tokenizeShareMsg(args), fee || "auto", memo, funds);
-  }
-  tokenizeShareMsg = (args: TokenizeShareArgs): { tokenize_share: TokenizeShareArgs } => { return { tokenize_share: args }; }
-  redeemShares = async(sender:string, args: RedeemSharesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.redeemSharesMsg(args), fee || "auto", memo, funds);
-  }
-  redeemSharesMsg = (args: RedeemSharesArgs): { redeem_shares: RedeemSharesArgs } => { return { redeem_shares: args }; }
-  transfer = async(sender:string, args: TransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.transferMsg(args), fee || "auto", memo, funds);
-  }
-  transferMsg = (args: TransferArgs): { transfer: TransferArgs } => { return { transfer: args }; }
   claimRewardsAndOptionalyTransfer = async(sender:string, args: ClaimRewardsAndOptionalyTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, this.claimRewardsAndOptionalyTransferMsg(args), fee || "auto", memo, funds);
@@ -438,6 +335,11 @@ export class Client {
     return this.client.execute(sender, this.contractAddress, this.updateConfigMsg(args), fee || "auto", memo, funds);
   }
   updateConfigMsg = (args: UpdateConfigArgs): { update_config: UpdateConfigArgs } => { return { update_config: args }; }
+  registerBalanceAndDelegatorDelegationsQuery = async(sender:string, args: RegisterBalanceAndDelegatorDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, this.registerBalanceAndDelegatorDelegationsQueryMsg(args), fee || "auto", memo, funds);
+  }
+  registerBalanceAndDelegatorDelegationsQueryMsg = (args: RegisterBalanceAndDelegatorDelegationsQueryArgs): { register_balance_and_delegator_delegations_query: RegisterBalanceAndDelegatorDelegationsQueryArgs } => { return { register_balance_and_delegator_delegations_query: args }; }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, this.updateOwnershipMsg(args), fee || "auto", memo, funds);

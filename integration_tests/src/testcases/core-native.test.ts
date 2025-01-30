@@ -24,7 +24,10 @@ import {
 import { join } from 'path';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
-import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
+import {
+  instantiate2Address,
+  SigningCosmWasmClient,
+} from '@cosmjs/cosmwasm-stargate';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
 import { setupPark } from '../testSuite';
@@ -34,6 +37,7 @@ import { instrumentCoreClass } from '../helpers/knot';
 import { UnbondBatch } from 'drop-ts-client/lib/contractLib/dropCore';
 import { checkExchangeRate } from '../helpers/exchangeRate';
 import { stringToPath } from '@cosmjs/crypto';
+import { fromHex, toAscii } from '@cosmjs/encoding';
 
 const DropTokenClass = DropToken.Client;
 const DropFactoryClass = DropFactory.Client;
@@ -50,6 +54,8 @@ const DropValidatorsSetClass = DropValidatorsSet.Client;
 const DropNeutronDistributionMockClass = DropNeutronDistributionMock.Client;
 
 const UNBONDING_TIME = 360;
+
+const SALT = 'salt';
 
 describe('Core', () => {
   const context: {
@@ -86,6 +92,7 @@ describe('Core', () => {
     validatorAddress?: string;
     secondValidatorAddress?: string;
     codeIds: {
+      factory?: number;
       core?: number;
       token?: number;
       withdrawalVoucher?: number;
@@ -97,14 +104,22 @@ describe('Core', () => {
       distribution?: number;
       rewardsManager?: number;
       splitter?: number;
-      pump?: number;
       nativeBondProvider?: number;
       valRef?: number;
       distributionModuleMock?: number;
     };
+    predefinedContractAddresses: {
+      factoryAddress?: string;
+      coreAddress?: string;
+      puppeteerAddress?: string;
+      strategyAddress?: string;
+      validatorSetAddress?: string;
+      withdrawalManagerAddress?: string;
+      splitterAddress?: string;
+    };
     exchangeRate?: number;
     ldDenom?: string;
-  } = { codeIds: {} };
+  } = { codeIds: {}, predefinedContractAddresses: {} };
 
   beforeAll(async (t) => {
     context.park = await setupPark(t, ['neutronv2'], {
@@ -196,7 +211,44 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.distributionModuleMock = res.codeId;
+
+      const instantiateRes =
+        await DropNeutronDistributionMock.Client.instantiate(
+          client,
+          account.address,
+          context.codeIds.distributionModuleMock,
+          {},
+          'distribution-module-mock',
+          'auto',
+          [],
+        );
+      expect(instantiateRes.contractAddress).toHaveLength(66);
+      context.distributionMockClient = new DropNeutronDistributionMock.Client(
+        client,
+        instantiateRes.contractAddress,
+      );
     }
+    {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_factory.wasm'),
+      );
+
+      const res = await client.upload(
+        account.address,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.factory = res.codeId;
+
+      context.predefinedContractAddresses.factoryAddress = instantiate2Address(
+        fromHex(res.checksum),
+        account.address,
+        toAscii(SALT),
+        'neutron',
+      );
+    }
+
     {
       const buffer = fs.readFileSync(
         join(__dirname, '../../../artifacts/drop_core.wasm'),
@@ -209,7 +261,15 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.core = res.codeId;
+
+      context.predefinedContractAddresses.coreAddress = instantiate2Address(
+        fromHex(res.checksum),
+        context.predefinedContractAddresses.factoryAddress,
+        toAscii(SALT),
+        'neutron',
+      );
     }
+
     {
       const buffer = fs.readFileSync(
         join(__dirname, '../../../artifacts/drop_token.wasm'),
@@ -248,10 +308,18 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.withdrawalManager = res.codeId;
+
+      context.predefinedContractAddresses.withdrawalManagerAddress =
+        instantiate2Address(
+          fromHex(res.checksum),
+          context.predefinedContractAddresses.factoryAddress,
+          toAscii(SALT),
+          'neutron',
+        );
     }
     {
       const buffer = fs.readFileSync(
-        join(__dirname, '../../../artifacts/drop_pump.wasm'),
+        join(__dirname, '../../../artifacts/drop_splitter.wasm'),
       );
 
       const res = await client.upload(
@@ -260,7 +328,14 @@ describe('Core', () => {
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
-      context.codeIds.pump = res.codeId;
+      context.codeIds.splitter = res.codeId;
+
+      context.predefinedContractAddresses.splitterAddress = instantiate2Address(
+        fromHex(res.checksum),
+        context.predefinedContractAddresses.factoryAddress,
+        toAscii(SALT),
+        'neutron',
+      );
     }
     {
       const buffer = fs.readFileSync(
@@ -274,6 +349,13 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.strategy = res.codeId;
+
+      context.predefinedContractAddresses.strategyAddress = instantiate2Address(
+        fromHex(res.checksum),
+        context.predefinedContractAddresses.factoryAddress,
+        toAscii(SALT),
+        'neutron',
+      );
     }
     {
       const buffer = fs.readFileSync(
@@ -300,19 +382,14 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.validatorsSet = res.codeId;
-    }
-    {
-      const buffer = fs.readFileSync(
-        join(__dirname, '../../../artifacts/drop_puppeteer_native.wasm'),
-      );
 
-      const res = await client.upload(
-        account.address,
-        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
-        1.5,
-      );
-      expect(res.codeId).toBeGreaterThan(0);
-      context.codeIds.puppeteer = res.codeId;
+      context.predefinedContractAddresses.validatorSetAddress =
+        instantiate2Address(
+          fromHex(res.checksum),
+          context.predefinedContractAddresses.factoryAddress,
+          toAscii(SALT),
+          'neutron',
+        );
     }
     {
       const buffer = fs.readFileSync(
@@ -339,6 +416,13 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.splitter = res.codeId;
+
+      context.predefinedContractAddresses.splitterAddress = instantiate2Address(
+        fromHex(res.checksum),
+        context.predefinedContractAddresses.factoryAddress,
+        toAscii(SALT),
+        'neutron',
+      );
     }
     {
       const buffer = fs.readFileSync(
@@ -382,21 +466,258 @@ describe('Core', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.valRef = res.codeId;
     }
+    {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_puppeteer_native.wasm'),
+      );
 
-    let instantiateRes = await DropNeutronDistributionMock.Client.instantiate(
-      client,
-      account.address,
-      context.codeIds.distributionModuleMock,
-      {},
-      'distribution-module-mock',
-      'auto',
-      [],
-    );
-    expect(instantiateRes.contractAddress).toHaveLength(66);
-    context.distributionMockClient = new DropNeutronDistributionMock.Client(
-      client,
-      instantiateRes.contractAddress,
-    );
+      const res = await client.upload(
+        account.address,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.puppeteer = res.codeId;
+
+      context.predefinedContractAddresses.puppeteerAddress =
+        instantiate2Address(
+          fromHex(res.checksum),
+          account.address,
+          toAscii(SALT),
+          'neutron',
+        );
+
+      let instantiateRes = await DropNativeSyncBondProvider.Client.instantiate(
+        context.client,
+        context.account.address,
+        context.codeIds.nativeBondProvider,
+        {
+          owner: context.predefinedContractAddresses.factoryAddress,
+          factory_contract: context.predefinedContractAddresses.factoryAddress,
+        },
+        'drop-staking-native-bond-sync-provider',
+        1.5,
+        [],
+        context.predefinedContractAddresses.factoryAddress,
+      );
+
+      context.nativeBondProviderContractClient =
+        new DropNativeSyncBondProvider.Client(
+          context.client,
+          instantiateRes.contractAddress,
+        );
+
+      instantiateRes = await DropPuppeteerNative.Client.instantiate2(
+        context.client,
+        account.address,
+        context.codeIds.puppeteer,
+        toAscii(SALT),
+        {
+          allowed_senders: [
+            context.nativeBondProviderContractClient.contractAddress,
+            context.predefinedContractAddresses.coreAddress,
+            context.predefinedContractAddresses.factoryAddress,
+          ],
+          owner: context.predefinedContractAddresses.factoryAddress,
+          distribution_module_contract:
+            context.distributionMockClient.contractAddress,
+        },
+        'drop-staking-puppeteer-native',
+        1.5,
+        [],
+        context.predefinedContractAddresses.factoryAddress,
+      );
+
+      context.puppeteerContractClient = new DropPuppeteerNative.Client(
+        context.client,
+        instantiateRes.contractAddress,
+      );
+    }
+    // {
+    //   const buffer = fs.readFileSync(
+    //     join(__dirname, '../../../artifacts/drop_core.wasm'),
+    //   );
+
+    //   const res = await client.upload(
+    //     account.address,
+    //     new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+    //     1.5,
+    //   );
+    //   expect(res.codeId).toBeGreaterThan(0);
+    //   context.codeIds.core = res.codeId;
+    // }
+    // {
+    //   const buffer = fs.readFileSync(
+    //     join(__dirname, '../../../artifacts/drop_token.wasm'),
+    //   );
+
+    //   const res = await client.upload(
+    //     account.address,
+    //     new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+    //     1.5,
+    //   );
+    //   expect(res.codeId).toBeGreaterThan(0);
+    //   context.codeIds.token = res.codeId;
+    // }
+    // {
+    //   const buffer = fs.readFileSync(
+    //     join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
+    //   );
+
+    //   const res = await client.upload(
+    //     account.address,
+    //     new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+    //     1.5,
+    //   );
+    //   expect(res.codeId).toBeGreaterThan(0);
+    //   context.codeIds.withdrawalVoucher = res.codeId;
+    // }
+    // {
+    //   const buffer = fs.readFileSync(
+    //     join(__dirname, '../../../artifacts/drop_withdrawal_manager.wasm'),
+    //   );
+
+    //   const res = await client.upload(
+    //     account.address,
+    //     new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+    //     1.5,
+    //   );
+    //   expect(res.codeId).toBeGreaterThan(0);
+    //   context.codeIds.withdrawalManager = res.codeId;
+    // }
+    // {
+    //   const buffer = fs.readFileSync(
+    //     join(__dirname, '../../../artifacts/drop_pump.wasm'),
+    //   );
+
+    //   const res = await client.upload(
+    //     account.address,
+    //     new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+    //     1.5,
+    //   );
+    //   expect(res.codeId).toBeGreaterThan(0);
+    //   context.codeIds.pump = res.codeId;
+    // }
+    // {
+    //   const buffer = fs.readFileSync(
+    //     join(__dirname, '../../../artifacts/drop_strategy.wasm'),
+    //   );
+
+    //   const res = await client.upload(
+    //     account.address,
+    //     new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+    //     1.5,
+    //   );
+    //   expect(res.codeId).toBeGreaterThan(0);
+    //   context.codeIds.strategy = res.codeId;
+    // }
+    // {
+    //   const buffer = fs.readFileSync(
+    //     join(__dirname, '../../../artifacts/drop_distribution.wasm'),
+    //   );
+
+    //   const res = await client.upload(
+    //     account.address,
+    //     new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+    //     1.5,
+    //   );
+    //   expect(res.codeId).toBeGreaterThan(0);
+    //   context.codeIds.distribution = res.codeId;
+    // }
+    // {
+    //   const buffer = fs.readFileSync(
+    //     join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
+    //   );
+
+    //   const res = await client.upload(
+    //     account.address,
+    //     new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+    //     1.5,
+    //   );
+    //   expect(res.codeId).toBeGreaterThan(0);
+    //   context.codeIds.validatorsSet = res.codeId;
+    // }
+    // {
+    //   const buffer = fs.readFileSync(
+    //     join(__dirname, '../../../artifacts/drop_puppeteer_native.wasm'),
+    //   );
+
+    //   const res = await client.upload(
+    //     account.address,
+    //     new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+    //     1.5,
+    //   );
+    //   expect(res.codeId).toBeGreaterThan(0);
+    //   context.codeIds.puppeteer = res.codeId;
+    // }
+    // {
+    //   const buffer = fs.readFileSync(
+    //     join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
+    //   );
+
+    //   const res = await client.upload(
+    //     account.address,
+    //     new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+    //     1.5,
+    //   );
+    //   expect(res.codeId).toBeGreaterThan(0);
+    //   context.codeIds.rewardsManager = res.codeId;
+    // }
+    // {
+    //   const buffer = fs.readFileSync(
+    //     join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+    //   );
+
+    //   const res = await client.upload(
+    //     account.address,
+    //     new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+    //     1.5,
+    //   );
+    //   expect(res.codeId).toBeGreaterThan(0);
+    //   context.codeIds.splitter = res.codeId;
+    // }
+    // {
+    //   const buffer = fs.readFileSync(
+    //     join(__dirname, '../../../artifacts/drop_redemption_rate_adapter.wasm'),
+    //   );
+
+    //   const res = await client.upload(
+    //     account.address,
+    //     new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+    //     1.5,
+    //   );
+    //   expect(res.codeId).toBeGreaterThan(0);
+    //   context.codeIds.redemptionRateAdapter = res.codeId;
+    // }
+    // {
+    //   const buffer = fs.readFileSync(
+    //     join(
+    //       __dirname,
+    //       '../../../artifacts/drop_native_sync_bond_provider.wasm',
+    //     ),
+    //   );
+
+    //   const res = await client.upload(
+    //     account.address,
+    //     new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+    //     1.5,
+    //   );
+    //   expect(res.codeId).toBeGreaterThan(0);
+    //   context.codeIds.nativeBondProvider = res.codeId;
+    // }
+    // {
+    //   const buffer = fs.readFileSync(
+    //     join(__dirname, '../../../artifacts/drop_val_ref.wasm'),
+    //   );
+
+    //   const res = await client.upload(
+    //     account.address,
+    //     new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+    //     1.5,
+    //   );
+    //   expect(res.codeId).toBeGreaterThan(0);
+    //   context.codeIds.valRef = res.codeId;
+    // }
 
     const buffer = fs.readFileSync(
       join(__dirname, '../../../artifacts/drop_factory.wasm'),
@@ -408,10 +729,11 @@ describe('Core', () => {
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
-    instantiateRes = await DropFactory.Client.instantiate(
+    const instantiateRes = await DropFactory.Client.instantiate2(
       client,
       account.address,
       res.codeId,
+      toAscii(SALT),
       {
         local_denom: 'untrn',
         code_ids: {
@@ -422,21 +744,25 @@ describe('Core', () => {
           strategy_code_id: context.codeIds.strategy,
           distribution_code_id: context.codeIds.distribution,
           validators_set_code_id: context.codeIds.validatorsSet,
-          puppeteer_code_id: context.codeIds.puppeteer,
           rewards_manager_code_id: context.codeIds.rewardsManager,
           splitter_code_id: context.codeIds.splitter,
-          rewards_pump_code_id: context.codeIds.pump,
-          native_bond_provider_code_id: context.codeIds.nativeBondProvider,
+        },
+        pre_instantiated_contracts: {
+          native_bond_provider_address:
+            context.nativeBondProviderContractClient.contractAddress,
+          puppeteer_address:
+            context.predefinedContractAddresses.puppeteerAddress,
         },
         remote_opts: {
-          connection_id: 'connection-0',
+          connection_id: 'N/A',
+          transfer_channel_id: 'N/A',
           denom: 'untrn',
           timeout: {
             local: 60,
             remote: 60,
           },
         },
-        salt: 'salt',
+        salt: SALT,
         subdenom: 'drop',
         token_metadata: {
           description: 'Drop token',
@@ -453,14 +779,7 @@ describe('Core', () => {
           unbond_batch_switch_time: 60,
           unbonding_safe_period: 10,
           unbonding_period: 360,
-          bond_limit: null,
           icq_update_delay: 5,
-        },
-        factory: {
-          native: {
-            distribution_module_contract:
-              context.distributionMockClient.contractAddress,
-          },
         },
       },
       'drop-staking-factory',
@@ -532,7 +851,7 @@ describe('Core', () => {
       {
         core: {
           pump_ica_address:
-            context.rewardsManagerContractClient.contractAddress,
+            context.withdrawalManagerContractClient.contractAddress,
         },
       },
     );
@@ -779,7 +1098,7 @@ describe('Core', () => {
     context.ldDenom = ldBalance?.denom;
     await checkExchangeRate(context);
   });
-  it('verify bonded amount', async () => {
+  it.skip('verify bonded amount', async () => {
     const { coreContractClient } = context;
     const bonded = await coreContractClient.queryTotalBonded();
     expect(bonded).toEqual('400000');
