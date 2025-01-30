@@ -38,6 +38,9 @@ pub enum ExecuteMsg {
     UpdateConfig {
         new_config: ConfigOptional,
     },
+    RegisterBalanceAndDelegatorDelegationsQuery {
+        validators: Vec<String>,
+    },
 }
 
 #[cw_serde]
@@ -62,7 +65,6 @@ pub struct BalancesResponse {
     pub timestamp: Timestamp,
 }
 
-#[cw_ownable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryExtMsg {
@@ -76,6 +78,7 @@ pub enum QueryExtMsg {
     UnbondingDelegations {},
 }
 
+#[cw_ownable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {

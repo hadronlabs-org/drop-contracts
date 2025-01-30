@@ -1,12 +1,11 @@
 use cosmwasm_std::{attr, ensure, to_json_binary, Attribute, CosmosMsg, Deps, Order, WasmMsg};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw_ownable::{get_ownership, update_ownership};
-use drop_helpers::answer::response;
-use drop_helpers::pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse};
+use drop_helpers::{answer::response, is_paused};
 use drop_staking_base::error::rewards_manager::{ContractError, ContractResult};
 use drop_staking_base::msg::reward_handler::HandlerExecuteMsg;
 use drop_staking_base::msg::rewards_manager::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
-use drop_staking_base::state::rewards_manager::{HandlerConfig, REWARDS_HANDLERS};
+use drop_staking_base::state::rewards_manager::{HandlerConfig, Pause, PAUSE, REWARDS_HANDLERS};
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
@@ -22,7 +21,7 @@ pub fn instantiate(
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let owner = deps.api.addr_validate(&msg.owner)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(owner.as_ref()))?;
-
+    PAUSE.save(deps.storage, &Pause::default())?;
     Ok(response(
         "instantiate",
         CONTRACT_NAME,
@@ -35,15 +34,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Ownership {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
         QueryMsg::Handlers {} => query_handlers(deps, env),
-        QueryMsg::PauseInfo {} => query_pause_info(deps),
-    }
-}
-
-fn query_pause_info(deps: Deps) -> StdResult<Binary> {
-    if is_paused(deps.storage)? {
-        to_json_binary(&PauseInfoResponse::Paused {})
-    } else {
-        to_json_binary(&PauseInfoResponse::Unpaused {})
+        QueryMsg::Pause {} => Ok(to_json_binary(&PAUSE.load(deps.storage)?)?),
     }
 }
 
@@ -70,39 +61,22 @@ pub fn execute(
             update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
             Ok(Response::new())
         }
-        ExecuteMsg::AddHandler { config } => exec_add_handler(deps, info, config),
-        ExecuteMsg::RemoveHandler { denom } => exec_remove_handler(deps, info, denom),
-        ExecuteMsg::ExchangeRewards { denoms } => exec_exchange_rewards(deps, env, info, denoms),
-        ExecuteMsg::Pause {} => exec_pause(deps, info),
-        ExecuteMsg::Unpause {} => exec_unpause(deps, info),
+        ExecuteMsg::AddHandler { config } => execute_add_handler(deps, info, config),
+        ExecuteMsg::RemoveHandler { denom } => execute_remove_handler(deps, info, denom),
+        ExecuteMsg::ExchangeRewards { denoms } => execute_exchange_rewards(deps, env, info, denoms),
+        ExecuteMsg::SetPause { pause } => execute_set_pause(deps, info, pause),
     }
 }
 
-fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response> {
+fn execute_set_pause(deps: DepsMut, info: MessageInfo, pause: Pause) -> ContractResult<Response> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-
-    set_pause(deps.storage)?;
-
-    Ok(response(
-        "exec_pause",
-        CONTRACT_NAME,
-        Vec::<Attribute>::new(),
-    ))
+    pause.exchange_rewards.validate()?;
+    PAUSE.save(deps.storage, &pause)?;
+    let attrs = vec![("exchange_rewards", pause.exchange_rewards.to_string())];
+    Ok(response("execute-set-pause", CONTRACT_NAME, attrs))
 }
 
-fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-
-    unpause(deps.storage);
-
-    Ok(response(
-        "exec_unpause",
-        CONTRACT_NAME,
-        Vec::<Attribute>::new(),
-    ))
-}
-
-fn exec_add_handler(
+fn execute_add_handler(
     deps: DepsMut,
     info: MessageInfo,
     config: HandlerConfig,
@@ -126,7 +100,7 @@ fn exec_add_handler(
     ))
 }
 
-fn exec_remove_handler(
+fn execute_remove_handler(
     deps: DepsMut,
     info: MessageInfo,
     denom: String,
@@ -142,13 +116,15 @@ fn exec_remove_handler(
     ))
 }
 
-fn exec_exchange_rewards(
+fn execute_exchange_rewards(
     deps: DepsMut,
     env: Env,
     _info: MessageInfo,
     denoms: Vec<String>,
 ) -> ContractResult<Response> {
-    pause_guard(deps.storage)?;
+    if is_paused!(PAUSE, deps, env, exchange_rewards) {
+        return Err(drop_helpers::pause::PauseError::Paused {}.into());
+    }
 
     let mut messages: Vec<CosmosMsg> = Vec::new();
     let mut attrs: Vec<Attribute> = Vec::new();
@@ -203,6 +179,8 @@ pub fn migrate(
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+        deps.storage.remove("paused".as_bytes());
+        PAUSE.save(deps.storage, &Pause::default())?;
     }
 
     Ok(Response::new())

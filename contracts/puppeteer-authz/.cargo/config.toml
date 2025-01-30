@@ -1,2 +1,0 @@
-[alias]
-schema = "run --bin drop-puppeteer-authz-schema"

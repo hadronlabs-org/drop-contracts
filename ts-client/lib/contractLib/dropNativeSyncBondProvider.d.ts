@@ -16,6 +16,7 @@ import { StdFee } from "@cosmjs/amino";
 export type Uint128 = string;
 export type Boolean = boolean;
 export type Boolean1 = boolean;
+export type Boolean2 = boolean;
 /**
  * A human readable address.
  *
@@ -183,7 +184,7 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropNativeSyncBondProviderSchema {
-    responses: Uint128 | Boolean | Boolean1 | Config | LastPuppeteerResponse | Uint1282 | OwnershipForString | Decimal | TxState;
+    responses: Uint128 | Boolean | Boolean1 | Boolean2 | Config | LastPuppeteerResponse | Uint1282 | OwnershipForString | Decimal | TxState;
     query: CanBondArgs | TokensAmountArgs;
     execute: UpdateConfigArgs | PeripheralHookArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
@@ -272,8 +273,8 @@ export declare class Client {
     contractAddress: string;
     constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string);
     mustBeSigningClient(): Error;
-    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
-    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
+    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
+    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: Uint8Array, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
     queryConfig: () => Promise<Config>;
     queryNonStakedBalance: () => Promise<Uint128>;
     queryTxState: () => Promise<TxState>;
@@ -282,10 +283,26 @@ export declare class Client {
     queryCanProcessOnIdle: () => Promise<Boolean>;
     queryTokensAmount: (args: TokensAmountArgs) => Promise<Decimal>;
     queryAsyncTokensAmount: () => Promise<Uint128>;
+    queryCanBeRemoved: () => Promise<Boolean>;
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateConfigMsg: (args: UpdateConfigArgs) => {
+        update_config: UpdateConfigArgs;
+    };
     peripheralHook: (sender: string, args: PeripheralHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    peripheralHookMsg: (args: PeripheralHookArgs) => {
+        peripheral_hook: PeripheralHookArgs;
+    };
     bond: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    bondMsg: () => {
+        bond: {};
+    };
     processOnIdle: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    processOnIdleMsg: () => {
+        process_on_idle: {};
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
 }

@@ -39,6 +39,7 @@
     "@cosmjs/cosmwasm-stargate": "^0.32.4",
     "@cosmjs/proto-signing": "^0.32.4",
     "@cosmjs/stargate": "^0.32.4",
+    "@cosmjs/encoding": "^0.32.4",
     "@cosmjs/tendermint-rpc": "^0.32.4",
     "@initia/initia.js": "^0.2.16",
     "@neutron-org/client-ts": "^1.4.0",

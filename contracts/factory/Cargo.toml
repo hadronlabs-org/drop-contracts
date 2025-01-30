@@ -36,5 +36,13 @@ neutron-sdk = { workspace = true }
 cw-ownable = { workspace = true }
 semver = { workspace = true }
 
+drop-native-bond-provider = { path = "../native-bond-provider", default-features = false, features = ["library"] }
+drop-native-sync-bond-provider = { path = "../native-sync-bond-provider", default-features = false, features = ["library"] }
+drop-lsm-share-bond-provider = { path = "../lsm-share-bond-provider", default-features = false, features = ["library"] }
+drop-puppeteer = { path = "../puppeteer", default-features = false, features = ["library"] }
+drop-puppeteer-native = { path = "../puppeteer-native", default-features = false, features = ["library"] }
+drop-puppeteer-initia = { path = "../puppeteer-initia", default-features = false, features = ["library"] }
+drop-pump = { path = "../pump", default-features = false, features = ["library"] }
+
 [dev-dependencies]
 cw-multi-test = { workspace = true }

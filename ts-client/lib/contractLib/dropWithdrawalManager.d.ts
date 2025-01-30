@@ -70,8 +70,7 @@ export interface DropWithdrawalManagerSchema {
 }
 export interface Config {
     base_denom: string;
-    core_contract: Addr;
-    withdrawal_voucher_contract: Addr;
+    factory_contract: Addr;
 }
 /**
  * The contract's ownership info
@@ -92,8 +91,7 @@ export interface OwnershipForString {
 }
 export interface UpdateConfigArgs {
     base_denom?: string | null;
-    core_contract?: string | null;
-    voucher_contract?: string | null;
+    factory_contract?: string | null;
 }
 /**
  * Cw721ReceiveMsg should be de/serialized under `Receive()` variant in a ExecuteMsg
@@ -109,23 +107,37 @@ export interface ReceiveNftArgs {
 }
 export interface InstantiateMsg {
     base_denom: string;
-    core_contract: string;
+    factory_contract: string;
     owner: string;
-    voucher_contract: string;
 }
 export declare class Client {
     private readonly client;
     contractAddress: string;
     constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string);
     mustBeSigningClient(): Error;
-    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
-    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
+    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
+    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: Uint8Array, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
     queryConfig: () => Promise<Config>;
     queryOwnership: () => Promise<OwnershipForString>;
     queryPauseInfo: () => Promise<PauseInfoResponse>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateConfigMsg: (args: UpdateConfigArgs) => {
+        update_config: UpdateConfigArgs;
+    };
     receiveNft: (sender: string, args: ReceiveNftArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    receiveNftMsg: (args: ReceiveNftArgs) => {
+        receive_nft: ReceiveNftArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
     pause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    pauseMsg: () => {
+        pause: {};
+    };
     unpause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    unpauseMsg: () => {
+        unpause: {};
+    };
 }

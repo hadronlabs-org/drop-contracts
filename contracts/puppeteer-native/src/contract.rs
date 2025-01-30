@@ -32,7 +32,7 @@ use neutron_sdk::{
 use prost::Message;
 use std::{env, vec};
 
-const CONTRACT_NAME: &str = concat!("crates.io:drop-neutron-contracts__", env!("CARGO_PKG_NAME"));
+pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
@@ -90,13 +90,13 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
             //     query_non_native_rewards_balances(deps, env)
             // }
             QueryExtMsg::UnbondingDelegations {} => query_unbonding_delegations(deps, env),
-            QueryExtMsg::Ownership {} => {
-                let owner = cw_ownable::get_ownership(deps.storage)?;
-                to_json_binary(&owner).map_err(ContractError::Std)
-            }
         },
         QueryMsg::Config {} => query_config(deps),
         QueryMsg::Transactions {} => query_transactions(),
+        QueryMsg::Ownership {} => {
+            let owner = cw_ownable::get_ownership(deps.storage)?;
+            to_json_binary(&owner).map_err(ContractError::Std)
+        }
     }
 }
 
@@ -275,6 +275,9 @@ pub fn execute(
         ExecuteMsg::SetupProtocol {
             rewards_withdraw_address,
         } => execute_setup_protocol(deps, env, info, rewards_withdraw_address),
+        ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: _ } => {
+            Ok(Response::default())
+        }
     }
 }
 

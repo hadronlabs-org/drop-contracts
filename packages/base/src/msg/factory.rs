@@ -1,14 +1,14 @@
-use crate::state::{CodeIds, FactoryType, RemoteCodeIds, RemoteOpts};
+use crate::msg::token::DenomMetadata;
+use crate::state::factory::{CodeIds, PreInstantiatedContracts, RemoteOpts};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{CosmosMsg, Decimal, Uint128};
 use cw_ownable::cw_ownable_execute;
-use drop_macros::pausable;
-use drop_staking_base::msg::token::DenomMetadata;
 use neutron_sdk::bindings::msg::NeutronMsg;
 
 #[cw_serde]
 pub struct InstantiateMsg {
     pub code_ids: CodeIds,
+    pub pre_instantiated_contracts: PreInstantiatedContracts,
     pub remote_opts: RemoteOpts,
     pub salt: String,
     pub subdenom: String,
@@ -17,34 +17,6 @@ pub struct InstantiateMsg {
     pub local_denom: String,
     pub core_params: CoreParams,
     pub fee_params: Option<FeeParams>,
-    pub factory: Factory,
-}
-
-#[cw_serde]
-pub enum Factory {
-    Native {
-        distribution_module_contract: String,
-    },
-    Remote {
-        sdk_version: String,
-        code_ids: RemoteCodeIds,
-        lsm_share_bond_params: LsmShareBondParams,
-        icq_update_period: u64,
-        transfer_channel_id: String,
-        reverse_transfer_channel_id: String,
-        min_stake_amount: Uint128,
-        min_ibc_transfer: Uint128,
-        port_id: String,
-    },
-}
-
-impl Factory {
-    pub fn to_factory_type(&self) -> FactoryType {
-        match self {
-            Factory::Native { .. } => FactoryType::Native {},
-            Factory::Remote { .. } => FactoryType::Remote {},
-        }
-    }
 }
 
 #[cw_serde]
@@ -59,7 +31,6 @@ pub struct CoreParams {
     pub unbonding_period: u64,
     pub unbonding_safe_period: u64,
     pub unbond_batch_switch_time: u64,
-    pub bond_limit: Option<Uint128>,
     pub icq_update_delay: u64, // blocks
 }
 
@@ -72,8 +43,8 @@ pub struct LsmShareBondParams {
 
 #[cw_serde]
 pub enum UpdateConfigMsg {
-    Core(Box<drop_staking_base::state::core::ConfigOptional>),
-    ValidatorsSet(drop_staking_base::state::validatorset::ConfigOptional),
+    Core(Box<crate::state::core::ConfigOptional>),
+    ValidatorsSet(crate::state::validatorset::ConfigOptional),
 }
 
 #[cw_serde]
@@ -84,12 +55,18 @@ pub enum ProxyMsg {
 #[cw_serde]
 pub enum ValidatorSetMsg {
     UpdateValidators {
-        validators: Vec<drop_staking_base::msg::validatorset::ValidatorData>,
+        validators: Vec<crate::msg::validatorset::ValidatorData>,
     },
 }
 
+#[cw_serde]
+pub enum PauseType {
+    Core {},
+    WithdrawManager {},
+    RewardsManager {},
+}
+
 #[cw_ownable_execute]
-#[pausable]
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig(Box<UpdateConfigMsg>),
@@ -103,8 +80,11 @@ pub struct MigrateMsg {}
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(crate::state::State)]
+    #[returns(std::collections::HashMap<String, String>)]
     State {},
-    #[returns(crate::state::PauseInfoResponse)]
-    PauseInfo {},
 }
+
+#[cw_ownable::cw_ownable_query]
+#[cw_serde]
+#[derive(QueryResponses)]
+pub enum OwnerQueryMsg {}
