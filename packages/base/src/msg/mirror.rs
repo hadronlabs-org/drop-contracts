@@ -1,4 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::Coin;
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 
 #[cw_serde]
@@ -17,25 +18,19 @@ pub enum ExecuteMsg {
     Bond {
         receiver: String,
         r#ref: Option<String>,
-        backup: Option<String>,
     },
     UpdateConfig {
         new_config: crate::state::mirror::ConfigOptional,
     },
-    Complete {
-        items: Vec<u64>,
-    },
-    ChangeReturnType {
-        id: u64,
-        return_type: crate::state::mirror::ReturnType,
-    },
-    // by admin
-    UpdateBond {
-        id: u64,
+    Retry {
         receiver: String,
-        backup: Option<String>,
-        return_type: crate::state::mirror::ReturnType,
     },
+}
+
+#[cw_serde]
+pub struct FailedReceiverResponse {
+    pub receiver: String,
+    pub amount: Vec<Coin>,
 }
 
 #[cw_ownable_query]
@@ -45,14 +40,11 @@ pub enum QueryMsg {
     #[returns(crate::state::mirror::Config)]
     Config {},
 
-    #[returns(crate::state::mirror::BondItem)]
-    One { id: u64 },
+    #[returns(Option<FailedReceiverResponse>)]
+    FailedReceiver { receiver: String },
 
-    #[returns(Vec<(u64, crate::state::mirror::BondItem)>)]
-    All {
-        start_after: Option<u64>,
-        limit: Option<u32>,
-    },
+    #[returns(Vec<(String, cosmwasm_std::Uint128)>)]
+    AllFailed {},
 }
 
 #[cw_serde]
