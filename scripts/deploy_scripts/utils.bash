@@ -317,17 +317,12 @@ deploy_pump() {
 
 deploy_native_bond_provider() {
   local factory_address="$1"
-  local core_contract="$2"
-  local puppeteer_address="$3"
-  local strategy_address="$4"
 
 
   msg='{
     "owner":"'"$factory_address"'",
     "base_denom":"'"$uatom_on_neutron_denom"'",
-    "puppeteer_contract":"'"$puppeteer_address"'",
-    "core_contract":"'"$core_contract"'",
-    "strategy_contract":"'"$strategy_address"'",
+    "factory_contract":"'"$factory_contract"'",
     "min_stake_amount":"'"$STAKER_PARAMS_MIN_STAKE_AMOUNT"'",
     "min_ibc_transfer":"'"$STAKER_PARAMS_MIN_IBC_TRANSFER"'",
     "port_id":"'"$NEUTRON_SIDE_PORT_ID"'",
@@ -345,25 +340,11 @@ deploy_native_bond_provider() {
 
 deploy_native_sync_bond_provider() {
   local factory_address="$1"
-  local core_contract="$2"
-  local puppeteer_address="$3"
-  local strategy_address="$4"
-
-  echo "deploy_native_sync_bond_provider is not implemented"
-  exit 1
 
 
   msg='{
     "owner":"'"$factory_address"'",
-    "base_denom":"'"$uatom_on_neutron_denom"'",
-    "puppeteer_contract":"'"$puppeteer_address"'",
-    "core_contract":"'"$core_contract"'",
-    "strategy_contract":"'"$strategy_address"'",
-    "min_stake_amount":"'"$STAKER_PARAMS_MIN_STAKE_AMOUNT"'",
-    "min_ibc_transfer":"'"$STAKER_PARAMS_MIN_IBC_TRANSFER"'",
-    "port_id":"'"$NEUTRON_SIDE_PORT_ID"'",
-    "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
-    "timeout":'$TIMEOUT_LOCAL'
+    "factory_contract":"'"$factory_address"'"
   }'
 
   # native bond provider code ID is assigned using dynamic variable name, shellcheck's mind cannot comprehend that
@@ -376,19 +357,14 @@ deploy_native_sync_bond_provider() {
 
 deploy_lsm_share_bond_provider() {
   local factory_address="$1"
-  local core_contract="$2"
-  local puppeteer_address="$3"
-  local validators_set_address="$4"
 
 
   msg='{
     "owner":"'"$factory_address"'",
-    "puppeteer_contract":"'"$puppeteer_address"'",
-    "core_contract":"'"$core_contract"'",
+    "factory_contract":"'"$factory_address"'",
     "port_id":"'"$NEUTRON_SIDE_PORT_ID"'",
     "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
     "timeout":'$TIMEOUT_LOCAL',
-    "validators_set_contract":"'"$validators_set_address"'",
     "lsm_min_bond_amount":"'"$CORE_PARAMS_LSM_MIN_BOND_AMOUNT"'",
     "lsm_redeem_threshold":'$CORE_PARAMS_LSM_REDEEM_THRESHOLD',
     "lsm_redeem_maximum_interval":'$CORE_PARAMS_LSM_REDEEM_MAX_INTERVAL'
@@ -411,12 +387,6 @@ deploy_puppeteer() {
 
 
   msg='{
-    "allowed_senders": [
-      "'"$lsm_share_bond_provider_address"'",
-      "'"$native_bond_provider_address"'",
-      "'"$core_contract"'",
-      "'"$factory_address"'"
-    ],
     "allowed_senders":'"$allowed_senders"',
     "owner":"'"$factory_address"'",
     "remote_denom":"'"$TARGET_BASE_DENOM"'",
@@ -435,6 +405,28 @@ deploy_puppeteer() {
   # shellcheck disable=SC2154
   puppeteer_address="$(neutrond tx wasm instantiate2 "$puppeteer_code_id" "$msg" "$salt_hex"  \
     --label "drop-puppeteer" --admin "$factory_address" --from "$DEPLOY_WALLET" "${ntx[@]}" \
+      | wait_ntx | jq -r "$(select_attr "instantiate" "_contract_address")")"
+  echo "$puppeteer_address"
+}
+
+deploy_puppeteer_native() {
+  local factory_address="$1"
+  local distribution_module_contract="$2"
+  local allowed_senders="$3"
+
+
+  msg='{
+    "allowed_senders":'"$allowed_senders"',
+    "owner":"'"$factory_address"'",
+    "distribution_module_contract":"'"$distribution_module_contract"'"
+  }'
+
+  local salt_hex="$(echo -n "$SALT" | xxd -p)"
+
+  # native bond provider code ID is assigned using dynamic variable name, shellcheck's mind cannot comprehend that
+  # shellcheck disable=SC2154
+  puppeteer_address="$(neutrond tx wasm instantiate2 "$puppeteer_code_id" "$msg" "$salt_hex"  \
+    --label "drop-puppeteer-native" --admin "$factory_address" --from "$DEPLOY_WALLET" "${ntx[@]}" \
       | wait_ntx | jq -r "$(select_attr "instantiate" "_contract_address")")"
   echo "$puppeteer_address"
 }

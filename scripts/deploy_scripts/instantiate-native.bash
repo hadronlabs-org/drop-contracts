@@ -76,7 +76,7 @@ main() {
     "'"$core_contract_address"'",
     "'"$factory_contract_address"'"
   ]'
-  deployed_puppeteer_contract_address=$(deploy_puppeteer "$factory_contract_address" "$native_sync_bond_provider_contract_address" "$allowed_senders")
+  deployed_puppeteer_contract_address=$(deploy_puppeteer_native "$factory_contract_address" "$distribution_module_contract" "$allowed_senders")
   echo "[OK] Deployed puppeteer address: $deployed_puppeteer_contract_address"
 
   
