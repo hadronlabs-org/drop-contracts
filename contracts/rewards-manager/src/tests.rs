@@ -21,10 +21,11 @@ fn instantiate_contract(
     contract: fn() -> Box<dyn Contract<Empty>>,
     label: String,
 ) -> Addr {
+    let deps = mock_dependencies();
     let contract_id = app.store_code(contract());
     app.instantiate_contract(
         contract_id,
-        Addr::unchecked(OWNER_ADDR),
+        deps.api.addr_make(OWNER_ADDR),
         &Empty {},
         &[],
         label,
@@ -89,12 +90,12 @@ fn instantiate_rewards_manager_contract(app: &mut App, id: u64, msg: Instantiate
     .unwrap()
 }
 
-fn mock_app() -> App {
+fn mock_app(sender_addr: Addr) -> App {
     custom_app(|r, _a, s| {
         r.bank
             .init_balance(
                 s,
-                &Addr::unchecked(SENDER_ADDR),
+                &sender_addr,
                 vec![
                     Coin {
                         denom: "untrn".to_string(),
@@ -114,10 +115,10 @@ fn mock_app() -> App {
 fn test_initialization() {
     let mut deps = mock_dependencies();
     let msg = InstantiateMsg {
-        owner: OWNER_ADDR.to_string(),
+        owner: deps.api.addr_make(OWNER_ADDR).to_string(),
     };
 
-    let info = message_info(&Addr::unchecked(OWNER_ADDR), &[]);
+    let info = message_info(&deps.api.addr_make(OWNER_ADDR), &[]);
     let res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
 
     assert_eq!(
@@ -126,7 +127,7 @@ fn test_initialization() {
             Event::new("crates.io:drop-staking__drop-rewards-manager-instantiate".to_string())
                 .add_attributes(vec![Attribute::new(
                     "owner".to_string(),
-                    OWNER_ADDR.to_string()
+                    deps.api.addr_make(OWNER_ADDR).to_string()
                 ),])
         ]
     );
@@ -134,7 +135,10 @@ fn test_initialization() {
 
 #[test]
 fn test_handlers_query() {
-    let mut app = mock_app();
+    let deps = mock_dependencies();
+    let sender_address = deps.api.addr_make(SENDER_ADDR);
+
+    let mut app = mock_app(sender_address);
 
     let rewards_manager_code_id = app.store_code(rewards_manager_contract());
 
@@ -142,7 +146,7 @@ fn test_handlers_query() {
         &mut app,
         rewards_manager_code_id,
         InstantiateMsg {
-            owner: OWNER_ADDR.to_string(),
+            owner: deps.api.addr_make(OWNER_ADDR).to_string(),
         },
     );
 
@@ -156,7 +160,10 @@ fn test_handlers_query() {
 
 #[test]
 fn test_pause_query() {
-    let mut app = mock_app();
+    let deps = mock_dependencies();
+    let sender_address = deps.api.addr_make(SENDER_ADDR);
+
+    let mut app = mock_app(sender_address);
 
     let rewards_manager_code_id = app.store_code(rewards_manager_contract());
 
@@ -164,7 +171,7 @@ fn test_pause_query() {
         &mut app,
         rewards_manager_code_id,
         InstantiateMsg {
-            owner: OWNER_ADDR.to_string(),
+            owner: deps.api.addr_make(OWNER_ADDR).to_string(),
         },
     );
 
@@ -178,7 +185,10 @@ fn test_pause_query() {
 
 #[test]
 fn test_pause_handler_not_owner_error() {
-    let mut app = mock_app();
+    let deps = mock_dependencies();
+    let sender_address = deps.api.addr_make(SENDER_ADDR);
+
+    let mut app = mock_app(sender_address);
 
     let rewards_manager_code_id = app.store_code(rewards_manager_contract());
 
@@ -186,13 +196,13 @@ fn test_pause_handler_not_owner_error() {
         &mut app,
         rewards_manager_code_id,
         InstantiateMsg {
-            owner: OWNER_ADDR.to_string(),
+            owner: deps.api.addr_make(OWNER_ADDR).to_string(),
         },
     );
 
     let error = app
         .execute_contract(
-            Addr::unchecked("WrongOwner"),
+            deps.api.addr_make("WrongOwner"),
             rewards_manager_contract.clone(),
             &ExecuteMsg::Pause {},
             &[],
@@ -209,7 +219,10 @@ fn test_pause_handler_not_owner_error() {
 
 #[test]
 fn test_pause_handler() {
-    let mut app = mock_app();
+    let deps = mock_dependencies();
+    let sender_address = deps.api.addr_make(SENDER_ADDR);
+
+    let mut app = mock_app(sender_address);
 
     let rewards_manager_code_id = app.store_code(rewards_manager_contract());
 
@@ -217,13 +230,13 @@ fn test_pause_handler() {
         &mut app,
         rewards_manager_code_id,
         InstantiateMsg {
-            owner: OWNER_ADDR.to_string(),
+            owner: deps.api.addr_make(OWNER_ADDR).to_string(),
         },
     );
 
     let res = app
         .execute_contract(
-            Addr::unchecked(OWNER_ADDR),
+            deps.api.addr_make(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::Pause {},
             &[],
@@ -246,7 +259,7 @@ fn test_pause_handler() {
 
     let _res = app
         .execute_contract(
-            Addr::unchecked(OWNER_ADDR),
+            deps.api.addr_make(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::Unpause {},
             &[],
@@ -263,7 +276,10 @@ fn test_pause_handler() {
 
 #[test]
 fn test_paused_error() {
-    let mut app = mock_app();
+    let deps = mock_dependencies();
+    let sender_address = deps.api.addr_make(SENDER_ADDR);
+
+    let mut app = mock_app(sender_address);
 
     let rewards_manager_code_id = app.store_code(rewards_manager_contract());
 
@@ -271,13 +287,13 @@ fn test_paused_error() {
         &mut app,
         rewards_manager_code_id,
         InstantiateMsg {
-            owner: OWNER_ADDR.to_string(),
+            owner: deps.api.addr_make(OWNER_ADDR).to_string(),
         },
     );
 
     let _res = app
         .execute_contract(
-            Addr::unchecked(OWNER_ADDR),
+            deps.api.addr_make(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::Pause {},
             &[],
@@ -293,7 +309,7 @@ fn test_paused_error() {
 
     let unwrapped_err = app
         .execute_contract(
-            Addr::unchecked(OWNER_ADDR),
+            deps.api.addr_make(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::ExchangeRewards {
                 denoms: vec!["ueth".to_string()],
@@ -308,7 +324,10 @@ fn test_paused_error() {
 
 #[test]
 fn test_add_remove_handler() {
-    let mut app = mock_app();
+    let deps = mock_dependencies();
+    let sender_address = deps.api.addr_make(SENDER_ADDR);
+
+    let mut app = mock_app(sender_address);
 
     let handler_contract = instantiate_handler_contract(&mut app);
 
@@ -318,7 +337,7 @@ fn test_add_remove_handler() {
         &mut app,
         rewards_manager_code_id,
         InstantiateMsg {
-            owner: OWNER_ADDR.to_string(),
+            owner: deps.api.addr_make(OWNER_ADDR).to_string(),
         },
     );
 
@@ -330,7 +349,7 @@ fn test_add_remove_handler() {
 
     let res = app
         .execute_contract(
-            Addr::unchecked(OWNER_ADDR),
+            deps.api.addr_make(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::AddHandler {
                 config: handler_config.clone(),
@@ -375,7 +394,7 @@ fn test_add_remove_handler() {
     );
 
     let res = app.execute_contract(
-        Addr::unchecked(OWNER_ADDR),
+        deps.api.addr_make(OWNER_ADDR),
         rewards_manager_contract.clone(),
         &ExecuteMsg::AddHandler {
             config: handler_config.clone(),
@@ -390,7 +409,7 @@ fn test_add_remove_handler() {
 
     let res = app
         .execute_contract(
-            Addr::unchecked(OWNER_ADDR),
+            deps.api.addr_make(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::RemoveHandler {
                 denom: handler_config.denom.clone(),
@@ -426,9 +445,10 @@ fn test_add_remove_handler() {
 
 #[test]
 fn test_handler_call() {
-    let mut app = mock_app();
+    let deps = mock_dependencies();
+    let sender_address = deps.api.addr_make(SENDER_ADDR);
 
-    let sender_address = Addr::unchecked(SENDER_ADDR);
+    let mut app = mock_app(sender_address.clone());
 
     let handler_contract = instantiate_handler_contract(&mut app);
 
@@ -438,13 +458,13 @@ fn test_handler_call() {
         &mut app,
         rewards_manager_code_id,
         InstantiateMsg {
-            owner: OWNER_ADDR.to_string(),
+            owner: deps.api.addr_make(OWNER_ADDR).to_string(),
         },
     );
 
     let amount = coins(100, "ueth");
     let _ = app
-        .send_tokens(sender_address, rewards_manager_contract.clone(), &amount)
+        .send_tokens(sender_address.clone(), rewards_manager_contract.clone(), &amount)
         .unwrap();
 
     let handler_config = HandlerConfig {
@@ -455,7 +475,7 @@ fn test_handler_call() {
 
     let _res = app
         .execute_contract(
-            Addr::unchecked(OWNER_ADDR),
+            deps.api.addr_make(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::AddHandler {
                 config: handler_config.clone(),
@@ -466,7 +486,7 @@ fn test_handler_call() {
 
     let res = app
         .execute_contract(
-            Addr::unchecked(OWNER_ADDR),
+            deps.api.addr_make(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::ExchangeRewards {
                 denoms: vec!["ueth".to_string()],
@@ -492,9 +512,10 @@ fn test_handler_call() {
 
 #[test]
 fn test_empty_denoms_list() {
-    let mut app = mock_app();
+    let deps = mock_dependencies();
+    let sender_address = deps.api.addr_make(SENDER_ADDR);
 
-    let sender_address = Addr::unchecked(SENDER_ADDR);
+    let mut app = mock_app(sender_address.clone());
 
     let handler_contract = instantiate_handler_contract(&mut app);
 
@@ -504,13 +525,13 @@ fn test_empty_denoms_list() {
         &mut app,
         rewards_manager_code_id,
         InstantiateMsg {
-            owner: OWNER_ADDR.to_string(),
+            owner: deps.api.addr_make(OWNER_ADDR).to_string(),
         },
     );
 
     let amount = coins(100, "ueth");
     let _ = app
-        .send_tokens(sender_address, rewards_manager_contract.clone(), &amount)
+        .send_tokens(sender_address.clone(), rewards_manager_contract.clone(), &amount)
         .unwrap();
 
     let handler_config = HandlerConfig {
@@ -521,7 +542,7 @@ fn test_empty_denoms_list() {
 
     let _res = app
         .execute_contract(
-            Addr::unchecked(OWNER_ADDR),
+            deps.api.addr_make(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::AddHandler {
                 config: handler_config.clone(),
@@ -531,7 +552,7 @@ fn test_empty_denoms_list() {
         .unwrap();
 
     let res = app.execute_contract(
-        Addr::unchecked(OWNER_ADDR),
+        deps.api.addr_make(OWNER_ADDR),
         rewards_manager_contract.clone(),
         &ExecuteMsg::ExchangeRewards { denoms: vec![] },
         &[],
@@ -547,9 +568,10 @@ fn test_empty_denoms_list() {
 
 #[test]
 fn test_two_handlers_call() {
-    let mut app = mock_app();
+    let deps = mock_dependencies();
+    let sender_address = deps.api.addr_make(SENDER_ADDR);
 
-    let sender_address = Addr::unchecked(SENDER_ADDR);
+    let mut app = mock_app(sender_address.clone());
 
     let ueth_handler_contract = instantiate_handler_contract(&mut app);
     let untrn_handler_contract = instantiate_handler_contract(&mut app);
@@ -560,7 +582,7 @@ fn test_two_handlers_call() {
         &mut app,
         rewards_manager_code_id,
         InstantiateMsg {
-            owner: OWNER_ADDR.to_string(),
+            owner: deps.api.addr_make(OWNER_ADDR).to_string(),
         },
     );
 
@@ -575,7 +597,7 @@ fn test_two_handlers_call() {
 
     let amount = coins(55, "untrn");
     let _ = app
-        .send_tokens(sender_address, rewards_manager_contract.clone(), &amount)
+        .send_tokens(sender_address.clone(), rewards_manager_contract.clone(), &amount)
         .unwrap();
 
     let ueth_handler_config = HandlerConfig {
@@ -592,7 +614,7 @@ fn test_two_handlers_call() {
 
     let _res = app
         .execute_contract(
-            Addr::unchecked(OWNER_ADDR),
+            deps.api.addr_make(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::AddHandler {
                 config: ueth_handler_config.clone(),
@@ -603,7 +625,7 @@ fn test_two_handlers_call() {
 
     let _res = app
         .execute_contract(
-            Addr::unchecked(OWNER_ADDR),
+            deps.api.addr_make(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::AddHandler {
                 config: untrn_handler_config.clone(),
@@ -614,7 +636,7 @@ fn test_two_handlers_call() {
 
     let res = app
         .execute_contract(
-            Addr::unchecked(OWNER_ADDR),
+            deps.api.addr_make(OWNER_ADDR),
             rewards_manager_contract.clone(),
             &ExecuteMsg::ExchangeRewards {
                 denoms: vec!["ueth".to_string(), "untrn".to_string()],

@@ -9,7 +9,7 @@ use cosmos_sdk_proto::{
 use cosmwasm_std::{
     attr, coin,
     testing::{mock_env, message_info, MOCK_CONTRACT_ADDR},
-    to_json_binary, Addr, Binary, CosmosMsg, Event, QueryRequest, Reply, ReplyOn, SubMsgResult,
+    to_json_binary, Binary, CosmosMsg, Event, QueryRequest, Reply, ReplyOn, SubMsgResult,
     Uint128,
 };
 use drop_helpers::testing::{mock_dependencies, mock_state_query};
@@ -38,22 +38,23 @@ fn sample_metadata() -> DenomMetadata {
 #[test]
 fn instantiate() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let response = contract::instantiate(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("admin"), &[]),
+        message_info(&api.addr_make("admin"), &[]),
         InstantiateMsg {
-            factory_contract: "factory_contract".to_string(),
+            factory_contract: api.addr_make("factory_contract").to_string(),
             subdenom: "subdenom".to_string(),
             token_metadata: sample_metadata(),
-            owner: "admin".to_string(),
+            owner: api.addr_make("admin").to_string(),
         },
     )
     .unwrap();
 
     assert_eq!(
         FACTORY_CONTRACT.load(deps.as_ref().storage).unwrap(),
-        Addr::unchecked("factory_contract")
+        api.addr_make("factory_contract")
     );
     assert_eq!(
         TOKEN_METADATA.load(deps.as_ref().storage).unwrap(),
@@ -75,7 +76,7 @@ fn instantiate() {
     assert_eq!(
         response.events,
         vec![Event::new("drop-token-instantiate").add_attributes([
-            attr("factory_contract", "factory_contract"),
+            attr("factory_contract", api.addr_make("factory_contract")),
             attr("subdenom", "subdenom")
         ])]
     );
@@ -103,7 +104,7 @@ fn reply_unknown_id() {
 fn reply() {
     let mut deps = mock_dependencies(&[]);
     deps.querier
-        .add_custom_query_response(|request| match request {
+        .add_custom_query_response(move |request| match request {
             QueryRequest::Custom(NeutronQuery::FullDenom {
                 creator_addr,
                 subdenom,
@@ -141,13 +142,14 @@ fn reply() {
 
     assert_eq!(response.messages.len(), 1);
     match response.messages[0].msg.clone() {
-        CosmosMsg::Any(msg) => {
+        #[allow(deprecated)]
+        CosmosMsg::Stargate { type_url, value } => {
             assert_eq!(
-                msg.type_url,
+                type_url,
                 "/osmosis.tokenfactory.v1beta1.MsgSetDenomMetadata"
             );
             assert_eq!(
-                msg.value,
+                value,
                 Binary::from(
                     MsgSetDenomMetadata {
                         sender: MOCK_CONTRACT_ADDR.to_string(),
@@ -190,8 +192,9 @@ fn reply() {
 #[test]
 fn mint_zero() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     FACTORY_CONTRACT
-        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
+        .save(deps.as_mut().storage, &api.addr_make("factory_contract"))
         .unwrap();
     mock_state_query(&mut deps);
     DENOM
@@ -201,7 +204,7 @@ fn mint_zero() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("core_contract"), &[]),
+        message_info(&api.addr_make("core_contract"), &[]),
         ExecuteMsg::Mint {
             amount: Uint128::zero(),
             receiver: "receiver".to_string(),
@@ -214,8 +217,9 @@ fn mint_zero() {
 #[test]
 fn mint() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     FACTORY_CONTRACT
-        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
+        .save(deps.as_mut().storage, &api.addr_make("factory_contract"))
         .unwrap();
     mock_state_query(&mut deps);
     DENOM
@@ -225,7 +229,7 @@ fn mint() {
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("core_contract"), &[]),
+        message_info(&api.addr_make("core_contract"), &[]),
         ExecuteMsg::Mint {
             amount: Uint128::new(220),
             receiver: "receiver".to_string(),
@@ -253,8 +257,9 @@ fn mint() {
 #[test]
 fn mint_stranger() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     FACTORY_CONTRACT
-        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
+        .save(deps.as_mut().storage, &api.addr_make("factory_contract"))
         .unwrap();
     mock_state_query(&mut deps);
     DENOM
@@ -264,7 +269,7 @@ fn mint_stranger() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("stranger"), &[]),
+        message_info(&api.addr_make("stranger"), &[]),
         ExecuteMsg::Mint {
             amount: Uint128::new(220),
             receiver: "receiver".to_string(),
@@ -278,8 +283,9 @@ fn mint_stranger() {
 #[test]
 fn burn_zero() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     FACTORY_CONTRACT
-        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
+        .save(deps.as_mut().storage, &api.addr_make("factory_contract"))
         .unwrap();
     mock_state_query(&mut deps);
     DENOM
@@ -289,7 +295,7 @@ fn burn_zero() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("core_contract"), &[]),
+        message_info(&api.addr_make("core_contract"), &[]),
         ExecuteMsg::Burn {},
     )
     .unwrap_err();
@@ -302,8 +308,9 @@ fn burn_zero() {
 #[test]
 fn burn_multiple_coins() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     FACTORY_CONTRACT
-        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
+        .save(deps.as_mut().storage, &api.addr_make("factory_contract"))
         .unwrap();
     mock_state_query(&mut deps);
     DENOM
@@ -313,7 +320,7 @@ fn burn_multiple_coins() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("core_contract"), &[coin(20, "coin1"), coin(10, "denom")]),
+        message_info(&api.addr_make("core_contract"), &[coin(20, "coin1"), coin(10, "denom")]),
         ExecuteMsg::Burn {},
     )
     .unwrap_err();
@@ -326,8 +333,9 @@ fn burn_multiple_coins() {
 #[test]
 fn burn_invalid_coin() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     FACTORY_CONTRACT
-        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
+        .save(deps.as_mut().storage, &api.addr_make("factory_contract"))
         .unwrap();
     mock_state_query(&mut deps);
     DENOM
@@ -337,7 +345,7 @@ fn burn_invalid_coin() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("core_contract"), &[coin(20, "coin1")]),
+        message_info(&api.addr_make("core_contract"), &[coin(20, "coin1")]),
         ExecuteMsg::Burn {},
     )
     .unwrap_err();
@@ -350,8 +358,9 @@ fn burn_invalid_coin() {
 #[test]
 fn burn() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     FACTORY_CONTRACT
-        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
+        .save(deps.as_mut().storage, &api.addr_make("factory_contract"))
         .unwrap();
     mock_state_query(&mut deps);
     DENOM
@@ -361,7 +370,7 @@ fn burn() {
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("core_contract"), &[coin(140, "denom")]),
+        message_info(&api.addr_make("core_contract"), &[coin(140, "denom")]),
         ExecuteMsg::Burn {},
     )
     .unwrap();
@@ -385,8 +394,9 @@ fn burn() {
 #[test]
 fn burn_stranger() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     FACTORY_CONTRACT
-        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
+        .save(deps.as_mut().storage, &api.addr_make("factory_contract"))
         .unwrap();
     mock_state_query(&mut deps);
     DENOM
@@ -396,7 +406,7 @@ fn burn_stranger() {
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("stranger"), &[coin(160, "denom")]),
+        message_info(&api.addr_make("stranger"), &[coin(160, "denom")]),
         ExecuteMsg::Burn {},
     )
     .unwrap_err();
@@ -407,8 +417,9 @@ fn burn_stranger() {
 #[test]
 fn query_config() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     FACTORY_CONTRACT
-        .save(deps.as_mut().storage, &Addr::unchecked("factory_contract"))
+        .save(deps.as_mut().storage, &api.addr_make("factory_contract"))
         .unwrap();
     mock_state_query(&mut deps);
     DENOM
@@ -419,7 +430,7 @@ fn query_config() {
     assert_eq!(
         response,
         to_json_binary(&ConfigResponse {
-            factory_contract: "factory_contract".to_string(),
+            factory_contract: api.addr_make("factory_contract").to_string(),
             denom: "denom".to_string()
         })
         .unwrap()
@@ -429,11 +440,12 @@ fn query_config() {
 #[test]
 fn test_set_token_metadata_unauthorized() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("owner").as_ref()),
+        Some(api.addr_make("owner").as_ref()),
     )
     .unwrap();
     DENOM
@@ -451,7 +463,7 @@ fn test_set_token_metadata_unauthorized() {
     let res = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("not_an_owner"), &[coin(160, "denom")]),
+        message_info(&api.addr_make("not_an_owner"), &[coin(160, "denom")]),
         ExecuteMsg::SetTokenMetadata {
             token_metadata: denom_metadata.clone(),
         },
@@ -466,11 +478,12 @@ fn test_set_token_metadata_unauthorized() {
 #[test]
 fn test_set_token_metadata() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("owner").as_ref()),
+        Some(api.addr_make("owner").as_ref()),
     )
     .unwrap();
     DENOM
@@ -488,7 +501,7 @@ fn test_set_token_metadata() {
     let res = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[coin(160, "denom")]),
+        message_info(&api.addr_make("owner"), &[coin(160, "denom")]),
         ExecuteMsg::SetTokenMetadata {
             token_metadata: denom_metadata.clone(),
         },
@@ -500,11 +513,12 @@ fn test_set_token_metadata() {
             .add_submessage(cosmwasm_std::SubMsg {
                 id: 0u64,
                 payload: Binary::default(),
-                msg: CosmosMsg::Any( cosmwasm_std::AnyMsg {
+                #[allow(deprecated)]
+                msg: CosmosMsg::Stargate {
                     type_url: "/osmosis.tokenfactory.v1beta1.MsgSetDenomMetadata".to_string(),
                     value: cosmwasm_std::Binary::from(
                         MsgSetDenomMetadata {
-                            sender: "cosmos2contract".to_string(),
+                            sender: MOCK_CONTRACT_ADDR.to_string(),
                             metadata: Some(Metadata {
                                 denom_units: vec![
                                     DenomUnit {
@@ -529,7 +543,7 @@ fn test_set_token_metadata() {
                         }
                         .encode_to_vec(),
                     ),
-                }),
+                },
                 gas_limit: None,
                 reply_on: cosmwasm_std::ReplyOn::Never
             })

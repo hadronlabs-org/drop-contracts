@@ -9,7 +9,7 @@ use cosmwasm_std::{
     Event, Response, StdResult, Timestamp, Uint128,
 };
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
-use drop_helpers::testing::mock_dependencies;
+use drop_helpers::testing::{mock_dependencies};
 use drop_puppeteer_base::error::ContractError as PuppeteerContractError;
 use drop_puppeteer_base::msg::QueryMsg as PuppeteerQueryMsg;
 use drop_staking_base::error::distribution::ContractError as DistributionContractError;
@@ -26,9 +26,6 @@ use drop_staking_base::state::strategy::{DENOM, FACTORY_CONTRACT};
 
 const CORE_CONTRACT_ADDR: &str = "core_contract";
 const FACTORY_CONTRACT_ADDR: &str = "factory_contract";
-const PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
-const VALIDATOR_SET_CONTRACT_ADDR: &str = "validators_set_contract";
-const DISTRIBUTION_CONTRACT_ADDR: &str = "distribution_contract";
 
 #[cw_serde]
 pub struct EmptyMsg {}
@@ -38,10 +35,11 @@ fn instantiate_contract(
     contract: fn() -> Box<dyn Contract<Empty>>,
     label: String,
 ) -> Addr {
+    let deps = mock_dependencies(&[]);
     let contract_id = app.store_code(contract());
     app.instantiate_contract(
         contract_id,
-        Addr::unchecked(CORE_CONTRACT_ADDR),
+        deps.api.addr_make(CORE_CONTRACT_ADDR),
         &EmptyMsg {},
         &[],
         label,
@@ -79,6 +77,7 @@ fn puppeteer_query(
     _env: Env,
     msg: PuppeteerQueryMsg<drop_staking_base::msg::puppeteer::QueryExtMsg>,
 ) -> StdResult<Binary> {
+    let deps = mock_dependencies(&[]);
     match msg {
         PuppeteerQueryMsg::Config {} => todo!(),
         PuppeteerQueryMsg::Ica {} => todo!(),
@@ -90,8 +89,8 @@ fn puppeteer_query(
                 let mut delegations_amount: Vec<DropDelegation> = Vec::new();
                 for i in 0..3 {
                     let delegation = DropDelegation {
-                        validator: format!("valoper{}", i),
-                        delegator: Addr::unchecked("delegator".to_owned() + i.to_string().as_str()),
+                        validator: deps.api.addr_make(format!("valoper{}", i).as_mut_str()).to_string(),
+                        delegator: deps.api.addr_make(format!("delegator{}", i).as_mut_str()),
                         amount: cosmwasm_std::Coin {
                             denom: "uatom".to_string(),
                             amount: Uint128::from(100u128),
@@ -144,13 +143,16 @@ fn factory_query(_deps: Deps, _env: Env, msg: FactoryQueryMsg) -> StdResult<Bina
         FactoryQueryMsg::State {} => {
             let out = HashMap::from([
                 (
-                    VALIDATOR_SET_CONTRACT_ADDR.to_string(),
-                    "contract1".to_string(),
+                    "validators_set_contract".to_string(),
+                    "cosmwasm1wug8sewp6cedgkmrmvhl3lf3tulagm9hnvy8p0rppz9yjw0g4wtqlrtkzd",
                 ),
-                (PUPPETEER_CONTRACT_ADDR.to_string(), "contract2".to_string()),
                 (
-                    DISTRIBUTION_CONTRACT_ADDR.to_string(),
-                    "contract3".to_string(),
+                    "puppeteer_contract".to_string(),
+                    "cosmwasm1qg5ega6dykkxc307y25pecuufrjkxkaggkkxh7nad0vhyhtuhw3sgetes3",
+                ),
+                (
+                    "distribution_contract".to_string(),
+                    "cosmwasm1zwv6feuzhy6a9wekh96cd57lsarmqlwxdypdsplw6zhfncqw6ftqnzgsl6",
                 ),
             ]);
             Ok(to_json_binary(&out).unwrap())
@@ -181,6 +183,7 @@ fn instantiate_factory_contract(app: &mut App) -> Addr {
 }
 
 fn validator_set_query(_deps: Deps, _env: Env, msg: ValidatorSetQueryMsg) -> StdResult<Binary> {
+    let deps = mock_dependencies(&[]);
     match msg {
         ValidatorSetQueryMsg::Ownership {} => todo!(),
         ValidatorSetQueryMsg::Config {} => todo!(),
@@ -189,7 +192,7 @@ fn validator_set_query(_deps: Deps, _env: Env, msg: ValidatorSetQueryMsg) -> Std
             let mut validators = Vec::new();
             for i in 0..3 {
                 let validator = drop_staking_base::state::validatorset::ValidatorInfo {
-                    valoper_address: format!("valoper{}", i),
+                    valoper_address: deps.api.addr_make(format!("valoper{}", i).as_mut_str()).to_string(),
                     weight: 100,
                     on_top: Uint128::zero(),
                     last_processed_remote_height: None,
@@ -236,17 +239,18 @@ fn instantiate_validator_set_contract(app: &mut App) -> Addr {
 
 fn strategy_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        crate::contract::execute,
-        crate::contract::instantiate,
-        crate::contract::query,
+        execute,
+        instantiate,
+        query,
     );
     Box::new(contract)
 }
 
 fn instantiate_strategy_contract(app: &mut App, id: u64, msg: InstantiateMsg) -> Addr {
+    let deps = mock_dependencies(&[]);
     app.instantiate_contract(
         id,
-        Addr::unchecked(CORE_CONTRACT_ADDR),
+        deps.api.addr_make(CORE_CONTRACT_ADDR),
         &msg,
         &[],
         "strategy contract",
@@ -263,12 +267,12 @@ fn mock_app() -> App {
 fn test_initialization() {
     let mut deps = mock_dependencies(&[]);
     let msg = InstantiateMsg {
-        owner: CORE_CONTRACT_ADDR.to_string(),
-        factory_contract: "factory_contract".to_string(),
+        owner: deps.api.addr_make(CORE_CONTRACT_ADDR).to_string(),
+        factory_contract: deps.api.addr_make(FACTORY_CONTRACT_ADDR).to_string(),
         denom: "uatom".to_string(),
     };
 
-    let info = message_info(&Addr::unchecked(CORE_CONTRACT_ADDR), &[]);
+    let info = message_info(&deps.api.addr_make(CORE_CONTRACT_ADDR), &[]);
     let res = instantiate(
         deps.as_mut().into_empty(),
         mock_env(),
@@ -282,10 +286,10 @@ fn test_initialization() {
         vec![
             Event::new("crates.io:drop-staking__drop-strategy-instantiate".to_string())
                 .add_attributes(vec![
-                    Attribute::new("owner".to_string(), CORE_CONTRACT_ADDR.to_string()),
+                    Attribute::new("owner".to_string(), deps.api.addr_make(CORE_CONTRACT_ADDR).to_string()),
                     Attribute::new(
                         "factory_contract".to_string(),
-                        "factory_contract".to_string(),
+                        deps.api.addr_make(FACTORY_CONTRACT_ADDR).to_string(),
                     ),
                     Attribute::new("denom".to_string(), "uatom".to_string()),
                 ])
@@ -295,6 +299,7 @@ fn test_initialization() {
 
 #[test]
 fn test_config_query() {
+    let deps = mock_dependencies(&[]);
     let mut app = mock_app();
     let strategy_id = app.store_code(strategy_contract());
 
@@ -302,8 +307,8 @@ fn test_config_query() {
         &mut app,
         strategy_id,
         InstantiateMsg {
-            owner: CORE_CONTRACT_ADDR.to_string(),
-            factory_contract: "factory_contract".to_string(),
+            owner: deps.api.addr_make(CORE_CONTRACT_ADDR).to_string(),
+            factory_contract: deps.api.addr_make("factory_contract").to_string(),
             denom: "uatom".to_string(),
         },
     );
@@ -316,7 +321,7 @@ fn test_config_query() {
     assert_eq!(
         config,
         drop_staking_base::msg::strategy::Config {
-            factory_contract: "factory_contract".to_string(),
+            factory_contract: deps.api.addr_make("factory_contract").to_string(),
             denom: "uatom".to_string(),
         }
     );
@@ -324,6 +329,7 @@ fn test_config_query() {
 
 #[test]
 fn test_ideal_deposit_calculation() {
+    let deps = mock_dependencies(&[]);
     let mut app = mock_app();
     let factory_contract = instantiate_factory_contract(&mut app);
     let _validator_set_contract = instantiate_validator_set_contract(&mut app);
@@ -336,7 +342,7 @@ fn test_ideal_deposit_calculation() {
         &mut app,
         strategy_id,
         InstantiateMsg {
-            owner: CORE_CONTRACT_ADDR.to_string(),
+            owner: deps.api.addr_make(CORE_CONTRACT_ADDR).to_string(),
             factory_contract: factory_contract.to_string(),
             denom: "uatom".to_string(),
         },
@@ -353,18 +359,22 @@ fn test_ideal_deposit_calculation() {
         .unwrap();
     ideal_deposit.sort();
 
+    let mut expected_deposit = vec![
+        (deps.api.addr_make("valoper0").to_string(), Uint128::from(34u128)),
+        (deps.api.addr_make("valoper1").to_string(), Uint128::from(34u128)),
+        (deps.api.addr_make("valoper2").to_string(), Uint128::from(32u128))
+    ];
+    expected_deposit.sort();
+
     assert_eq!(
         ideal_deposit,
-        vec![
-            ("valoper0".to_string(), Uint128::from(34u128)),
-            ("valoper1".to_string(), Uint128::from(34u128)),
-            ("valoper2".to_string(), Uint128::from(32u128))
-        ]
+        expected_deposit
     );
 }
 
 #[test]
 fn test_ideal_withdraw_calculation() {
+    let deps = mock_dependencies(&[]);
     let mut app = mock_app();
     let factory_contract = instantiate_factory_contract(&mut app);
     let _validator_set_contract = instantiate_validator_set_contract(&mut app);
@@ -377,7 +387,7 @@ fn test_ideal_withdraw_calculation() {
         &mut app,
         strategy_id,
         InstantiateMsg {
-            owner: CORE_CONTRACT_ADDR.to_string(),
+            owner: deps.api.addr_make(CORE_CONTRACT_ADDR).to_string(),
             factory_contract: factory_contract.to_string(),
             denom: "uatom".to_string(),
         },
@@ -394,28 +404,32 @@ fn test_ideal_withdraw_calculation() {
         .unwrap();
     ideal_deposit.sort();
 
+    let mut expected_deposit = vec![
+        (deps.api.addr_make("valoper0").to_string(), Uint128::from(33u128)),
+        (deps.api.addr_make("valoper1").to_string(), Uint128::from(33u128)),
+        (deps.api.addr_make("valoper2").to_string(), Uint128::from(34u128))
+    ];
+    expected_deposit.sort();
+
     assert_eq!(
         ideal_deposit,
-        vec![
-            ("valoper0".to_string(), Uint128::from(33u128)),
-            ("valoper1".to_string(), Uint128::from(33u128)),
-            ("valoper2".to_string(), Uint128::from(34u128))
-        ]
+        expected_deposit
     );
 }
 
 #[test]
 fn test_update_config_unauthorized() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        message_info(&Addr::unchecked("not_owner"), &[]),
+        message_info(&api.addr_make("not_owner"), &[]),
         drop_staking_base::msg::strategy::ExecuteMsg::UpdateConfig {
             new_config: drop_staking_base::msg::strategy::ConfigOptional {
-                factory_contract: Some("new_factory_contract".to_string()),
+                factory_contract: Some(api.addr_make("new_factory_contract").to_string()),
                 denom: Some("new_denom".to_string()),
             },
         },
@@ -430,25 +444,26 @@ fn test_update_config_unauthorized() {
 #[test]
 fn test_update_config() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     FACTORY_CONTRACT
         .save(
             deps.as_mut().storage,
-            &cosmwasm_std::Addr::unchecked(FACTORY_CONTRACT_ADDR.to_string()),
+            &api.addr_make(FACTORY_CONTRACT_ADDR),
         )
         .unwrap();
     DENOM
         .save(deps.as_mut().storage, &"denom".to_string())
         .unwrap();
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
     let res = execute(
         deps_mut.into_empty(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::strategy::ExecuteMsg::UpdateConfig {
             new_config: drop_staking_base::msg::strategy::ConfigOptional {
-                factory_contract: Some("new_factory_contract".to_string()),
+                factory_contract: Some(api.addr_make("new_factory_contract").to_string()),
                 denom: Some("new_denom".to_string()),
             },
         },
@@ -456,14 +471,14 @@ fn test_update_config() {
     .unwrap();
     assert_eq!(
         res,
-        cosmwasm_std::Response::new().add_event(
-            cosmwasm_std::Event::new(
+        Response::new().add_event(
+            Event::new(
                 "crates.io:drop-staking__drop-strategy-config_update".to_string()
             )
             .add_attributes(vec![
                 cosmwasm_std::attr(
                     "factory_contract".to_string(),
-                    "new_factory_contract".to_string()
+                    api.addr_make("new_factory_contract").to_string()
                 ),
                 cosmwasm_std::attr("denom".to_string(), "new_denom".to_string())
             ])
@@ -474,15 +489,16 @@ fn test_update_config() {
 #[test]
 fn test_transfer_ownership() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
     execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::strategy::ExecuteMsg::UpdateOwnership(
             cw_ownable::Action::TransferOwnership {
-                new_owner: "new_owner".to_string(),
+                new_owner: api.addr_make("new_owner").to_string(),
                 expiry: Some(cw_ownable::Expiration::Never {}),
             },
         ),
@@ -491,7 +507,7 @@ fn test_transfer_ownership() {
     execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        message_info(&Addr::unchecked("new_owner"), &[]),
+        message_info(&api.addr_make("new_owner"), &[]),
         drop_staking_base::msg::strategy::ExecuteMsg::UpdateOwnership(
             cw_ownable::Action::AcceptOwnership {},
         ),
@@ -501,7 +517,7 @@ fn test_transfer_ownership() {
         query(
             deps.as_ref().into_empty(),
             mock_env(),
-            drop_staking_base::msg::strategy::QueryMsg::Ownership {},
+            QueryMsg::Ownership {},
         )
         .unwrap(),
     )
@@ -509,7 +525,7 @@ fn test_transfer_ownership() {
     assert_eq!(
         query_res,
         cw_ownable::Ownership {
-            owner: Some(cosmwasm_std::Addr::unchecked("new_owner".to_string())),
+            owner: Some(api.addr_make("new_owner")),
             pending_expiry: None,
             pending_owner: None
         }
