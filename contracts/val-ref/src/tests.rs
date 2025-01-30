@@ -7,6 +7,7 @@ use cosmwasm_std::{
     testing::{mock_env, message_info},
     to_json_binary, Addr, Decimal, Event, Order, Response, StdResult, SubMsg, Uint128, WasmMsg,
 };
+use cosmwasm_std::testing::MockApi;
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::{
     msg::{
@@ -17,48 +18,49 @@ use drop_staking_base::{
     state::val_ref::{CORE_ADDRESS, REFS, VALIDATORS_SET_ADDRESS},
 };
 
-fn get_bond_hook_msg(amount: u128, r#ref: Option<&str>) -> BondHook {
+fn get_bond_hook_msg(amount: u128, r#ref: Option<&str>, api: MockApi) -> BondHook {
     BondHook {
         dasset_minted: amount.into(),
         r#ref: r#ref.map(|r#ref| r#ref.into()),
         amount: Uint128::zero(),     // never used by contract
         denom: String::from(""),     // never used by contract
-        sender: Addr::unchecked(""), // never used by contract
+        sender: api.addr_make(""), // never used by contract
     }
 }
 
 #[test]
 fn instantiate() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let response = contract::instantiate(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         InstantiateMsg {
-            owner: String::from("owner"),
-            core_address: String::from("core"),
-            validators_set_address: String::from("validators_set"),
+            owner: api.addr_make("owner").to_string(),
+            core_address: api.addr_make("core").to_string(),
+            validators_set_address: api.addr_make("validators_set").to_string(),
         },
     )
     .unwrap();
 
-    cw_ownable::assert_owner(deps.as_ref().storage, &Addr::unchecked("owner")).unwrap();
+    cw_ownable::assert_owner(deps.as_ref().storage, &api.addr_make("owner")).unwrap();
 
     assert_eq!(
         CORE_ADDRESS.load(deps.as_ref().storage).unwrap(),
-        Addr::unchecked("core")
+        api.addr_make("core")
     );
 
     assert_eq!(
         VALIDATORS_SET_ADDRESS.load(deps.as_ref().storage).unwrap(),
-        Addr::unchecked("validators_set")
+        api.addr_make("validators_set")
     );
 
     assert_eq!(
         response,
         Response::new().add_event(Event::new("drop-val-ref-instantiate").add_attributes([
-            ("core_address", "core"),
-            ("validators_set_address", "validators_set")
+            ("core_address", api.addr_make("core")),
+            ("validators_set_address", api.addr_make("validators_set"))
         ]))
     );
 }
@@ -66,18 +68,19 @@ fn instantiate() {
 #[test]
 fn execute_update_ownership() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner1")).unwrap();
+        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner1").as_str())).unwrap();
     }
 
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner1"), &[]),
+        message_info(&api.addr_make("owner1"), &[]),
         ExecuteMsg::UpdateOwnership(cw_ownable::Action::TransferOwnership {
-            new_owner: String::from("owner2"),
+            new_owner: api.addr_make("owner2").to_string(),
             expiry: None,
         }),
     )
@@ -90,7 +93,7 @@ fn execute_update_ownership() {
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner2"), &[]),
+        message_info(&api.addr_make("owner2"), &[]),
         ExecuteMsg::UpdateOwnership(cw_ownable::Action::AcceptOwnership),
     )
     .unwrap();
@@ -99,25 +102,26 @@ fn execute_update_ownership() {
         Response::new().add_event(Event::new("drop-val-ref-execute-update-ownership"))
     );
 
-    cw_ownable::assert_owner(deps.as_mut().storage, &Addr::unchecked("owner2")).unwrap();
+    cw_ownable::assert_owner(deps.as_mut().storage, &api.addr_make("owner2")).unwrap();
 }
 
 #[test]
 fn execute_update_config_unauthorized() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
     }
 
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("stranger"), &[]),
+        message_info(&api.addr_make("stranger"), &[]),
         ExecuteMsg::UpdateConfig {
-            core_address: String::from("core"),
-            validators_set_address: String::from("validators_set"),
+            core_address: api.addr_make("core").to_string(),
+            validators_set_address: api.addr_make("validators_set").to_string(),
         },
     )
     .unwrap_err();
@@ -131,38 +135,39 @@ fn execute_update_config_unauthorized() {
 #[test]
 fn execute_update_config() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
     }
 
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         ExecuteMsg::UpdateConfig {
-            core_address: String::from("core"),
-            validators_set_address: String::from("validators_set"),
+            core_address: api.addr_make("core").to_string(),
+            validators_set_address: api.addr_make("validators_set").to_string(),
         },
     )
     .unwrap();
 
     assert_eq!(
         CORE_ADDRESS.load(deps.as_ref().storage).unwrap(),
-        Addr::unchecked("core")
+        api.addr_make("core")
     );
     assert_eq!(
         VALIDATORS_SET_ADDRESS.load(deps.as_ref().storage).unwrap(),
-        Addr::unchecked("validators_set")
+        api.addr_make("validators_set")
     );
 
     assert_eq!(
         response,
         Response::new().add_event(
             Event::new("drop-val-ref-execute-update-config").add_attributes([
-                ("core_address", "core"),
-                ("validators_set_address", "validators_set")
+                ("core_address", api.addr_make("core")),
+                ("validators_set_address", api.addr_make("validators_set"))
             ])
         )
     );
@@ -171,16 +176,17 @@ fn execute_update_config() {
 #[test]
 fn execute_bond_hook_unauthorized() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     CORE_ADDRESS
-        .save(deps.as_mut().storage, &Addr::unchecked("core"))
+        .save(deps.as_mut().storage, &api.addr_make("core"))
         .unwrap();
 
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("stranger"), &[]),
-        ExecuteMsg::BondCallback(get_bond_hook_msg(0, None)),
+        message_info(&api.addr_make("stranger"), &[]),
+        ExecuteMsg::BondCallback(get_bond_hook_msg(0, None, api)),
     )
     .unwrap_err();
 
@@ -190,16 +196,17 @@ fn execute_bond_hook_unauthorized() {
 #[test]
 fn execute_bond_hook_no_ref() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     CORE_ADDRESS
-        .save(deps.as_mut().storage, &Addr::unchecked("core"))
+        .save(deps.as_mut().storage, &api.addr_make("core"))
         .unwrap();
 
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("core"), &[]),
-        ExecuteMsg::BondCallback(get_bond_hook_msg(0, None)),
+        message_info(&api.addr_make("core"), &[]),
+        ExecuteMsg::BondCallback(get_bond_hook_msg(0, None, api)),
     )
     .unwrap();
 
@@ -212,16 +219,17 @@ fn execute_bond_hook_no_ref() {
 #[test]
 fn execute_bond_hook_unknown_validator() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     CORE_ADDRESS
-        .save(deps.as_mut().storage, &Addr::unchecked("core"))
+        .save(deps.as_mut().storage, &api.addr_make("core"))
         .unwrap();
 
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("core"), &[]),
-        ExecuteMsg::BondCallback(get_bond_hook_msg(0, Some("X"))),
+        message_info(&api.addr_make("core"), &[]),
+        ExecuteMsg::BondCallback(get_bond_hook_msg(0, Some("X"), api)),
     )
     .unwrap();
 
@@ -237,17 +245,18 @@ fn execute_bond_hook_unknown_validator() {
 #[test]
 fn execute_bond_hook_known_validator() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     CORE_ADDRESS
-        .save(deps.as_mut().storage, &Addr::unchecked("core"))
+        .save(deps.as_mut().storage, &api.addr_make("core"))
         .unwrap();
     VALIDATORS_SET_ADDRESS
-        .save(deps.as_mut().storage, &Addr::unchecked("validators_set"))
+        .save(deps.as_mut().storage, &api.addr_make("validators_set"))
         .unwrap();
-    REFS.save(deps.as_mut().storage, "X", &String::from("valoperX"))
+    REFS.save(deps.as_mut().storage, "X", &api.addr_make("valoperX").to_string())
         .unwrap();
 
-    deps.querier.add_wasm_query_response("core", |req| {
+    deps.querier.add_wasm_query_response(api.addr_make("core").as_str(), |req| {
         let req = from_json::<CoreQueryMsg>(req).unwrap();
         assert_eq!(req, CoreQueryMsg::ExchangeRate {});
 
@@ -259,8 +268,8 @@ fn execute_bond_hook_known_validator() {
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("core"), &[]),
-        ExecuteMsg::BondCallback(get_bond_hook_msg(100, Some("X"))),
+        message_info(&api.addr_make("core"), &[]),
+        ExecuteMsg::BondCallback(get_bond_hook_msg(100, Some("X"), api)),
     )
     .unwrap();
 
@@ -269,10 +278,10 @@ fn execute_bond_hook_known_validator() {
         Response::new()
             .add_submessage(SubMsg::reply_on_error(
                 WasmMsg::Execute {
-                    contract_addr: String::from("validators_set"),
+                    contract_addr: api.addr_make("validators_set").to_string(),
                     msg: to_json_binary(&ValidatorSetExecuteMsg::EditOnTop {
                         operations: vec![OnTopEditOperation::Add {
-                            validator_address: String::from("valoperX"),
+                            validator_address: api.addr_make("valoperX").to_string(),
                             amount: Uint128::new(150),
                         }]
                     })
@@ -284,7 +293,7 @@ fn execute_bond_hook_known_validator() {
             .add_event(
                 Event::new("drop-val-ref-execute-bond-hook").add_attributes([
                     ("ref", "X"),
-                    ("validator", "valoperX"),
+                    ("validator", api.addr_make("valoperX").as_str()),
                     ("on_top_increase", "150")
                 ])
             )
@@ -294,16 +303,17 @@ fn execute_bond_hook_known_validator() {
 #[test]
 fn execute_set_refs_unauthorized() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
     }
 
     let error = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("stranger"), &[]),
+        message_info(&api.addr_make("stranger"), &[]),
         ExecuteMsg::SetRefs { refs: vec![] },
     )
     .unwrap_err();
@@ -317,10 +327,11 @@ fn execute_set_refs_unauthorized() {
 #[test]
 fn execute_set_refs_empty() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
     }
 
     REFS.save(deps.as_mut().storage, "x", &String::from("X"))
@@ -329,7 +340,7 @@ fn execute_set_refs_empty() {
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         ExecuteMsg::SetRefs { refs: vec![] },
     )
     .unwrap();
@@ -351,28 +362,29 @@ fn execute_set_refs_empty() {
 #[test]
 fn execute_set_refs_override() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
     }
 
-    REFS.save(deps.as_mut().storage, "x", &String::from("X"))
+    REFS.save(deps.as_mut().storage, "x", &api.addr_make("X").to_string())
         .unwrap();
 
     let response = contract::execute(
         deps.as_mut(),
         mock_env(),
-        message_info(&Addr::unchecked("owner"), &[]),
+        message_info(&api.addr_make("owner"), &[]),
         ExecuteMsg::SetRefs {
             refs: vec![
                 Ref {
                     r#ref: String::from("y"),
-                    validator_address: String::from("valoperY"),
+                    validator_address: api.addr_make("valoperY").to_string(),
                 },
                 Ref {
                     r#ref: String::from("z"),
-                    validator_address: String::from("valoperZ"),
+                    validator_address: api.addr_make("valoperZ").to_string(),
                 },
             ],
         },
@@ -384,8 +396,8 @@ fn execute_set_refs_override() {
             .collect::<StdResult<Vec<_>>>()
             .unwrap(),
         vec![
-            (String::from("y"), String::from("valoperY")),
-            (String::from("z"), String::from("valoperZ"))
+            (String::from("y"), api.addr_make("valoperY").to_string()),
+            (String::from("z"), api.addr_make("valoperZ").to_string())
         ]
     );
 
@@ -400,10 +412,11 @@ fn execute_set_refs_override() {
 #[test]
 fn query_ownership() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(api.addr_make("owner").as_str())).unwrap();
     }
 
     let response = from_json::<cw_ownable::Ownership<Addr>>(
@@ -414,7 +427,7 @@ fn query_ownership() {
     assert_eq!(
         response,
         cw_ownable::Ownership::<Addr> {
-            owner: Some(Addr::unchecked("owner")),
+            owner: Some(api.addr_make("owner")),
             pending_owner: None,
             pending_expiry: None,
         }
@@ -424,12 +437,13 @@ fn query_ownership() {
 #[test]
 fn query_config() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     CORE_ADDRESS
-        .save(deps.as_mut().storage, &Addr::unchecked("core"))
+        .save(deps.as_mut().storage, &api.addr_make("core"))
         .unwrap();
     VALIDATORS_SET_ADDRESS
-        .save(deps.as_mut().storage, &Addr::unchecked("validators_set"))
+        .save(deps.as_mut().storage, &api.addr_make("validators_set"))
         .unwrap();
 
     let response = from_json::<ConfigResponse>(
@@ -440,8 +454,8 @@ fn query_config() {
     assert_eq!(
         response,
         ConfigResponse {
-            core_address: String::from("core"),
-            validators_set_address: String::from("validators_set"),
+            core_address: api.addr_make("core").to_string(),
+            validators_set_address: api.addr_make("validators_set").to_string(),
         }
     );
 }
