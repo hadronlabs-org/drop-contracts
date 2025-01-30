@@ -280,7 +280,7 @@ fn query_can_process_on_idle_false_if_no_funds_to_process() {
 
 #[test]
 fn query_can_process_on_idle_enough_non_staked_balance() {
-    let mut deps = mock_dependencies(&[]);
+    let mut deps = mock_dependencies(&[Coin::new(1000u128, "base_denom")]);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -307,7 +307,7 @@ fn query_can_process_on_idle_enough_non_staked_balance() {
 
 #[test]
 fn query_can_process_on_idle_enough_contract_balance() {
-    let mut deps = mock_dependencies(&[]);
+    let mut deps = mock_dependencies(&[Coin::new(1000u128, "base_denom")]);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -498,7 +498,7 @@ fn process_on_idle_not_core_contract() {
 
 #[test]
 fn process_on_idle_delegation() {
-    let mut deps = mock_dependencies(&[]);
+    let mut deps = mock_dependencies(&[Coin::new(1000u128, "base_denom")]);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -537,7 +537,7 @@ fn process_on_idle_delegation() {
                     reply_to: "cosmos2contract".to_string()
                 })
                 .unwrap(),
-                funds: vec![],
+                funds: vec![Coin::new(1000u128, "base_denom")],
             }))
     );
 }
