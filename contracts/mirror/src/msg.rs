@@ -20,7 +20,7 @@ pub enum ExecuteMsg {
         r#ref: Option<String>,
     },
     UpdateConfig {
-        new_config: crate::state::mirror::ConfigOptional,
+        new_config: crate::state::ConfigOptional,
     },
     Retry {
         receiver: String,
@@ -37,7 +37,7 @@ pub struct FailedReceiverResponse {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(crate::state::mirror::Config)]
+    #[returns(crate::state::Config)]
     Config {},
 
     #[returns(Option<FailedReceiverResponse>)]

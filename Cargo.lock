@@ -766,6 +766,7 @@ dependencies = [
  "drop-staking-base",
  "neutron-sdk",
  "semver",
+ "thiserror",
 ]
 
 [[package]]

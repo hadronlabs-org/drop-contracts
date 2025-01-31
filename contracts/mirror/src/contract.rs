@@ -1,3 +1,12 @@
+use crate::error::{ContractError, ContractResult};
+use crate::msg::{
+    ExecuteMsg, FailedReceiverResponse, FungibleTokenPacketData, InstantiateMsg, MigrateMsg,
+    QueryMsg,
+};
+use crate::state::{
+    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, FAILED_TRANSFER_REPLY_ID, REPLY_RECEIVER,
+    TIMEOUT_RANGE,
+};
 use cosmwasm_std::{
     attr, ensure, from_json, to_json_binary, Attribute, Binary, Coin, CosmosMsg, Deps, DepsMut,
     Env, IbcQuery, MessageInfo, Reply, Response, SubMsg, Uint128, WasmMsg,
@@ -5,15 +14,6 @@ use cosmwasm_std::{
 use cw_ownable::update_ownership;
 use drop_helpers::answer::response;
 use drop_helpers::ibc_fee::query_ibc_fee;
-use drop_staking_base::msg::mirror::{ExecuteMsg, FailedReceiverResponse, FungibleTokenPacketData};
-use drop_staking_base::state::mirror::{
-    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, FAILED_TRANSFER_REPLY_ID, REPLY_RECEIVER,
-};
-use drop_staking_base::{
-    error::mirror::{ContractError, ContractResult},
-    msg::mirror::{InstantiateMsg, MigrateMsg, QueryMsg},
-    state::mirror::TIMEOUT_RANGE,
-};
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, TransferSudoMsg};
 
