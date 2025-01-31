@@ -134,8 +134,8 @@ fn execute_retry(
             attrs.push(attr("amount", coin.to_string()));
         }
     }
-    // During the IBC transfers we need to remove these funds from state so we can't call retry again
-    // If any IBC transaction fails then we restore failed transfers in sudo
+    // During the IBC transfers we need to remove these funds from state so we can't call retry again for the same user
+    // If any IBC transaction fails then we restore failed transfers for given user in sudo-error
     FAILED_TRANSFERS.save(deps.storage, receiver, &vec![])?;
     Ok(response("retry", CONTRACT_NAME, attrs).add_messages(ibc_transfer_msgs))
 }
@@ -265,8 +265,11 @@ pub fn finalize_bond(
                 attr("id", msg.id.to_string()),
                 attr("amount", coin.to_string()),
                 attr("to_address", receiver.clone()),
+                attr("source_port", source_port.to_string()),
+                attr("source_channel", source_channel.clone()),
+                attr("ibc-timeout", ibc_timeout.to_string()),
             ];
-            let ibc_transfer_msg: CosmosMsg<NeutronMsg> =
+            let ibc_transfer_msg: CosmosMsg<NeutronMsg> = // send dAssets back
                 CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: source_port.clone(),
                     source_channel: source_channel.clone(),
@@ -308,6 +311,9 @@ fn sudo_error(
     let packet: FungibleTokenPacketData = from_json(req.data.unwrap())?;
     let packet_amount = Uint128::from_str(packet.amount.as_str()).unwrap();
 
+    // If given ibc-transfer for given receiver on the remote chain fails then
+    // current contract owns this tokens right now. Memorize in the map, that
+    // for given user our contract possess these failed-to-process tokens
     FAILED_TRANSFERS.update(
         deps.storage,
         packet.receiver,
@@ -330,7 +336,7 @@ fn sudo_error(
             None => Ok(vec![Coin {
                 denom: packet.denom,
                 amount: packet_amount,
-            }]), // if to_address don't have any pending coins yet
+            }]), // if receiver doesn't have any pending coins yet
         },
     )?;
 
