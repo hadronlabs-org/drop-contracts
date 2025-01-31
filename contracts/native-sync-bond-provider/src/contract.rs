@@ -278,12 +278,19 @@ fn execute_puppeteer_hook(
         funds: vec![],
     });
 
+    let tick_message = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.core_contract.to_string(),
+        msg: to_json_binary(&ReceiverExecuteMsg::Tick)?,
+        funds: vec![],
+    });
+
     Ok(response(
         "execute-puppeteer_hook",
         CONTRACT_NAME,
         vec![attr("action", "puppeteer_hook")],
     )
-    .add_message(hook_message))
+    .add_message(hook_message)
+    .add_message(tick_message))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]

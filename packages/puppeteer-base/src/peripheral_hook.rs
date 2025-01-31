@@ -14,6 +14,7 @@ use crate::{
 #[cw_serde]
 pub enum ReceiverExecuteMsg {
     PeripheralHook(ResponseHookMsg),
+    Tick,
 }
 
 #[cw_serde]
