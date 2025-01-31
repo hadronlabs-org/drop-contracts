@@ -847,7 +847,7 @@ describe('Core', () => {
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('peripheral');
+        expect(state).toEqual('idle');
         const nativeBondState =
           await context.nativeBondProviderContractClient.queryTxState();
         const nonStakedBalance =
@@ -900,7 +900,7 @@ describe('Core', () => {
         expect(state).toEqual('idle');
       });
 
-      it('tick to peripheral', async () => {
+      it('tick to idle', async () => {
         const res = await context.coreContractClient.tick(
           context.neutronUserAddress,
           2.5,
@@ -910,7 +910,7 @@ describe('Core', () => {
         expect(res.transactionHash).toHaveLength(64);
         console.log(res);
         const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('peripheral');
+        expect(state).toEqual('idle');
       });
     });
   });

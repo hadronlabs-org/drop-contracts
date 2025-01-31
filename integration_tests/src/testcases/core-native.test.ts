@@ -976,7 +976,7 @@ describe('Core', () => {
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('peripheral');
+        expect(state).toEqual('idle');
         const nativeBondState =
           await context.nativeBondProviderContractClient.queryTxState();
         const nonStakedBalance =
@@ -1096,7 +1096,7 @@ describe('Core', () => {
           expect(state).toEqual('idle');
         }
       });
-      it('tick to peripheral', async () => {
+      it('tick to bond and return to idle', async () => {
         const preBalanceOnNativeBondProvider = (
           await context.client.getBalance(
             context.nativeBondProviderContractClient.contractAddress,
@@ -1112,7 +1112,7 @@ describe('Core', () => {
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('peripheral');
+        expect(state).toEqual('idle');
         const postBalanceOnNativeBondProvider = (
           await context.client.getBalance(
             context.nativeBondProviderContractClient.contractAddress,

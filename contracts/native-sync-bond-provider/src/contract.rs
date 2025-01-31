@@ -6,6 +6,7 @@ use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::{attr_coin, response};
 use drop_staking_base::{
+    msg::core::ExecuteMsg as CoreExecuteMsg,
     msg::native_sync_bond_provider::{
         ConfigOptional, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
     },
@@ -279,8 +280,8 @@ fn execute_puppeteer_hook(
     });
 
     let tick_message = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.core_contract.to_string(),
-        msg: to_json_binary(&ReceiverExecuteMsg::Tick)?,
+        contract_addr: addrs.core_contract.to_string(),
+        msg: to_json_binary(&CoreExecuteMsg::Tick {})?,
         funds: vec![],
     });
 
