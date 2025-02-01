@@ -808,7 +808,9 @@ describe('Mirror', () => {
     });
 
     it("expect new assets to appear in contract's state", async () => {
-      expect(await context.mirrorContractClient.queryAllFailed()).toStrictEqual(
+      expect(
+        (await context.mirrorContractClient.queryAllFailed()).sort(),
+      ).toStrictEqual(
         [
           [
             context.gaiaUserAddress,
@@ -830,7 +832,7 @@ describe('Mirror', () => {
               },
             ],
           ],
-        ],
+        ].sort(),
       );
     });
 
@@ -864,7 +866,9 @@ describe('Mirror', () => {
     });
 
     it("expect new assets to appear in contract's state", async () => {
-      expect(await context.mirrorContractClient.queryAllFailed()).toStrictEqual(
+      expect(
+        (await context.mirrorContractClient.queryAllFailed()).sort(),
+      ).toStrictEqual(
         [
           [
             context.gaiaUserAddress,
@@ -876,6 +880,41 @@ describe('Mirror', () => {
               },
             ],
           ],
+          [
+            context.gaiaUserAddress2,
+            [
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
+              },
+            ],
+          ],
+        ].sort(),
+      );
+    });
+
+    it('Retry with working relayer', async () => {
+      await context.mirrorContractClient.retry(
+        context.neutronUserAddress,
+        {
+          receiver: context.gaiaUserAddress,
+        },
+        1.6,
+      );
+      await waitFor(
+        async () =>
+          (
+            await context.gaiaClient.getBalance(
+              context.gaiaUserAddress,
+              'ibc/1C3BF59376B26C1AC4E7BB85230733C373A0F2DC366FF9A4B1BD74B578F6A946',
+            )
+          ).amount !== '3000',
+        20000,
+        1000,
+      );
+      expect(await context.mirrorContractClient.queryAllFailed()).toStrictEqual(
+        [
           [
             context.gaiaUserAddress2,
             [
