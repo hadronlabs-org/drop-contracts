@@ -717,8 +717,8 @@ describe('Mirror', () => {
     ).toBe('1000');
   });
 
-  describe('Wrong behaviour', () => {
-    it('Set timeout to 0', async () => {
+  describe('wrong behaviour', () => {
+    it('set timeout to 0', async () => {
       await context.mirrorContractClient.updateConfig(
         context.neutronUserAddress,
         {
@@ -733,7 +733,7 @@ describe('Mirror', () => {
     });
 
     describe('bond, timeout packet', () => {
-      it('Turn off relayer', async () => {
+      it('turn off relayer', async () => {
         await context.park.pauseRelayer('hermes', 0);
       });
 
@@ -755,7 +755,7 @@ describe('Mirror', () => {
         await sleep(10_000); // make this packet to outlive it's validity
       });
 
-      it('Resume relayer', async () => {
+      it('resume relayer', async () => {
         await context.park.resumeRelayer('hermes', 0);
         await sleep(10_000); // sudo-timeout
       });
@@ -779,7 +779,7 @@ describe('Mirror', () => {
     });
 
     describe('bond, timeout packet', () => {
-      it('Turn off relayer', async () => {
+      it('turn off relayer', async () => {
         await context.park.pauseRelayer('hermes', 0);
       });
 
@@ -801,7 +801,7 @@ describe('Mirror', () => {
         await sleep(10_000); // make this packet to outlive it's validity
       });
 
-      it('Resume relayer', async () => {
+      it('resume relayer', async () => {
         await context.park.resumeRelayer('hermes', 0);
         await sleep(10_000); // sudo-timeout
       });
@@ -837,7 +837,7 @@ describe('Mirror', () => {
     });
 
     describe('bond, timeout packet', () => {
-      it('Turn off relayer', async () => {
+      it('turn off relayer', async () => {
         await context.park.pauseRelayer('hermes', 0);
       });
 
@@ -859,7 +859,7 @@ describe('Mirror', () => {
         await sleep(10_000); // make this packet to outlive it's validity
       });
 
-      it('Resume relayer', async () => {
+      it('resume relayer', async () => {
         await context.park.resumeRelayer('hermes', 0);
         await sleep(10_000); // sudo-timeout
       });
@@ -894,7 +894,7 @@ describe('Mirror', () => {
       );
     });
 
-    it('Retry with the working relayer (1)', async () => {
+    it('retry with the working relayer (1)', async () => {
       await context.mirrorContractClient.retry(
         context.neutronUserAddress,
         {
@@ -929,7 +929,7 @@ describe('Mirror', () => {
       );
     });
 
-    it('Retry with the working relayer (2)', async () => {
+    it('retry with the working relayer (2)', async () => {
       await context.mirrorContractClient.retry(
         context.neutronUserAddress,
         {
