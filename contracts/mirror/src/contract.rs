@@ -310,6 +310,9 @@ fn sudo_error(
 ) -> ContractResult<Response<NeutronMsg>> {
     let packet: FungibleTokenPacketData = from_json(req.data.unwrap())?;
     let packet_amount = Uint128::from_str(packet.amount.as_str()).unwrap();
+    deps.api
+        .debug(&format!("WASMDEBUG: packet received: {packet:?}"));
+    deps.api.debug("WASMDEBUG: sudo-error called");
 
     // If given ibc-transfer for given receiver on the remote chain fails then
     // current contract owns this tokens right now. Memorize in the map, that
@@ -317,7 +320,7 @@ fn sudo_error(
     FAILED_TRANSFERS.update(
         deps.storage,
         packet.receiver,
-        |current_value| match current_value {
+        |current_debt| match current_debt {
             Some(funds) => Ok::<Vec<Coin>, ContractError>(
                 funds
                     .iter()

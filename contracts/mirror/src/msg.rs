@@ -64,5 +64,5 @@ pub struct FungibleTokenPacketData {
     /// the recipient address on the destination chain
     pub receiver: String,
     /// optional memo
-    pub memo: String,
+    pub memo: Option<String>,
 }

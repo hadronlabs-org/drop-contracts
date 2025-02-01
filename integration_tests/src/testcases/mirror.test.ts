@@ -716,4 +716,65 @@ describe('Mirror', () => {
       ).amount,
     ).toBe('1000');
   });
+
+  describe('Wrong behaviour', () => {
+    it('Set timeout to 0', async () => {
+      await context.mirrorContractClient.updateConfig(
+        context.neutronUserAddress,
+        {
+          new_config: {
+            ibc_timeout: 0,
+          },
+        },
+      );
+      expect(
+        (await context.mirrorContractClient.queryConfig()).ibc_timeout,
+      ).toBe(0);
+    });
+
+    it('Turn off relayer', async () => {
+      await context.park.pauseRelayer('hermes', 0);
+    });
+
+    it('bond', async () => {
+      await context.mirrorContractClient.bond(
+        context.neutronUserAddress,
+        {
+          receiver: context.gaiaUserAddress,
+        },
+        1.6,
+        undefined,
+        [
+          {
+            denom: context.neutronIBCDenom,
+            amount: '1000',
+          },
+        ],
+      );
+      await sleep(10_000); // make this packet to outlive it's validity
+    });
+
+    it('Resume relayer', async () => {
+      await context.park.resumeRelayer('hermes', 0);
+      await sleep(20_000); // sudo-timeout
+    });
+
+    it("expect new assets to appear in contract's state", async () => {
+      console.log(
+        await context.neutronStargateClient.getAllBalances(
+          context.mirrorContractClient.contractAddress,
+        ),
+      );
+      console.log(
+        await context.gaiaClient.getAllBalances(context.gaiaUserAddress),
+      );
+      console.log(
+        JSON.stringify(
+          await context.mirrorContractClient.queryAllFailed(),
+          null,
+          2,
+        ),
+      );
+    });
+  });
 });
