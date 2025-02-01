@@ -933,7 +933,7 @@ describe('Mirror', () => {
       it('restored values after sudo-timeout', async () => {
         await waitFor(
           async () =>
-            (await context.mirrorContractClient.queryAllFailed()).length !== 2,
+            (await context.mirrorContractClient.queryAllFailed()).length === 2,
           30_000,
           5_000,
         );
