@@ -756,7 +756,7 @@ describe('Mirror', () => {
 
     it('Resume relayer', async () => {
       await context.park.resumeRelayer('hermes', 0);
-      await sleep(20_000); // sudo-timeout
+      await sleep(10_000); // sudo-timeout
     });
 
     it("expect new assets to appear in contract's state", async () => {
