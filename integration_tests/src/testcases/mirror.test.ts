@@ -894,6 +894,72 @@ describe('Mirror', () => {
       );
     });
 
+    describe('retry, timeout packet', () => {
+      it('turn off relayer', async () => {
+        await context.park.pauseRelayer('hermes', 0);
+      });
+
+      it('failed retry', async () => {
+        await context.mirrorContractClient.retry(
+          context.neutronUserAddress,
+          {
+            receiver: context.gaiaUserAddress,
+          },
+          1.6,
+        );
+
+        expect(
+          await context.mirrorContractClient.queryAllFailed(),
+        ).toStrictEqual([
+          [
+            context.gaiaUserAddress2,
+            [
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
+              },
+            ],
+          ],
+        ]);
+        await sleep(10_000); // make this packet to outlive it's validity
+      });
+
+      it('resume relayer', async () => {
+        await context.park.resumeRelayer('hermes', 0);
+        await sleep(10_000); // sudo-timeout
+      });
+
+      it('restored values after sudo-timeout', async () => {
+        expect(
+          (await context.mirrorContractClient.queryAllFailed()).sort(),
+        ).toStrictEqual(
+          [
+            [
+              context.gaiaUserAddress,
+              [
+                {
+                  denom:
+                    'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                  amount: '2000',
+                },
+              ],
+            ],
+            [
+              context.gaiaUserAddress2,
+              [
+                {
+                  denom:
+                    'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                  amount: '1000',
+                },
+              ],
+            ],
+          ].sort(),
+        );
+      });
+    });
+
     it('retry with the working relayer (1)', async () => {
       await context.mirrorContractClient.retry(
         context.neutronUserAddress,
