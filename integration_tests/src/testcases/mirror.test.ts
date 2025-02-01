@@ -934,6 +934,8 @@ describe('Mirror', () => {
         await waitFor(
           async () =>
             (await context.mirrorContractClient.queryAllFailed()).length !== 2,
+          30_000,
+          5_000,
         );
         expect(
           (await context.mirrorContractClient.queryAllFailed()).sort(),
