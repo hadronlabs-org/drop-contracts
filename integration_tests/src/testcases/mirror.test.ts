@@ -50,6 +50,7 @@ describe('Mirror', () => {
     icaAddress?: string;
     rewardsPumpIcaAddress?: string;
     client?: SigningCosmWasmClient;
+    neutronStargateClient?: SigningStargateClient;
     gaiaClient?: SigningStargateClient;
     gaiaUserAddress?: string;
     gaiaUserAddress2?: string;
@@ -145,6 +146,14 @@ describe('Mirror', () => {
         gasPrice: GasPrice.fromString('0.025stake'),
       },
     );
+    context.neutronStargateClient =
+      await SigningStargateClient.connectWithSigner(
+        `http://127.0.0.1:${context.park.ports.neutron.rpc}`,
+        context.wallet,
+        {
+          gasPrice: GasPrice.fromString('0.025untrn'),
+        },
+      );
     const tmClient = await Tendermint34Client.connect(
       `http://127.0.0.1:${context.park.ports.gaia.rpc}`,
     );
@@ -647,21 +656,19 @@ describe('Mirror', () => {
   });
 
   it('send neutrons on mirror', async () => {
-    console.log(
-      await context.client.sendTokens(
-        context.account.address,
-        context.mirrorContractClient.contractAddress,
-        [{ denom: 'untrn', amount: '10000000' }],
-        {
-          gas: '200000',
-          amount: [
-            {
-              denom: 'untrn',
-              amount: '10000',
-            },
-          ],
-        },
-      ),
+    await context.client.sendTokens(
+      context.account.address,
+      context.mirrorContractClient.contractAddress,
+      [{ denom: 'untrn', amount: '10000000' }],
+      {
+        gas: '200000',
+        amount: [
+          {
+            denom: 'untrn',
+            amount: '10000',
+          },
+        ],
+      },
     );
   });
 
@@ -672,5 +679,41 @@ describe('Mirror', () => {
       'untrn',
     );
     expect(Number(amount)).toBe(10_000_000);
+  });
+
+  it('proper bond', async () => {
+    await context.mirrorContractClient.bond(
+      context.neutronUserAddress,
+      {
+        receiver: context.gaiaUserAddress,
+      },
+      1.6,
+      undefined,
+      [
+        {
+          denom: context.neutronIBCDenom,
+          amount: '1000',
+        },
+      ],
+    );
+    await waitFor(
+      async () =>
+        (
+          await context.gaiaClient.getBalance(
+            context.gaiaUserAddress,
+            'ibc/1C3BF59376B26C1AC4E7BB85230733C373A0F2DC366FF9A4B1BD74B578F6A946',
+          )
+        ).amount !== '0',
+      20000,
+      1000,
+    );
+    expect(
+      (
+        await context.gaiaClient.getBalance(
+          context.gaiaUserAddress,
+          'ibc/1C3BF59376B26C1AC4E7BB85230733C373A0F2DC366FF9A4B1BD74B578F6A946',
+        )
+      ).amount,
+    ).toBe('1000');
   });
 });
