@@ -953,37 +953,4 @@ describe('Mirror', () => {
       );
     });
   });
-
-  // describe('bond, timeout packet and double retry', async () => {
-  //   it('Turn off relayer', async () => {
-  //     await context.park.pauseRelayer('hermes', 0);
-  //   });
-
-  //   it('bond', async () => {
-  //     await context.mirrorContractClient.bond(
-  //       context.neutronUserAddress,
-  //       {
-  //         receiver: context.gaiaUserAddress,
-  //       },
-  //       1.6,
-  //       undefined,
-  //       [
-  //         {
-  //           denom: context.neutronIBCDenom,
-  //           amount: '1000',
-  //         },
-  //       ],
-  //     );
-  //     await sleep(10_000); // make this packet to outlive it's validity
-  //   });
-
-  //   it('Resume relayer', async () => {
-  //     await context.park.resumeRelayer('hermes', 0);
-  //     await sleep(10_000); // sudo-timeout
-  //   });
-
-  //   it('Retry', async () => {
-
-  //   });
-  // });
 });
