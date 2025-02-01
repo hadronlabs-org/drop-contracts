@@ -894,7 +894,7 @@ describe('Mirror', () => {
       );
     });
 
-    it('Retry with working relayer', async () => {
+    it('Retry with the working relayer (1)', async () => {
       await context.mirrorContractClient.retry(
         context.neutronUserAddress,
         {
@@ -926,6 +926,30 @@ describe('Mirror', () => {
             ],
           ],
         ],
+      );
+    });
+
+    it('Retry with the working relayer (2)', async () => {
+      await context.mirrorContractClient.retry(
+        context.neutronUserAddress,
+        {
+          receiver: context.gaiaUserAddress2,
+        },
+        1.6,
+      );
+      await waitFor(
+        async () =>
+          (
+            await context.gaiaClient.getBalance(
+              context.gaiaUserAddress2,
+              'ibc/1C3BF59376B26C1AC4E7BB85230733C373A0F2DC366FF9A4B1BD74B578F6A946',
+            )
+          ).amount !== '1000',
+        20000,
+        1000,
+      );
+      expect(await context.mirrorContractClient.queryAllFailed()).toStrictEqual(
+        [],
       );
     });
   });
