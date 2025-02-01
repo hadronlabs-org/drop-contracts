@@ -732,48 +732,161 @@ describe('Mirror', () => {
       ).toBe(0);
     });
 
-    it('Turn off relayer', async () => {
-      await context.park.pauseRelayer('hermes', 0);
-    });
+    describe('bond, timeout packet', () => {
+      it('Turn off relayer', async () => {
+        await context.park.pauseRelayer('hermes', 0);
+      });
 
-    it('bond', async () => {
-      await context.mirrorContractClient.bond(
-        context.neutronUserAddress,
-        {
-          receiver: context.gaiaUserAddress,
-        },
-        1.6,
-        undefined,
-        [
+      it('bond', async () => {
+        await context.mirrorContractClient.bond(
+          context.neutronUserAddress,
           {
-            denom: context.neutronIBCDenom,
-            amount: '1000',
+            receiver: context.gaiaUserAddress,
           },
-        ],
-      );
-      await sleep(10_000); // make this packet to outlive it's validity
-    });
+          1.6,
+          undefined,
+          [
+            {
+              denom: context.neutronIBCDenom,
+              amount: '1000',
+            },
+          ],
+        );
+        await sleep(10_000); // make this packet to outlive it's validity
+      });
 
-    it('Resume relayer', async () => {
-      await context.park.resumeRelayer('hermes', 0);
-      await sleep(10_000); // sudo-timeout
+      it('Resume relayer', async () => {
+        await context.park.resumeRelayer('hermes', 0);
+        await sleep(10_000); // sudo-timeout
+      });
     });
 
     it("expect new assets to appear in contract's state", async () => {
-      console.log(
-        await context.neutronStargateClient.getAllBalances(
-          context.mirrorContractClient.contractAddress,
-        ),
+      expect(await context.mirrorContractClient.queryAllFailed()).toStrictEqual(
+        [
+          [
+            context.gaiaUserAddress,
+            [
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
+              },
+            ],
+          ],
+        ],
       );
-      console.log(
-        await context.gaiaClient.getAllBalances(context.gaiaUserAddress),
+    });
+
+    describe('bond, timeout packet', () => {
+      it('Turn off relayer', async () => {
+        await context.park.pauseRelayer('hermes', 0);
+      });
+
+      it('bond', async () => {
+        await context.mirrorContractClient.bond(
+          context.neutronUserAddress,
+          {
+            receiver: context.gaiaUserAddress2,
+          },
+          1.6,
+          undefined,
+          [
+            {
+              denom: context.neutronIBCDenom,
+              amount: '1000',
+            },
+          ],
+        );
+        await sleep(10_000); // make this packet to outlive it's validity
+      });
+
+      it('Resume relayer', async () => {
+        await context.park.resumeRelayer('hermes', 0);
+        await sleep(10_000); // sudo-timeout
+      });
+    });
+
+    it("expect new assets to appear in contract's state", async () => {
+      expect(await context.mirrorContractClient.queryAllFailed()).toStrictEqual(
+        [
+          [
+            context.gaiaUserAddress,
+            [
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
+              },
+            ],
+          ],
+          [
+            context.gaiaUserAddress2,
+            [
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
+              },
+            ],
+          ],
+        ],
       );
-      console.log(
-        JSON.stringify(
-          await context.mirrorContractClient.queryAllFailed(),
-          null,
-          2,
-        ),
+    });
+
+    describe('bond, timeout packet', () => {
+      it('Turn off relayer', async () => {
+        await context.park.pauseRelayer('hermes', 0);
+      });
+
+      it('bond', async () => {
+        await context.mirrorContractClient.bond(
+          context.neutronUserAddress,
+          {
+            receiver: context.gaiaUserAddress,
+          },
+          1.6,
+          undefined,
+          [
+            {
+              denom: context.neutronIBCDenom,
+              amount: '1000',
+            },
+          ],
+        );
+        await sleep(10_000); // make this packet to outlive it's validity
+      });
+
+      it('Resume relayer', async () => {
+        await context.park.resumeRelayer('hermes', 0);
+        await sleep(10_000); // sudo-timeout
+      });
+    });
+
+    it("expect new assets to appear in contract's state", async () => {
+      expect(await context.mirrorContractClient.queryAllFailed()).toStrictEqual(
+        [
+          [
+            context.gaiaUserAddress,
+            [
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '2000',
+              },
+            ],
+          ],
+          [
+            context.gaiaUserAddress2,
+            [
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
+              },
+            ],
+          ],
+        ],
       );
     });
   });
