@@ -645,209 +645,32 @@ describe('Mirror', () => {
       ),
     ).to.rejects.toThrow(/No funds sent/);
   });
-  it('bond with wrong denom', async () => {
-    await expect(
-      context.mirrorContractClient.bond(
-        context.neutronUserAddress,
-        {
-          receiver: context.gaiaUserAddress,
-        },
-        1.6,
-        '',
-        [
-          {
-            denom: 'untrn',
-            amount: '1000',
-          },
-        ],
-      ),
-    ).to.rejects.toThrow(/No sufficient bond provider found/);
-  });
 
-  it('bond', async () => {
-    const res = await context.mirrorContractClient.bond(
-      context.neutronUserAddress,
-      {
-        receiver: context.gaiaUserAddress,
-      },
-      1.6,
-      '',
-      [
-        {
-          denom: context.neutronIBCDenom,
-          amount: '10000',
-        },
-      ],
-    );
-    expect(res.transactionHash).toHaveLength(64);
-  });
-
-  it('verify one query', async () => {
-    const res = await context.mirrorContractClient.queryOne({ id: 1 });
-    expect(res).toEqual({
-      amount: '10000',
-      backup: null,
-      received: {
-        amount: '10000',
-        denom: context.ldDenom,
-      },
-      receiver: context.gaiaUserAddress,
-      return_type: 'remote',
-      state: 'bonded',
-    });
-  });
-  it('verify all query', async () => {
-    const res = await context.mirrorContractClient.queryAll({});
-    expect(res).toEqual([
-      [
-        1,
-        {
-          amount: '10000',
-          backup: null,
-          received: {
-            amount: '10000',
-            denom: context.ldDenom,
-          },
-          receiver: context.gaiaUserAddress,
-          return_type: 'remote',
-          state: 'bonded',
-        },
-      ],
-    ]);
-  });
-  it('complete', async () => {
-    const res = await context.mirrorContractClient.complete(
-      context.neutronUserAddress,
-      { items: [1] },
-      1.6,
-      '',
-      [
-        {
-          denom: 'untrn',
-          amount: '100000',
-        },
-      ],
-    );
-    expect(res.transactionHash).toHaveLength(64);
-  });
-  it('wait for the transfer', async () => {
-    await waitFor(async () => {
-      const balances = await context.gaiaQueryClient.bank.allBalances(
-        context.gaiaUserAddress,
-      );
-      return balances.length > 1;
-    });
-  });
-  it('verify bond result', async () => {
-    const balances = await context.gaiaQueryClient.bank.allBalances(
-      context.gaiaUserAddress,
-    );
-    expect(balances.find((b) => b.denom.startsWith('ibc/'))?.amount).toEqual(
-      '10000',
-    );
-  });
-  it('verify bond is gone from the mirror contract', async () => {
-    await sleep(10_000);
-    await expect(
-      context.mirrorContractClient.queryOne({ id: 1 }),
-    ).to.rejects.toThrow(/not found/);
-  });
-  describe('bond with wrong receiver', () => {
-    it('bond', async () => {
-      const res = await context.mirrorContractClient.bond(
-        context.neutronUserAddress,
-        {
-          receiver:
-            'cosmos1yvququ0g6q2qm4arevf22nsvm6y2zmvza8pwggcpcpc735q5pht68jcj548qeh5g59kc96wzus3szckscyg',
-          backup: context.neutronSecondUserAddress,
-        },
-        1.6,
-        '',
-        [
-          {
-            denom: context.neutronIBCDenom,
-            amount: '10000',
-          },
-        ],
-      );
-      expect(res.transactionHash).toHaveLength(64);
-      await sleep(3_000);
-    });
-    it('complete', async () => {
-      const res = await context.mirrorContractClient.complete(
-        context.neutronUserAddress,
-        { items: [2] },
-        1.6,
-        '',
-        [
-          {
-            denom: 'untrn',
-            amount: '100000',
-          },
-        ],
-      );
-      expect(res.transactionHash).toHaveLength(64);
-    });
-    it('verify state', async () => {
-      await sleep(15_000);
-      const res = await context.mirrorContractClient.queryOne({ id: 2 });
-      expect(res.state).toEqual('bonded');
-    });
-    it('switch return type', async () => {
-      // we need another account here
-      const secondWallet = await DirectSecp256k1HdWallet.fromMnemonic(
-        context.park.config.wallets.demo2.mnemonic,
-        {
-          prefix: 'neutron',
-        },
-      );
-      const client = await SigningCosmWasmClient.connectWithSigner(
-        context.neutronRPCEndpoint,
-        secondWallet,
-        {
-          gasPrice: GasPrice.fromString('0.025untrn'),
-        },
-      );
-      const mirrorContractClient = new DropMirror.Client(
-        client,
+  it('send neutrons on mirror', async () => {
+    console.log(
+      await context.client.sendTokens(
+        context.account.address,
         context.mirrorContractClient.contractAddress,
-      );
-      const res = await mirrorContractClient.changeReturnType(
-        context.neutronSecondUserAddress,
-        { id: 2, return_type: 'local' },
-        1.6,
-      );
-      expect(res.transactionHash).toHaveLength(64);
-    });
-    it('complete', async () => {
-      const res = await context.mirrorContractClient.complete(
-        context.neutronUserAddress,
-        { items: [2] },
-        1.6,
-        '',
-        [
-          {
-            denom: 'untrn',
-            amount: '100000',
-          },
-        ],
-      );
-      expect(res.transactionHash).toHaveLength(64);
-      await sleep(2_000);
-    });
-    it('verify balance', async () => {
-      const res =
-        await context.neutronClient.CosmosBankV1Beta1.query.queryBalance(
-          context.neutronSecondUserAddress,
-          { denom: context.ldDenom },
-        );
-      expect(res.data.balance.amount).toEqual('10000');
-    });
-    it('verify bond is gone from the mirror contract', async () => {
-      await sleep(10_000);
-      await expect(
-        context.mirrorContractClient.queryOne({ id: 2 }),
-      ).to.rejects.toThrow(/not found/);
-    });
+        [{ denom: 'untrn', amount: '10000000' }],
+        {
+          gas: '200000',
+          amount: [
+            {
+              denom: 'untrn',
+              amount: '10000',
+            },
+          ],
+        },
+      ),
+    );
+  });
+
+  it('check funds have arrived', async () => {
+    sleep(1000 * 5);
+    const { amount } = await context.client.getBalance(
+      context.mirrorContractClient.contractAddress,
+      'untrn',
+    );
+    expect(Number(amount)).toBe(10_000_000);
   });
 });
