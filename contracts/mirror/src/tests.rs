@@ -8,8 +8,7 @@ use cosmwasm_std::{
     attr, from_json,
     testing::{mock_env, mock_info},
     to_json_binary, Binary, ChannelResponse, Coin, CosmosMsg, Event, IbcChannel, IbcEndpoint,
-    IbcMsg, IbcOrder, Reply, ReplyOn, Response, SubMsg, SubMsgResponse, SubMsgResult, Uint128,
-    WasmMsg,
+    IbcOrder, Reply, ReplyOn, Response, SubMsg, SubMsgResponse, SubMsgResult, Uint128, WasmMsg,
 };
 use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
