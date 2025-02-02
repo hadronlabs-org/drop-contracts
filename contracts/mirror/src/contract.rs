@@ -136,6 +136,7 @@ fn execute_retry(
     }
     // During the IBC transfers we need to remove these funds from state so we can't call retry again for the same user
     // If any IBC transaction fails then we restore failed transfers for given user in sudo-error
+    // It doesn't throw any exception if given key doesn't exist
     FAILED_TRANSFERS.remove(deps.storage, receiver);
     Ok(response("retry", CONTRACT_NAME, attrs).add_messages(ibc_transfer_msgs))
 }
