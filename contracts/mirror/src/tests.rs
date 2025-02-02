@@ -19,11 +19,11 @@ use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, Transfer
 
 #[test]
 fn test_instantiate() {
-    let mut deps = mock_dependencies(&vec![]);
+    let mut deps = mock_dependencies(&[]);
     let res = instantiate(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &vec![]),
+        mock_info("owner", &[]),
         InstantiateMsg {
             owner: None,
             core_contract: "core_contract".to_string(),
@@ -47,7 +47,7 @@ fn test_instantiate() {
 
 #[test]
 fn test_execute_bond_invalid_prefix() {
-    let mut deps = mock_dependencies(&vec![]);
+    let mut deps = mock_dependencies(&[]);
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -63,7 +63,7 @@ fn test_execute_bond_invalid_prefix() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &vec![]),
+        mock_info("owner", &[]),
         ExecuteMsg::Bond {
             receiver: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
             r#ref: None,
@@ -75,7 +75,7 @@ fn test_execute_bond_invalid_prefix() {
 
 #[test]
 fn test_execute_bond_payment_error() {
-    let mut deps = mock_dependencies(&vec![]);
+    let mut deps = mock_dependencies(&[]);
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -91,7 +91,7 @@ fn test_execute_bond_payment_error() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &vec![]),
+        mock_info("owner", &[]),
         ExecuteMsg::Bond {
             receiver: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
             r#ref: None,
@@ -103,7 +103,7 @@ fn test_execute_bond_payment_error() {
 
 #[test]
 fn test_execute_bond_wrong_receiver_address() {
-    let mut deps = mock_dependencies(&vec![]);
+    let mut deps = mock_dependencies(&[]);
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -119,7 +119,7 @@ fn test_execute_bond_wrong_receiver_address() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &vec![]),
+        mock_info("owner", &[]),
         ExecuteMsg::Bond {
             receiver: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqwrong_receiver_address".to_string(),
             r#ref: None,
@@ -131,7 +131,7 @@ fn test_execute_bond_wrong_receiver_address() {
 
 #[test]
 fn test_execute_bond() {
-    let mut deps = mock_dependencies(&vec![]);
+    let mut deps = mock_dependencies(&[]);
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -149,7 +149,7 @@ fn test_execute_bond() {
         mock_env(),
         mock_info(
             "owner",
-            &vec![Coin {
+            &[Coin {
                 denom: "denom".to_string(),
                 amount: Uint128::from(123u128),
             }],
@@ -197,7 +197,7 @@ fn test_execute_bond() {
 
 #[test]
 fn test_execute_update_config_unauthrozied() {
-    let mut deps = mock_dependencies(&vec![]);
+    let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     CONFIG
@@ -215,7 +215,7 @@ fn test_execute_update_config_unauthrozied() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("random_sender", &vec![]),
+        mock_info("random_sender", &[]),
         ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 core_contract: Some("core_contract_1".to_string()),
@@ -235,7 +235,7 @@ fn test_execute_update_config_unauthrozied() {
 
 #[test]
 fn test_execute_update_config_souce_channel_error() {
-    let mut deps = mock_dependencies(&vec![]);
+    let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     CONFIG
@@ -253,7 +253,7 @@ fn test_execute_update_config_souce_channel_error() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &vec![]),
+        mock_info("owner", &[]),
         ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 core_contract: Some("core_contract_1".to_string()),
@@ -270,7 +270,7 @@ fn test_execute_update_config_souce_channel_error() {
 
 #[test]
 fn test_execute_update_config() {
-    let mut deps = mock_dependencies(&vec![]);
+    let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     CONFIG
@@ -307,7 +307,7 @@ fn test_execute_update_config() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &vec![]),
+        mock_info("owner", &[]),
         ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 core_contract: Some("core_contract_1".to_string()),
@@ -338,7 +338,7 @@ fn test_execute_update_config() {
 
 #[test]
 fn test_execute_update_config_unauthorized() {
-    let mut deps = mock_dependencies(&vec![]);
+    let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     CONFIG
@@ -375,7 +375,7 @@ fn test_execute_update_config_unauthorized() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("random_sender", &vec![]),
+        mock_info("random_sender", &[]),
         ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 core_contract: Some("core_contract_1".to_string()),
@@ -429,7 +429,7 @@ fn test_execute_transfer_ownership() {
 
 #[test]
 fn test_execute_retry_removal_from_empty_failed_transfers() {
-    let mut deps = mock_dependencies(&vec![]);
+    let mut deps = mock_dependencies(&[]);
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -445,7 +445,7 @@ fn test_execute_retry_removal_from_empty_failed_transfers() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("permissionless_sender", &vec![]),
+        mock_info("permissionless_sender", &[]),
         ExecuteMsg::Retry {
             receiver: "receiver_that_doesn't_exist".to_string(),
         },
@@ -462,7 +462,7 @@ fn test_execute_retry_removal_from_empty_failed_transfers() {
 
 #[test]
 fn test_execute_retry() {
-    let mut deps = mock_dependencies(&vec![]);
+    let mut deps = mock_dependencies(&[]);
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -514,7 +514,7 @@ fn test_execute_retry() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("permissionless_sender", &vec![]),
+        mock_info("permissionless_sender", &[]),
         ExecuteMsg::Retry {
             receiver: "receiver".to_string(),
         },
