@@ -299,8 +299,8 @@ pub fn sudo(
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
         TransferSudoMsg::Response { .. } => sudo_response(),
-        TransferSudoMsg::Error { request, .. } => sudo_error(deps, request, "sudo-error"),
-        TransferSudoMsg::Timeout { request } => sudo_error(deps, request, "sudo-timeout"),
+        TransferSudoMsg::Error { request, .. } => sudo_error(deps, request, "sudo_error"),
+        TransferSudoMsg::Timeout { request } => sudo_error(deps, request, "sudo_timeout"),
     }
 }
 
@@ -320,19 +320,32 @@ fn sudo_error(
         packet.receiver,
         |current_debt| match current_debt {
             Some(funds) => Ok::<Vec<Coin>, ContractError>(
-                funds
-                    .iter()
-                    .map(|coin| {
-                        if coin.denom == packet.denom {
-                            // if sender already have pending failed transfer in this denom then just update the value
-                            return Coin {
-                                denom: coin.denom.clone(),
-                                amount: coin.amount + packet_amount,
-                            };
-                        }
-                        coin.clone()
-                    })
-                    .collect::<Vec<Coin>>(),
+                // If given denom exist - just modify its amount
+                if funds.iter().any(|coin| coin.denom == packet.denom) {
+                    funds
+                        .iter()
+                        .map(|coin| {
+                            if coin.denom == packet.denom {
+                                Coin {
+                                    denom: coin.denom.clone(),
+                                    amount: coin.amount + packet_amount,
+                                }
+                            } else {
+                                coin.clone()
+                            }
+                        })
+                        .collect()
+                // If it doesn't exist - push it at the end
+                } else {
+                    funds
+                        .iter()
+                        .cloned()
+                        .chain(std::iter::once(Coin {
+                            denom: packet.denom.clone(),
+                            amount: packet_amount,
+                        }))
+                        .collect()
+                },
             ),
             None => Ok(vec![Coin {
                 denom: packet.denom,

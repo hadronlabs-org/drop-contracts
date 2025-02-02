@@ -7,15 +7,16 @@ use crate::state::{Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, REPLY_RECEI
 use cosmwasm_std::{
     attr, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, ChannelResponse, Coin, CosmosMsg, Event, IbcChannel, IbcEndpoint, IbcMsg,
-    IbcOrder, Reply, ReplyOn, Response, SubMsg, SubMsgResponse, SubMsgResult, Uint128, WasmMsg,
+    to_json_binary, Binary, ChannelResponse, Coin, CosmosMsg, Event, IbcChannel, IbcEndpoint,
+    IbcMsg, IbcOrder, Reply, ReplyOn, Response, SubMsg, SubMsgResponse, SubMsgResult, Uint128,
+    WasmMsg,
 };
 use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use drop_helpers::testing::mock_dependencies;
 use neutron_sdk::bindings::msg::{IbcFee, NeutronMsg};
 use neutron_sdk::query::min_ibc_fee::MinIbcFeeResponse;
-use neutron_sdk::sudo::msg::RequestPacketTimeoutHeight;
+use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, TransferSudoMsg};
 
 #[test]
 fn test_instantiate() {
@@ -872,4 +873,352 @@ fn test_execute_reply_no_tokens_minted_amount_found() {
     )
     .unwrap_err();
     assert_eq!(res, ContractError::NoTokensMintedAmountFound {});
+}
+
+#[test]
+fn test_execute_sudo_response() {
+    let mut deps = mock_dependencies(&[]);
+    FAILED_TRANSFERS
+        .save(
+            deps.as_mut().storage,
+            "receiver1".to_string(),
+            &vec![Coin {
+                denom: "denom".to_string(),
+                amount: Uint128::from(100u128),
+            }],
+        )
+        .unwrap();
+    FAILED_TRANSFERS
+        .save(
+            deps.as_mut().storage,
+            "receiver2".to_string(),
+            &vec![Coin {
+                denom: "denom".to_string(),
+                amount: Uint128::from(100u128),
+            }],
+        )
+        .unwrap();
+    let res = sudo(
+        deps.as_mut(),
+        mock_env(),
+        TransferSudoMsg::Response {
+            request: RequestPacket {
+                sequence: None,
+                source_port: None,
+                source_channel: None,
+                destination_port: None,
+                destination_channel: None,
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            data: Binary::from("".as_bytes()),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new().add_event(Event::new(
+            "crates.io:drop-staking__drop-mirror-sudo_response"
+        ))
+    );
+    let all_failed: Vec<(String, Vec<Coin>)> =
+        from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
+    assert_eq!(
+        all_failed,
+        vec![
+            (
+                "receiver1".to_string(),
+                vec![Coin {
+                    denom: "denom".to_string(),
+                    amount: Uint128::from(100u128),
+                }]
+            ),
+            (
+                "receiver2".to_string(),
+                vec![Coin {
+                    denom: "denom".to_string(),
+                    amount: Uint128::from(100u128),
+                }]
+            )
+        ]
+    );
+}
+
+#[test]
+fn test_execute_sudo_timeout() {
+    // same as sudo-error
+    let mut deps = mock_dependencies(&[]);
+    {
+        let res = sudo(
+            deps.as_mut(),
+            mock_env(),
+            TransferSudoMsg::Timeout {
+                request: RequestPacket {
+                    sequence: None,
+                    source_port: None,
+                    source_channel: None,
+                    destination_port: None,
+                    destination_channel: None,
+                    data: Some(
+                        to_json_binary(&FungibleTokenPacketData {
+                            denom: "denom1".to_string(),
+                            amount: "100".to_string(),
+                            sender: "sender".to_string(),
+                            receiver: "receiver1".to_string(),
+                            memo: None,
+                        })
+                        .unwrap(),
+                    ),
+                    timeout_height: None,
+                    timeout_timestamp: None,
+                },
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            Response::new().add_event(Event::new(
+                "crates.io:drop-staking__drop-mirror-sudo_timeout"
+            ))
+        );
+        let all_failed: Vec<(String, Vec<Coin>)> =
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
+        assert_eq!(
+            all_failed,
+            vec![(
+                "receiver1".to_string(),
+                vec![Coin {
+                    denom: "denom1".to_string(),
+                    amount: Uint128::from(100u128),
+                }]
+            )]
+        );
+    }
+    {
+        let res = sudo(
+            deps.as_mut(),
+            mock_env(),
+            TransferSudoMsg::Timeout {
+                request: RequestPacket {
+                    sequence: None,
+                    source_port: None,
+                    source_channel: None,
+                    destination_port: None,
+                    destination_channel: None,
+                    data: Some(
+                        to_json_binary(&FungibleTokenPacketData {
+                            denom: "denom2".to_string(),
+                            amount: "100".to_string(),
+                            sender: "sender".to_string(),
+                            receiver: "receiver1".to_string(),
+                            memo: None,
+                        })
+                        .unwrap(),
+                    ),
+                    timeout_height: None,
+                    timeout_timestamp: None,
+                },
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            Response::new().add_event(Event::new(
+                "crates.io:drop-staking__drop-mirror-sudo_timeout"
+            ))
+        );
+        let all_failed: Vec<(String, Vec<Coin>)> =
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
+        assert_eq!(
+            all_failed,
+            vec![(
+                "receiver1".to_string(),
+                vec![
+                    Coin {
+                        denom: "denom1".to_string(),
+                        amount: Uint128::from(100u128),
+                    },
+                    Coin {
+                        denom: "denom2".to_string(),
+                        amount: Uint128::from(100u128),
+                    }
+                ]
+            )]
+        );
+    }
+    {
+        let res = sudo(
+            deps.as_mut(),
+            mock_env(),
+            TransferSudoMsg::Timeout {
+                request: RequestPacket {
+                    sequence: None,
+                    source_port: None,
+                    source_channel: None,
+                    destination_port: None,
+                    destination_channel: None,
+                    data: Some(
+                        to_json_binary(&FungibleTokenPacketData {
+                            denom: "denom2".to_string(),
+                            amount: "200".to_string(),
+                            sender: "sender".to_string(),
+                            receiver: "receiver1".to_string(),
+                            memo: None,
+                        })
+                        .unwrap(),
+                    ),
+                    timeout_height: None,
+                    timeout_timestamp: None,
+                },
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            Response::new().add_event(Event::new(
+                "crates.io:drop-staking__drop-mirror-sudo_timeout"
+            ))
+        );
+        let all_failed: Vec<(String, Vec<Coin>)> =
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
+        assert_eq!(
+            all_failed,
+            vec![(
+                "receiver1".to_string(),
+                vec![
+                    Coin {
+                        denom: "denom1".to_string(),
+                        amount: Uint128::from(100u128),
+                    },
+                    Coin {
+                        denom: "denom2".to_string(),
+                        amount: Uint128::from(300u128),
+                    }
+                ]
+            )]
+        );
+    }
+    {
+        let res = sudo(
+            deps.as_mut(),
+            mock_env(),
+            TransferSudoMsg::Timeout {
+                request: RequestPacket {
+                    sequence: None,
+                    source_port: None,
+                    source_channel: None,
+                    destination_port: None,
+                    destination_channel: None,
+                    data: Some(
+                        to_json_binary(&FungibleTokenPacketData {
+                            denom: "denom1".to_string(),
+                            amount: "300".to_string(),
+                            sender: "sender".to_string(),
+                            receiver: "receiver2".to_string(),
+                            memo: None,
+                        })
+                        .unwrap(),
+                    ),
+                    timeout_height: None,
+                    timeout_timestamp: None,
+                },
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            Response::new().add_event(Event::new(
+                "crates.io:drop-staking__drop-mirror-sudo_timeout"
+            ))
+        );
+        let all_failed: Vec<(String, Vec<Coin>)> =
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
+        assert_eq!(
+            all_failed,
+            vec![
+                (
+                    "receiver1".to_string(),
+                    vec![
+                        Coin {
+                            denom: "denom1".to_string(),
+                            amount: Uint128::from(100u128),
+                        },
+                        Coin {
+                            denom: "denom2".to_string(),
+                            amount: Uint128::from(300u128),
+                        }
+                    ]
+                ),
+                (
+                    "receiver2".to_string(),
+                    vec![Coin {
+                        denom: "denom1".to_string(),
+                        amount: Uint128::from(300u128),
+                    },]
+                ),
+            ]
+        );
+    }
+    {
+        let res = sudo(
+            deps.as_mut(),
+            mock_env(),
+            TransferSudoMsg::Timeout {
+                request: RequestPacket {
+                    sequence: None,
+                    source_port: None,
+                    source_channel: None,
+                    destination_port: None,
+                    destination_channel: None,
+                    data: Some(
+                        to_json_binary(&FungibleTokenPacketData {
+                            denom: "denom1".to_string(),
+                            amount: "200".to_string(),
+                            sender: "sender".to_string(),
+                            receiver: "receiver2".to_string(),
+                            memo: None,
+                        })
+                        .unwrap(),
+                    ),
+                    timeout_height: None,
+                    timeout_timestamp: None,
+                },
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            Response::new().add_event(Event::new(
+                "crates.io:drop-staking__drop-mirror-sudo_timeout"
+            ))
+        );
+        let all_failed: Vec<(String, Vec<Coin>)> =
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
+        assert_eq!(
+            all_failed,
+            vec![
+                (
+                    "receiver1".to_string(),
+                    vec![
+                        Coin {
+                            denom: "denom1".to_string(),
+                            amount: Uint128::from(100u128),
+                        },
+                        Coin {
+                            denom: "denom2".to_string(),
+                            amount: Uint128::from(300u128),
+                        }
+                    ]
+                ),
+                (
+                    "receiver2".to_string(),
+                    vec![Coin {
+                        denom: "denom1".to_string(),
+                        amount: Uint128::from(500u128),
+                    },]
+                ),
+            ]
+        );
+    }
 }
