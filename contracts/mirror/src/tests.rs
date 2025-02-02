@@ -1,6 +1,8 @@
 use crate::contract::{execute, instantiate, query, reply, sudo};
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, FungibleTokenPacketData, InstantiateMsg, QueryMsg};
+use crate::msg::{
+    ExecuteMsg, FailedReceiverResponse, FungibleTokenPacketData, InstantiateMsg, QueryMsg,
+};
 use crate::state::{Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, REPLY_RECEIVER};
 use cosmwasm_std::{
     attr, from_json,
@@ -597,4 +599,127 @@ fn test_execute_retry() {
                 ])
             )
     )
+}
+
+#[test]
+fn test_query_ownership() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> =
+        from_json(query(deps.as_ref(), mock_env(), QueryMsg::Ownership {}).unwrap()).unwrap();
+    assert_eq!(
+        query_res,
+        cw_ownable::Ownership {
+            owner: Some(cosmwasm_std::Addr::unchecked("owner".to_string())),
+            pending_expiry: None,
+            pending_owner: None
+        }
+    );
+}
+
+#[test]
+fn test_query_config() {
+    let mut deps = mock_dependencies(&[]);
+    let config = Config {
+        core_contract: "core_contract".to_string(),
+        source_port: "source_port".to_string(),
+        source_channel: "source_channel".to_string(),
+        ibc_timeout: 0u64,
+        prefix: "prefix".to_string(),
+    };
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    let res: Config =
+        from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+    assert_eq!(res, config);
+}
+
+#[test]
+fn test_query_all_failed() {
+    let mut deps = mock_dependencies(&[]);
+    let funds_in_debt = vec![
+        Coin {
+            denom: "token_denom1".to_string(),
+            amount: Uint128::from(100u128),
+        },
+        Coin {
+            denom: "token_denom2".to_string(),
+            amount: Uint128::from(300u128),
+        },
+    ];
+    FAILED_TRANSFERS
+        .save(
+            deps.as_mut().storage,
+            "receiver".to_string(),
+            &funds_in_debt,
+        )
+        .unwrap();
+    let res: Vec<(String, Vec<Coin>)> =
+        from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
+    assert_eq!(res, vec![("receiver".to_string(), funds_in_debt)]);
+}
+
+#[test]
+fn test_query_all_failed_empty() {
+    let deps = mock_dependencies(&[]);
+    let res: Vec<(String, Vec<Coin>)> =
+        from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
+    assert_eq!(res, vec![]);
+}
+
+#[test]
+fn test_query_failed_receiver() {
+    let mut deps = mock_dependencies(&[]);
+    let funds_in_debt = vec![
+        Coin {
+            denom: "token_denom1".to_string(),
+            amount: Uint128::from(100u128),
+        },
+        Coin {
+            denom: "token_denom2".to_string(),
+            amount: Uint128::from(300u128),
+        },
+    ];
+    FAILED_TRANSFERS
+        .save(
+            deps.as_mut().storage,
+            "receiver".to_string(),
+            &funds_in_debt,
+        )
+        .unwrap();
+    let res: Option<FailedReceiverResponse> = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            QueryMsg::FailedReceiver {
+                receiver: "receiver".to_string(),
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Some(FailedReceiverResponse {
+            receiver: "receiver".to_string(),
+            amount: funds_in_debt
+        })
+    );
+}
+
+#[test]
+fn test_query_failed_receiver_empty() {
+    let deps = mock_dependencies(&[]);
+    let res: Option<FailedReceiverResponse> = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            QueryMsg::FailedReceiver {
+                receiver: "receiver".to_string(),
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(res, None);
 }
