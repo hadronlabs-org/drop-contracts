@@ -210,7 +210,7 @@ pub fn execute_bond(
         attr("coin", format!("{}{}", coin.amount, coin.denom)),
     ];
     // We can't pass receiver directly to reply from bond execution
-    // The only way to pass this is to overwrite it here and then read in reply
+    // The only way to pass it is to overwrite receiver here and then read in reply
     REPLY_RECEIVER.save(deps.storage, &receiver)?;
     let msg = SubMsg::reply_on_success(
         WasmMsg::Execute {
