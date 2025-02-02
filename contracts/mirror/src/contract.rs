@@ -113,7 +113,7 @@ fn execute_retry(
         ..
     } = CONFIG.load(deps.storage)?;
     let mut ibc_transfer_msgs: Vec<CosmosMsg<NeutronMsg>> = vec![];
-    let mut attrs: Vec<Attribute> = vec![];
+    let mut attrs: Vec<Attribute> = vec![attr("action", "execute_retry")];
     if let Some(failed_transfers) = failed_transfers {
         for coin in failed_transfers.iter() {
             ibc_transfer_msgs.push(CosmosMsg::Custom(NeutronMsg::IbcTransfer {
@@ -147,7 +147,7 @@ fn execute_update_config(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut config = CONFIG.load(deps.storage)?;
-    let mut attrs = vec![attr("action", "update_config")];
+    let mut attrs = vec![attr("action", "execute-update_config")];
     if let Some(core_contract) = new_config.core_contract {
         deps.api.addr_validate(&core_contract)?;
         attrs.push(attr("core_contract", &core_contract));
@@ -185,7 +185,7 @@ fn execute_update_config(
         }
     }
     CONFIG.save(deps.storage, &config)?;
-    Ok(response("update_config", CONTRACT_NAME, attrs))
+    Ok(response("execute-update_config", CONTRACT_NAME, attrs))
 }
 
 pub fn execute_bond(
@@ -207,6 +207,7 @@ pub fn execute_bond(
         attr("action", "bond"),
         attr("receiver", receiver.to_string()),
         attr("ref", r#ref.clone().unwrap_or_default()),
+        attr("coin", format!("{}{}", coin.amount, coin.denom)),
     ];
     REPLY_RECEIVER.save(deps.storage, &receiver)?;
     let msg = SubMsg::reply_on_success(
