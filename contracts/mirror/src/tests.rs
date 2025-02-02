@@ -8,7 +8,7 @@ use cosmwasm_std::{
     attr, from_json,
     testing::{mock_env, mock_info},
     to_json_binary, ChannelResponse, Coin, CosmosMsg, Event, IbcChannel, IbcEndpoint, IbcMsg,
-    IbcOrder, ReplyOn, Response, SubMsg, Uint128, WasmMsg,
+    IbcOrder, Reply, ReplyOn, Response, SubMsg, SubMsgResponse, SubMsgResult, Uint128, WasmMsg,
 };
 use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
@@ -722,4 +722,154 @@ fn test_query_failed_receiver_empty() {
     )
     .unwrap();
     assert_eq!(res, None);
+}
+
+#[test]
+fn test_execute_reply() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract_0".to_string(),
+                source_channel: "source_channel_0".to_string(),
+                source_port: "source_port_0".to_string(),
+                ibc_timeout: 0,
+                prefix: "neutron_0".to_string(),
+            },
+        )
+        .unwrap();
+    REPLY_RECEIVER
+        .save(deps.as_mut().storage, &"reply_receiver".to_string())
+        .unwrap();
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: cosmwasm_std::coins(100, "untrn"),
+                timeout_fee: cosmwasm_std::coins(200, "untrn"),
+            },
+        })
+        .unwrap()
+    });
+    let res = reply(
+        deps.as_mut(),
+        mock_env(),
+        Reply {
+            id: 1,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![Event::new("tf_mint").add_attribute("amount", "100dasset")],
+                data: None,
+            }),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new()
+            .add_submessage(SubMsg {
+                id: 0,
+                msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
+                    source_port: "source_port_0".to_string(),
+                    source_channel: "source_channel_0".to_string(),
+                    token: Coin {
+                        denom: "dasset".to_string(),
+                        amount: Uint128::from(100u128)
+                    },
+                    sender: "cosmos2contract".to_string(),
+                    receiver: "reply_receiver".to_string(),
+                    timeout_height: RequestPacketTimeoutHeight {
+                        revision_number: None,
+                        revision_height: None
+                    },
+                    timeout_timestamp: mock_env().block.time.nanos(),
+                    memo: "".to_string(),
+                    fee: IbcFee {
+                        recv_fee: vec![],
+                        ack_fee: cosmwasm_std::coins(100, "untrn"),
+                        timeout_fee: cosmwasm_std::coins(200, "untrn"),
+                    }
+                }),
+                gas_limit: None,
+                reply_on: ReplyOn::Never
+            })
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-mirror-reply-finalize_bond")
+                    .add_attributes(vec![
+                        attr("action", "reply-finalize_bond"),
+                        attr("id", "1"),
+                        attr("amount", "100dasset"),
+                        attr("to_address", "reply_receiver"),
+                        attr("source_port", "source_port_0"),
+                        attr("source_channel", "source_channel_0"),
+                        attr("ibc-timeout", "0")
+                    ])
+            )
+    )
+}
+
+#[test]
+fn test_execute_reply_no_tokens_minted() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract_0".to_string(),
+                source_channel: "source_channel_0".to_string(),
+                source_port: "source_port_0".to_string(),
+                ibc_timeout: 0,
+                prefix: "neutron_0".to_string(),
+            },
+        )
+        .unwrap();
+    REPLY_RECEIVER
+        .save(deps.as_mut().storage, &"reply_receiver".to_string())
+        .unwrap();
+    let res = reply(
+        deps.as_mut(),
+        mock_env(),
+        Reply {
+            id: 1,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![],
+                data: None,
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::NoTokensMinted {});
+}
+
+#[test]
+fn test_execute_reply_no_tokens_minted_amount_found() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract_0".to_string(),
+                source_channel: "source_channel_0".to_string(),
+                source_port: "source_port_0".to_string(),
+                ibc_timeout: 0,
+                prefix: "neutron_0".to_string(),
+            },
+        )
+        .unwrap();
+    REPLY_RECEIVER
+        .save(deps.as_mut().storage, &"reply_receiver".to_string())
+        .unwrap();
+    let res = reply(
+        deps.as_mut(),
+        mock_env(),
+        Reply {
+            id: 1,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![Event::new("tf_mint")],
+                data: None,
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::NoTokensMintedAmountFound {});
 }
