@@ -26,7 +26,7 @@ pub struct TimeoutRange {
     pub to: u64,
 }
 
-pub const FAILED_TRANSFER_REPLY_ID: u64 = 1;
+pub const BOND_REPLY_ID: u64 = 1;
 
 pub const REPLY_RECEIVER: Item<String> = Item::new("reply_receiver");
 pub const CONFIG: Item<Config> = Item::new("config");

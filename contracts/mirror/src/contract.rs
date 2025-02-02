@@ -4,8 +4,7 @@ use crate::msg::{
     QueryMsg,
 };
 use crate::state::{
-    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, FAILED_TRANSFER_REPLY_ID, REPLY_RECEIVER,
-    TIMEOUT_RANGE,
+    Config, ConfigOptional, BOND_REPLY_ID, CONFIG, FAILED_TRANSFERS, REPLY_RECEIVER, TIMEOUT_RANGE,
 };
 use cosmwasm_std::{
     attr, ensure, from_json, to_json_binary, Attribute, Binary, Coin, CosmosMsg, Deps, DepsMut,
@@ -210,6 +209,8 @@ pub fn execute_bond(
         attr("ref", r#ref.clone().unwrap_or_default()),
         attr("coin", format!("{}{}", coin.amount, coin.denom)),
     ];
+    // We can't pass receiver directly to reply from bond execution
+    // The only way to pass this is to overwrite it here and then read in reply
     REPLY_RECEIVER.save(deps.storage, &receiver)?;
     let msg = SubMsg::reply_on_success(
         WasmMsg::Execute {
@@ -220,7 +221,7 @@ pub fn execute_bond(
             })?,
             funds: vec![coin],
         },
-        FAILED_TRANSFER_REPLY_ID,
+        BOND_REPLY_ID,
     );
     Ok(response("bond", CONTRACT_NAME, attrs).add_submessage(msg))
 }
@@ -314,7 +315,7 @@ fn sudo_error(
     let packet_amount = Uint128::from_str(packet.amount.as_str())?;
 
     // If given ibc-transfer for given receiver on the remote chain fails then
-    // current contract owns this tokens right now. Memorize in the map, that
+    // current contract owns these tokens right now. Memorize in the map, that
     // for given user our contract possess these failed-to-process tokens
     FAILED_TRANSFERS.update(
         deps.storage,
