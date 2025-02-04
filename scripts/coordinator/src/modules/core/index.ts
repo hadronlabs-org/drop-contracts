@@ -127,21 +127,7 @@ export class CoreModule extends ManagerModule {
     );
 
     if (puppeteerResponseReceived || coreContractState === 'idle') {
-      const queryIds = await this.puppeteerContractClient.queryKVQueryIds();
-
-      this.log.info(`Puppeteer query ids: ${JSON.stringify(queryIds)}`);
-
-      const queryIdsArray = queryIds.map(([queryId]) => queryId.toString());
-
-      this.log.info(
-        `Puppeteer query ids plain: ${JSONBig.stringify(queryIdsArray)}`,
-      );
-
-      if (queryIdsArray.length > 0) {
-        runQueryRelayer(this.context, this.log, queryIdsArray);
-
-        await waitBlocks(this.context, 3, this.log);
-
+      if (this.context.config.coordinator.nativeMode) {
         const res = await this.coreContractClient.tick(
           this.context.neutronWalletAddress,
           1.5,
@@ -150,6 +136,33 @@ export class CoreModule extends ManagerModule {
         );
 
         this.log.info(`Core contract tick response: ${JSONBig.stringify(res)}`);
+      } else {
+        const queryIds = await this.puppeteerContractClient.queryKVQueryIds();
+
+        this.log.info(`Puppeteer query ids: ${JSON.stringify(queryIds)}`);
+
+        const queryIdsArray = queryIds.map(([queryId]) => queryId.toString());
+
+        this.log.info(
+          `Puppeteer query ids plain: ${JSONBig.stringify(queryIdsArray)}`,
+        );
+
+        if (queryIdsArray.length > 0) {
+          runQueryRelayer(this.context, this.log, queryIdsArray);
+
+          await waitBlocks(this.context, 3, this.log);
+
+          const res = await this.coreContractClient.tick(
+            this.context.neutronWalletAddress,
+            1.5,
+            undefined,
+            [],
+          );
+
+          this.log.info(
+            `Core contract tick response: ${JSONBig.stringify(res)}`,
+          );
+        }
       }
     }
   }
