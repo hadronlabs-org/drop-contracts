@@ -1,7 +1,7 @@
 use cosmos_sdk_proto::cosmos::base::query::v1beta1::PageRequest;
 use cosmwasm_std::{
     attr, ensure, to_json_binary, Addr, Attribute, BankMsg, Coin as StdCoin, CosmosMsg, Deps,
-    QueryRequest, StakingMsg, StdError, Timestamp, Uint128, WasmMsg,
+    QueryRequest, StakingMsg, StdError, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{answer::response, validation::validate_addresses};
@@ -88,9 +88,6 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::Extension { msg } => match msg {
             QueryExtMsg::Delegations {} => query_delegations(deps, env),
             QueryExtMsg::Balances {} => query_balances(deps, env),
-            // QueryExtMsg::NonNativeRewardsBalances {} => {
-            //     query_non_native_rewards_balances(deps, env)
-            // }
             QueryExtMsg::UnbondingDelegations {} => query_unbonding_delegations(deps, env),
         },
         QueryMsg::Config {} => query_config(deps),
@@ -123,7 +120,7 @@ fn query_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binar
                     cosmos_sdk_proto::cosmos::staking::v1beta1::QueryDelegatorDelegationsRequest {
                         delegator_addr: env.contract.address.to_string(),
                         pagination: Some(PageRequest {
-                            key,
+                            key: key.clone(),
                             limit: 500,
                             ..Default::default()
                         }),
@@ -133,14 +130,7 @@ fn query_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binar
             });
 
         if res.is_err() {
-            return Ok(to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![],
-                },
-                remote_height: 0,
-                local_height: 0,
-                timestamp: Timestamp::default(),
-            })?);
+            break;
         } else {
             let delegations_response = res.unwrap(); // unwrap is safe bc we know that it's not an error
 
@@ -220,29 +210,6 @@ fn query_unbonding_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractRe
 
     to_json_binary(&total_undelegations).map_err(ContractError::Std)
 }
-
-// fn query_non_native_rewards_balances(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
-//     let config: Config = CONFIG.load(deps.storage)?;
-
-//     let balances = deps
-//         .querier
-//         .query_all_balances(env.contract.address.to_string())?;
-
-//     let balances_without_native = balances
-//         .into_iter()
-//         .filter(|b| b.denom != config.remote_denom)
-//         .collect::<Vec<_>>();
-
-//     to_json_binary(&BalancesResponse {
-//         balances: Balances {
-//             coins: balances_without_native,
-//         },
-//         remote_height: env.block.height,
-//         local_height: env.block.height,
-//         timestamp: env.block.time,
-//     })
-//     .map_err(ContractError::Std)
-// }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(

@@ -455,10 +455,12 @@ fn test_query_extension_delegations_none() {
             cosmwasm_std::ContractResult::Err("No data".to_string())
         });
 
+    let env = mock_env();
+
     let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
         crate::contract::query(
             deps.as_ref(),
-            mock_env(),
+            env.clone(),
             drop_staking_base::msg::puppeteer_native::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer_native::QueryExtMsg::Delegations {},
             },
@@ -472,9 +474,9 @@ fn test_query_extension_delegations_none() {
             delegations: Delegations {
                 delegations: vec![],
             },
-            remote_height: 0,
-            local_height: 0,
-            timestamp: Timestamp::default(),
+            remote_height: env.block.height,
+            local_height: env.block.height,
+            timestamp: env.block.time,
         }
     );
 }

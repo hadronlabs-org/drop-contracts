@@ -9,9 +9,6 @@ KEYRING_BACKEND="${KEYRING_BACKEND:-test}"
 DEPLOY_WALLET="${DEPLOY_WALLET:-demowallet1}"
 MIN_NTRN_REQUIRED="${MIN_NTRN_REQUIRED:-10}"
 
-TARGET_SDK_VERSION="${TARGET_SDK_VERSION:?Variable should be explicitly specified}"
-TARGET_BASE_DENOM="${TARGET_BASE_DENOM:?Variable should be explicitly specified}"
-NEUTRON_SIDE_TRANSFER_CHANNEL_ID="${NEUTRON_SIDE_TRANSFER_CHANNEL_ID:?Variable should be explicitly specified}"
 INITIAL_VALIDATORS="${INITIAL_VALIDATORS:?Variable should be explicitly specified}"
 UNBONDING_PERIOD="${UNBONDING_PERIOD:?Variable should be explicitly specified}"
 UNBONDING_SAFE_PERIOD="${UNBONDING_SAFE_PERIOD:?Variable should be explicitly specified}"
@@ -19,8 +16,6 @@ UNBOND_BATCH_SWITCH_TIME="${UNBOND_BATCH_SWITCH_TIME:?Variable should be explici
 TIMEOUT_LOCAL="${TIMEOUT_LOCAL:?Variable should be explicitly specified}"
 TIMEOUT_REMOTE="${TIMEOUT_REMOTE:?Variable should be explicitly specified}"
 
-NEUTRON_SIDE_PORT_ID="${NEUTRON_SIDE_PORT_ID:?Variable should explicitly specified}"
-ICQ_UPDATE_PERIOD="${ICQ_UPDATE_PERIOD:?Variable should explicitly specified}"
 SALT="${SALT:?Variable should explicitly specified}"
 SUBDENOM="${SUBDENOM:?Variable should explicitly specified}"
 TOKEN_METADATA_DESCRIPTION="${TOKEN_METADATA_DESCRIPTION:?Variable should explicitly specified}"
@@ -29,20 +24,24 @@ TOKEN_METADATA_EXPONENT="${TOKEN_METADATA_EXPONENT:?Variable should explicitly s
 TOKEN_METADATA_NAME="${TOKEN_METADATA_NAME:?Variable should explicitly specified}"
 TOKEN_METADATA_SYMBOL="${TOKEN_METADATA_SYMBOL:?Variable should explicitly specified}"
 CORE_PARAMS_IDLE_MIN_INTERVAL="${CORE_PARAMS_IDLE_MIN_INTERVAL:?Variable should explicitly specified}"
-CORE_PARAMS_LSM_REDEEM_THRESHOLD="${CORE_PARAMS_LSM_REDEEM_THRESHOLD:?Variable should explicitly specified}"
-CORE_PARAMS_LSM_MIN_BOND_AMOUNT="${CORE_PARAMS_LSM_MIN_BOND_AMOUNT:?Variable should explicitly specified}"
-CORE_PARAMS_LSM_REDEEM_MAX_INTERVAL="${CORE_PARAMS_LSM_REDEEM_MAX_INTERVAL:?Variable should explicitly specified}"
-CORE_PARAMS_BOND_LIMIT="${CORE_PARAMS_BOND_LIMIT:?Variable should explicitly specified}"
 CORE_PARAMS_MIN_STAKE_AMOUNT="${CORE_PARAMS_MIN_STAKE_AMOUNT:?Variable should explicitly specified}"
 CORE_PARAMS_ICQ_UPDATE_DELAY="${CORE_PARAMS_ICQ_UPDATE_DELAY:?Variable should explicitly specified}"
 STAKER_PARAMS_MIN_STAKE_AMOUNT="${STAKER_PARAMS_MIN_STAKE_AMOUNT:?Variable should explicitly specified}"
 STAKER_PARAMS_MIN_IBC_TRANSFER="${STAKER_PARAMS_MIN_IBC_TRANSFER:?Variable should explicitly specified}"
+
+DISTRIBUTION_MODULE_CONTRACT="${DISTRIBUTION_MODULE_CONTRACT:?Variable should explicitly specified}"
 
 source ./utils.bash
 
 echo "DEPLOY_WALLET: $DEPLOY_WALLET"
 echo "NEUTRON_RPC: $NEUTRON_RPC"
 echo "NEUTRON_HOME: $NEUTRON_HOME"
+
+neutron_side_connection_id="N/A"
+NEUTRON_SIDE_TRANSFER_CHANNEL_ID="N/A"
+TARGET_BASE_DENOM="untrn"
+uatom_on_neutron_denom="untrn"
+
 
 
 main() {
@@ -51,7 +50,6 @@ main() {
 
   pre_deploy_check_code_ids
   pre_deploy_check_balance
-  pre_deploy_check_ibc_connection
   factory_contract_address=$(get_contract_address "$factory_code_id" "$deploy_wallet" "$SALT")
   echo "Factory address: $factory_contract_address"
   core_contract_address=$(get_contract_address "$core_code_id" "$factory_contract_address" "$SALT")
@@ -76,13 +74,13 @@ main() {
     "'"$core_contract_address"'",
     "'"$factory_contract_address"'"
   ]'
-  deployed_puppeteer_contract_address=$(deploy_puppeteer_native "$factory_contract_address" "$distribution_module_contract" "$allowed_senders")
+  deployed_puppeteer_contract_address=$(deploy_puppeteer_native "$factory_contract_address" "$DISTRIBUTION_MODULE_CONTRACT" "$allowed_senders")
   echo "[OK] Deployed puppeteer address: $deployed_puppeteer_contract_address"
 
   
   pre_instantiated_contracts='{
     "native_bond_provider_address":"'"$native_sync_bond_provider_contract_address"'",
-    "puppeteer_address":"'"$puppeteer_contract_address"'",
+    "puppeteer_address":"'"$puppeteer_contract_address"'"
   }'
   
   deploy_factory "$pre_instantiated_contracts"
