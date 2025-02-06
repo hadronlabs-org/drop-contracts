@@ -301,7 +301,7 @@ fn sudo_signing_info(
 
 // TODO: Implement tests
 fn calucalate_missed_blocks_percent(
-    all_missed_blocks: &Vec<MissedBlocks>,
+    all_missed_blocks: &[MissedBlocks],
     missed_blocks: &mut MissedBlocks,
     address: String,
     missed_blocks_counter: u64,
