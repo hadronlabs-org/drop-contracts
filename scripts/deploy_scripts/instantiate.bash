@@ -77,10 +77,10 @@ main() {
     | sha256sum - | awk '{print $1}' | tr '[:lower:]' '[:upper:]')"
   echo "[OK] IBC denom of $TARGET_BASE_DENOM on Neutron is $uatom_on_neutron_denom"
 
-  native_bond_provider_contract_address=$(deploy_native_bond_provider "$factory_contract_address" "$core_contract_address" "$puppeteer_contract_address" "$strategy_contract_address")
+  native_bond_provider_contract_address=$(deploy_native_bond_provider "$factory_contract_address")
   echo "[OK] Native bond provider address: $native_bond_provider_contract_address"
 
-  deployed_lsm_share_bond_provider_contract_address=$(deploy_lsm_share_bond_provider "$factory_contract_address" "$core_contract_address" "$puppeteer_contract_address" "$validators_set_contract_address")
+  deployed_lsm_share_bond_provider_contract_address=$(deploy_lsm_share_bond_provider "$factory_contract_address")
   echo "[OK] Deployed lsm share bond provider address: $deployed_lsm_share_bond_provider_contract_address"
 
   allowed_senders='[
