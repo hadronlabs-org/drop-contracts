@@ -12,7 +12,7 @@ pub enum QueryMsg {
 
 #[cw_serde]
 pub struct ConfigResponse {
-    pub core_address: String,
+    pub factory_contract: String,
     pub denom: String,
 }
 
@@ -44,7 +44,7 @@ pub struct DenomMetadata {
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub core_address: String,
+    pub factory_contract: String,
     pub subdenom: String,
     pub token_metadata: DenomMetadata,
     pub owner: String,

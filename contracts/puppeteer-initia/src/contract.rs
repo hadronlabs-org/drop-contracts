@@ -9,7 +9,7 @@ use cosmwasm_std::{
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{
-    answer::response, ibc_client_state::query_client_state, ibc_fee::query_ibc_fee,
+    answer::response, get_contracts, ibc_client_state::query_client_state, ibc_fee::query_ibc_fee,
     icq_initia::new_delegations_and_balance_query_msg, interchain::prepare_any_msg,
     validation::validate_addresses,
 };
@@ -50,7 +50,7 @@ use std::vec;
 
 pub type Puppeteer<'a> = PuppeteerBase<'a, Config, KVQueryType, BalancesAndDelegations>;
 
-const CONTRACT_NAME: &str = concat!("crates.io:drop-neutron-contracts__", env!("CARGO_PKG_NAME"));
+pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_DELEGATIONS_QUERIES_CHUNK_SIZE: u32 = 15;
 
@@ -84,7 +84,7 @@ pub fn instantiate(
         transfer_channel_id: msg.transfer_channel_id,
         sdk_version: msg.sdk_version,
         timeout: msg.timeout,
-        native_bond_provider: deps.api.addr_validate(&msg.native_bond_provider)?,
+        factory_contract: deps.api.addr_validate(&msg.factory_contract)?,
         delegations_queries_chunk_size: msg
             .delegations_queries_chunk_size
             .unwrap_or(DEFAULT_DELEGATIONS_QUERIES_CHUNK_SIZE),
@@ -111,10 +111,6 @@ pub fn query(
                     .collect::<StdResult<Vec<_>>>()?,
             )
             .map_err(ContractError::Std),
-            QueryExtMsg::Ownership {} => {
-                let owner = cw_ownable::get_ownership(deps.storage)?;
-                to_json_binary(&owner).map_err(ContractError::Std)
-            }
         },
         QueryMsg::KVQueryIds {} => query_kv_query_ids(deps),
         _ => Puppeteer::default().query(deps, env, msg),
@@ -310,11 +306,12 @@ fn execute_delegate(
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.storage)?;
+    let addrs = get_contracts!(deps, config.factory_contract, native_bond_provider_contract);
     validate_sender(&config, &info.sender)?;
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
 
     let non_staked_balance = deps.querier.query_wasm_smart::<Uint128>(
-        &config.native_bond_provider,
+        &addrs.native_bond_provider_contract,
         &drop_staking_base::msg::native_bond_provider::QueryMsg::NonStakedBalance {},
     )?;
 
@@ -925,7 +922,6 @@ fn sudo_timeout(
         attr("request_id", request.sequence.unwrap_or(0).to_string()),
     ];
     let puppeteer_base = Puppeteer::default();
-
     let tx_state = puppeteer_base.tx_state.load(deps.storage)?;
     let transaction = tx_state
         .transaction

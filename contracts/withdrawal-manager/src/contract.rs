@@ -4,10 +4,9 @@ use cosmwasm_std::{
 };
 use cw721::NftInfoResponse;
 use cw_ownable::{get_ownership, update_ownership};
-use drop_helpers::{
-    answer::response,
-    pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse},
-};
+use drop_helpers::answer::response;
+use drop_helpers::get_contracts;
+use drop_helpers::is_paused;
 use drop_staking_base::{
     msg::{
         withdrawal_manager::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveNftMsg},
@@ -15,7 +14,7 @@ use drop_staking_base::{
     },
     state::{
         core::{UnbondBatch, UnbondBatchStatus},
-        withdrawal_manager::{Config, Cw721ReceiveMsg, CONFIG},
+        withdrawal_manager::{Config, Cw721ReceiveMsg, Pause, CONFIG, PAUSE},
     },
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
@@ -36,15 +35,14 @@ pub fn instantiate(
 
     let attrs: Vec<Attribute> = vec![
         attr("action", "instantiate"),
-        attr("core_contract", &msg.core_contract),
-        attr("voucher_contract", &msg.voucher_contract),
+        attr("factory_contract", &msg.factory_contract),
         attr("base_denom", &msg.base_denom),
     ];
+    PAUSE.save(deps.storage, &Pause::default())?;
     CONFIG.save(
         deps.storage,
         &Config {
-            core_contract: deps.api.addr_validate(&msg.core_contract)?,
-            withdrawal_voucher_contract: deps.api.addr_validate(&msg.voucher_contract)?,
+            factory_contract: deps.api.addr_validate(&msg.factory_contract)?,
             base_denom: msg.base_denom,
         },
     )?;
@@ -55,16 +53,8 @@ pub fn instantiate(
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Ownership {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
-        QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?),
-        QueryMsg::PauseInfo {} => query_pause_info(deps),
-    }
-}
-
-fn query_pause_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
-    if is_paused(deps.storage)? {
-        to_json_binary(&PauseInfoResponse::Paused {})
-    } else {
-        to_json_binary(&PauseInfoResponse::Unpaused {})
+        QueryMsg::Config {} => Ok(to_json_binary(&CONFIG.load(deps.storage)?)?),
+        QueryMsg::Pause {} => Ok(to_json_binary(&PAUSE.load(deps.storage)?)?),
     }
 }
 
@@ -81,10 +71,9 @@ pub fn execute(
             Ok(Response::new())
         }
         ExecuteMsg::UpdateConfig {
-            core_contract,
-            voucher_contract,
+            factory_contract,
             base_denom,
-        } => execute_update_config(deps, info, core_contract, voucher_contract, base_denom),
+        } => execute_update_config(deps, info, factory_contract, base_denom),
         ExecuteMsg::ReceiveNft(Cw721ReceiveMsg {
             sender,
             token_id,
@@ -93,50 +82,33 @@ pub fn execute(
             let msg: ReceiveNftMsg = from_json(raw_msg)?;
             match msg {
                 ReceiveNftMsg::Withdraw { receiver } => {
-                    execute_receive_nft_withdraw(deps, info, sender, token_id, receiver)
+                    execute_receive_nft_withdraw(deps, info, env, sender, token_id, receiver)
                 }
             }
         }
-        ExecuteMsg::Pause {} => exec_pause(deps, info),
-        ExecuteMsg::Unpause {} => exec_unpause(deps, info),
+        ExecuteMsg::SetPause { pause } => execute_set_pause(deps, info, pause),
     }
 }
 
-fn exec_pause(
+fn execute_set_pause(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
+    pause: Pause,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-
-    set_pause(deps.storage)?;
-
-    Ok(response(
-        "exec_pause",
-        CONTRACT_NAME,
-        Vec::<Attribute>::new(),
-    ))
-}
-
-fn exec_unpause(
-    deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
-) -> ContractResult<Response<NeutronMsg>> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-
-    unpause(deps.storage);
-
-    Ok(response(
-        "exec_unpause",
-        CONTRACT_NAME,
-        Vec::<Attribute>::new(),
-    ))
+    pause.receive_nft_withdraw.validate()?;
+    PAUSE.save(deps.storage, &pause)?;
+    let attrs = vec![(
+        "receive_nft_withdraw",
+        pause.receive_nft_withdraw.to_string(),
+    )];
+    Ok(response("execute-set-pause", CONTRACT_NAME, attrs))
 }
 
 fn execute_update_config(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
-    core_contract: Option<String>,
-    voucher_contract: Option<String>,
+    factory_contract: Option<String>,
     base_denom: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
@@ -144,13 +116,9 @@ fn execute_update_config(
     let mut config = CONFIG.load(deps.storage)?;
     let mut attrs: Vec<Attribute> = vec![attr("action", "update_config")];
 
-    if let Some(core_contract) = core_contract {
-        config.core_contract = deps.api.addr_validate(&core_contract)?;
-        attrs.push(attr("core_contract", core_contract));
-    }
-    if let Some(voucher_contract) = voucher_contract {
-        config.withdrawal_voucher_contract = deps.api.addr_validate(&voucher_contract)?;
-        attrs.push(attr("voucher_contract", voucher_contract));
+    if let Some(factory_contract) = factory_contract {
+        config.factory_contract = deps.api.addr_validate(&factory_contract)?;
+        attrs.push(attr("factory_contract", factory_contract));
     }
     if let Some(base_denom) = base_denom {
         attrs.push(attr("base_denom", &base_denom));
@@ -163,21 +131,30 @@ fn execute_update_config(
 fn execute_receive_nft_withdraw(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
+    env: Env,
     sender: String,
     token_id: String,
     receiver: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    pause_guard(deps.storage)?;
+    if is_paused!(PAUSE, deps, env, receive_nft_withdraw) {
+        return Err(drop_helpers::pause::PauseError::Paused {}.into());
+    }
 
     let mut attrs = vec![attr("action", "receive_nft")];
     let config = CONFIG.load(deps.storage)?;
+    let addrs = get_contracts!(
+        deps,
+        config.factory_contract,
+        withdrawal_voucher_contract,
+        core_contract
+    );
     ensure_eq!(
-        config.withdrawal_voucher_contract,
+        addrs.withdrawal_voucher_contract,
         info.sender,
         ContractError::Unauthorized {}
     );
     let voucher: NftInfoResponse<Extension> = deps.querier.query_wasm_smart(
-        config.withdrawal_voucher_contract,
+        addrs.withdrawal_voucher_contract,
         &drop_staking_base::msg::withdrawal_voucher::QueryMsg::NftInfo { token_id },
     )?;
     let voucher_extension = voucher.extension.ok_or_else(|| ContractError::InvalidNFT {
@@ -193,7 +170,7 @@ fn execute_receive_nft_withdraw(
             })?;
 
     let unbond_batch: UnbondBatch = deps.querier.query_wasm_smart(
-        &config.core_contract,
+        &addrs.core_contract,
         &drop_staking_base::msg::core::QueryMsg::UnbondBatch {
             batch_id: batch_id.into(),
         },
@@ -224,7 +201,7 @@ fn execute_receive_nft_withdraw(
     })];
 
     messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.core_contract.to_string(),
+        contract_addr: addrs.core_contract.to_string(),
         msg: to_json_binary(
             &drop_staking_base::msg::core::ExecuteMsg::UpdateWithdrawnAmount {
                 batch_id,
@@ -249,6 +226,8 @@ pub fn migrate(
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+        deps.storage.remove("paused".as_bytes());
+        PAUSE.save(deps.storage, &Pause::default())?;
     }
 
     Ok(Response::new())

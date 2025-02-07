@@ -10,7 +10,7 @@ use cosmwasm_std::{
 };
 use drop_helpers::{
     pause::PauseError,
-    testing::{mock_dependencies, WasmMockQuerier},
+    testing::{mock_dependencies, mock_state_query, WasmMockQuerier},
 };
 use drop_puppeteer_base::msg::TransferReadyBatchesMsg;
 use drop_staking_base::{
@@ -23,19 +23,16 @@ use drop_staking_base::{
     state::{
         core::{
             unbond_batches_map, Config, ConfigOptional, ContractState, Pause, UnbondBatch,
-            UnbondBatchStatus, UnbondBatchStatusTimestamps, BONDED_AMOUNT, BOND_HOOKS,
-            BOND_PROVIDERS, BOND_PROVIDER_REPLY_ID, CONFIG, FAILED_BATCH_ID, FSM,
-            LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE, LD_DENOM, PAUSE,
-            UNBOND_BATCH_ID,
+            UnbondBatchStatus, UnbondBatchStatusTimestamps, BOND_HOOKS, BOND_PROVIDERS, CONFIG,
+            FAILED_BATCH_ID, FSM, LAST_ICA_CHANGE_HEIGHT, LAST_IDLE_CALL, LAST_PUPPETEER_RESPONSE,
+            LD_DENOM, MAX_BOND_PROVIDERS, PAUSE, UNBOND_BATCH_ID,
         },
         puppeteer::{Delegations, DropDelegation},
     },
 };
 use neutron_sdk::{bindings::query::NeutronQuery, interchain_queries::v045::types::Balances};
+use std::collections::HashMap;
 use std::vec;
-
-pub const MOCK_PUPPETEER_CONTRACT_ADDR: &str = "puppeteer_contract";
-pub const MOCK_STRATEGY_CONTRACT_ADDR: &str = "strategy_contract";
 
 fn get_default_config(
     idle_min_interval: u64,
@@ -43,12 +40,7 @@ fn get_default_config(
     unbond_batch_switch_time: u64,
 ) -> Config {
     Config {
-        token_contract: Addr::unchecked("token_contract"),
-        puppeteer_contract: Addr::unchecked(MOCK_PUPPETEER_CONTRACT_ADDR),
-        strategy_contract: Addr::unchecked(MOCK_STRATEGY_CONTRACT_ADDR),
-        withdrawal_voucher_contract: Addr::unchecked("withdrawal_voucher_contract"),
-        withdrawal_manager_contract: Addr::unchecked("withdrawal_manager_contract"),
-        validators_set_contract: Addr::unchecked("validators_set_contract"),
+        factory_contract: Addr::unchecked("factory_contract"),
         base_denom: "base_denom".to_string(),
         remote_denom: "remote_denom".to_string(),
         idle_min_interval,
@@ -57,7 +49,6 @@ fn get_default_config(
         unbond_batch_switch_time,
         pump_ica_address: Some("pump_address".to_string()),
         transfer_channel_id: "transfer_channel".to_string(),
-        bond_limit: None,
         emergency_address: None,
         icq_update_delay: 5,
     }
@@ -79,16 +70,24 @@ fn get_default_unbond_batch_status_timestamps() -> UnbondBatchStatusTimestamps {
 #[test]
 fn test_update_config() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier.add_wasm_query_response("token_contract", |_| {
+        to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
+            factory_contract: "factory_contract".to_string(),
+            denom: "ld_denom".to_string(),
+        })
+        .into()
+    });
     deps.querier
         .add_wasm_query_response("old_token_contract", |_| {
             cosmwasm_std::ContractResult::Ok(
                 to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
-                    core_address: "core_contract".to_string(),
+                    factory_contract: "factory_contract".to_string(),
                     denom: "ld_denom".to_string(),
                 })
                 .unwrap(),
             )
         });
+    mock_state_query(&mut deps);
     let env = mock_env();
     let info = mock_info("admin", &[]);
     let mut deps_mut = deps.as_mut();
@@ -97,12 +96,7 @@ fn test_update_config() {
         env.clone(),
         info.clone(),
         InstantiateMsg {
-            token_contract: "old_token_contract".to_string(),
-            puppeteer_contract: "old_puppeteer_contract".to_string(),
-            strategy_contract: "old_strategy_contract".to_string(),
-            withdrawal_voucher_contract: "old_withdrawal_voucher_contract".to_string(),
-            withdrawal_manager_contract: "old_withdrawal_manager_contract".to_string(),
-            validators_set_contract: "old_validators_set_contract".to_string(),
+            factory_contract: "factory_contract".to_string(),
             base_denom: "old_base_denom".to_string(),
             remote_denom: "old_remote_denom".to_string(),
             idle_min_interval: 12,
@@ -111,7 +105,6 @@ fn test_update_config() {
             unbond_batch_switch_time: 2000,
             pump_ica_address: Some("old_pump_address".to_string()),
             transfer_channel_id: "old_transfer_channel".to_string(),
-            bond_limit: Some(Uint128::new(12)),
             emergency_address: Some("old_emergency_address".to_string()),
             owner: "admin".to_string(),
             icq_update_delay: 5,
@@ -124,13 +117,7 @@ fn test_update_config() {
     );
 
     let new_config = ConfigOptional {
-        token_contract: Some("new_token_contract".to_string()),
-        puppeteer_contract: Some("new_puppeteer_contract".to_string()),
-        strategy_contract: Some("new_strategy_contract".to_string()),
-        staker_contract: Some("new_staker_contract".to_string()),
-        withdrawal_voucher_contract: Some("new_withdrawal_voucher_contract".to_string()),
-        withdrawal_manager_contract: Some("new_withdrawal_manager_contract".to_string()),
-        validators_set_contract: Some("new_validators_set_contract".to_string()),
+        factory_contract: Some("new_factory_contract".to_string()),
         base_denom: Some("new_base_denom".to_string()),
         remote_denom: Some("new_remote_denom".to_string()),
         idle_min_interval: Some(2),
@@ -140,16 +127,10 @@ fn test_update_config() {
         pump_ica_address: Some("new_pump_address".to_string()),
         transfer_channel_id: Some("new_transfer_channel".to_string()),
         rewards_receiver: Some("new_rewards_receiver".to_string()),
-        bond_limit: Some(Uint128::new(2)),
         emergency_address: Some("new_emergency_address".to_string()),
     };
     let expected_config = Config {
-        token_contract: Addr::unchecked("new_token_contract"),
-        puppeteer_contract: Addr::unchecked("new_puppeteer_contract"),
-        strategy_contract: Addr::unchecked("new_strategy_contract"),
-        withdrawal_voucher_contract: Addr::unchecked("new_withdrawal_voucher_contract"),
-        withdrawal_manager_contract: Addr::unchecked("new_withdrawal_manager_contract"),
-        validators_set_contract: Addr::unchecked("new_validators_set_contract"),
+        factory_contract: Addr::unchecked("new_factory_contract"),
         base_denom: "new_base_denom".to_string(),
         remote_denom: "new_remote_denom".to_string(),
         idle_min_interval: 2,
@@ -158,7 +139,6 @@ fn test_update_config() {
         unbond_batch_switch_time: 12000,
         pump_ica_address: Some("new_pump_address".to_string()),
         transfer_channel_id: "new_transfer_channel".to_string(),
-        bond_limit: Some(Uint128::new(2)),
         emergency_address: Some("new_emergency_address".to_string()),
         icq_update_delay: 5,
     };
@@ -194,10 +174,64 @@ fn query_ownership() {
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     assert_eq!(
-        from_json::<String>(&query(deps.as_ref(), mock_env(), QueryMsg::Owner {}).unwrap())
-            .unwrap(),
-        String::from("owner"),
+        from_json::<cw_ownable::Ownership<Addr>>(
+            &query(deps.as_ref(), mock_env(), QueryMsg::Ownership {}).unwrap()
+        )
+        .unwrap(),
+        cw_ownable::Ownership::<Addr> {
+            owner: Some(Addr::unchecked("owner")),
+            pending_owner: None,
+            pending_expiry: None,
+        }
     );
+}
+
+#[test]
+fn test_bond_provider_has_any_tokens() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+
+    deps.querier
+        .add_wasm_query_response("bond_provider_address", |_| to_json_binary(&false).into());
+
+    let error = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::RemoveBondProvider {
+            bond_provider_address: "bond_provider_address".to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(error, ContractError::BondProviderBalanceNotEmpty {})
+}
+
+#[test]
+fn test_execute_add_bond_provider_max_limit_reached() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+
+    for i in 0..MAX_BOND_PROVIDERS {
+        let mut provider: String = "provider".to_string();
+        provider.push_str(i.to_string().as_str());
+
+        BOND_PROVIDERS
+            .add(deps_mut.storage, cosmwasm_std::Addr::unchecked(provider))
+            .unwrap();
+    }
+    let res = execute(
+        deps_mut,
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::AddBondProvider {
+            bond_provider_address: "bond_provider_address".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::MaxBondProvidersReached {})
 }
 
 #[test]
@@ -207,7 +241,7 @@ fn test_update_withdrawn_amount() {
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(1000, 10, 6000))
         .unwrap();
-
+    mock_state_query(&mut deps);
     let withdrawn_batch = &UnbondBatch {
         total_dasset_amount_to_withdraw: Uint128::from(1001u128),
         expected_native_asset_amount: Uint128::from(1001u128),
@@ -271,33 +305,9 @@ fn test_update_withdrawn_amount() {
 }
 
 #[test]
-fn test_execute_reset_bonded_amount() {
-    let mut deps = mock_dependencies(&[]);
-    let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::one())
-        .unwrap();
-    let res = execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("admin", &[]),
-        ExecuteMsg::ResetBondedAmount {},
-    );
-    assert_eq!(
-        res,
-        Ok(Response::new().add_event(
-            Event::new("crates.io:drop-staking__drop-core-execute-reset_bond_limit")
-                .add_attributes(vec![("action", "reset_bond_limit"),])
-        ))
-    );
-    let amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
-    assert_eq!(amount, Uint128::zero());
-}
-
-#[test]
 fn test_add_remove_bond_provider() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("admin")).unwrap();
 
@@ -308,6 +318,9 @@ fn test_add_remove_bond_provider() {
         bond_providers,
         to_json_binary::<Vec<(Addr, bool)>>(&vec![]).unwrap()
     );
+
+    deps.querier
+        .add_wasm_query_response("bond_provider", |_| to_json_binary(&true).into());
 
     let res = execute(
         deps.as_mut(),
@@ -361,6 +374,7 @@ fn test_add_remove_bond_provider() {
 #[test]
 fn test_execute_tick_idle_process_bondig_provider() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
     deps.querier
@@ -415,9 +429,6 @@ fn test_execute_tick_idle_process_bondig_provider() {
         .unwrap();
     LAST_IDLE_CALL.save(deps.as_mut().storage, &0).unwrap();
 
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
     PAUSE
         .save(deps.as_mut().storage, &Pause::default())
         .unwrap();
@@ -445,23 +456,21 @@ fn test_execute_tick_idle_process_bondig_provider() {
                     ]
                 )
             )
-            .add_submessage(SubMsg::reply_on_error(
-                CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: "lsm_provider_address".to_string(),
-                    msg: to_json_binary(
-                        &drop_staking_base::msg::bond_provider::ExecuteMsg::ProcessOnIdle {}
-                    )
-                    .unwrap(),
-                    funds: vec![],
-                }),
-                BOND_PROVIDER_REPLY_ID
-            ))
+            .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "lsm_provider_address".to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::bond_provider::ExecuteMsg::ProcessOnIdle {}
+                )
+                .unwrap(),
+                funds: vec![],
+            }))
     );
 }
 
 #[test]
 fn test_tick_idle_claim_wo_unbond() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             cosmwasm_std::ContractResult::Ok(
@@ -562,9 +571,6 @@ fn test_tick_idle_claim_wo_unbond() {
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
         .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::from(1000u128))
-        .unwrap();
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &0).unwrap();
     unbond_batches_map()
         .save(
@@ -632,6 +638,7 @@ fn test_tick_idle_claim_wo_unbond() {
 #[test]
 fn test_tick_idle_claim_with_unbond_transfer() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             cosmwasm_std::ContractResult::Ok(
@@ -733,9 +740,7 @@ fn test_tick_idle_claim_with_unbond_transfer() {
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
         .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::from(1000u128))
-        .unwrap();
+
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &0).unwrap();
     unbond_batches_map()
         .save(
@@ -798,6 +803,7 @@ fn test_tick_idle_claim_with_unbond_transfer() {
 #[test]
 fn test_tick_no_puppeteer_response() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
@@ -851,6 +857,7 @@ fn test_tick_no_puppeteer_response() {
 fn test_tick_claiming_error_wo_transfer() {
     // no unbonded batch, no pending transfer for stake, some balance in ICA to stake
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             cosmwasm_std::ContractResult::Ok(
@@ -965,6 +972,7 @@ fn test_tick_claiming_error_wo_transfer() {
 fn test_tick_claiming_error_with_transfer() {
     // no unbonded batch, no pending transfer for stake, some balance in ICA to stake
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             cosmwasm_std::ContractResult::Ok(
@@ -1111,6 +1119,7 @@ fn test_tick_claiming_error_with_transfer() {
 fn test_tick_claiming_wo_transfer_unbonding() {
     // no unbonded batch, no pending transfer for stake, no balance on ICA, but we have unbond batch to switch
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
             cosmwasm_std::ContractResult::Ok(
@@ -1300,6 +1309,7 @@ fn test_tick_claiming_wo_idle() {
     // no unbonded batch, no pending transfer for stake, no balance on ICA,
     // and no unbond batch to switch, so we go to idle
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     LAST_ICA_CHANGE_HEIGHT
         .save(deps.as_mut().storage, &0)
         .unwrap();
@@ -1453,6 +1463,7 @@ fn test_tick_claiming_wo_idle() {
 #[test]
 fn test_execute_tick_guard_balance_outdated() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
@@ -1495,6 +1506,7 @@ fn test_execute_tick_guard_balance_outdated() {
 #[test]
 fn test_execute_tick_guard_delegations_outdated() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
@@ -1551,6 +1563,7 @@ fn test_execute_tick_guard_delegations_outdated() {
 #[test]
 fn test_execute_tick_staking_no_puppeteer_response() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
@@ -1601,6 +1614,7 @@ fn test_execute_tick_staking_no_puppeteer_response() {
 #[test]
 fn test_execute_tick_unbonding_no_puppeteer_response() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
@@ -1652,6 +1666,7 @@ fn test_execute_tick_unbonding_no_puppeteer_response() {
 #[test]
 fn test_bond_wo_receiver() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
     deps.querier
@@ -1674,9 +1689,7 @@ fn test_bond_wo_receiver() {
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
+
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
@@ -1697,8 +1710,6 @@ fn test_bond_wo_receiver() {
         },
     )
     .unwrap();
-    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
-    assert_eq!(bonded_amount, Uint128::from(1000u128));
     assert_eq!(
         res,
         Response::new()
@@ -1710,18 +1721,13 @@ fn test_bond_wo_receiver() {
                     .add_attribute("issue_amount", "1000")
                     .add_attribute("receiver", "some")
             )
-            .add_submessage(SubMsg::reply_on_error(
-                CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: "native_provider_address".to_string(),
-                    msg: to_json_binary(
-                        &drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {}
-                    )
+            .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "native_provider_address".to_string(),
+                msg: to_json_binary(&drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {})
                     .unwrap(),
-                    funds: vec![Coin::new(1000, "base_denom")],
-                }),
-                BOND_PROVIDER_REPLY_ID
-            ))
-            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                funds: vec![Coin::new(1000, "base_denom")],
+            }))
+            .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token_contract".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::token::ExecuteMsg::Mint {
                     amount: Uint128::from(1000u128),
@@ -1729,13 +1735,14 @@ fn test_bond_wo_receiver() {
                 })
                 .unwrap(),
                 funds: vec![],
-            })))
+            }))
     );
 }
 
 #[test]
 fn test_bond_with_receiver() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
     BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
     deps.querier
@@ -1751,9 +1758,7 @@ fn test_bond_with_receiver() {
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
+
     BOND_PROVIDERS
         .add(
             deps.as_mut().storage,
@@ -1780,8 +1785,6 @@ fn test_bond_with_receiver() {
         },
     )
     .unwrap();
-    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
-    assert_eq!(bonded_amount, Uint128::from(1000u128));
     assert_eq!(
         res,
         Response::new()
@@ -1794,18 +1797,13 @@ fn test_bond_with_receiver() {
                     .add_attribute("receiver", "receiver")
                     .add_attribute("ref", "ref")
             )
-            .add_submessage(SubMsg::reply_on_error(
-                CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: "native_provider_address".to_string(),
-                    msg: to_json_binary(
-                        &drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {}
-                    )
+            .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "native_provider_address".to_string(),
+                msg: to_json_binary(&drop_staking_base::msg::bond_provider::ExecuteMsg::Bond {})
                     .unwrap(),
-                    funds: vec![Coin::new(1000, "base_denom")],
-                }),
-                BOND_PROVIDER_REPLY_ID
-            ))
-            .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                funds: vec![Coin::new(1000, "base_denom")],
+            }))
+            .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "token_contract".to_string(),
                 msg: to_json_binary(&drop_staking_base::msg::token::ExecuteMsg::Mint {
                     amount: Uint128::from(1000u128),
@@ -1813,7 +1811,7 @@ fn test_bond_with_receiver() {
                 })
                 .unwrap(),
                 funds: vec![],
-            })))
+            }))
     );
 }
 
@@ -1859,6 +1857,7 @@ fn test_bond_lsm_share_increase_exchange_rate() {
         denom: "ld_denom".to_string(),
         amount: Uint128::new(1001),
     }]);
+    mock_state_query(&mut deps);
     BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
     deps.querier
@@ -1923,9 +1922,7 @@ fn test_bond_lsm_share_increase_exchange_rate() {
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
+
     CONFIG
         .save(deps.as_mut().storage, &get_default_config(1000, 100, 600))
         .unwrap();
@@ -1979,12 +1976,18 @@ fn test_bond_lsm_share_increase_exchange_rate() {
 fn test_unbond() {
     let mut deps = mock_dependencies(&[]);
     let mut env = mock_env();
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("token_contract", "token_contract"),
+                ("withdrawal_voucher_contract", "withdrawal_voucher_contract"),
+            ]))
+            .into()
+        });
     env.block.time = Timestamp::from_seconds(1000);
     FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
         .unwrap();
-    BONDED_AMOUNT
-        .save(deps.as_mut().storage, &Uint128::from(1000u128))
-        .unwrap();
+
     UNBOND_BATCH_ID.save(deps.as_mut().storage, &0u128).unwrap();
     unbond_batches_map()
         .save(
@@ -2078,8 +2081,6 @@ fn test_unbond() {
             status_timestamps: get_default_unbond_batch_status_timestamps(),
         }
     );
-    let bonded_amount = BONDED_AMOUNT.load(deps.as_ref().storage).unwrap();
-    assert_eq!(bonded_amount, Uint128::zero());
 }
 
 mod process_emergency_batch {
@@ -2286,6 +2287,7 @@ mod check_denom {
     #[test]
     fn invalid_port() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -2312,6 +2314,7 @@ mod check_denom {
     #[test]
     fn invalid_channel() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -2338,6 +2341,7 @@ mod check_denom {
     #[test]
     fn invalid_port_and_channel() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -2364,6 +2368,7 @@ mod check_denom {
     #[test]
     fn not_an_lsm_share() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -2390,6 +2395,7 @@ mod check_denom {
     #[test]
     fn unknown_validator() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -2438,6 +2444,7 @@ mod check_denom {
     #[test]
     fn invalid_validator_index() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -2464,6 +2471,7 @@ mod check_denom {
     #[test]
     fn known_validator() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
@@ -2528,6 +2536,7 @@ mod check_denom {
 mod bond_hooks {
     use super::*;
     use cosmwasm_std::ReplyOn;
+    use drop_helpers::testing::mock_state_query;
     use drop_staking_base::msg::core::{BondCallback, BondHook};
     use neutron_sdk::bindings::msg::NeutronMsg;
 
@@ -2678,6 +2687,7 @@ mod bond_hooks {
     #[test]
     fn execute_bond_with_active_bond_hook_no_ref() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
         deps.querier
@@ -2691,9 +2701,6 @@ mod bond_hooks {
             });
 
         FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
-            .unwrap();
-        BONDED_AMOUNT
-            .save(deps.as_mut().storage, &Uint128::zero())
             .unwrap();
         BOND_PROVIDERS
             .add(
@@ -2752,6 +2759,7 @@ mod bond_hooks {
     #[test]
     fn execute_bond_with_active_bond_hook() {
         let mut deps = mock_dependencies(&[]);
+        mock_state_query(&mut deps);
         BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
         deps.querier
@@ -2765,9 +2773,6 @@ mod bond_hooks {
             });
 
         FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
-            .unwrap();
-        BONDED_AMOUNT
-            .save(deps.as_mut().storage, &Uint128::zero())
             .unwrap();
 
         BOND_PROVIDERS
@@ -2833,7 +2838,7 @@ mod bond_hooks {
             .add_wasm_query_response("native_provider_address", |_| {
                 cosmwasm_std::ContractResult::Ok(to_json_binary(&true).unwrap())
             });
-
+        mock_state_query(&mut deps);
         deps.querier
             .add_wasm_query_response("native_provider_address", |_| {
                 cosmwasm_std::ContractResult::Ok(to_json_binary(&Uint128::from(1000u128)).unwrap())
@@ -2842,9 +2847,6 @@ mod bond_hooks {
         let hooks = ["val_ref", "validator_set", "logger", "indexer"];
 
         FSM.set_initial_state(deps.as_mut().storage, ContractState::Idle)
-            .unwrap();
-        BONDED_AMOUNT
-            .save(deps.as_mut().storage, &Uint128::zero())
             .unwrap();
 
         BOND_PROVIDERS
@@ -2909,6 +2911,8 @@ mod bond_hooks {
 }
 
 mod pause {
+    use drop_helpers::pause::Interval;
+
     use super::*;
 
     #[test]
@@ -2917,24 +2921,48 @@ mod pause {
 
         for pause in [
             Pause {
-                bond: true,
-                unbond: false,
-                tick: false,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval { from: 0, to: 0 },
+                tick: Interval { from: 0, to: 0 },
             },
             Pause {
-                bond: true,
-                unbond: true,
-                tick: false,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval { from: 0, to: 0 },
             },
             Pause {
-                bond: true,
-                unbond: false,
-                tick: true,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval { from: 0, to: 0 },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
             Pause {
-                bond: true,
-                unbond: true,
-                tick: true,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
         ] {
             PAUSE.save(deps.as_mut().storage, &pause).unwrap();
@@ -2958,24 +2986,48 @@ mod pause {
 
         for pause in [
             Pause {
-                bond: false,
-                unbond: true,
-                tick: false,
+                bond: Interval { from: 0, to: 0 },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval { from: 0, to: 0 },
             },
             Pause {
-                bond: true,
-                unbond: true,
-                tick: false,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval { from: 0, to: 0 },
             },
             Pause {
-                bond: false,
-                unbond: true,
-                tick: true,
+                bond: Interval { from: 0, to: 0 },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
             Pause {
-                bond: true,
-                unbond: true,
-                tick: true,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
         ] {
             PAUSE.save(deps.as_mut().storage, &pause).unwrap();
@@ -2996,24 +3048,42 @@ mod pause {
 
         for pause in [
             Pause {
-                bond: false,
-                unbond: false,
-                tick: true,
+                bond: Interval { from: 0, to: 0 },
+                unbond: Interval { from: 0, to: 0 },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
             Pause {
-                bond: true,
-                unbond: false,
-                tick: true,
+                bond: Interval { from: 0, to: 0 },
+                unbond: Interval { from: 0, to: 0 },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
             Pause {
-                bond: false,
-                unbond: true,
-                tick: true,
+                bond: Interval { from: 0, to: 0 },
+                unbond: Interval { from: 0, to: 0 },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
             Pause {
-                bond: true,
-                unbond: true,
-                tick: true,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
         ] {
             PAUSE.save(deps.as_mut().storage, &pause).unwrap();

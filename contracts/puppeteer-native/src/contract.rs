@@ -10,7 +10,6 @@ use drop_puppeteer_base::{
     error::{ContractError, ContractResult},
     msg::TransferReadyBatchesMsg,
     peripheral_hook::{ReceiverExecuteMsg, ResponseHookMsg, ResponseHookSuccessMsg, Transaction},
-    state::Transfer,
 };
 use drop_staking_base::{
     msg::puppeteer_native::{
@@ -21,7 +20,7 @@ use drop_staking_base::{
         puppeteer::{Delegations, DropDelegation},
         puppeteer_native::{
             unbonding_delegations::QueryDelegatorUnbondingDelegationsResponse, Config,
-            ConfigOptional, QueryDelegatorDelegationsResponse, CONFIG, RECIPIENT_TRANSFERS,
+            ConfigOptional, QueryDelegatorDelegationsResponse, CONFIG,
         },
     },
 };
@@ -32,7 +31,7 @@ use neutron_sdk::{
 use prost::Message;
 use std::{env, vec};
 
-const CONTRACT_NAME: &str = concat!("crates.io:drop-neutron-contracts__", env!("CARGO_PKG_NAME"));
+pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
@@ -57,6 +56,7 @@ pub fn instantiate(
         remote_denom: msg.remote_denom,
         allowed_senders: allowed_senders.clone(),
         native_bond_provider: deps.api.addr_validate(&msg.native_bond_provider)?,
+        distribution_module_contract: deps.api.addr_validate(&msg.distribution_module_contract)?,
     };
 
     let attrs: Vec<Attribute> = vec![
@@ -89,13 +89,13 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
             //     query_non_native_rewards_balances(deps, env)
             // }
             QueryExtMsg::UnbondingDelegations {} => query_unbonding_delegations(deps, env),
-            QueryExtMsg::Ownership {} => {
-                let owner = cw_ownable::get_ownership(deps.storage)?;
-                to_json_binary(&owner).map_err(ContractError::Std)
-            }
         },
         QueryMsg::Config {} => query_config(deps),
-        QueryMsg::Transactions {} => query_transactions(deps),
+        QueryMsg::Transactions {} => query_transactions(),
+        QueryMsg::Ownership {} => {
+            let owner = cw_ownable::get_ownership(deps.storage)?;
+            to_json_binary(&owner).map_err(ContractError::Std)
+        }
     }
 }
 
@@ -104,9 +104,8 @@ fn query_config(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     Ok(to_json_binary(&config)?)
 }
 
-fn query_transactions(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let transfers: Vec<Transfer> = RECIPIENT_TRANSFERS.load(deps.storage)?;
-    Ok(to_json_binary(&transfers)?)
+fn query_transactions() -> ContractResult<Binary> {
+    Ok(to_json_binary::<[(); 0]>(&[])?)
 }
 
 fn query_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
@@ -121,7 +120,7 @@ fn query_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binar
                     cosmos_sdk_proto::cosmos::staking::v1beta1::QueryDelegatorDelegationsRequest {
                         delegator_addr: env.contract.address.to_string(),
                         pagination: Some(PageRequest {
-                            key: key.clone(),
+                            key,
                             limit: 500,
                             ..Default::default()
                         }),
@@ -171,11 +170,14 @@ fn query_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binar
 }
 
 fn query_balances(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
-    let balances = deps
+    let config = CONFIG.load(deps.storage)?;
+    let balance = deps
         .querier
-        .query_all_balances(env.contract.address.to_string())?;
+        .query_balance(env.contract.address, config.remote_denom)?;
     Ok(to_json_binary(&BalancesResponse {
-        balances: Balances { coins: balances },
+        balances: Balances {
+            coins: vec![balance],
+        },
         remote_height: env.block.height,
         local_height: env.block.height,
         timestamp: env.block.time,
@@ -272,6 +274,9 @@ pub fn execute(
         ExecuteMsg::SetupProtocol {
             rewards_withdraw_address,
         } => execute_setup_protocol(deps, env, info, rewards_withdraw_address),
+        ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: _ } => {
+            Ok(Response::default())
+        }
     }
 }
 
@@ -299,8 +304,17 @@ fn execute_update_config(
     }
 
     if let Some(native_bond_provider) = new_config.native_bond_provider {
-        config.native_bond_provider = native_bond_provider.clone();
-        attrs.push(attr("native_bond_provider", native_bond_provider))
+        config.native_bond_provider = deps.api.addr_validate(&native_bond_provider)?;
+        attrs.push(attr("native_bond_provider", native_bond_provider));
+    }
+
+    if let Some(distribution_module_contract) = new_config.distribution_module_contract {
+        config.distribution_module_contract =
+            deps.api.addr_validate(&distribution_module_contract)?;
+        attrs.push(attr(
+            "distribution_module_contract",
+            distribution_module_contract,
+        ));
     }
 
     CONFIG.save(deps.storage, &config)?;
@@ -397,12 +411,24 @@ fn execute_setup_protocol(
 ) -> ContractResult<Response<NeutronMsg>> {
     let config: Config = CONFIG.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
+    let rewards_withdraw_addr = deps.api.addr_validate(&rewards_withdraw_address)?; // Splitter contract
 
-    let set_withdraw_address_msg = DistributionMsg::SetWithdrawAddress {
-        address: rewards_withdraw_address.clone(),
+    let msg = WasmMsg::Execute {
+        contract_addr: config.distribution_module_contract.into_string(),
+        funds: vec![],
+        msg: to_json_binary(
+            &drop_staking_base::msg::neutron_distribution_mock::ExecuteMsg::SetWithdrawAddress {
+                address: rewards_withdraw_addr.into_string(),
+            },
+        )?,
     };
 
-    Ok(Response::default().add_message(set_withdraw_address_msg))
+    Ok(response(
+        "execute_setup_protocol",
+        CONTRACT_NAME,
+        [("rewards_withdraw_address", rewards_withdraw_address)],
+    )
+    .add_message(msg))
 }
 
 fn execute_claim_rewards_and_optionaly_transfer(
@@ -420,7 +446,7 @@ fn execute_claim_rewards_and_optionaly_transfer(
     let mut messages = vec![];
     if let Some(transfer) = transfer.clone() {
         let send_msg = CosmosMsg::Bank(BankMsg::Send {
-            to_address: transfer.recipient,
+            to_address: transfer.recipient, // Should send to withdrawal manager
             amount: vec![StdCoin {
                 amount: transfer.amount,
                 denom: config.remote_denom.to_string(),

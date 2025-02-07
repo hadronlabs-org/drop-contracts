@@ -69,9 +69,7 @@ export interface DropStrategySchema {
 }
 export interface Config {
     denom: string;
-    distribution_address: string;
-    puppeteer_address: string;
-    validator_set_address: string;
+    factory_contract: string;
 }
 /**
  * The contract's ownership info
@@ -101,28 +99,30 @@ export interface UpdateConfigArgs {
 }
 export interface ConfigOptional {
     denom?: string | null;
-    distribution_address?: string | null;
-    puppeteer_address?: string | null;
-    validator_set_address?: string | null;
+    factory_contract?: string | null;
 }
 export interface InstantiateMsg {
     denom: string;
-    distribution_address: string;
+    factory_contract: string;
     owner: string;
-    puppeteer_address: string;
-    validator_set_address: string;
 }
 export declare class Client {
     private readonly client;
     contractAddress: string;
     constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string);
     mustBeSigningClient(): Error;
-    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
-    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
+    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
+    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: Uint8Array, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
     queryConfig: () => Promise<Config>;
     queryCalcDeposit: (args: CalcDepositArgs) => Promise<ArrayOfTupleOfStringAndUint128>;
     queryCalcWithdraw: (args: CalcWithdrawArgs) => Promise<ArrayOfTupleOfStringAndUint128>;
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateConfigMsg: (args: UpdateConfigArgs) => {
+        update_config: UpdateConfigArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
 }

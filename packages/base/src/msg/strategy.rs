@@ -24,18 +24,14 @@ pub enum QueryMsg {
 #[optfield(pub ConfigOptional, attrs)]
 #[cw_serde]
 pub struct Config {
-    pub puppeteer_address: String,
-    pub validator_set_address: String,
-    pub distribution_address: String,
+    pub factory_contract: String,
     pub denom: String,
 }
 
 #[cw_serde]
 pub struct InstantiateMsg {
     pub owner: String,
-    pub puppeteer_address: String,
-    pub validator_set_address: String,
-    pub distribution_address: String,
+    pub factory_contract: String,
     pub denom: String,
 }
 
