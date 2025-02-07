@@ -39,7 +39,6 @@ import { checkExchangeRate } from '../helpers/exchangeRate';
 import { stringToPath } from '@cosmjs/crypto';
 import { fromHex, toAscii } from '@cosmjs/encoding';
 import { waitFor } from '../helpers/waitFor';
-import { sleep } from '../helpers/sleep';
 
 const DropTokenClass = DropToken.Client;
 const DropFactoryClass = DropFactory.Client;
