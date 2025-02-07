@@ -30,7 +30,7 @@ import {
 } from '@cosmjs/cosmwasm-stargate';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
-import { setupPark } from '../testSuite';
+import { awaitBlocks, setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { instrumentCoreClass } from '../helpers/knot';
@@ -90,6 +90,7 @@ describe('Core', () => {
     neutronClient?: InstanceType<typeof NeutronClient>;
     neutronRPCEndpoint?: string;
     neutronUserAddress?: string;
+    secondUserAddress?: string;
     validatorAddress?: string;
     secondValidatorAddress?: string;
     codeIds: {
@@ -166,6 +167,14 @@ describe('Core', () => {
     context.neutronUserAddress = (
       await context.wallet.getAccounts()
     )[0].address;
+
+    const secondWallet = await DirectSecp256k1HdWallet.fromMnemonic(
+      context.park.config.wallets.demowallet2.mnemonic,
+      {
+        prefix: 'neutron',
+      },
+    );
+    context.secondUserAddress = (await secondWallet.getAccounts())[0].address;
 
     {
       const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
@@ -608,7 +617,7 @@ describe('Core', () => {
           core_params: {
             idle_min_interval: 10,
             unbond_batch_switch_time: 1,
-            unbonding_safe_period: 10,
+            unbonding_safe_period: 1,
             unbonding_period: UNBONDING_TIME,
             icq_update_delay: 5,
           },
@@ -1008,9 +1017,6 @@ describe('Core', () => {
       });
 
       it('verify delegations', async () => {
-        console.log(
-          `neutrond q staking delegations ${context.puppeteerContractClient.contractAddress} --output json`,
-        );
         const res = await context.park.executeInNetwork(
           'neutronv2',
           `neutrond q staking delegations ${context.puppeteerContractClient.contractAddress} --output json`,
@@ -1155,37 +1161,6 @@ describe('Core', () => {
       });
     });
     describe('forth cycle', () => {
-      // it('tune idle timeout', async () => {
-      //   const res = await context.factoryContractClient.adminExecute(
-      //     context.account.address,
-      //     {
-      //       msgs: [
-      //         {
-      //           wasm: {
-      //             execute: {
-      //               contract_addr: context.coreContractClient.contractAddress,
-      //               msg: Buffer.from(
-      //                 JSON.stringify({
-      //                   update_config: {
-      //                     new_config: {
-      //                       idle_min_interval: 200,
-      //                       unbonding_safe_period: 1,
-      //                     },
-      //                   },
-      //                 }),
-      //               ).toString('base64'),
-      //               funds: [],
-      //             },
-      //           },
-      //         },
-      //       ],
-      //     },
-      //     1.5,
-      //   );
-      //   expect(res.transactionHash).toHaveLength(64);
-      //   const config = await context.coreContractClient.queryConfig();
-      //   expect(config.idle_min_interval).toEqual(200);
-      // });
       it('top up rewards balance', async () => {
         const res = await context.client.sendTokens(
           context.account.address,
@@ -1217,8 +1192,6 @@ describe('Core', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
-        const out = await context.coreContractClient.queryUnbondBatches({});
-        console.log(out);
       });
       it('tick to idle', async () => {
         const res = await context.coreContractClient.tick(
@@ -1230,8 +1203,139 @@ describe('Core', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
-        const out = await context.coreContractClient.queryUnbondBatches({});
-        console.log(out);
+      });
+      it('top up rewards balance', async () => {
+        const res = await context.client.sendTokens(
+          context.account.address,
+          context.distributionMockClient.contractAddress,
+          [{ amount: '1000000', denom: 'untrn' }],
+          1.5,
+        );
+        expect(res.transactionHash).toHaveLength(64);
+      });
+
+      it('tick to claiming', async () => {
+        await awaitBlocks(
+          `http://127.0.0.1:${context.park.ports.neutronv2.rpc}`,
+          10,
+        );
+        const res = await context.coreContractClient.tick(
+          context.neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('claiming');
+      });
+
+      it('validate undelegations', async () => {
+        const res = await context.park.executeInNetwork(
+          'neutronv2',
+          `neutrond q staking unbonding-delegations ${context.puppeteerContractClient.contractAddress} --output json`,
+        );
+        const { unbonding_responses } = JSON.parse(res.out);
+
+        expect(unbonding_responses).toBeNull();
+      });
+
+      it('tick to idle and withdrawn unbonding', async () => {
+        await awaitBlocks(
+          `http://127.0.0.1:${context.park.ports.neutronv2.rpc}`,
+          10,
+        );
+
+        const res = await context.coreContractClient.tick(
+          context.neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+
+      describe('withdraw unbonded coins', () => {
+        let tokenId = '';
+        it('validate NFT', async () => {
+          const { withdrawalVoucherContractClient, neutronUserAddress } =
+            context;
+
+          const vouchers = await withdrawalVoucherContractClient.queryTokens({
+            owner: neutronUserAddress,
+          });
+
+          expect(vouchers.tokens.length).toBe(1);
+          expect(vouchers.tokens[0]).toBe(`0_${neutronUserAddress}_1`);
+
+          tokenId = vouchers.tokens[0];
+          const voucher = await withdrawalVoucherContractClient.queryNftInfo({
+            token_id: tokenId,
+          });
+
+          expect(voucher).toBeTruthy();
+          expect(voucher).toMatchObject({
+            extension: {
+              amount: '200000',
+              attributes: [
+                {
+                  display_type: null,
+                  trait_type: 'unbond_batch_id',
+                  value: '0',
+                },
+                {
+                  display_type: null,
+                  trait_type: 'received_amount',
+                  value: '200000',
+                },
+              ],
+              batch_id: '0',
+              description: 'Withdrawal voucher',
+              name: 'LDV voucher',
+            },
+            token_uri: null,
+          });
+        });
+
+        it('withdraw', async () => {
+          const {
+            withdrawalVoucherContractClient: voucherContractClient,
+            neutronUserAddress,
+            secondUserAddress,
+            neutronClient,
+          } = context;
+          const balanceBefore = parseInt(
+            (
+              await neutronClient.CosmosBankV1Beta1.query.queryBalance(
+                secondUserAddress,
+                { denom: 'untrn' },
+              )
+            ).data.balance.amount,
+          );
+
+          const res = await voucherContractClient.sendNft(neutronUserAddress, {
+            token_id: tokenId,
+            contract: context.withdrawalManagerContractClient.contractAddress,
+            msg: Buffer.from(
+              JSON.stringify({
+                withdraw: { receiver: secondUserAddress },
+              }),
+            ).toString('base64'),
+          });
+          expect(res.transactionHash).toHaveLength(64);
+          const balance =
+            await neutronClient.CosmosBankV1Beta1.query.queryBalance(
+              secondUserAddress,
+              { denom: 'untrn' },
+            );
+
+          expect(parseInt(balance.data.balance.amount) - balanceBefore).toBe(
+            200000,
+          );
+          await checkExchangeRate(context);
+        });
       });
     });
   });
