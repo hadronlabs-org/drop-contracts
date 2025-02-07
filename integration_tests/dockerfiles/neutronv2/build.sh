@@ -1,6 +1,6 @@
 #!/bin/bash
 DIR="$(dirname $0)"
-COMMIT_HASH_OR_BRANCH="test/move-to-sovereign"
+COMMIT_HASH_OR_BRANCH="rehearsals/rehearsal-deics"
 cd $DIR
 VERSION=$(cat ../../package.json | jq -r '.version')
 if [[ "$CI" == "true" ]]; then
@@ -11,6 +11,7 @@ else
 fi
 git clone git@github.com:neutron-org/neutron-private
 cd neutron-private
+git checkout $COMMIT_HASH_OR_BRANCH 
 go mod tidy
 docker buildx build --load --build-context app=. -t ${ORG}neutronv2-test${VERSION} --build-arg BINARY=neutrond .
 cd ..
