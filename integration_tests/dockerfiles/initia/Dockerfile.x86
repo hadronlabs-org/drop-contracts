@@ -1,51 +1,33 @@
-# Stage 1: Build the Go project
-FROM golang:1.22-alpine3.19 AS go-builder
+FROM golang:1.23-bullseye AS go-builder
 
-# Use build arguments for the target architecture
-ARG TARGETARCH=amd64
-ARG GOARCH
+# Install minimum necessary dependencies, build Cosmos SDK, remove packages
+RUN apt update
+RUN apt install -y curl git build-essential
 
-# See https://github.com/initia-labs/movevm/releases
-ENV LIBMOVEVM_VERSION=v0.6.0
-
-# Install necessary packages
-RUN set -eux; apk add --no-cache ca-certificates build-base git cmake
 
 WORKDIR /code
 COPY . /code/
+RUN go mod edit -replace=github.com/cosmos/ibc-go/v8@v8.2.0=github.com/ratik/ibc-go/v8@v8.2.0-debug
+RUN go mod tidy
+RUN LEDGER_ENABLED=false make build
 
-# Install mimalloc
-RUN git clone --depth 1 https://github.com/microsoft/mimalloc; cd mimalloc; mkdir build; cd build; cmake ..; make -j$(nproc); make install
-ENV MIMALLOC_RESERVE_HUGE_OS_PAGES=4
+RUN cp /go/pkg/mod/github.com/initia\-labs/movevm@v*/api/libmovevm.`uname -m`.so /lib/libmovevm.so
+RUN cp /go/pkg/mod/github.com/initia\-labs/movevm@v*/api/libcompiler.`uname -m`.so /lib/libcompiler.so
 
-# Determine GOARCH and download the appropriate libraries
-RUN set -eux; \
-    case "${TARGETARCH}" in \
-        "amd64") export GOARCH="amd64"; ARCH="x86_64";; \
-        "arm64") export GOARCH="arm64"; ARCH="aarch64";; \
-        *) echo "Unsupported architecture: ${TARGETARCH}"; exit 1;; \
-    esac; \
-    echo "Using GOARCH=${GOARCH} and ARCH=${ARCH}"; \
-    wget -O /lib/libmovevm_muslc.${ARCH}.a https://github.com/initia-labs/movevm/releases/download/${LIBMOVEVM_VERSION}/libmovevm_muslc.${ARCH}.a; \
-    wget -O /lib/libcompiler_muslc.${ARCH}.a https://github.com/initia-labs/movevm/releases/download/${LIBMOVEVM_VERSION}/libcompiler_muslc.${ARCH}.a; \
-    cp /lib/libmovevm_muslc.${ARCH}.a /lib/libmovevm_muslc.a; \
-    cp /lib/libcompiler_muslc.${ARCH}.a /lib/libcompiler_muslc.a
+FROM ubuntu:23.04
 
-RUN LEDGER_ENABLED=false BUILD_TAGS=muslc GOARCH=${GOARCH} LDFLAGS="-linkmode=external -extldflags \"-L/code/mimalloc/build -lmimalloc -Wl,-z,muldefs -static\"" make build
-
-FROM alpine:3.19
-
-WORKDIR /initia
+WORKDIR /root
 
 COPY --from=go-builder /code/build/initiad /usr/local/bin/initiad
+COPY --from=go-builder /lib/libmovevm.so /lib/libmovevm.so
+COPY --from=go-builder /lib/libcompiler.so /lib/libcompiler.so
 
-# rest server
+RUN cp /lib/libmovevm.so /lib/libmovevm.`uname -m`.so
+RUN cp /lib/libcompiler.so /lib/libcompiler.`uname -m`.so
+
 EXPOSE 1317
-# grpc
 EXPOSE 9090
-# tendermint p2p
 EXPOSE 26656
-# tendermint rpc
 EXPOSE 26657
 
-CMD ["/usr/local/bin/initiad", "version"]
+CMD ["initiad"]
