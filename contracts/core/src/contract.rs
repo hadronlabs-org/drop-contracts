@@ -3,7 +3,7 @@ use cosmwasm_std::{
     CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest,
     Response, StdError, StdResult, Uint128, Uint64, WasmMsg,
 };
-use cw_storage_plus::Bound;
+use cw_storage_plus::{Bound, Item};
 use drop_helpers::{answer::response, is_paused};
 use drop_puppeteer_base::{msg::TransferReadyBatchesMsg, peripheral_hook::IBCTransferReason};
 use drop_staking_base::{
@@ -1415,12 +1415,8 @@ pub fn migrate(
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-        let mut new_pause_state = Pause::default();
-        if drop_helpers::pause::is_paused(deps.storage)? {
-            drop_helpers::pause::unpause(deps.storage);
-            new_pause_state.tick = true;
-        }
-        PAUSE.save(deps.storage, &new_pause_state)?;
+        deps.storage.remove("pause".as_bytes());
+        PAUSE.save(deps.storage, &Pause::default())?;
 
         #[cosmwasm_schema::cw_serde]
         pub struct OldConfig {

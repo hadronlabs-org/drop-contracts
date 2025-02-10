@@ -46,14 +46,6 @@ export type Timestamp = Uint64;
  */
 export type Uint64 = string;
 /**
- * Information about if the contract is currently paused.
- */
-export type PauseInfoResponse = {
-    paused: {};
-} | {
-    unpaused: {};
-};
-/**
  * Actions that can be taken to alter the contract's ownership
  */
 export type UpdateOwnershipArgs = {
@@ -63,8 +55,8 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropWithdrawalManagerSchema {
-    responses: Config | OwnershipForString | PauseInfoResponse;
-    execute: UpdateConfigArgs | ReceiveNftArgs | UpdateOwnershipArgs;
+    responses: Config | OwnershipForString | Pause;
+    execute: UpdateConfigArgs | ReceiveNftArgs | SetPauseArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -89,6 +81,13 @@ export interface OwnershipForString {
      */
     pending_owner?: string | null;
 }
+export interface Pause {
+    receive_nft_withdraw: Interval;
+}
+export interface Interval {
+    from: number;
+    to: number;
+}
 export interface UpdateConfigArgs {
     base_denom?: string | null;
     factory_contract?: string | null;
@@ -105,6 +104,12 @@ export interface ReceiveNftArgs {
     };
     additionalProperties?: never;
 }
+export interface SetPauseArgs {
+    pause: Pause1;
+}
+export interface Pause1 {
+    receive_nft_withdraw: Interval;
+}
 export interface InstantiateMsg {
     base_denom: string;
     factory_contract: string;
@@ -118,8 +123,8 @@ export declare class Client {
     static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
     static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: Uint8Array, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
     queryConfig: () => Promise<Config>;
+    queryPause: () => Promise<Pause>;
     queryOwnership: () => Promise<OwnershipForString>;
-    queryPauseInfo: () => Promise<PauseInfoResponse>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateConfigMsg: (args: UpdateConfigArgs) => {
         update_config: UpdateConfigArgs;
@@ -128,16 +133,12 @@ export declare class Client {
     receiveNftMsg: (args: ReceiveNftArgs) => {
         receive_nft: ReceiveNftArgs;
     };
+    setPause: (sender: string, args: SetPauseArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    setPauseMsg: (args: SetPauseArgs) => {
+        set_pause: SetPauseArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
         update_ownership: UpdateOwnershipArgs;
-    };
-    pause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    pauseMsg: () => {
-        pause: {};
-    };
-    unpause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    unpauseMsg: () => {
-        unpause: {};
     };
 }

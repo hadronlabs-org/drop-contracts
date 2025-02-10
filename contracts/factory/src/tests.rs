@@ -892,48 +892,6 @@ fn test_query_state() {
 }
 
 #[test]
-fn test_query_pause_info() {
-    let mut deps = mock_dependencies(&[]);
-    deps.querier.add_wasm_query_response("core_contract", |_| {
-        cosmwasm_std::ContractResult::Ok(
-            to_json_binary(&CorePause {
-                tick: true,
-                bond: false,
-                unbond: false,
-            })
-            .unwrap(),
-        )
-    });
-    deps.querier
-        .add_wasm_query_response("withdrawal_manager_contract", |_| {
-            cosmwasm_std::ContractResult::Ok(
-                to_json_binary(&drop_helpers::pause::PauseInfoResponse::Unpaused {}).unwrap(),
-            )
-        });
-    deps.querier
-        .add_wasm_query_response("rewards_manager_contract", |_| {
-            cosmwasm_std::ContractResult::Ok(
-                to_json_binary(&drop_helpers::pause::PauseInfoResponse::Paused {}).unwrap(),
-            )
-        });
-    set_default_factory_state(deps.as_mut());
-    let query_res: drop_staking_base::state::factory::PauseInfoResponse =
-        from_json(query(deps.as_ref(), mock_env(), QueryMsg::PauseInfo {}).unwrap()).unwrap();
-    assert_eq!(
-        query_res,
-        drop_staking_base::state::factory::PauseInfoResponse {
-            core: CorePause {
-                tick: true,
-                bond: false,
-                unbond: false,
-            },
-            withdrawal_manager: drop_helpers::pause::PauseInfoResponse::Unpaused {},
-            rewards_manager: drop_helpers::pause::PauseInfoResponse::Paused {},
-        }
-    );
-}
-
-#[test]
 fn test_query_ownership() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();

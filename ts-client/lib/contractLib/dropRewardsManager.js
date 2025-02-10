@@ -29,11 +29,11 @@ class Client {
     queryHandlers = async () => {
         return this.client.queryContractSmart(this.contractAddress, { handlers: {} });
     };
+    queryPause = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { pause: {} });
+    };
     queryOwnership = async () => {
         return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
-    };
-    queryPauseInfo = async () => {
-        return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
     };
     addHandler = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
@@ -56,6 +56,13 @@ class Client {
         return this.client.execute(sender, this.contractAddress, this.exchangeRewardsMsg(args), fee || "auto", memo, funds);
     };
     exchangeRewardsMsg = (args) => { return { exchange_rewards: args }; };
+    setPause = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, this.setPauseMsg(args), fee || "auto", memo, funds);
+    };
+    setPauseMsg = (args) => { return { set_pause: args }; };
     updateOwnership = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
@@ -63,19 +70,5 @@ class Client {
         return this.client.execute(sender, this.contractAddress, this.updateOwnershipMsg(args), fee || "auto", memo, funds);
     };
     updateOwnershipMsg = (args) => { return { update_ownership: args }; };
-    pause = async (sender, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, this.pauseMsg(), fee || "auto", memo, funds);
-    };
-    pauseMsg = () => { return { pause: {} }; };
-    unpause = async (sender, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, this.unpauseMsg(), fee || "auto", memo, funds);
-    };
-    unpauseMsg = () => { return { unpause: {} }; };
 }
 exports.Client = Client;

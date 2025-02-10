@@ -5,7 +5,7 @@ use drop_helpers::{answer::response, is_paused};
 use drop_staking_base::error::rewards_manager::{ContractError, ContractResult};
 use drop_staking_base::msg::reward_handler::HandlerExecuteMsg;
 use drop_staking_base::msg::rewards_manager::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
-use drop_staking_base::state::rewards_manager::{HandlerConfig, REWARDS_HANDLERS};
+use drop_staking_base::state::rewards_manager::{HandlerConfig, Pause, PAUSE, REWARDS_HANDLERS};
 use neutron_sdk::bindings::msg::NeutronMsg;
 
 pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));

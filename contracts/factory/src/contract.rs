@@ -14,21 +14,22 @@ use drop_helpers::phonebook::{
     WITHDRAWAL_VOUCHER_CONTRACT,
 };
 use drop_staking_base::error::factory::{ContractError, ContractResult};
-use drop_staking_base::state::splitter::Config as SplitterConfig;
-use drop_staking_base::{
-    error::factory::ContractResult,
-    msg::{
-        core::InstantiateMsg as CoreInstantiateMsg,
-        distribution::InstantiateMsg as DistributionInstantiateMsg, factory::InstantiateMsg,
-        rewards_manager::InstantiateMsg as RewardsMangerInstantiateMsg,
-        splitter::InstantiateMsg as SplitterInstantiateMsg,
-        strategy::InstantiateMsg as StrategyInstantiateMsg,
-        token::InstantiateMsg as TokenInstantiateMsg,
-        validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
-        withdrawal_manager::InstantiateMsg as WithdrawalManagerInstantiateMsg,
-        withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
-    },
+use drop_staking_base::msg::factory::{
+    ExecuteMsg, MigrateMsg, OwnerQueryMsg, ProxyMsg, QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
 };
+use drop_staking_base::msg::{
+    core::InstantiateMsg as CoreInstantiateMsg,
+    distribution::InstantiateMsg as DistributionInstantiateMsg, factory::InstantiateMsg,
+    rewards_manager::InstantiateMsg as RewardsMangerInstantiateMsg,
+    splitter::InstantiateMsg as SplitterInstantiateMsg,
+    strategy::InstantiateMsg as StrategyInstantiateMsg,
+    token::InstantiateMsg as TokenInstantiateMsg,
+    validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
+    withdrawal_manager::InstantiateMsg as WithdrawalManagerInstantiateMsg,
+    withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
+};
+use drop_staking_base::state::factory::{PreInstantiatedContracts, STATE};
+use drop_staking_base::state::splitter::Config as SplitterConfig;
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     NeutronResult,

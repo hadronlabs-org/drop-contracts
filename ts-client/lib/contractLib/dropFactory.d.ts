@@ -722,7 +722,7 @@ export type UpdateOwnershipArgs = {
  */
 export type Addr = string;
 export interface DropFactorySchema {
-    responses: OwnershipForString | MapOfString | MapOfString1;
+    responses: OwnershipForString | MapOfString;
     execute: UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
@@ -745,9 +745,6 @@ export interface OwnershipForString {
     pending_owner?: string | null;
 }
 export interface MapOfString {
-    [k: string]: string;
-}
-export interface MapOfString1 {
     [k: string]: string;
 }
 export interface ConfigOptional {
@@ -1228,7 +1225,6 @@ export declare class Client {
     static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
     static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: Uint8Array, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
     queryState: () => Promise<MapOfString>;
-    queryPauseInfo: () => Promise<MapOfString>;
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateConfigMsg: (args: UpdateConfigArgs) => {
@@ -1245,13 +1241,5 @@ export declare class Client {
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
         update_ownership: UpdateOwnershipArgs;
-    };
-    pause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    pauseMsg: () => {
-        pause: {};
-    };
-    unpause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    unpauseMsg: () => {
-        unpause: {};
     };
 }
