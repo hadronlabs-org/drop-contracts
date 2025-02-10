@@ -137,6 +137,41 @@ const networkConfigs = {
       `/opt/init-gaia.sh > /opt/init-gaia.log 2>&1`,
     ],
   },
+  neutronv2: {
+    binary: 'neutrond',
+    chain_id: 'ntrntest',
+    denom: 'untrn',
+    image: `${ORG}neutronv2-test${VERSION}`,
+    prefix: 'neutron',
+    loglevel: 'debug',
+    trace: true,
+    public: true,
+    validators: 2,
+    validators_balance: ['1900000000', '100000000', '100000000'],
+    upload: [
+      './artifacts/contracts',
+      './artifacts/contracts_thirdparty',
+      './artifacts/scripts/init-neutrond.sh',
+    ],
+    post_init: ['CHAINID=ntrntest CHAIN_DIR=/opt /opt/init-neutrond.sh'],
+    genesis_opts: {
+      'app_state.crisis.constant_fee.denom': 'untrn',
+    },
+    config_opts: {
+      'consensus.timeout_commit': '500ms',
+      'consensus.timeout_propose': '500ms',
+    },
+    app_opts: {
+      'api.enable': 'true',
+      'api.address': 'tcp://0.0.0.0:1317',
+      'api.swagger': 'true',
+      'grpc.enable': 'true',
+      'grpc.address': '0.0.0.0:9090',
+      'minimum-gas-prices': '0.0025untrn',
+      'rosetta.enable': 'true',
+      'telemetry.prometheus-retention-time': 1000,
+    },
+  },
   initia: {
     binary: redefinedParams.binary || 'initiad',
     chain_id: 'testinitia',
@@ -449,6 +484,7 @@ export const setupPark = async (
       mnemonic: wallets.neutronqueryrelayer,
     } as any);
   }
+
   const instance = await cosmopark.create(config);
   await Promise.all(
     Object.entries(instance.ports).map(([network, ports]) =>

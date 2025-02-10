@@ -53,3 +53,4 @@ pub const REWARDS_PUMP_CONTRACT: &str = "rewards_pump_contract";
 pub const SPLITTER_CONTRACT: &str = "splitter_contract";
 pub const LSM_SHARE_BOND_PROVIDER_CONTRACT: &str = "lsm_share_bond_provider_contract";
 pub const NATIVE_BOND_PROVIDER_CONTRACT: &str = "native_bond_provider_contract";
+pub const UNBONDING_PUMP_CONTRACT: &str = "unbonding_pump_contract";

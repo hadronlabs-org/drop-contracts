@@ -1,24 +1,21 @@
 use crate::msg::token::DenomMetadata;
-use crate::state::factory::{CodeIds, RemoteOpts};
+use crate::state::factory::{CodeIds, PreInstantiatedContracts, RemoteOpts};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{CosmosMsg, Decimal, Uint128};
 use cw_ownable::cw_ownable_execute;
-use drop_macros::pausable;
 use neutron_sdk::bindings::msg::NeutronMsg;
 
 #[cw_serde]
 pub struct InstantiateMsg {
     pub code_ids: CodeIds,
+    pub pre_instantiated_contracts: PreInstantiatedContracts,
     pub remote_opts: RemoteOpts,
     pub salt: String,
     pub subdenom: String,
     pub token_metadata: DenomMetadata,
-    pub sdk_version: String,
     pub base_denom: String,
     pub local_denom: String,
     pub core_params: CoreParams,
-    pub native_bond_params: NativeBondParams,
-    pub lsm_share_bond_params: LsmShareBondParams,
     pub fee_params: Option<FeeParams>,
 }
 
@@ -35,12 +32,6 @@ pub struct CoreParams {
     pub unbonding_safe_period: u64,
     pub unbond_batch_switch_time: u64,
     pub icq_update_delay: u64, // blocks
-}
-
-#[cw_serde]
-pub struct NativeBondParams {
-    pub min_stake_amount: Uint128,
-    pub min_ibc_transfer: Uint128,
 }
 
 #[cw_serde]
@@ -68,8 +59,14 @@ pub enum ValidatorSetMsg {
     },
 }
 
+#[cw_serde]
+pub enum PauseType {
+    Core {},
+    WithdrawManager {},
+    RewardsManager {},
+}
+
 #[cw_ownable_execute]
-#[pausable]
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig(Box<UpdateConfigMsg>),
@@ -85,6 +82,9 @@ pub struct MigrateMsg {}
 pub enum QueryMsg {
     #[returns(std::collections::HashMap<String, String>)]
     State {},
-    #[returns(std::collections::HashMap<String, String>)]
-    PauseInfo {},
 }
+
+#[cw_ownable::cw_ownable_query]
+#[cw_serde]
+#[derive(QueryResponses)]
+pub enum OwnerQueryMsg {}
