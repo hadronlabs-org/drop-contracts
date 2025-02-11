@@ -6,18 +6,12 @@ use drop_puppeteer_base::peripheral_hook::ResponseHookMsg as PuppeteerResponseHo
 #[cw_serde]
 pub struct InstantiateMsg {
     pub owner: String,
-    pub base_denom: String,
-    pub puppeteer_contract: String,
-    pub core_contract: String,
-    pub strategy_contract: String,
+    pub factory_contract: String,
 }
 
 #[cw_serde]
 pub struct ConfigOptional {
-    pub base_denom: Option<String>,
-    pub puppeteer_contract: Option<String>,
-    pub core_contract: Option<String>,
-    pub strategy_contract: Option<String>,
+    pub factory_contract: Option<String>,
 }
 
 #[bond_provider]

@@ -10,7 +10,6 @@ import {
   DropSplitter,
   DropToken,
   DropNativeSyncBondProvider,
-  DropValRef,
   DropValidatorsSet,
   DropNeutronDistributionMock,
 } from 'drop-ts-client';
@@ -30,15 +29,13 @@ import {
 } from '@cosmjs/cosmwasm-stargate';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
-import { awaitBlocks, setupPark } from '../testSuite';
+import { setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { instrumentCoreClass } from '../helpers/knot';
-import { UnbondBatch } from 'drop-ts-client/lib/contractLib/dropCore';
 import { checkExchangeRate } from '../helpers/exchangeRate';
 import { stringToPath } from '@cosmjs/crypto';
 import { fromHex, toAscii } from '@cosmjs/encoding';
-import { waitFor } from '../helpers/waitFor';
 
 const DropTokenClass = DropToken.Client;
 const DropFactoryClass = DropFactory.Client;
@@ -50,11 +47,10 @@ const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
 const DropRewardsManagerClass = DropRewardsManager.Client;
 const DropSplitterClass = DropSplitter.Client;
 const DropNativeSyncBondProviderClass = DropNativeSyncBondProvider.Client;
-const DropValRefClass = DropValRef.Client;
 const DropValidatorsSetClass = DropValidatorsSet.Client;
 const DropNeutronDistributionMockClass = DropNeutronDistributionMock.Client;
 
-const UNBONDING_TIME = 40;
+const UNBONDING_TIME = 360;
 
 const SALT = 'salt';
 
@@ -81,7 +77,6 @@ describe('Core', () => {
     nativeBondProviderContractClient?: InstanceType<
       typeof DropNativeSyncBondProviderClass
     >;
-    valRefClient?: InstanceType<typeof DropValRefClass>;
     validatorsSetClient?: InstanceType<typeof DropValidatorsSetClass>;
     account?: AccountData;
     client?: SigningCosmWasmClient;
@@ -89,7 +84,6 @@ describe('Core', () => {
     neutronClient?: InstanceType<typeof NeutronClient>;
     neutronRPCEndpoint?: string;
     neutronUserAddress?: string;
-    secondUserAddress?: string;
     validatorAddress?: string;
     secondValidatorAddress?: string;
     codeIds: {
@@ -106,7 +100,6 @@ describe('Core', () => {
       rewardsManager?: number;
       splitter?: number;
       nativeBondProvider?: number;
-      valRef?: number;
       distributionModuleMock?: number;
     };
     predefinedContractAddresses: {
@@ -167,14 +160,6 @@ describe('Core', () => {
       await context.wallet.getAccounts()
     )[0].address;
 
-    const secondWallet = await DirectSecp256k1HdWallet.fromMnemonic(
-      context.park.config.wallets.demowallet2.mnemonic,
-      {
-        prefix: 'neutron',
-      },
-    );
-    context.secondUserAddress = (await secondWallet.getAccounts())[0].address;
-
     {
       const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
         context.park.config.master_mnemonic,
@@ -201,10 +186,11 @@ describe('Core', () => {
     await context.park.stop();
   });
 
-  describe('instantiate', () => {
-    it('drop_neutron_distribution_mock', async () => {
-      const { client, account } = context;
-      context.codeIds = {};
+  it('instantiate', async () => {
+    const { client, account } = context;
+    context.codeIds = {};
+
+    {
       const buffer = fs.readFileSync(
         join(
           __dirname,
@@ -235,10 +221,8 @@ describe('Core', () => {
         client,
         instantiateRes.contractAddress,
       );
-    });
-    it('drop_factory', async () => {
-      const { client, account } = context;
-
+    }
+    {
       const buffer = fs.readFileSync(
         join(__dirname, '../../../artifacts/drop_factory.wasm'),
       );
@@ -257,10 +241,9 @@ describe('Core', () => {
         toAscii(SALT),
         'neutron',
       );
-    });
+    }
 
-    it('drop_core', async () => {
-      const { client, account } = context;
+    {
       const buffer = fs.readFileSync(
         join(__dirname, '../../../artifacts/drop_core.wasm'),
       );
@@ -279,9 +262,9 @@ describe('Core', () => {
         toAscii(SALT),
         'neutron',
       );
-    });
-    it('drop_token', async () => {
-      const { client, account } = context;
+    }
+
+    {
       const buffer = fs.readFileSync(
         join(__dirname, '../../../artifacts/drop_token.wasm'),
       );
@@ -293,9 +276,8 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.token = res.codeId;
-    });
-    it('drop_withdrawal_voucher', async () => {
-      const { client, account } = context;
+    }
+    {
       const buffer = fs.readFileSync(
         join(__dirname, '../../../artifacts/drop_withdrawal_voucher.wasm'),
       );
@@ -307,9 +289,8 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.withdrawalVoucher = res.codeId;
-    });
-    it('drop_withdrawal_manager', async () => {
-      const { client, account } = context;
+    }
+    {
       const buffer = fs.readFileSync(
         join(__dirname, '../../../artifacts/drop_withdrawal_manager.wasm'),
       );
@@ -329,9 +310,8 @@ describe('Core', () => {
           toAscii(SALT),
           'neutron',
         );
-    });
-    it('drop_splitter', async () => {
-      const { client, account } = context;
+    }
+    {
       const buffer = fs.readFileSync(
         join(__dirname, '../../../artifacts/drop_splitter.wasm'),
       );
@@ -350,9 +330,8 @@ describe('Core', () => {
         toAscii(SALT),
         'neutron',
       );
-    });
-    it('drop_strategy', async () => {
-      const { client, account } = context;
+    }
+    {
       const buffer = fs.readFileSync(
         join(__dirname, '../../../artifacts/drop_strategy.wasm'),
       );
@@ -371,9 +350,8 @@ describe('Core', () => {
         toAscii(SALT),
         'neutron',
       );
-    });
-    it('drop_distribution', async () => {
-      const { client, account } = context;
+    }
+    {
       const buffer = fs.readFileSync(
         join(__dirname, '../../../artifacts/drop_distribution.wasm'),
       );
@@ -385,9 +363,8 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.distribution = res.codeId;
-    });
-    it('drop_validators_set', async () => {
-      const { client, account } = context;
+    }
+    {
       const buffer = fs.readFileSync(
         join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
       );
@@ -407,9 +384,8 @@ describe('Core', () => {
           toAscii(SALT),
           'neutron',
         );
-    });
-    it('drop_rewards_manager', async () => {
-      const { client, account } = context;
+    }
+    {
       const buffer = fs.readFileSync(
         join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
       );
@@ -421,9 +397,8 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.rewardsManager = res.codeId;
-    });
-    it('drop_splitter', async () => {
-      const { client, account } = context;
+    }
+    {
       const buffer = fs.readFileSync(
         join(__dirname, '../../../artifacts/drop_splitter.wasm'),
       );
@@ -442,9 +417,8 @@ describe('Core', () => {
         toAscii(SALT),
         'neutron',
       );
-    });
-    it('drop_redemption_rate_adapter', async () => {
-      const { client, account } = context;
+    }
+    {
       const buffer = fs.readFileSync(
         join(__dirname, '../../../artifacts/drop_redemption_rate_adapter.wasm'),
       );
@@ -456,9 +430,8 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.redemptionRateAdapter = res.codeId;
-    });
-    it('drop_native_sync_bond_provider', async () => {
-      const { client, account } = context;
+    }
+    {
       const buffer = fs.readFileSync(
         join(
           __dirname,
@@ -473,23 +446,8 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.nativeBondProvider = res.codeId;
-    });
-    it('drop_val_ref', async () => {
-      const { client, account } = context;
-      const buffer = fs.readFileSync(
-        join(__dirname, '../../../artifacts/drop_val_ref.wasm'),
-      );
-
-      const res = await client.upload(
-        account.address,
-        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
-        1.5,
-      );
-      expect(res.codeId).toBeGreaterThan(0);
-      context.codeIds.valRef = res.codeId;
-    });
-    it('pre factory', async () => {
-      const { client, account } = context;
+    }
+    {
       const buffer = fs.readFileSync(
         join(__dirname, '../../../artifacts/drop_puppeteer_native.wasm'),
       );
@@ -555,87 +513,85 @@ describe('Core', () => {
         context.client,
         instantiateRes.contractAddress,
       );
-    });
+    }
 
-    it('factory', async () => {
-      const { client, account } = context;
-      const buffer = fs.readFileSync(
-        join(__dirname, '../../../artifacts/drop_factory.wasm'),
-      );
-      const res = await client.upload(
-        account.address,
-        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
-        1.5,
-      );
-      expect(res.codeId).toBeGreaterThan(0);
-      const instantiateRes = await DropFactory.Client.instantiate2(
-        client,
-        account.address,
-        res.codeId,
-        toAscii(SALT),
-        {
-          local_denom: 'untrn',
-          code_ids: {
-            core_code_id: context.codeIds.core,
-            token_code_id: context.codeIds.token,
-            withdrawal_voucher_code_id: context.codeIds.withdrawalVoucher,
-            withdrawal_manager_code_id: context.codeIds.withdrawalManager,
-            strategy_code_id: context.codeIds.strategy,
-            distribution_code_id: context.codeIds.distribution,
-            validators_set_code_id: context.codeIds.validatorsSet,
-            rewards_manager_code_id: context.codeIds.rewardsManager,
-            splitter_code_id: context.codeIds.splitter,
-          },
-          pre_instantiated_contracts: {
-            native_bond_provider_address:
-              context.nativeBondProviderContractClient.contractAddress,
-            puppeteer_address:
-              context.predefinedContractAddresses.puppeteerAddress,
-          },
-          remote_opts: {
-            connection_id: 'N/A',
-            transfer_channel_id: 'N/A',
-            denom: 'untrn',
-            timeout: {
-              local: 60,
-              remote: 60,
-            },
-          },
-          salt: SALT,
-          subdenom: 'drop',
-          token_metadata: {
-            description: 'Drop token',
-            display: 'drop',
-            exponent: 6,
-            name: 'Drop liquid staking token',
-            symbol: 'DROP',
-            uri: null,
-            uri_hash: null,
-          },
-          base_denom: 'untrn',
-          core_params: {
-            idle_min_interval: 10,
-            unbond_batch_switch_time: 1,
-            unbonding_safe_period: 1,
-            unbonding_period: UNBONDING_TIME,
-            icq_update_delay: 5,
+    const buffer = fs.readFileSync(
+      join(__dirname, '../../../artifacts/drop_factory.wasm'),
+    );
+
+    const res = await client.upload(
+      account.address,
+      new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+      1.5,
+    );
+    expect(res.codeId).toBeGreaterThan(0);
+    const instantiateRes = await DropFactory.Client.instantiate2(
+      client,
+      account.address,
+      res.codeId,
+      toAscii(SALT),
+      {
+        local_denom: 'untrn',
+        code_ids: {
+          core_code_id: context.codeIds.core,
+          token_code_id: context.codeIds.token,
+          withdrawal_voucher_code_id: context.codeIds.withdrawalVoucher,
+          withdrawal_manager_code_id: context.codeIds.withdrawalManager,
+          strategy_code_id: context.codeIds.strategy,
+          distribution_code_id: context.codeIds.distribution,
+          validators_set_code_id: context.codeIds.validatorsSet,
+          rewards_manager_code_id: context.codeIds.rewardsManager,
+          splitter_code_id: context.codeIds.splitter,
+        },
+        pre_instantiated_contracts: {
+          native_bond_provider_address:
+            context.nativeBondProviderContractClient.contractAddress,
+          puppeteer_address:
+            context.predefinedContractAddresses.puppeteerAddress,
+        },
+        remote_opts: {
+          connection_id: 'N/A',
+          transfer_channel_id: 'N/A',
+          denom: 'untrn',
+          timeout: {
+            local: 60,
+            remote: 60,
           },
         },
-        'drop-staking-factory',
-        'auto',
-        [
-          {
-            denom: 'untrn',
-            amount: '10000000',
-          },
-        ],
-      );
-      expect(instantiateRes.contractAddress).toHaveLength(66);
-      context.factoryContractClient = new DropFactory.Client(
-        client,
-        instantiateRes.contractAddress,
-      );
-    });
+        salt: SALT,
+        subdenom: 'drop',
+        token_metadata: {
+          description: 'Drop token',
+          display: 'drop',
+          exponent: 6,
+          name: 'Drop liquid staking token',
+          symbol: 'DROP',
+          uri: null,
+          uri_hash: null,
+        },
+        base_denom: 'untrn',
+        core_params: {
+          idle_min_interval: 3600,
+          unbond_batch_switch_time: 60,
+          unbonding_safe_period: 10,
+          unbonding_period: 360,
+          icq_update_delay: 5,
+        },
+      },
+      'drop-staking-factory',
+      'auto',
+      [
+        {
+          denom: 'untrn',
+          amount: '10000000',
+        },
+      ],
+    );
+    expect(instantiateRes.contractAddress).toHaveLength(66);
+    context.factoryContractClient = new DropFactory.Client(
+      client,
+      instantiateRes.contractAddress,
+    );
   });
 
   it('query factory state', async () => {
@@ -697,6 +653,7 @@ describe('Core', () => {
     );
     expect(res.transactionHash).toHaveLength(64);
   });
+
   it('set up rewards receiver', async () => {
     const { neutronUserAddress } = context;
     const res = await context.factoryContractClient.adminExecute(
@@ -737,69 +694,7 @@ describe('Core', () => {
     );
     expect(res.transactionHash).toHaveLength(64);
   });
-  it('query exchange rate', async () => {
-    const { coreContractClient } = context;
-    context.exchangeRate = parseFloat(
-      await coreContractClient.queryExchangeRate(),
-    );
-    expect(context.exchangeRate).toEqual(1);
-    await checkExchangeRate(context);
-  });
-  it('deploy val ref contract', async () => {
-    const res = await DropValRef.Client.instantiate(
-      context.client,
-      context.account.address,
-      context.codeIds.valRef,
-      {
-        owner: context.account.address,
-        core_address: context.coreContractClient.contractAddress,
-        validators_set_address: context.validatorsSetClient.contractAddress,
-      },
-      'drop-val-ref',
-      1.5,
-    );
-    expect(res.contractAddress).toHaveLength(66);
-    context.valRefClient = new DropValRef.Client(
-      context.client,
-      res.contractAddress,
-    );
 
-    await context.factoryContractClient.adminExecute(
-      context.account.address,
-      {
-        msgs: [
-          {
-            wasm: {
-              execute: {
-                contract_addr: context.validatorsSetClient.contractAddress,
-                msg: Buffer.from(
-                  JSON.stringify({
-                    update_config: {
-                      new_config: {
-                        val_ref_contract: context.valRefClient.contractAddress,
-                      },
-                    },
-                  }),
-                ).toString('base64'),
-                funds: [],
-              },
-            },
-          },
-        ],
-      },
-      1.5,
-    );
-  });
-  it('register first validator in val_ref', async () => {
-    await context.valRefClient.setRefs(context.account.address, {
-      refs: [
-        {
-          ref: 'valX001',
-          validator_address: context.validatorAddress,
-        },
-      ],
-    });
-  });
   it('add validators into validators set', async () => {
     const {
       neutronUserAddress,
@@ -838,31 +733,6 @@ describe('Core', () => {
     );
     expect(res.transactionHash).toHaveLength(64);
   });
-  it('register core bond hook', async () => {
-    await context.factoryContractClient.adminExecute(
-      context.account.address,
-      {
-        msgs: [
-          {
-            wasm: {
-              execute: {
-                contract_addr: context.coreContractClient.contractAddress,
-                msg: Buffer.from(
-                  JSON.stringify({
-                    set_bond_hooks: {
-                      hooks: [context.valRefClient.contractAddress],
-                    },
-                  }),
-                ).toString('base64'),
-                funds: [],
-              },
-            },
-          },
-        ],
-      },
-      1.5,
-    );
-  });
 
   it('register native bond provider in the core', async () => {
     const res = await context.factoryContractClient.adminExecute(
@@ -893,6 +763,15 @@ describe('Core', () => {
       [],
     );
     expect(res.transactionHash).toHaveLength(64);
+  });
+
+  it('query exchange rate', async () => {
+    const { coreContractClient } = context;
+    context.exchangeRate = parseFloat(
+      await coreContractClient.queryExchangeRate(),
+    );
+    expect(context.exchangeRate).toEqual(1);
+    await checkExchangeRate(context);
   });
 
   it('bond', async () => {
@@ -939,39 +818,16 @@ describe('Core', () => {
     await checkExchangeRate(context);
   });
 
-  it('unbond', async () => {
-    const { coreContractClient, neutronUserAddress, ldDenom } = context;
-    const res = await coreContractClient.unbond(
-      neutronUserAddress,
-      1.6,
+  it('first tick did nothing and stays in idle', async () => {
+    const res = await context.coreContractClient.tick(
+      context.neutronUserAddress,
+      1.5,
       undefined,
-      [
-        {
-          amount: Math.floor(200_000 / context.exchangeRate).toString(),
-          denom: ldDenom,
-        },
-      ],
+      [],
     );
     expect(res.transactionHash).toHaveLength(64);
-    await checkExchangeRate(context);
-  });
-
-  it('validate unbonding batch', async () => {
-    const batch = await context.coreContractClient.queryUnbondBatch({
-      batch_id: '0',
-    });
-    expect(batch).toBeTruthy();
-    expect(batch).toEqual<UnbondBatch>({
-      slashing_effect: null,
-      status_timestamps: expect.any(Object),
-      expected_release_time: 0,
-      status: 'new',
-      total_dasset_amount_to_withdraw: '200000',
-      expected_native_asset_amount: '0',
-      total_unbond_items: 1,
-      unbonded_amount: null,
-      withdrawn_amount: null,
-    });
+    const state = await context.coreContractClient.queryContractState();
+    expect(state).toEqual('idle');
   });
 
   describe('state machine', () => {
@@ -982,17 +838,6 @@ describe('Core', () => {
       });
     });
     describe('first cycle', () => {
-      it('first tick did nothing and stays in idle', async () => {
-        const res = await context.coreContractClient.tick(
-          context.neutronUserAddress,
-          1.5,
-          undefined,
-          [],
-        );
-        expect(res.transactionHash).toHaveLength(64);
-        const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('idle');
-      });
       it('tick', async () => {
         const res = await context.coreContractClient.tick(
           context.neutronUserAddress,
@@ -1013,17 +858,6 @@ describe('Core', () => {
           transaction: null,
         });
         await checkExchangeRate(context);
-      });
-
-      it('verify delegations', async () => {
-        const res = await context.park.executeInNetwork(
-          'neutronv2',
-          `neutrond q staking delegations ${context.puppeteerContractClient.contractAddress} --output json`,
-        );
-        const { delegation_responses } = JSON.parse(res.out);
-        expect(delegation_responses).toHaveLength(2);
-        expect(delegation_responses[0].balance.amount).toEqual('200000');
-        expect(delegation_responses[1].balance.amount).toEqual('200000');
       });
 
       it('verify puppeteer delegations', async () => {
@@ -1054,16 +888,19 @@ describe('Core', () => {
       });
     });
     describe('second cycle', () => {
-      it('top up rewards balance', async () => {
-        const res = await context.client.sendTokens(
-          context.account.address,
-          context.distributionMockClient.contractAddress,
-          [{ amount: '1000000', denom: 'untrn' }],
+      it('tick to idle', async () => {
+        const res = await context.coreContractClient.tick(
+          context.neutronUserAddress,
           1.5,
+          undefined,
+          [],
         );
         expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
       });
-      it('tick', async () => {
+
+      it('tick to idle', async () => {
         const res = await context.coreContractClient.tick(
           context.neutronUserAddress,
           2.5,
@@ -1071,270 +908,9 @@ describe('Core', () => {
           [],
         );
         expect(res.transactionHash).toHaveLength(64);
-        const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('claiming');
-        await checkExchangeRate(context);
-      });
-      it('verify mock does not have tokens now', async () => {
-        const balance = await context.client.getBalance(
-          context.distributionMockClient.contractAddress,
-          'untrn',
-        );
-        expect(balance.amount).toEqual('0');
-      });
-      it('distribute', async () => {
-        const res = await context.splitterContractClient.distribute(
-          context.account.address,
-          1.5,
-        );
-        expect(res.transactionHash).toHaveLength(64);
-        const afterBalance = await context.client.getBalance(
-          context.nativeBondProviderContractClient.contractAddress,
-          'untrn',
-        );
-        expect(afterBalance.amount).toEqual('1000000');
-      });
-    });
-    describe('third cycle', () => {
-      it('tick', async () => {
-        const res = await context.coreContractClient.tick(
-          context.neutronUserAddress,
-          1.5,
-          undefined,
-          [],
-        );
-        expect(res.transactionHash).toHaveLength(64);
-        const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('unbonding');
-      });
-      it('tick to bond and return to idle', async () => {
-        const res = await context.coreContractClient.tick(
-          context.neutronUserAddress,
-          1.5,
-          undefined,
-          [],
-        );
-        expect(res.transactionHash).toHaveLength(64);
+        console.log(res);
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
-      });
-      it('validate delegations', async () => {
-        const res = await context.park.executeInNetwork(
-          'neutronv2',
-          `neutrond q staking delegations ${context.puppeteerContractClient.contractAddress} --output json`,
-        );
-        const { delegation_responses } = JSON.parse(res.out);
-        expect(delegation_responses).toHaveLength(2);
-        expect(
-          parseInt(delegation_responses[0].balance.amount) +
-            parseInt(delegation_responses[1].balance.amount),
-        ).toEqual(200_000);
-        const exchangeRate = parseFloat(
-          await context.coreContractClient.queryExchangeRate(),
-        );
-        expect(exchangeRate).toBeGreaterThan(1);
-      });
-      it('validate undelegations', async () => {
-        const res = await context.park.executeInNetwork(
-          'neutronv2',
-          `neutrond q staking unbonding-delegations ${context.puppeteerContractClient.contractAddress} --output json`,
-        );
-        const { unbonding_responses } = JSON.parse(res.out);
-        expect(
-          unbonding_responses.reduce(
-            (acc: number, one: any) => acc + parseInt(one.entries[0].balance),
-            0,
-          ),
-        ).toEqual(200_000);
-      });
-
-      it('wait until unbonding is happened', async () => {
-        await waitFor(async () => {
-          const res = await context.park.executeInNetwork(
-            'neutronv2',
-            `neutrond q staking unbonding-delegations ${context.puppeteerContractClient.contractAddress} --output json`,
-          );
-          const { unbonding_responses } = JSON.parse(res.out);
-          return unbonding_responses || unbonding_responses.length === 0;
-        });
-      });
-    });
-    describe('forth cycle', () => {
-      it('top up rewards balance', async () => {
-        const res = await context.client.sendTokens(
-          context.account.address,
-          context.distributionMockClient.contractAddress,
-          [{ amount: '1000000', denom: 'untrn' }],
-          1.5,
-        );
-        expect(res.transactionHash).toHaveLength(64);
-      });
-      it('tick to claiming', async () => {
-        const res = await context.coreContractClient.tick(
-          context.neutronUserAddress,
-          1.5,
-          undefined,
-          [],
-        );
-        expect(res.transactionHash).toHaveLength(64);
-        const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('claiming');
-      });
-
-      it('tick to idle', async () => {
-        const res = await context.coreContractClient.tick(
-          context.neutronUserAddress,
-          1.5,
-          undefined,
-          [],
-        );
-        expect(res.transactionHash).toHaveLength(64);
-        const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('idle');
-      });
-      it('tick to idle', async () => {
-        const res = await context.coreContractClient.tick(
-          context.neutronUserAddress,
-          1.5,
-          undefined,
-          [],
-        );
-        expect(res.transactionHash).toHaveLength(64);
-        const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('idle');
-      });
-      it('top up rewards balance', async () => {
-        const res = await context.client.sendTokens(
-          context.account.address,
-          context.distributionMockClient.contractAddress,
-          [{ amount: '1000000', denom: 'untrn' }],
-          1.5,
-        );
-        expect(res.transactionHash).toHaveLength(64);
-      });
-
-      it('tick to claiming', async () => {
-        await awaitBlocks(
-          `http://127.0.0.1:${context.park.ports.neutronv2.rpc}`,
-          10,
-        );
-        const res = await context.coreContractClient.tick(
-          context.neutronUserAddress,
-          1.5,
-          undefined,
-          [],
-        );
-        expect(res.transactionHash).toHaveLength(64);
-        const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('claiming');
-      });
-
-      it('validate undelegations', async () => {
-        const res = await context.park.executeInNetwork(
-          'neutronv2',
-          `neutrond q staking unbonding-delegations ${context.puppeteerContractClient.contractAddress} --output json`,
-        );
-        const { unbonding_responses } = JSON.parse(res.out);
-
-        expect(unbonding_responses).toBeNull();
-      });
-
-      it('tick to idle and withdrawn unbonding', async () => {
-        await awaitBlocks(
-          `http://127.0.0.1:${context.park.ports.neutronv2.rpc}`,
-          10,
-        );
-
-        const res = await context.coreContractClient.tick(
-          context.neutronUserAddress,
-          1.5,
-          undefined,
-          [],
-        );
-        expect(res.transactionHash).toHaveLength(64);
-        const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('idle');
-      });
-
-      describe('withdraw unbonded coins', () => {
-        let tokenId = '';
-        it('validate NFT', async () => {
-          const { withdrawalVoucherContractClient, neutronUserAddress } =
-            context;
-
-          const vouchers = await withdrawalVoucherContractClient.queryTokens({
-            owner: neutronUserAddress,
-          });
-
-          expect(vouchers.tokens.length).toBe(1);
-          expect(vouchers.tokens[0]).toBe(`0_${neutronUserAddress}_1`);
-
-          tokenId = vouchers.tokens[0];
-          const voucher = await withdrawalVoucherContractClient.queryNftInfo({
-            token_id: tokenId,
-          });
-
-          expect(voucher).toBeTruthy();
-          expect(voucher).toMatchObject({
-            extension: {
-              amount: '200000',
-              attributes: [
-                {
-                  display_type: null,
-                  trait_type: 'unbond_batch_id',
-                  value: '0',
-                },
-                {
-                  display_type: null,
-                  trait_type: 'received_amount',
-                  value: '200000',
-                },
-              ],
-              batch_id: '0',
-              description: 'Withdrawal voucher',
-              name: 'LDV voucher',
-            },
-            token_uri: null,
-          });
-        });
-
-        it('withdraw', async () => {
-          const {
-            withdrawalVoucherContractClient: voucherContractClient,
-            neutronUserAddress,
-            secondUserAddress,
-            neutronClient,
-          } = context;
-          const balanceBefore = parseInt(
-            (
-              await neutronClient.CosmosBankV1Beta1.query.queryBalance(
-                secondUserAddress,
-                { denom: 'untrn' },
-              )
-            ).data.balance.amount,
-          );
-
-          const res = await voucherContractClient.sendNft(neutronUserAddress, {
-            token_id: tokenId,
-            contract: context.withdrawalManagerContractClient.contractAddress,
-            msg: Buffer.from(
-              JSON.stringify({
-                withdraw: { receiver: secondUserAddress },
-              }),
-            ).toString('base64'),
-          });
-          expect(res.transactionHash).toHaveLength(64);
-          const balance =
-            await neutronClient.CosmosBankV1Beta1.query.queryBalance(
-              secondUserAddress,
-              { denom: 'untrn' },
-            );
-
-          expect(parseInt(balance.data.balance.amount) - balanceBefore).toBe(
-            200000,
-          );
-          await checkExchangeRate(context);
-        });
       });
     });
   });

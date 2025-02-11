@@ -222,10 +222,7 @@ export interface DropNativeSyncBondProviderSchema {
   [k: string]: unknown;
 }
 export interface Config {
-  base_denom: string;
-  core_contract: Addr;
-  puppeteer_contract: Addr;
-  strategy_contract: Addr;
+  factory_contract: Addr;
 }
 export interface LastPuppeteerResponse {
   response?: ResponseHookMsg | null;
@@ -287,17 +284,11 @@ export interface UpdateConfigArgs {
   new_config: ConfigOptional;
 }
 export interface ConfigOptional {
-  base_denom?: string | null;
-  core_contract?: string | null;
-  puppeteer_contract?: string | null;
-  strategy_contract?: string | null;
+  factory_contract?: string | null;
 }
 export interface InstantiateMsg {
-  base_denom: string;
-  core_contract: string;
+  factory_contract: string;
   owner: string;
-  puppeteer_contract: string;
-  strategy_contract: string;
 }
 
 

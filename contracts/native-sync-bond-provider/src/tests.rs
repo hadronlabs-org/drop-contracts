@@ -1,23 +1,24 @@
+use std::collections::HashMap;
+
 use cosmwasm_std::{
     attr, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, BalanceResponse, BankMsg, Coin, CosmosMsg, Decimal, Event, Response,
-    Uint128, WasmMsg,
+    to_json_binary, Addr, BalanceResponse, Coin, CosmosMsg, Decimal, Event, Response, Uint128,
+    WasmMsg,
 };
 use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::{
     msg::native_sync_bond_provider::ConfigOptional,
-    state::native_sync_bond_provider::{Config, CONFIG, NON_STAKED_BALANCE},
+    state::native_sync_bond_provider::{Config, CONFIG},
 };
+
+use crate::contract::LOCAL_DENOM;
 
 fn get_default_config() -> Config {
     Config {
-        puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-        core_contract: Addr::unchecked("core_contract"),
-        strategy_contract: Addr::unchecked("strategy_contract"),
-        base_denom: "base_denom".to_string(),
+        factory_contract: Addr::unchecked("factory_contract"),
     }
 }
 
@@ -30,10 +31,7 @@ fn instantiate() {
         mock_info("admin", &[]),
         drop_staking_base::msg::native_sync_bond_provider::InstantiateMsg {
             owner: "owner".to_string(),
-            base_denom: "base_denom".to_string(),
-            puppeteer_contract: "puppeteer_contract".to_string(),
-            core_contract: "core_contract".to_string(),
-            strategy_contract: "strategy_contract".to_string(),
+            factory_contract: "factory_contract".to_string(),
         },
     )
     .unwrap();
@@ -47,12 +45,7 @@ fn instantiate() {
         response.events,
         vec![
             Event::new("crates.io:drop-staking__drop-native-sync-bond-provider-instantiate")
-                .add_attributes([
-                    attr("puppeteer_contract", "puppeteer_contract"),
-                    attr("core_contract", "core_contract"),
-                    attr("strategy_contract", "strategy_contract"),
-                    attr("base_denom", "base_denom"),
-                ])
+                .add_attributes([attr("factory_contract", "factory_contract"),])
         ]
     );
     assert!(response.attributes.is_empty());
@@ -96,10 +89,7 @@ fn update_config_wrong_owner() {
         mock_info("core1", &[]),
         drop_staking_base::msg::native_sync_bond_provider::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
-                base_denom: Some("base_denom".to_string()),
-                puppeteer_contract: Some(String::from("puppeteer_contract")),
-                core_contract: Some(String::from("core_contract")),
-                strategy_contract: Some(String::from("strategy_contract")),
+                factory_contract: Some("factory_contract".to_string()),
             },
         },
     )
@@ -134,10 +124,7 @@ fn update_config_ok() {
         mock_info("core", &[]),
         drop_staking_base::msg::native_sync_bond_provider::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
-                base_denom: Some("base_denom_1".to_string()),
-                puppeteer_contract: Some(String::from("puppeteer_contract_1")),
-                core_contract: Some(String::from("core_contract_1")),
-                strategy_contract: Some(String::from("strategy_contract_1")),
+                factory_contract: Some("factory_contract_1".to_string()),
             },
         },
     )
@@ -147,12 +134,7 @@ fn update_config_ok() {
         response.events,
         vec![
             Event::new("crates.io:drop-staking__drop-native-sync-bond-provider-update_config")
-                .add_attributes([
-                    attr("puppeteer_contract", "puppeteer_contract_1"),
-                    attr("core_contract", "core_contract_1"),
-                    attr("strategy_contract", "strategy_contract_1"),
-                    attr("base_denom", "base_denom_1"),
-                ])
+                .add_attributes([attr("factory_contract", "factory_contract_1"),])
         ]
     );
     assert!(response.attributes.is_empty());
@@ -166,10 +148,7 @@ fn update_config_ok() {
     assert_eq!(
         config,
         to_json_binary(&Config {
-            puppeteer_contract: Addr::unchecked("puppeteer_contract_1"),
-            core_contract: Addr::unchecked("core_contract_1"),
-            strategy_contract: Addr::unchecked("strategy_contract_1"),
-            base_denom: "base_denom_1".to_string(),
+            factory_contract: Addr::unchecked("factory_contract_1"),
         })
         .unwrap()
     );
@@ -218,7 +197,7 @@ fn query_can_bond_ok() {
         deps.as_ref(),
         mock_env(),
         drop_staking_base::msg::native_sync_bond_provider::QueryMsg::CanBond {
-            denom: "base_denom".to_string(),
+            denom: LOCAL_DENOM.to_string(),
         },
     )
     .unwrap();
@@ -254,14 +233,10 @@ fn query_can_process_on_idle_false_if_no_funds_to_process() {
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
 
-    NON_STAKED_BALANCE
-        .save(deps.as_mut().storage, &Uint128::zero())
-        .unwrap();
-
     deps.querier.add_bank_query_response(
         "cosmos2contract".to_string(),
         BalanceResponse {
-            amount: Coin::new(0u128, "base_denom".to_string()),
+            amount: Coin::new(0u128, LOCAL_DENOM.to_string()),
         },
     );
 
@@ -278,21 +253,17 @@ fn query_can_process_on_idle_false_if_no_funds_to_process() {
             min_stake_amount: Uint128::new(1),
             non_staked_balance: Uint128::from(0u128),
             min_ibc_transfer: Uint128::new(0),
-            pending_coins: Uint128::zero()
+            pending_coins: Uint128::new(0),
         }
     );
 }
 
 #[test]
 fn query_can_process_on_idle_enough_non_staked_balance() {
-    let mut deps = mock_dependencies(&[]);
+    let mut deps = mock_dependencies(&[Coin::new(1000u128, LOCAL_DENOM)]);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
-        .unwrap();
-
-    NON_STAKED_BALANCE
-        .save(deps.as_mut().storage, &Uint128::from(100u128))
         .unwrap();
 
     let res = crate::contract::query(
@@ -305,7 +276,7 @@ fn query_can_process_on_idle_enough_non_staked_balance() {
     deps.querier.add_bank_query_response(
         "cosmos2contract".to_string(),
         BalanceResponse {
-            amount: Coin::new(0u128, "base_denom".to_string()),
+            amount: Coin::new(0u128, LOCAL_DENOM.to_string()),
         },
     );
 
@@ -316,14 +287,10 @@ fn query_can_process_on_idle_enough_non_staked_balance() {
 
 #[test]
 fn query_can_process_on_idle_enough_contract_balance() {
-    let mut deps = mock_dependencies(&[]);
+    let mut deps = mock_dependencies(&[Coin::new(1000u128, LOCAL_DENOM)]);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
-        .unwrap();
-
-    NON_STAKED_BALANCE
-        .save(deps.as_mut().storage, &Uint128::from(100u128))
         .unwrap();
 
     let res = crate::contract::query(
@@ -336,7 +303,7 @@ fn query_can_process_on_idle_enough_contract_balance() {
     deps.querier.add_bank_query_response(
         "cosmos2contract".to_string(),
         BalanceResponse {
-            amount: Coin::new(100u128, "base_denom".to_string()),
+            amount: Coin::new(100u128, LOCAL_DENOM.to_string()),
         },
     );
 
@@ -358,7 +325,7 @@ fn query_token_amount() {
         mock_env(),
         drop_staking_base::msg::native_sync_bond_provider::QueryMsg::TokensAmount {
             coin: Coin {
-                denom: "base_denom".to_string(),
+                denom: LOCAL_DENOM.to_string(),
                 amount: 100u128.into(),
             },
             exchange_rate: Decimal::one(),
@@ -382,7 +349,7 @@ fn query_token_amount_half() {
         mock_env(),
         drop_staking_base::msg::native_sync_bond_provider::QueryMsg::TokensAmount {
             coin: Coin {
-                denom: "base_denom".to_string(),
+                denom: LOCAL_DENOM.to_string(),
                 amount: 100u128.into(),
             },
             exchange_rate: Decimal::from_atomics(Uint128::from(5u64), 1).unwrap(),
@@ -406,7 +373,7 @@ fn query_token_amount_above_one() {
         mock_env(),
         drop_staking_base::msg::native_sync_bond_provider::QueryMsg::TokensAmount {
             coin: Coin {
-                denom: "base_denom".to_string(),
+                denom: LOCAL_DENOM.to_string(),
                 amount: 100u128.into(),
             },
             exchange_rate: Decimal::from_atomics(Uint128::from(11u64), 1).unwrap(),
@@ -491,6 +458,16 @@ fn update_ownership() {
 fn process_on_idle_not_core_contract() {
     let mut deps = mock_dependencies(&[]);
 
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("strategy_contract", "strategy_contract"),
+                ("core_contract", "core_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .into()
+        });
+
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
         .unwrap();
@@ -511,14 +488,20 @@ fn process_on_idle_not_core_contract() {
 
 #[test]
 fn process_on_idle_delegation() {
-    let mut deps = mock_dependencies(&[]);
+    let mut deps = mock_dependencies(&[Coin::new(1000u128, LOCAL_DENOM)]);
+
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("strategy_contract", "strategy_contract"),
+                ("core_contract", "core_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .into()
+        });
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
-        .unwrap();
-
-    NON_STAKED_BALANCE
-        .save(deps.as_mut().storage, &Uint128::from(100u128))
         .unwrap();
 
     deps.querier
@@ -541,11 +524,6 @@ fn process_on_idle_delegation() {
     .unwrap();
 
     assert_eq!(
-        NON_STAKED_BALANCE.load(deps.as_ref().storage).unwrap(),
-        Uint128::zero()
-    );
-
-    assert_eq!(
         res,
         Response::new()
             .add_attributes(vec![attr("action", "process_on_idle"),])
@@ -559,7 +537,7 @@ fn process_on_idle_delegation() {
                     reply_to: "cosmos2contract".to_string()
                 })
                 .unwrap(),
-                funds: vec![],
+                funds: vec![Coin::new(1000u128, LOCAL_DENOM)],
             }))
     );
 }
@@ -568,18 +546,24 @@ fn process_on_idle_delegation() {
 fn process_on_idle_not_allowed_if_no_funds() {
     let mut deps = mock_dependencies(&[]);
 
+    deps.querier
+        .add_wasm_query_response("factory_contract", |_| {
+            to_json_binary(&HashMap::from([
+                ("strategy_contract", "strategy_contract"),
+                ("core_contract", "core_contract"),
+                ("puppeteer_contract", "puppeteer_contract"),
+            ]))
+            .into()
+        });
+
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
-        .unwrap();
-
-    NON_STAKED_BALANCE
-        .save(deps.as_mut().storage, &Uint128::zero())
         .unwrap();
 
     deps.querier.add_bank_query_response(
         "cosmos2contract".to_string(),
         BalanceResponse {
-            amount: Coin::new(0u128, "base_denom".to_string()),
+            amount: Coin::new(0u128, LOCAL_DENOM.to_string()),
         },
     );
 
@@ -597,7 +581,7 @@ fn process_on_idle_not_allowed_if_no_funds() {
             min_stake_amount: Uint128::new(1),
             non_staked_balance: Uint128::zero(),
             min_ibc_transfer: Uint128::new(0),
-            pending_coins: Uint128::zero()
+            pending_coins: Uint128::new(0),
         }
     );
 }
@@ -612,38 +596,21 @@ fn execute_bond() {
         .save(deps_mut.storage, &get_default_config())
         .unwrap();
 
-    NON_STAKED_BALANCE
-        .save(deps_mut.storage, &Uint128::zero())
-        .unwrap();
-
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[Coin::new(100u128, "base_denom")]),
+        mock_info("core", &[Coin::new(100u128, LOCAL_DENOM)]),
         drop_staking_base::msg::native_sync_bond_provider::ExecuteMsg::Bond {},
     )
     .unwrap();
-    assert_eq!(response.messages.len(), 1);
-
-    assert_eq!(
-        NON_STAKED_BALANCE.load(deps.as_ref().storage).unwrap(),
-        Uint128::from(100u128)
-    );
+    assert_eq!(response.messages.len(), 0);
 
     assert_eq!(
         response,
-        Response::new()
-            .add_event(
-                Event::new("crates.io:drop-staking__drop-native-sync-bond-provider-bond")
-                    .add_attributes(vec![("received_funds", "100base_denom"),])
-            )
-            .add_message(CosmosMsg::Bank(BankMsg::Send {
-                to_address: "puppeteer_contract".to_string(),
-                amount: vec![Coin {
-                    denom: "base_denom".to_string(),
-                    amount: Uint128::from(100u128),
-                }],
-            }))
+        Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-native-sync-bond-provider-bond")
+                .add_attributes(vec![("received_funds", "100untrn")])
+        )
     );
 }
 
@@ -707,7 +674,7 @@ fn execute_bond_multiple_denoms() {
         mock_info(
             "core",
             &[
-                Coin::new(100u128, "base_denom"),
+                Coin::new(100u128, LOCAL_DENOM),
                 Coin::new(100u128, "second_denom"),
             ],
         ),

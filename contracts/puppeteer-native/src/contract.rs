@@ -1,7 +1,7 @@
 use cosmos_sdk_proto::cosmos::base::query::v1beta1::PageRequest;
 use cosmwasm_std::{
     attr, ensure, to_json_binary, Addr, Attribute, BankMsg, Coin as StdCoin, CosmosMsg, Deps,
-    DistributionMsg, QueryRequest, StakingMsg, StdError, Timestamp, Uint128, WasmMsg,
+    QueryRequest, StakingMsg, StdError, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{answer::response, validation::validate_addresses};
@@ -11,6 +11,7 @@ use drop_puppeteer_base::{
     msg::TransferReadyBatchesMsg,
     peripheral_hook::{ReceiverExecuteMsg, ResponseHookMsg, ResponseHookSuccessMsg, Transaction},
 };
+use drop_staking_base::state::puppeteer_native::REWARDS_WITHDRAW_ADDR;
 use drop_staking_base::{
     msg::puppeteer_native::{
         BalancesResponse, DelegationsResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryExtMsg,
@@ -34,6 +35,8 @@ use std::{env, vec};
 pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+pub const DEFAULT_DENOM: &str = "untrn";
+
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut<NeutronQuery>,
@@ -53,16 +56,16 @@ pub fn instantiate(
         .to_string();
 
     let config = &Config {
-        remote_denom: msg.remote_denom,
         allowed_senders: allowed_senders.clone(),
-        native_bond_provider: deps.api.addr_validate(&msg.native_bond_provider)?,
         distribution_module_contract: deps.api.addr_validate(&msg.distribution_module_contract)?,
     };
 
     let attrs: Vec<Attribute> = vec![
         attr("owner", &owner),
-        attr("remote_denom", &config.remote_denom),
-        attr("native_bond_provider", &config.native_bond_provider),
+        attr(
+            "distribution_module_contract",
+            &config.distribution_module_contract,
+        ),
         attr(
             "allowed_senders",
             allowed_senders
@@ -85,9 +88,6 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::Extension { msg } => match msg {
             QueryExtMsg::Delegations {} => query_delegations(deps, env),
             QueryExtMsg::Balances {} => query_balances(deps, env),
-            // QueryExtMsg::NonNativeRewardsBalances {} => {
-            //     query_non_native_rewards_balances(deps, env)
-            // }
             QueryExtMsg::UnbondingDelegations {} => query_unbonding_delegations(deps, env),
         },
         QueryMsg::Config {} => query_config(deps),
@@ -120,7 +120,7 @@ fn query_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binar
                     cosmos_sdk_proto::cosmos::staking::v1beta1::QueryDelegatorDelegationsRequest {
                         delegator_addr: env.contract.address.to_string(),
                         pagination: Some(PageRequest {
-                            key,
+                            key: key.clone(),
                             limit: 500,
                             ..Default::default()
                         }),
@@ -130,14 +130,7 @@ fn query_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binar
             });
 
         if res.is_err() {
-            return Ok(to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![],
-                },
-                remote_height: 0,
-                local_height: 0,
-                timestamp: Timestamp::default(),
-            })?);
+            break;
         } else {
             let delegations_response = res.unwrap(); // unwrap is safe bc we know that it's not an error
 
@@ -170,10 +163,9 @@ fn query_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binar
 }
 
 fn query_balances(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
-    let config = CONFIG.load(deps.storage)?;
     let balance = deps
         .querier
-        .query_balance(env.contract.address, config.remote_denom)?;
+        .query_balance(env.contract.address, DEFAULT_DENOM)?;
     Ok(to_json_binary(&BalancesResponse {
         balances: Balances {
             coins: vec![balance],
@@ -218,29 +210,6 @@ fn query_unbonding_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractRe
 
     to_json_binary(&total_undelegations).map_err(ContractError::Std)
 }
-
-// fn query_non_native_rewards_balances(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
-//     let config: Config = CONFIG.load(deps.storage)?;
-
-//     let balances = deps
-//         .querier
-//         .query_all_balances(env.contract.address.to_string())?;
-
-//     let balances_without_native = balances
-//         .into_iter()
-//         .filter(|b| b.denom != config.remote_denom)
-//         .collect::<Vec<_>>();
-
-//     to_json_binary(&BalancesResponse {
-//         balances: Balances {
-//             coins: balances_without_native,
-//         },
-//         remote_height: env.block.height,
-//         local_height: env.block.height,
-//         timestamp: env.block.time,
-//     })
-//     .map_err(ContractError::Std)
-// }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
@@ -291,21 +260,11 @@ fn execute_update_config(
 
     let mut attrs: Vec<Attribute> = Vec::new();
 
-    if let Some(remote_denom) = new_config.remote_denom {
-        config.remote_denom = remote_denom.clone();
-        attrs.push(attr("remote_denom", remote_denom))
-    }
-
     if let Some(allowed_senders) = new_config.allowed_senders {
         let allowed_senders =
             validate_addresses(deps.as_ref().into_empty(), allowed_senders.as_ref(), None)?;
         attrs.push(attr("allowed_senders", allowed_senders.len().to_string()));
         config.allowed_senders = allowed_senders
-    }
-
-    if let Some(native_bond_provider) = new_config.native_bond_provider {
-        config.native_bond_provider = deps.api.addr_validate(&native_bond_provider)?;
-        attrs.push(attr("native_bond_provider", native_bond_provider));
     }
 
     if let Some(distribution_module_contract) = new_config.distribution_module_contract {
@@ -331,23 +290,15 @@ fn execute_delegate(
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
+    cw_utils::must_pay(&info, DEFAULT_DENOM)?;
+    cw_utils::one_coin(&info)?;
 
-    let non_staked_balance = deps.querier.query_wasm_smart::<Uint128>(
-        &config.native_bond_provider,
-        &drop_staking_base::msg::native_bond_provider::QueryMsg::NonStakedBalance {},
-    )?;
+    let amount_attached = info.funds.last().unwrap().amount;
 
-    ensure!(
-        non_staked_balance > Uint128::zero(),
-        ContractError::InvalidFunds {
-            reason: "no funds to stake".to_string()
-        }
-    );
-
-    let amount_to_stake = items.iter().map(|(_, amount)| *amount).sum();
+    let amount_to_stake: Uint128 = items.iter().map(|(_, amount)| *amount).sum();
 
     ensure!(
-        non_staked_balance >= amount_to_stake,
+        amount_attached >= amount_to_stake,
         ContractError::InvalidFunds {
             reason: "not enough funds to stake".to_string()
         }
@@ -363,7 +314,7 @@ fn execute_delegate(
         let delegate_msg = CosmosMsg::Staking(StakingMsg::Delegate {
             validator: validator.clone(),
             amount: StdCoin {
-                denom: config.remote_denom.to_string(),
+                denom: DEFAULT_DENOM.to_string(),
                 amount,
             },
         });
@@ -412,23 +363,13 @@ fn execute_setup_protocol(
     let config: Config = CONFIG.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
     let rewards_withdraw_addr = deps.api.addr_validate(&rewards_withdraw_address)?; // Splitter contract
-
-    let msg = WasmMsg::Execute {
-        contract_addr: config.distribution_module_contract.into_string(),
-        funds: vec![],
-        msg: to_json_binary(
-            &drop_staking_base::msg::neutron_distribution_mock::ExecuteMsg::SetWithdrawAddress {
-                address: rewards_withdraw_addr.into_string(),
-            },
-        )?,
-    };
+    REWARDS_WITHDRAW_ADDR.save(deps.storage, &rewards_withdraw_addr)?;
 
     Ok(response(
         "execute_setup_protocol",
         CONTRACT_NAME,
         [("rewards_withdraw_address", rewards_withdraw_address)],
-    )
-    .add_message(msg))
+    ))
 }
 
 fn execute_claim_rewards_and_optionaly_transfer(
@@ -449,19 +390,24 @@ fn execute_claim_rewards_and_optionaly_transfer(
             to_address: transfer.recipient, // Should send to withdrawal manager
             amount: vec![StdCoin {
                 amount: transfer.amount,
-                denom: config.remote_denom.to_string(),
+                denom: DEFAULT_DENOM.to_string(),
             }],
         });
 
         messages.push(send_msg);
     }
 
-    for val in validators.clone() {
-        let withdraw_reward_msg =
-            CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward { validator: val });
+    let rewards_withdraw_addr = REWARDS_WITHDRAW_ADDR.load(deps.storage)?;
 
-        messages.push(withdraw_reward_msg);
-    }
+    messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.distribution_module_contract.to_string(),
+        msg: to_json_binary(
+            &drop_staking_base::msg::neutron_distribution_mock::ExecuteMsg::ClaimRewards {
+                receiver: Some(rewards_withdraw_addr.to_string()),
+            },
+        )?,
+        funds: vec![],
+    }));
 
     if !reply_to.is_empty() {
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
@@ -471,7 +417,7 @@ fn execute_claim_rewards_and_optionaly_transfer(
                     transaction: Transaction::ClaimRewardsAndOptionalyTransfer {
                         interchain_account_id: env.contract.address.to_string(),
                         validators,
-                        denom: config.remote_denom.to_string(),
+                        denom: DEFAULT_DENOM.to_string(),
                         transfer,
                     },
                     local_height: env.block.height,
@@ -501,7 +447,7 @@ fn execute_undelegate(
         let delegate_msg = CosmosMsg::Staking(StakingMsg::Undelegate {
             validator: validator.clone(),
             amount: StdCoin {
-                denom: config.remote_denom.to_string(),
+                denom: DEFAULT_DENOM.to_string(),
                 amount,
             },
         });
@@ -517,7 +463,7 @@ fn execute_undelegate(
                     transaction: Transaction::Undelegate {
                         interchain_account_id: env.contract.address.to_string(),
                         items,
-                        denom: config.remote_denom.to_string(),
+                        denom: DEFAULT_DENOM.to_string(),
                         batch_id,
                     },
                     local_height: env.block.height,

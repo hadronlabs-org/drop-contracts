@@ -1,5 +1,10 @@
-import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
-import { StdFee } from "@cosmjs/amino";
+import {
+  CosmWasmClient,
+  SigningCosmWasmClient,
+  ExecuteResult,
+  InstantiateResult,
+} from '@cosmjs/cosmwasm-stargate';
+import { StdFee } from '@cosmjs/amino';
 /**
  * A human readable address.
  *
@@ -138,7 +143,7 @@ export type Transaction =
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type IBCTransferReason = "l_s_m_share" | "delegate";
+export type IBCTransferReason = 'l_s_m_share' | 'delegate';
 export type ArrayOfTransaction = Transaction[];
 export type QueryExtMsg =
   | {
@@ -160,8 +165,8 @@ export type UpdateOwnershipArgs =
         new_owner: string;
       };
     }
-  | "accept_ownership"
-  | "renounce_ownership";
+  | 'accept_ownership'
+  | 'renounce_ownership';
 
 export interface DropPuppeteerNativeSchema {
   responses: Config | Binary | OwnershipForString | ArrayOfTransaction;
@@ -256,9 +261,8 @@ export interface InstantiateMsg {
   remote_denom: string;
 }
 
-
 function isSigningCosmWasmClient(
-  client: CosmWasmClient | SigningCosmWasmClient
+  client: CosmWasmClient | SigningCosmWasmClient,
 ): client is SigningCosmWasmClient {
   return 'execute' in client;
 }
@@ -266,12 +270,15 @@ function isSigningCosmWasmClient(
 export class Client {
   private readonly client: CosmWasmClient | SigningCosmWasmClient;
   contractAddress: string;
-  constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string) {
+  constructor(
+    client: CosmWasmClient | SigningCosmWasmClient,
+    contractAddress: string,
+  ) {
     this.client = client;
     this.contractAddress = contractAddress;
   }
   mustBeSigningClient(): Error {
-    return new Error("This client is not a SigningCosmWasmClient");
+    return new Error('This client is not a SigningCosmWasmClient');
   }
   static async instantiate(
     client: SigningCosmWasmClient,
@@ -284,7 +291,8 @@ export class Client {
     admin?: string,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }), ...(admin && { admin: admin }),
+      ...(initCoins && initCoins.length && { funds: initCoins }),
+      ...(admin && { admin: admin }),
     });
     return res;
   }
@@ -299,56 +307,204 @@ export class Client {
     initCoins?: readonly Coin[],
     admin?: string,
   ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(sender, codeId, salt, initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }), ...(admin && { admin: admin }),
-    });
+    const res = await client.instantiate2(
+      sender,
+      codeId,
+      salt,
+      initMsg,
+      label,
+      fees,
+      {
+        ...(initCoins && initCoins.length && { funds: initCoins }),
+        ...(admin && { admin: admin }),
+      },
+    );
     return res;
   }
-  queryConfig = async(): Promise<Config> => {
+  queryConfig = async (): Promise<Config> => {
     return this.client.queryContractSmart(this.contractAddress, { config: {} });
-  }
-  queryTransactions = async(): Promise<ArrayOfTransaction> => {
-    return this.client.queryContractSmart(this.contractAddress, { transactions: {} });
-  }
-  queryExtension = async(args: ExtensionArgs): Promise<Binary> => {
-    return this.client.queryContractSmart(this.contractAddress, { extension: args });
-  }
-  queryOwnership = async(): Promise<OwnershipForString> => {
-    return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
-  }
-  setupProtocol = async(sender:string, args: SetupProtocolArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.setupProtocolMsg(args), fee || "auto", memo, funds);
-  }
-  setupProtocolMsg = (args: SetupProtocolArgs): { setup_protocol: SetupProtocolArgs } => { return { setup_protocol: args }; }
-  delegate = async(sender:string, args: DelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.delegateMsg(args), fee || "auto", memo, funds);
-  }
-  delegateMsg = (args: DelegateArgs): { delegate: DelegateArgs } => { return { delegate: args }; }
-  undelegate = async(sender:string, args: UndelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.undelegateMsg(args), fee || "auto", memo, funds);
-  }
-  undelegateMsg = (args: UndelegateArgs): { undelegate: UndelegateArgs } => { return { undelegate: args }; }
-  claimRewardsAndOptionalyTransfer = async(sender:string, args: ClaimRewardsAndOptionalyTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.claimRewardsAndOptionalyTransferMsg(args), fee || "auto", memo, funds);
-  }
-  claimRewardsAndOptionalyTransferMsg = (args: ClaimRewardsAndOptionalyTransferArgs): { claim_rewards_and_optionaly_transfer: ClaimRewardsAndOptionalyTransferArgs } => { return { claim_rewards_and_optionaly_transfer: args }; }
-  updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.updateConfigMsg(args), fee || "auto", memo, funds);
-  }
-  updateConfigMsg = (args: UpdateConfigArgs): { update_config: UpdateConfigArgs } => { return { update_config: args }; }
-  registerBalanceAndDelegatorDelegationsQuery = async(sender:string, args: RegisterBalanceAndDelegatorDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.registerBalanceAndDelegatorDelegationsQueryMsg(args), fee || "auto", memo, funds);
-  }
-  registerBalanceAndDelegatorDelegationsQueryMsg = (args: RegisterBalanceAndDelegatorDelegationsQueryArgs): { register_balance_and_delegator_delegations_query: RegisterBalanceAndDelegatorDelegationsQueryArgs } => { return { register_balance_and_delegator_delegations_query: args }; }
-  updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, this.updateOwnershipMsg(args), fee || "auto", memo, funds);
-  }
-  updateOwnershipMsg = (args: UpdateOwnershipArgs): { update_ownership: UpdateOwnershipArgs } => { return { update_ownership: args }; }
+  };
+  queryTransactions = async (): Promise<ArrayOfTransaction> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      transactions: {},
+    });
+  };
+  queryExtension = async (args: ExtensionArgs): Promise<Binary> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      extension: args,
+    });
+  };
+  queryOwnership = async (): Promise<OwnershipForString> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      ownership: {},
+    });
+  };
+  setupProtocol = async (
+    sender: string,
+    args: SetupProtocolArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      this.setupProtocolMsg(args),
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  setupProtocolMsg = (
+    args: SetupProtocolArgs,
+  ): { setup_protocol: SetupProtocolArgs } => {
+    return { setup_protocol: args };
+  };
+  delegate = async (
+    sender: string,
+    args: DelegateArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      this.delegateMsg(args),
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  delegateMsg = (args: DelegateArgs): { delegate: DelegateArgs } => {
+    return { delegate: args };
+  };
+  undelegate = async (
+    sender: string,
+    args: UndelegateArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      this.undelegateMsg(args),
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  undelegateMsg = (args: UndelegateArgs): { undelegate: UndelegateArgs } => {
+    return { undelegate: args };
+  };
+  claimRewardsAndOptionalyTransfer = async (
+    sender: string,
+    args: ClaimRewardsAndOptionalyTransferArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      this.claimRewardsAndOptionalyTransferMsg(args),
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  claimRewardsAndOptionalyTransferMsg = (
+    args: ClaimRewardsAndOptionalyTransferArgs,
+  ): {
+    claim_rewards_and_optionaly_transfer: ClaimRewardsAndOptionalyTransferArgs;
+  } => {
+    return { claim_rewards_and_optionaly_transfer: args };
+  };
+  updateConfig = async (
+    sender: string,
+    args: UpdateConfigArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      this.updateConfigMsg(args),
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  updateConfigMsg = (
+    args: UpdateConfigArgs,
+  ): { update_config: UpdateConfigArgs } => {
+    return { update_config: args };
+  };
+  registerBalanceAndDelegatorDelegationsQuery = async (
+    sender: string,
+    args: RegisterBalanceAndDelegatorDelegationsQueryArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      this.registerBalanceAndDelegatorDelegationsQueryMsg(args),
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  registerBalanceAndDelegatorDelegationsQueryMsg = (
+    args: RegisterBalanceAndDelegatorDelegationsQueryArgs,
+  ): {
+    register_balance_and_delegator_delegations_query: RegisterBalanceAndDelegatorDelegationsQueryArgs;
+  } => {
+    return { register_balance_and_delegator_delegations_query: args };
+  };
+  updateOwnership = async (
+    sender: string,
+    args: UpdateOwnershipArgs,
+    fee?: number | StdFee | 'auto',
+    memo?: string,
+    funds?: Coin[],
+  ): Promise<ExecuteResult> => {
+    if (!isSigningCosmWasmClient(this.client)) {
+      throw this.mustBeSigningClient();
+    }
+    return this.client.execute(
+      sender,
+      this.contractAddress,
+      this.updateOwnershipMsg(args),
+      fee || 'auto',
+      memo,
+      funds,
+    );
+  };
+  updateOwnershipMsg = (
+    args: UpdateOwnershipArgs,
+  ): { update_ownership: UpdateOwnershipArgs } => {
+    return { update_ownership: args };
+  };
 }

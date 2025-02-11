@@ -1,4 +1,5 @@
 use cosmwasm_schema::write_api;
+
 use drop_staking_base::msg::puppeteer_native::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 
 fn main() {
