@@ -63,8 +63,7 @@ fn query_all_failed(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let failed_transfers: Vec<(String, Vec<Coin>)> = FAILED_TRANSFERS
         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
         .map(|pair| {
-            let (receiver, funds) = pair.unwrap();
-            (receiver, funds)
+            pair.unwrap()
         })
         .collect();
     Ok(to_json_binary(&failed_transfers)?)
