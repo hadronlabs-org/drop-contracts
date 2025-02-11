@@ -322,9 +322,9 @@ fn test_execute_update_config() {
     assert_eq!(
         res,
         Response::new().add_event(
-            Event::new("crates.io:drop-staking__drop-mirror-execute-update_config").add_attributes(
+            Event::new("crates.io:drop-staking__drop-mirror-execute_update_config").add_attributes(
                 vec![
-                    attr("action", "execute-update_config"),
+                    attr("action", "execute_update_config"),
                     attr("core_contract", "core_contract_1"),
                     attr("ibc_timeout", "1"),
                     attr("prefix", "neutron_1"),
@@ -454,7 +454,7 @@ fn test_execute_retry_removal_from_empty_failed_transfers() {
     assert_eq!(
         res,
         Response::new().add_event(
-            Event::new("crates.io:drop-staking__drop-mirror-retry")
+            Event::new("crates.io:drop-staking__drop-mirror-execute_retry")
                 .add_attribute("action", "execute_retry")
         )
     )
@@ -590,13 +590,15 @@ fn test_execute_retry() {
                 }
             ])
             .add_event(
-                Event::new("crates.io:drop-staking__drop-mirror-retry").add_attributes(vec![
-                    attr("action", "execute_retry"),
-                    attr("receiver", "receiver"),
-                    attr("amount", "100token_denom1"),
-                    attr("receiver", "receiver"),
-                    attr("amount", "300token_denom2"),
-                ])
+                Event::new("crates.io:drop-staking__drop-mirror-execute_retry").add_attributes(
+                    vec![
+                        attr("action", "execute_retry"),
+                        attr("receiver", "receiver"),
+                        attr("amount", "100token_denom1"),
+                        attr("receiver", "receiver"),
+                        attr("amount", "300token_denom2"),
+                    ]
+                )
             )
     )
 }
