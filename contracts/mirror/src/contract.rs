@@ -261,7 +261,7 @@ pub fn finalize_bond(
                     .value,
             )?;
             let attrs = vec![
-                attr("action", "reply-finalize_bond"),
+                attr("action", "reply_finalize_bond"),
                 attr("id", msg.id.to_string()),
                 attr("amount", coin.to_string()),
                 attr("to_address", receiver.clone()),
