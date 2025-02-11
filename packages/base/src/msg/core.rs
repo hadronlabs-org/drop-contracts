@@ -19,7 +19,6 @@ pub struct InstantiateMsg {
     pub unbonding_safe_period: u64,    //seconds
     pub unbond_batch_switch_time: u64, //seconds
     pub pump_ica_address: Option<String>,
-    pub transfer_channel_id: String,
     pub owner: String,
     pub emergency_address: Option<String>,
     pub icq_update_delay: u64, // blocks
@@ -35,7 +34,6 @@ impl InstantiateMsg {
             unbonding_safe_period: self.unbonding_safe_period,
             unbonding_period: self.unbonding_period,
             pump_ica_address: self.pump_ica_address,
-            transfer_channel_id: self.transfer_channel_id,
             unbond_batch_switch_time: self.unbond_batch_switch_time,
             emergency_address: self.emergency_address,
             icq_update_delay: self.icq_update_delay,

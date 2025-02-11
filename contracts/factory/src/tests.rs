@@ -331,7 +331,6 @@ fn test_instantiate() {
                             unbonding_safe_period: 0,
                             unbond_batch_switch_time: 0,
                             pump_ica_address: None,
-                            transfer_channel_id: "channel-0".to_string(),
                             owner: "factory_contract".to_string(),
                             emergency_address: None,
                             icq_update_delay: 0
@@ -438,7 +437,6 @@ fn test_update_config_core_unauthorized() {
         unbonding_safe_period: None,
         unbond_batch_switch_time: None,
         pump_ica_address: None,
-        transfer_channel_id: None,
         rewards_receiver: None,
         emergency_address: None,
     };
@@ -474,7 +472,6 @@ fn test_update_config_core() {
         unbonding_safe_period: Some(1u64),
         unbond_batch_switch_time: Some(1u64),
         pump_ica_address: Some("pump_ica_address1".to_string()),
-        transfer_channel_id: Some("channel-1".to_string()),
         rewards_receiver: Some("rewards_receiver1".to_string()),
         emergency_address: Some("emergency_address1".to_string()),
     };
@@ -957,6 +954,29 @@ fn test_transfer_ownership() {
             pending_owner: None
         }
     );
+}
+
+#[test]
+fn test_migrate_wrong_contract() {
+    let mut deps = mock_dependencies(&[]);
+
+    let deps_mut = deps.as_mut();
+
+    cw2::set_contract_version(deps_mut.storage, "wrong_contract_name", "0.0.1").unwrap();
+
+    let res = crate::contract::migrate(
+        deps.as_mut(),
+        mock_env(),
+        drop_staking_base::msg::factory::MigrateMsg {},
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_staking_base::error::factory::ContractError::MigrationError {
+            storage_contract_name: "wrong_contract_name".to_string(),
+            contract_name: crate::contract::CONTRACT_NAME.to_string()
+        }
+    )
 }
 
 #[test]

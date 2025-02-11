@@ -96,13 +96,23 @@ export class CoreModule extends ManagerModule {
 
     const config = await this.coreContractClient.queryConfig();
 
-    const lsmShareCanProcessOnIdle =
-      this.lsmShareBondProviderContractClient &&
-      (await this.lsmShareBondProviderContractClient.queryCanProcessOnIdle());
+    let lsmShareCanProcessOnIdle = false;
+    try {
+      lsmShareCanProcessOnIdle =
+        this.lsmShareBondProviderContractClient &&
+        (await this.lsmShareBondProviderContractClient.queryCanProcessOnIdle());
+    } catch (e) {
+      //
+    }
 
-    const nativeBondCanProcessOnIdle =
-      this.nativeBondProviderContractClient &&
-      (await this.nativeBondProviderContractClient.queryCanProcessOnIdle());
+    let nativeBondCanProcessOnIdle = false;
+    try {
+      nativeBondCanProcessOnIdle =
+        this.nativeBondProviderContractClient &&
+        (await this.nativeBondProviderContractClient.queryCanProcessOnIdle());
+    } catch (e) {
+      //
+    }
 
     if (
       this.lastRun / 1000 <

@@ -13,32 +13,29 @@ use drop_helpers::phonebook::{
     UNBONDING_PUMP_CONTRACT, VALIDATORS_SET_CONTRACT, WITHDRAWAL_MANAGER_CONTRACT,
     WITHDRAWAL_VOUCHER_CONTRACT,
 };
-use drop_staking_base::error::factory::ContractError;
+use drop_staking_base::error::factory::{ContractError, ContractResult};
 use drop_staking_base::msg::factory::{
     ExecuteMsg, MigrateMsg, OwnerQueryMsg, ProxyMsg, QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
 };
+use drop_staking_base::msg::{
+    core::InstantiateMsg as CoreInstantiateMsg,
+    distribution::InstantiateMsg as DistributionInstantiateMsg, factory::InstantiateMsg,
+    rewards_manager::InstantiateMsg as RewardsMangerInstantiateMsg,
+    splitter::InstantiateMsg as SplitterInstantiateMsg,
+    strategy::InstantiateMsg as StrategyInstantiateMsg,
+    token::InstantiateMsg as TokenInstantiateMsg,
+    validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
+    withdrawal_manager::InstantiateMsg as WithdrawalManagerInstantiateMsg,
+    withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
+};
 use drop_staking_base::state::factory::{PreInstantiatedContracts, STATE};
 use drop_staking_base::state::splitter::Config as SplitterConfig;
-use drop_staking_base::{
-    error::factory::ContractResult,
-    msg::{
-        core::InstantiateMsg as CoreInstantiateMsg,
-        distribution::InstantiateMsg as DistributionInstantiateMsg, factory::InstantiateMsg,
-        rewards_manager::InstantiateMsg as RewardsMangerInstantiateMsg,
-        splitter::InstantiateMsg as SplitterInstantiateMsg,
-        strategy::InstantiateMsg as StrategyInstantiateMsg,
-        token::InstantiateMsg as TokenInstantiateMsg,
-        validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
-        withdrawal_manager::InstantiateMsg as WithdrawalManagerInstantiateMsg,
-        withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
-    },
-};
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     NeutronResult,
 };
 
-const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
+pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const PERCENT_PRECISION: Uint128 = Uint128::new(10000u128); // allows to achieve 0.01% precision
 
@@ -251,7 +248,6 @@ pub fn instantiate(
                 unbonding_safe_period: msg.core_params.unbonding_safe_period,
                 unbond_batch_switch_time: msg.core_params.unbond_batch_switch_time,
                 idle_min_interval: msg.core_params.idle_min_interval,
-                transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
                 owner: env.contract.address.to_string(),
                 emergency_address: None,
                 icq_update_delay: msg.core_params.icq_update_delay,
@@ -459,9 +455,17 @@ pub fn migrate(
     _env: Env,
     _msg: MigrateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
+    let storage_contract_name = contract_version_metadata.contract.as_str();
+    if storage_contract_name != CONTRACT_NAME {
+        return Err(ContractError::MigrationError {
+            storage_contract_name: storage_contract_name.to_string(),
+            contract_name: CONTRACT_NAME.to_string(),
+        });
+    }
+
+    let storage_version: semver::Version = contract_version_metadata.version.parse()?;
     let version: semver::Version = CONTRACT_VERSION.parse()?;
-    let storage_version: semver::Version =
-        cw2::get_contract_version(deps.storage)?.version.parse()?;
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
