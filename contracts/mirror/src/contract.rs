@@ -184,7 +184,7 @@ fn execute_update_config(
         }
     }
     CONFIG.save(deps.storage, &config)?;
-    Ok(response("execute-update_config", CONTRACT_NAME, attrs))
+    Ok(response("execute_update_config", CONTRACT_NAME, attrs))
 }
 
 pub fn execute_bond(
