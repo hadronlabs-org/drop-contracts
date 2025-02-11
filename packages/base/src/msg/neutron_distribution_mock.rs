@@ -1,19 +1,11 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_schema::cw_serde;
 
 #[cw_serde]
 pub struct InstantiateMsg {}
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    SetWithdrawAddress { address: String },
-    WithdrawRewards {},
-}
-
-#[cw_serde]
-#[derive(QueryResponses)]
-pub enum QueryMsg {
-    #[returns(Vec<cosmwasm_std::Coin>)]
-    PendingRewards { address: String },
+    ClaimRewards { receiver: Option<String> },
 }
 
 #[cw_serde]

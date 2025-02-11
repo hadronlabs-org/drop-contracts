@@ -903,32 +903,27 @@ describe('Core', () => {
     );
   });
 
-  it('query pause state', async () => {
-    const { factoryContractClient: contractClient } = context;
-    const pauseInfo = await contractClient.queryPauseInfo();
+  it('query core pause state', async () => {
+    const { coreContractClient: contractClient } = context;
+    const pauseInfo = await contractClient.queryPause();
     expect(pauseInfo).toEqual({
-      withdrawal_manager: { unpaused: {} },
-      core: { bond: false, unbond: false, tick: false },
-      rewards_manager: { unpaused: {} },
-    });
-  });
-
-  it('pause protocol', async () => {
-    const { account, factoryContractClient: contractClient } = context;
-
-    const res = await contractClient.pause(account.address);
-    expect(res.transactionHash).toHaveLength(64);
-
-    const pauseInfo = await contractClient.queryPauseInfo();
-
-    expect(pauseInfo).toEqual({
-      withdrawal_manager: { paused: {} },
-      core: { bond: false, unbond: false, tick: true },
-      rewards_manager: { paused: {} },
+      bond: {
+        from: 0,
+        to: 0,
+      },
+      unbond: {
+        from: 0,
+        to: 0,
+      },
+      tick: {
+        from: 0,
+        to: 0,
+      },
     });
   });
 
   it('also pause bonds and unbonds', async () => {
+    const currentHeight = await context.client.getHeight();
     await context.factoryContractClient.adminExecute(context.account.address, {
       msgs: [
         {
@@ -938,9 +933,18 @@ describe('Core', () => {
               msg: Buffer.from(
                 JSON.stringify({
                   set_pause: {
-                    bond: true,
-                    unbond: true,
-                    tick: true,
+                    bond: {
+                      from: currentHeight,
+                      to: currentHeight + 100,
+                    },
+                    unbond: {
+                      from: currentHeight,
+                      to: currentHeight + 200,
+                    },
+                    tick: {
+                      from: currentHeight,
+                      to: currentHeight + 300,
+                    },
                   },
                 }),
               ).toString('base64'),
@@ -951,11 +955,20 @@ describe('Core', () => {
       ],
     });
 
-    const pauseInfo = await context.factoryContractClient.queryPauseInfo();
+    const pauseInfo = await context.coreContractClient.queryPause();
     expect(pauseInfo).toEqual({
-      withdrawal_manager: { paused: {} },
-      core: { bond: true, unbond: true, tick: true },
-      rewards_manager: { paused: {} },
+      bond: {
+        from: currentHeight,
+        to: currentHeight + 100,
+      },
+      unbond: {
+        from: currentHeight,
+        to: currentHeight + 200,
+      },
+      tick: {
+        from: currentHeight,
+        to: currentHeight + 300,
+      },
     });
   });
 
@@ -971,18 +984,60 @@ describe('Core', () => {
     ).rejects.toThrowError(/Contract execution is paused/);
   });
 
+  it('tick is paused', async () => {
+    await expect(
+      context.coreContractClient.tick(context.account.address),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
   it('unpause protocol', async () => {
-    const { account, factoryContractClient: contractClient } = context;
+    const { factoryContractClient, coreContractClient } = context;
 
-    const res = await contractClient.unpause(account.address);
-    expect(res.transactionHash).toHaveLength(64);
+    await factoryContractClient.adminExecute(context.account.address, {
+      msgs: [
+        {
+          wasm: {
+            execute: {
+              contract_addr: context.coreContractClient.contractAddress,
+              msg: Buffer.from(
+                JSON.stringify({
+                  set_pause: {
+                    bond: {
+                      from: 0,
+                      to: 0,
+                    },
+                    unbond: {
+                      from: 0,
+                      to: 0,
+                    },
+                    tick: {
+                      from: 0,
+                      to: 0,
+                    },
+                  },
+                }),
+              ).toString('base64'),
+              funds: [],
+            },
+          },
+        },
+      ],
+    });
 
-    const pauseInfo = await contractClient.queryPauseInfo();
-
+    const pauseInfo = await coreContractClient.queryPause();
     expect(pauseInfo).toEqual({
-      withdrawal_manager: { unpaused: {} },
-      core: { bond: false, unbond: false, tick: false },
-      rewards_manager: { unpaused: {} },
+      bond: {
+        from: 0,
+        to: 0,
+      },
+      unbond: {
+        from: 0,
+        to: 0,
+      },
+      tick: {
+        from: 0,
+        to: 0,
+      },
     });
   });
 
@@ -1687,28 +1742,6 @@ describe('Core', () => {
       it('get machine state', async () => {
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
-      });
-    });
-    describe('paused tick', () => {
-      it('pause protocol', async () => {
-        const {
-          account,
-          factoryContractClient: contractClient,
-          neutronUserAddress,
-        } = context;
-
-        await contractClient.pause(account.address);
-
-        await expect(
-          context.coreContractClient.tick(neutronUserAddress, 1.5, undefined, [
-            {
-              amount: '1000000',
-              denom: 'untrn',
-            },
-          ]),
-        ).rejects.toThrowError(/Contract execution is paused/);
-
-        await contractClient.unpause(account.address);
       });
     });
     describe('first cycle', () => {
@@ -2844,19 +2877,44 @@ describe('Core', () => {
       });
       it('try to withdraw from paused manager', async () => {
         const {
-          withdrawalVoucherContractClient,
+          withdrawalManagerContractClient,
           neutronUserAddress,
           factoryContractClient: contractClient,
-          account,
         } = context;
 
-        await contractClient.pause(account.address);
+        const currentHeight = await context.client.getHeight();
+
+        await contractClient.adminExecute(context.account.address, {
+          msgs: [
+            {
+              wasm: {
+                execute: {
+                  contract_addr:
+                    withdrawalManagerContractClient.contractAddress,
+                  msg: Buffer.from(
+                    JSON.stringify({
+                      set_pause: {
+                        pause: {
+                          receive_nft_withdraw: {
+                            from: currentHeight,
+                            to: currentHeight + 100,
+                          },
+                        },
+                      },
+                    }),
+                  ).toString('base64'),
+                  funds: [],
+                },
+              },
+            },
+          ],
+        });
 
         const tokenId = `0_${neutronUserAddress}_1`;
         await expect(
-          withdrawalVoucherContractClient.sendNft(neutronUserAddress, {
+          withdrawalManagerContractClient.receiveNft(neutronUserAddress, {
+            sender: neutronUserAddress,
             token_id: tokenId,
-            contract: context.withdrawalManagerContractClient.contractAddress,
             msg: Buffer.from(
               JSON.stringify({
                 withdraw: {},
@@ -2865,7 +2923,31 @@ describe('Core', () => {
           }),
         ).rejects.toThrowError(/Contract execution is paused/);
 
-        await contractClient.unpause(account.address);
+        await contractClient.adminExecute(context.account.address, {
+          msgs: [
+            {
+              wasm: {
+                execute: {
+                  contract_addr:
+                    withdrawalManagerContractClient.contractAddress,
+                  msg: Buffer.from(
+                    JSON.stringify({
+                      set_pause: {
+                        pause: {
+                          receive_nft_withdraw: {
+                            from: 0,
+                            to: 0,
+                          },
+                        },
+                      },
+                    }),
+                  ).toString('base64'),
+                  funds: [],
+                },
+              },
+            },
+          ],
+        });
       });
       it('try to withdraw before withdrawn', async () => {
         const { withdrawalVoucherContractClient, neutronUserAddress } = context;

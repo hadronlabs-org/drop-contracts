@@ -1,19 +1,21 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
 /**
+ * A human readable address.
+ *
+ * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
+ *
+ * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
+ *
+ * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
+ */
+export type Addr = string;
+/**
  * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
  *
  * This is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.
  */
 export type Binary = string;
-export type IcaState = ("none" | "in_progress" | "timeout") | {
-    registered: {
-        channel_id: string;
-        ica_address: string;
-        port_id: string;
-    };
-};
-export type ArrayOfTupleOfUint64AndString = [number, string][];
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -125,26 +127,13 @@ export type Transaction = {
 export type Uint128 = string;
 export type IBCTransferReason = "l_s_m_share" | "delegate";
 export type ArrayOfTransaction = Transaction[];
-export type TxStateStatus = "idle" | "in_progress" | "waiting_for_ack";
 export type QueryExtMsg = {
     delegations: {};
 } | {
     balances: {};
 } | {
-    non_native_rewards_balances: {};
-} | {
     unbonding_delegations: {};
 };
-/**
- * A human readable address.
- *
- * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
- *
- * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
- *
- * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
- */
-export type Addr = string;
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -155,15 +144,15 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropPuppeteerNativeSchema {
-    responses: ConfigResponse | Binary | IcaState | ArrayOfTupleOfUint64AndString | OwnershipForString | ArrayOfTransaction | TxState;
+    responses: Config | Binary | OwnershipForString | ArrayOfTransaction;
     query: ExtensionArgs;
-    execute: RegisterBalanceAndDelegatorDelegationsQueryArgs | RegisterDelegatorUnbondingDelegationsQueryArgs | RegisterNonNativeRewardsBalancesQueryArgs | SetupProtocolArgs | DelegateArgs | UndelegateArgs | RedelegateArgs | TokenizeShareArgs | RedeemSharesArgs | TransferArgs | ClaimRewardsAndOptionalyTransferArgs | UpdateConfigArgs | UpdateOwnershipArgs;
+    execute: SetupProtocolArgs | DelegateArgs | UndelegateArgs | ClaimRewardsAndOptionalyTransferArgs | UpdateConfigArgs | RegisterBalanceAndDelegatorDelegationsQueryArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
-export interface ConfigResponse {
-    connection_id: string;
-    update_period: number;
+export interface Config {
+    allowed_senders: Addr[];
+    distribution_module_contract: Addr;
 }
 /**
  * The contract's ownership info
@@ -198,23 +187,8 @@ export interface Coin {
     denom: string;
     [k: string]: unknown;
 }
-export interface TxState {
-    reply_to?: string | null;
-    seq_id?: number | null;
-    status: TxStateStatus;
-    transaction?: Transaction | null;
-}
 export interface ExtensionArgs {
     msg: QueryExtMsg;
-}
-export interface RegisterBalanceAndDelegatorDelegationsQueryArgs {
-    validators: string[];
-}
-export interface RegisterDelegatorUnbondingDelegationsQueryArgs {
-    validators: string[];
-}
-export interface RegisterNonNativeRewardsBalancesQueryArgs {
-    denoms: string[];
 }
 export interface SetupProtocolArgs {
     rewards_withdraw_address: string;
@@ -228,25 +202,6 @@ export interface UndelegateArgs {
     items: [string, Uint128][];
     reply_to: string;
 }
-export interface RedelegateArgs {
-    amount: Uint128;
-    reply_to: string;
-    validator_from: string;
-    validator_to: string;
-}
-export interface TokenizeShareArgs {
-    amount: Uint128;
-    reply_to: string;
-    validator: string;
-}
-export interface RedeemSharesArgs {
-    items: RedeemShareItem[];
-    reply_to: string;
-}
-export interface TransferArgs {
-    items: [string, Coin][];
-    reply_to: string;
-}
 export interface ClaimRewardsAndOptionalyTransferArgs {
     reply_to: string;
     transfer?: TransferReadyBatchesMsg | null;
@@ -257,27 +212,15 @@ export interface UpdateConfigArgs {
 }
 export interface ConfigOptional {
     allowed_senders?: string[] | null;
-    connection_id?: string | null;
-    native_bond_provider?: Addr | null;
-    port_id?: string | null;
-    remote_denom?: string | null;
-    sdk_version?: string | null;
-    timeout?: number | null;
-    transfer_channel_id?: string | null;
-    update_period?: number | null;
+    distribution_module_contract?: string | null;
+}
+export interface RegisterBalanceAndDelegatorDelegationsQueryArgs {
+    validators: string[];
 }
 export interface InstantiateMsg {
     allowed_senders: string[];
-    connection_id: string;
-    delegations_queries_chunk_size?: number | null;
-    native_bond_provider: string;
+    distribution_module_contract: string;
     owner?: string | null;
-    port_id: string;
-    remote_denom: string;
-    sdk_version: string;
-    timeout: number;
-    transfer_channel_id: string;
-    update_period: number;
 }
 export declare class Client {
     private readonly client;
@@ -286,33 +229,10 @@ export declare class Client {
     mustBeSigningClient(): Error;
     static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
     static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: Uint8Array, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
-    queryConfig: () => Promise<ConfigResponse>;
-    queryIca: () => Promise<IcaState>;
+    queryConfig: () => Promise<Config>;
     queryTransactions: () => Promise<ArrayOfTransaction>;
-    queryKVQueryIds: () => Promise<ArrayOfTupleOfUint64AndString>;
     queryExtension: (args: ExtensionArgs) => Promise<Binary>;
-    queryTxState: () => Promise<TxState>;
     queryOwnership: () => Promise<OwnershipForString>;
-    registerICA: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    registerICAMsg: () => {
-        register_i_c_a: {};
-    };
-    registerQuery: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    registerQueryMsg: () => {
-        register_query: {};
-    };
-    registerBalanceAndDelegatorDelegationsQuery: (sender: string, args: RegisterBalanceAndDelegatorDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    registerBalanceAndDelegatorDelegationsQueryMsg: (args: RegisterBalanceAndDelegatorDelegationsQueryArgs) => {
-        register_balance_and_delegator_delegations_query: RegisterBalanceAndDelegatorDelegationsQueryArgs;
-    };
-    registerDelegatorUnbondingDelegationsQuery: (sender: string, args: RegisterDelegatorUnbondingDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    registerDelegatorUnbondingDelegationsQueryMsg: (args: RegisterDelegatorUnbondingDelegationsQueryArgs) => {
-        register_delegator_unbonding_delegations_query: RegisterDelegatorUnbondingDelegationsQueryArgs;
-    };
-    registerNonNativeRewardsBalancesQuery: (sender: string, args: RegisterNonNativeRewardsBalancesQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    registerNonNativeRewardsBalancesQueryMsg: (args: RegisterNonNativeRewardsBalancesQueryArgs) => {
-        register_non_native_rewards_balances_query: RegisterNonNativeRewardsBalancesQueryArgs;
-    };
     setupProtocol: (sender: string, args: SetupProtocolArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     setupProtocolMsg: (args: SetupProtocolArgs) => {
         setup_protocol: SetupProtocolArgs;
@@ -325,22 +245,6 @@ export declare class Client {
     undelegateMsg: (args: UndelegateArgs) => {
         undelegate: UndelegateArgs;
     };
-    redelegate: (sender: string, args: RedelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    redelegateMsg: (args: RedelegateArgs) => {
-        redelegate: RedelegateArgs;
-    };
-    tokenizeShare: (sender: string, args: TokenizeShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    tokenizeShareMsg: (args: TokenizeShareArgs) => {
-        tokenize_share: TokenizeShareArgs;
-    };
-    redeemShares: (sender: string, args: RedeemSharesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    redeemSharesMsg: (args: RedeemSharesArgs) => {
-        redeem_shares: RedeemSharesArgs;
-    };
-    transfer: (sender: string, args: TransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    transferMsg: (args: TransferArgs) => {
-        transfer: TransferArgs;
-    };
     claimRewardsAndOptionalyTransfer: (sender: string, args: ClaimRewardsAndOptionalyTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     claimRewardsAndOptionalyTransferMsg: (args: ClaimRewardsAndOptionalyTransferArgs) => {
         claim_rewards_and_optionaly_transfer: ClaimRewardsAndOptionalyTransferArgs;
@@ -348,6 +252,10 @@ export declare class Client {
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateConfigMsg: (args: UpdateConfigArgs) => {
         update_config: UpdateConfigArgs;
+    };
+    registerBalanceAndDelegatorDelegationsQuery: (sender: string, args: RegisterBalanceAndDelegatorDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    registerBalanceAndDelegatorDelegationsQueryMsg: (args: RegisterBalanceAndDelegatorDelegationsQueryArgs) => {
+        register_balance_and_delegator_delegations_query: RegisterBalanceAndDelegatorDelegationsQueryArgs;
     };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateOwnershipMsg: (args: UpdateOwnershipArgs) => {

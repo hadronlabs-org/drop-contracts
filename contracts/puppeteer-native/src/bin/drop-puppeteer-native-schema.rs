@@ -1,9 +1,11 @@
 use cosmwasm_schema::write_api;
-use drop_staking_base::msg::neutron_distribution_mock::{ExecuteMsg, InstantiateMsg, MigrateMsg};
+
+use drop_staking_base::msg::puppeteer_native::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 
 fn main() {
     write_api! {
         instantiate: InstantiateMsg,
+        query: QueryMsg,
         execute: ExecuteMsg,
         migrate: MigrateMsg
     }

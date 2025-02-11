@@ -29,6 +29,7 @@ prost = { workspace = true }
 cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
 cw-ownable = { workspace = true }
+cw-utils = { workspace = true }
 cw2 = { workspace = true }
 drop-staking-base = { workspace = true }
 drop-helpers = { workspace = true }

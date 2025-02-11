@@ -26,22 +26,12 @@ class Client {
         });
         return res;
     }
-    queryPendingRewards = async (args) => {
-        return this.client.queryContractSmart(this.contractAddress, { pending_rewards: args });
-    };
-    setWithdrawAddress = async (sender, args, fee, memo, funds) => {
+    claimRewards = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, this.setWithdrawAddressMsg(args), fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, this.claimRewardsMsg(args), fee || "auto", memo, funds);
     };
-    setWithdrawAddressMsg = (args) => { return { set_withdraw_address: args }; };
-    withdrawRewards = async (sender, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, this.withdrawRewardsMsg(), fee || "auto", memo, funds);
-    };
-    withdrawRewardsMsg = () => { return { withdraw_rewards: {} }; };
+    claimRewardsMsg = (args) => { return { claim_rewards: args }; };
 }
 exports.Client = Client;

@@ -18,6 +18,9 @@ pub enum ContractError {
     #[error("{0}")]
     EncodeError(#[from] EncodeError),
 
+    #[error("{0}")]
+    PaymentError(#[from] cw_utils::PaymentError),
+
     #[error("ICA is not registered")]
     IcaNotRegistered {},
 

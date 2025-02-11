@@ -8,10 +8,8 @@ use neutron_sdk::interchain_queries::v045::types::Balances;
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub remote_denom: String,
     pub owner: Option<String>,
     pub allowed_senders: Vec<String>,
-    pub native_bond_provider: String,
     pub distribution_module_contract: String,
 }
 

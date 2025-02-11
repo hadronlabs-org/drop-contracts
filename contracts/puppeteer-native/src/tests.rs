@@ -1,8 +1,8 @@
 use cosmwasm_std::{
     coin, coins, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, BankMsg, CosmosMsg, Decimal256, DepsMut, DistributionMsg, Event,
-    Response, StakingMsg, StdError, Timestamp, Uint128, Uint64, WasmMsg,
+    to_json_binary, Addr, BankMsg, CosmosMsg, Decimal256, DepsMut, Event, Response, StakingMsg,
+    StdError, Timestamp, Uint128, Uint64, WasmMsg,
 };
 use drop_helpers::testing::mock_dependencies;
 
@@ -17,6 +17,7 @@ use drop_staking_base::state::{
             UnbondingDelegationNative,
         },
         Config, ConfigOptional, Delegation, DelegationResponseNative, PageResponse, CONFIG,
+        REWARDS_WITHDRAW_ADDR,
     },
 };
 use drop_staking_base::{
@@ -31,13 +32,13 @@ use neutron_sdk::{
 
 use std::vec;
 
+use crate::contract::DEFAULT_DENOM;
+
 #[test]
 fn test_instantiate() {
     let mut deps = mock_dependencies(&[]);
     let msg = InstantiateMsg {
         owner: Some("owner".to_string()),
-        native_bond_provider: "native_bond_provider".to_string(),
-        remote_denom: "remote_denom".to_string(),
         allowed_senders: vec!["allowed_sender1".to_string(), "allowed_sender2".to_string()],
         distribution_module_contract: "distribution_module".to_string(),
     };
@@ -50,8 +51,7 @@ fn test_instantiate() {
             Event::new("crates.io:drop-staking__drop-puppeteer-native-instantiate").add_attributes(
                 vec![
                     ("owner", "owner"),
-                    ("remote_denom", "remote_denom"),
-                    ("native_bond_provider", "native_bond_provider"),
+                    ("distribution_module_contract", "distribution_module"),
                     ("allowed_senders", "allowed_sender1,allowed_sender2"),
                 ]
             )
@@ -76,8 +76,6 @@ fn test_execute_update_config_unauthorized() {
         .unwrap();
     let msg = drop_staking_base::msg::puppeteer_native::ExecuteMsg::UpdateConfig {
         new_config: ConfigOptional {
-            remote_denom: Some("new_remote_denom".to_string()),
-            native_bond_provider: Some("native_bond_provider".to_string()),
             allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
             distribution_module_contract: Some("distribution_module".to_string()),
         },
@@ -115,8 +113,6 @@ fn test_execute_update_config() {
         mock_info("owner", &[]),
         drop_staking_base::msg::puppeteer_native::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
-                remote_denom: Some("new_remote_denom".to_string()),
-                native_bond_provider: Some("native_bond_provider".to_string()),
                 allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
                 distribution_module_contract: Some("distribution_module".to_string()),
             },
@@ -128,9 +124,7 @@ fn test_execute_update_config() {
         Response::new().add_event(
             Event::new("crates.io:drop-staking__drop-puppeteer-native-config_update")
                 .add_attributes(vec![
-                    ("remote_denom", "new_remote_denom"),
                     ("allowed_senders", "1"),
-                    ("native_bond_provider", "native_bond_provider"),
                     ("distribution_module_contract", "distribution_module"),
                 ])
         )
@@ -140,8 +134,6 @@ fn test_execute_update_config() {
     assert_eq!(
         config,
         Config {
-            native_bond_provider: Addr::unchecked("native_bond_provider"),
-            remote_denom: "new_remote_denom".to_string(),
             allowed_senders: vec![Addr::unchecked("new_allowed_sender")],
             distribution_module_contract: Addr::unchecked("distribution_module"),
         }
@@ -253,7 +245,7 @@ fn test_execute_undelegate() {
         Response::new().add_messages(vec![
             CosmosMsg::Staking(StakingMsg::Undelegate {
                 validator: "valoper1".to_string(),
-                amount: cosmwasm_std::Coin::new(1000u128, "remote_denom".to_string()),
+                amount: cosmwasm_std::Coin::new(1000u128, DEFAULT_DENOM.to_string()),
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "some_reply_to".to_string(),
@@ -262,7 +254,7 @@ fn test_execute_undelegate() {
                         transaction: Transaction::Undelegate {
                             interchain_account_id: env.contract.address.to_string(),
                             items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
-                            denom: "remote_denom".to_string(),
+                            denom: DEFAULT_DENOM.to_string(),
                             batch_id: 0u128,
                         },
                         local_height: env.block.height,
@@ -347,13 +339,17 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
         cosmwasm_std::Response::new().add_messages(vec![
             CosmosMsg::Bank(BankMsg::Send {
                 to_address: "some_recipient".to_string(),
-                amount: vec![cosmwasm_std::Coin::new(123u128, "remote_denom".to_string())],
+                amount: vec![cosmwasm_std::Coin::new(123u128, DEFAULT_DENOM.to_string())],
             }),
-            CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward {
-                validator: "validator1".to_string()
-            }),
-            CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward {
-                validator: "validator2".to_string()
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "distribution_module".to_string(),
+                msg: to_json_binary(
+                    &drop_staking_base::msg::neutron_distribution_mock::ExecuteMsg::ClaimRewards {
+                        receiver: Some("rewards_withdraw_address".to_string())
+                    }
+                )
+                .unwrap(),
+                funds: vec![],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "some_reply_to".to_string(),
@@ -362,7 +358,7 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
                         transaction: Transaction::ClaimRewardsAndOptionalyTransfer {
                             interchain_account_id: env.contract.address.to_string(),
                             validators: vec!["validator1".to_string(), "validator2".to_string()],
-                            denom: "remote_denom".to_string(),
+                            denom: DEFAULT_DENOM.to_string(),
                             transfer,
                         },
                         local_height: env.block.height,
@@ -378,8 +374,6 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
 
 fn get_base_config() -> Config {
     Config {
-        native_bond_provider: Addr::unchecked("native_bond_provider"),
-        remote_denom: "remote_denom".to_string(),
         allowed_senders: vec![
             Addr::unchecked("allowed_sender1"),
             Addr::unchecked("allowed_sender2"),
@@ -391,6 +385,12 @@ fn get_base_config() -> Config {
 fn base_init(deps_mut: &mut DepsMut<NeutronQuery>) {
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
     CONFIG.save(deps_mut.storage, &get_base_config()).unwrap();
+    REWARDS_WITHDRAW_ADDR
+        .save(
+            deps_mut.storage,
+            &Addr::unchecked("rewards_withdraw_address"),
+        )
+        .unwrap();
 }
 
 fn get_standard_fees() -> IbcFee {
@@ -455,10 +455,12 @@ fn test_query_extension_delegations_none() {
             cosmwasm_std::ContractResult::Err("No data".to_string())
         });
 
+    let env = mock_env();
+
     let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
         crate::contract::query(
             deps.as_ref(),
-            mock_env(),
+            env.clone(),
             drop_staking_base::msg::puppeteer_native::QueryMsg::Extension {
                 msg: drop_staking_base::msg::puppeteer_native::QueryExtMsg::Delegations {},
             },
@@ -472,9 +474,9 @@ fn test_query_extension_delegations_none() {
             delegations: Delegations {
                 delegations: vec![],
             },
-            remote_height: 0,
-            local_height: 0,
-            timestamp: Timestamp::default(),
+            remote_height: env.block.height,
+            local_height: env.block.height,
+            timestamp: env.block.time,
         }
     );
 }
@@ -715,7 +717,7 @@ fn test_query_extension_balances_none() {
         query_res,
         drop_staking_base::msg::puppeteer::BalancesResponse {
             balances: Balances {
-                coins: vec![coin(0, "remote_denom")]
+                coins: vec![coin(0, DEFAULT_DENOM)]
             },
             remote_height: env.block.height,
             local_height: env.block.height,
@@ -726,7 +728,7 @@ fn test_query_extension_balances_none() {
 
 #[test]
 fn test_query_extension_balances_some() {
-    let coins = vec![cosmwasm_std::Coin::new(123u128, "remote_denom".to_string())];
+    let coins = vec![cosmwasm_std::Coin::new(123u128, DEFAULT_DENOM.to_string())];
 
     let mut deps = mock_dependencies(&coins);
     base_init(&mut deps.as_mut());
