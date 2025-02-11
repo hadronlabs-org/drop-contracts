@@ -146,7 +146,7 @@ fn execute_update_config(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut config = CONFIG.load(deps.storage)?;
-    let mut attrs = vec![attr("action", "execute-update_config")];
+    let mut attrs = vec![attr("action", "execute_update_config")];
     if let Some(core_contract) = new_config.core_contract {
         deps.api.addr_validate(&core_contract)?;
         attrs.push(attr("core_contract", &core_contract));
