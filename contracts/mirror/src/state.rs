@@ -27,11 +27,12 @@ pub struct TimeoutRange {
 }
 
 pub const BOND_REPLY_ID: u64 = 1;
+const TIMEOUT_30D: u64 = 2592000;
 
 pub const REPLY_RECEIVER: Item<String> = Item::new("reply_receiver");
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const FAILED_TRANSFERS: Map<String, Vec<Coin>> = Map::new("failed_transfers");
 pub const TIMEOUT_RANGE: TimeoutRange = TimeoutRange {
     from: 0,
-    to: 2592000, // 30d
+    to: TIMEOUT_30D,
 };
