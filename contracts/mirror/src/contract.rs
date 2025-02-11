@@ -11,7 +11,7 @@ use cosmwasm_std::{
     Env, IbcQuery, MessageInfo, Reply, Response, SubMsg, Uint128, WasmMsg,
 };
 use cw_ownable::update_ownership;
-use drop_helpers::answer::response;
+use drop_helpers::answer::{attr_coin, response};
 use drop_helpers::ibc_fee::query_ibc_fee;
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, TransferSudoMsg};
@@ -62,9 +62,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
 fn query_all_failed(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let failed_transfers: Vec<(String, Vec<Coin>)> = FAILED_TRANSFERS
         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .map(|pair| {
-            pair.unwrap()
-        })
+        .map(|pair| pair.unwrap())
         .collect();
     Ok(to_json_binary(&failed_transfers)?)
 }
@@ -206,7 +204,7 @@ pub fn execute_bond(
         attr("action", "bond"),
         attr("receiver", receiver.to_string()),
         attr("ref", r#ref.clone().unwrap_or_default()),
-        attr("coin", format!("{}{}", coin.amount, coin.denom)),
+        attr_coin("coin", coin.amount, coin.denom.clone()),
     ];
     // We can't pass receiver directly to reply from bond execution
     // The only way to pass it is to overwrite receiver here and then read in reply
@@ -218,7 +216,7 @@ pub fn execute_bond(
                 receiver: None,
                 r#ref,
             })?,
-            funds: vec![coin],
+            funds: vec![coin.clone()],
         },
         BOND_REPLY_ID,
     );
