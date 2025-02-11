@@ -261,7 +261,7 @@ pub fn finalize_bond(
                     .value,
             )?;
             let attrs = vec![
-                attr("action", "reply_finalize_bond"),
+                attr("action", "reply-finalize_bond"),
                 attr("id", msg.id.to_string()),
                 attr("amount", coin.to_string()),
                 attr("to_address", receiver.clone()),
@@ -284,7 +284,7 @@ pub fn finalize_bond(
                     memo: "".to_string(),
                     fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
                 });
-            Ok(response("reply_finalize_bond", CONTRACT_NAME, attrs).add_message(ibc_transfer_msg))
+            Ok(response("reply-finalize_bond", CONTRACT_NAME, attrs).add_message(ibc_transfer_msg))
         }
         cosmwasm_std::SubMsgResult::Err(_) => unreachable!(), // as there is only SubMsg::reply_on_success()
     }
@@ -380,12 +380,6 @@ pub fn migrate(
             storage_contract_name: storage_contract_name.to_string(),
             contract_name: CONTRACT_NAME.to_string(),
         });
-    }
-    if storage_version < version {
-        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-        deps.storage.remove("bonds".as_bytes());
-        deps.storage.remove("counter".as_bytes());
-        REPLY_RECEIVER.save(deps.storage, &"".to_string())?;
     }
     Ok(Response::new())
 }
