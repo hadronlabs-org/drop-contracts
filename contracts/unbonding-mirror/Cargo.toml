@@ -25,3 +25,4 @@ cw-storage-plus = { workspace = true }
 cosmwasm-schema = { workspace = true }
 cw-utils = { workspace = true }
 bech32 = { workspace = true }
+cw721 = { workspace = true }

@@ -6,9 +6,12 @@ use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 pub struct InstantiateMsg {
     pub owner: Option<String>,
     pub core_contract: String,
+    pub withdrawal_manager: String,
+    pub withdrawal_voucher: String,
     pub source_port: String,
     pub source_channel: String,
     pub ibc_timeout: u64,
+    pub ibc_denom: String,
     pub prefix: String,
     pub retry_limit: u64,
 }
