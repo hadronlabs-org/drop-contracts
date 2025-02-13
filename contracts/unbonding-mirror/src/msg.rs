@@ -17,6 +17,7 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig { new_config: ConfigOptional },
+    Unbond { receiver: String },
 }
 
 #[cw_ownable_query]

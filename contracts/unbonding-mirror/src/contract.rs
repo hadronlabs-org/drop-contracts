@@ -1,17 +1,23 @@
 use crate::error::{ContractError, ContractResult};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Config, ConfigOptional, CONFIG, TIMEOUT_RANGE};
+use crate::state::{
+    Config, ConfigOptional, CONFIG, REPLY_RECEIVERS, TIMEOUT_RANGE, UNBOND_REPLY_ID,
+};
 use cosmwasm_std::{
-    attr, to_json_binary, Binary, Deps, DepsMut, Env, IbcQuery, MessageInfo, Response,
+    attr, ensure, to_json_binary, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, IbcQuery,
+    MessageInfo, Reply, Response, SubMsg, Uint128, WasmMsg,
 };
 use drop_helpers::answer::response;
+use drop_helpers::ibc_fee::query_ibc_fee;
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
+use neutron_sdk::sudo::msg::RequestPacketTimeoutHeight;
 
 use std::env;
+use std::str::FromStr;
 
 pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-const _LOCAL_DENOM: &str = "untrn";
+const LOCAL_DENOM: &str = "untrn";
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
@@ -35,6 +41,7 @@ pub fn instantiate(
             retry_limit: msg.retry_limit.clone(),
         },
     )?;
+    UNBOND_REPLY_ID.save(deps.storage, &0u64)?;
     let attrs = vec![
         attr("action", "instantiate"),
         attr("owner", owner),
@@ -69,6 +76,7 @@ pub fn execute(
             Ok(Response::new())
         }
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
+        ExecuteMsg::Unbond { receiver } => execute_unbond(deps, info, receiver),
     }
 }
 
@@ -122,4 +130,130 @@ fn execute_update_config(
     }
     CONFIG.save(deps.storage, &config)?;
     Ok(response("execute_update_config", CONTRACT_NAME, attrs))
+}
+
+fn execute_unbond(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    receiver: String,
+) -> ContractResult<Response<NeutronMsg>> {
+    let coin = cw_utils::one_coin(&info)?;
+    let config = CONFIG.load(deps.storage)?;
+
+    deps.api.addr_validate(&receiver.as_str())?;
+    ensure!(
+        receiver.starts_with(&config.prefix),
+        ContractError::InvalidPrefix
+    );
+    bech32::decode(&receiver).map_err(|_| ContractError::WrongReceiverAddress)?;
+
+    // We can't pass receiver directly to reply from unbond execution
+    // The only way to pass it is to overwrite receiver here and then read in reply
+    let unbond_reply_id: u64 = UNBOND_REPLY_ID.load(deps.storage)? + 1;
+    UNBOND_REPLY_ID.save(deps.storage, &unbond_reply_id)?;
+    REPLY_RECEIVERS.save(deps.storage, unbond_reply_id, &receiver)?;
+    let submsg: SubMsg<NeutronMsg> = SubMsg::reply_on_success(
+        WasmMsg::Execute {
+            contract_addr: config.core_contract,
+            msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::Unbond {})?,
+            funds: vec![coin.clone()],
+        },
+        unbond_reply_id,
+    );
+    let attrs = vec![attr("receiver", receiver)];
+    Ok(response("execute_unbond", CONTRACT_NAME, attrs).add_submessage(submsg))
+}
+
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn reply(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    msg: Reply,
+) -> ContractResult<Response<NeutronMsg>> {
+    finalize_unbond(deps, env, msg)
+}
+
+pub fn finalize_unbond(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    msg: Reply,
+) -> ContractResult<Response<NeutronMsg>> {
+    match msg.result {
+        cosmwasm_std::SubMsgResult::Ok(res) => {
+            let Config {
+                source_port,
+                source_channel,
+                ibc_timeout,
+                ..
+            } = CONFIG.load(deps.storage)?;
+            let unbond_reply_id: u64 = msg.id;
+            let receiver = REPLY_RECEIVERS.load(deps.storage, unbond_reply_id)?;
+            let nft_mint_event = res
+                .events
+                .iter()
+                .find(|x| x.ty == "wasm")
+                .ok_or(ContractError::NoNFTMinted)?;
+            let nft_name = &nft_mint_event
+                .attributes
+                .iter()
+                .find(|x| x.key == "token_id")
+                .ok_or(ContractError::NoNFTMintedFound)?
+                .value;
+            let attrs = vec![
+                attr("action", "reply-finalize_bond"),
+                attr("reply_id", unbond_reply_id.to_string()),
+                attr("id", msg.id.to_string()),
+                attr("nft", nft_name),
+                attr("to_address", receiver.clone()),
+                attr("source_port", source_port.to_string()),
+                attr("source_channel", source_channel.clone()),
+                attr("ibc-timeout", ibc_timeout.to_string()),
+            ];
+            let (batch, unbond_id) = parse_nft(nft_name.clone())?;
+            let tf_token_subdenom = format!("nft_{:?}_{:?}", batch, unbond_id);
+            let tf_mint_voucher_msg: CosmosMsg<NeutronMsg> =
+                CosmosMsg::Custom(NeutronMsg::MintTokens {
+                    denom: tf_token_subdenom.clone(),
+                    amount: Uint128::from(1u128),
+                    mint_to_address: env.contract.address.to_string(),
+                });
+            let full_tf_denom =
+                format!("factory/{:?}/{:?}", env.contract.address, tf_token_subdenom);
+            let ibc_transfer_msg: CosmosMsg<NeutronMsg> = // send dAssets back
+                CosmosMsg::Custom(NeutronMsg::IbcTransfer {
+                    source_port: source_port.clone(),
+                    source_channel: source_channel.clone(),
+                    token: Coin {
+                        denom: full_tf_denom,
+                        amount: Uint128::from(1u128),
+                    },
+                    sender: env.contract.address.to_string(),
+                    receiver: receiver.clone(),
+                    timeout_height: RequestPacketTimeoutHeight {
+                        revision_number: None,
+                        revision_height: None,
+                    },
+                    timeout_timestamp: env.block.time.plus_seconds(ibc_timeout).nanos(),
+                    memo: "".to_string(),
+                    fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
+                });
+            REPLY_RECEIVERS.remove(deps.storage, unbond_reply_id);
+            Ok(response("reply-finalize_unbond", CONTRACT_NAME, attrs)
+                .add_messages(vec![tf_mint_voucher_msg, ibc_transfer_msg]))
+        }
+        cosmwasm_std::SubMsgResult::Err(_) => unreachable!(), // as there is only SubMsg::reply_on_success()
+    }
+}
+
+fn parse_nft(nft_id: String) -> Result<(u64, u64), ContractError> {
+    let parts: Vec<&str> = nft_id.split('_').collect(); // example -- 2_neutron1tpanc442f5u0acajw0rs78yvj5weqpq9q6lvwl_2804
+
+    if let (Some(first), Some(last)) = (parts.first(), parts.last()) {
+        if let (Ok(first_num), Ok(last_num)) = (first.parse::<u64>(), last.parse::<u64>()) {
+            return Ok((first_num, last_num));
+        } else {
+            return Err(ContractError::NFTParseError {});
+        }
+    }
+    Err(ContractError::NFTParseError {})
 }

@@ -31,14 +31,17 @@ pub enum ContractError {
     #[error("Wrong receiver address")]
     WrongReceiverAddress,
 
-    #[error("No tokens minted")]
-    NoTokensMinted,
+    #[error("No nft minted")]
+    NoNFTMinted,
 
     #[error("Invalid prefix")]
     InvalidPrefix,
 
-    #[error("No tokens minted amount found")]
-    NoTokensMintedAmountFound,
+    #[error("No nft minted amount found from the event")]
+    NoNFTMintedFound,
+
+    #[error("Parsing nft error")]
+    NFTParseError,
 
     #[error("Wrong bond state. Expected {expected:?}, got {got:?}")]
     WrongBondState { expected: String, got: String },

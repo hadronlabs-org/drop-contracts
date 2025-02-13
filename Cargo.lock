@@ -1047,6 +1047,7 @@ dependencies = [
 name = "drop-unbonding-mirror"
 version = "1.0.0"
 dependencies = [
+ "bech32 0.11.0",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-ownable",
