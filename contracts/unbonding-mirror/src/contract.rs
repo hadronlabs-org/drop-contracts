@@ -25,15 +25,24 @@ pub fn instantiate(
     CONFIG.save(
         deps.storage,
         &Config {
-            core_contract: msg.core_contract,
-            source_port: msg.source_port,
-            source_channel: msg.source_channel,
-            ibc_timeout: msg.ibc_timeout,
-            prefix: msg.prefix,
-            retry_limit: msg.retry_limit,
+            core_contract: msg.core_contract.clone(),
+            source_port: msg.source_port.clone(),
+            source_channel: msg.source_channel.clone(),
+            ibc_timeout: msg.ibc_timeout.clone(),
+            prefix: msg.prefix.clone(),
+            retry_limit: msg.retry_limit.clone(),
         },
     )?;
-    let attrs = vec![attr("action", "instantiate"), attr("owner", owner)];
+    let attrs = vec![
+        attr("action", "instantiate"),
+        attr("owner", owner),
+        attr("core_contract", msg.core_contract),
+        attr("source_port", msg.source_port),
+        attr("source_channel", msg.source_channel),
+        attr("ibc_timeout", msg.ibc_timeout.to_string()),
+        attr("prefix", msg.prefix),
+        attr("retry_limit", msg.retry_limit.to_string()),
+    ];
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
