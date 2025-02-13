@@ -39,10 +39,10 @@ pub fn instantiate(
             withdrawal_voucher: msg.withdrawal_voucher.clone(),
             source_port: msg.source_port.clone(),
             source_channel: msg.source_channel.clone(),
-            ibc_timeout: msg.ibc_timeout.clone(),
+            ibc_timeout: msg.ibc_timeout,
             ibc_denom: msg.ibc_denom.clone(),
             prefix: msg.prefix.clone(),
-            retry_limit: msg.retry_limit.clone(),
+            retry_limit: msg.retry_limit,
         },
     )?;
     UNBOND_REPLY_ID.save(deps.storage, &0u64)?;
@@ -214,7 +214,7 @@ fn execute_retry(
             receiver_new_coins = receiver_new_coins
                 .iter()
                 .filter(|receiver_new_coin| receiver_new_coin.denom != coin.denom)
-                .map(|coin| coin.clone())
+                .cloned()
                 .collect::<Vec<Coin>>();
             attrs.push(attr("receiver", receiver.clone()));
             attrs.push(attr("amount", coin.to_string()));
@@ -233,7 +233,7 @@ fn execute_update_config(
     let mut config = CONFIG.load(deps.storage)?;
     let mut attrs = vec![attr("action", "execute_update_config")];
     if let Some(retry_limit) = new_config.retry_limit {
-        attrs.push(attr("retry_limit", &retry_limit.to_string()));
+        attrs.push(attr("retry_limit", retry_limit.to_string()));
         config.retry_limit = retry_limit;
     }
     if let Some(core_contract) = new_config.core_contract {
@@ -298,7 +298,7 @@ fn execute_unbond(
     let coin = cw_utils::one_coin(&info)?;
     let config = CONFIG.load(deps.storage)?;
 
-    deps.api.addr_validate(&receiver.as_str())?;
+    deps.api.addr_validate(receiver.as_str())?;
     ensure!(
         receiver.starts_with(&config.prefix),
         ContractError::InvalidPrefix
@@ -395,7 +395,7 @@ pub fn finalize_unbond(
                     memo: "".to_string(),
                     fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
                 });
-            TF_DENOM_TO_NFT_ID.save(deps.storage, full_tf_denom, &nft_name)?;
+            TF_DENOM_TO_NFT_ID.save(deps.storage, full_tf_denom, nft_name)?;
             REPLY_RECEIVERS.remove(deps.storage, unbond_reply_id);
             Ok(response("reply-finalize_unbond", CONTRACT_NAME, attrs)
                 .add_messages(vec![tf_mint_voucher_msg, ibc_transfer_msg]))
