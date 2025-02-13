@@ -1,4 +1,6 @@
+use crate::state::{Config, ConfigOptional};
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -11,12 +13,19 @@ pub struct InstantiateMsg {
     pub retry_limit: u64,
 }
 
+#[cw_ownable_execute]
 #[cw_serde]
-pub enum ExecuteMsg {}
+pub enum ExecuteMsg {
+    UpdateConfig { new_config: ConfigOptional },
+}
 
+#[cw_ownable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
-pub enum QueryMsg {}
+pub enum QueryMsg {
+    #[returns(Config)]
+    Config {},
+}
 
 #[cw_serde]
 pub struct MigrateMsg {}

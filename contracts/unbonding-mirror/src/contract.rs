@@ -1,7 +1,9 @@
-use crate::error::ContractResult;
+use crate::error::{ContractError, ContractResult};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Config, CONFIG};
-use cosmwasm_std::{attr, Binary, Deps, DepsMut, Env, MessageInfo, Response};
+use crate::state::{Config, ConfigOptional, CONFIG, TIMEOUT_RANGE};
+use cosmwasm_std::{
+    attr, to_json_binary, Binary, Deps, DepsMut, Env, IbcQuery, MessageInfo, Response,
+};
 use drop_helpers::answer::response;
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 
@@ -47,16 +49,77 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
-pub fn query(_deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
-    match msg {}
+pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
+    match msg {
+        QueryMsg::Ownership {} => Ok(to_json_binary(&cw_ownable::get_ownership(deps.storage)?)?),
+        QueryMsg::Config {} => Ok(to_json_binary(&CONFIG.load(deps.storage)?)?),
+    }
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
-    _deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    _info: MessageInfo,
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    info: MessageInfo,
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    match msg {}
+    match msg {
+        ExecuteMsg::UpdateOwnership(action) => {
+            cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
+            Ok(Response::new())
+        }
+        ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
+    }
+}
+
+fn execute_update_config(
+    deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+    new_config: ConfigOptional,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+    let mut config = CONFIG.load(deps.storage)?;
+    let mut attrs = vec![attr("action", "execute_update_config")];
+    if let Some(retry_limit) = new_config.retry_limit {
+        attrs.push(attr("retry_limit", &retry_limit.to_string()));
+        config.retry_limit = retry_limit;
+    }
+    if let Some(core_contract) = new_config.core_contract {
+        deps.api.addr_validate(&core_contract)?;
+        attrs.push(attr("core_contract", &core_contract));
+        config.core_contract = core_contract;
+    }
+    if let Some(ibc_timeout) = new_config.ibc_timeout {
+        if !(TIMEOUT_RANGE.from..=TIMEOUT_RANGE.to).contains(&ibc_timeout) {
+            return Err(ContractError::IbcTimeoutOutOfRange);
+        }
+        attrs.push(attr("ibc_timeout", ibc_timeout.to_string()));
+        config.ibc_timeout = ibc_timeout;
+    }
+    if let Some(prefix) = new_config.prefix {
+        attrs.push(attr("prefix", &prefix));
+        config.prefix = prefix;
+    }
+    {
+        if let Some(source_port) = new_config.source_port {
+            attrs.push(attr("source_port", &source_port));
+            config.source_port = source_port;
+        }
+        if let Some(source_channel) = new_config.source_channel {
+            attrs.push(attr("source_channel", &source_channel));
+            config.source_channel = source_channel;
+        }
+        let res: cosmwasm_std::ChannelResponse = deps
+            .querier
+            .query(&cosmwasm_std::QueryRequest::Ibc(IbcQuery::Channel {
+                channel_id: config.source_channel.clone(),
+                port_id: Some(config.source_port.clone()),
+            }))
+            .unwrap();
+        if res.channel.is_none() {
+            return Err(ContractError::SourceChannelNotFound);
+        }
+    }
+    CONFIG.save(deps.storage, &config)?;
+    Ok(response("execute_update_config", CONTRACT_NAME, attrs))
 }
