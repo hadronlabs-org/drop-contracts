@@ -44,7 +44,7 @@ pub fn instantiate(
             prefix: msg.prefix,
         },
     )?;
-    BOND_REPLY_ID.save(deps.storage, &1u64)?; // with 0 can be overflow error
+    BOND_REPLY_ID.save(deps.storage, &0u64)?;
     let attrs = vec![attr("action", "instantiate"), attr("owner", owner)];
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
@@ -208,7 +208,8 @@ pub fn execute_bond(
     ];
     // We can't pass receiver directly to reply from bond execution
     // The only way to pass it is to overwrite receiver here and then read in reply
-    let bond_reply_id: u64 = BOND_REPLY_ID.load(deps.storage)?;
+    let bond_reply_id: u64 = BOND_REPLY_ID.load(deps.storage)? + 1;
+    BOND_REPLY_ID.save(deps.storage, &bond_reply_id)?;
     REPLY_RECEIVERS.save(deps.storage, bond_reply_id, &receiver)?;
     let msg = SubMsg::reply_on_success(
         WasmMsg::Execute {
@@ -221,9 +222,6 @@ pub fn execute_bond(
         },
         bond_reply_id,
     );
-    BOND_REPLY_ID.update(deps.storage, |reply_id| {
-        Ok::<u64, cosmwasm_std::StdError>(reply_id + 1)
-    })?;
     Ok(response("bond", CONTRACT_NAME, attrs).add_submessage(msg))
 }
 
@@ -249,8 +247,8 @@ pub fn finalize_bond(
                 ibc_timeout,
                 ..
             } = CONFIG.load(deps.storage)?;
-            let bond_reply_id: u64 = BOND_REPLY_ID.load(deps.storage)?;
-            let receiver = REPLY_RECEIVERS.load(deps.storage, bond_reply_id - 1)?;
+            let bond_reply_id: u64 = msg.id;
+            let receiver = REPLY_RECEIVERS.load(deps.storage, bond_reply_id)?;
             let tf_mint_event = res
                 .events
                 .iter()
@@ -267,7 +265,7 @@ pub fn finalize_bond(
             )?;
             let attrs = vec![
                 attr("action", "reply-finalize_bond"),
-                attr("reply_id", (bond_reply_id - 1).to_string()),
+                attr("reply_id", bond_reply_id.to_string()),
                 attr("id", msg.id.to_string()),
                 attr("amount", coin.to_string()),
                 attr("to_address", receiver.clone()),
@@ -290,7 +288,7 @@ pub fn finalize_bond(
                     memo: "".to_string(),
                     fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
                 });
-            REPLY_RECEIVERS.remove(deps.storage, bond_reply_id - 1);
+            REPLY_RECEIVERS.remove(deps.storage, bond_reply_id);
             Ok(response("reply-finalize_bond", CONTRACT_NAME, attrs).add_message(ibc_transfer_msg))
         }
         cosmwasm_std::SubMsgResult::Err(_) => unreachable!(), // as there is only SubMsg::reply_on_success()

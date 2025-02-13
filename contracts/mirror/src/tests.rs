@@ -146,7 +146,7 @@ fn test_execute_bond() {
             },
         )
         .unwrap();
-    BOND_REPLY_ID.save(deps.as_mut().storage, &1u64).unwrap();
+    BOND_REPLY_ID.save(deps.as_mut().storage, &0u64).unwrap();
     let res = execute(
         deps.as_mut(),
         mock_env(),
@@ -164,11 +164,9 @@ fn test_execute_bond() {
     )
     .unwrap();
     let bond_reply_id: u64 = BOND_REPLY_ID.load(&deps.storage).unwrap();
-    assert_eq!(bond_reply_id, 2);
+    assert_eq!(bond_reply_id, 1);
     assert_eq!(
-        REPLY_RECEIVERS
-            .load(&deps.storage, bond_reply_id - 1)
-            .unwrap(),
+        REPLY_RECEIVERS.load(&deps.storage, bond_reply_id).unwrap(),
         "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string()
     );
     assert_eq!(
@@ -748,9 +746,9 @@ fn test_execute_reply() {
             },
         )
         .unwrap();
-    BOND_REPLY_ID.save(deps.as_mut().storage, &1u64).unwrap();
+    BOND_REPLY_ID.save(deps.as_mut().storage, &0u64).unwrap();
     REPLY_RECEIVERS
-        .save(deps.as_mut().storage, 0, &"reply_receiver".to_string())
+        .save(deps.as_mut().storage, 1, &"reply_receiver".to_string())
         .unwrap();
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
@@ -807,7 +805,7 @@ fn test_execute_reply() {
                 Event::new("crates.io:drop-staking__drop-mirror-reply-finalize_bond")
                     .add_attributes(vec![
                         attr("action", "reply-finalize_bond"),
-                        attr("reply_id", "0"),
+                        attr("reply_id", "1"),
                         attr("id", "1"),
                         attr("amount", "100dasset"),
                         attr("to_address", "reply_receiver"),
@@ -834,9 +832,9 @@ fn test_execute_reply_no_tokens_minted() {
             },
         )
         .unwrap();
-    BOND_REPLY_ID.save(deps.as_mut().storage, &1u64).unwrap();
+    BOND_REPLY_ID.save(deps.as_mut().storage, &0u64).unwrap();
     REPLY_RECEIVERS
-        .save(deps.as_mut().storage, 0, &"reply_receiver".to_string())
+        .save(deps.as_mut().storage, 1, &"reply_receiver".to_string())
         .unwrap();
     let res = reply(
         deps.as_mut(),
@@ -868,9 +866,9 @@ fn test_execute_reply_no_tokens_minted_amount_found() {
             },
         )
         .unwrap();
-    BOND_REPLY_ID.save(deps.as_mut().storage, &1u64).unwrap();
+    BOND_REPLY_ID.save(deps.as_mut().storage, &0u64).unwrap();
     REPLY_RECEIVERS
-        .save(deps.as_mut().storage, 0, &"reply_receiver".to_string())
+        .save(deps.as_mut().storage, 1, &"reply_receiver".to_string())
         .unwrap();
 
     let res = reply(
