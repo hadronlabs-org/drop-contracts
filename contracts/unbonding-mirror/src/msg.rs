@@ -1,4 +1,4 @@
-use crate::state::{Config, ConfigOptional};
+use crate::state::ConfigOptional;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 
@@ -29,7 +29,7 @@ pub enum ExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(Config)]
+    #[returns(crate::state::Config)]
     Config {},
 }
 
