@@ -6,7 +6,7 @@ use crate::state::{
 };
 use cosmwasm_std::{
     attr, ensure, from_json, to_json_binary, Attribute, Binary, Coin, CosmosMsg, Deps, DepsMut,
-    Env, IbcQuery, MessageInfo, Reply, Response, SubMsg, Uint128, WasmMsg,
+    Env, IbcQuery, MessageInfo, Reply, Response, StdError, SubMsg, Uint128, WasmMsg,
 };
 use drop_helpers::answer::response;
 use drop_helpers::ibc_fee::query_ibc_fee;
@@ -79,7 +79,16 @@ pub fn execute(
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
         ExecuteMsg::Unbond { receiver } => execute_unbond(deps, info, receiver),
         ExecuteMsg::Retry { receiver } => execute_retry(deps, env, receiver),
+        ExecuteMsg::Withdraw { receiver } => execute_withdraw(deps, env, receiver),
     }
+}
+
+fn execute_withdraw(
+    _deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _receiver: String,
+) -> ContractResult<Response<NeutronMsg>> {
+    unimplemented!()
 }
 
 fn execute_retry(
@@ -98,6 +107,7 @@ fn execute_retry(
     let mut ibc_transfer_msgs: Vec<CosmosMsg<NeutronMsg>> = vec![];
     let mut attrs: Vec<Attribute> = vec![attr("action", "execute_retry")];
     if let Some(failed_transfers) = failed_transfers {
+        let mut receiver_new_coins: Vec<Coin> = failed_transfers.clone();
         for coin in failed_transfers
             .iter()
             .take(retry_limit.try_into().unwrap())
@@ -116,14 +126,16 @@ fn execute_retry(
                 memo: "".to_string(),
                 fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
             }));
+            receiver_new_coins = receiver_new_coins
+                .iter()
+                .filter(|receiver_new_coin| receiver_new_coin.denom != coin.denom)
+                .map(|coin| coin.clone())
+                .collect::<Vec<Coin>>();
             attrs.push(attr("receiver", receiver.clone()));
             attrs.push(attr("amount", coin.to_string()));
         }
+        FAILED_TRANSFERS.save(deps.storage, receiver, &receiver_new_coins)?;
     }
-    // During the IBC transfers we need to remove these funds from state so we can't call retry again for the same user
-    // If any IBC transaction fails then we restore failed transfers for given user in sudo-error
-    // It doesn't throw any exception if given key doesn't exist
-    FAILED_TRANSFERS.remove(deps.storage, receiver);
     Ok(response("execute_retry", CONTRACT_NAME, attrs).add_messages(ibc_transfer_msgs))
 }
 

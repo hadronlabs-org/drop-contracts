@@ -17,6 +17,7 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig { new_config: ConfigOptional },
+    Withdraw { receiver: String },
     Unbond { receiver: String },
     Retry { receiver: String },
 }
