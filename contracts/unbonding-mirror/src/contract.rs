@@ -1,6 +1,7 @@
 use crate::error::ContractResult;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use cosmwasm_std::{Attribute, Binary, Deps, DepsMut, Env, MessageInfo, Response};
+use crate::state::{Config, CONFIG};
+use cosmwasm_std::{attr, Binary, Deps, DepsMut, Env, MessageInfo, Response};
 use drop_helpers::answer::response;
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 
@@ -15,15 +16,25 @@ pub fn instantiate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     info: MessageInfo,
-    _msg: InstantiateMsg,
+    msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let owner = msg.owner.unwrap_or(info.sender.to_string());
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    cw_ownable::initialize_owner(deps.storage, deps.api, Some(info.sender.as_str()))?;
-    Ok(response(
-        "instantiate",
-        CONTRACT_NAME,
-        Vec::<Attribute>::new(),
-    ))
+    cw_ownable::initialize_owner(deps.storage, deps.api, Some(owner.as_str()))?;
+    deps.api.addr_validate(&msg.core_contract)?;
+    CONFIG.save(
+        deps.storage,
+        &Config {
+            core_contract: msg.core_contract,
+            source_port: msg.source_port,
+            source_channel: msg.source_channel,
+            ibc_timeout: msg.ibc_timeout,
+            prefix: msg.prefix,
+            retry_limit: msg.retry_limit,
+        },
+    )?;
+    let attrs = vec![attr("action", "instantiate"), attr("owner", owner)];
+    Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
