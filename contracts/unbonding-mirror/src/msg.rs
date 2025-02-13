@@ -30,3 +30,20 @@ pub enum QueryMsg {
 
 #[cw_serde]
 pub struct MigrateMsg {}
+
+/// FungibleTokenPacketData defines a struct for the packet payload
+/// See FungibleTokenPacketData spec:
+/// <https://github.com/cosmos/ibc/tree/master/spec/app/ics-020-fungible-token-transfer#data-structures>
+#[cw_serde]
+pub struct FungibleTokenPacketData {
+    /// the token denomination to be transferred
+    pub denom: String,
+    /// the token amount to be transferred
+    pub amount: String,
+    /// the sender address
+    pub sender: String,
+    /// the recipient address on the destination chain
+    pub receiver: String,
+    /// optional memo
+    pub memo: Option<String>,
+}

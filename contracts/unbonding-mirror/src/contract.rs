@@ -1,16 +1,17 @@
 use crate::error::{ContractError, ContractResult};
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, FungibleTokenPacketData, InstantiateMsg, QueryMsg};
 use crate::state::{
-    Config, ConfigOptional, CONFIG, REPLY_RECEIVERS, TIMEOUT_RANGE, UNBOND_REPLY_ID,
+    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, REPLY_RECEIVERS, TIMEOUT_RANGE,
+    UNBOND_REPLY_ID,
 };
 use cosmwasm_std::{
-    attr, ensure, to_json_binary, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, IbcQuery,
-    MessageInfo, Reply, Response, SubMsg, Uint128, WasmMsg,
+    attr, ensure, from_json, to_json_binary, Attribute, Binary, Coin, CosmosMsg, Deps, DepsMut,
+    Env, IbcQuery, MessageInfo, Reply, Response, SubMsg, Uint128, WasmMsg,
 };
 use drop_helpers::answer::response;
 use drop_helpers::ibc_fee::query_ibc_fee;
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
-use neutron_sdk::sudo::msg::RequestPacketTimeoutHeight;
+use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, TransferSudoMsg};
 
 use std::env;
 use std::str::FromStr;
@@ -243,6 +244,80 @@ pub fn finalize_unbond(
         }
         cosmwasm_std::SubMsgResult::Err(_) => unreachable!(), // as there is only SubMsg::reply_on_success()
     }
+}
+
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn sudo(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    msg: TransferSudoMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    match msg {
+        TransferSudoMsg::Response { .. } => sudo_response(),
+        TransferSudoMsg::Error { request, .. } => sudo_error(deps, request, "sudo_error"),
+        TransferSudoMsg::Timeout { request } => sudo_error(deps, request, "sudo_timeout"),
+    }
+}
+
+fn sudo_error(
+    deps: DepsMut<NeutronQuery>,
+    req: RequestPacket,
+    ty: &str,
+) -> ContractResult<Response<NeutronMsg>> {
+    let packet: FungibleTokenPacketData = from_json(req.data.unwrap())?;
+    let packet_amount = Uint128::from_str(packet.amount.as_str())?;
+
+    // If given ibc-transfer for given receiver on the remote chain fails then
+    // current contract owns these tokens right now. Memorize in the map, that
+    // for given user our contract possess these failed-to-process tokens
+    FAILED_TRANSFERS.update(
+        deps.storage,
+        packet.receiver,
+        |current_debt| match current_debt {
+            Some(funds) => Ok::<Vec<Coin>, ContractError>(
+                // If given denom exist - just modify its amount
+                if funds.iter().any(|coin| coin.denom == packet.denom) {
+                    funds
+                        .iter()
+                        .map(|coin| {
+                            if coin.denom == packet.denom {
+                                Coin {
+                                    denom: coin.denom.clone(),
+                                    amount: coin.amount + packet_amount,
+                                }
+                            } else {
+                                coin.clone()
+                            }
+                        })
+                        .collect()
+                // If it doesn't exist - push it at the end
+                } else {
+                    funds
+                        .iter()
+                        .cloned()
+                        .chain(std::iter::once(Coin {
+                            denom: packet.denom.clone(),
+                            amount: packet_amount,
+                        }))
+                        .collect()
+                },
+            ),
+            None => Ok(vec![Coin {
+                denom: packet.denom,
+                amount: packet_amount,
+            }]), // if receiver doesn't have any pending coins yet
+        },
+    )?;
+
+    Ok(response(ty, CONTRACT_NAME, Vec::<Attribute>::new()))
+}
+
+fn sudo_response() -> ContractResult<Response<NeutronMsg>> {
+    Ok(response(
+        "sudo_response",
+        CONTRACT_NAME,
+        Vec::<Attribute>::new(),
+    ))
 }
 
 fn parse_nft(nft_id: String) -> Result<(u64, u64), ContractError> {
