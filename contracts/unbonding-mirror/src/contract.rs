@@ -78,7 +78,53 @@ pub fn execute(
         }
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
         ExecuteMsg::Unbond { receiver } => execute_unbond(deps, info, receiver),
+        ExecuteMsg::Retry { receiver } => execute_retry(deps, env, receiver),
     }
+}
+
+fn execute_retry(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    receiver: String,
+) -> ContractResult<Response<NeutronMsg>> {
+    let failed_transfers = FAILED_TRANSFERS.may_load(deps.storage, receiver.clone())?;
+    let Config {
+        source_port,
+        source_channel,
+        ibc_timeout,
+        retry_limit,
+        ..
+    } = CONFIG.load(deps.storage)?;
+    let mut ibc_transfer_msgs: Vec<CosmosMsg<NeutronMsg>> = vec![];
+    let mut attrs: Vec<Attribute> = vec![attr("action", "execute_retry")];
+    if let Some(failed_transfers) = failed_transfers {
+        for coin in failed_transfers
+            .iter()
+            .take(retry_limit.try_into().unwrap())
+        {
+            ibc_transfer_msgs.push(CosmosMsg::Custom(NeutronMsg::IbcTransfer {
+                source_port: source_port.clone(),
+                source_channel: source_channel.clone(),
+                token: coin.clone(),
+                sender: env.contract.address.to_string(),
+                receiver: receiver.clone(),
+                timeout_height: RequestPacketTimeoutHeight {
+                    revision_number: None,
+                    revision_height: None,
+                },
+                timeout_timestamp: env.block.time.plus_seconds(ibc_timeout).nanos(),
+                memo: "".to_string(),
+                fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
+            }));
+            attrs.push(attr("receiver", receiver.clone()));
+            attrs.push(attr("amount", coin.to_string()));
+        }
+    }
+    // During the IBC transfers we need to remove these funds from state so we can't call retry again for the same user
+    // If any IBC transaction fails then we restore failed transfers for given user in sudo-error
+    // It doesn't throw any exception if given key doesn't exist
+    FAILED_TRANSFERS.remove(deps.storage, receiver);
+    Ok(response("execute_retry", CONTRACT_NAME, attrs).add_messages(ibc_transfer_msgs))
 }
 
 fn execute_update_config(

@@ -18,6 +18,7 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     UpdateConfig { new_config: ConfigOptional },
     Unbond { receiver: String },
+    Retry { receiver: String },
 }
 
 #[cw_ownable_query]
