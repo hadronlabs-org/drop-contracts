@@ -11,7 +11,7 @@ use cosmwasm_std::{
     Env, IbcQuery, MessageInfo, Reply, Response, SubMsg, Uint128, WasmMsg,
 };
 use cw_ownable::update_ownership;
-use drop_helpers::answer::{attr_coin, response};
+use drop_helpers::answer::response;
 use drop_helpers::ibc_fee::query_ibc_fee;
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, TransferSudoMsg};
@@ -204,7 +204,7 @@ pub fn execute_bond(
         attr("action", "bond"),
         attr("receiver", receiver.to_string()),
         attr("ref", r#ref.clone().unwrap_or_default()),
-        attr_coin("coin", coin.amount, coin.denom.clone()),
+        attr("coin", coin.to_string()),
     ];
     // We can't pass receiver directly to reply from bond execution
     // The only way to pass it is to overwrite receiver here and then read in reply
