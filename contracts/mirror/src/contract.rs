@@ -218,7 +218,7 @@ pub fn execute_bond(
                 receiver: None,
                 r#ref,
             })?,
-            funds: vec![coin.clone()],
+            funds: vec![coin],
         },
         bond_reply_id,
     );
