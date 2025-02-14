@@ -323,7 +323,7 @@ fn sudo_error(
         deps.storage,
         packet.receiver,
         |current_debt| match current_debt {
-            Some(funds) => Ok::<Vec<Coin>, ContractError>(
+            Some(mut funds) => Ok::<Vec<Coin>, ContractError>(
                 // If given denom exist - just modify its amount
                 if funds.iter().any(|coin| coin.denom == packet.denom) {
                     funds
@@ -341,14 +341,11 @@ fn sudo_error(
                         .collect()
                 // If it doesn't exist - push it at the end
                 } else {
+                    funds.push(Coin {
+                        denom: packet.denom.clone(),
+                        amount: packet_amount,
+                    });
                     funds
-                        .iter()
-                        .cloned()
-                        .chain(std::iter::once(Coin {
-                            denom: packet.denom.clone(),
-                            amount: packet_amount,
-                        }))
-                        .collect()
                 },
             ),
             None => Ok(vec![Coin {
