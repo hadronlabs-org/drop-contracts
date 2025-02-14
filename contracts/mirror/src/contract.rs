@@ -70,10 +70,10 @@ fn query_all_failed(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
 fn query_failed_receiver(deps: Deps<NeutronQuery>, receiver: String) -> ContractResult<Binary> {
     let failed_transfers = FAILED_TRANSFERS.may_load(deps.storage, receiver.clone())?;
     if let Some(failed_transfers) = failed_transfers {
-        return Ok(to_json_binary(&FailedReceiverResponse {
+        return Ok(to_json_binary(&Some(FailedReceiverResponse {
             receiver,
             amount: failed_transfers,
-        })?);
+        }))?);
     }
     Ok(to_json_binary::<Option<FailedReceiverResponse>>(&None)?)
 }
