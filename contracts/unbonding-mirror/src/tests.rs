@@ -2,7 +2,8 @@ use crate::contract::{execute, instantiate};
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
-    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, REPLY_RECEIVERS, UNBOND_REPLY_ID,
+    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, REPLY_RECEIVERS, TF_DENOM_TO_NFT_ID,
+    UNBOND_REPLY_ID,
 };
 use cosmwasm_std::ReplyOn;
 use cosmwasm_std::{
@@ -19,8 +20,6 @@ use neutron_sdk::{
     query::min_ibc_fee::MinIbcFeeResponse,
     sudo::msg::RequestPacketTimeoutHeight,
 };
-use neutron_sdk::{bindings::query::NeutronQuery, interchain_queries::v045::types::Balances};
-use std::{collections::HashMap, vec};
 
 #[test]
 fn test_instantiate() {
@@ -837,4 +836,209 @@ fn test_execute_retry_take_equal() {
             .len(),
         0
     );
+}
+
+#[test]
+fn test_execute_withdraw_no_funds() {
+    let mut deps = mock_dependencies(&[]);
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("sender", &vec![]),
+        ExecuteMsg::Withdraw {
+            receiver: "receiver".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        ContractError::PaymentError(cw_utils::PaymentError::NoFunds {})
+    );
+}
+
+#[test]
+fn test_execute_withdraw_extra_funds() {
+    let mut deps = mock_dependencies(&[]);
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(
+            "sender",
+            &vec![
+                Coin {
+                    denom: "denom1".to_string(),
+                    amount: Uint128::from(1u128),
+                },
+                Coin {
+                    denom: "denom2".to_string(),
+                    amount: Uint128::from(1u128),
+                },
+            ],
+        ),
+        ExecuteMsg::Withdraw {
+            receiver: "receiver".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        ContractError::PaymentError(cw_utils::PaymentError::MultipleDenoms {})
+    );
+}
+
+#[test]
+fn test_execute_withdraw() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 1,
+            },
+        )
+        .unwrap();
+    TF_DENOM_TO_NFT_ID
+        .save(
+            deps.as_mut().storage,
+            "denom".to_string(),
+            &"1_neutron1_123".to_string(),
+        )
+        .unwrap();
+    deps.querier
+        .add_wasm_query_response("withdrawal_voucher", |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&cw721::AllNftInfoResponse {
+                    access: cw721::OwnerOfResponse {
+                        owner: "owner".to_string(),
+                        approvals: vec![],
+                    },
+                    info: cw721::NftInfoResponse::<
+                        drop_staking_base::msg::withdrawal_voucher::Extension,
+                    > {
+                        token_uri: Some("token_uri".to_string()),
+                        extension: Some(drop_staking_base::state::withdrawal_voucher::Metadata {
+                            name: "name".to_string(),
+                            description: None,
+                            attributes: None,
+                            batch_id: "batch_id".to_string(),
+                            amount: Uint128::from(100u128),
+                        }),
+                    },
+                })
+                .unwrap(),
+            )
+        });
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: cosmwasm_std::coins(100, "untrn"),
+                timeout_fee: cosmwasm_std::coins(200, "untrn"),
+            },
+        })
+        .unwrap()
+    });
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(
+            "sender",
+            &vec![Coin {
+                denom: "denom".to_string(),
+                amount: Uint128::from(1u128),
+            }],
+        ),
+        ExecuteMsg::Withdraw {
+            receiver: "receiver".to_string(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new()
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-unbonding-mirror-execute_withdraw")
+                    .add_attributes(vec![
+                        attr("action", "execute_withdraw"),
+                        attr("voucher_amount", "1denom"),
+                        attr("withdrawal_manager", "withdrawal_manager"),
+                        attr("withdrawal_voucher", "withdrawal_voucher"),
+                        attr("source_port", "source_port"),
+                        attr("source_channel", "source_channel"),
+                        attr("ibc_timeout", "12345"),
+                        attr("nft_amount", "100ibc_denom"),
+                        attr("receiver", "receiver"),
+                    ])
+            )
+            .add_submessages(vec![SubMsg {
+                id: 0,
+                msg: CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "withdrawal_voucher".to_string(),
+                    msg: to_json_binary(
+                        &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::SendNft {
+                            contract: "withdrawal_manager".to_string(),
+                            token_id: "1_neutron1_123".to_string(),
+                            msg: to_json_binary(
+                                &drop_staking_base::msg::withdrawal_manager::ReceiveNftMsg::Withdraw {
+                                    receiver: None,
+                                },
+                            ).unwrap(),
+                        },
+                    ).unwrap(),
+                    funds: vec![]
+                }),
+                gas_limit: None,
+                reply_on: ReplyOn::Never,
+            },
+            SubMsg {
+                id: 0,
+                msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
+                    source_port: "source_port".to_string(),
+                    source_channel: "source_channel".to_string(),
+                    token: Coin {
+                        denom: "ibc_denom".to_string(),
+                        amount: Uint128::from(100u128)
+                    },
+                    sender: MOCK_CONTRACT_ADDR.to_string(),
+                    receiver: "receiver".to_string(),
+                    timeout_height: RequestPacketTimeoutHeight {
+                        revision_number: None,
+                        revision_height: None,
+                    },
+                    timeout_timestamp: 1571809764879305533,
+                    memo: "".to_string(),
+                    fee: IbcFee {
+                        recv_fee: vec![],
+                        ack_fee: vec![Coin {
+                            denom: "untrn".to_string(),
+                            amount: Uint128::from(100u128)
+                        }],
+                        timeout_fee: vec![Coin {
+                            denom: "untrn".to_string(),
+                            amount: Uint128::from(200u128)
+                        }]
+                    }
+                }),
+                gas_limit: None,
+                reply_on: ReplyOn::Never,
+            },
+            SubMsg {
+                id: 0,
+                msg: CosmosMsg::Custom(NeutronMsg::BurnTokens {
+                    denom: "denom".to_string(),
+                    amount: Uint128::from(1u128),
+                    burn_from_address: "".to_string()
+                }),
+                gas_limit: None,
+                reply_on: ReplyOn::Never,
+            }])
+    )
 }

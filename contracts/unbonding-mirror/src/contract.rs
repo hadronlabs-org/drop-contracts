@@ -158,13 +158,13 @@ fn execute_withdraw(
     ));
     let attrs: Vec<Attribute> = vec![
         attr("action", "execute_withdraw"),
-        attr_coin("voucher_amount", coin.denom, coin.amount),
+        attr("voucher_amount", coin.to_string()),
         attr("withdrawal_manager", withdrawal_manager),
         attr("withdrawal_voucher", withdrawal_voucher),
         attr("source_port", source_port),
         attr("source_channel", source_channel),
         attr("ibc_timeout", ibc_timeout.to_string()),
-        attr_coin("nft_amount", ibc_denom, nft_amount),
+        attr_coin("nft_amount", nft_amount, ibc_denom),
         attr("receiver", receiver),
     ];
     Ok(
