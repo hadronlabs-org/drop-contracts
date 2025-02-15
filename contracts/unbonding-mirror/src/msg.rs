@@ -1,5 +1,6 @@
 use crate::state::ConfigOptional;
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::Coin;
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 
 #[cw_serde]
@@ -25,12 +26,32 @@ pub enum ExecuteMsg {
     Retry { receiver: String },
 }
 
+#[cw_serde]
+pub struct FailedReceiverResponse {
+    pub receiver: String,
+    pub amount: Vec<Coin>,
+}
+
+#[cw_serde]
+pub struct UnbondReadyListResponseItem {
+    pub nft_id: String,
+    pub status: bool,
+}
+
 #[cw_ownable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     #[returns(crate::state::Config)]
     Config {},
+    #[returns(Option<FailedReceiverResponse>)]
+    FailedReceiver { receiver: String },
+    #[returns(Vec<(String, cosmwasm_std::Uint128)>)]
+    AllFailed {},
+    #[returns(bool)]
+    UnbondReady { nft_id: String },
+    #[returns(Vec<UnbondReadyListResponseItem>)]
+    UnbondReadyList { receiver: String },
 }
 
 #[cw_serde]
