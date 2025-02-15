@@ -1,4 +1,4 @@
-use crate::contract::{execute, instantiate};
+use crate::contract::{execute, instantiate, query};
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
@@ -1041,4 +1041,69 @@ fn test_execute_withdraw() {
                 reply_on: ReplyOn::Never,
             }])
     )
+}
+
+#[test]
+fn test_transfer_ownership() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::UpdateOwnership(cw_ownable::Action::TransferOwnership {
+            new_owner: "new_owner".to_string(),
+            expiry: Some(cw_ownable::Expiration::Never {}),
+        }),
+    )
+    .unwrap();
+    execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("new_owner", &[]),
+        ExecuteMsg::UpdateOwnership(cw_ownable::Action::AcceptOwnership {}),
+    )
+    .unwrap();
+    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            crate::msg::QueryMsg::Ownership {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        cw_ownable::Ownership {
+            owner: Some(cosmwasm_std::Addr::unchecked("new_owner".to_string())),
+            pending_expiry: None,
+            pending_owner: None
+        }
+    );
+}
+
+#[test]
+fn test_query_ownership() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            crate::msg::QueryMsg::Ownership {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        query_res,
+        cw_ownable::Ownership {
+            owner: Some(cosmwasm_std::Addr::unchecked("owner".to_string())),
+            pending_expiry: None,
+            pending_owner: None
+        }
+    );
 }
