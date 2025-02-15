@@ -1,7 +1,7 @@
 use crate::contract::{execute, instantiate};
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Config, ConfigOptional, CONFIG, UNBOND_REPLY_ID};
+use crate::state::{Config, ConfigOptional, CONFIG, REPLY_RECEIVERS, UNBOND_REPLY_ID};
 use cosmwasm_std::{
     attr, from_json,
     testing::{mock_env, mock_info, MockApi, MockStorage},
@@ -234,5 +234,191 @@ fn test_execute_update_config() {
             ibc_denom: "ibc_denom2".to_string(),
             retry_limit: 1,
         }
+    );
+}
+
+#[test]
+fn test_execute_unbond_not_no_funds() {
+    let mut deps = mock_dependencies(&[]);
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("random_sender", &vec![]),
+        ExecuteMsg::Unbond {
+            receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        ContractError::PaymentError(cw_utils::PaymentError::NoFunds {})
+    )
+}
+
+#[test]
+fn test_execute_unbond_not_one_coin() {
+    let mut deps = mock_dependencies(&[]);
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(
+            "random_sender",
+            &vec![
+                Coin {
+                    denom: "denom1".to_string(),
+                    amount: Uint128::from(100u128),
+                },
+                Coin {
+                    denom: "denom2".to_string(),
+                    amount: Uint128::from(200u128),
+                },
+            ],
+        ),
+        ExecuteMsg::Unbond {
+            receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        ContractError::PaymentError(cw_utils::PaymentError::MultipleDenoms {})
+    )
+}
+
+#[test]
+fn test_execute_unbond_invalid_prefix() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 10,
+            },
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(
+            "random_sender",
+            &vec![Coin {
+                denom: "denom1".to_string(),
+                amount: Uint128::from(100u128),
+            }],
+        ),
+        ExecuteMsg::Unbond {
+            receiver: "invalid_address".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::InvalidPrefix {})
+}
+
+#[test]
+fn test_execute_unbond_wrong_receiver_address() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 10,
+            },
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(
+            "random_sender",
+            &vec![Coin {
+                denom: "denom1".to_string(),
+                amount: Uint128::from(100u128),
+            }],
+        ),
+        ExecuteMsg::Unbond {
+            receiver: "prefix1invalid_address".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::WrongReceiverAddress {})
+}
+
+#[test]
+fn test_execute_unbond() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 10,
+            },
+        )
+        .unwrap();
+    UNBOND_REPLY_ID.save(deps.as_mut().storage, &0u64).unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(
+            "random_sender",
+            &vec![Coin {
+                denom: "dAsset".to_string(),
+                amount: Uint128::from(100u128),
+            }],
+        ),
+        ExecuteMsg::Unbond {
+            receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new()
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-unbonding-mirror-execute_unbond")
+                    .add_attribute("receiver", "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc")
+            )
+            .add_submessage(SubMsg {
+                id: 1,
+                msg: CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "core_contract".to_string(),
+                    msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::Unbond {})
+                        .unwrap(),
+                    funds: vec![Coin {
+                        denom: "dAsset".to_string(),
+                        amount: Uint128::from(100u128)
+                    }]
+                }),
+                gas_limit: None,
+                reply_on: cosmwasm_std::ReplyOn::Success
+            })
+    );
+    assert_eq!(UNBOND_REPLY_ID.load(&deps.storage).unwrap(), 1u64);
+    assert_eq!(
+        REPLY_RECEIVERS.load(&deps.storage, 1u64).unwrap(),
+        "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string()
     );
 }
