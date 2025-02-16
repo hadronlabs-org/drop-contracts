@@ -450,11 +450,7 @@ pub fn finalize_unbond(
                     subdenom: tf_token_subdenom.clone(),
                 });
             // query_full_denom doesn't work here because denom hasn't been produced yet
-            let full_tf_denom = format!(
-                "factory/{}/{}",
-                env.contract.address.to_string(),
-                tf_token_subdenom
-            );
+            let full_tf_denom = format!("factory/{}/{}", env.contract.address, tf_token_subdenom);
             let tf_mint_voucher_msg: CosmosMsg<NeutronMsg> =
                 CosmosMsg::Custom(NeutronMsg::MintTokens {
                     denom: full_tf_denom.clone(),

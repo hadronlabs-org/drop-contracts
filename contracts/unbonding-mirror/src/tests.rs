@@ -1,7 +1,8 @@
-use crate::contract::{execute, instantiate, query, reply};
+use crate::contract::{execute, instantiate, query, reply, sudo};
 use crate::error::ContractError;
 use crate::msg::{
-    ExecuteMsg, FailedReceiverResponse, InstantiateMsg, QueryMsg, UnbondReadyListResponseItem,
+    ExecuteMsg, FailedReceiverResponse, FungibleTokenPacketData, InstantiateMsg, QueryMsg,
+    UnbondReadyListResponseItem,
 };
 use crate::state::{
     Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, REPLY_RECEIVERS, TF_DENOM_TO_NFT_ID,
@@ -15,6 +16,7 @@ use cosmwasm_std::{
     Reply, ReplyOn, Response, SubMsg, SubMsgResponse, SubMsgResult, Uint128, WasmMsg,
 };
 use drop_helpers::testing::mock_dependencies;
+use neutron_sdk::sudo::msg::{RequestPacket, TransferSudoMsg};
 use neutron_sdk::{
     bindings::msg::{IbcFee, NeutronMsg},
     query::min_ibc_fee::MinIbcFeeResponse,
@@ -1904,4 +1906,197 @@ fn test_reply() {
             .unwrap(),
         "1_neutron..._123".to_string()
     )
+}
+
+#[test]
+fn test_sudo_response() {
+    let mut deps = mock_dependencies(&[]);
+    let res = sudo(
+        deps.as_mut(),
+        mock_env(),
+        TransferSudoMsg::Response {
+            request: RequestPacket {
+                sequence: None,
+                source_port: None,
+                source_channel: None,
+                destination_port: None,
+                destination_channel: None,
+                data: None,
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+            data: to_json_binary(&"".to_string()).unwrap(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new().add_event(Event::new(
+            "crates.io:drop-staking__drop-unbonding-mirror-sudo_response"
+        ))
+    );
+}
+
+#[test]
+fn test_sudo_error_timeout_update_existing_denom_amount() {
+    let mut deps = mock_dependencies(&[]);
+    FAILED_TRANSFERS
+        .save(
+            deps.as_mut().storage,
+            "receiver".to_string(),
+            &vec![Coin {
+                denom: "denom".to_string(),
+                amount: Uint128::from(100u128),
+            }],
+        )
+        .unwrap();
+    let res = sudo(
+        deps.as_mut(),
+        mock_env(),
+        TransferSudoMsg::Timeout {
+            request: RequestPacket {
+                sequence: None,
+                source_port: None,
+                source_channel: None,
+                destination_port: None,
+                destination_channel: None,
+                data: Some(
+                    to_json_binary(&FungibleTokenPacketData {
+                        denom: "denom".to_string(),
+                        amount: "123".to_string(),
+                        sender: "sender".to_string(),
+                        receiver: "receiver".to_string(),
+                        memo: None,
+                    })
+                    .unwrap(),
+                ),
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new().add_event(Event::new(
+            "crates.io:drop-staking__drop-unbonding-mirror-sudo_timeout"
+        ))
+    );
+    assert_eq!(
+        FAILED_TRANSFERS
+            .load(&deps.storage, "receiver".to_string())
+            .unwrap(),
+        vec![Coin {
+            denom: "denom".to_string(),
+            amount: Uint128::from(223u128),
+        }]
+    );
+}
+
+#[test]
+fn test_sudo_error_timeout_create_new_schedule() {
+    let mut deps = mock_dependencies(&[]);
+    let res = sudo(
+        deps.as_mut(),
+        mock_env(),
+        TransferSudoMsg::Timeout {
+            request: RequestPacket {
+                sequence: None,
+                source_port: None,
+                source_channel: None,
+                destination_port: None,
+                destination_channel: None,
+                data: Some(
+                    to_json_binary(&FungibleTokenPacketData {
+                        denom: "denom".to_string(),
+                        amount: "123".to_string(),
+                        sender: "sender".to_string(),
+                        receiver: "receiver".to_string(),
+                        memo: None,
+                    })
+                    .unwrap(),
+                ),
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new().add_event(Event::new(
+            "crates.io:drop-staking__drop-unbonding-mirror-sudo_timeout"
+        ))
+    );
+    assert_eq!(
+        FAILED_TRANSFERS
+            .load(&deps.storage, "receiver".to_string())
+            .unwrap(),
+        vec![Coin {
+            denom: "denom".to_string(),
+            amount: Uint128::from(123u128),
+        }]
+    );
+}
+
+#[test]
+fn test_sudo_error_timeout_add_new_denom() {
+    let mut deps = mock_dependencies(&[]);
+    FAILED_TRANSFERS
+        .save(
+            deps.as_mut().storage,
+            "receiver".to_string(),
+            &vec![Coin {
+                denom: "denom1".to_string(),
+                amount: Uint128::from(100u128),
+            }],
+        )
+        .unwrap();
+    let res = sudo(
+        deps.as_mut(),
+        mock_env(),
+        TransferSudoMsg::Timeout {
+            request: RequestPacket {
+                sequence: None,
+                source_port: None,
+                source_channel: None,
+                destination_port: None,
+                destination_channel: None,
+                data: Some(
+                    to_json_binary(&FungibleTokenPacketData {
+                        denom: "denom2".to_string(),
+                        amount: "123".to_string(),
+                        sender: "sender".to_string(),
+                        receiver: "receiver".to_string(),
+                        memo: None,
+                    })
+                    .unwrap(),
+                ),
+                timeout_height: None,
+                timeout_timestamp: None,
+            },
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new().add_event(Event::new(
+            "crates.io:drop-staking__drop-unbonding-mirror-sudo_timeout"
+        ))
+    );
+    assert_eq!(
+        FAILED_TRANSFERS
+            .load(&deps.storage, "receiver".to_string())
+            .unwrap(),
+        vec![
+            Coin {
+                denom: "denom1".to_string(),
+                amount: Uint128::from(100u128),
+            },
+            Coin {
+                denom: "denom2".to_string(),
+                amount: Uint128::from(123u128),
+            }
+        ]
+    );
 }
