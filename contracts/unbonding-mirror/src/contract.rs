@@ -162,7 +162,6 @@ fn execute_withdraw(
     info: MessageInfo,
     receiver: String,
 ) -> ContractResult<Response<NeutronMsg>> {
-    deps.api.addr_validate(&receiver)?;
     let coin = cw_utils::one_coin(&info)?;
     let Config {
         withdrawal_manager,
@@ -175,6 +174,7 @@ fn execute_withdraw(
         ..
     } = CONFIG.load(deps.storage)?;
 
+    deps.api.addr_validate(&receiver)?;
     ensure!(receiver.starts_with(&prefix), ContractError::InvalidPrefix);
     bech32::decode(&receiver).map_err(|_| ContractError::WrongReceiverAddress)?;
 
@@ -261,6 +261,7 @@ fn execute_retry(
         ..
     } = CONFIG.load(deps.storage)?;
 
+    deps.api.addr_validate(receiver.as_str())?;
     ensure!(receiver.starts_with(&prefix), ContractError::InvalidPrefix);
     bech32::decode(&receiver).map_err(|_| ContractError::WrongReceiverAddress)?;
 
