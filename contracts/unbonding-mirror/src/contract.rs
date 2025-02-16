@@ -460,7 +460,7 @@ pub fn finalize_unbond(
                     amount: Uint128::from(1u128),
                     mint_to_address: env.contract.address.to_string(),
                 });
-            let ibc_transfer_msg: CosmosMsg<NeutronMsg> = // send dAssets back
+            let ibc_transfer_msg: CosmosMsg<NeutronMsg> =
                 CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: source_port.clone(),
                     source_channel: source_channel.clone(),
@@ -479,7 +479,7 @@ pub fn finalize_unbond(
                     fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
                 });
             let attrs = vec![
-                attr("action", "reply-finalize_bond"),
+                attr("action", "reply_finalize_bond"),
                 attr("reply_id", unbond_reply_id.to_string()),
                 attr("nft", nft_name),
                 attr("to_address", receiver.clone()),
@@ -491,7 +491,7 @@ pub fn finalize_unbond(
             TF_DENOM_TO_NFT_ID.save(deps.storage, full_tf_denom, nft_name)?;
             REPLY_RECEIVERS.remove(deps.storage, unbond_reply_id);
             Ok(
-                response("reply-finalize_unbond", CONTRACT_NAME, attrs).add_messages(vec![
+                response("reply_finalize_unbond", CONTRACT_NAME, attrs).add_messages(vec![
                     tf_create_denom_msg,
                     tf_mint_voucher_msg,
                     ibc_transfer_msg,
