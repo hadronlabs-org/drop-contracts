@@ -1218,7 +1218,7 @@ fn test_execute_withdraw() {
 }
 
 #[test]
-fn test_transfer_ownership() {
+fn test_execute_transfer_ownership() {
     let mut deps = mock_dependencies(&[]);
     let deps_mut = deps.as_mut();
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
@@ -1579,7 +1579,7 @@ fn test_query_unbond_ready_false() {
 }
 
 #[test]
-fn test_unbond_ready_list() {
+fn test_query_unbond_ready_list() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
         .save(
