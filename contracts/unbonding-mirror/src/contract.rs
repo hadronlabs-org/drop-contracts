@@ -34,6 +34,8 @@ pub fn instantiate(
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(owner.as_str()))?;
     deps.api.addr_validate(&msg.core_contract)?;
+    deps.api.addr_validate(&msg.withdrawal_manager)?;
+    deps.api.addr_validate(&msg.withdrawal_voucher)?;
     CONFIG.save(
         deps.storage,
         &Config {
