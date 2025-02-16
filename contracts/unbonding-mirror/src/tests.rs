@@ -1844,8 +1844,16 @@ fn test_reply() {
             .add_submessages(vec![
                 SubMsg {
                     id: 0,
+                    msg: CosmosMsg::Custom(NeutronMsg::CreateDenom {
+                        subdenom: "nft_1_123".to_string()
+                    }),
+                    gas_limit: None,
+                    reply_on: ReplyOn::Never
+                },
+                SubMsg {
+                    id: 0,
                     msg: CosmosMsg::Custom(NeutronMsg::MintTokens {
-                        denom: "nft_1_123".to_string(),
+                        denom: "factory/cosmos2contract/nft_1_123".to_string(),
                         amount: Uint128::from(1u128),
                         mint_to_address: "cosmos2contract".to_string()
                     }),

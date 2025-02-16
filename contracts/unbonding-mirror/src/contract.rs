@@ -15,7 +15,6 @@ use drop_helpers::answer::{attr_coin, response};
 use drop_helpers::ibc_fee::query_ibc_fee;
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, TransferSudoMsg};
-
 use std::env;
 use std::str::FromStr;
 
@@ -446,17 +445,22 @@ pub fn finalize_unbond(
                 .value;
             let (batch, unbond_id) = parse_nft(nft_name.clone())?;
             let tf_token_subdenom = format!("nft_{:?}_{:?}", batch, unbond_id);
-            let tf_mint_voucher_msg: CosmosMsg<NeutronMsg> =
-                CosmosMsg::Custom(NeutronMsg::MintTokens {
-                    denom: tf_token_subdenom.clone(),
-                    amount: Uint128::from(1u128),
-                    mint_to_address: env.contract.address.to_string(),
+            let tf_create_denom_msg: CosmosMsg<NeutronMsg> =
+                CosmosMsg::Custom(NeutronMsg::CreateDenom {
+                    subdenom: tf_token_subdenom.clone(),
                 });
+            // query_full_denom doesn't work here because denom hasn't been produced yet
             let full_tf_denom = format!(
                 "factory/{}/{}",
                 env.contract.address.to_string(),
                 tf_token_subdenom
             );
+            let tf_mint_voucher_msg: CosmosMsg<NeutronMsg> =
+                CosmosMsg::Custom(NeutronMsg::MintTokens {
+                    denom: full_tf_denom.clone(),
+                    amount: Uint128::from(1u128),
+                    mint_to_address: env.contract.address.to_string(),
+                });
             let ibc_transfer_msg: CosmosMsg<NeutronMsg> = // send dAssets back
                 CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: source_port.clone(),
@@ -487,8 +491,13 @@ pub fn finalize_unbond(
             ];
             TF_DENOM_TO_NFT_ID.save(deps.storage, full_tf_denom, nft_name)?;
             REPLY_RECEIVERS.remove(deps.storage, unbond_reply_id);
-            Ok(response("reply-finalize_unbond", CONTRACT_NAME, attrs)
-                .add_messages(vec![tf_mint_voucher_msg, ibc_transfer_msg]))
+            Ok(
+                response("reply-finalize_unbond", CONTRACT_NAME, attrs).add_messages(vec![
+                    tf_create_denom_msg,
+                    tf_mint_voucher_msg,
+                    ibc_transfer_msg,
+                ]),
+            )
         }
         cosmwasm_std::SubMsgResult::Err(_) => unreachable!(), // as there is only SubMsg::reply_on_success()
     }
