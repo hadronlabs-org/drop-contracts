@@ -1,6 +1,8 @@
 use crate::contract::{execute, instantiate, query};
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{
+    ExecuteMsg, FailedReceiverResponse, InstantiateMsg, QueryMsg, UnbondReadyListResponseItem,
+};
 use crate::state::{
     Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, REPLY_RECEIVERS, TF_DENOM_TO_NFT_ID,
     UNBOND_REPLY_ID,
@@ -1106,4 +1108,430 @@ fn test_query_ownership() {
             pending_owner: None
         }
     );
+}
+
+#[test]
+fn test_query_config() {
+    let mut deps = mock_dependencies(&[]);
+    let config = Config {
+        core_contract: "core_contract".to_string(),
+        withdrawal_manager: "withdrawal_manager".to_string(),
+        withdrawal_voucher: "withdrawal_voucher".to_string(),
+        source_port: "source_port".to_string(),
+        source_channel: "source_channel".to_string(),
+        ibc_timeout: 12345,
+        prefix: "prefix".to_string(),
+        ibc_denom: "ibc_denom".to_string(),
+        retry_limit: 10,
+    };
+    CONFIG.save(deps.as_mut().storage, &config).unwrap();
+    let res: Config =
+        from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+    assert_eq!(res, config);
+}
+
+#[test]
+fn test_query_wrong_failed_receiver() {
+    let deps = mock_dependencies(&[]);
+    let res: Option<FailedReceiverResponse> = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            QueryMsg::FailedReceiver {
+                receiver: "wrong_failed_receiver".to_string(),
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(res, None)
+}
+
+#[test]
+fn test_query_failed_receiver() {
+    let mut deps = mock_dependencies(&[]);
+    FAILED_TRANSFERS
+        .save(
+            deps.as_mut().storage,
+            "failed_receiver".to_string(),
+            &vec![Coin {
+                denom: "denom".to_string(),
+                amount: Uint128::from(100u128),
+            }],
+        )
+        .unwrap();
+
+    let res: Option<FailedReceiverResponse> = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            QueryMsg::FailedReceiver {
+                receiver: "failed_receiver".to_string(),
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Some(FailedReceiverResponse {
+            receiver: "failed_receiver".to_string(),
+            amount: vec![Coin {
+                denom: "denom".to_string(),
+                amount: Uint128::from(100u128)
+            }]
+        })
+    )
+}
+
+#[test]
+fn test_query_all_failed() {
+    let mut deps = mock_dependencies(&[]);
+    FAILED_TRANSFERS
+        .save(
+            deps.as_mut().storage,
+            "failed_receiver1".to_string(),
+            &vec![Coin {
+                denom: "denom1".to_string(),
+                amount: Uint128::from(100u128),
+            }],
+        )
+        .unwrap();
+    FAILED_TRANSFERS
+        .save(
+            deps.as_mut().storage,
+            "failed_receiver2".to_string(),
+            &vec![
+                Coin {
+                    denom: "denom1".to_string(),
+                    amount: Uint128::from(300u128),
+                },
+                Coin {
+                    denom: "denom2".to_string(),
+                    amount: Uint128::from(100u128),
+                },
+            ],
+        )
+        .unwrap();
+    let res: Vec<(String, Vec<Coin>)> =
+        from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
+    assert_eq!(
+        res,
+        vec![
+            (
+                "failed_receiver1".to_string(),
+                vec![Coin {
+                    denom: "denom1".to_string(),
+                    amount: Uint128::from(100u128)
+                }]
+            ),
+            (
+                "failed_receiver2".to_string(),
+                vec![
+                    Coin {
+                        denom: "denom1".to_string(),
+                        amount: Uint128::from(300u128)
+                    },
+                    Coin {
+                        denom: "denom2".to_string(),
+                        amount: Uint128::from(100u128)
+                    }
+                ]
+            )
+        ]
+    );
+}
+
+#[test]
+fn test_query_unbond_ready_true() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 10,
+            },
+        )
+        .unwrap();
+    deps.querier
+        .add_wasm_query_response("withdrawal_voucher", |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&cw721::AllNftInfoResponse {
+                    access: cw721::OwnerOfResponse {
+                        owner: "owner".to_string(),
+                        approvals: vec![],
+                    },
+                    info: cw721::NftInfoResponse::<
+                        drop_staking_base::msg::withdrawal_voucher::Extension,
+                    > {
+                        token_uri: Some("token_uri".to_string()),
+                        extension: Some(drop_staking_base::state::withdrawal_voucher::Metadata {
+                            name: "name".to_string(),
+                            description: None,
+                            attributes: None,
+                            batch_id: "0".to_string(),
+                            amount: Uint128::from(100u128),
+                        }),
+                    },
+                })
+                .unwrap(),
+            )
+        });
+    deps.querier.add_wasm_query_response("core_contract", |_| {
+        cosmwasm_std::ContractResult::Ok(
+            to_json_binary(&drop_staking_base::state::core::UnbondBatch {
+                total_dasset_amount_to_withdraw: Uint128::from(0u128),
+                expected_native_asset_amount: Uint128::from(0u128),
+                expected_release_time: 0,
+                total_unbond_items: 0,
+                status: drop_staking_base::state::core::UnbondBatchStatus::Withdrawn,
+                slashing_effect: None,
+                unbonded_amount: None,
+                withdrawn_amount: None,
+                status_timestamps: drop_staking_base::state::core::UnbondBatchStatusTimestamps {
+                    new: 0u64,
+                    unbond_requested: None,
+                    unbond_failed: None,
+                    unbonding: None,
+                    withdrawing: None,
+                    withdrawn: None,
+                    withdrawing_emergency: None,
+                    withdrawn_emergency: None,
+                },
+            })
+            .unwrap(),
+        )
+    });
+    let res: bool = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            QueryMsg::UnbondReady {
+                nft_id: "nft_id".to_string(),
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(res, true);
+}
+
+#[test]
+fn test_query_unbond_ready_false() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 10,
+            },
+        )
+        .unwrap();
+    deps.querier
+        .add_wasm_query_response("withdrawal_voucher", |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&cw721::AllNftInfoResponse {
+                    access: cw721::OwnerOfResponse {
+                        owner: "owner".to_string(),
+                        approvals: vec![],
+                    },
+                    info: cw721::NftInfoResponse::<
+                        drop_staking_base::msg::withdrawal_voucher::Extension,
+                    > {
+                        token_uri: Some("token_uri".to_string()),
+                        extension: Some(drop_staking_base::state::withdrawal_voucher::Metadata {
+                            name: "name".to_string(),
+                            description: None,
+                            attributes: None,
+                            batch_id: "0".to_string(),
+                            amount: Uint128::from(100u128),
+                        }),
+                    },
+                })
+                .unwrap(),
+            )
+        });
+    deps.querier.add_wasm_query_response("core_contract", |_| {
+        cosmwasm_std::ContractResult::Ok(
+            to_json_binary(&drop_staking_base::state::core::UnbondBatch {
+                total_dasset_amount_to_withdraw: Uint128::from(0u128),
+                expected_native_asset_amount: Uint128::from(0u128),
+                expected_release_time: 0,
+                total_unbond_items: 0,
+                status: drop_staking_base::state::core::UnbondBatchStatus::Withdrawing,
+                slashing_effect: None,
+                unbonded_amount: None,
+                withdrawn_amount: None,
+                status_timestamps: drop_staking_base::state::core::UnbondBatchStatusTimestamps {
+                    new: 0u64,
+                    unbond_requested: None,
+                    unbond_failed: None,
+                    unbonding: None,
+                    withdrawing: None,
+                    withdrawn: None,
+                    withdrawing_emergency: None,
+                    withdrawn_emergency: None,
+                },
+            })
+            .unwrap(),
+        )
+    });
+    let res: bool = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            QueryMsg::UnbondReady {
+                nft_id: "nft_id".to_string(),
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(res, false);
+}
+
+#[test]
+fn test_unbond_ready_list() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 10,
+            },
+        )
+        .unwrap();
+    deps.querier
+        .add_wasm_query_response("withdrawal_voucher", |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&cw721::TokensResponse {
+                    tokens: vec![
+                        "token1".to_string(),
+                        "token2".to_string(),
+                        "token3".to_string(),
+                        "token4".to_string(),
+                        "token5".to_string(),
+                    ],
+                })
+                .unwrap(),
+            )
+        });
+    for i in 0..5 {
+        deps.querier
+            .add_wasm_query_response("withdrawal_voucher", move |_| {
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&cw721::AllNftInfoResponse {
+                        access: cw721::OwnerOfResponse {
+                            owner: "owner".to_string(),
+                            approvals: vec![],
+                        },
+                        info: cw721::NftInfoResponse::<
+                            drop_staking_base::msg::withdrawal_voucher::Extension,
+                        > {
+                            token_uri: Some("token_uri".to_string()),
+                            extension: Some(
+                                drop_staking_base::state::withdrawal_voucher::Metadata {
+                                    name: "name".to_string(),
+                                    description: None,
+                                    attributes: None,
+                                    batch_id: (i.clone() % 2).to_string(),
+                                    amount: Uint128::from(100u128),
+                                },
+                            ),
+                        },
+                    })
+                    .unwrap(),
+                )
+            });
+        deps.querier
+            .add_wasm_query_response("core_contract", move |_| {
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&drop_staking_base::state::core::UnbondBatch {
+                        total_dasset_amount_to_withdraw: Uint128::from(0u128),
+                        expected_native_asset_amount: Uint128::from(0u128),
+                        expected_release_time: 0,
+                        total_unbond_items: 0,
+                        status: vec![
+                            drop_staking_base::state::core::UnbondBatchStatus::Withdrawing,
+                            drop_staking_base::state::core::UnbondBatchStatus::Withdrawn,
+                        ][i.clone() % 2],
+                        slashing_effect: None,
+                        unbonded_amount: None,
+                        withdrawn_amount: None,
+                        status_timestamps:
+                            drop_staking_base::state::core::UnbondBatchStatusTimestamps {
+                                new: 0u64,
+                                unbond_requested: None,
+                                unbond_failed: None,
+                                unbonding: None,
+                                withdrawing: None,
+                                withdrawn: None,
+                                withdrawing_emergency: None,
+                                withdrawn_emergency: None,
+                            },
+                    })
+                    .unwrap(),
+                )
+            });
+    }
+    let res: Vec<UnbondReadyListResponseItem> = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            QueryMsg::UnbondReadyList {
+                receiver: "receiver".to_string(),
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        vec![
+            UnbondReadyListResponseItem {
+                nft_id: "token1".to_string(),
+                status: false,
+            },
+            UnbondReadyListResponseItem {
+                nft_id: "token2".to_string(),
+                status: true,
+            },
+            UnbondReadyListResponseItem {
+                nft_id: "token3".to_string(),
+                status: false,
+            },
+            UnbondReadyListResponseItem {
+                nft_id: "token4".to_string(),
+                status: true,
+            },
+            UnbondReadyListResponseItem {
+                nft_id: "token5".to_string(),
+                status: false,
+            }
+        ]
+    )
 }

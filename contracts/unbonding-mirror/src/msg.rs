@@ -46,7 +46,7 @@ pub enum QueryMsg {
     Config {},
     #[returns(Option<FailedReceiverResponse>)]
     FailedReceiver { receiver: String },
-    #[returns(Vec<(String, cosmwasm_std::Uint128)>)]
+    #[returns(Vec<(String, Vec<Coin>)>)]
     AllFailed {},
     #[returns(bool)]
     UnbondReady { nft_id: String },
