@@ -36,6 +36,20 @@ pub fn instantiate(
     deps.api.addr_validate(&msg.core_contract)?;
     deps.api.addr_validate(&msg.withdrawal_manager)?;
     deps.api.addr_validate(&msg.withdrawal_voucher)?;
+    if deps
+        .querier
+        .query::<cosmwasm_std::ChannelResponse>(&cosmwasm_std::QueryRequest::Ibc(
+            IbcQuery::Channel {
+                channel_id: msg.source_channel.clone(),
+                port_id: Some(msg.source_port.clone()),
+            },
+        ))
+        .unwrap()
+        .channel
+        .is_none()
+    {
+        return Err(ContractError::SourceChannelNotFound);
+    }
     CONFIG.save(
         deps.storage,
         &Config {

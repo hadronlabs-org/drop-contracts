@@ -25,6 +25,25 @@ use neutron_sdk::{
 #[test]
 fn test_instantiate() {
     let mut deps = mock_dependencies(&[]);
+    deps.querier.add_ibc_channel_response(
+        Some("source_channel".to_string()),
+        Some("source_port".to_string()),
+        ChannelResponse {
+            channel: Some(IbcChannel::new(
+                IbcEndpoint {
+                    port_id: "source_port".to_string(),
+                    channel_id: "source_channel".to_string(),
+                },
+                IbcEndpoint {
+                    port_id: "source_port".to_string(),
+                    channel_id: "source_channel".to_string(),
+                },
+                IbcOrder::Ordered,
+                "version".to_string(),
+                "connection_id".to_string(),
+            )),
+        },
+    );
     let res = instantiate(
         deps.as_mut(),
         mock_env(),
@@ -1688,3 +1707,6 @@ fn test_unbond_ready_list() {
         ]
     )
 }
+
+// reply
+// sudo
