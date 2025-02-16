@@ -444,16 +444,6 @@ pub fn finalize_unbond(
                 .find(|x| x.key == "token_id")
                 .ok_or(ContractError::NoNFTMintedFound)?
                 .value;
-            let attrs = vec![
-                attr("action", "reply-finalize_bond"),
-                attr("reply_id", unbond_reply_id.to_string()),
-                attr("id", msg.id.to_string()),
-                attr("nft", nft_name),
-                attr("to_address", receiver.clone()),
-                attr("source_port", source_port.to_string()),
-                attr("source_channel", source_channel.clone()),
-                attr("ibc-timeout", ibc_timeout.to_string()),
-            ];
             let (batch, unbond_id) = parse_nft(nft_name.clone())?;
             let tf_token_subdenom = format!("nft_{:?}_{:?}", batch, unbond_id);
             let tf_mint_voucher_msg: CosmosMsg<NeutronMsg> =
@@ -462,8 +452,11 @@ pub fn finalize_unbond(
                     amount: Uint128::from(1u128),
                     mint_to_address: env.contract.address.to_string(),
                 });
-            let full_tf_denom =
-                format!("factory/{:?}/{:?}", env.contract.address, tf_token_subdenom);
+            let full_tf_denom = format!(
+                "factory/{}/{}",
+                env.contract.address.to_string(),
+                tf_token_subdenom
+            );
             let ibc_transfer_msg: CosmosMsg<NeutronMsg> = // send dAssets back
                 CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: source_port.clone(),
@@ -482,6 +475,16 @@ pub fn finalize_unbond(
                     memo: "".to_string(),
                     fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
                 });
+            let attrs = vec![
+                attr("action", "reply-finalize_bond"),
+                attr("reply_id", unbond_reply_id.to_string()),
+                attr("nft", nft_name),
+                attr("to_address", receiver.clone()),
+                attr("source_port", source_port.to_string()),
+                attr("source_channel", source_channel.clone()),
+                attr("ibc_timeout", ibc_timeout.to_string()),
+                attr("tf_denom", full_tf_denom.clone()),
+            ];
             TF_DENOM_TO_NFT_ID.save(deps.storage, full_tf_denom, nft_name)?;
             REPLY_RECEIVERS.remove(deps.storage, unbond_reply_id);
             Ok(response("reply-finalize_unbond", CONTRACT_NAME, attrs)

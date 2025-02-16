@@ -1,4 +1,4 @@
-use crate::contract::{execute, instantiate, query};
+use crate::contract::{execute, instantiate, query, reply};
 use crate::error::ContractError;
 use crate::msg::{
     ExecuteMsg, FailedReceiverResponse, InstantiateMsg, QueryMsg, UnbondReadyListResponseItem,
@@ -7,13 +7,12 @@ use crate::state::{
     Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, REPLY_RECEIVERS, TF_DENOM_TO_NFT_ID,
     UNBOND_REPLY_ID,
 };
-use cosmwasm_std::ReplyOn;
 use cosmwasm_std::{
     attr, from_json,
     testing::MOCK_CONTRACT_ADDR,
     testing::{mock_env, mock_info},
     to_json_binary, ChannelResponse, Coin, CosmosMsg, Event, IbcChannel, IbcEndpoint, IbcOrder,
-    Response, SubMsg, Uint128, WasmMsg,
+    Reply, ReplyOn, Response, SubMsg, SubMsgResponse, SubMsgResult, Uint128, WasmMsg,
 };
 use drop_helpers::testing::mock_dependencies;
 use neutron_sdk::{
@@ -1708,5 +1707,193 @@ fn test_query_unbond_ready_list() {
     )
 }
 
-// reply
-// sudo
+#[test]
+fn test_reply_no_nft_minted() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 10,
+            },
+        )
+        .unwrap();
+    REPLY_RECEIVERS
+        .save(deps.as_mut().storage, 1u64, &"receiver".to_string())
+        .unwrap();
+    let res = reply(
+        deps.as_mut(),
+        mock_env(),
+        Reply {
+            id: 1,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![],
+                data: None,
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::NoNFTMinted {});
+}
+
+#[test]
+fn test_reply_no_nft_minted_found() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 10,
+            },
+        )
+        .unwrap();
+    REPLY_RECEIVERS
+        .save(deps.as_mut().storage, 1u64, &"receiver".to_string())
+        .unwrap();
+    let res = reply(
+        deps.as_mut(),
+        mock_env(),
+        Reply {
+            id: 1,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![Event::new("wasm")],
+                data: None,
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::NoNFTMintedFound {});
+}
+
+#[test]
+fn test_reply() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 10,
+            },
+        )
+        .unwrap();
+    REPLY_RECEIVERS
+        .save(deps.as_mut().storage, 1u64, &"receiver".to_string())
+        .unwrap();
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: cosmwasm_std::coins(100, "untrn"),
+                timeout_fee: cosmwasm_std::coins(200, "untrn"),
+            },
+        })
+        .unwrap()
+    });
+    let res = reply(
+        deps.as_mut(),
+        mock_env(),
+        Reply {
+            id: 1,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![Event::new("wasm").add_attribute("token_id", "1_neutron..._123")],
+                data: None,
+            }),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new()
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-unbonding-mirror-reply-finalize_unbond")
+                    .add_attributes(vec![
+                        attr("action", "reply-finalize_bond"),
+                        attr("reply_id", "1"),
+                        attr("nft", "1_neutron..._123"),
+                        attr("to_address", "receiver"),
+                        attr("source_port", "source_port"),
+                        attr("source_channel", "source_channel"),
+                        attr("ibc_timeout", "12345"),
+                        attr("tf_denom", "factory/cosmos2contract/nft_1_123"),
+                    ])
+            )
+            .add_submessages(vec![
+                SubMsg {
+                    id: 0,
+                    msg: CosmosMsg::Custom(NeutronMsg::MintTokens {
+                        denom: "nft_1_123".to_string(),
+                        amount: Uint128::from(1u128),
+                        mint_to_address: "cosmos2contract".to_string()
+                    }),
+                    gas_limit: None,
+                    reply_on: ReplyOn::Never
+                },
+                SubMsg {
+                    id: 0,
+                    msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
+                        source_port: "source_port".to_string(),
+                        source_channel: "source_channel".to_string(),
+                        token: Coin {
+                            denom: "factory/cosmos2contract/nft_1_123".to_string(),
+                            amount: Uint128::from(1u128)
+                        },
+                        sender: "cosmos2contract".to_string(),
+                        receiver: "receiver".to_string(),
+                        timeout_height: RequestPacketTimeoutHeight {
+                            revision_height: None,
+                            revision_number: None,
+                        },
+                        timeout_timestamp: 1571809764879305533,
+                        memo: "".to_string(),
+                        fee: IbcFee {
+                            recv_fee: vec![],
+                            ack_fee: vec![Coin {
+                                denom: "untrn".to_string(),
+                                amount: Uint128::from(100u128)
+                            }],
+                            timeout_fee: vec![Coin {
+                                denom: "untrn".to_string(),
+                                amount: Uint128::from(200u128)
+                            }]
+                        }
+                    }),
+                    gas_limit: None,
+                    reply_on: ReplyOn::Never
+                }
+            ])
+    );
+    REPLY_RECEIVERS.load(&deps.storage, 1u64).unwrap_err();
+    assert_eq!(
+        TF_DENOM_TO_NFT_ID
+            .load(
+                &deps.storage,
+                "factory/cosmos2contract/nft_1_123".to_string(),
+            )
+            .unwrap(),
+        "1_neutron..._123".to_string()
+    )
+}
