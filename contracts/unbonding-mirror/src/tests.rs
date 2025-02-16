@@ -888,6 +888,80 @@ fn test_execute_withdraw_extra_funds() {
 }
 
 #[test]
+fn test_execute_withdraw_invalid_prefix() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 1,
+            },
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(
+            "sender",
+            &[Coin {
+                denom: "denom1".to_string(),
+                amount: Uint128::from(1u128),
+            }],
+        ),
+        ExecuteMsg::Withdraw {
+            receiver: "invalid_prefix".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::InvalidPrefix {});
+}
+
+#[test]
+fn test_execute_withdraw_wrong_receiver_address() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 1,
+            },
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(
+            "sender",
+            &[Coin {
+                denom: "denom1".to_string(),
+                amount: Uint128::from(1u128),
+            }],
+        ),
+        ExecuteMsg::Withdraw {
+            receiver: "prefix1invalid_address".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::WrongReceiverAddress {});
+}
+
+#[test]
 fn test_execute_withdraw() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
